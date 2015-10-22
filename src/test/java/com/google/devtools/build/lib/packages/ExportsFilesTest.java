@@ -95,7 +95,7 @@ public class ExportsFilesTest {
         "genrule(name = 'foo', srcs = ['bar'], outs = [],",
         "        cmd = '/bin/true')");
     Package pkg = packages.createPackage("pkg2", buildFile);
-    events.assertContainsEvent("rule 'foo' in package 'pkg2' conflicts with "
+    events.assertContainsError("rule 'foo' in package 'pkg2' conflicts with "
                                + "existing source file");
     assertTrue(pkg.getTarget("foo") instanceof InputFile);
   }

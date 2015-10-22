@@ -198,8 +198,12 @@ public class EvaluationTestCase {
     return eventCollectionApparatus.collector();
   }
 
-  public Event assertContainsEvent(String expectedMessage) {
-    return eventCollectionApparatus.assertContainsEvent(expectedMessage);
+  public Event assertContainsError(String expectedMessage) {
+    return eventCollectionApparatus.assertContainsError(expectedMessage);
+  }
+
+  public Event assertContainsWarning(String expectedMessage) {
+    return eventCollectionApparatus.assertContainsWarning(expectedMessage);
   }
 
   public List<Event> assertContainsEventWithFrequency(

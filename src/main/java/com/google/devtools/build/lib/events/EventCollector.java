@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.events;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
@@ -62,6 +63,15 @@ public class EventCollector extends AbstractEventHandler implements Iterable<Eve
   @Override
   public Iterator<Event> iterator() {
     return collected.iterator();
+  }
+
+  public Iterable<Event> filtered(final EventKind eventKind) {
+    return Iterables.filter(collected, new Predicate<Event>() {
+      @Override
+      public boolean apply(Event event) {
+        return event.getKind() == eventKind;
+      }
+    });
   }
 
   /**

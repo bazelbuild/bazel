@@ -972,11 +972,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     // TODO(fwe): cannot be handled by current testing suite
     setFailFast(false);
     eval("print('hello')");
-    assertContainsEvent("hello");
+    assertContainsWarning("hello");
     eval("print('a', 'b')");
-    assertContainsEvent("a b");
+    assertContainsWarning("a b");
     eval("print('a', 'b', sep='x')");
-    assertContainsEvent("axb");
+    assertContainsWarning("axb");
   }
 
   @Test

@@ -196,7 +196,7 @@ public class EvaluationTest extends EvaluationTestCase {
 
     setFailFast(false);
     parseExpression("1 if 2");
-    assertContainsEvent(
+    assertContainsError(
         "missing else clause in conditional expression or semicolon before if");
   }
 

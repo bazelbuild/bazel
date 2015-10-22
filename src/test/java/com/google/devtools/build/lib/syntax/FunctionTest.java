@@ -52,7 +52,7 @@ public class FunctionTest extends EvaluationTestCase {
     setFailFast(false);
     parseFile("def func(a,b,a):",
         "  a = 1\n");
-    assertContainsEvent("duplicate parameter name in function definition");
+    assertContainsError("duplicate parameter name in function definition");
   }
 
   @Test

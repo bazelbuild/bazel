@@ -51,7 +51,7 @@ public class PackageGroupTest {
 
     events.setFailFast(false);
     getPackage("strawberry");
-    events.assertContainsEvent("package group has invalid name");
+    events.assertContainsError("package group has invalid name");
   }
 
   @Test
@@ -81,7 +81,7 @@ public class PackageGroupTest {
 
     events.setFailFast(false);
     getPackageGroup("fruits", "apple");
-    events.assertContainsEvent("invalid package label: vegetables");
+    events.assertContainsError("invalid package label: vegetables");
   }
 
   @Test
@@ -96,7 +96,7 @@ public class PackageGroupTest {
 
     events.setFailFast(false);
     getPackageGroup("fruits", "apple");
-    events.assertContainsEvent("invalid package label: //vegetables:carrot");
+    events.assertContainsError("invalid package label: //vegetables:carrot");
   }
 
   @Test
@@ -109,7 +109,7 @@ public class PackageGroupTest {
 
     events.setFailFast(false);
     getPackageGroup("fruits", "apple");
-    events.assertContainsEvent("invalid package label: :carrot");
+    events.assertContainsError("invalid package label: :carrot");
   }
 
   @Test

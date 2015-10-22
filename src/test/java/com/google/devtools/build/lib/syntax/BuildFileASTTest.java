@@ -95,7 +95,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
     BuildFileAST buildfile = BuildFileAST.parseBuildFile(buildFile, getEventHandler(), false);
 
     assertFalse(buildfile.exec(env, getEventHandler()));
-    Event e = assertContainsEvent("unsupported operand type(s) for +: 'int' and 'list'");
+    Event e = assertContainsError("unsupported operand type(s) for +: 'int' and 'list'");
     assertEquals(4, e.getLocation().getStartLineAndColumn().getLine());
   }
 
@@ -115,7 +115,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
     BuildFileAST buildFileAST =
       parseBuildFile("foo() bar() something = baz() bar()");
 
-    Event event = assertContainsEvent("syntax error at \'bar\': expected newline");
+    Event event = assertContainsError("syntax error at \'bar\': expected newline");
     assertEquals("/a/build/file/BUILD",
                  event.getLocation().getPath().toString());
     assertEquals(1, event.getLocation().getStartLineAndColumn().getLine());
@@ -126,7 +126,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
   public void testImplicitStringConcatenationFails() throws Exception {
     setFailFast(false);
     BuildFileAST buildFileAST = parseBuildFile("a = 'foo' 'bar'");
-    Event event = assertContainsEvent(
+    Event event = assertContainsError(
         "Implicit string concatenation is forbidden, use the + operator");
     assertEquals("/a/build/file/BUILD",
                  event.getLocation().getPath().toString());
@@ -140,7 +140,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
     setFailFast(false);
     BuildFileAST buildFileAST = parseBuildFile("a = 'foo'\n  'bar'");
 
-    Event event = assertContainsEvent("indentation error");
+    Event event = assertContainsError("indentation error");
     assertEquals("/a/build/file/BUILD",
                  event.getLocation().getPath().toString());
     assertEquals(2, event.getLocation().getStartLineAndColumn().getLine());
@@ -175,7 +175,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
         "           srcs = libs,",
         "           includes = [ abi + opt_level + '/include' ])");
     assertTrue(buildFile.containsErrors());
-    assertContainsEvent("syntax error at '+': expected expression");
+    assertContainsError("syntax error at '+': expected expression");
     assertFalse(buildFile.exec(env, getEventHandler()));
     assertNull(findEvent(getEventCollector(), "$error$"));
     // This message should not be printed anymore.
