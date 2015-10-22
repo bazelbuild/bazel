@@ -18,15 +18,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.cache.Cache;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSortedMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.EventHandler;
 
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -107,7 +104,7 @@ public final class ConfigurationFactory {
     for (ConfigurationFragmentFactory factory : configurationFragmentFactories) {
       Class<? extends Fragment> fragmentType = factory.creates();
       Fragment fragment = loadedPackageProvider.getFragment(buildOptions, fragmentType);
-      if (fragment != null && fragments.get(fragment) == null) {
+      if (fragment != null && fragments.get(fragment.getClass()) == null) {
         fragments.put(fragment.getClass(), fragment);
       }
     }
@@ -116,16 +113,6 @@ public final class ConfigurationFactory {
       return null;
     }
 
-    // Sort the fragments by class name to make sure that the order is stable. Afterwards, copy to
-    // an ImmutableMap, which keeps the order stable, but uses hashing, and drops the reference to
-    // the Comparator object.
-    fragments = ImmutableSortedMap.copyOf(fragments, new Comparator<Class<? extends Fragment>>() {
-      @Override
-      public int compare(Class<? extends Fragment> o1, Class<? extends Fragment> o2) {
-        return o1.getName().compareTo(o2.getName());
-      }
-    });
-    fragments = ImmutableMap.copyOf(fragments);
     result = new BuildConfiguration(directories, fragments, buildOptions, actionsDisabled);
     cache.put(cacheKey, result);
     return result;
