@@ -20,6 +20,13 @@ exec 2>&1
 # Executing the test log will page it.
 echo 'exec ${PAGER:-/usr/bin/less} "$0" || exit 1'
 
+# Tell googletest about Bazel sharding.
+if [[ -n "${TEST_TOTAL_SHARDS+x}" ]] && ((TEST_TOTAL_SHARDS != 0)); then
+  export GTEST_SHARD_INDEX="${TEST_SHARD_INDEX}"
+  export GTEST_TOTAL_SHARDS="${TEST_TOTAL_SHARDS}"
+fi
+export GTEST_TMP_DIR="${TEST_TMPDIR}"
+
 DIR="$TEST_SRCDIR"
 
 if [ ! -z "$TEST_WORKSPACE" ]
