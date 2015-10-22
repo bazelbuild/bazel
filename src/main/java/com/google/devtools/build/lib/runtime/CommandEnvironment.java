@@ -14,9 +14,13 @@
 
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.devtools.build.lib.profiler.AutoProfiler.profiled;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Range;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
@@ -30,17 +34,23 @@ import com.google.devtools.build.lib.analysis.config.DefaultsPackage;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.OptionPriority;
 import com.google.devtools.common.options.OptionsParser;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 
 import java.io.IOException;
@@ -49,8 +59,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
+
+import javax.annotation.Nullable;
 
 /**
  * Encapsulates the state needed for a single command. The environment is dropped when the current
@@ -68,7 +81,10 @@ public final class CommandEnvironment {
   private final LoadingPhaseRunner loadingPhaseRunner;
   private final BuildView view;
 
+  private long commandStartTime;
+  private OutputService outputService;
   private String outputFileSystem;
+  private Path workingDirectory;
 
   private AtomicReference<AbruptExitException> pendingException = new AtomicReference<>();
 
@@ -77,8 +93,8 @@ public final class CommandEnvironment {
     public Path getFileFromWorkspace(Label label)
         throws NoSuchThingException, InterruptedException, IOException {
       Target target = getPackageManager().getTarget(reporter, label);
-      return (runtime.getOutputService() != null)
-          ? runtime.getOutputService().stageTool(target)
+      return (outputService != null)
+          ? outputService.stageTool(target)
           : target.getPackage().getPackageDirectory().getRelative(target.getName());
     }
 
@@ -101,6 +117,10 @@ public final class CommandEnvironment {
         runtime.getPackageFactory().getRuleClassNames());
     this.view = new BuildView(runtime.getDirectories(), runtime.getRuleClassProvider(),
         runtime.getSkyframeExecutor(), runtime.getCoverageReportActionFactory());
+
+    // TODO(ulfjack): We don't call beforeCommand() in tests, but rely on workingDirectory being set
+    // in setupPackageCache(). This leads to NPE if we don't set it here.
+    this.workingDirectory = runtime.getWorkspace();
   }
 
   public BlazeRuntime getRuntime() {
@@ -181,8 +201,22 @@ public final class CommandEnvironment {
     return runtime.getSkyframeExecutor();
   }
 
+  /**
+   * Returns the working directory of the {@code blaze} client process.
+   *
+   * <p>This may be equal to {@code BlazeRuntime#getWorkspace()}, or beneath it.
+   *
+   * @see BlazeRuntime#getWorkspace()
+   */
   public Path getWorkingDirectory() {
-    return runtime.getWorkingDirectory();
+    return workingDirectory;
+  }
+
+  /**
+   * @return the OutputService in use, or null if none.
+   */
+  public OutputService getOutputService() {
+    return outputService;
   }
 
   public ActionCache getPersistentActionCache() throws IOException {
@@ -246,15 +280,28 @@ public final class CommandEnvironment {
    */
   public void setupPackageCache(PackageCacheOptions packageCacheOptions,
       String defaultsPackageContents) throws InterruptedException, AbruptExitException {
-    runtime.setupPackageCache(reporter, packageCacheOptions, defaultsPackageContents, commandId);
+    SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
+    if (!skyframeExecutor.hasIncrementalState()) {
+      skyframeExecutor.resetEvaluator();
+    }
+    skyframeExecutor.sync(reporter, packageCacheOptions, runtime.getOutputBase(),
+        getWorkingDirectory(), defaultsPackageContents, commandId);
+  }
+
+  public void recordLastExecutionTime() {
+    runtime.recordLastExecutionTime(getCommandStartTime());
+  }
+
+  public void recordCommandStartTime(long commandStartTime) {
+    this.commandStartTime = commandStartTime;
   }
 
   public long getCommandStartTime() {
-    return runtime.getCommandStartTime();
+    return commandStartTime;
   }
 
-  void setOutputFileSystem(String outputFileSystem) {
-    this.outputFileSystem = outputFileSystem;
+  void setWorkingDirectory(Path workingDirectory) {
+    this.workingDirectory = workingDirectory;
   }
 
   public String getOutputFileSystem() {
@@ -271,6 +318,98 @@ public final class CommandEnvironment {
   void beforeCommand(Command command, OptionsParser optionsParser,
       CommonCommandOptions options, long execStartTimeNanos)
       throws AbruptExitException {
-    runtime.beforeCommand(command, this, optionsParser, options, execStartTimeNanos);
+    commandStartTime -= options.startupTime;
+
+    eventBus.post(new GotOptionsEvent(runtime.getStartupOptionsProvider(), optionsParser));
+    throwPendingException();
+
+    outputService = null;
+    BlazeModule outputModule = null;
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      OutputService moduleService = module.getOutputService();
+      if (moduleService != null) {
+        if (outputService != null) {
+          throw new IllegalStateException(String.format(
+              "More than one module (%s and %s) returns an output service",
+              module.getClass(), outputModule.getClass()));
+        }
+        outputService = moduleService;
+        outputModule = module;
+      }
+    }
+
+    SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
+    skyframeExecutor.setBatchStatter(outputService == null
+        ? null
+        : outputService.getBatchStatter());
+
+    this.outputFileSystem = determineOutputFileSystem();
+
+    // Ensure that the working directory will be under the workspace directory.
+    Path workspace = runtime.getWorkspace();
+    Path workingDirectory;
+    if (runtime.inWorkspace()) {
+      workingDirectory = workspace.getRelative(options.clientCwd);
+    } else {
+      workspace = FileSystemUtils.getWorkingDirectory(runtime.getDirectories().getFileSystem());
+      workingDirectory = workspace;
+    }
+    loadingPhaseRunner.updatePatternEvaluator(workingDirectory.relativeTo(workspace));
+    this.workingDirectory = workingDirectory;
+
+    updateClientEnv(options.clientEnv, options.ignoreClientEnv);
+
+    // Fail fast in the case where a Blaze command forgets to install the package path correctly.
+    skyframeExecutor.setActive(false);
+    // Let skyframe figure out if it needs to store graph edges for this build.
+    skyframeExecutor.decideKeepIncrementalState(
+        runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
+        optionsParser.getOptions(BuildView.Options.class));
+
+    // Start the performance and memory profilers.
+    runtime.beforeCommand(this, options, execStartTimeNanos);
+
+    if (command.builds()) {
+      Map<String, String> testEnv = new TreeMap<>();
+      for (Map.Entry<String, String> entry :
+          optionsParser.getOptions(BuildConfiguration.Options.class).testEnvironment) {
+        testEnv.put(entry.getKey(), entry.getValue());
+      }
+
+      try {
+        for (Map.Entry<String, String> entry : testEnv.entrySet()) {
+          if (entry.getValue() == null) {
+            String clientValue = clientEnv.get(entry.getKey());
+            if (clientValue != null) {
+              optionsParser.parse(OptionPriority.SOFTWARE_REQUIREMENT,
+                  "test environment variable from client environment",
+                  ImmutableList.of(
+                      "--test_env=" + entry.getKey() + "=" + clientEnv.get(entry.getKey())));
+            }
+          }
+        }
+      } catch (OptionsParsingException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+    for (BlazeModule module : runtime.getBlazeModules()) {
+      module.handleOptions(optionsParser);
+    }
+
+    eventBus.post(
+        new CommandStartEvent(command.name(), commandId, getClientEnv(), workingDirectory));
+  }
+
+  /**
+   * Figures out what file system we are writing output to. Here we use
+   * outputBase instead of outputPath because we need a file system to create the latter.
+   */
+  private String determineOutputFileSystem() {
+    if (getOutputService() != null) {
+      return getOutputService().getFilesSystemName();
+    }
+    try (AutoProfiler p = profiled("Finding output file system", ProfilerTask.INFO)) {
+      return FileSystemUtils.getFileSystem(runtime.getOutputBase());
+    }
   }
 }

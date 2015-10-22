@@ -43,12 +43,6 @@ import javax.annotation.Nullable;
  */
 public final class FuncallExpression extends Expression {
 
-  private static enum ArgConversion {
-    FROM_SKYLARK,
-    TO_SKYLARK,
-    NO_CONVERSION
-  }
-
   /**
    * A value class to store Methods with their corresponding SkylarkCallable annotations.
    * This is needed because the annotation is sometimes in a superclass.
@@ -334,6 +328,7 @@ public final class FuncallExpression extends Expression {
               + Printer.listString(ImmutableList.copyOf(args), "(", ", ", ")", null));
         }
       }
+      // TODO(bazel-team): get rid of this, by having everyone use the Skylark data structures
       result = SkylarkType.convertToSkylark(result, method, env);
       if (result != null && !EvalUtils.isSkylarkAcceptable(result.getClass())) {
         throw new EvalException(loc, Printer.format(
@@ -444,9 +439,8 @@ public final class FuncallExpression extends Expression {
 
   @SuppressWarnings("unchecked")
   private void evalArguments(ImmutableList.Builder<Object> posargs, Map<String, Object> kwargs,
-      Environment env, BaseFunction function)
+      Environment env)
       throws EvalException, InterruptedException {
-    ArgConversion conversion = getArgConversion(function);
     ImmutableList.Builder<String> duplicates = new ImmutableList.Builder<>();
     // Iterate over the arguments. We assume all positional arguments come before any keyword
     // or star arguments, because the argument list was already validated by
@@ -454,14 +448,6 @@ public final class FuncallExpression extends Expression {
     // which should be the only place that build FuncallExpression-s.
     for (Argument.Passed arg : args) {
       Object value = arg.getValue().eval(env);
-      if (conversion == ArgConversion.FROM_SKYLARK) {
-        value = SkylarkType.convertFromSkylark(value);
-      } else if (conversion == ArgConversion.TO_SKYLARK) {
-        // We try to auto convert the type if we can.
-        value = SkylarkType.convertToSkylark(value, env);
-        // We call into Skylark so we need to be sure that the caller uses the appropriate types.
-        SkylarkType.checkTypeAllowedInSkylark(value, getLocation());
-      } // else NO_CONVERSION
       if (arg.isPositional()) {
         posargs.add(value);
       } else if (arg.isStar()) {  // expand the starArg
@@ -514,10 +500,8 @@ public final class FuncallExpression extends Expression {
         // Add self as an implicit parameter in front.
         posargs.add(objValue);
       }
-      evalArguments(posargs, kwargs, env, function);
-      return convertFromSkylark(
-          function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env),
-          env);
+      evalArguments(posargs, kwargs, env);
+      return function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env);
     } else if (objValue instanceof ClassObject) {
       Object fieldValue = ((ClassObject) objValue).getValue(func.getName());
       if (fieldValue == null) {
@@ -529,15 +513,13 @@ public final class FuncallExpression extends Expression {
             getLocation(), String.format("struct field '%s' is not a function", func.getName()));
       }
       function = (BaseFunction) fieldValue;
-      evalArguments(posargs, kwargs, env, function);
-      return convertFromSkylark(
-          function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env),
-          env);
+      evalArguments(posargs, kwargs, env);
+      return function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env);
     } else if (env.isSkylark()) {
       // Only allow native Java calls when using Skylark
       // When calling a Java method, the name is not in the Environment,
       // so evaluating 'func' would fail.
-      evalArguments(posargs, kwargs, env, null);
+      evalArguments(posargs, kwargs, env);
       Class<?> objClass;
       Object obj;
       if (objValue instanceof Class<?>) {
@@ -579,36 +561,12 @@ public final class FuncallExpression extends Expression {
     Map<String, Object> kwargs = new HashMap<>();
     if ((funcValue instanceof BaseFunction)) {
       BaseFunction function = (BaseFunction) funcValue;
-      evalArguments(posargs, kwargs, env, function);
-      return convertFromSkylark(
-          function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env),
-          env);
+      evalArguments(posargs, kwargs, env);
+      return function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env);
     } else {
       throw new EvalException(
           getLocation(), "'" + EvalUtils.getDataTypeName(funcValue) + "' object is not callable");
     }
-  }
-
-  protected Object convertFromSkylark(Object returnValue, Environment env) throws EvalException {
-    EvalUtils.checkNotNull(this, returnValue);
-    if (!env.isSkylark()) {
-      // The call happens in the BUILD language. Note that accessing "BUILD language" functions in
-      // Skylark should never happen.
-      return SkylarkType.convertFromSkylark(returnValue);
-    }
-    return returnValue;
-  }
-
-  private ArgConversion getArgConversion(BaseFunction function) {
-    if (function == null) {
-      // It means we try to call a Java function.
-      return ArgConversion.FROM_SKYLARK;
-    }
-    // If we call a UserDefinedFunction we call into Skylark. If we call from Skylark
-    // the argument conversion is invariant, but if we call from the BUILD language
-    // we might need an auto conversion.
-    return function instanceof UserDefinedFunction
-        ? ArgConversion.TO_SKYLARK : ArgConversion.NO_CONVERSION;
   }
 
   /**

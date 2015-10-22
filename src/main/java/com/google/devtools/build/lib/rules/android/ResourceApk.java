@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
 
@@ -31,7 +31,7 @@ public class ResourceApk {
   // to do this.
   @Nullable private final Artifact resourceApk;  // The .ap_ file
   @Nullable private final Artifact resourceJavaSrcJar;  // Source jar containing R.java and friends
-  private final NestedSet<ResourceContainer> transitiveResources;
+  private final ResourceDependencies resourceDeps;
   @Nullable private final ResourceContainer primaryResource;
   @Nullable private final Artifact manifest;  // The non-binary XML version of AndroidManifest.xml
   @Nullable private final Artifact resourceProguardConfig;
@@ -40,14 +40,14 @@ public class ResourceApk {
   public ResourceApk(
       @Nullable Artifact resourceApk,
       @Nullable Artifact resourceJavaSrcJar,
-      NestedSet<ResourceContainer> transitiveResources,
+      ResourceDependencies resourceDeps,
       @Nullable ResourceContainer primaryResource,
       @Nullable Artifact manifest,
       @Nullable Artifact resourceProguardConfig,
       boolean legacy) {
     this.resourceApk = resourceApk;
     this.resourceJavaSrcJar = resourceJavaSrcJar;
-    this.transitiveResources = transitiveResources;
+    this.resourceDeps = resourceDeps;
     this.primaryResource = primaryResource;
     this.manifest = manifest;
     this.resourceProguardConfig = resourceProguardConfig;
@@ -74,16 +74,36 @@ public class ResourceApk {
     return legacy;
   }
 
-  public NestedSet<ResourceContainer> getTransitiveResources() {
-    return transitiveResources;
-  }
-
   public static ResourceApk fromTransitiveResources(
-      NestedSet<ResourceContainer> transitiveResources) {
-    return new ResourceApk(null, null, transitiveResources, null, null, null, false);
+      ResourceDependencies resourceDeps) {
+    return new ResourceApk(null, null, resourceDeps, null, null, null, false);
   }
 
   public Artifact getResourceProguardConfig() {
     return resourceProguardConfig;
+  }
+
+  public ResourceDependencies getResourceDependencies() {
+    return resourceDeps;
+  }
+
+  /**
+   * Creates an provider from the resources in the ResourceApk.
+   * 
+   * <p>If the ResourceApk was created from transitive resources, the provider will effectively
+   * contain the "forwarded" resources: The merged transitive and merged direct dependencies of this
+   * library.
+   * 
+   * <p>If the ResourceApk was generated from a "resources" attribute, it will contain the
+   * "resources" container in the direct dependencies and the rest as transitive.
+   * 
+   * <p>If the ResourceApk was generated from local resources, that will be the direct dependencies and
+   * the rest will be transitive.
+   */
+  public AndroidResourcesProvider toResourceProvider(Label label) {
+    if (primaryResource == null) {
+      return resourceDeps.toProvider(label);
+    }
+    return resourceDeps.toProvider(label, primaryResource);
   }
 }

@@ -311,7 +311,10 @@ public abstract class OutputFormatter implements Serializable {
           // Display it as a list (and not as a tuple). Attributes can never be tuples.
           value = new ArrayList<>((List<?>) value);
         }
-        Printer.write(out, value);
+        // It is *much* faster to write to a StringBuilder compared to the PrintStream object.
+        StringBuilder builder = new StringBuilder();
+        Printer.write(builder, value);
+        out.print(builder);
         out.println(",");
       }
       out.printf(")\n%n");

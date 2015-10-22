@@ -71,16 +71,20 @@ public class EvalExceptionWithStackTrace extends EvalException {
   }
 
   /**
-   * Adds the given {@code Rule} to the stack trace.
+   * Makes sure the stack trace is rooted in a function call.
+   *
+   * In some cases (rule implementation application, aspect implementation application)
+   * bazel calls into the function directly (using BaseFunction.call). In that case, since
+   * there is no FuncallExpression to evaluate, stack trace mechanism cannot record this call.
+   * This method allows to augument the stack trace with information about the call.
    */
-  public void registerRule(String rule, Location location, BaseFunction ruleImpl) {
-    /* We have to model the transition from BUILD file to bzl file manually since the stack trace
-     * mechanism cannot do that by itself (because, for example, the rule implementation does not
-     * have a corresponding FuncallExpression).
+  public void registerPhantomFuncall(
+      String funcallDescription, Location location, BaseFunction function) {
+    /*
      *
-     * Consequently, we add two new frames to the stack:
-     * 1. Rule definition
-     * 2. Rule implementation
+     * We add two new frames to the stack:
+     * 1. Pseudo-function call (for example, rule definition)
+     * 2. Function entry (Rule implementation)
      *
      * Similar to Python, all functions that were entered (except for the top-level ones) appear
      * twice in the stack trace output. This would lead to the following trace:
@@ -103,8 +107,8 @@ public class EvalExceptionWithStackTrace extends EvalException {
      *     ...
      *
      * */
-    addStackFrame(ruleImpl.getName(), ruleImpl.getLocation());
-    addStackFrame(rule, location, false);
+    addStackFrame(function.getName(), function.getLocation());
+    addStackFrame(funcallDescription, location, false);
   }
 
   /**

@@ -55,8 +55,8 @@ final class TestSuiteExpansionFunction implements SkyFunction {
       return null;
     }
 
-    ResolvedTargets.Builder<Target> result = ResolvedTargets.builder();
-    result.mergeError(targets.hasError());
+    Set<Target> result = new LinkedHashSet<>();
+    boolean hasError = targets.hasError();
     for (Target target : targets.getTargets()) {
       if (TargetUtils.isTestRule(target)) {
         result.add(target);
@@ -64,7 +64,8 @@ final class TestSuiteExpansionFunction implements SkyFunction {
         TestsInSuiteValue value = (TestsInSuiteValue) testsInSuites.get(
             TestsInSuiteValue.key(target, true));
         if (value != null) {
-          result.merge(value.getTargets());
+          result.addAll(value.getTargets().getTargets());
+          hasError |= value.getTargets().hasError();
         }
       } else {
         result.add(target);
@@ -73,7 +74,9 @@ final class TestSuiteExpansionFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    return new TestSuiteExpansionValue(result.build());
+    // We use ResolvedTargets in order to associate an error flag; the result should never contain
+    // any filtered targets.
+    return new TestSuiteExpansionValue(new ResolvedTargets<Target>(result, hasError));
   }
 
   static ResolvedTargets<Target> labelsToTargets(

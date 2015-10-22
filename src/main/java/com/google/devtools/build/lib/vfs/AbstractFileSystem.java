@@ -36,7 +36,7 @@ abstract class AbstractFileSystem extends FileSystem {
   protected static final Profiler profiler = Profiler.instance();
 
   @Override
-  protected InputStream getInputStream(Path path) throws FileNotFoundException {
+  protected InputStream getInputStream(Path path) throws IOException {
     // This loop is a workaround for an apparent bug in FileInputStrean.open, which delegates
     // ultimately to JVM_Open in the Hotspot JVM.  This call is not EINTR-safe, so we must do the
     // retry here.
@@ -143,5 +143,29 @@ abstract class AbstractFileSystem extends FileSystem {
         throw e;
       }
     }
+  }
+
+  @Override
+  protected boolean isFile(Path path, boolean followSymlinks) {
+    FileStatus stat = statNullable(path, followSymlinks);
+    return stat != null ? stat.isFile() : false;
+  }
+
+  @Override
+  protected boolean isSpecialFile(Path path, boolean followSymlinks) {
+    FileStatus stat = statNullable(path, followSymlinks);
+    return stat != null ? stat.isSpecialFile() : false;
+  }
+
+  @Override
+  protected boolean isSymbolicLink(Path path) {
+    FileStatus stat = statNullable(path, false);
+    return stat != null ? stat.isSymbolicLink() : false;
+  }
+
+  @Override
+  protected boolean isDirectory(Path path, boolean followSymlinks) {
+    FileStatus stat = statNullable(path, followSymlinks);
+    return stat != null ? stat.isDirectory() : false;
   }
 }

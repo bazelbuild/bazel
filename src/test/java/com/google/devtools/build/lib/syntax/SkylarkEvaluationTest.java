@@ -917,7 +917,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
 
   @Test
   public void testListAnTupleConcatenationDoesNotWorkInSkylark() throws Exception {
-    new SkylarkTest().testIfExactError("can only concatenate list (not \"tuple\") to list",
+    new SkylarkTest().testIfExactError("unsupported operand type(s) for +: 'list' and 'tuple'",
         "[1, 2] + (3, 4)");
   }
 
@@ -972,11 +972,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     // TODO(fwe): cannot be handled by current testing suite
     setFailFast(false);
     eval("print('hello')");
-    assertContainsEvent("hello");
+    assertContainsWarning("hello");
     eval("print('a', 'b')");
-    assertContainsEvent("a b");
+    assertContainsWarning("a b");
     eval("print('a', 'b', sep='x')");
-    assertContainsEvent("axb");
+    assertContainsWarning("axb");
   }
 
   @Test

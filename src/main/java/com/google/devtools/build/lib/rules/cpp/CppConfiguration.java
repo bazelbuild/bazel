@@ -64,7 +64,6 @@ import com.google.protobuf.TextFormat.ParseException;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -247,13 +246,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     }
 
     @VisibleForTesting
-    List<String> evaluate(Collection<String> features) {
+    List<String> evaluate(Iterable<String> features) {
+      ImmutableSet<String> featureSet = ImmutableSet.copyOf(features);
       ImmutableList.Builder<String> result = ImmutableList.builder();
       result.addAll(prefixFlags);
       for (OptionalFlag optionalFlag : optionalFlags) {
         // The flag is added if the default is true and the flag is not specified,
         // or if the default is false and the flag is specified.
-        if (features.contains(optionalFlag.getName())) {
+        if (featureSet.contains(optionalFlag.getName())) {
           result.addAll(optionalFlag.getFlags());
         }
       }
@@ -378,11 +378,15 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     try {
       this.staticRuntimeLibsLabel =
-          crosstoolTop.getRelative(toolchain.hasStaticRuntimesFilegroup() ?
-              toolchain.getStaticRuntimesFilegroup() : "static-runtime-libs-" + targetCpu);
+          crosstoolTop.getRelative(
+              toolchain.hasStaticRuntimesFilegroup()
+                  ? toolchain.getStaticRuntimesFilegroup()
+                  : "static-runtime-libs-" + targetCpu);
       this.dynamicRuntimeLibsLabel =
-          crosstoolTop.getRelative(toolchain.hasDynamicRuntimesFilegroup() ?
-              toolchain.getDynamicRuntimesFilegroup() : "dynamic-runtime-libs-" + targetCpu);
+          crosstoolTop.getRelative(
+              toolchain.hasDynamicRuntimesFilegroup()
+                  ? toolchain.getDynamicRuntimesFilegroup()
+                  : "dynamic-runtime-libs-" + targetCpu);
     } catch (LabelSyntaxException e) {
       // All of the above label.getRelative() calls are valid labels, and the crosstool_top
       // was already checked earlier in the process.
@@ -406,9 +410,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         params.buildOptions.get(CppOptions.class).fdoInstrument, params.fdoZip,
         cppOptions.lipoMode, execRoot);
 
-    this.stripBinaries = (cppOptions.stripBinaries == StripMode.ALWAYS ||
-        (cppOptions.stripBinaries == StripMode.SOMETIMES &&
-         compilationMode == CompilationMode.FASTBUILD));
+    this.stripBinaries =
+        (cppOptions.stripBinaries == StripMode.ALWAYS
+            || (cppOptions.stripBinaries == StripMode.SOMETIMES
+                && compilationMode == CompilationMode.FASTBUILD));
 
     CrosstoolConfigurationIdentifier crosstoolConfig =
         CrosstoolConfigurationIdentifier.fromToolchain(toolchain);
@@ -622,9 +627,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
     this.ldExecutable = getToolPathFragment(CppConfiguration.Tool.LD);
 
-    boolean stripBinaries = (cppOptions.stripBinaries == StripMode.ALWAYS) ||
-                        ((cppOptions.stripBinaries == StripMode.SOMETIMES) &&
-                         (compilationMode == CompilationMode.FASTBUILD));
+    boolean stripBinaries =
+        (cppOptions.stripBinaries == StripMode.ALWAYS)
+            || ((cppOptions.stripBinaries == StripMode.SOMETIMES)
+                && (compilationMode == CompilationMode.FASTBUILD));
 
     fullyStaticLinkFlags = new FlagList(
         configureLinkerOptions(compilationMode, lipoMode, LinkingMode.FULLY_STATIC,
@@ -849,11 +855,18 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   private static final PathFragment SYSROOT_FRAGMENT = new PathFragment("%sysroot%");
+  private static final PathFragment WORKSPACE_FRAGMENT = new PathFragment("%workspace%");
+  private static final PathFragment CROSSTOOL_FRAGMENT = new PathFragment("%crosstool_top%");
 
   /**
-   * Resolve the given include directory. If it is not absolute, it is
-   * interpreted relative to the crosstool top. If it starts with %sysroot%/,
-   * that part is replaced with the actual sysroot.
+   * Resolve the given include directory. If it starts with %sysroot%/,
+   * that part is replaced with the actual sysroot. If it starts with %workspace%/,
+   * that part is replaced with the empty string (essentially making it
+   * relative to the build directory), and if it starts with %crosstool_top%/
+   * or is any relative path, it is interpreted relative to the crosstool top.
+   * Absolute paths remain unchanged. The use of assumed-crosstool-relative
+   * specifications is considered deprecated, and all such uses should eventually
+   * be replaced by "%crosstool_top%/".
    */
   static PathFragment resolveIncludeDir(String s, PathFragment sysroot,
       PathFragment crosstoolTopPathFragment) {
@@ -867,8 +880,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             + "default_sysroot option is set");
       }
       return sysroot.getRelative(path.relativeTo(SYSROOT_FRAGMENT));
+    } else if (path.startsWith(WORKSPACE_FRAGMENT)) {
+      return path.subFragment(1, path.segmentCount());
     } else {
-      return crosstoolTopPathFragment.getRelative(path);
+      return crosstoolTopPathFragment.getRelative(path.startsWith(CROSSTOOL_FRAGMENT)
+          ? path.subFragment(1, path.segmentCount()) : path);
     }
   }
 
@@ -1158,12 +1174,15 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * There may be additional C-specific or C++-specific options that should be used,
    * in addition to the ones returned by this method.
    */
-  @SkylarkCallable(name = "compiler_options",
-      doc = "Returns the default options to use for compiling C, C++, and assembler. "
-      + "This is just the options that should be used for all three languages. "
-      + "There may be additional C-specific or C++-specific options that should be used, "
-      + "in addition to the ones returned by this method")
-  public List<String> getCompilerOptions(Collection<String> features) {
+  @SkylarkCallable(
+    name = "compiler_options",
+    doc =
+        "Returns the default options to use for compiling C, C++, and assembler. "
+            + "This is just the options that should be used for all three languages. "
+            + "There may be additional C-specific or C++-specific options that should be used, "
+            + "in addition to the ones returned by this method"
+  )
+  public List<String> getCompilerOptions(Iterable<String> features) {
     return compilerFlags.evaluate(features);
   }
 
@@ -1185,11 +1204,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * C++. These should be go on the command line after the common options
    * returned by {@link #getCompilerOptions}.
    */
-  @SkylarkCallable(name = "cxx_options",
-      doc = "Returns the list of additional C++-specific options to use for compiling C++. "
-      + "These should be go on the command line after the common options returned by "
-      + "<code>compiler_options</code>")
-  public List<String> getCxxOptions(Collection<String> features) {
+  @SkylarkCallable(
+    name = "cxx_options",
+    doc =
+        "Returns the list of additional C++-specific options to use for compiling C++. "
+            + "These should be go on the command line after the common options returned by "
+            + "<code>compiler_options</code>"
+  )
+  public List<String> getCxxOptions(Iterable<String> features) {
     return cxxFlags.evaluate(features);
   }
 
@@ -1197,10 +1219,13 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns the default list of options which cannot be filtered by BUILD
    * rules. These should be appended to the command line after filtering.
    */
-  @SkylarkCallable(name = "unfiltered_compiler_options",
-      doc = "Returns the default list of options which cannot be filtered by BUILD "
-      + "rules. These should be appended to the command line after filtering.")
-  public List<String> getUnfilteredCompilerOptions(Collection<String> features) {
+  @SkylarkCallable(
+    name = "unfiltered_compiler_options",
+    doc =
+        "Returns the default list of options which cannot be filtered by BUILD "
+            + "rules. These should be appended to the command line after filtering."
+  )
+  public List<String> getUnfilteredCompilerOptions(Iterable<String> features) {
     return unfilteredCompilerFlags.evaluate(features);
   }
 
@@ -1226,8 +1251,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * @param features default settings affecting this link
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
-  public List<String> getFullyStaticLinkOptions(Collection<String> features,
-      boolean sharedLib) {
+  @SkylarkCallable(
+    name = "fully_static_link_options",
+    doc =
+        "Returns the immutable list of linker options for fully statically linked "
+            + "outputs. Does not include command-line options passed via --linkopt or "
+            + "--linkopts."
+  )
+  public List<String> getFullyStaticLinkOptions(Iterable<String> features, Boolean sharedLib) {
     if (sharedLib) {
       return getSharedLibraryLinkOptions(mostlyStaticLinkFlags, features);
     } else {
@@ -1243,8 +1274,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * @param features default settings affecting this link
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
-  public List<String> getMostlyStaticLinkOptions(Collection<String> features,
-      boolean sharedLib) {
+  @SkylarkCallable(
+    name = "mostly_static_link_options",
+    doc =
+        "Returns the immutable list of linker options for mostly statically linked "
+            + "outputs. Does not include command-line options passed via --linkopt or "
+            + "--linkopts."
+  )
+  public List<String> getMostlyStaticLinkOptions(Iterable<String> features, Boolean sharedLib) {
     if (sharedLib) {
       return getSharedLibraryLinkOptions(
           supportsEmbeddedRuntimes ? mostlyStaticSharedLinkFlags : dynamicLinkFlags,
@@ -1262,8 +1299,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * @param features default settings affecting this link
    * @param sharedLib true if the output is a shared lib, false if it's an executable
    */
-  public List<String> getDynamicLinkOptions(Collection<String> features,
-      boolean sharedLib) {
+  @SkylarkCallable(
+    name = "dynamic_link_options",
+    doc =
+        "Returns the immutable list of linker options for artifacts that are not "
+            + "fully or mostly statically linked. Does not include command-line options "
+            + "passed via --linkopt or --linkopts."
+  )
+  public List<String> getDynamicLinkOptions(Iterable<String> features, Boolean sharedLib) {
     if (sharedLib) {
       return getSharedLibraryLinkOptions(dynamicLinkFlags, features);
     } else {
@@ -1275,8 +1318,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns link options for the specified flag list, combined with universal options
    * for all shared libraries (regardless of link staticness).
    */
-  private List<String> getSharedLibraryLinkOptions(FlagList flags,
-      Collection<String> features) {
+  private List<String> getSharedLibraryLinkOptions(FlagList flags, Iterable<String> features) {
     return ImmutableList.<String>builder()
         .addAll(flags.evaluate(features))
         .addAll(dynamicLibraryLinkFlags.evaluate(features))
@@ -1732,16 +1774,16 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             + "--fdo_optimize=<profile zip> and --lipo=binary"));
       }
     }
-    if (cppOptions.lipoMode == LipoMode.BINARY &&
-        compilationMode != CompilationMode.OPT) {
+    if (cppOptions.lipoMode == LipoMode.BINARY && compilationMode != CompilationMode.OPT) {
       reporter.handle(Event.error(
           "'--lipo=binary' can only be used with '--compilation_mode=opt' (or '-c opt')"));
     }
 
     if (cppOptions.fissionModes.contains(compilationMode) && !supportsFission()) {
       reporter.handle(
-          Event.warn("Fission is not supported by this crosstool. Please use a supporting " +
-              "crosstool to enable fission"));
+          Event.warn(
+              "Fission is not supported by this crosstool. Please use a supporting "
+                  + "crosstool to enable fission"));
     }
   }
 

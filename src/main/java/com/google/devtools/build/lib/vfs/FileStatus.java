@@ -37,8 +37,7 @@ import java.io.IOException;
 public interface FileStatus {
 
   /**
-   * Returns true iff this file is a regular or special file (e.g. socket,
-   * fifo or device).
+   * Returns true iff this file is a regular file or {@code isSpecial()}.
    */
   boolean isFile();
 
@@ -51,6 +50,12 @@ public interface FileStatus {
    * Returns true iff this file is a symbolic link.
    */
   boolean isSymbolicLink();
+
+  /**
+   * Returns true iff this file is a special file (e.g. socket, fifo or device). {@link #getSize()}
+   * can't be trusted for such files.
+   */
+  boolean isSpecialFile();
 
   /**
    * Returns the total size, in bytes, of this file.

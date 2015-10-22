@@ -63,6 +63,9 @@ public class UnixFileSystem extends AbstractFileSystem {
     public boolean isSymbolicLink() { return status.isSymbolicLink(); }
 
     @Override
+    public boolean isSpecialFile() { return isFile() && !status.isRegularFile(); }
+
+    @Override
     public long getSize() { return status.getSize(); }
 
     @Override
@@ -225,20 +228,6 @@ public class UnixFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  protected boolean isDirectory(Path path, boolean followSymlinks) {
-    FileStatus stat = statNullable(path, followSymlinks);
-    return stat != null && stat.isDirectory();
-  }
-
-  @Override
-  protected boolean isFile(Path path, boolean followSymlinks) {
-    // Note, FileStatus.isFile means *regular* file whereas Path.isFile may
-    // mean special file too, so we don't return FileStatus.isFile here.
-    FileStatus status = statNullable(path, followSymlinks);
-    return status != null && !(status.isSymbolicLink() || status.isDirectory());
-  }
-
-  @Override
   protected boolean isReadable(Path path) throws IOException {
     return (statInternal(path, true).getPermissions() & 0400) != 0;
   }
@@ -371,12 +360,6 @@ public class UnixFileSystem extends AbstractFileSystem {
   @Override
   protected long getLastModifiedTime(Path path, boolean followSymlinks) throws IOException {
     return stat(path, followSymlinks).getLastModifiedTime();
-  }
-
-  @Override
-  protected boolean isSymbolicLink(Path path) {
-    FileStatus stat = statNullable(path, false);
-    return stat != null && stat.isSymbolicLink();
   }
 
   @Override

@@ -1,0 +1,2 @@
+RUNTIME ERROR: Foo.
+	examples/jsonnet/invalid.jsonnet:15:1-12

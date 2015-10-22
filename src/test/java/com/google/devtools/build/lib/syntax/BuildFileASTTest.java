@@ -1,4 +1,4 @@
-// Copyright 2006-2015 Google Inc. All Rights Reserved.
+// Copyright 2006 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
@@ -32,7 +34,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.IOException;
-import java.util.Arrays;
 
 /**
  * Unit tests for BuildFileAST.
@@ -78,8 +79,8 @@ public class BuildFileASTTest extends EvaluationTestCase {
     //
     // input1.BUILD contains:
     // x = [1,2,'foo',4] + [1,2, "%s%d" % ('foo', 1)]
-    assertEquals(Arrays.<Object>asList(1, 2, "foo", 4, 1, 2, "foo1"),
-                 env.lookup("x"));
+    assertEquals(new MutableList(Tuple.of(1, 2, "foo", 4, 1, 2, "foo1")),
+        env.lookup("x"));
   }
 
   @Test
@@ -94,7 +95,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
     BuildFileAST buildfile = BuildFileAST.parseBuildFile(buildFile, getEventHandler(), false);
 
     assertFalse(buildfile.exec(env, getEventHandler()));
-    Event e = assertContainsEvent("unsupported operand type(s) for +: 'int' and 'List'");
+    Event e = assertContainsError("unsupported operand type(s) for +: 'int' and 'list'");
     assertEquals(4, e.getLocation().getStartLineAndColumn().getLine());
   }
 
@@ -114,7 +115,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
     BuildFileAST buildFileAST =
       parseBuildFile("foo() bar() something = baz() bar()");
 
-    Event event = assertContainsEvent("syntax error at \'bar\': expected newline");
+    Event event = assertContainsError("syntax error at \'bar\': expected newline");
     assertEquals("/a/build/file/BUILD",
                  event.getLocation().getPath().toString());
     assertEquals(1, event.getLocation().getStartLineAndColumn().getLine());
@@ -125,7 +126,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
   public void testImplicitStringConcatenationFails() throws Exception {
     setFailFast(false);
     BuildFileAST buildFileAST = parseBuildFile("a = 'foo' 'bar'");
-    Event event = assertContainsEvent(
+    Event event = assertContainsError(
         "Implicit string concatenation is forbidden, use the + operator");
     assertEquals("/a/build/file/BUILD",
                  event.getLocation().getPath().toString());
@@ -139,7 +140,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
     setFailFast(false);
     BuildFileAST buildFileAST = parseBuildFile("a = 'foo'\n  'bar'");
 
-    Event event = assertContainsEvent("indentation error");
+    Event event = assertContainsError("indentation error");
     assertEquals("/a/build/file/BUILD",
                  event.getLocation().getPath().toString());
     assertEquals(2, event.getLocation().getStartLineAndColumn().getLine());
@@ -174,7 +175,7 @@ public class BuildFileASTTest extends EvaluationTestCase {
         "           srcs = libs,",
         "           includes = [ abi + opt_level + '/include' ])");
     assertTrue(buildFile.containsErrors());
-    assertContainsEvent("syntax error at '+': expected expression");
+    assertContainsError("syntax error at '+': expected expression");
     assertFalse(buildFile.exec(env, getEventHandler()));
     assertNull(findEvent(getEventCollector(), "$error$"));
     // This message should not be printed anymore.

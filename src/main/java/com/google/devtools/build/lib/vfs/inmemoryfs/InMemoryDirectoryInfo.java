@@ -96,6 +96,11 @@ class InMemoryDirectoryInfo extends InMemoryContentInfo {
     return false;
   }
 
+  @Override
+  public boolean isSpecialFile() {
+    return false;
+  }
+
   /**
    * In the InMemory hierarchy, the getSize on a directory always returns the
    * number of children in the directory.

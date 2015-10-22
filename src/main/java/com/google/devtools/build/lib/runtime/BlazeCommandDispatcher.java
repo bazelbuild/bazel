@@ -212,9 +212,6 @@ public class BlazeCommandDispatcher {
     // anything before this!
     long execStartTimeNanos = runtime.getClock().nanoTime();
 
-    // Record the command's starting time for use by the commands themselves.
-    runtime.recordCommandStartTime(firstContactTime);
-
     // Record the command's starting time again, for use by
     // TimestampGranularityMonitor.waitForTimestampGranularity().
     // This should be done as close as possible to the start of
@@ -222,6 +219,8 @@ public class BlazeCommandDispatcher {
     // rather than in runtime.beforeCommand().
     runtime.getTimestampGranularityMonitor().setCommandStartTime();
     CommandEnvironment env = runtime.initCommand();
+    // Record the command's starting time for use by the commands themselves.
+    env.recordCommandStartTime(firstContactTime);
 
     if (args.isEmpty()) { // Default to help command if no arguments specified.
       args = HELP_COMMAND;

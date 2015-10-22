@@ -21,6 +21,8 @@ import com.google.devtools.build.lib.packages.PackageFactory.Globber;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
@@ -113,6 +115,12 @@ public interface Preprocessor {
       this.events = ImmutableList.copyOf(events);
     }
 
+    public static Result noPreprocessing(PathFragment buildFilePathFragment,
+        byte[] buildFileBytes) {
+      return noPreprocessing(ParserInputSource.create(
+          FileSystemUtils.convertFromLatin1(buildFileBytes), buildFilePathFragment));
+    }
+
     /** Convenience factory for a {@link Result} wrapping non-preprocessed BUILD file contents. */
     public static Result noPreprocessing(ParserInputSource buildFileSource) {
       return new Result(
@@ -148,7 +156,8 @@ public interface Preprocessor {
    * preprocessing actually begins, any I/O problems encountered will be reflected in the return
    * value, not manifested as exceptions.
    *
-   * @param in the BUILD file to be preprocessed.
+   * @param buildFilePath the BUILD file to be preprocessed.
+   * @param buildFileBytes the raw contents of the BUILD file to be preprocessed.
    * @param packageName the BUILD file's package.
    * @param globber a globber for evaluating globs.
    * @param globals the global bindings for the Python environment.
@@ -157,7 +166,8 @@ public interface Preprocessor {
    * @return a pair of the ParserInputSource and a map of subincludes seen during the evaluation
    */
   Result preprocess(
-      ParserInputSource in,
+      Path buildFilePath,
+      byte[] buildFileBytes,
       String packageName,
       Globber globber,
       Environment.Frame globals,

@@ -90,6 +90,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -115,7 +116,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -871,11 +871,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner,
       Class<? extends ConfiguredAspectFactory> creatingAspectFactory) {
-    return getPackageRelativeDerivedArtifact(packageRelativePath,
+    return getPackageRelativeDerivedArtifact(
+        packageRelativePath,
         owner.getConfiguration().getBinDirectory(),
-        (AspectValue.AspectKey) AspectValue.key(
-            owner.getLabel(), owner.getConfiguration(), creatingAspectFactory,
-            AspectParameters.EMPTY).argument());
+        (AspectValue.AspectKey)
+            AspectValue.key(
+                    owner.getLabel(),
+                    owner.getConfiguration(),
+                    new NativeAspectClass(creatingAspectFactory),
+                    AspectParameters.EMPTY)
+                .argument());
   }
 
   /**
@@ -931,11 +936,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, ConfiguredTarget owner,
       Class<? extends ConfiguredAspectFactory> creatingAspectFactory) {
-    return getPackageRelativeDerivedArtifact(packageRelativePath,
+    return getPackageRelativeDerivedArtifact(
+        packageRelativePath,
         owner.getConfiguration().getGenfilesDirectory(),
-        (AspectValue.AspectKey) AspectValue.key(
-            owner.getLabel(), owner.getConfiguration(), creatingAspectFactory,
-            AspectParameters.EMPTY).argument());
+        (AspectValue.AspectKey)
+            AspectValue.key(
+                    owner.getLabel(),
+                    owner.getConfiguration(),
+                    new NativeAspectClass(creatingAspectFactory),
+                    AspectParameters.EMPTY)
+                .argument());
   }
 
   /**
@@ -1106,8 +1116,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void assertSameContentsWithCommonElements(Iterable<Artifact> artifacts,
       Iterable<String> common, String... expectedInputs) {
-    MoreAsserts.assertSameContents(Iterables.concat(Lists.newArrayList(expectedInputs), common),
-        ActionsTestUtil.prettyArtifactNames(artifacts));
+    assertThat(Iterables.concat(Lists.newArrayList(expectedInputs), common))
+        .containsExactlyElementsIn(ActionsTestUtil.prettyArtifactNames(artifacts));
   }
 
   /**
@@ -1116,8 +1126,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected void assertSameContentsWithCommonElements(Iterable<String> artifacts,
       String[] expectedInputs, Iterable<String> common) {
-    MoreAsserts.assertSameContents(Iterables.concat(Lists.newArrayList(expectedInputs), common),
-        artifacts);
+    assertThat(Iterables.concat(Lists.newArrayList(expectedInputs), common))
+        .containsExactlyElementsIn(artifacts);
   }
 
   /**

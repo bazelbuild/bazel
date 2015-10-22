@@ -41,7 +41,7 @@ import javax.annotation.Nullable;
  *   <li> For a symlink, the symlink target is noted.
  *   <li> For a directory, the existence is noted.
  *   <li> For a file, the existence is noted, along with metadata about the file (e.g.
- *        file digest). See {@link FileFileStateValue}.
+ *        file digest). See {@link RegularFileStateValue}.
  * <ul>
  *
  * <p>This class is an implementation detail of {@link FileValue} and should not be used outside of
@@ -53,11 +53,14 @@ import javax.annotation.Nullable;
 @VisibleForTesting
 public abstract class FileStateValue implements SkyValue {
 
-  static final FileStateValue DIRECTORY_FILE_STATE_NODE = DirectoryFileStateValue.INSTANCE;
-  static final FileStateValue NONEXISTENT_FILE_STATE_NODE = NonexistentFileStateValue.INSTANCE;
+  public static final DirectoryFileStateValue DIRECTORY_FILE_STATE_NODE =
+      new DirectoryFileStateValue();
+  public static final NonexistentFileStateValue NONEXISTENT_FILE_STATE_NODE =
+      new NonexistentFileStateValue();
 
   enum Type {
-    FILE,
+    REGULAR_FILE,
+    SPECIAL_FILE,
     DIRECTORY,
     SYMLINK,
     NONEXISTENT,
@@ -84,7 +87,9 @@ public abstract class FileStateValue implements SkyValue {
           throws InconsistentFilesystemException, IOException {
     Path path = rootedPath.asPath();
     if (statNoFollow.isFile()) {
-      return FileFileStateValue.fromPath(path, statNoFollow, tsgm);
+      return statNoFollow.isSpecialFile()
+          ? SpecialFileStateValue.fromStat(statNoFollow, tsgm)
+          : RegularFileStateValue.fromPath(path, statNoFollow, tsgm);
     } else if (statNoFollow.isDirectory()) {
       return DIRECTORY_FILE_STATE_NODE;
     } else if (statNoFollow.isSymbolicLink()) {
@@ -123,7 +128,7 @@ public abstract class FileStateValue implements SkyValue {
   abstract String prettyPrint();
 
   /**
-   * Implementation of {@link FileStateValue} for files that exist.
+   * Implementation of {@link FileStateValue} for regular files that exist.
    *
    * <p>A union of (digest, mtime). We use digests only if a fast digest lookup is available from
    * the filesystem. If not, we fall back to mtime-based digests. This avoids the case where Blaze
@@ -131,7 +136,7 @@ public abstract class FileStateValue implements SkyValue {
    * where fast digest lookups are not available.
    */
   @ThreadSafe
-  private static final class FileFileStateValue extends FileStateValue {
+  public static final class RegularFileStateValue extends FileStateValue {
     private final long size;
     // Only needed for empty-file equality-checking. Otherwise is always -1.
     // TODO(bazel-team): Consider getting rid of this special case for empty files.
@@ -139,7 +144,7 @@ public abstract class FileStateValue implements SkyValue {
     @Nullable private final byte[] digest;
     @Nullable private final FileContentsProxy contentsProxy;
 
-    private FileFileStateValue(long size, long mtime, byte[] digest,
+    private RegularFileStateValue(long size, long mtime, byte[] digest,
         FileContentsProxy contentsProxy) {
       Preconditions.checkState((digest == null) != (contentsProxy == null));
       this.size = size;
@@ -154,7 +159,7 @@ public abstract class FileStateValue implements SkyValue {
      * Create a FileFileStateValue instance corresponding to the given existing file.
      * @param stat must be of type "File". (Not a symlink).
      */
-    private static FileFileStateValue fromPath(Path path, FileStatusWithDigest stat,
+    private static RegularFileStateValue fromPath(Path path, FileStatusWithDigest stat,
                                         @Nullable TimestampGranularityMonitor tsgm)
         throws InconsistentFilesystemException {
       Preconditions.checkState(stat.isFile(), path);
@@ -170,13 +175,13 @@ public abstract class FileStateValue implements SkyValue {
           if (tsgm != null) {
             tsgm.notifyDependenceOnFileTime(mtime);
           }
-          return new FileFileStateValue(stat.getSize(), stat.getLastModifiedTime(), null,
+          return new RegularFileStateValue(stat.getSize(), stat.getLastModifiedTime(), null,
               FileContentsProxy.create(mtime, stat.getNodeId()));
         } else {
           // We are careful here to avoid putting the value ID into FileMetadata if we already have
           // a digest. Arbitrary filesystems may do weird things with the value ID; a digest is more
           // robust.
-          return new FileFileStateValue(stat.getSize(), stat.getLastModifiedTime(), digest, null);
+          return new RegularFileStateValue(stat.getSize(), stat.getLastModifiedTime(), digest, null);
         }
       } catch (IOException e) {
         String errorMessage = e.getMessage() != null
@@ -189,7 +194,7 @@ public abstract class FileStateValue implements SkyValue {
 
     @Override
     Type getType() {
-      return Type.FILE;
+      return Type.REGULAR_FILE;
     }
 
     @Override
@@ -205,8 +210,8 @@ public abstract class FileStateValue implements SkyValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (obj instanceof FileFileStateValue) {
-        FileFileStateValue other = (FileFileStateValue) obj;
+      if (obj instanceof RegularFileStateValue) {
+        RegularFileStateValue other = (RegularFileStateValue) obj;
         return size == other.size && mtime == other.mtime && Arrays.equals(digest, other.digest)
             && Objects.equals(contentsProxy, other.contentsProxy);
       }
@@ -228,10 +233,63 @@ public abstract class FileStateValue implements SkyValue {
     }
   }
 
-  /** Implementation of {@link FileStateValue} for directories that exist. */
-  private static final class DirectoryFileStateValue extends FileStateValue {
+  /** Implementation of {@link FileStateValue} for special files that exist. */
+  public static final class SpecialFileStateValue extends FileStateValue {
+    private final FileContentsProxy contentsProxy;
 
-    static final DirectoryFileStateValue INSTANCE = new DirectoryFileStateValue();
+    private SpecialFileStateValue(FileContentsProxy contentsProxy) {
+      this.contentsProxy = contentsProxy;
+    }
+
+    static SpecialFileStateValue fromStat(FileStatusWithDigest stat,
+        @Nullable TimestampGranularityMonitor tsgm) throws IOException {
+      long mtime = stat.getLastModifiedTime();
+      // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe
+      // method.
+      if (tsgm != null) {
+        tsgm.notifyDependenceOnFileTime(mtime);
+      }
+      return new SpecialFileStateValue(FileContentsProxy.create(mtime, stat.getNodeId()));
+    }
+
+    @Override
+    Type getType() {
+      return Type.SPECIAL_FILE;
+    }
+
+    @Override
+    long getSize() {
+      return 0;
+    }
+
+    @Override
+    @Nullable
+    byte[] getDigest() {
+      return null;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof SpecialFileStateValue) {
+        SpecialFileStateValue other = (SpecialFileStateValue) obj;
+        return Objects.equals(contentsProxy, other.contentsProxy);
+      }
+      return false;
+    }
+
+    @Override
+    public int hashCode() {
+      return contentsProxy.hashCode();
+    }
+
+    @Override
+    public String prettyPrint() {
+      return String.format("special file with %s", contentsProxy.prettyPrint());
+    }
+  }
+
+  /** Implementation of {@link FileStateValue} for directories that exist. */
+  public static final class DirectoryFileStateValue extends FileStateValue {
 
     private DirectoryFileStateValue() {
     }
@@ -259,7 +317,7 @@ public abstract class FileStateValue implements SkyValue {
   }
 
   /** Implementation of {@link FileStateValue} for symlinks. */
-  private static final class SymlinkFileStateValue extends FileStateValue {
+  public static final class SymlinkFileStateValue extends FileStateValue {
 
     private final PathFragment symlinkTarget;
 
@@ -298,9 +356,7 @@ public abstract class FileStateValue implements SkyValue {
   }
 
   /** Implementation of {@link FileStateValue} for nonexistent files. */
-  private static final class NonexistentFileStateValue extends FileStateValue {
-
-    static final NonexistentFileStateValue INSTANCE = new NonexistentFileStateValue();
+  public static final class NonexistentFileStateValue extends FileStateValue {
 
     private NonexistentFileStateValue() {
     }

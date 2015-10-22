@@ -53,6 +53,7 @@ public class ArtifactFactoryTest {
   private Path execRoot;
   private Root clientRoot;
   private Root clientRoRoot;
+  private Root alienRoot;
   private Root outRoot;
 
   private PathFragment fooPath;
@@ -63,6 +64,10 @@ public class ArtifactFactoryTest {
   private PackageIdentifier barPackage;
   private PathFragment barRelative;
 
+  private PathFragment alienPath;
+  private PackageIdentifier alienPackage;
+  private PathFragment alienRelative;
+
   private ArtifactFactory artifactFactory;
 
   @Before
@@ -70,6 +75,7 @@ public class ArtifactFactoryTest {
     execRoot = scratch.dir("/output/workspace");
     clientRoot = Root.asSourceRoot(scratch.dir("/client/workspace"));
     clientRoRoot = Root.asSourceRoot(scratch.dir("/client/RO/workspace"));
+    alienRoot = Root.asSourceRoot(scratch.dir("/client/workspace"));
     outRoot = Root.asDerivedRoot(execRoot, execRoot.getRelative("out-root/x/bin"));
 
     fooPath = new PathFragment("foo");
@@ -80,6 +86,10 @@ public class ArtifactFactoryTest {
     barPackage = PackageIdentifier.createInDefaultRepo(barPath);
     barRelative = barPath.getRelative("barsource.txt");
 
+    alienPath = new PathFragment("external/alien");
+    alienPackage = PackageIdentifier.create("@alien", alienPath);
+    alienRelative = alienPath.getRelative("alien.txt");
+
     artifactFactory = new ArtifactFactory(execRoot);
     setupRoots();
   }
@@ -88,6 +98,7 @@ public class ArtifactFactoryTest {
     Map<PackageIdentifier, Root> packageRootMap = new HashMap<>();
     packageRootMap.put(fooPackage, clientRoot);
     packageRootMap.put(barPackage, clientRoRoot);
+    packageRootMap.put(alienPackage, alienRoot);
     artifactFactory.setPackageRoots(packageRootMap);
     artifactFactory.setDerivedArtifactRoots(ImmutableList.of(outRoot));
   }
@@ -111,6 +122,13 @@ public class ArtifactFactoryTest {
         artifactFactory.resolveSourceArtifact(fooRelative));
     assertSame(artifactFactory.getSourceArtifact(barRelative, clientRoRoot),
         artifactFactory.resolveSourceArtifact(barRelative));
+  }
+
+  @Test
+  public void testResolveArtifact_inExternalRepo() throws Exception {
+    assertSame(
+        artifactFactory.getSourceArtifact(alienRelative, alienRoot),
+        artifactFactory.resolveSourceArtifact(alienRelative));
   }
 
   @Test

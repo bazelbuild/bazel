@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -41,7 +42,7 @@ public class ConservativeAspectResolver implements AspectResolver {
 
     Multimap<Attribute, Label> result = LinkedHashMultimap.create();
     for (Attribute attribute : ((Rule) target).getAttributes()) {
-      for (Class<? extends AspectFactory<?, ?, ?>> aspectFactory : attribute.getAspects()) {
+      for (AspectClass aspectFactory : attribute.getAspects()) {
         AspectDefinition.addAllAttributesOfAspect(
             (Rule) target,
             result,

@@ -1,4 +1,4 @@
-// Copyright 2006-2015 Google Inc. All Rights Reserved.
+// Copyright 2006 The Bazel Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -247,7 +247,14 @@ public class LexerTest {
     assertEquals("STRING(\\$$) NEWLINE EOF", values(tokens("'\\$$'")));
     assertEquals("STRING(ab) NEWLINE EOF",
                  values(tokens("'a\\\nb'"))); // escape end of line
+    assertEquals("STRING(abcd) NEWLINE EOF",
+                 values(tokens("\"ab\\ucd\"")));
+    assertEquals("/some/path.txt:1: escape sequence not implemented: \\u",
+                 lastError.toString());
+  }
 
+  @Test
+  public void testRawString() throws Exception {
     assertEquals("STRING(abcd) NEWLINE EOF",
                  values(tokens("r'abcd'")));
     assertEquals("STRING(abcd) NEWLINE EOF",
@@ -261,9 +268,26 @@ public class LexerTest {
     assertEquals("STRING(ab) IDENTIFIER(r) NEWLINE EOF",
                  values(tokens("r'ab'r")));
 
-    assertEquals("STRING(abcd) NEWLINE EOF",
-                 values(tokens("\"ab\\ucd\"")));
-    assertEquals("/some/path.txt:1: escape sequence not implemented: \\u",
+    // Unterminated raw string
+    values(tokens("r'\\'")); // r'\'
+    assertEquals("/some/path.txt:1: unterminated string literal at eof",
+                 lastError.toString());
+  }
+
+  @Test
+  public void testTripleRawString() throws Exception {
+    // r'''a\ncd'''
+    assertEquals("STRING(ab\\ncd) NEWLINE EOF",
+                 values(tokens("r'''ab\\ncd'''")));
+    // r"""ab
+    // cd"""
+    assertEquals(
+        "STRING(ab\ncd) NEWLINE EOF",
+        values(tokens("\"\"\"ab\ncd\"\"\"")));
+
+    // Unterminated raw string
+    values(tokens("r'''\\'''")); // r'''\'''
+    assertEquals("/some/path.txt:1: unterminated string literal at eof",
                  lastError.toString());
   }
 

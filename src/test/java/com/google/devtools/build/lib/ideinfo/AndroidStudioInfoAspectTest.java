@@ -82,9 +82,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         .containsExactly("com/google/example/complex/Complex.java");
     assertThat(complexRuleIdeInfo.getDependenciesList())
         .containsExactly("//com/google/example:simple");
-
-    assertThat(complexRuleIdeInfo.getTransitiveDependenciesList())
-        .containsExactly("//com/google/example:simple");
   }
 
   public void testJavaLibraryWithTransitiveDependencies() throws Exception {
@@ -118,9 +115,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(extraComplexRuleIdeInfo.getDependenciesList())
         .containsExactly("//com/google/example:complex");
 
-    assertThat(extraComplexRuleIdeInfo.getTransitiveDependenciesList())
-        .containsExactly("//com/google/example:simple", "//com/google/example:complex")
-        .inOrder();
     assertThat(getIdeResolveFiles()).containsExactly(
         "com/google/example/libextracomplex.jar",
         "com/google/example/libextracomplex-ijar.jar",
@@ -170,13 +164,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         .containsExactly("com/google/example/extracomplex/ExtraComplex.java");
     assertThat(extraComplexRuleIdeInfo.getDependenciesList())
         .containsExactly("//com/google/example:complex", "//com/google/example:complex1");
-
-    assertThat(extraComplexRuleIdeInfo.getTransitiveDependenciesList())
-        .containsExactly(
-            "//com/google/example:simple",
-            "//com/google/example:complex",
-            "//com/google/example:complex1")
-        .inOrder();
   }
 
   public void testJavaLibraryWithExports() throws Exception {
@@ -209,16 +196,9 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
     assertThat(complexRuleIdeInfo.getDependenciesList())
         .containsExactly("//com/google/example:simple");
-    assertThat(complexRuleIdeInfo.getTransitiveDependenciesList())
-        .containsExactly("//com/google/example:simple");
 
     assertThat(extraComplexRuleIdeInfo.getDependenciesList())
         .containsExactly("//com/google/example:simple", "//com/google/example:complex")
-        .inOrder();
-    assertThat(extraComplexRuleIdeInfo.getTransitiveDependenciesList())
-        .containsExactly(
-            "//com/google/example:simple",
-            "//com/google/example:complex")
         .inOrder();
     assertThat(getIdeResolveFiles()).containsExactly(
         "com/google/example/libextracomplex.jar",
@@ -269,13 +249,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(relativePathsForSourcesOf(megaComplexRuleIdeInfo))
         .containsExactly("com/google/example/megacomplex/MegaComplex.java");
     assertThat(megaComplexRuleIdeInfo.getDependenciesList())
-        .containsExactly(
-            "//com/google/example:simple",
-            "//com/google/example:complex",
-            "//com/google/example:extracomplex")
-        .inOrder();
-
-    assertThat(megaComplexRuleIdeInfo.getTransitiveDependenciesList())
         .containsExactly(
             "//com/google/example:simple",
             "//com/google/example:complex",
@@ -490,12 +463,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
 
     assertThat(ruleInfo.getDependenciesList()).containsExactly("//com/google/example:l1");
-    assertThat(
-            transform(
-                ruleInfo.getAndroidRuleIdeInfo().getTransitiveResourcesList(),
-                ARTIFACT_TO_RELATIVE_PATH))
-        .containsExactly("com/google/example/r1", "com/google/example/res")
-        .inOrder();
     assertThat(getIdeResolveFiles()).containsExactly(
         "com/google/example/libl.jar",
         "com/google/example/libl-ijar.jar",
@@ -541,12 +508,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         .isEqualTo("com/google/example/b.apk");
 
     assertThat(ruleInfo.getDependenciesList()).containsExactly("//com/google/example:l1");
-    assertThat(
-            transform(
-                ruleInfo.getAndroidRuleIdeInfo().getTransitiveResourcesList(),
-                ARTIFACT_TO_RELATIVE_PATH))
-        .containsExactly("com/google/example/r1", "com/google/example/res")
-        .inOrder();
 
     assertThat(getIdeResolveFiles()).containsExactly(
         "com/google/example/libb.jar",

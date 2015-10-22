@@ -125,8 +125,8 @@ public final class CleanCommand implements BlazeCommand {
       Path outputBase, Options cleanOptions, String symlinkPrefix) throws IOException,
       ShutdownBlazeServerException, CommandException, ExecException, InterruptedException {
     BlazeRuntime runtime = env.getRuntime();
-    if (runtime.getOutputService() != null) {
-      runtime.getOutputService().clean();
+    if (env.getOutputService() != null) {
+      env.getOutputService().clean();
     }
     if (cleanOptions.expunge) {
       LOG.info("Expunging...");

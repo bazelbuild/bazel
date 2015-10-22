@@ -198,6 +198,11 @@ public class ZipFileSystem extends ReadonlyFileSystem {
   }
 
   @Override
+  protected boolean isSpecialFile(Path path, boolean followSymlinks) {
+    return false;
+  }
+
+  @Override
   protected boolean isReadable(Path path) throws IOException {
     zipEntryNonNull(path);
     return true;

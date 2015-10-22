@@ -369,7 +369,7 @@ public class PackageDeserializer {
    * Deserialize a package from its representation as a protocol message. The inverse of
    * {@link PackageSerializer#serialize}.
    * @throws IOException
-   * @throws InterruptedException 
+   * @throws InterruptedException
    */
   private void deserializeInternal(Build.Package packagePb, StoredEventHandler eventHandler,
       Package.Builder builder, InputStream in)
@@ -472,7 +472,7 @@ public class PackageDeserializer {
    * @return a new {@link Package} as read from {@code in}
    * @throws PackageDeserializationException on failures deserializing the input
    * @throws IOException on failures reading from {@code in}
-   * @throws InterruptedException 
+   * @throws InterruptedException
    */
   public Package deserialize(InputStream in)
       throws PackageDeserializationException, IOException, InterruptedException {
@@ -719,7 +719,7 @@ public class PackageDeserializer {
       Map<String, ParsedAttributeValue> attributeValues, EventHandler eventHandler,
       AttributeContainer attributeContainer)
       throws LabelSyntaxException, InterruptedException {
-    Rule rule = pkgBuilder.newRuleWithLabelAndAttrContainer(label, ruleClass, null, ruleLocation,
+    Rule rule = pkgBuilder.newRuleWithLabelAndAttrContainer(label, ruleClass, ruleLocation,
         attributeContainer);
     rule.checkValidityPredicate(eventHandler);
 

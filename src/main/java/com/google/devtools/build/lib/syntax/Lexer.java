@@ -312,7 +312,7 @@ public final class Lexer {
    *
    * @return the string-literal token.
    */
-  private Token escapedStringLiteral(char quot) {
+  private Token escapedStringLiteral(char quot, boolean isRaw) {
     boolean inTriplequote = skipTripleQuote(quot);
 
     int oldPos = pos - 1;
@@ -335,6 +335,14 @@ public final class Lexer {
           if (pos == buffer.length) {
             error("unterminated string literal at eof", oldPos, pos);
             return new Token(TokenKind.STRING, oldPos, pos, literal.toString());
+          }
+          if (isRaw) {
+            // Insert \ and the following character.
+            // As in Python, it means that a raw string can never end with a single \.
+            literal.append('\\');
+            literal.append(buffer[pos]);
+            pos++;
+            break;
           }
           c = buffer[pos];
           pos++;
@@ -428,7 +436,7 @@ public final class Lexer {
     // Don't even attempt to parse triple-quotes here.
     if (skipTripleQuote(quot)) {
       pos -= 2;
-      return escapedStringLiteral(quot);
+      return escapedStringLiteral(quot, isRaw);
     }
 
     // first quick optimistic scan for a simple non-escaped string
@@ -446,11 +454,10 @@ public final class Lexer {
             // skip the next character
             pos++;
             break;
-          } else {
-            // oops, hit an escape, need to start over & build a new string buffer
-            pos = oldPos + 1;
-            return escapedStringLiteral(quot);
           }
+          // oops, hit an escape, need to start over & build a new string buffer
+          pos = oldPos + 1;
+          return escapedStringLiteral(quot, false);
         case '\'':
         case '"':
           if (c == quot) {

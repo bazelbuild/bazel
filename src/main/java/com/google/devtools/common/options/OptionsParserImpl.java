@@ -379,10 +379,14 @@ class OptionsParserImpl {
     Option option = field.getAnnotation(Option.class);
     // Continue to support the old behavior for @Deprecated options.
     String warning = option.deprecationWarning();
-    if (!warning.equals("") || (field.getAnnotation(Deprecated.class) != null)) {
-      warnings.add("Option '" + option.name() + "' is deprecated"
-          + (warning.equals("") ? "" : ": " + warning));
+    if (!warning.isEmpty() || (field.getAnnotation(Deprecated.class) != null)) {
+      addDeprecationWarning(option.name(), warning);
     }
+  }
+
+  private void addDeprecationWarning(String optionName, String warning) {
+    warnings.add("Option '" + optionName + "' is deprecated"
+        + (warning.isEmpty() ? "" : ": " + warning));
   }
 
   // Warnings should not end with a '.' because the internal reporter adds one automatically.
@@ -515,11 +519,16 @@ class OptionsParserImpl {
    * dependent nor an expanded from value, then it must have been explicitly
    * set.
    */
-  private List<String> parse(OptionPriority priority,
-      final Function<? super String, String> sourceFunction, String implicitDependant,
-      String expandedFrom, List<String> args) throws OptionsParsingException {
+  private List<String> parse(
+      OptionPriority priority,
+      Function<? super String, String> sourceFunction,
+      String implicitDependent,
+      String expandedFrom,
+      List<String> args) throws OptionsParsingException {
+
     List<String> unparsedArgs = Lists.newArrayList();
     LinkedHashMap<String,List<String>> implicitRequirements = Maps.newLinkedHashMap();
+
     for (int pos = 0; pos < args.size(); pos++) {
       String arg = args.get(pos);
       if (!arg.startsWith("-")) {
@@ -547,11 +556,12 @@ class OptionsParserImpl {
 
       } else if (allowSingleDashLongOptions // -long_option
           || arg.startsWith("--")) { // or --long_option
+
         int equalsAt = arg.indexOf('=');
         int nameStartsAt = arg.startsWith("--") ? 2 : 1;
         String name =
             equalsAt == -1 ? arg.substring(nameStartsAt) : arg.substring(nameStartsAt, equalsAt);
-        if (name.trim().equals("")) {
+        if (name.trim().isEmpty()) {
           throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
         }
         value = equalsAt == -1 ? null : arg.substring(equalsAt + 1);
@@ -560,8 +570,8 @@ class OptionsParserImpl {
         // look for a "no"-prefixed option name: "no<optionname>";
         // (Undocumented: we also allow --no_foo.  We're generous like that.)
         if (field == null && name.startsWith("no")) {
-          String realname = name.substring(name.startsWith("no_") ? 3 : 2);
-          field = optionsData.getFieldFromName(realname);
+          name = name.substring(name.startsWith("no_") ? 3 : 2);
+          field = optionsData.getFieldFromName(name);
           booleanValue = false;
           if (field != null) {
             // TODO(bazel-team): Add tests for these cases.
@@ -578,6 +588,15 @@ class OptionsParserImpl {
           }
         }
 
+        // Add a deprecation warning if the old name for the flag is used.
+        if (field != null) {
+          Option option = field.getAnnotation(Option.class);
+          String oldName = option.oldName();
+          if (name.equals(oldName)) {
+            addDeprecationWarning(oldName, "Use --" + option.name() + " instead");
+          }
+        }
+
       } else {
         throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
       }
@@ -585,13 +604,15 @@ class OptionsParserImpl {
       if (field == null) {
         throw new OptionsParsingException("Unrecognized option: " + arg, arg);
       }
-      
+
+      Option option = field.getAnnotation(Option.class);
+
       if (value == null) {
-        // special case boolean to supply value based on presence of "no" prefix
+        // Special-case boolean to supply value based on presence of "no" prefix.
         if (OptionsParserImpl.isBooleanField(field)) {
           value = booleanValue ? "1" : "0";
-        } else if (field.getType().equals(Void.class)) {
-          // this is expected, Void type options have no args
+        } else if (field.getType().equals(Void.class) && !option.wrapperOption()) {
+          // This is expected, Void type options have no args (unless they're wrapper options).
         } else if (pos != args.size() - 1) {
           value = args.get(++pos);  // "--flag value" form
         } else {
@@ -599,9 +620,35 @@ class OptionsParserImpl {
         }
       }
 
-      Option option = field.getAnnotation(Option.class);
       final String originalName = option.name();
-      if (implicitDependant == null) {
+
+      if (option.wrapperOption()) {
+        if (value.startsWith("-")) {
+
+          List<String> unparsed = parse(
+              priority,
+              Functions.constant("Unwrapped from wrapper option --" + originalName),
+              null, // implicitDependent
+              null, // expandedFrom
+              ImmutableList.of(value));
+
+          if (!unparsed.isEmpty()) {
+            throw new OptionsParsingException("Unparsed options remain after unwrapping " +
+              arg + ": " + Joiner.on(' ').join(unparsed));
+          }
+
+          // Don't process implicitRequirements or expansions for wrapper options. In particular,
+          // don't record this option in unparsedValues, so that only the wrapped option shows
+          // up in canonicalized options.
+          continue;
+
+        } else {
+          throw new OptionsParsingException("Invalid --" + originalName + " value format. "
+              + "You may have meant --" + originalName + "=--" + value);
+        }
+      }
+
+      if (implicitDependent == null) {
         // Log explicit options and expanded options in the order they are parsed (can be sorted
         // later). Also remember whether they were expanded or not. This information is needed to
         // correctly canonicalize flags.
@@ -621,7 +668,7 @@ class OptionsParserImpl {
           // Throw an assertion, because this indicates an error in the code that specified the
           // expansion for the current option.
           throw new AssertionError("Unparsed options remain after parsing expansion of " +
-            arg + ":" + Joiner.on(' ').join(unparsed));
+            arg + ": " + Joiner.on(' ').join(unparsed));
         }
       } else {
         Converter<?> converter = optionsData.getConverter(field);
@@ -639,7 +686,7 @@ class OptionsParserImpl {
         // parse(); latest wins:
         if (!option.allowMultiple()) {
           setValue(field, originalName, convertedValue,
-              priority, sourceFunction.apply(originalName), implicitDependant, expandedFrom);
+              priority, sourceFunction.apply(originalName), implicitDependent, expandedFrom);
         } else {
           // But if it's a multiple-use option, then just accumulate the
           // values, in the order in which they were seen.
@@ -647,7 +694,7 @@ class OptionsParserImpl {
           // only makes it available in String form via the signature string
           // for the field declaration.
           addListValue(field, convertedValue, priority, sourceFunction.apply(originalName),
-              implicitDependant, expandedFrom);
+              implicitDependent, expandedFrom);
         }
       }
 
@@ -670,7 +717,7 @@ class OptionsParserImpl {
         if (!unparsed.isEmpty()) {
           // Throw an assertion, because this indicates an error in the code that specified in the
           // implicit requirements for the option(s).
-          throw new AssertionError("Unparsed options remain after parsing implicit options:"
+          throw new AssertionError("Unparsed options remain after parsing implicit options: "
               + Joiner.on(' ').join(unparsed));
         }
       }

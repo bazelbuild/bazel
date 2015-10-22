@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+
 /**
  * A SkyValue with no attached data. Preferable to a specialized empty value class to minimize
  * bloat.
@@ -21,5 +24,25 @@ public final class EmptySkyValue implements SkyValue {
   public static final EmptySkyValue INSTANCE = new EmptySkyValue();
 
   private EmptySkyValue() {}
-}
 
+  @Override
+  public int hashCode() {
+    return 422;
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    return other instanceof EmptySkyValue;
+  }
+
+  // SkyValue implements Serializable, however we don't want to support Java serialization.
+  @SuppressWarnings("unused")
+  private void writeObject(ObjectOutputStream unused) {
+    throw new UnsupportedOperationException("Java serialization not supported");
+  }
+
+  @SuppressWarnings("unused")
+  private void readObject(ObjectInputStream unused) {
+    throw new UnsupportedOperationException("Java serialization not supported");
+  }
+}

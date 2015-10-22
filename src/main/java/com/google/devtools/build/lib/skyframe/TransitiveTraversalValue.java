@@ -16,10 +16,11 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
@@ -33,40 +34,43 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * A <i>transitive</i> target reference that, when built in skyframe, loads the entire
- * transitive closure of a target. Contains no information about the targets traversed.
+ * A <i>transitive</i> target reference that, when built in skyframe, loads the entire transitive
+ * closure of a target. Retains the first error message found during the transitive traversal,
+ * and a set of names of providers if the target is a {@link Rule}.
  */
 @Immutable
 @ThreadSafe
 public class TransitiveTraversalValue implements SkyValue {
+  
+  private static final Interner<SkyKey> KEY_INTERNER = Interners.newWeakInterner();
+  
+  @Nullable private final ImmutableSet<String> providers;
+  @Nullable private final String firstErrorMessage;
 
-  @Nullable
-  private final NoSuchTargetException errorLoadingTarget;
-  @Nullable
-  private final ImmutableSet<String> providers;
-
-  private TransitiveTraversalValue(@Nullable Iterable<String> providers,
-      @Nullable NoSuchTargetException errorLoadingTarget) {
-    this.errorLoadingTarget = errorLoadingTarget;
+  private TransitiveTraversalValue(
+      @Nullable Iterable<String> providers, @Nullable String firstErrorMessage) {
     this.providers = (providers == null) ? null : canonicalSet(providers);
+    this.firstErrorMessage =
+        (firstErrorMessage == null) ? null : StringCanonicalizer.intern(firstErrorMessage);
   }
 
-  public static TransitiveTraversalValue unsuccessfulTransitiveTraversal(
-      NoSuchTargetException errorLoadingTarget) {
-    return new TransitiveTraversalValue(null, Preconditions.checkNotNull(errorLoadingTarget));
+  public static TransitiveTraversalValue unsuccessfulTransitiveTraversal(String firstErrorMessage) {
+    return new TransitiveTraversalValue(null, Preconditions.checkNotNull(firstErrorMessage));
   }
 
-  public static TransitiveTraversalValue forTarget(Target target) {
+  public static TransitiveTraversalValue forTarget(
+      Target target, @Nullable String firstErrorMessage) {
     if (target instanceof Rule) {
       Rule rule = (Rule) target;
       return new TransitiveTraversalValue(
-          toStringSet(rule.getRuleClassObject().getAdvertisedProviders()), null);
+          toStringSet(rule.getRuleClassObject().getAdvertisedProviders()), firstErrorMessage);
     }
-    return new TransitiveTraversalValue(ImmutableList.<String>of(), null);
+    return new TransitiveTraversalValue(ImmutableList.<String>of(), firstErrorMessage);
   }
 
-  public static TransitiveTraversalValue withProviders(Collection<String> vals) {
-    return new TransitiveTraversalValue(ImmutableSet.copyOf(vals), null);
+  public static TransitiveTraversalValue withProviders(
+      Collection<String> providers, @Nullable String firstErrorMessage) {
+    return new TransitiveTraversalValue(ImmutableSet.copyOf(providers), firstErrorMessage);
   }
 
   private static ImmutableSet<String> canonicalSet(Iterable<String> strIterable) {
@@ -87,14 +91,22 @@ public class TransitiveTraversalValue implements SkyValue {
     return pBuilder.build();
   }
 
+  /**
+   * Returns the set of provider names from the target, if the target is a {@link Rule}. If there
+   * were errors loading the target, returns {@code null}.
+   */
+  @Nullable
   public Set<String> getProviders() {
     return providers;
   }
 
-  /** Returns the error, if any, from loading the target. */
+  /**
+   * Returns the first error message, if any, from loading the target and its transitive
+   * dependencies.
+   */
   @Nullable
-  public NoSuchTargetException getErrorLoadingTarget() {
-    return errorLoadingTarget;
+  public String getFirstErrorMessage() {
+    return firstErrorMessage;
   }
 
   @Override
@@ -106,17 +118,18 @@ public class TransitiveTraversalValue implements SkyValue {
       return false;
     }
     TransitiveTraversalValue that = (TransitiveTraversalValue) o;
-    return Objects.equals(this.errorLoadingTarget, that.errorLoadingTarget)
+    return Objects.equals(this.firstErrorMessage, that.firstErrorMessage)
         && Objects.equals(this.providers, that.providers);
   }
 
   @Override
   public int hashCode() {
-    return 31 * Objects.hashCode(errorLoadingTarget) + Objects.hashCode(providers);
+    return 31 * Objects.hashCode(firstErrorMessage) + Objects.hashCode(providers);
   }
 
   @ThreadSafe
   public static SkyKey key(Label label) {
-    return new SkyKey(SkyFunctions.TRANSITIVE_TRAVERSAL, label);
+    // Intern in order to save memory.
+    return KEY_INTERNER.intern(new SkyKey(SkyFunctions.TRANSITIVE_TRAVERSAL, label));
   }
 }

@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.syntax.FragmentClassNameResolver;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1229,7 +1230,7 @@ public final class RuleClass {
   Rule createRuleWithLabel(Package.Builder pkgBuilder, Label ruleLabel,
       Map<String, Object> attributeValues, EventHandler eventHandler, FuncallExpression ast,
       Location location) throws LabelSyntaxException, InterruptedException {
-    Rule rule = pkgBuilder.newRuleWithLabel(ruleLabel, this, null, location);
+    Rule rule = pkgBuilder.newRuleWithLabel(ruleLabel, this, location);
     createRuleCommon(rule, pkgBuilder, attributeValues, eventHandler, ast);
     return rule;
   }
@@ -1350,13 +1351,26 @@ public final class RuleClass {
 
   private void checkAttrValNonEmpty(
       Rule rule, EventHandler eventHandler, Object attributeValue, Integer attrIndex) {
-    if (attributeValue instanceof List<?>) {
-      Attribute attr = getAttribute(attrIndex);
-      if (attr.isNonEmpty() && ((List<?>) attributeValue).isEmpty()) {
-        rule.reportError(rule.getLabel() + ": non empty " + "attribute '" + attr.getName()
-            + "' in '" + name + "' rule '" + rule.getLabel() + "' has to have at least one value",
-            eventHandler);
-      }
+
+    Attribute attr = getAttribute(attrIndex);
+    if (!attr.isNonEmpty()) {
+      return;
+    }
+
+    boolean isEmpty = false;
+
+    if (attributeValue instanceof SkylarkList) {
+      isEmpty = ((SkylarkList) attributeValue).isEmpty();
+    } else if (attributeValue instanceof List<?>) {
+      isEmpty = ((List<?>) attributeValue).isEmpty();
+    } else if (attributeValue instanceof Map<?, ?>) {
+      isEmpty = ((Map<?, ?>) attributeValue).isEmpty();
+    }
+
+    if (isEmpty) {
+      rule.reportError(rule.getLabel() + ": non empty attribute '" + attr.getName()
+          + "' in '" + name + "' rule '" + rule.getLabel() + "' has to have at least one value",
+          eventHandler);
     }
   }
 

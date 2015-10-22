@@ -51,6 +51,7 @@ final class OutOfScopeFileStatus extends InMemoryContentInfo {
   @Override public boolean isDirectory() { throw failure(); }
   @Override public boolean isSymbolicLink() { throw failure(); }
   @Override public boolean isFile() { throw failure(); }
+  @Override public boolean isSpecialFile() { throw failure(); }
   @Override public long getSize() { throw failure(); }
   @Override protected void markModificationTime() { throw failure(); }
   @Override public synchronized long getLastModifiedTime() { throw failure(); }

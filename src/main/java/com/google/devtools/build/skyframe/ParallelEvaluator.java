@@ -41,7 +41,6 @@ import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationS
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
 import com.google.devtools.build.skyframe.NodeEntry.DependencyState;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
-import com.google.devtools.build.skyframe.Scheduler.SchedulerException;
 import com.google.devtools.build.skyframe.SkyFunctionException.ReifiedSkyFunctionException;
 
 import java.util.ArrayDeque;
@@ -137,7 +136,7 @@ public final class ParallelEvaluator implements Evaluator {
     void accept(T object);
   }
 
-  private final ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions;
+  private final ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions;
 
   private final EventHandler reporter;
   private final NestedSetVisitor<TaggedEvents> replayingNestedSetEventVisitor;
@@ -153,7 +152,7 @@ public final class ParallelEvaluator implements Evaluator {
   public ParallelEvaluator(
       ProcessableGraph graph,
       Version graphVersion,
-      ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions,
+      ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
       final EventHandler reporter,
       EmittedEventState emittedEventState,
       EventFilter storedEventFilter,
@@ -304,6 +303,11 @@ public final class ParallelEvaluator implements Evaluator {
      * If this node has an error, that is, if errorInfo is non-null, do nothing. Otherwise, set
      * errorInfo to the union of the child errors that were recorded earlier by getValueOrException,
      * if there are any.
+     *
+     * <p>Child errors are remembered, if there are any and yet the parent recovered without
+     * error, so that subsequent noKeepGoing evaluations can stop as soon as they encounter a
+     * node whose (transitive) children had experienced an error, even if that (transitive)
+     * parent node had been able to recover from it during a keepGoing build.
      */
     private void finalizeErrorInfo() {
       if (errorInfo == null && !childErrorInfos.isEmpty()) {
@@ -330,13 +334,13 @@ public final class ParallelEvaluator implements Evaluator {
 
       if (errorInfo.isTransient()) {
         DependencyState triState =
-            graph.get(ErrorTransienceValue.key()).addReverseDepAndCheckIfDone(skyKey);
+            graph.get(ErrorTransienceValue.KEY).addReverseDepAndCheckIfDone(skyKey);
         Preconditions.checkState(triState == DependencyState.DONE,
             "%s %s %s", skyKey, triState, errorInfo);
 
         final NodeEntry state = graph.get(skyKey);
         state.addTemporaryDirectDeps(
-            GroupedListHelper.create(ImmutableList.of(ErrorTransienceValue.key())));
+            GroupedListHelper.create(ImmutableList.of(ErrorTransienceValue.KEY)));
         state.signalDep();
       }
 
@@ -383,7 +387,7 @@ public final class ParallelEvaluator implements Evaluator {
       Map<SkyKey, ValueWithMetadata> values = getValuesMaybeFromError(depKeys, bubbleErrorInfo);
       ImmutableMap.Builder<SkyKey, ValueOrUntypedException> builder = ImmutableMap.builder();
       for (SkyKey depKey : depKeys) {
-        Preconditions.checkState(!depKey.equals(ErrorTransienceValue.key()));
+        Preconditions.checkState(!depKey.equals(ErrorTransienceValue.KEY));
         ValueWithMetadata value = values.get(depKey);
         if (value == null) {
           // If this entry is not yet done then (optionally) record the missing dependency and
@@ -596,6 +600,7 @@ public final class ParallelEvaluator implements Evaluator {
   private class ValueVisitor extends AbstractQueueVisitor {
     private AtomicBoolean preventNewEvaluations = new AtomicBoolean(false);
     private final Set<SkyKey> inflightNodes = Sets.newConcurrentHashSet();
+    private final Set<RuntimeException> crashes = Sets.newConcurrentHashSet();
 
     private ValueVisitor(int threadCount) {
       super(/*concurrent*/true,
@@ -607,8 +612,14 @@ public final class ParallelEvaluator implements Evaluator {
     }
 
     @Override
-    protected boolean isCriticalError(Throwable e) {
-      return e instanceof RuntimeException;
+    protected ErrorClassification classifyError(Throwable e) {
+      if (e instanceof SchedulerException) {
+        return ErrorClassification.CRITICAL;
+      }
+      if (e instanceof RuntimeException) {
+        return ErrorClassification.CRITICAL_AND_LOG;
+      }
+      return ErrorClassification.NOT_CRITICAL;
     }
 
     protected void waitForCompletion() throws InterruptedException {
@@ -644,6 +655,14 @@ public final class ParallelEvaluator implements Evaluator {
      */
     boolean preventNewEvaluations() {
       return preventNewEvaluations.compareAndSet(false, true);
+    }
+
+    void noteCrash(RuntimeException e) {
+      crashes.add(e);
+    }
+
+    Collection<RuntimeException> getCrashes() {
+      return crashes;
     }
 
     void notifyDone(SkyKey key) {
@@ -728,8 +747,8 @@ public final class ParallelEvaluator implements Evaluator {
      */
     private boolean invalidatedByErrorTransience(Collection<SkyKey> depGroup, NodeEntry entry) {
       return depGroup.size() == 1
-          && depGroup.contains(ErrorTransienceValue.key())
-          && !graph.get(ErrorTransienceValue.key()).getVersion().atMost(entry.getVersion());
+          && depGroup.contains(ErrorTransienceValue.KEY)
+          && !graph.get(ErrorTransienceValue.KEY).getVersion().atMost(entry.getVersion());
     }
 
     private DirtyOutcome maybeHandleDirtyNode(NodeEntry state) {
@@ -763,7 +782,7 @@ public final class ParallelEvaluator implements Evaluator {
             // usual, but we can't, because then the ErrorTransienceValue would remain as a dep,
             // which would be incorrect if, for instance, the value re-evaluated to a non-error.
             state.forceRebuild();
-            graph.get(ErrorTransienceValue.key()).removeReverseDep(skyKey);
+            graph.get(ErrorTransienceValue.KEY).removeReverseDep(skyKey);
             return DirtyOutcome.NEEDS_EVALUATION;
           }
           if (!keepGoing) {
@@ -853,7 +872,7 @@ public final class ParallelEvaluator implements Evaluator {
       // direct deps that were requested on a previous run. This would allow us to avoid the
       // conversion of the direct deps into a set.
       Set<SkyKey> directDeps = state.getTemporaryDirectDeps();
-      Preconditions.checkState(!directDeps.contains(ErrorTransienceValue.key()),
+      Preconditions.checkState(!directDeps.contains(ErrorTransienceValue.KEY),
           "%s cannot have a dep on ErrorTransienceValue during building: %s", skyKey, state);
       // Get the corresponding SkyFunction and call it on this value.
       SkyFunctionEnvironment env = new SkyFunctionEnvironment(skyKey, directDeps, visitor);
@@ -900,7 +919,9 @@ public final class ParallelEvaluator implements Evaluator {
         // Programmer error (most likely NPE or a failed precondition in a SkyFunction). Output
         // some context together with the exception.
         String msg = prepareCrashMessage(skyKey, state.getInProgressReverseDeps());
-        throw new RuntimeException(msg, re);
+        RuntimeException ex = new RuntimeException(msg, re);
+        visitor.noteCrash(ex);
+        throw ex;
       } finally {
         env.doneBuilding();
         long elapsedTimeNanos = Profiler.nanoTimeMaybe() - startTime;
@@ -1153,12 +1174,11 @@ public final class ParallelEvaluator implements Evaluator {
     // We unconditionally add the ErrorTransienceValue here, to ensure that it will be created, and
     // in the graph, by the time that it is needed. Creating it on demand in a parallel context sets
     // up a race condition, because there is no way to atomically create a node and set its value.
-    SkyKey errorTransienceKey = ErrorTransienceValue.key();
     NodeEntry errorTransienceEntry = Iterables.getOnlyElement(
-        graph.createIfAbsentBatch(ImmutableList.of(errorTransienceKey)).values());
+        graph.createIfAbsentBatch(ImmutableList.of(ErrorTransienceValue.KEY)).values());
     if (!errorTransienceEntry.isDone()) {
       injectValues(
-          ImmutableMap.of(errorTransienceKey, (SkyValue) new ErrorTransienceValue()),
+          ImmutableMap.of(ErrorTransienceValue.KEY, (SkyValue) ErrorTransienceValue.INSTANCE),
           graphVersion,
           graph,
           dirtyKeyTracker);
@@ -1194,6 +1214,10 @@ public final class ParallelEvaluator implements Evaluator {
     try {
       visitor.waitForCompletion();
     } catch (final SchedulerException e) {
+      if (!visitor.getCrashes().isEmpty()) {
+        reporter.handle(Event.error("Crashes detected: " + visitor.getCrashes()));
+        throw Iterables.getFirst(visitor.getCrashes(), null);
+      }
       Throwables.propagateIfPossible(e.getCause(), InterruptedException.class);
       if (Thread.interrupted()) {
         // As per the contract of AbstractQueueVisitor#work, if an unchecked exception is thrown and
@@ -1222,6 +1246,7 @@ public final class ParallelEvaluator implements Evaluator {
                     graph.get(errorKey).getValueMaybeWithMetadata()));
       }
     }
+    Preconditions.checkState(visitor.getCrashes().isEmpty(), visitor.getCrashes());
 
     // Successful evaluation, either because keepGoing or because we actually did succeed.
     // TODO(bazel-team): Maybe report root causes during the build for lower latency.

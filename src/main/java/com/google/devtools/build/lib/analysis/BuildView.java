@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -484,7 +485,9 @@ public class BuildView {
           for (ConfiguredTargetKey targetSpec : targetSpecs) {
             aspectKeys.add(
                 AspectValue.createAspectKey(
-                    targetSpec.getLabel(), targetSpec.getConfiguration(), aspectFactoryClass));
+                    targetSpec.getLabel(),
+                    targetSpec.getConfiguration(),
+                    new NativeAspectClass(aspectFactoryClass)));
           }
         } else {
           throw new ViewCreationFailedException("Aspect '" + aspect + "' is unknown");

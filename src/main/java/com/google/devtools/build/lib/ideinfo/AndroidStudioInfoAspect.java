@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -73,10 +75,12 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
   // Output groups.
 
   public static final String IDE_INFO = "ide-info";
+  public static final String IDE_INFO_TEXT = "ide-info-text";
   public static final String IDE_RESOLVE = "ide-resolve";
 
   // File suffixes.
   public static final String ASWB_BUILD_SUFFIX = ".aswb-build";
+  public static final String ASWB_BUILD_TEXT_SUFFIX = ".aswb-build.txt";
   public static final Function<Label, String> LABEL_TO_STRING = new Function<Label, String>() {
     @Nullable
     @Override
@@ -121,6 +125,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
 
     builder
         .addOutputGroup(IDE_INFO, provider.getIdeInfoFiles())
+        .addOutputGroup(IDE_INFO_TEXT, provider.getIdeInfoTextFiles())
         .addOutputGroup(IDE_RESOLVE, provider.getIdeResolveFiles())
         .addProvider(
             AndroidStudioInfoFilesProvider.class,
@@ -148,11 +153,8 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       dependenciesBuilder.addTransitive(depProvider.getExportedDeps());
 
       providerBuilder.ideInfoFilesBuilder().addTransitive(depProvider.getIdeInfoFiles());
+      providerBuilder.ideInfoTextFilesBuilder().addTransitive(depProvider.getIdeInfoTextFiles());
       providerBuilder.ideResolveFilesBuilder().addTransitive(depProvider.getIdeResolveFiles());
-      providerBuilder.transitiveDependenciesBuilder().addTransitive(
-          depProvider.getTransitiveDependencies());
-      providerBuilder.transitiveResourcesBuilder().addTransitive(
-          depProvider.getTransitiveResources());
     }
     for (TransitiveInfoCollection dep : prerequisites) {
       dependenciesBuilder.add(dep.getLabel());
@@ -176,9 +178,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       }
     }
 
-    NestedSet<Label> directDependencies = dependenciesBuilder.build();
-    providerBuilder.transitiveDependenciesBuilder().addTransitive(directDependencies);
-    return directDependencies;
+    return dependenciesBuilder.build();
   }
 
   private static AndroidSdkRuleInfo makeAndroidSdkRuleInfo(AndroidSdkProvider provider) {
@@ -196,13 +196,12 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       Kind ruleKind,
       NestedSet<Label> directDependencies,
       AndroidStudioInfoFilesProvider.Builder providerBuilder) {
-    PathFragment ideBuildFilePath = getOutputFilePath(base, ruleContext);
-    Root genfilesDirectory = ruleContext.getConfiguration().getGenfilesDirectory();
-    Artifact ideInfoFile =
-        ruleContext
-            .getAnalysisEnvironment()
-            .getDerivedArtifact(ideBuildFilePath, genfilesDirectory);
+
+    Artifact ideInfoFile = ideInfoArtifact(base, ruleContext, ASWB_BUILD_SUFFIX);
+    Artifact ideInfoTextFile = ideInfoArtifact(base, ruleContext, ASWB_BUILD_TEXT_SUFFIX);
+
     providerBuilder.ideInfoFilesBuilder().add(ideInfoFile);
+    providerBuilder.ideInfoTextFilesBuilder().add(ideInfoTextFile);
     NestedSetBuilder<Artifact> ideResolveArtifacts = providerBuilder.ideResolveFilesBuilder();
 
     RuleIdeInfo.Builder outputBuilder = RuleIdeInfo.newBuilder();
@@ -227,13 +226,13 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
         || ruleKind == Kind.ANDROID_BINARY
         || ruleKind == Kind.ANDROID_TEST
         || ruleKind == Kind.ANDROID_ROBOELECTRIC_TEST) {
-      outputBuilder.setJavaRuleIdeInfo(makeJavaRuleIdeInfo(base, ideResolveArtifacts));
+      outputBuilder.setJavaRuleIdeInfo(makeJavaRuleIdeInfo(base, ruleContext, ideResolveArtifacts));
     }
     if (ruleKind == Kind.ANDROID_LIBRARY
         || ruleKind == Kind.ANDROID_BINARY
         || ruleKind == Kind.ANDROID_TEST) {
       outputBuilder.setAndroidRuleIdeInfo(
-          makeAndroidRuleIdeInfo(ruleContext, base, ideResolveArtifacts, providerBuilder));
+          makeAndroidRuleIdeInfo(ruleContext, base, ideResolveArtifacts));
     }
     if (ruleKind == Kind.ANDROID_SDK) {
       outputBuilder.setAndroidSdkRuleInfo(
@@ -243,25 +242,38 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     AndroidStudioInfoFilesProvider provider = providerBuilder.build();
 
     outputBuilder.addAllDependencies(transform(directDependencies, LABEL_TO_STRING));
-    outputBuilder.addAllTransitiveDependencies(
-        transform(provider.getTransitiveDependencies(), LABEL_TO_STRING));
 
     outputBuilder.addAllTags(base.getTarget().getAssociatedRule().getRuleTags());
 
     final RuleIdeInfo ruleIdeInfo = outputBuilder.build();
     ruleContext.registerAction(
         makeProtoWriteAction(ruleContext.getActionOwner(), ruleIdeInfo, ideInfoFile));
+    ruleContext.registerAction(
+        makeProtoTextWriteAction(ruleContext.getActionOwner(), ruleIdeInfo, ideInfoTextFile));
 
     return provider;
+  }
+
+  private static Artifact ideInfoArtifact(ConfiguredTarget base, RuleContext ruleContext,
+      String suffix) {
+    BuildConfiguration configuration = ruleContext.getConfiguration();
+    assert configuration != null;
+    Root genfilesDirectory = configuration.getGenfilesDirectory();
+
+    PathFragment ideBuildFilePath =
+        getOutputFilePath(base, ruleContext, suffix);
+
+    return ruleContext.getAnalysisEnvironment().getDerivedArtifact(
+        ideBuildFilePath, genfilesDirectory);
   }
 
   private static AndroidRuleIdeInfo makeAndroidRuleIdeInfo(
       RuleContext ruleContext,
       ConfiguredTarget base,
-      NestedSetBuilder<Artifact> ideResolveArtifacts,
-      AndroidStudioInfoFilesProvider.Builder providerBuilder) {
+      NestedSetBuilder<Artifact> ideResolveArtifacts) {
     AndroidRuleIdeInfo.Builder builder = AndroidRuleIdeInfo.newBuilder();
     AndroidIdeInfoProvider provider = base.getProvider(AndroidIdeInfoProvider.class);
+    assert provider != null;
     if (provider.getSignedApk() != null) {
       builder.setApk(makeArtifactLocation(provider.getSignedApk()));
     }
@@ -281,15 +293,9 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     for (SourceDirectory resourceDir : provider.getResourceDirs()) {
       ArtifactLocation artifactLocation = makeArtifactLocation(resourceDir);
       builder.addResources(artifactLocation);
-      providerBuilder.transitiveResourcesBuilder().add(resourceDir);
     }
 
     builder.setJavaPackage(AndroidCommon.getJavaPackage(ruleContext));
-
-    NestedSet<SourceDirectory> transitiveResources = providerBuilder.getTransitiveResources();
-    for (SourceDirectory transitiveResource : transitiveResources) {
-      builder.addTransitiveResources(makeArtifactLocation(transitiveResource));
-    }
 
     boolean hasIdlSources = !provider.getIdlSrcs().isEmpty();
     builder.setHasIdlSources(hasIdlSources);
@@ -327,6 +333,15 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
         /*makeExecutable =*/ false);
   }
 
+  private static FileWriteAction makeProtoTextWriteAction(
+      ActionOwner actionOwner, final MessageLite message, Artifact artifact) {
+    return new FileWriteAction(
+        actionOwner,
+        artifact,
+        message.toString(),
+        /*makeExecutable =*/ false);
+  }
+
   private static ArtifactLocation makeArtifactLocation(Artifact artifact) {
     return ArtifactLocation.newBuilder()
         .setRootPath(artifact.getRoot().getPath().toString())
@@ -345,6 +360,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
 
   private static JavaRuleIdeInfo makeJavaRuleIdeInfo(
       ConfiguredTarget base,
+      RuleContext ruleContext,
       NestedSetBuilder<Artifact> ideResolveArtifacts) {
     JavaRuleIdeInfo.Builder builder = JavaRuleIdeInfo.newBuilder();
     JavaRuleOutputJarsProvider outputJarsProvider =
@@ -366,7 +382,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
       collectGenJars(builder, ideResolveArtifacts, genJarsProvider);
     }
 
-    Collection<Artifact> sourceFiles = getSources(base);
+    Collection<Artifact> sourceFiles = getSources(ruleContext);
 
     for (Artifact sourceFile : sourceFiles) {
       builder.addSources(makeArtifactLocation(sourceFile));
@@ -464,31 +480,18 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     }
   }
 
-  private static Collection<Artifact> getSources(ConfiguredTarget base) {
-    // Calculate source files.
-    JavaSourceInfoProvider sourceInfoProvider = base.getProvider(JavaSourceInfoProvider.class);
-    if (sourceInfoProvider == null) {
-      return ImmutableList.of();
-    }
-    AndroidIdeInfoProvider androidIdeInfoProvider = base.getProvider(AndroidIdeInfoProvider.class);
-    if (androidIdeInfoProvider == null) {
-      return sourceInfoProvider.getSourceFiles();
-    }
-    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
-    Collection<Artifact> idlGeneratedJavaFiles = androidIdeInfoProvider.getIdlGeneratedJavaFiles();
-    for (Artifact artifact : sourceInfoProvider.getSourceFiles()) {
-      if (!idlGeneratedJavaFiles.contains(artifact)) {
-        builder.add(artifact);
-      }
-    }
-    return builder.build();
+  private static Collection<Artifact> getSources(RuleContext ruleContext) {
+    return ruleContext.attributes().has("srcs", BuildType.LABEL_LIST)
+        ? ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list()
+        : ImmutableList.<Artifact>of();
   }
 
-  private PathFragment getOutputFilePath(ConfiguredTarget base, RuleContext ruleContext) {
+  private static PathFragment getOutputFilePath(ConfiguredTarget base, RuleContext ruleContext,
+      String suffix) {
     PathFragment packagePathFragment =
         ruleContext.getLabel().getPackageIdentifier().getPathFragment();
     String name = base.getLabel().getName();
-    return new PathFragment(packagePathFragment, new PathFragment(name + ASWB_BUILD_SUFFIX));
+    return new PathFragment(packagePathFragment, new PathFragment(name + suffix));
   }
 
   private RuleIdeInfo.Kind getRuleKind(Rule rule, ConfiguredTarget base) {

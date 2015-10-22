@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -382,7 +383,6 @@ public class PackageFunction implements SkyFunction {
       switch (packageLookupValue.getErrorReason()) {
         case NO_BUILD_FILE:
         case DELETED_PACKAGE:
-        case NO_EXTERNAL_PACKAGE:
           throw new PackageFunctionException(new BuildFileNotFoundException(packageId,
               packageLookupValue.getErrorMsg()), Transience.PERSISTENT);
         case INVALID_PACKAGE_NAME:
@@ -413,25 +413,15 @@ public class PackageFunction implements SkyFunction {
     RootedPath buildFileRootedPath = RootedPath.toRootedPath(packageLookupValue.getRoot(),
         buildFileFragment);
     FileValue buildFileValue = null;
-    try {
-      buildFileValue = (FileValue) env.getValueOrThrow(FileValue.key(buildFileRootedPath),
-          IOException.class, FileSymlinkException.class,
-          InconsistentFilesystemException.class);
-    } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
-      throw new IllegalStateException("Package lookup succeeded but encountered error when "
-          + "getting FileValue for BUILD file directly.", e);
-    }
-    if (buildFileValue == null) {
-      return null;
-    }
-    Preconditions.checkState(buildFileValue.exists(),
-        "Package lookup succeeded but BUILD file doesn't exist");
-
     Path buildFilePath = buildFileRootedPath.asPath();
-
     String replacementContents = null;
-    if (packageId.getPackageFragment().equals(DEFAULTS_PACKAGE_NAME)
-        && packageId.getRepository().isDefault()) {
+
+    if (!isDefaultsPackage(packageId)) {
+      buildFileValue = getBuildFileValue(env, buildFileRootedPath);
+      if (buildFileValue == null) {
+        return null;
+      }
+    } else {
       replacementContents = PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.get(env);
       if (replacementContents == null) {
         return null;
@@ -474,6 +464,12 @@ public class PackageFunction implements SkyFunction {
     }
     legacyPkgBuilder.buildPartial();
     try {
+      // Since the Skyframe dependencies we request below in
+      // markDependenciesAndPropagateInconsistentFilesystemExceptions are requested independently of
+      // the ones requested here in
+      // handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions, we don't
+      // bother checking for missing values and instead piggyback on the env.missingValues() call
+      // for the former. This avoids a Skyframe restart.
       handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
           packageLookupValue.getRoot(), packageId, legacyPkgBuilder, env);
     } catch (InternalInconsistentFilesystemException e) {
@@ -481,14 +477,8 @@ public class PackageFunction implements SkyFunction {
       throw new PackageFunctionException(e,
           e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
     }
-    if (env.valuesMissing()) {
-      // The package we just loaded will be in the {@code packageFunctionCache} next when this
-      // SkyFunction is called again.
-      return null;
-    }
     Collection<Pair<String, Boolean>> globPatterns = legacyPkgBuilder.getGlobPatterns();
     Map<Label, Path> subincludes = legacyPkgBuilder.getSubincludes();
-    Event.replayEventsOn(env.getListener(), legacyPkgBuilder.getEvents());
     boolean packageShouldBeConsideredInError;
     try {
       packageShouldBeConsideredInError =
@@ -499,10 +489,11 @@ public class PackageFunction implements SkyFunction {
       throw new PackageFunctionException(e,
           e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
     }
-
     if (env.valuesMissing()) {
       return null;
     }
+
+    Event.replayEventsOn(env.getListener(), legacyPkgBuilder.getEvents());
 
     if (packageShouldBeConsideredInError) {
       legacyPkgBuilder.setContainsErrors();
@@ -513,6 +504,24 @@ public class PackageFunction implements SkyFunction {
     packageFunctionCache.invalidate(packageId);
 
     return new PackageValue(pkg);
+  }
+
+  private FileValue getBuildFileValue(Environment env, RootedPath buildFileRootedPath) {
+    FileValue buildFileValue;
+    try {
+      buildFileValue = (FileValue) env.getValueOrThrow(FileValue.key(buildFileRootedPath),
+          IOException.class, FileSymlinkException.class,
+          InconsistentFilesystemException.class);
+    } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
+      throw new IllegalStateException("Package lookup succeeded but encountered error when "
+          + "getting FileValue for BUILD file directly.", e);
+    }
+    if (buildFileValue == null) {
+      return null;
+    }
+    Preconditions.checkState(buildFileValue.exists(),
+        "Package lookup succeeded but BUILD file doesn't exist");
+    return buildFileValue;
   }
 
   @Nullable
@@ -837,7 +846,7 @@ public class PackageFunction implements SkyFunction {
    *
    * <p>May return null if the computation has to be restarted.
    *
-   * <p>Exactly one of {@code replacementContents} and {@link buildFileValue} will be
+   * <p>Exactly one of {@code replacementContents} and {@code buildFileValue} will be
    * non-{@code null}. The former indicates that we have a faux BUILD file with the given contents
    * and the latter indicates that we have a legitimate BUILD file and should actually do
    * preprocessing.
@@ -867,13 +876,12 @@ public class PackageFunction implements SkyFunction {
           }
           Preprocessor.Result preprocessingResult;
           if (replacementContents == null) {
-            long buildFileSize = Preconditions.checkNotNull(buildFileValue, packageId).getSize();
-            // Even though we only open and read the file on a cache miss, note that the BUILD is
-            // still parsed two times. Also, the preprocessor may suboptimally open and read it
-            // again anyway.
-            ParserInputSource inputSource;
+            Preconditions.checkNotNull(buildFileValue, packageId);
+            byte[] buildFileBytes;
             try {
-              inputSource = ParserInputSource.create(buildFilePath, buildFileSize);
+              buildFileBytes = buildFileValue.isSpecialFile()
+                  ? FileSystemUtils.readContent(buildFilePath)
+                  : FileSystemUtils.readWithKnownFileSize(buildFilePath, buildFileValue.getSize());
             } catch (IOException e) {
               env.getListener().handle(Event.error(Location.fromFile(buildFilePath),
                   e.getMessage()));
@@ -883,7 +891,8 @@ public class PackageFunction implements SkyFunction {
                   packageId, e.getMessage()), Transience.TRANSIENT);
             }
             try {
-              preprocessingResult = packageFactory.preprocess(packageId, inputSource, globber);
+              preprocessingResult = packageFactory.preprocess(buildFilePath, packageId,
+                  buildFileBytes, globber);
             } catch (IOException e) {
               env.getListener().handle(Event.error(
                   Location.fromFile(buildFilePath),
@@ -992,5 +1001,10 @@ public class PackageFunction implements SkyFunction {
       this.importMap = importMap;
       this.fileDependencies = fileDependencies;
     }
+  }
+
+  static boolean isDefaultsPackage(PackageIdentifier packageIdentifier) {
+    return packageIdentifier.getRepository().isDefault()
+        && packageIdentifier.getPackageFragment().equals(DEFAULTS_PACKAGE_NAME);
   }
 }

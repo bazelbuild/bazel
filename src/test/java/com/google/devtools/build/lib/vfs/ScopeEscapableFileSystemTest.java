@@ -85,6 +85,7 @@ public abstract class ScopeEscapableFileSystemTest extends SymlinkAwareFileSyste
     @Override protected boolean isWritable(Path path) { throw re(); }
     @Override protected boolean isDirectory(Path path, boolean followSymlinks) { throw re(); }
     @Override protected boolean isFile(Path path, boolean followSymlinks) { throw re(); }
+    @Override protected boolean isSpecialFile(Path path, boolean followSymlinks) { throw re(); }
     @Override protected boolean isExecutable(Path path) { throw re(); }
     @Override protected boolean exists(Path path, boolean followSymlinks) {throw re(); }
     @Override protected boolean isSymbolicLink(Path path) { throw re(); }

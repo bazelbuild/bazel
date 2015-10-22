@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AttributeMap.AcceptsLabelAttribute;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.PackageFactory.Globber;
-import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
@@ -1002,15 +1001,14 @@ public class Package {
      * <p>Useful for RuleClass instantiation, where the rule name is checked by trying to create a
      * Label. This label can then be used again here.
      */
-    Rule newRuleWithLabel(Label label, RuleClass ruleClass, FuncallExpression ast,
-        Location location) {
-      return newRuleWithLabelAndAttrContainer(label, ruleClass, ast, location,
+    Rule newRuleWithLabel(Label label, RuleClass ruleClass, Location location) {
+      return newRuleWithLabelAndAttrContainer(label, ruleClass, location,
           new AttributeContainer(ruleClass));
     }
 
-    Rule newRuleWithLabelAndAttrContainer(Label label, RuleClass ruleClass, FuncallExpression ast,
-        Location location, AttributeContainer attributeContainer) {
-      return new Rule(pkg, label, ruleClass, ast, location, attributeContainer);
+    Rule newRuleWithLabelAndAttrContainer(Label label, RuleClass ruleClass, Location location,
+        AttributeContainer attributeContainer) {
+      return new Rule(pkg, label, ruleClass, location, attributeContainer);
     }
 
     /**
