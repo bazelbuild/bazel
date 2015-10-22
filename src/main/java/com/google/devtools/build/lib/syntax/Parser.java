@@ -129,6 +129,14 @@ public class Parser {
           TokenKind.RPAREN,
           TokenKind.SLASH);
 
+  /**
+   * Keywords that are forbidden in both Skylark and BUILD parsing modes.
+   *
+   * <p>(Mapping: token -> human-readable string description)
+   */
+  private static final ImmutableMap<TokenKind, String> ILLEGAL_BLOCK_KEYWORDS =
+      ImmutableMap.of(TokenKind.CLASS, "Class definition", TokenKind.TRY, "Try statement");
+
   private Token token; // current lookahead token
   private Token pushedToken = null; // used to implement LL(2)
 
@@ -1433,18 +1441,19 @@ public class Parser {
     return setLocation(new ReturnStatement(expression), start, expression);
   }
 
-  // block ::= ('if' | 'for' | 'class') expr ':' suite
+  // block ::= ('if' | 'for' | 'class' | 'try' | 'def') expr ':' suite
   private void skipBlock() {
     int start = token.left;
     Token blockToken = token;
     syncTo(EnumSet.of(TokenKind.COLON, TokenKind.EOF)); // skip over expression or name
     if (parsingMode != PYTHON) {
+      String msg =
+          ILLEGAL_BLOCK_KEYWORDS.containsKey(blockToken.kind)
+              ? String.format("%ss are not supported.", ILLEGAL_BLOCK_KEYWORDS.get(blockToken.kind))
+              : "This is not supported in BUILD files. Move the block to a .bzl file and load it";
       reportError(
           lexer.createLocation(start, token.right),
-          "syntax error at '"
-              + blockToken
-              + "': This is not supported in BUILD files. "
-              + "Move the block to a .bzl file and load it");
+          String.format("syntax error at '%s': %s", blockToken, msg));
     }
     expect(TokenKind.COLON);
     skipSuite();

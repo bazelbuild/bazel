@@ -52,7 +52,7 @@ java_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":splitter_lib",
-        "//src/main/java:options",
+        "//src/main/java/com/google/devtools/common/options",
     ],
 )
 
@@ -65,6 +65,6 @@ java_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":ziputils_lib",
-        "//src/main/java:options",
+        "//src/main/java/com/google/devtools/common/options",
     ],
 )

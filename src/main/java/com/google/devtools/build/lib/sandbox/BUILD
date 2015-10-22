@@ -13,7 +13,6 @@ java_library(
         "//src/main/java:common",
         "//src/main/java:events",
         "//src/main/java:io",
-        "//src/main/java:options",
         "//src/main/java:os_util",
         "//src/main/java:packages",
         "//src/main/java:shell",
@@ -22,6 +21,7 @@ java_library(
         "//src/main/java:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/standalone",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
     ],
 )

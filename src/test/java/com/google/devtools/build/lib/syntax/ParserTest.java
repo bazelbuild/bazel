@@ -1253,4 +1253,40 @@ public class ParserTest extends EvaluationTestCase {
         "  else: return a");
     assertContainsEvent("syntax error at 'else'");
   }
+
+  @Test
+  public void testTryStatementInBuild() throws Exception {
+    setFailFast(false);
+    parseFile("try: pass");
+    assertContainsEvent("syntax error at 'try': Try statements are not supported.");
+  }
+
+  @Test
+  public void testTryStatementInSkylark() throws Exception {
+    setFailFast(false);
+    parseFileForSkylark("try: pass");
+    assertContainsEvent("syntax error at 'try': Try statements are not supported.");
+  }
+
+  @Test
+  public void testClassDefinitionInBuild() throws Exception {
+    setFailFast(false);
+    parseFile("class test(object): pass");
+    assertContainsEvent("syntax error at 'class': Class definitions are not supported.");
+  }
+
+  @Test
+  public void testClassDefinitionInSkylark() throws Exception {
+    setFailFast(false);
+    parseFileForSkylark("class test(object): pass");
+    assertContainsEvent("syntax error at 'class': Class definitions are not supported.");
+  }
+
+  @Test
+  public void testDefInBuild() throws Exception {
+    setFailFast(false);
+    parseFile("def func(): pass");
+    assertContainsEvent("syntax error at 'def': This is not supported in BUILD files. "
+        + "Move the block to a .bzl file and load it");
+  }
 }

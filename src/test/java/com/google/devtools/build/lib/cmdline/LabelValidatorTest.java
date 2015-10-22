@@ -33,9 +33,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class LabelValidatorTest {
 
-  private static final String BAD_PACKAGE_CHARS =
-      "package names may contain only A-Z, a-z, 0-9, '/', '-' and '_'";
-
   private PackageAndTarget newFooTarget() {
     return new PackageAndTarget("foo", "foo");
   }
@@ -54,22 +51,38 @@ public class LabelValidatorTest {
     assertNull(LabelValidator.validatePackageName("foo-bar"));
     assertNull(LabelValidator.validatePackageName("Foo-Bar"));
     assertNull(LabelValidator.validatePackageName("FOO-BAR"));
+    assertNull(LabelValidator.validatePackageName("bar.baz"));
+    assertNull(LabelValidator.validatePackageName("a/..b"));
+    assertNull(LabelValidator.validatePackageName("a/.b"));
+    assertNull(LabelValidator.validatePackageName("a/b."));
+    assertNull(LabelValidator.validatePackageName("a/b.."));
 
     // Bad:
-    assertEquals("package names may not start with '/'",
-        LabelValidator.validatePackageName("/foo"));
-    assertEquals("package names may not end with '/'",
-                 LabelValidator.validatePackageName("foo/"));
-    assertEquals(BAD_PACKAGE_CHARS,
-                 LabelValidator.validatePackageName("bar baz"));
-    assertEquals(BAD_PACKAGE_CHARS,
-                 LabelValidator.validatePackageName("foo:bar"));
-    assertEquals(BAD_PACKAGE_CHARS,
-                 LabelValidator.validatePackageName("baz@12345"));
-    assertEquals(BAD_PACKAGE_CHARS,
-                 LabelValidator.validatePackageName("baz(foo)"));
-    assertEquals(BAD_PACKAGE_CHARS,
-                 LabelValidator.validatePackageName("bazfoo)"));
+    assertEquals(
+        "package names may not start with '/'", LabelValidator.validatePackageName("/foo"));
+    assertEquals("package names may not end with '/'", LabelValidator.validatePackageName("foo/"));
+    assertEquals(LabelValidator.PACKAGE_NAME_ERROR, LabelValidator.validatePackageName("bar baz"));
+    assertEquals(LabelValidator.PACKAGE_NAME_ERROR, LabelValidator.validatePackageName("foo:bar"));
+    assertEquals(
+        LabelValidator.PACKAGE_NAME_ERROR, LabelValidator.validatePackageName("baz@12345"));
+    assertEquals(LabelValidator.PACKAGE_NAME_ERROR, LabelValidator.validatePackageName("baz(foo)"));
+    assertEquals(LabelValidator.PACKAGE_NAME_ERROR, LabelValidator.validatePackageName("bazfoo)"));
+
+    assertEquals(
+        LabelValidator.PACKAGE_NAME_DOT_ERROR, LabelValidator.validatePackageName("bar/../baz"));
+    assertEquals(
+        LabelValidator.PACKAGE_NAME_DOT_ERROR, LabelValidator.validatePackageName("bar/.."));
+    assertEquals(
+        LabelValidator.PACKAGE_NAME_DOT_ERROR, LabelValidator.validatePackageName("../bar"));
+    assertEquals(
+        LabelValidator.PACKAGE_NAME_DOT_ERROR, LabelValidator.validatePackageName("bar/..."));
+
+    assertEquals(
+        LabelValidator.PACKAGE_NAME_DOT_ERROR, LabelValidator.validatePackageName("bar/./baz"));
+    assertEquals(
+        LabelValidator.PACKAGE_NAME_DOT_ERROR, LabelValidator.validatePackageName("bar/."));
+    assertEquals(
+        LabelValidator.PACKAGE_NAME_DOT_ERROR, LabelValidator.validatePackageName("./bar"));
   }
 
   @Test

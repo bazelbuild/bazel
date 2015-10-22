@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.cmdline;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CharMatcher;
 
 import java.util.Objects;
@@ -49,8 +50,13 @@ public final class LabelValidator {
           .or(PUNCTUATION_REQUIRING_QUOTING)
           .or(PUNCTUATION_NOT_REQUIRING_QUOTING);
 
-  private static final String PACKAGE_NAME_ERROR =
-      "package names may contain only A-Z, a-z, 0-9, '/', '-' and '_'";
+  @VisibleForTesting
+  static final String PACKAGE_NAME_ERROR =
+      "package names may contain only A-Z, a-z, 0-9, '/', '-', '.' and '_'";
+
+  @VisibleForTesting
+  static final String PACKAGE_NAME_DOT_ERROR =
+      "package name component contains only '.' characters";
 
   /**
    * Performs validity checking of the specified package name. Returns null on success or an error
@@ -72,28 +78,43 @@ public final class LabelValidator {
       return "package names may not start with '/'";
     }
 
-    // Fast path for packages with '.' in their name
-    if (packageName.lastIndexOf('.') != -1) {
-      return PACKAGE_NAME_ERROR;
-    }
-
-    // Check for any character outside of [/0-9A-Za-z_-]. Try to evaluate the
+    // Check for any character outside of [/0-9.A-Za-z_-]. Try to evaluate the
     // conditional quickly (by looking in decreasing order of character class
-    // likelihood).
-    for (int i = len - 1; i >= 0; --i) {
-      char c = packageName.charAt(i);
-      if ((c < 'a' || c > 'z') && c != '/' && c != '_' && c != '-' &&
-          (c < '0' || c > '9') && (c < 'A' || c > 'Z')) {
+    // likelihood). To deal with . and .. pretend that the name is surrounded by '/'
+    // on both sides.
+    boolean nonDot = false;
+    int lastSlash = len;
+    for (int i = len - 1; i >= -1; --i) {
+      char c = (i >= 0) ? packageName.charAt(i) : '/';
+      if ((c < 'a' || c > 'z')
+          && c != '/'
+          && c != '_'
+          && c != '-'
+          && c != '.'
+          && (c < '0' || c > '9')
+          && (c < 'A' || c > 'Z')) {
         return PACKAGE_NAME_ERROR;
+      }
+
+      if (c == '/') {
+        if (lastSlash == i + 1) {
+          return lastSlash == len
+              ? "package names may not end with '/'"
+              : "package names may not contain '//' path separators";
+        }
+
+        if (!nonDot) {
+          return PACKAGE_NAME_DOT_ERROR;
+        }
+        nonDot = false;
+        lastSlash = i;
+      } else {
+        if (c != '.') {
+          nonDot = true;
+        }
       }
     }
 
-    if (packageName.contains("//")) {
-      return "package names may not contain '//' path separators";
-    }
-    if (packageName.endsWith("/")) {
-      return "package names may not end with '/'";
-    }
     return null; // ok
   }
 

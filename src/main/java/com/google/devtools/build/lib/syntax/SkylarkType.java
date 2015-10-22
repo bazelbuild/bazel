@@ -754,9 +754,12 @@ public abstract class SkylarkType implements Serializable {
    * Converts object from a Skylark-compatible wrapper type to its original type.
    */
   public static Object convertFromSkylark(Object value) {
-    if (value instanceof SkylarkList) {
-      return new ArrayList<>(((SkylarkList) value).getList());
+    if (value instanceof MutableList) {
+      return new ArrayList<>(((MutableList) value).getList());
+    } else if (value instanceof Tuple) {
+      return ((Tuple) value).getImmutableList();
+    } else {
+      return value;
     }
-    return value;
   }
 }
