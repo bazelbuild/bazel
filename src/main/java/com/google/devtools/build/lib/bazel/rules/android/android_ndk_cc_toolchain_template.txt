@@ -5,7 +5,7 @@
 cc_toolchain(
     name = "%toolchainName%",
     all_files = ":%toolchainName%-all_files",
-    compiler_files = ":%toolchainName%-toolchain_files",
+    compiler_files = ":%toolchainName%-all_files",
     cpu = "%cpu%",
     dwp_files = ":%toolchainName%-toolchain_files",
     dynamic_runtime_libs = [":%dynamicRuntimeLibs%"],
