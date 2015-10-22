@@ -21,6 +21,7 @@ import com.google.common.collect.Maps;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.annotation.Nullable;
 
@@ -112,29 +113,24 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     return errorInfo == null ? null : errorInfo.getException();
   }
 
-  private static final Function<NodeEntry, Iterable<SkyKey>> GET_DIRECT_DEPS_FUNCTION =
-      new Function<NodeEntry, Iterable<SkyKey>>() {
-        @Override
-        public Iterable<SkyKey> apply(NodeEntry entry) {
-          return entry.getDirectDeps();
-        }
-      };
-
   @Override
   public Map<SkyKey, Iterable<SkyKey>> getDirectDeps(Iterable<SkyKey> keys) {
-    return Maps.transformValues(getEntries(keys, thinGraph), GET_DIRECT_DEPS_FUNCTION);
+    Map<SkyKey, NodeEntry> entries = getEntries(keys, thinGraph);
+    Map<SkyKey, Iterable<SkyKey>> result = new HashMap<>(entries.size());
+    for (Entry<SkyKey, NodeEntry> entry : entries.entrySet()) {
+      result.put(entry.getKey(), entry.getValue().getDirectDeps());
+    }
+    return result;
   }
-
-  private static final Function<NodeEntry, Iterable<SkyKey>> GET_REVERSE_DEPS_FUNCTION =
-      new Function<NodeEntry, Iterable<SkyKey>>() {
-        @Override
-        public Iterable<SkyKey> apply(NodeEntry entry) {
-          return entry.getReverseDeps();
-        }
-      };
 
   @Override
   public Map<SkyKey, Iterable<SkyKey>> getReverseDeps(Iterable<SkyKey> keys) {
-    return Maps.transformValues(getEntries(keys, thinGraph), GET_REVERSE_DEPS_FUNCTION);
+    Map<SkyKey, NodeEntry> entries = getEntries(keys, thinGraph);
+    Map<SkyKey, Iterable<SkyKey>> result = new HashMap<>(entries.size());
+    for (Entry<SkyKey, NodeEntry> entry : entries.entrySet()) {
+      result.put(entry.getKey(), entry.getValue().getReverseDeps());
+    }
+    return result;
   }
+
 }
