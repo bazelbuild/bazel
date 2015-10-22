@@ -188,6 +188,12 @@ a minimal set of extra dependencies.
 * License: Apache License 2.0
 
 
+[jsch](http://www.jcraft.com/jsch/)
+------
+* Version: 0.1.51
+* License: BSD-style license
+
+
 [jsr305](https://code.google.com/p/jsr-305/)
 --------
 

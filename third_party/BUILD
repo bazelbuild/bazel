@@ -246,6 +246,11 @@ java_import(
 )
 
 java_import(
+    name = "jsch",
+    jars = ["jsch/jsch-0.1.51.jar"],
+)
+
+java_import(
     name = "jsr305",
     jars = ["jsr305/jsr-305.jar"],
 )
