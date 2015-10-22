@@ -48,13 +48,6 @@ public class LocalRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    if (rule.getName().contains("/")) {
-      throw new RepositoryFunctionException(
-          new EvalException(
-              rule.getLocation(), "In " + rule + " the 'name' attribute must not contain slashes"),
-          Transience.PERSISTENT);
-    }
-
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     String path = mapper.get("path", Type.STRING);
     PathFragment pathFragment = new PathFragment(path);

@@ -118,7 +118,7 @@ EOF
 
   assert_contains "artifact = \"blorp:glorp:1.2.3\"," ws
   assert_contains "repository = \"http://localhost:$fileserver_port/\"," ws
-  assert_contains "\"@blorp/glorp//jar\"," build
+  assert_contains "\"@blorp_glorp//jar\"," build
 }
 
 function test_invalid_pom() {
@@ -209,7 +209,7 @@ EOF
 EOF
 
   generate_workspace -m $TEST_TMPDIR/b1 &> $TEST_log || fail "generate failed"
-  expect_log "xyz/b2 was defined in $TEST_TMPDIR/b2/pom.xml which isn't a repository URL"
+  expect_log "xyz_b2 was defined in $TEST_TMPDIR/b2/pom.xml which isn't a repository URL"
   assert_contains "artifact = \"xyz:b2:1.0\"," $(get_workspace_file)
 }
 

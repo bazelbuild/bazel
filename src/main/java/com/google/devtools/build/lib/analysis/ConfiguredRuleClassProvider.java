@@ -257,7 +257,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       try {
         return Label.parseAbsolute(from);
       } catch (LabelSyntaxException e) {
-        throw new IllegalArgumentException(from);
+        throw new IllegalArgumentException(from, e);
       }
     }
   });

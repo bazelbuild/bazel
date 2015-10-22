@@ -921,7 +921,7 @@ local_repository(
 EOF
 
   bazel build @r/a//:bin &> $TEST_log && fail "expected build failure, but succeeded"
-  expect_log "the 'name' attribute must not contain slashes"
+  expect_log "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'"
 }
 
 run_suite "local repository tests"

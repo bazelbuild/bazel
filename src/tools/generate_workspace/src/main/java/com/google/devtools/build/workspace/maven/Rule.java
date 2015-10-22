@@ -74,7 +74,7 @@ public final class Rule {
    * A unique name for this artifact to use in maven_jar's name attribute.
    */
   public static String name(String groupId, String artifactId) {
-    return (groupId + "/" + artifactId).replaceAll("\\.", "/");
+    return groupId + "_" + artifactId;
   }
 
   public Artifact getArtifact() {

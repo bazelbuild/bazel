@@ -22,6 +22,7 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
@@ -34,6 +35,7 @@ import java.io.ObjectStreamException;
 import java.io.Serializable;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
+import java.util.regex.Pattern;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -62,6 +64,8 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
    * A human-readable name for the repository.
    */
   public static final class RepositoryName implements Serializable {
+    private static final Pattern VALID_REPO_NAME = Pattern.compile("@[\\w\\-.]*");
+
     /** Helper for serializing {@link RepositoryName}. */
     private static final class SerializationProxy implements Serializable {
       private RepositoryName repositoryName;
@@ -130,96 +134,57 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
       }
     }
 
+    /**
+     * Extracts the repository name from a PathFragment that was created with
+     * {@code PackageIdentifier.getPathFragment}.
+     *
+     * @return a {@code Pair} of the extracted repository name and the path fragment with stripped
+     * of "external/"-prefix and repository name, or null if none was found or the repository name
+     * was invalid.
+     */
+    public static Pair<RepositoryName, PathFragment> fromPathFragment(PathFragment path) {
+      if (path.segmentCount() < 2 || !path.getSegment(0).equals("external")) {
+        return null;
+      }
+      try {
+        RepositoryName repoName = RepositoryName.create("@" + path.getSegment(1));
+        PathFragment subPath = path.subFragment(2, path.segmentCount());
+        return Pair.of(repoName, subPath);
+      } catch (LabelSyntaxException e) {
+        return null;
+      }
+    }
+
     private final String name;
 
     private RepositoryName(String name) {
       this.name = name;
     }
 
-    private static class Lexer {
-      private static final char EOF = '\0';
-
-      private final String name;
-      private int pos;
-
-      public Lexer(String name) {
-        this.name = name;
-        this.pos = 0;
-      }
-
-      public String lex() {
-        if (name.isEmpty()) {
-          return null;
-        }
-
-        if (name.charAt(pos) != '@') {
-          return "workspace names must start with '@'";
-        }
-
-        // @// is valid.
-        if (name.length() == 1) {
-          return null;
-        }
-
-        pos++;
-        // Disallow strings starting with "/",  "./",  or "../"
-        // Disallow strings identical to        ".",   or ".."
-        if (name.charAt(pos) == '/') {
-          return "workspace names are not allowed to start with '@/'";
-        } else if (name.charAt(pos) == '.') {
-          char next = peek(1);
-          char nextNext = peek(2);
-          // Forbid '@.' and '@..' as complete labels and '@./' and '@../' as label starts.
-          if (next == EOF) {
-            return "workspace names are not allowed to be '@.'";
-          } else if (next == '/') {
-            return "workspace names are not allowed to start with '@./'";
-          } else if (next == '.' && (nextNext == '/' || nextNext == EOF)) {
-            return "workspace names are not allowed to start with '@..'";
-          }
-        }
-
-        // This lexes the first letter a second time, to make sure it fulfills the general
-        // workspace name criteria (as well as the more strict criteria for the beginning of a
-        // workspace name).
-        // Disallow strings containing    "//", "/./", or "/../"
-        // Disallow strings ending in     "/",  "/.",   or "/.."
-        // name = @( <alphanum> | [/._-] )*
-        for (; pos < name.length(); pos++) {
-          char c = name.charAt(pos);
-          if (c == '/') {
-            char next = peek(1);
-            if (next == '/') {
-              return "workspace names are not allowed to contain '//'";
-            } else if (next == EOF) {
-              return "workspace names are not allowed to end with '/'";
-            } else if (next == '.' && (peek(2) == '/' || peek(2) == EOF)) {
-              return "workspace names are not allowed to contain '/./'";
-            } else if (next == '.' && peek(2) == '.' && (peek(3) == '/' || peek(3) == EOF)) {
-              return "workspace names are not allowed to contain '/../'";
-            }
-          } else if ((c < 'a' || c > 'z') && c != '_' && c != '-' && c != '/' && c != '.'
-              && (c < '0' || c > '9') && (c < 'A' || c > 'Z')) {
-            return "workspace names may contain only A-Z, a-z, 0-9, '-', '_', '.', and '/'";
-          }
-        }
-
-        return null;
-      }
-
-      private char peek(int num) {
-        if (pos + num >= name.length()) {
-          return EOF;
-        }
-        return name.charAt(pos + num);
-      }
-    }
-
     /**
      * Performs validity checking.  Returns null on success, an error message otherwise.
      */
     private static String validate(String name) {
-      return new Lexer(name).lex();
+      if (name.isEmpty()) {
+        return null;
+      }
+
+      // Some special cases for more user-friendly error messages.
+      if (!name.startsWith("@")) {
+        return "workspace names must start with '@'";
+      }
+      if (name.equals("@.")) {
+        return "workspace names are not allowed to be '@.'";
+      }
+      if (name.equals("@..")) {
+        return "workspace names are not allowed to be '@..'";
+      }
+
+      if (!VALID_REPO_NAME.matcher(name).matches()) {
+        return "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'";
+      }
+
+      return null;
     }
 
     /**

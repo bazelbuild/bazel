@@ -67,26 +67,19 @@ public class PackageIdentifierTest {
   public void testValidateRepositoryName() throws Exception {
     assertEquals("@foo", RepositoryName.create("@foo").toString());
     assertThat(RepositoryName.create("").toString()).isEmpty();
-    assertEquals("@foo/bar", RepositoryName.create("@foo/bar").toString());
+    assertEquals("@foo_bar", RepositoryName.create("@foo_bar").toString());
+    assertEquals("@foo-bar", RepositoryName.create("@foo-bar").toString());
     assertEquals("@foo.bar", RepositoryName.create("@foo.bar").toString());
     assertEquals("@..foo", RepositoryName.create("@..foo").toString());
     assertEquals("@foo..", RepositoryName.create("@foo..").toString());
     assertEquals("@.foo", RepositoryName.create("@.foo").toString());
 
-    assertNotValid("@/", "workspace names are not allowed to start with '@/'");
-    assertNotValid("@.", "workspace names are not allowed to be '@.'");
-    assertNotValid("@./", "workspace names are not allowed to start with '@./'");
-    assertNotValid("@../", "workspace names are not allowed to start with '@..'");
-    assertNotValid("@x/./x", "workspace names are not allowed to contain '/./'");
-    assertNotValid("@x/../x", "workspace names are not allowed to contain '/../'");
-    assertNotValid("@abc/", "workspace names are not allowed to end with '/'");
-    assertNotValid("@/abc", "workspace names are not allowed to start with '@/'");
-    assertNotValid("@a//////b", "workspace names are not allowed to contain '//'");
-    assertNotValid("@foo@",
-        "workspace names may contain only A-Z, a-z, 0-9, '-', '_', '.', and '/'");
-    assertNotValid("@foo\0",
-        "workspace names may contain only A-Z, a-z, 0-9, '-', '_', '.', and '/'");
     assertNotValid("x", "workspace names must start with '@'");
+    assertNotValid("@.", "workspace names are not allowed to be '@.'");
+    assertNotValid("@..", "workspace names are not allowed to be '@..'");
+    assertNotValid("@foo/bar", "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
+    assertNotValid("@foo@", "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
+    assertNotValid("@foo\0", "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
   }
 
   @Test
