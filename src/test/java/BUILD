@@ -35,30 +35,6 @@ java_library(
 )
 
 java_test(
-    name = "skyframe_test",
-    srcs = glob([
-        "com/google/devtools/build/skyframe/*.java",
-    ]),
-    args = ["com.google.devtools.build.skyframe.AllTests"],
-    tags = ["skyframe"],
-    deps = [
-        ":testutil",
-        "//src/main/java:bazel-core",
-        "//src/main/java:collect",
-        "//src/main/java:concurrent",
-        "//src/main/java:events",
-        "//src/main/java:skyframe-base",
-        "//src/main/java:util",
-        "//src/main/java:vfs",
-        "//third_party:guava",
-        "//third_party:guava-testlib",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "options_test",
     srcs = glob(["com/google/devtools/common/options/*.java"]),
     args = ["com.google.devtools.common.options.AllTests"],
@@ -832,7 +808,6 @@ TEST_SUITES = [
     "analysis",
     "foundations",
     "shell",
-    "skyframe",
     "ideinfo",
 ]
 
