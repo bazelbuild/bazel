@@ -7,7 +7,7 @@ layout: documentation
 Module for creating new attributes. They are only for use with the <a href="globals.html#rule">rule</a> function.
 
 <div class="toc">
-  <h1>Methods</h1>
+  <h2>Methods</h2>
   <ul>
           <li><a href="#bool">bool</a></li>
               <li><a href="#int">int</a></li>
@@ -26,7 +26,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
       <h2 id="bool">bool</h2>
         <p><pre>Builder attr.bool(default=False, mandatory=False)
 </pre></p>
-    
+
     Creates an attribute of type bool. Its default value is False.
 
           <h3>Parameters</h3>
@@ -62,11 +62,11 @@ Module for creating new attributes. They are only for use with the <a href="glob
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="int">int</h2>
         <p><pre>Builder attr.int(default=0, mandatory=False, values=[])
 </pre></p>
-    
+
     Creates an attribute of type int.
 
           <h3>Parameters</h3>
@@ -111,11 +111,11 @@ Module for creating new attributes. They are only for use with the <a href="glob
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="int_list">int_list</h2>
         <p><pre>Builder attr.int_list(default=[], mandatory=False, non_empty=False)
 </pre></p>
-    
+
     Creates an attribute of type list of ints
 
           <h3>Parameters</h3>
@@ -160,11 +160,11 @@ Module for creating new attributes. They are only for use with the <a href="glob
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="label">label</h2>
         <p><pre>Builder attr.label(default=None, executable=False, allow_files=False, mandatory=False, providers=[], allow_rules=None, single_file=False, cfg=None)
 </pre></p>
-    
+
     Creates an attribute of type Label. It is the only way to specify a dependency to another target. If you need a dependency that the user cannot overwrite, make the attribute private (starts with <code>_</code>).
 
           <h3>Parameters</h3>
@@ -253,11 +253,11 @@ Module for creating new attributes. They are only for use with the <a href="glob
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="label_list">label_list</h2>
         <p><pre>Builder attr.label_list(default=[], allow_files=False, allow_rules=None, providers=[], flags=[], mandatory=False, non_empty=False, cfg=None)
 </pre></p>
-    
+
     Creates an attribute of type list of labels. See <a href="attr.html#label">label</a> for more information.
 
           <h3>Parameters</h3>
@@ -346,11 +346,11 @@ Module for creating new attributes. They are only for use with the <a href="glob
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="license">license</h2>
         <p><pre>Builder attr.license(default=None, mandatory=False)
 </pre></p>
-    
+
     Creates an attribute of type license. Its default value is NO_LICENSE.
 
           <h3>Parameters</h3>
@@ -385,11 +385,11 @@ Module for creating new attributes. They are only for use with the <a href="glob
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="output">output</h2>
         <p><pre>Builder attr.output(default=None, mandatory=False)
 </pre></p>
-    
+
     Creates an attribute of type output. Its default value is None. The user provides a file name (string) and the rule must create an action that generates the file.
 
           <h3>Parameters</h3>
@@ -425,11 +425,11 @@ Module for creating new attributes. They are only for use with the <a href="glob
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="output_list">output_list</h2>
         <p><pre>Builder attr.output_list(default=[], mandatory=False, non_empty=False)
 </pre></p>
-    
+
     Creates an attribute of type list of outputs. Its default value is <code>[]</code>. See <a href="attr.html#output">output</a> above for more information.
 
           <h3>Parameters</h3>
@@ -474,11 +474,11 @@ Module for creating new attributes. They are only for use with the <a href="glob
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="string">string</h2>
         <p><pre>Builder attr.string(default='', mandatory=False, values=[])
 </pre></p>
-    
+
     Creates an attribute of type string.
 
           <h3>Parameters</h3>
@@ -523,11 +523,11 @@ Module for creating new attributes. They are only for use with the <a href="glob
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="string_dict">string_dict</h2>
         <p><pre>Builder attr.string_dict(default={}, mandatory=False, non_empty=False)
 </pre></p>
-    
+
     Creates an attribute of type dictionary, mapping from string to string. Its default value is dict().
 
           <h3>Parameters</h3>
@@ -572,11 +572,11 @@ Module for creating new attributes. They are only for use with the <a href="glob
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="string_list">string_list</h2>
         <p><pre>Builder attr.string_list(default=[], mandatory=False, non_empty=False)
 </pre></p>
-    
+
     Creates an attribute of type list of strings
 
           <h3>Parameters</h3>
@@ -621,5 +621,5 @@ Module for creating new attributes. They are only for use with the <a href="glob
           </tr>
                 </tbody>
       </table>
-        
-  
+
+

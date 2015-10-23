@@ -16,7 +16,7 @@ x = [s for s in "abc"]  # x == ["a", "b", "c"]</pre>
 Implicit concatenation of strings is not allowed; use the <code>+</code> operator instead.
 
 <div class="toc">
-  <h1>Methods</h1>
+  <h2>Methods</h2>
   <ul>
                       <li><a href="#capitalize">capitalize</a></li>
               <li><a href="#count">count</a></li>
@@ -46,14 +46,14 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           <h2 id="capitalize">capitalize</h2>
         <p><pre><a class="anchor" href="string.html">string</a> string.capitalize()
 </pre></p>
-    
+
     Returns a copy of the string with its first character capitalized and the rest lowercased. This method does not support non-ascii characters.
 
-        
+
         <h2 id="count">count</h2>
         <p><pre>int string.count(sub, start=0, end=None)
 </pre></p>
-    
+
     Returns the number of (non-overlapping) occurrences of substring <code>sub</code> in string, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 
           <h3>Parameters</h3>
@@ -98,11 +98,11 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="endswith">endswith</h2>
         <p><pre><a class="anchor" href="globals.html#bool">bool</a> string.endswith(sub, start=0, end=None)
 </pre></p>
-    
+
     Returns True if the string ends with <code>sub</code>, otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 
           <h3>Parameters</h3>
@@ -147,11 +147,11 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="find">find</h2>
         <p><pre>int string.find(sub, start=0, end=None)
 </pre></p>
-    
+
     Returns the first index where <code>sub</code> is found, or -1 if no such index exists, optionally restricting to [<code>start</code>:<code>end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
 
           <h3>Parameters</h3>
@@ -196,11 +196,11 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="format">format</h2>
         <p><pre><a class="anchor" href="string.html">string</a> string.format(*args, **kwargs)
 </pre></p>
-    
+
     Perform string interpolation. Format strings contain replacement fields surrounded by curly braces <code>{}</code>. Anything that is not contained in braces is considered literal text, which is copied unchanged to the output.If you need to include a brace character in the literal text, it can be escaped by doubling: <code>{{</code> and <code>}}</code>A replacement field can be either a name, a number, or empty. Values are converted to strings using the <a href="globals.html#str">str</a> function.<pre class="language-python"># Access in order:
 "{} < {}".format(4, 5) == "4 < 5"
 # Access by position:
@@ -241,11 +241,11 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="index">index</h2>
         <p><pre>int string.index(sub, start=0, end=&hellip;)
 </pre></p>
-    
+
     Returns the first index where <code>sub</code> is found, or raises an error if no such index exists, optionally restricting to [<code>start</code>:<code>end]</code>, <code>start</code> being inclusive and <code>end</code> being exclusive.
 
           <h3>Parameters</h3>
@@ -290,18 +290,18 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="isalpha">isalpha</h2>
         <p><pre><a class="anchor" href="globals.html#bool">bool</a> string.isalpha()
 </pre></p>
-    
+
     Returns True if all characters in the string are alphabetic ([a-zA-Z]) and it contains at least one character.
 
-        
+
         <h2 id="join">join</h2>
         <p><pre><a class="anchor" href="string.html">string</a> string.join(elements)
 </pre></p>
-    
+
     Returns a string in which the string elements of the argument have been joined by this string as a separator. Example:<br><pre class="language-python">"|".join(["a", "b", "c"]) == "a|b|c"</pre>
 
           <h3>Parameters</h3>
@@ -328,18 +328,18 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="lower">lower</h2>
         <p><pre><a class="anchor" href="string.html">string</a> string.lower()
 </pre></p>
-    
+
     Returns the lower case version of this string.
 
-        
+
         <h2 id="lstrip">lstrip</h2>
         <p><pre><a class="anchor" href="string.html">string</a> string.lstrip(chars=' \t\n\r')
 </pre></p>
-    
+
     Returns a copy of the string where leading characters that appear in <code>chars</code>are removed.<pre class="language-python">"abcba".lstrip("ba") == "cba"</pre
 
           <h3>Parameters</h3>
@@ -366,11 +366,11 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="partition">partition</h2>
         <p><pre><a class="anchor" href="list.html">list</a> string.partition(sep=' ')
 </pre></p>
-    
+
     Splits the input string at the first occurrence of the separator <code>sep</code> and returns the resulting partition as a three-element list of the form [substring_before, separator, substring_after].
 
           <h3>Parameters</h3>
@@ -397,11 +397,11 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="replace">replace</h2>
         <p><pre><a class="anchor" href="string.html">string</a> string.replace(old, new, maxsplit=None)
 </pre></p>
-    
+
     Returns a copy of the string in which the occurrences of <code>old</code> have been replaced with <code>new</code>, optionally restricting the number of replacements to <code>maxsplit</code>.
 
           <h3>Parameters</h3>
@@ -446,11 +446,11 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="rfind">rfind</h2>
         <p><pre>int string.rfind(sub, start=0, end=None)
 </pre></p>
-    
+
     Returns the last index where <code>sub</code> is found, or -1 if no such index exists, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 
           <h3>Parameters</h3>
@@ -495,11 +495,11 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="rindex">rindex</h2>
         <p><pre>int string.rindex(sub, start=0, end=None)
 </pre></p>
-    
+
     Returns the last index where <code>sub</code> is found, or raises an error if no such index exists, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 
           <h3>Parameters</h3>
@@ -544,11 +544,11 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="rpartition">rpartition</h2>
         <p><pre><a class="anchor" href="list.html">list</a> string.rpartition(sep=' ')
 </pre></p>
-    
+
     Splits the input string at the last occurrence of the separator <code>sep</code> and returns the resulting partition as a three-element list of the form [substring_before, separator, substring_after].
 
           <h3>Parameters</h3>
@@ -575,11 +575,11 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="rsplit">rsplit</h2>
         <p><pre><a class="anchor" href="list.html">list</a> string.rsplit(sep, maxsplit=None)
 </pre></p>
-    
+
     Returns a list of all the words in the string, using <code>sep</code>  as the separator, optionally limiting the number of splits to <code>maxsplit</code>. Except for splitting from the right, this method behaves like split().
 
           <h3>Parameters</h3>
@@ -615,11 +615,11 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="rstrip">rstrip</h2>
         <p><pre><a class="anchor" href="string.html">string</a> string.rstrip(chars=' \t\n\r')
 </pre></p>
-    
+
     Returns a copy of the string where trailing characters that appear in <code>chars</code>are removed.<pre class="language-python">"abcba".rstrip("ba") == "abc"</pre
 
           <h3>Parameters</h3>
@@ -646,11 +646,11 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="split">split</h2>
         <p><pre><a class="anchor" href="list.html">list</a> string.split(sep, maxsplit=None)
 </pre></p>
-    
+
     Returns a list of all the words in the string, using <code>sep</code>  as the separator, optionally limiting the number of splits to <code>maxsplit</code>.
 
           <h3>Parameters</h3>
@@ -686,11 +686,11 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="startswith">startswith</h2>
         <p><pre><a class="anchor" href="globals.html#bool">bool</a> string.startswith(sub, start=0, end=None)
 </pre></p>
-    
+
     Returns True if the string starts with <code>sub</code>, otherwise False, optionally restricting to [<code>start</code>:<code>end</code>], <code>start</code> being inclusive and <code>end</code> being exclusive.
 
           <h3>Parameters</h3>
@@ -735,11 +735,11 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="strip">strip</h2>
         <p><pre><a class="anchor" href="string.html">string</a> string.strip(chars=' \t\n\r')
 </pre></p>
-    
+
     Returns a copy of the string where trailing characters that appear in <code>chars</code>are removed.<pre class="language-python">"abcba".strip("ba") == "abc"</pre
 
           <h3>Parameters</h3>
@@ -766,19 +766,19 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="title">title</h2>
         <p><pre><a class="anchor" href="string.html">string</a> string.title()
 </pre></p>
-    
+
     Converts the input string into title case, i.e. every word starts with an uppercase letter while the remaining letters are lowercase. In this context, a word means strictly a sequence of letters. This method does not support supplementary Unicode characters.
 
-        
+
         <h2 id="upper">upper</h2>
         <p><pre><a class="anchor" href="string.html">string</a> string.upper()
 </pre></p>
-    
+
     Returns the upper case version of this string.
 
-        
-  
+
+

@@ -218,10 +218,12 @@ code {
   list-style-type: none;
   padding: 0px;
 }
-.sidebar ul.sidebar-nav li .sidebar-nav-heading {
-  padding: 4px 0px;
+.sidebar ul.sidebar-nav li.sidebar-nav-heading {
+  padding: 10px 0px;
   margin: 0;
   display: block;
+  font-size: 16px;
+  font-weight: 300;
 }
 .sidebar ul.sidebar-nav li a {
   padding: 4px 0px;
@@ -245,7 +247,7 @@ code {
   border-right: 2px solid #66bb6a;
 }
 .sidebar ul.sidebar-nav ul.sidebar-nav {
-  padding-left: 20px;
+  padding-left: 10px;
 }
 @media (min-width: 992px) {
   .sidebar-toggle {
@@ -258,14 +260,14 @@ code {
 .faq-context h4 {
   margin-top: 30px;
 }
-.table-params {
-  border: 1px solid #81C784;
-}
-.table-params colgroup .col-param {
+colgroup .col-param {
   width: 25%;
 }
-.table-params colgroup .col-description {
+colgroup .col-description {
   width: 75%;
+}
+.table-params {
+  border: 1px solid #81C784;
 }
 .table-params thead > tr > th {
   color: #ffffff;
@@ -276,12 +278,25 @@ code {
   background-color: #E8F5E9;
   border: 1px solid #81C784;
 }
+.table-implicit {
+  border: 1px solid #c0c0c0;
+}
+.table-implicit thead > tr > th {
+  color: #ffffff;
+  border: 1px solid #c0c0c0;
+  background-color: #c0c0c0;
+}
+.table-implicit tbody > tr > td {
+  background-color: #f0f0f0;
+  border: 1px solid #c0c0c0;
+}
 .toc {
   border-left: 4px solid #C8E6C9;
   padding-left: 18px;
   margin-bottom: 20px;
 }
-.toc h1 {
+.toc h1,
+.toc h2 {
   font-size: 24px;
   color: #757575;
   margin-bottom: 12px;

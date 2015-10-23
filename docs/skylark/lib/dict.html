@@ -9,7 +9,7 @@ d += {"c" : 3}              # d == {"a" : 1, "b" : 2, "c" : 3}
 d = d + {"c" : 5}           # d == {"a" : 1, "b" : 2, "c" : 5}</pre>Since the language doesn't have mutable objects <code>d["a"] = 5</code> automatically translates to <code>d = d + {"a" : 5}</code>.<br>Iterating on a dict is equivalent to iterating on its keys (in sorted order).<br>Dicts support the <code>in</code> operator, testing membership in the keyset of the dict. Example:<br><pre class="language-python">"a" in {"a" : 2, "b" : 5}   # evaluates as True</pre>
 
 <div class="toc">
-  <h1>Methods</h1>
+  <h2>Methods</h2>
   <ul>
                 <li><a href="#get">get</a></li>
               <li><a href="#items">items</a></li>
@@ -21,7 +21,7 @@ d = d + {"c" : 5}           # d == {"a" : 1, "b" : 2, "c" : 5}</pre>Since the la
         <h2 id="get">get</h2>
         <p><pre>unknown dict.get(key, default=None)
 </pre></p>
-    
+
     Returns the value for <code>key</code> if <code>key</code> is in the dictionary, else <code>default</code>. If <code>default</code> is not given, it defaults to <code>None</code>, so that this method never throws an error.
 
           <h3>Parameters</h3>
@@ -55,29 +55,29 @@ d = d + {"c" : 5}           # d == {"a" : 1, "b" : 2, "c" : 5}</pre>Since the la
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="items">items</h2>
         <p><pre><a class="anchor" href="list.html">list</a> dict.items()
 </pre></p>
-    
+
     Returns the list of key-value tuples. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.items() == [(1, "c"), (2, "a"), (4, "b")]</pre>
 
 
-        
+
         <h2 id="keys">keys</h2>
         <p><pre><a class="anchor" href="list.html">list</a> dict.keys()
 </pre></p>
-    
+
     Returns the list of keys. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.keys() == [1, 2, 4]</pre>
 
 
-        
+
         <h2 id="values">values</h2>
         <p><pre><a class="anchor" href="list.html">list</a> dict.values()
 </pre></p>
-    
+
     Returns the list of values. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.values() == ["c", "a", "b"]</pre>
 
 
-        
-  
+
+

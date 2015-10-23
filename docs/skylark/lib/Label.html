@@ -7,7 +7,7 @@ layout: documentation
 A BUILD target identifier.
 
 <div class="toc">
-  <h1>Methods</h1>
+  <h2>Methods</h2>
   <ul>
           <li><a href="#name">name</a></li>
               <li><a href="#package">package</a></li>
@@ -17,23 +17,23 @@ A BUILD target identifier.
 
       <h2 id="name">name</h2>
         <p><pre><a class="anchor" href="string.html">string</a> Label.name</pre></p>
-    
+
     The name of this label within the package. For instance:<br><pre class=language-python>Label("//pkg/foo:abc").name == "abc"</pre>
 
-        
+
         <h2 id="package">package</h2>
         <p><pre><a class="anchor" href="string.html">string</a> Label.package</pre></p>
-    
+
     The package part of this label. For instance:<br><pre class=language-python>Label("//pkg/foo:abc").package == "pkg/foo"</pre>
 
-        
+
         <h2 id="relative">relative</h2>
         <p><pre><a class="anchor" href="Label.html">Label</a> Label.relative(<a class="anchor" href="string.html">string</a>)</pre></p>
-    
+
     Resolves a label that is either absolute (starts with <code>//</code>) or relative to the current package.<br>For example:<br><ul><pre class=language-python>
 Label("//foo/bar:baz").relative(":quux") == Label("//foo/bar:quux")
 Label("//foo/bar:baz").relative("//wiz:quux") == Label("//wiz:quux")
 </pre>
 
-        
-  
+
+

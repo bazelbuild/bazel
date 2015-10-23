@@ -7,7 +7,7 @@ layout: documentation
 A built-in module to support native rules and other package helper functions. All native rules appear as functions in this module. Note that the native module is only available in the loading phase (i.e. for macros, not for rule implementations).<br/>Extra helper functions:
 
 <div class="toc">
-  <h1>Methods</h1>
+  <h2>Methods</h2>
   <ul>
           <li><a href="#exports_files">exports_files</a></li>
               <li><a href="#glob">glob</a></li>
@@ -18,7 +18,7 @@ A built-in module to support native rules and other package helper functions. Al
       <h2 id="exports_files">exports_files</h2>
         <p><pre><a class="anchor" href="globals.html#None">None</a> native.exports_files(srcs, visibility=&hellip;, licenses=&hellip;)
 </pre></p>
-    
+
     Specifies a list of files belonging to this package that are exported to other packages but not otherwise mentioned.
 
           <h3>Parameters</h3>
@@ -63,11 +63,11 @@ A built-in module to support native rules and other package helper functions. Al
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="glob">glob</h2>
         <p><pre><a class="anchor" href="list.html">sequence</a> native.glob(include, exclude=[], exclude_directories=1)
 </pre></p>
-    
+
     Glob returns a list of every file in the current package that:<ul>
 <li>Matches at least one pattern in <code>include</code>.</li>
 <li>Does not match any of the patterns in <code>exclude</code> (default <code>[]</code>).</li></ul>
@@ -115,11 +115,11 @@ If the <code>exclude_directories</code> argument is enabled (set to <code>1</cod
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="package_group">package_group</h2>
         <p><pre><a class="anchor" href="globals.html#None">None</a> native.package_group(name, packages=[], includes=[])
 </pre></p>
-    
+
     This function defines a set of packages and assigns a label to the group. The label can be referenced in <code>visibility</code> attributes.
 
           <h3>Parameters</h3>
@@ -164,5 +164,5 @@ If the <code>exclude_directories</code> argument is enabled (set to <code>1</cod
           </tr>
                 </tbody>
       </table>
-        
-  
+
+

@@ -7,7 +7,7 @@ layout: documentation
 The context of the rule containing helper functions and information about attributes, depending targets and outputs. You get a ctx object as an argument to the <code>implementation</code> function when you create a rule.
 
 <div class="toc">
-  <h1>Methods</h1>
+  <h2>Methods</h2>
   <ul>
           <li><a href="#action">action</a></li>
               <li><a href="#attr">attr</a></li>
@@ -37,7 +37,7 @@ The context of the rule containing helper functions and information about attrib
       <h2 id="action">action</h2>
         <p><pre><a class="anchor" href="globals.html#None">None</a> ctx.action(outputs, inputs=[], executable=None, arguments=[], mnemonic=None, command=None, progress_message=None, use_default_shell_env=False, env=None, execution_requirements=None, input_manifests=None)
 </pre></p>
-    
+
     Creates an action that runs an executable or a shell command. You must specify either <code>command</code> or <code>executable</code>.
 
           <h3>Parameters</h3>
@@ -152,23 +152,23 @@ The context of the rule containing helper functions and information about attrib
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="attr">attr</h2>
         <p><pre><a class="anchor" href="struct.html">struct</a> ctx.attr</pre></p>
-    
+
     A struct to access the values of the attributes. The values are provided by the user (if not, a default value is used).
 
-        
+
           <h2 id="configuration">configuration</h2>
         <p><pre><a class="anchor" href="configuration.html">configuration</a> ctx.configuration</pre></p>
-    
+
     Returns the default configuration. See the <a href="configuration.html">configuration</a> type for more details.
 
-        
+
         <h2 id="empty_action">empty_action</h2>
         <p><pre><a class="anchor" href="globals.html#None">None</a> ctx.empty_action(mnemonic, inputs=[])
 </pre></p>
-    
+
     Creates an empty action that neither executes a command nor produces any output, but that is useful for inserting 'extra actions'.
 
           <h3>Parameters</h3>
@@ -204,17 +204,17 @@ The context of the rule containing helper functions and information about attrib
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="executable">executable</h2>
         <p><pre><a class="anchor" href="struct.html">struct</a> ctx.executable</pre></p>
-    
+
     A <code>struct</code> containing executable files defined in label type attributes marked as <code>executable=True</code>. The struct fields correspond to the attribute names. Each struct value is always a <code>file</code>s or <code>None</code>. If an optional attribute is not specified in the rule then the corresponding struct value is <code>None</code>. If a label type is not marked as <code>executable=True</code>, no corresponding struct field is generated.
 
-        
+
           <h2 id="expand_location">expand_location</h2>
         <p><pre><a class="anchor" href="string.html">string</a> ctx.expand_location(input, targets=[])
 </pre></p>
-    
+
     Expands the given string so that all labels are replaced with the location of their target file(s). Currently, the algorithm uses output, srcs, deps, tools and data attributes for looking up mappings from label to locations.
 
           <h3>Parameters</h3>
@@ -250,10 +250,10 @@ The context of the rule containing helper functions and information about attrib
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="expand_make_variables">expand_make_variables</h2>
         <p><pre><a class="anchor" href="string.html">string</a> ctx.expand_make_variables(<a class="anchor" href="string.html">string</a>, <a class="anchor" href="string.html">string</a>, <a class="anchor" href="dict.html">dict</a>)</pre></p>
-    
+
     Returns a string after expanding all references to "Make variables". The variables must have the following format: <code>$(VAR_NAME)</code>. Also, <code>$$VAR_NAME</code> expands to <code>$VAR_NAME</code>. Parameters:<ul><li>The name of the attribute (<code>string</code>). It's only used for error reporting.</li>
 <li>The expression to expand (<code>string</code>). It can contain references to "Make variables".</li>
 <li>A mapping of additional substitutions (<code>dict</code> of <code>string</code> : <code>string</code>).</li></ul>
@@ -262,17 +262,17 @@ ctx.expand_make_variables("cmd", "$(MY_VAR)", {"MY_VAR": "Hi"})  # == "Hi"
 ctx.expand_make_variables("cmd", "$$PWD", {})  # == "$PWD"
 </pre>Additional variables may come from other places, such as configurations. Note that this function is experimental.
 
-        
+
         <h2 id="file">file</h2>
         <p><pre><a class="anchor" href="struct.html">struct</a> ctx.file</pre></p>
-    
+
     A <code>struct</code> containing files defined in label type attributes marked as <code>single_file=True</code>. The struct fields correspond to the attribute names. The struct value is always a <code>file</code> or <code>None</code>. If an optional attribute is not specified in the rule then the corresponding struct value is <code>None</code>. If a label type is not marked as <code>single_file=True</code>, no corresponding struct field is generated. It is a shortcut for:<pre class=language-python>list(ctx.attr.<ATTR>.files)[0]</pre>
 
-        
+
         <h2 id="file_action">file_action</h2>
         <p><pre>FileWriteAction ctx.file_action(output, content, executable=False)
 </pre></p>
-    
+
     Creates a file write action.
 
           <h3>Parameters</h3>
@@ -317,59 +317,59 @@ ctx.expand_make_variables("cmd", "$$PWD", {})  # == "$PWD"
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="files">files</h2>
         <p><pre><a class="anchor" href="struct.html">struct</a> ctx.files</pre></p>
-    
+
     A <code>struct</code> containing files defined in label or label list type attributes. The struct fields correspond to the attribute names. The struct values are <code>list</code> of <code>file</code>s. If an optional attribute is not specified in the rule, an empty list is generated.It is a shortcut for:<pre class=language-python>[f for t in ctx.attr.<ATTR> for f in t.files]</pre>
 
-        
+
         <h2 id="fragments">fragments</h2>
         <p><pre><a class="anchor" href="fragments.html">fragments</a> ctx.fragments</pre></p>
-    
+
     Allows access to configuration fragments in target configuration. Possible fields are <code>cpp</code>, <code>java</code> and <code>jvm</code>. However, rules have to declare their required fragments in order to access them (see <a href="../rules.html#fragments">here</a>).
 
-        
+
         <h2 id="host_configuration">host_configuration</h2>
         <p><pre><a class="anchor" href="configuration.html">configuration</a> ctx.host_configuration</pre></p>
-    
+
     Returns the host configuration. See the <a href="configuration.html">configuration</a> type for more details.
 
-        
+
         <h2 id="host_fragments">host_fragments</h2>
         <p><pre><a class="anchor" href="fragments.html">fragments</a> ctx.host_fragments</pre></p>
-    
+
     Allows access to configuration fragments in host configuration. Possible fields are <code>cpp</code>, <code>java</code> and <code>jvm</code>. However, rules have to declare their required fragments in order to access them (see <a href="../rules.html#fragments">here</a>).
 
-        
+
           <h2 id="label">label</h2>
         <p><pre><a class="anchor" href="Label.html">Label</a> ctx.label</pre></p>
-    
+
     The label of this rule.
 
-        
+
           <h2 id="new_file">new_file</h2>
         <p><pre><a class="anchor" href="File.html">File</a> ctx.new_file(<a class="anchor" href="string.html">string</a>)</pre></p>
-    
+
     Creates a file object with the given filename, in the current package. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
 
-        
+
         <h2 id="new_file">new_file</h2>
         <p><pre><a class="anchor" href="File.html">File</a> ctx.new_file(<a class="anchor" href="File.html">File</a>, <a class="anchor" href="string.html">string</a>)</pre></p>
-    
+
     Creates a new file object in the same directory as the original file. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
 
-        
+
           <h2 id="outputs">outputs</h2>
         <p><pre><a class="anchor" href="struct.html">struct</a> ctx.outputs</pre></p>
-    
+
     A <code>struct</code> containing all the output files. The struct is generated the following way:<br><ul><li>If the rule is marked as <code>executable=True</code> the struct has an "executable" field with the rules default executable <code>file</code> value.<li>For every entry in the rule's <code>outputs</code> dict an attr is generated with the same name and the corresponding <code>file</code> value.<li>For every output type attribute a struct attribute is generated with the same name and the corresponding <code>file</code> value or <code>None</code>, if no value is specified in the rule.<li>For every output list type attribute a struct attribute is generated with the same name and corresponding <code>list</code> of <code>file</code>s value (an empty list if no value is specified in the rule).</ul>
 
-        
+
         <h2 id="resolve_command">resolve_command</h2>
         <p><pre><a class="anchor" href="list.html">tuple</a> ctx.resolve_command(command='', attribute=&hellip;, expand_locations=False, make_variables=&hellip;, tools=[], label_dict={})
 </pre></p>
-    
+
     Experimental.Returns a tuple (inputs, command, input_manifests) of the list of resolved inputs, the argv list for the resolved command, and the dict mapping locations to runfiles required to run the command, all of them suitable for passing as the same-named arguments of the ctx.action method.
 
           <h3>Parameters</h3>
@@ -441,11 +441,11 @@ ctx.expand_make_variables("cmd", "$$PWD", {})  # == "$PWD"
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="runfiles">runfiles</h2>
         <p><pre><a class="anchor" href="runfiles.html">runfiles</a> ctx.runfiles(files=[], transitive_files=None, collect_data=False, collect_default=False)
 </pre></p>
-    
+
     Creates a runfiles object.
 
           <h3>Parameters</h3>
@@ -499,11 +499,11 @@ ctx.expand_make_variables("cmd", "$$PWD", {})  # == "$PWD"
           </tr>
                 </tbody>
       </table>
-        
+
         <h2 id="template_action">template_action</h2>
         <p><pre>TemplateExpansionAction ctx.template_action(template, output, substitutions, executable=&hellip;)
 </pre></p>
-    
+
     Creates a template expansion action.
 
           <h3>Parameters</h3>
@@ -557,17 +557,17 @@ ctx.expand_make_variables("cmd", "$$PWD", {})  # == "$PWD"
           </tr>
                 </tbody>
       </table>
-        
+
           <h2 id="var">var</h2>
         <p><pre><a class="anchor" href="dict.html">dict</a> ctx.var</pre></p>
-    
+
     Dictionary (String to String) of configuration variables
 
-        
+
           <h2 id="workspace_name">workspace_name</h2>
         <p><pre><a class="anchor" href="string.html">string</a> ctx.workspace_name</pre></p>
-    
+
     Returns the workspace name as defined in the WORKSPACE file.
 
-        
-  
+
+
