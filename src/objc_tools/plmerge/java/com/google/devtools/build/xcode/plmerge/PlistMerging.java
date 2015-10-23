@@ -53,6 +53,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import javax.xml.parsers.ParserConfigurationException;
 
@@ -61,7 +62,11 @@ import javax.xml.parsers.ParserConfigurationException;
  */
 public class PlistMerging extends Value<PlistMerging> {
   private static final String BUNDLE_IDENTIFIER_PLIST_KEY = "CFBundleIdentifier";
-
+  private static final String BUNDLE_IDENTIFIER_DEFAULT = "com.generic.bundleidentifier";
+  private static final String BUNDLE_VERSION_PLIST_KEY = "CFBundleVersion";
+  private static final String BUNDLE_VERSION_DEFAULT = "1.0.0";
+  private static final String BUNDLE_SHORT_VERSION_STRING_PLIST_KEY = "CFBundleShortVersionString";
+  private static final String BUNDLE_SHORT_VERSION_STRING_DEFAULT = "1.0";
   private static final ImmutableBiMap<String, Integer> DEVICE_FAMILIES =
       ImmutableBiMap.of("IPHONE", 1, "IPAD", 2);
 
@@ -198,6 +203,30 @@ public class PlistMerging extends Value<PlistMerging> {
       }
     }
 
+    // Info.plist files must contain a valid CFBundleVersion and a valid CFBundleShortVersionString,
+    // or it will be rejected by Apple.
+    // A valid Bundle Version is 18 characters or less, and only contains [0-9.]
+    // TODO(bazel-team): warn user if we replace their values.
+    Pattern versionPattern = Pattern.compile("[^0-9.]");
+    if (!merged.containsKey(BUNDLE_VERSION_PLIST_KEY)) {
+      merged.put(BUNDLE_VERSION_PLIST_KEY, BUNDLE_VERSION_DEFAULT);
+    } else {
+      NSObject nsVersion = merged.get(BUNDLE_VERSION_PLIST_KEY);
+      String version = (String) nsVersion.toJavaObject();
+      if (version.length() > 18 || versionPattern.matcher(version).find()) {
+        merged.put(BUNDLE_VERSION_PLIST_KEY, BUNDLE_VERSION_DEFAULT);
+      }
+    }
+    if (!merged.containsKey(BUNDLE_SHORT_VERSION_STRING_PLIST_KEY)) {
+      merged.put(BUNDLE_SHORT_VERSION_STRING_PLIST_KEY, BUNDLE_SHORT_VERSION_STRING_DEFAULT);
+    } else {
+      NSObject nsVersion = merged.get(BUNDLE_SHORT_VERSION_STRING_PLIST_KEY);
+      String version = (String) nsVersion.toJavaObject();
+      if (version.length() > 18 || versionPattern.matcher(version).find()) {
+        merged.put(BUNDLE_SHORT_VERSION_STRING_PLIST_KEY, BUNDLE_SHORT_VERSION_STRING_DEFAULT);
+      }
+    }
+
     return new PlistMerging(merged);
   }
 
@@ -260,11 +289,16 @@ public class PlistMerging extends Value<PlistMerging> {
    */
   public PlistMerging setBundleIdentifier(String primaryIdentifier, String fallbackIdentifier) {
     NSString bundleIdentifier = (NSString) merged.get(BUNDLE_IDENTIFIER_PLIST_KEY);
-        
+
     if (primaryIdentifier != null) {
       merged.put(BUNDLE_IDENTIFIER_PLIST_KEY, primaryIdentifier);
-    } else if (bundleIdentifier == null && fallbackIdentifier != null) {
-      merged.put(BUNDLE_IDENTIFIER_PLIST_KEY, fallbackIdentifier);
+    } else if (bundleIdentifier == null) {
+      if (fallbackIdentifier != null) {
+        merged.put(BUNDLE_IDENTIFIER_PLIST_KEY, fallbackIdentifier);
+      } else {
+        // TODO(bazel-team): We shouldn't be generating an info.plist in this case.
+        merged.put(BUNDLE_IDENTIFIER_PLIST_KEY, BUNDLE_IDENTIFIER_DEFAULT);
+      }
     }
 
     return this;
