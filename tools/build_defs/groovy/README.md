@@ -1,18 +1,20 @@
-# Groovy Rules for Bazel
+# Groovy Rules
+
+<div class="toc">
+  <h2>Rules</h2>
+  <ul>
+    <li><a href="#groovy_library">groovy_library</a></li>
+    <li><a href="#groovy_and_java_library">groovy_and_java_library</a></li>
+    <li><a href="#groovy_binary">groovy_binary</a></li>
+    <li><a href="#spock_test">spock_test</a></li>
+  </ul>
+</div>
 
 ## Overview
 
 These build rules are used for building [Groovy](http://www.groovy-lang.org/)
 projects with Bazel. Groovy libraries may interoperate with and depend on Java
 libraries and vice-versa.
-
-* [Setup](#setup)
-* [Basic Example](#basic-example)
-* [Build Rule Reference](#reference)
-  * [`groovy_library`](#groovy_library)
-  * [`groovy_and_java_library`](#groovy_and_java_library)
-  * [`groovy_binary`](#groovy_binary)
-  * [`spock_test`](#spock_test)
 
 <a name="setup"></a>
 ## Setup
@@ -123,19 +125,21 @@ groovy_test(
 )
 ```
 
-<a name="reference"></a>
-## Build Rule Reference [reference]
-
 <a name="groovy_library"></a>
-### `groovy_library`
+## groovy_library
 
-`groovy_library(name, srcs, deps, **kwargs)`
+```python
+groovy_library(name, srcs, deps, **kwargs)
+```
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>
@@ -180,16 +184,21 @@ groovy_test(
   </tbody>
 </table>
 
-<a name="groovy_and_java_library">
-### `groovy_and_java_library`
+<a name="groovy_and_java_library"></a>
+## groovy\_and\_java\_library
 
-`groovy_and_java_library(name, srcs, deps, **kwargs)`
+```python
+groovy_and_java_library(name, srcs, deps, **kwargs)
+```
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>
@@ -235,15 +244,20 @@ groovy_test(
 </table>
 
 <a name="groovy_binary"></a>
-### `groovy_binary`
+## groovy_binary
 
-`groovy_binary(name, main_class, srcs, deps, **kwargs)`
+```python
+groovy_binary(name, main_class, srcs, deps, **kwargs)
+```
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>
@@ -302,15 +316,20 @@ groovy_test(
 </table>
 
 <a name="groovy_test"></a>
-### `groovy_test`
+## groovy_test
 
-`groovy_test(name, deps, srcs, data, resources, jvm_flags, size, tags)`
+```python
+groovy_test(name, deps, srcs, data, resources, jvm_flags, size, tags)
+```
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>
@@ -369,15 +388,20 @@ groovy_test(
   </tbody>
 
 <a name="spock_test"></a>
-### `spock_test`
+### spock_test
 
-`spock_test(name, specs, deps, groovy_srcs, java_srcs, data, resources, jvm_flags, size, tags)`
+```python
+spock_test(name, specs, deps, groovy_srcs, java_srcs, data, resources, jvm_flags, size, tags)
+```
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>

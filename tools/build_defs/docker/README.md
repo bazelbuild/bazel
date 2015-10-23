@@ -1,5 +1,12 @@
 # Docker support for Bazel
 
+<div class="toc">
+  <h2>Rules</h2>
+  <ul>
+    <li><a href="#docker_build">docker_build</a></li>
+  </ul>
+</div>
+
 ## Overview
 
 These build rules are used for building [Docker](https://www.docker.com)
@@ -15,7 +22,6 @@ The docker_build rule constructs a tarball that is compatible with
 
 * [Basic Example](#basic-example)
 * [Build Rule Reference](#reference)
-  * [`docker_build`](#docker_build)
 * [Future work](#future)
 
 <a name="basic-example"></a>
@@ -181,16 +187,24 @@ docker_build(
 )
 ```
 
-<a name="reference"></a>
-## Build Rule Reference [reference]
+<a name="future"></a>
+## Future work
+
+In the future, we would like to provide better integration with docker
+repositories: pull and push docker image.
 
 <a name="docker_build"></a>
-### `docker_build`
+## docker_build
 
-`docker_build(name, base, data_path, directory, files, mode, tars,
-debs, symlinks, entrypoint, cmd, env, ports, volumes, workdir, repository)`
+```python
+docker_build(name, base, data_path, directory, files, mode, tars, debs, symlinks, entrypoint, cmd, env, ports, volumes, workdir, repository)
+```
 
-<table>
+<table class="table table-condensed table-bordered table-implicit">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
       <th colspan="2">Implicit output targets</th>
@@ -236,11 +250,14 @@ debs, symlinks, entrypoint, cmd, env, ports, volumes, workdir, repository)`
   </tbody>
 </table>
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>
@@ -399,11 +416,4 @@ debs, symlinks, entrypoint, cmd, env, ports, volumes, workdir, repository)`
       </td>
     </tr>
   </tbody>
-  </tbody>
 </table>
-
-<a name="future"></a>
-# Future work
-
-In the future, we would like to provide better integration with docker
-repositories: pull and push docker image.

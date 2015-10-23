@@ -1,15 +1,17 @@
 # Packaging for Bazel
 
+<div class="toc">
+  <h2>Rules</h2>
+  <ul>
+    <li><a href="#pkg_tar">pkg_tar</a></li>
+    <li><a href="#pkg_deb">pkg_deb</a></li>
+  </ul>
+</div>
+
 ## Overview
 
 These build rules are used for building various packaging such as tarball
 and debian package.
-
-* [Basic Example](#basic-example)
-* [Build Rule Reference](#reference)
-  * [`pkg_tar`](#pkg_tar)
-  * [`pkg_deb`](#pkg_deb)
-* [Future work](#future)
 
 <a name="basic-example"></a>
 ## Basic Example
@@ -76,21 +78,29 @@ Here, the Debian package is built from three `pkg_tar` targets:
 `debian-data` is then used for the data content of the debian archive created by
 `pkg_deb`.
 
-<a name="reference"></a>
-## Build Rule Reference [reference]
+<a name="future"></a>
+## Future work
+
+ - Support more format, especially `pkg_zip`.
+ - Maybe a bit more integration with the `docker_build` rule.
 
 <a name="pkg_tar"></a>
-### `pkg_tar`
+## pkg_tar
 
-`pkg_tar(name, extension, data_path, directory, files, mode, modes, tars, debs, symlinks)`
+```python
+pkg_tar(name, extension, data_path, directory, files, mode, modes, tars, debs, symlinks)
+```
 
 Creates a tar file from a list of inputs.
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>
@@ -212,22 +222,24 @@ Creates a tar file from a list of inputs.
 </table>
 
 <a name="pkg_deb"></a>
-### `pkg_deb`
+### pkg_deb
 
-`pkg_deb(name, data, package, architecture, maintainer, preinst, postinst,
-         prerm, postrm, version, version_file, description, description_file,
-         built_using, built_using_file, priority, section, homepage, depends,
-         suggests, enhances, predepends, recommends)`
+```python
+pkg_deb(name, data, package, architecture, maintainer, preinst, postinst, prerm, postrm, version, version_file, description, description_file, built_using, built_using_file, priority, section, homepage, depends, suggests, enhances, predepends, recommends)
+```
 
 Create a debian package. See <a
 href="http://www.debian.org/doc/debian-policy/ch-controlfields.html">http://www.debian.org/doc/debian-policy/ch-controlfields.html</a>
 for more details on this.
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>
@@ -357,9 +369,3 @@ for more details on this.
   </tbody>
   </tbody>
 </table>
-
-<a name="future"></a>
-# Future work
-
- - Support more format, especially `pkg_zip`.
- - Maybe a bit more integration with the `docker_build` rule.

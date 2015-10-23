@@ -1,17 +1,19 @@
 # Java App Engine Rules for Bazel
 
+<div class="toc">
+  <h2>Rules</h2>
+  <ul>
+    <li><a href="#appengine_war">appengine_war</a></li>
+    <li><a href="#java_war">java_war</a></li>
+  </ul>
+</div>
+
 ## Overview
 
 These build rules are used for building
 [Java App Engine](https://cloud.google.com/appengine/docs/java/)
 application with Bazel. It does not aim at general Java web application
 support but can be easily modified to handle a standard web application.
-
-* [Setup](#setup)
-* [Basic Example](#basic-example)
-* [Build Rule Reference](#reference)
-  * [`appengine_war`](#appengine_war)
-  * [`java_war`](#java_war)
 
 <a name="setup"></a>
 ## Setup
@@ -99,19 +101,21 @@ App Engine so you can just do a normal `bazel run
 //hello_app:myapp.deploy APP_ID` to deploy next versions of
 your application.
 
-<a name="reference"></a>
-## Build Rule Reference [reference]
-
 <a name="appengine_war"></a>
-### `appengine_war`
+## appengine_war
 
-`appengine_war(name, jars, data, data_path)`
+```python
+appengine_war(name, jars, data, data_path)
+```
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>
@@ -166,15 +170,20 @@ your application.
 </table>
 
 <a name="java_war">
-### `java_war`
+## java_war
 
-`java_war(name, data, data_path, **kwargs)`
+```
+java_war(name, data, data_path, **kwargs)
+```
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>

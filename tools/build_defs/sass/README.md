@@ -1,13 +1,15 @@
 # Sass Rules for Bazel
 
+<div class="toc">
+  <h2>Rules</h2>
+  <ul>
+    <li><a href="#sass_binary">sass_binary</a></li>
+    <li><a href="#sass_library">sass_library</a></li>
+  </ul>
+</div>
+
 ## Overview
 These build rules are used for building [Sass][sass] projects with Bazel.
-
-* [Setup](#setup)
-* [Basic Example](#basic-example)
-* [Reference](#reference)
-  * [`sass_binary`](#reference-sass_binary)
-  * [`sass_library`](#reference-sass_library)
 
 [sass]: http://www.sass-lang.com
 
@@ -17,7 +19,9 @@ To  use the Sass rules, simply copy the contents of `sass.WORKSPACE` to your own
 
 <a name="basic-example"></a>
 ## Basic Example
+
 Suppose you have the following directory structure for a simple Sass project:
+
 ```
 [workspace]/
     WORKSPACE
@@ -29,20 +33,25 @@ Suppose you have the following directory structure for a simple Sass project:
         _fonts.scss
         _colors.scss
 ```
+
 `shared/_fonts.scss`
+
 ```scss
 $default-font-stack: Cambria, "Hoefler Text", Utopia, "Liberation Serif", "Nimbus Roman No9 L Regular", Times, "Times New Roman", ser
 if;
 $modern-font-stack: Constantia, "Lucida Bright", Lucidabright, "Lucida Serif", Lucida, "DejaVu Serif", "Bitstream Vera Serif", "Liber
 ation Serif", Georgia, serif;
 ```
+
 `shared/_colors.scss`
+
 ```scss
 $example-blue: #0000ff;
 $example-red: #ff0000;
 ```
 
 `shared/BUILD`
+
 ```python
 package(default_visibility = ["//visibility:public"])
 
@@ -58,7 +67,9 @@ sass_library(
     srcs = ["_fonts.scss"],
 )
 ```
+
 `hello_world/main.scss`:
+
 ```scss
 @import "examples/sass/shared/fonts";
 @import "examples/sass/shared/colors";
@@ -73,7 +84,9 @@ html {
   }
 }
 ```
+
 `hello_world/BUILD:`
+
 ```python
 package(default_visibility = ["//visibility:public"])
 
@@ -88,7 +101,9 @@ sass_binary(
     ],
 )
 ```
+
 Build the binary:
+
 ```
 $ bazel build //hello_world
 INFO: Found 1 target...
@@ -102,19 +117,51 @@ INFO: Elapsed time: 1.911s, Critical Path: 0.01s
 ## Build Rule Reference
 
 <a name="reference-sass_binary"></a>
-### `sass_binary`
-`sass_binary(name, src, deps=[], output_style="compressed")`
+## sass_binary
+
+```python
+sass_binary(name, src, deps=[], output_style="compressed")
+```
+
 Used to generate a CSS artifact from a given `src` sass file.
 
-#### Implicit output targets
-  - **name**.css: The generated CSS artifact containing all the styles.
-  - **name**.css.map: a [source map](http://thesassway.com/intermediate/using-source-maps-with-sass) that can be used to optionally debug the generated CSS in a browser.
-
-<table>
+<table class="table table-condensed table-bordered table-implicit">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Implicit Output Targets</th>
+    </th>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code><strong>name</strong>.css</code></td>
+      <td>
+        <p>The generated CSS artifact containing all the styles</p>
+      </td>
+    </tr>
+    <tr>
+      <td><code><strong>name</strong>.css.map</code></td>
+      <td>
+        <p>
+          <a href="http://thesassway.com/intermediate/using-source-maps-with-sass">source map</a>
+          that can be used to optionally debug the generated CSS in a browser.
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
+  <thead>
+    <tr>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>
@@ -163,15 +210,24 @@ Used to generate a CSS artifact from a given `src` sass file.
 </table>
 
 <a name="reference-sass_library"></a>
-### `sass_library`
-`sass_library(name, src, deps=[])`
-Used to reference sass a collection of sass files that a [`sass_binary`](#reference-sass_binary) may depend on (via <code>@import</code> statements), but should not result in any output targets.
+## sass_library
 
-<table>
+```python
+sass_library(name, src, deps=[])
+```
+
+Used to reference sass a collection of sass files that a
+[`sass_binary`](#reference-sass_binary) may depend on (via `@import`
+statements), but should not result in any output targets.
+
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>

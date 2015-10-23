@@ -2,11 +2,16 @@
 
 ## Rules
 
-* [`d_library`](#d_library)
-* [`d_source_library`](#d_source_library)
-* [`d_binary`](#d_binary)
-* [`d_test`](#d_test)
-* [`d_docs`](#d_docs)
+<div class="toc">
+  <h2>Rules</h2>
+  <ul>
+    <li><a href="#d_library">d_library</a></li>
+    <li><a href="#d_source_library">d_source_library</a></li>
+    <li><a href="#d_binary">d_binary</a></li>
+    <li><a href="#d_test">d_test</a></li>
+    <li><a href="#d_docs">d_docs</a></li>
+  </ul>
+</div>
 
 ## Setup
 
@@ -30,11 +35,14 @@ To use the D rules, simply copy the contents of `d.WORKSPACE` into your
 d_library(name, srcs, deps, includes, linkopts, versions)
 ```
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>
@@ -141,11 +149,15 @@ d_binary(
 d_source_library(name, srcs, deps, includes, linkopts, versions)
 ```
 
-<table>
+
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>
@@ -282,11 +294,14 @@ d_binary(
 d_binary(name, srcs, deps, includes, linkopts, versions)
 ```
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>
@@ -420,11 +435,14 @@ d_binary(
 d_test(name, srcs, deps, includes, linkopts, versions)
 ```
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>
@@ -577,11 +595,14 @@ bazel test //hello_lib:greeter_test
 d_docs(name, dep)
 ```
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>

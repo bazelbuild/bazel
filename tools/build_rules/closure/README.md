@@ -3,7 +3,7 @@
 ## Overview
 
 These rules define targets for JavaScript, stylesheets, and templates that will
-be compiled with the Closure Tools toolchain. The following rules are defined:
+be compiled with the Closure Tools toolchain.
 
 * `closure_js_binary`
 * `closure_js_library`

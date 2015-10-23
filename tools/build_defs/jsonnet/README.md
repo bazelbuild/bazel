@@ -1,10 +1,13 @@
 # Jsonnet Rules
 
-## Rules
-
-* [`jsonnet_library`](#jsonnet_library)
-* [`jsonnet_to_json`](#jsonnet_to_json)
-* [`jsonnet_to_json_test`](#jsonnet_to_json_test)
+<div class="toc">
+  <h2>Rules</h2>
+  <ul>
+    <li><a href="#jsonnet_library">jsonnet_library</a></li>
+    <li><a href="#jsonnet_to_json">jsonnet_to_json</a></li>
+    <li><a href="#jsonnet_to_json_test">jsonnet_to_json_test</a></li>
+  </ul>
+</div>
 
 ## Overview
 
@@ -24,11 +27,14 @@ your `WORKSPACE` file.
 jsonnet_library(name, srcs, deps, imports)
 ```
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>
@@ -103,17 +109,20 @@ jsonnet_library(
 ```
 
 <a name="#jsonnet_to_json"></a>
-## jsonnet_to_json
+## jsonnet\_to\_json
 
 ```python
 jsonnet_to_json(name, src, deps, outs, multiple_outputs, imports, vars, code_vars)
 ```
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>
@@ -330,17 +339,20 @@ jsonnet_to_json(
 [multiple-output-files]: http://google.github.io/jsonnet/doc/commandline.html
 
 <a name="#jsonnet_to_json_test"></a>
-## jsonnet_to_json_test
+## jsonnet\_to\_json\_test
 
 ```python
 jsonnet_to_json_test(name, src, deps, imports, golden, error=0, regex=False)
 ```
 
-<table>
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
   <thead>
     <tr>
-      <th>Attribute</th>
-      <th>Description</th>
+      <th colspan="2">Attributes</th>
     </tr>
   </thead>
   <tbody>
