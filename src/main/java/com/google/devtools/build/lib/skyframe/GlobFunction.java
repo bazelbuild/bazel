@@ -42,7 +42,7 @@ import javax.annotation.Nullable;
 public final class GlobFunction implements SkyFunction {
 
   private final Cache<String, Pattern> regexPatternCache =
-      CacheBuilder.newBuilder().concurrencyLevel(4).build();
+      CacheBuilder.newBuilder().maximumSize(10000).concurrencyLevel(4).build();
 
   private final boolean alwaysUseDirListing;
 
