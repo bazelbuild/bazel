@@ -23,7 +23,8 @@ import org.apache.velocity.exception.ParseErrorException;
 import org.apache.velocity.exception.ResourceNotFoundException;
 
 import java.io.File;
-import java.io.FileOutputStream;
+import java.io.FileWriter;
+import java.io.StringWriter;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -56,13 +57,24 @@ class Page {
 
   /**
    * Renders the template and writes the output to the given file.
+   *
+   * Strips all trailing whitespace before writing to file.
    */
   public void write(File outputFile) throws IOException {
-    OutputStream out = new FileOutputStream(outputFile);
-    try (Writer writer = new OutputStreamWriter(out, UTF_8)) {
-      engine.mergeTemplate(template, "UTF-8", context, writer);
+    StringWriter stringWriter = new StringWriter();
+    try {
+      engine.mergeTemplate(template, "UTF-8", context, stringWriter);
     } catch (ResourceNotFoundException|ParseErrorException|MethodInvocationException e) {
       throw new IOException(e);
     }
+    stringWriter.close();
+
+    String[] lines = stringWriter.toString().split(System.getProperty("line.separator"));
+    FileWriter fileWriter = new FileWriter(outputFile);
+    for (String line : lines) {
+      // Strip trailing whitespace then append newline before writing to file.
+      fileWriter.write(line.replaceFirst("\\s+$", "") + "\n");
+    }
+    fileWriter.close();
   }
 }
