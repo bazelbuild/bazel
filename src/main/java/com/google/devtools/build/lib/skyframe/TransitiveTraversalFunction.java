@@ -114,6 +114,12 @@ public class TransitiveTraversalFunction
         : TransitiveTraversalValue.unsuccessfulTransitiveTraversal(firstErrorMessage);
   }
 
+  @Override
+  TargetMarkerValue getTargetMarkerValue(SkyKey targetMarkerKey, Environment env)
+      throws NoSuchTargetException, NoSuchPackageException {
+    return TargetMarkerFunction.computeTargetMarkerValue(targetMarkerKey, env);
+  }
+
   /**
    * Keeps track of the first error message encountered while traversing itself and its
    * dependencies.

@@ -17,20 +17,17 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -61,8 +58,7 @@ import javax.annotation.Nullable;
  * {@link #computeSkyValue} with the {#code ProcessedTargets} to get the {@link SkyValue} to
  * return.
  */
-abstract class TransitiveBaseTraversalFunction<TProcessedTargets>
-    implements SkyFunction {
+abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements SkyFunction {
 
   /**
    * Returns a {@link SkyKey} corresponding to the traversal of a target specified by {@code label}
@@ -80,8 +76,7 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets>
    */
   abstract SkyKey getKey(Label label);
 
-  abstract TProcessedTargets processTarget(Label label,
-      TargetAndErrorIfAny targetAndErrorIfAny);
+  abstract TProcessedTargets processTarget(Label label, TargetAndErrorIfAny targetAndErrorIfAny);
 
   abstract void processDeps(TProcessedTargets processedTargets, EventHandler eventHandler,
       TargetAndErrorIfAny targetAndErrorIfAny,
@@ -94,6 +89,14 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets>
    */
   abstract SkyValue computeSkyValue(TargetAndErrorIfAny targetAndErrorIfAny,
       TProcessedTargets processedTargets);
+
+  /**
+   * Returns a {@link TargetMarkerValue} corresponding to the {@param targetMarkerKey} or {@code
+   * null} if the value isn't ready.
+   */
+  @Nullable
+  abstract TargetMarkerValue getTargetMarkerValue(SkyKey targetMarkerKey, Environment env)
+      throws NoSuchTargetException, NoSuchPackageException;
 
   @Override
   public SkyValue compute(SkyKey key, Environment env)
@@ -150,8 +153,8 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets>
   /**
    * Return an Iterable of SkyKeys corresponding to the Aspect-related dependencies of target.
    *
-   *  <p>This method may return a precise set of aspect keys, but may need to request additional
-   *  dependencies from the env to do so.
+   * <p>This method may return a precise set of aspect keys, but may need to request additional
+   * dependencies from the env to do so.
    */
   private Iterable<SkyKey> getStrictLabelAspectKeys(Target target,
           Map<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> depMap,
@@ -179,14 +182,13 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets>
     return depKeys;
   }
 
-  /**
-   * Get the Aspect-related Label deps for the given edge.
-   */
-  protected abstract Collection<Label> getAspectLabels(Target fromTarget, Attribute attr,
-          Label toLabel,
-          ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
-          Environment env);
-
+  /** Get the Aspect-related Label deps for the given edge. */
+  protected abstract Collection<Label> getAspectLabels(
+      Target fromTarget,
+      Attribute attr,
+      Label toLabel,
+      ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
+      Environment env);
 
   private Iterable<SkyKey> getLabelDepKeys(Target target) {
     List<SkyKey> depKeys = Lists.newArrayList();
@@ -224,23 +226,6 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets>
 
   private static void visitPackageGroup(PackageGroup packageGroup, Set<Label> labels) {
     labels.addAll(packageGroup.getIncludes());
-  }
-
-  protected void maybeReportErrorAboutMissingEdge(Target target, Label depLabel,
-      NoSuchThingException e, EventHandler eventHandler) {
-    if (e instanceof NoSuchTargetException) {
-      NoSuchTargetException nste = (NoSuchTargetException) e;
-      if (depLabel.equals(nste.getLabel())) {
-        eventHandler.handle(Event.error(TargetUtils.getLocationMaybe(target),
-            TargetUtils.formatMissingEdge(target, depLabel, e)));
-      }
-    } else if (e instanceof NoSuchPackageException) {
-      NoSuchPackageException nspe = (NoSuchPackageException) e;
-      if (nspe.getPackageId().equals(depLabel.getPackageIdentifier())) {
-        eventHandler.handle(Event.error(TargetUtils.getLocationMaybe(target),
-            TargetUtils.formatMissingEdge(target, depLabel, e)));
-      }
-    }
   }
 
   enum LoadTargetResultsType {
@@ -308,7 +293,7 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets>
     }
   }
 
-  private static LoadTargetResults loadTarget(Environment env, Label label)
+  private LoadTargetResults loadTarget(Environment env, Label label)
       throws NoSuchTargetException, NoSuchPackageException {
     SkyKey packageKey = PackageValue.key(label.getPackageIdentifier());
     SkyKey targetKey = TargetMarkerValue.key(label);
@@ -317,9 +302,10 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets>
     Target target;
     NoSuchTargetException errorLoadingTarget = null;
     try {
-      TargetMarkerValue targetValue = (TargetMarkerValue) env.getValueOrThrow(targetKey,
-          NoSuchTargetException.class, NoSuchPackageException.class);
-      if (targetValue == null) {
+      TargetMarkerValue targetValue = getTargetMarkerValue(targetKey, env);
+      boolean targetValueMissing = targetValue == null;
+      Preconditions.checkState(targetValueMissing == env.valuesMissing(), targetKey);
+      if (targetValueMissing) {
         return ValuesMissing.INSTANCE;
       }
       PackageValue packageValue = (PackageValue) env.getValueOrThrow(packageKey,

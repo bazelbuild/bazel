@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.skyframe.TransitiveTargetFunction.TransitiveTargetValueBuilder;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -177,6 +179,35 @@ public class TransitiveTargetFunction
       // Do nothing. This error was handled when we computed the corresponding
       // TransitiveTargetValue.
       return ImmutableList.of();
+    }
+  }
+
+  @Override
+  TargetMarkerValue getTargetMarkerValue(SkyKey targetMarkerKey, Environment env)
+      throws NoSuchTargetException, NoSuchPackageException {
+    return (TargetMarkerValue)
+        env.getValueOrThrow(
+            targetMarkerKey, NoSuchTargetException.class, NoSuchPackageException.class);
+  }
+
+  private void maybeReportErrorAboutMissingEdge(
+      Target target, Label depLabel, NoSuchThingException e, EventHandler eventHandler) {
+    if (e instanceof NoSuchTargetException) {
+      NoSuchTargetException nste = (NoSuchTargetException) e;
+      if (depLabel.equals(nste.getLabel())) {
+        eventHandler.handle(
+            Event.error(
+                TargetUtils.getLocationMaybe(target),
+                TargetUtils.formatMissingEdge(target, depLabel, e)));
+      }
+    } else if (e instanceof NoSuchPackageException) {
+      NoSuchPackageException nspe = (NoSuchPackageException) e;
+      if (nspe.getPackageId().equals(depLabel.getPackageIdentifier())) {
+        eventHandler.handle(
+            Event.error(
+                TargetUtils.getLocationMaybe(target),
+                TargetUtils.formatMissingEdge(target, depLabel, e)));
+      }
     }
   }
 
