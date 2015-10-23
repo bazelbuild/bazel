@@ -894,7 +894,7 @@ public final class RuleClass {
    * A (unordered) mapping from attribute names to small integers indexing into
    * the {@code attributes} array.
    */
-  private final Map<String, Integer> attributeIndex = new HashMap<>();
+  private final Map<String, Integer> attributeIndex;
 
   /**
    *  All attributes of this rule class (including inherited ones) ordered by
@@ -1070,6 +1070,7 @@ public final class RuleClass {
 
     // create the index:
     int index = 0;
+    attributeIndex = new HashMap<>(attributes.length);
     for (Attribute attribute : attributes) {
       attributeIndex.put(attribute.getName(), index++);
     }
