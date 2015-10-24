@@ -230,23 +230,29 @@ public class PlistMerging extends Value<PlistMerging> {
     return new PlistMerging(merged);
   }
 
-  // Assume that if an RFC 1034 format string is specified, the value is RFC 1034 compliant.
   private static String substituteEnvironmentVariable(
       Map<String, String> substitutions, String string) {
     // The substitution is *not* performed recursively.
     for (Map.Entry<String, String> variable : substitutions.entrySet()) {
-      for (String variableNameWithFormatString : withFormatStrings(variable.getKey())) {
-        string = string
-            .replace("${" + variableNameWithFormatString + "}", variable.getValue())
-            .replace("$(" + variableNameWithFormatString + ")", variable.getValue());
-      }
+      String key = variable.getKey();
+      String value = variable.getValue();
+      string = string
+          .replace("${" + key + "}", value)
+          .replace("$(" + key + ")", value);
+      key = key + ":rfc1034identifier";
+      value = convertToRFC1034(value);
+      string = string
+          .replace("${" + key + "}", value)
+          .replace("$(" + key + ")", value);
     }
 
     return string;
   }
 
-  private static ImmutableSet<String> withFormatStrings(String variableName) {
-    return ImmutableSet.of(variableName, variableName + ":rfc1034identifier");
+  // Force RFC1034 compliance by changing any "bad" character to a '-'
+  // This is essentially equivalent to what Xcode does.
+  private static String convertToRFC1034(String value) {
+    return value.replaceAll("[^-0-9A-Za-z.]", "-");
   }
 
   @VisibleForTesting
@@ -291,10 +297,10 @@ public class PlistMerging extends Value<PlistMerging> {
     NSString bundleIdentifier = (NSString) merged.get(BUNDLE_IDENTIFIER_PLIST_KEY);
 
     if (primaryIdentifier != null) {
-      merged.put(BUNDLE_IDENTIFIER_PLIST_KEY, primaryIdentifier);
+      merged.put(BUNDLE_IDENTIFIER_PLIST_KEY, convertToRFC1034(primaryIdentifier));
     } else if (bundleIdentifier == null) {
       if (fallbackIdentifier != null) {
-        merged.put(BUNDLE_IDENTIFIER_PLIST_KEY, fallbackIdentifier);
+        merged.put(BUNDLE_IDENTIFIER_PLIST_KEY, convertToRFC1034(fallbackIdentifier));
       } else {
         // TODO(bazel-team): We shouldn't be generating an info.plist in this case.
         merged.put(BUNDLE_IDENTIFIER_PLIST_KEY, BUNDLE_IDENTIFIER_DEFAULT);
