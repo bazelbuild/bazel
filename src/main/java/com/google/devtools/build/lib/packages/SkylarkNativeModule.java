@@ -31,9 +31,11 @@ import com.google.devtools.build.lib.syntax.Type.ConversionException;
  */
 @SkylarkModule(name = "native", namespace = true, doc =
     "A built-in module to support native rules and other package helper functions. "
-    + "All native rules appear as functions in this module. Note that the native module is only "
-    + "available in the loading phase (i.e. for macros, not for rule implementations).<br/>"
-    + "Extra helper functions:")
+    + "All native rules appear as functions in this module, e.g. <code>native.cc_library</code>. "
+    + "Note that the native module is only available in the loading phase "
+    + "(i.e. for macros, not for rule implementations). Attributes will ignore <code>None</code> "
+    + "values, and treat them as if the attribute was unset.<br>"
+    + "The following functions are also available:")
 public class SkylarkNativeModule {
 
   // TODO(bazel-team): shouldn't we return a SkylarkList instead?
