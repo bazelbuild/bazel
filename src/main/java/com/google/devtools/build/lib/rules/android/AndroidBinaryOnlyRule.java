@@ -85,7 +85,9 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
         Densities to filter for when building the apk.
         ${SYNOPSIS}
         This will strip out raster drawable resources that would not be loaded by a device with
-        the specified screen densities, to reduce APK size.
+        the specified screen densities, to reduce APK size. A corresponding compatible-screens
+        section will also be added to the manifest if it does not already contain a superset
+        listing.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("densities", STRING_LIST))
         .add(attr("$android_manifest_merge_tool", LABEL)
