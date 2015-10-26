@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -77,6 +78,10 @@ import javax.annotation.Nullable;
  * artifacts to the other rules.
  */
 public class AndroidCommon {
+
+  public static final InstrumentationSpec ANDROID_COLLECTION_SPEC = JavaCommon.JAVA_COLLECTION_SPEC
+      .withDependencyAttributes("deps", "data", "exports", "runtime_deps", "binary_under_test");
+
   private final RuleContext ruleContext;
   private final JavaCommon javaCommon;
 
@@ -555,7 +560,7 @@ public class AndroidCommon {
         .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
         .build();
 
-    javaCommon.addTransitiveInfoProviders(builder, filesToBuild, classJar);
+    javaCommon.addTransitiveInfoProviders(builder, filesToBuild, classJar, ANDROID_COLLECTION_SPEC);
     javaCommon.addGenJarsProvider(builder, genClassJar, genSourceJar);
     idlHelper.addTransitiveInfoProviders(builder, classJar, manifestProtoOutput);
 
