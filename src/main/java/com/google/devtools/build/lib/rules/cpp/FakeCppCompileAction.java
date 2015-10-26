@@ -137,7 +137,10 @@ public class FakeCppCompileAction extends CppCompileAction {
       }
     }
     IncludeScanningContext scanningContext = executor.getContext(IncludeScanningContext.class);
-    updateActionInputs(executor.getExecRoot(), scanningContext.getArtifactResolver(), reply);
+    NestedSet<Artifact> discoveredInputs =
+        discoverInputsFromDotdFiles(
+            executor.getExecRoot(), scanningContext.getArtifactResolver(), reply);
+    reply = null; // Clear in-memory .d files early.
 
     // Even cc_fake_binary rules need to properly declare their dependencies...
     // In fact, they need to declare their dependencies even more than cc_binary rules do.
@@ -146,7 +149,10 @@ public class FakeCppCompileAction extends CppCompileAction {
     // listed in the "srcs" of the cc_fake_binary or in the "srcs" of a cc_library that it
     // depends on.
     try {
-      validateInclusions(actionExecutionContext.getMiddlemanExpander(), executor.getEventHandler());
+      validateInclusions(
+          discoveredInputs,
+          actionExecutionContext.getMiddlemanExpander(),
+          executor.getEventHandler());
     } catch (ActionExecutionException e) {
       // TODO(bazel-team): (2009) make this into an error, once most of the current warnings
       // are fixed.
@@ -154,6 +160,8 @@ public class FakeCppCompileAction extends CppCompileAction {
           getOwner().getLocation(),
           e.getMessage() + ";\n  this warning may eventually become an error"));
     }
+
+    updateActionInputs(discoveredInputs);
 
     // Generate a fake ".o" file containing the command line needed to generate
     // the real object file.

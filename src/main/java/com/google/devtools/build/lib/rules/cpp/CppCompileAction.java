@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext.Reply;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.util.DependencySet;
 import com.google.devtools.build.lib.util.FileType;
@@ -314,6 +315,16 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return builder.build();
   }
 
+  /**
+   * Whether we should do "include scanning". Note that this does *not* mean whether we should parse
+   * the .d files to determine which include files were used during compilation. Instead, this means
+   * whether we should a) run the pre-execution include scanner (see {@code IncludeScanningContext})
+   * if one exists and b) whether the action inputs should be modified to match the results of that
+   * pre-execution scanning and (if enabled) again after execution to match the results of the .d
+   * file parsing.
+   *
+   * <p>This does *not* have anything to do with "hdrs_check".
+   */
   public boolean shouldScanIncludes() {
     return shouldScanIncludes;
   }
@@ -662,12 +673,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   @VisibleForTesting
   public void validateInclusions(
-      MiddlemanExpander middlemanExpander, EventHandler eventHandler)
+      Iterable<Artifact> inputsForValidation,
+      MiddlemanExpander middlemanExpander,
+      EventHandler eventHandler)
       throws ActionExecutionException {
-    if (!shouldScanIncludes() || !inputsKnown()) {
-      return;
-    }
-
     IncludeProblems errors = new IncludeProblems();
     IncludeProblems warnings = new IncludeProblems();
     Set<Artifact> allowedIncludes = new HashSet<>();
@@ -688,7 +697,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     Set<PathFragment> declaredIncludeDirs = Sets.newHashSet(context.getDeclaredIncludeDirs());
     Set<PathFragment> warnIncludeDirs = Sets.newHashSet(context.getDeclaredIncludeWarnDirs());
     Set<Artifact> declaredIncludeSrcs = Sets.newHashSet(context.getDeclaredIncludeSrcs());
-    for (Artifact input : getInputs()) {
+    for (Artifact input : inputsForValidation) {
       if (context.getCompilationPrerequisites().contains(input)
           || allowedIncludes.contains(input)) {
         continue; // ignore our fixed source in mandatoryInput: we just want includes
@@ -811,12 +820,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   @VisibleForTesting
   @ThreadCompatible
-  public final synchronized void updateActionInputs(Path execRoot,
-      ArtifactResolver artifactResolver, CppCompileActionContext.Reply reply)
+  public final synchronized void updateActionInputs(NestedSet<Artifact> discoveredInputs)
       throws ActionExecutionException {
-    if (!shouldScanIncludes()) {
-      return;
-    }
     inputsKnown = false;
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     Profiler.instance().startTask(ProfilerTask.ACTION_UPDATE, this);
@@ -826,7 +831,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         inputs.add(optionalSourceFile);
       }
       inputs.addAll(context.getCompilationPrerequisites());
-      populateActionInputs(execRoot, artifactResolver, reply, inputs);
+      inputs.addTransitive(discoveredInputs);
       inputsKnown = true;
     } finally {
       Profiler.instance().completeTask(ProfilerTask.ACTION_UPDATE);
@@ -853,27 +858,23 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   /**
-   * Populates the given ordered collection with additional input artifacts
-   * relevant to the specific action implementation.
-   *
-   * <p>The default implementation updates this Action's input set by reading
-   * dynamically-discovered dependency information out of the .d file.
+   * Returns a collection with additional input artifacts relevant to the action by reading the
+   * dynamically-discovered dependency information from the .d file after the action has run.
    *
    * <p>Artifacts are considered inputs but not "mandatory" inputs.
    *
-   *
    * @param reply the reply from the compilation.
-   * @param inputs the ordered collection of inputs to append to
-   * @throws ActionExecutionException iff the .d is missing (when required),
-   *         malformed, or has unresolvable included artifacts.
+   * @throws ActionExecutionException iff the .d is missing (when required), malformed, or has
+   *         unresolvable included artifacts.
    */
+  @VisibleForTesting
   @ThreadCompatible
-  private void populateActionInputs(Path execRoot,
-      ArtifactResolver artifactResolver, CppCompileActionContext.Reply reply,
-      NestedSetBuilder<Artifact> inputs)
+  public NestedSet<Artifact> discoverInputsFromDotdFiles(
+      Path execRoot, ArtifactResolver artifactResolver, Reply reply)
       throws ActionExecutionException {
+    NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
     if (getDotdFile() == null) {
-      return;
+      return inputs.build();
     }
     try {
       // Read .d file.
@@ -929,6 +930,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // Some kind of IO or parse exception--wrap & rethrow it to stop the build.
       throw new ActionExecutionException("error while parsing .d file", e, this, false);
     }
+    return inputs.build();
   }
 
   @Override
@@ -1097,10 +1099,34 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           executor.getVerboseFailures(), this);
     }
     ensureCoverageNotesFilesExist();
+
+    // This is the .d file scanning part.
     IncludeScanningContext scanningContext = executor.getContext(IncludeScanningContext.class);
-    updateActionInputs(executor.getExecRoot(), scanningContext.getArtifactResolver(), reply);
+    NestedSet<Artifact> discoveredInputs =
+        discoverInputsFromDotdFiles(
+            executor.getExecRoot(), scanningContext.getArtifactResolver(), reply);
     reply = null; // Clear in-memory .d files early.
-    validateInclusions(actionExecutionContext.getMiddlemanExpander(), executor.getEventHandler());
+
+    // Post-execute "include scanning", which modifies the action inputs to match what the compile
+    // action actually used by incorporating the results of .d file parsing.
+    //
+    // We enable this when "include scanning" itself is enabled, or when hdrs_check is set to loose
+    // or warn, as otherwise the action might be missing inputs that the compiler used and rebuilds
+    // become incorrect.
+    //
+    // Note that this effectively disables post-execute "include scanning" in Bazel, because
+    // hdrs_check is forced to "strict" and "include scanning" is forced to off.
+    boolean usesStrictHdrsChecks = context.getDeclaredIncludeDirs().isEmpty()
+        && context.getDeclaredIncludeWarnDirs().isEmpty();
+    if (shouldScanIncludes() || !usesStrictHdrsChecks) {
+      updateActionInputs(discoveredInputs);
+    }
+
+    // hdrs_check: This cannot be switched off, because doing so would allow for incorrect builds.
+    validateInclusions(
+        discoveredInputs,
+        actionExecutionContext.getMiddlemanExpander(),
+        executor.getEventHandler());
   }
 
   /**

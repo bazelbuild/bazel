@@ -189,6 +189,8 @@ EOF
     || fail "could not find 'undeclared inclusion' error message in bazel output"
 }
 
+# TODO(philwo) disabled for the same reason as test_sandboxed_cpp_build_catches_header_only_in_srcs
+# above.
 function DISABLED_test_standalone_cpp_build_catches_header_only_in_srcs() {
   bazel --batch clean &> $TEST_log \
     || fail "bazel clean failed"

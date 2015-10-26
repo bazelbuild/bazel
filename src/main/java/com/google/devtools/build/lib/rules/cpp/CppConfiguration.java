@@ -1413,7 +1413,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   public boolean shouldScanIncludes() {
-    if (Constants.HARD_DISABLE_CC_INCLUDE_SCANNING) {
+    if (!Constants.ALLOW_CC_INCLUDE_SCANNING) {
       return false;
     }
     return cppOptions.scanIncludes;
