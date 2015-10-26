@@ -76,14 +76,6 @@ java_library(
     ],
 )
 
-filegroup(
-    name = "options-srcs",
-    srcs = glob([
-        "com/google/devtools/common/options/*.java",
-    ]) + ["options.BUILD"],
-    visibility = ["//src:__subpackages__"],
-)
-
 java_library(
     name = "syntax",
     srcs = glob(["com/google/devtools/build/lib/syntax/*.java"]),

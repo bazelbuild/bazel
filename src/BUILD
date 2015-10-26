@@ -73,8 +73,8 @@ genrule(
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:srcs",
+        "//src/main/java/com/google/devtools/common/options:srcs",
         "//src/main/protobuf:srcs",
-        "//src/main/java:options-srcs",
     ],
     outs = ["embedded_tools.zip"],
     cmd = "\n".join([
@@ -86,8 +86,6 @@ genrule(
         "touch $(@D)/embedded-tools-zip/WORKSPACE",
         "mkdir -p $(@D)/embedded-tools-zip/tools/defaults",
         "touch $(@D)/embedded-tools-zip/tools/defaults/BUILD",
-        "mv $(@D)/embedded-tools-zip/src/main/java/options.BUILD" +
-        " $(@D)/embedded-tools-zip/src/main/java/BUILD",
         "find $(@D)/embedded-tools-zip -exec touch -t 198001010000.00 '{}' ';'",
         "P=$$PWD; (cd $(@D)/embedded-tools-zip && zip -qrD $$P/$@ *)",
         "rm -fr $(@D)/embedded-tools-zip",
