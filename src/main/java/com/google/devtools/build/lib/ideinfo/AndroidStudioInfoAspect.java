@@ -95,6 +95,7 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
     return new AspectDefinition.Builder(NAME)
         .attributeAspect("deps", AndroidStudioInfoAspect.class)
         .attributeAspect("exports", AndroidStudioInfoAspect.class)
+        .attributeAspect("runtime_deps", AndroidStudioInfoAspect.class)
         .build();
   }
 
@@ -138,48 +139,62 @@ public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
   private NestedSet<Label> processDependencies(
       ConfiguredTarget base, RuleContext ruleContext,
       AndroidStudioInfoFilesProvider.Builder providerBuilder, RuleIdeInfo.Kind ruleKind) {
-    NestedSetBuilder<Label> dependenciesBuilder = NestedSetBuilder.stableOrder();
 
-    ImmutableList.Builder<TransitiveInfoCollection> prerequisitesBuilder = ImmutableList.builder();
+    // Calculate direct dependencies
+    ImmutableList.Builder<TransitiveInfoCollection> directDepsBuilder = ImmutableList.builder();
     if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
-      prerequisitesBuilder.addAll(ruleContext.getPrerequisites("deps", Mode.TARGET));
+      directDepsBuilder.addAll(ruleContext.getPrerequisites("deps", Mode.TARGET));
     }
     if (ruleContext.attributes().has("exports", BuildType.LABEL_LIST)) {
-      prerequisitesBuilder.addAll(ruleContext.getPrerequisites("exports", Mode.TARGET));
+      directDepsBuilder.addAll(ruleContext.getPrerequisites("exports", Mode.TARGET));
     }
-    List<TransitiveInfoCollection> prerequisites = prerequisitesBuilder.build();
+    List<TransitiveInfoCollection> directDeps = directDepsBuilder.build();
 
+    // Add exports from direct dependencies
+    NestedSetBuilder<Label> dependenciesBuilder = NestedSetBuilder.stableOrder();
     for (AndroidStudioInfoFilesProvider depProvider :
-        AnalysisUtils.getProviders(prerequisites, AndroidStudioInfoFilesProvider.class)) {
+        AnalysisUtils.getProviders(directDeps, AndroidStudioInfoFilesProvider.class)) {
       dependenciesBuilder.addTransitive(depProvider.getExportedDeps());
-
-      providerBuilder.ideInfoFilesBuilder().addTransitive(depProvider.getIdeInfoFiles());
-      providerBuilder.ideInfoTextFilesBuilder().addTransitive(depProvider.getIdeInfoTextFiles());
-      providerBuilder.ideResolveFilesBuilder().addTransitive(depProvider.getIdeResolveFiles());
     }
-    for (TransitiveInfoCollection dep : prerequisites) {
+    for (TransitiveInfoCollection dep : directDeps) {
       dependenciesBuilder.add(dep.getLabel());
     }
+    NestedSet<Label> dependencies = dependenciesBuilder.build();
 
+    // Propagate my own exports
     JavaExportsProvider javaExportsProvider = base.getProvider(JavaExportsProvider.class);
     if (javaExportsProvider != null) {
       providerBuilder.exportedDepsBuilder()
           .addTransitive(javaExportsProvider.getTransitiveExports());
     }
-
     // android_library without sources exports all its deps
     if (ruleKind == Kind.ANDROID_LIBRARY) {
       JavaSourceInfoProvider sourceInfoProvider = base.getProvider(JavaSourceInfoProvider.class);
       boolean hasSources = sourceInfoProvider != null
           && !sourceInfoProvider.getSourceFiles().isEmpty();
       if (!hasSources) {
-        for (TransitiveInfoCollection dep : prerequisites) {
+        for (TransitiveInfoCollection dep : directDeps) {
           providerBuilder.exportedDepsBuilder().add(dep.getLabel());
         }
       }
     }
 
-    return dependenciesBuilder.build();
+    // Propagate providers from all prerequisites (deps + runtime_deps)
+    ImmutableList.Builder<TransitiveInfoCollection> prerequisitesBuilder = ImmutableList.builder();
+    prerequisitesBuilder.addAll(directDeps);
+    if (ruleContext.attributes().has("runtime_deps", BuildType.LABEL_LIST)) {
+      prerequisitesBuilder.addAll(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET));
+    }
+    List<TransitiveInfoCollection> prerequisites = prerequisitesBuilder.build();
+
+    for (AndroidStudioInfoFilesProvider depProvider :
+        AnalysisUtils.getProviders(prerequisites, AndroidStudioInfoFilesProvider.class)) {
+      providerBuilder.ideInfoFilesBuilder().addTransitive(depProvider.getIdeInfoFiles());
+      providerBuilder.ideInfoTextFilesBuilder().addTransitive(depProvider.getIdeInfoTextFiles());
+      providerBuilder.ideResolveFilesBuilder().addTransitive(depProvider.getIdeResolveFiles());
+    }
+
+    return dependencies;
   }
 
   private static AndroidSdkRuleInfo makeAndroidSdkRuleInfo(AndroidSdkProvider provider) {

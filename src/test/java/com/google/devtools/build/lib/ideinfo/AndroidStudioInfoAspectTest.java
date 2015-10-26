@@ -736,4 +736,25 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
             .setIsSource(true)
             .build());
   }
+
+  public void testAspectIsPropagatedAcrossRuntimeDeps() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "java_library(",
+        "   name = 'foobar',",
+        "   srcs = ['FooBar.java'],",
+        ")",
+        "java_library(",
+        "   name = 'lib',",
+        "   srcs = ['Lib.java'],",
+        "   runtime_deps = [':foobar'],",
+        ")");
+
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:lib");
+    // Fails if aspect was not propagated
+    getRuleInfoAndVerifyLabel("//com/google/example:foobar", ruleIdeInfos);
+
+    RuleIdeInfo libInfo = getRuleInfoAndVerifyLabel("//com/google/example:foobar", ruleIdeInfos);
+    assertThat(libInfo.getDependenciesList()).isEmpty();
+  }
 }
