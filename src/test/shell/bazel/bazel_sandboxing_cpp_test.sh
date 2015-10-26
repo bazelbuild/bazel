@@ -77,6 +77,7 @@ function tear_down() {
   rm -rf examples/cpp
 }
 
+# Tests for #473: Sandboxing for C++ compilation was accidentally disabled.
 function test_sandboxed_cpp_build_rebuilds_on_change() {
   bazel --batch clean &> $TEST_log \
     || fail "bazel clean failed"
@@ -111,11 +112,12 @@ cc_library(
 )
 EOF
 
-  bazel build --hdrs_check=strict --spawn_strategy=sandboxed //examples/cpp:hello-lib &> $TEST_log \
+  bazel build --spawn_strategy=sandboxed //examples/cpp:hello-lib &> $TEST_log \
     && fail "build should not have succeeded with missing header file"
 
-  fgrep "undeclared inclusion(s) in rule '//examples/cpp:hello-lib'" $TEST_log \
-    || fail "could not find 'undeclared inclusion' error message in bazel output"
+  fgrep "fatal error: examples/cpp/lib/hello-lib.h: No such file or directory" $TEST_log \
+    || fgrep "fatal error: 'examples/cpp/lib/hello-lib.h' file not found" $TEST_log \
+    || fail "could not find 'No such file or directory' error message in bazel output"
 }
 
 # TODO(philwo) turns out, we have this special "hdrs" attribute and in theory you can only include

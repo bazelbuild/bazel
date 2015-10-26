@@ -289,9 +289,7 @@ public final class CppLinkAction extends AbstractAction {
 
   @Override
   public String describeStrategy(Executor executor) {
-    return fake
-        ? "fake,local"
-        : executor.getContext(CppLinkActionContext.class).strategyLocality(this);
+    return fake ? "fake,local" : executor.getContext(CppLinkActionContext.class).strategyLocality();
   }
 
   // Don't forget to update FAKE_LINK_GUID if you modify this method.

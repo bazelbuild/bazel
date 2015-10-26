@@ -28,7 +28,7 @@ public interface CppLinkActionContext extends ActionContext {
   /**
    * Returns where the action actually runs.
    */
-  String strategyLocality(CppLinkAction action);
+  String strategyLocality();
 
   /**
    * Returns the estimated resource consumption of the action.

@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.BaseSpawn;
@@ -21,36 +22,36 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
-
-import java.util.List;
+import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 
 /**
- * A link strategy that runs the linking step on the local host.
- *
- * <p>The set of input files necessary to successfully complete the link is the middleman-expanded
- * set of the action's dependency inputs (which includes crosstool and libc dependencies, as
- * defined by {@link com.google.devtools.build.lib.rules.cpp.CppHelper#getCrosstoolInputsForLink
- * CppHelper.getCrosstoolInputsForLink}).
+ * A link strategy that simply passes the everything through to the default spawn action strategy.
  */
-@ExecutionStrategy(contextType = CppLinkActionContext.class, name = { "local" })
-public final class LocalLinkStrategy extends LinkStrategy {
-
-  public LocalLinkStrategy() {
-  }
+@ExecutionStrategy(
+  contextType = CppLinkActionContext.class,
+  name = {"spawn"}
+)
+public final class SpawnLinkStrategy implements CppLinkActionContext {
 
   @Override
   public void exec(CppLinkAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
-    List<String> argv = action.getCommandLine();
-    executor.getSpawnActionContext(action.getMnemonic()).exec(
-        new BaseSpawn.Local(argv, action.getEnvironment(), action),
-        actionExecutionContext);
+    SpawnActionContext spawnActionContext = executor.getSpawnActionContext(action.getMnemonic());
+    Spawn spawn =
+        new BaseSpawn(
+            action.getCommandLine(),
+            action.getEnvironment(),
+            ImmutableMap.<String, String>of(),
+            action,
+            estimateResourceConsumption(action));
+    spawnActionContext.exec(spawn, actionExecutionContext);
   }
 
   @Override
-  public String linkStrategyName() {
-    return "local";
+  public String strategyLocality() {
+    return "spawn";
   }
 
   @Override

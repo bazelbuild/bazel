@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,46 +11,34 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
+import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
- * Run gcc locally by delegating to spawn.
+ * A cpp strategy that simply passes everything through to the default spawn action strategy.
  */
-@ExecutionStrategy(name = { "local" },
-          contextType = CppCompileActionContext.class)
-public class LocalGccStrategy implements CppCompileActionContext {
-  private static final Reply CANNED_REPLY = new Reply() {
-    @Override
-    public byte[] getContents() {
-      throw new IllegalStateException("Remotely computed data requested for local action");
-    }
-  };
-
+@ExecutionStrategy(
+  contextType = CppCompileActionContext.class,
+  name = {"spawn"}
+)
+public class SpawnGccStrategy implements CppCompileActionContext {
   @Override
   public String strategyLocality() {
-    return "local";
-  }
-
-  public static void updateEnv(CppCompileAction action, Map<String, String> env) {
-    // We cannot locally execute an action that does not expect to output a .d file, since we would
-    // have no way to tell what files that it included were used during compilation.
-    // The exception to this is that if no .d file can be produced (as indicated by
-    // dotdfile == null), then the assumption is that there are truly no depencies,
-    // and therefore we don't care whether the step executes locally or remotely.
-    env.put("INTERCEPT_LOCALLY_EXECUTABLE",
-        (action.getDotdFile() != null && action.getDotdFile().artifact() == null) ? "0" : "1");
+    return "spawn";
   }
 
   @Override
@@ -59,8 +47,9 @@ public class LocalGccStrategy implements CppCompileActionContext {
   }
 
   @Override
-  public Collection<Artifact> findAdditionalInputs(CppCompileAction action,
-      ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException {
+  public Collection<Artifact> findAdditionalInputs(
+      CppCompileAction action, ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException {
     return null;
   }
 
@@ -68,12 +57,16 @@ public class LocalGccStrategy implements CppCompileActionContext {
   public CppCompileActionContext.Reply execWithReply(
       CppCompileAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException {
-    Map<String, String> env = new HashMap<>();
-    env.putAll(action.getEnvironment());
-    updateEnv(action, env);
-    actionExecutionContext.getExecutor().getSpawnActionContext(action.getMnemonic())
-        .exec(new BaseSpawn.Local(action.getArgv(), env, action),
-            actionExecutionContext);
+    Executor executor = actionExecutionContext.getExecutor();
+    SpawnActionContext spawnActionContext = executor.getSpawnActionContext(action.getMnemonic());
+    Spawn spawn =
+        new BaseSpawn(
+            action.getArgv(),
+            action.getEnvironment(),
+            ImmutableMap.<String, String>of(),
+            action,
+            estimateResourceConsumption(action));
+    spawnActionContext.exec(spawn, actionExecutionContext);
     return null;
   }
 
@@ -90,6 +83,6 @@ public class LocalGccStrategy implements CppCompileActionContext {
 
   @Override
   public Reply getReplyFromException(ExecException e, CppCompileAction action) {
-    return CANNED_REPLY;
+    return null;
   }
 }
