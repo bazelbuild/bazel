@@ -143,7 +143,7 @@ class ArmCrosstools {
         .setToolchainIdentifier("aarch64-linux-android-clang" + clangVersion)
         .setTargetSystemName("aarch64-linux-android")
         .setTargetCpu("arm64-v8a")
-        .setCompiler("gcc-4.9-clang" + clangVersion)
+        .setCompiler("clang" + clangVersion)
 
         .addAllToolPath(ndkPaths.createClangToolpaths(toolchainName, targetPlatform, clangVersion))
 
@@ -388,7 +388,7 @@ class ArmCrosstools {
 
     CToolchain.Builder builder = CToolchain.newBuilder()
         .setTargetSystemName("arm-linux-androideabi")
-        .setCompiler("gcc-4.8-clang" + clangVersion)
+        .setCompiler("clang" + clangVersion)
 
         .addAllToolPath(ndkPaths.createClangToolpaths(
             toolchainName,

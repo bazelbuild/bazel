@@ -194,7 +194,7 @@ class MipsCrosstools {
     String llvmTriple = mipsArch + "-none-linux-android";
     
     return CToolchain.newBuilder()
-        .setCompiler("gcc-" + gccVersion + "-clang" + clangVersion)
+        .setCompiler("clang" + clangVersion)
 
         // Compiler flags
         .addCompilerFlag("-gcc-toolchain")
