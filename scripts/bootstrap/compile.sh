@@ -17,7 +17,6 @@
 # Script for building bazel from scratch without bazel
 
 PROTO_FILES=$(ls src/main/protobuf/*.proto)
-# TODO: which other library contains Guava?
 LIBRARY_JARS=$(find third_party -name '*.jar' | tr "\n" " ")
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} ${OUTPUT_DIR}/src)
 
