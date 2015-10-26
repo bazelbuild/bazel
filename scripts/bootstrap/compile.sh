@@ -17,6 +17,7 @@
 # Script for building bazel from scratch without bazel
 
 PROTO_FILES=$(ls src/main/protobuf/*.proto)
+# TODO: which other library contains Guava?
 LIBRARY_JARS=$(find third_party -name '*.jar' | tr "\n" " ")
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} ${OUTPUT_DIR}/src)
 
@@ -267,7 +268,7 @@ function cc_link() {
     local OBJ=$(basename "${FILE}").o
     FILES+=("${OUTPUT_DIR}/${OBJDIR}/${OBJ}")
   done
-  run_silent "${CXX}" -o ${OUTPUT} "${FILES[@]}" -lstdc++ ${LDFLAGS}
+  run_silent "${CXX}" -o ${OUTPUT} "${FILES[@]}" ${LDFLAGS}
 }
 
 function cc_build() {
@@ -320,12 +321,12 @@ if [ ! -z "$JNILIB" ] ; then
   done
 
   log "Linking ${JNILIB}..."
-  run_silent "${CXX}" -o ${OUTPUT_DIR}/${JNILIB} $JNI_LD_ARGS -shared ${OUTPUT_DIR}/native/*.o -l stdc++
+  run_silent "${CXX}" -o ${OUTPUT_DIR}/${JNILIB} $JNI_LD_ARGS -shared ${OUTPUT_DIR}/native/*.o -lstdc++
 fi
 
 log "Compiling build-runfiles..."
 # Clang on Linux requires libstdc++
-run_silent "${CXX}" -o ${OUTPUT_DIR}/build-runfiles -std=c++0x src/main/tools/build-runfiles.cc -l stdc++
+run_silent "${CXX}" -o ${OUTPUT_DIR}/build-runfiles -std=c++0x src/main/tools/build-runfiles.cc -lstdc++
 
 log "Compiling process-wrapper..."
 run_silent "${CC}" -o ${OUTPUT_DIR}/process-wrapper -std=c99 src/main/tools/process-wrapper.c src/main/tools/process-tools.c -lm
