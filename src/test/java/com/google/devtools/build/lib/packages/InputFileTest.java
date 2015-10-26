@@ -52,7 +52,7 @@ public class InputFileTest {
             "        outs = [], ",
             "        srcs = ['x', 'subdir/y'])");
     pkg = packages.createPackage("pkg", buildfile);
-    events.assertNoEvents();
+    events.assertNoWarningsOrErrors();
 
     this.pathX = scratch.file("pkg/x", "blah");
     this.pathY = scratch.file("pkg/subdir/y", "blah blah");

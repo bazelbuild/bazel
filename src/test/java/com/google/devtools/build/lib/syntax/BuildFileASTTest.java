@@ -16,16 +16,13 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventCollector;
-import com.google.devtools.build.lib.packages.CachingPackageLocator;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -42,13 +39,6 @@ import java.io.IOException;
 public class BuildFileASTTest extends EvaluationTestCase {
 
   private Scratch scratch = new Scratch();
-
-  private class ScratchPathPackageLocator implements CachingPackageLocator {
-    @Override
-    public Path getBuildFileForPackage(PackageIdentifier packageName) {
-      return scratch.resolve(packageName.getPackageFragment()).getRelative("BUILD");
-    }
-  }
 
   @Override
   public Environment newEnvironment() throws Exception {
@@ -148,21 +138,6 @@ public class BuildFileASTTest extends EvaluationTestCase {
     assertTrue(buildFileAST.containsErrors());
   }
 
-  /**
-   * If the specified EventCollector does contain an event which has
-   * 'expectedEvent' as a substring, the matching event is
-   * returned. Otherwise this will return null.
-   */
-  public static Event findEvent(EventCollector eventCollector,
-                                String expectedEvent) {
-    for (Event event : eventCollector) {
-      if (event.getMessage().contains(expectedEvent)) {
-        return event;
-      }
-    }
-    return null;
-  }
-
   @Test
   public void testWithSyntaxErrorsDoesNotPrintDollarError() throws Exception {
     setFailFast(false);
@@ -177,8 +152,8 @@ public class BuildFileASTTest extends EvaluationTestCase {
     assertTrue(buildFile.containsErrors());
     assertContainsError("syntax error at '+': expected expression");
     assertFalse(buildFile.exec(env, getEventHandler()));
-    assertNull(findEvent(getEventCollector(), "$error$"));
+    MoreAsserts.assertDoesNotContainEvent(getEventCollector(), "$error$");
     // This message should not be printed anymore.
-    assertNull(findEvent(getEventCollector(), "contains syntax error(s)"));
+    MoreAsserts.assertDoesNotContainEvent(getEventCollector(), "contains syntax error(s)");
   }
 }

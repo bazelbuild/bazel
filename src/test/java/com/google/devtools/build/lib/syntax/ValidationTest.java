@@ -377,7 +377,7 @@ public class ValidationTest extends EvaluationTestCase {
 
   private void parse(String... lines) {
     parseFile(lines);
-    assertNoEvents();
+    assertNoWarningsOrErrors();
   }
 
   private void checkError(String errorMsg, String... lines) {
