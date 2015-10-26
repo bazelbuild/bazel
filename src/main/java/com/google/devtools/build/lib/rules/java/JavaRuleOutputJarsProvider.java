@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -25,29 +27,72 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider {
-  @Nullable private final Artifact classJar;
-  @Nullable private final Artifact iJar;
-  @Nullable private final Artifact srcJar;
 
-  public JavaRuleOutputJarsProvider(
-      @Nullable Artifact classJar, @Nullable Artifact iJar, @Nullable Artifact srcJar) {
-    this.classJar = classJar;
-    this.iJar = iJar;
-    this.srcJar = srcJar;
+  public static final JavaRuleOutputJarsProvider EMPTY =
+      new JavaRuleOutputJarsProvider(ImmutableList.<OutputJar>of());
+
+  /**
+   * A collection of artifacts associated with a jar output.
+   */
+  public static class OutputJar {
+    @Nullable private final Artifact classJar;
+    @Nullable private final Artifact iJar;
+    @Nullable private final Artifact srcJar;
+
+    private OutputJar(
+        @Nullable Artifact classJar, @Nullable Artifact iJar, @Nullable Artifact srcJar) {
+      this.classJar = classJar;
+      this.iJar = iJar;
+      this.srcJar = srcJar;
+    }
+
+    @Nullable
+    public Artifact getClassJar() {
+      return classJar;
+    }
+
+    @Nullable
+    public Artifact getIJar() {
+      return iJar;
+    }
+
+    @Nullable
+    public Artifact getSrcJar() {
+      return srcJar;
+    }
   }
 
-  @Nullable
-  public Artifact getClassJar() {
-    return classJar;
+  final Iterable<OutputJar> outputJars;
+
+  private JavaRuleOutputJarsProvider(Iterable<OutputJar> outputJars) {
+    this.outputJars = outputJars;
   }
 
-  @Nullable
-  public Artifact getIJar() {
-    return iJar;
+  public Iterable<OutputJar> getOutputJars() {
+    return outputJars;
   }
 
-  @Nullable
-  public Artifact getSrcJar() {
-    return srcJar;
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  /**
+   * Builderassociated.
+   */
+  public static class Builder {
+    ImmutableList.Builder<OutputJar> outputJars = ImmutableList.builder();
+
+    public Builder addOutputJar(
+        @Nullable Artifact classJar,
+        @Nullable Artifact iJar,
+        @Nullable Artifact sourceJar) {
+      Preconditions.checkState(classJar != null || iJar != null || sourceJar != null);
+      outputJars.add(new OutputJar(classJar, iJar, sourceJar));
+      return this;
+    }
+
+    public JavaRuleOutputJarsProvider build() {
+      return new JavaRuleOutputJarsProvider(outputJars.build());
+    }
   }
 }
