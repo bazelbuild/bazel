@@ -238,8 +238,8 @@ public class BazelJavaSemantics implements JavaSemantics {
 
   
   @Override
-  public Iterable<String> getJvmFlags(RuleContext ruleContext, JavaCommon javaCommon,
-      Artifact launcher, List<String> userJvmFlags) {
+  public Iterable<String> getJvmFlags(
+      RuleContext ruleContext, JavaCommon javaCommon, List<String> userJvmFlags) {
     return userJvmFlags;
   }
 

@@ -190,7 +190,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkInputs();
 
 
-    Iterables.addAll(jvmFlags, semantics.getJvmFlags(ruleContext, common, launcher, userJvmFlags));
+    Iterables.addAll(jvmFlags, semantics.getJvmFlags(ruleContext, common, userJvmFlags));
     if (ruleContext.hasErrors()) {
       return null;
     }

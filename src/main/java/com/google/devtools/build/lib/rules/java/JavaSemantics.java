@@ -279,8 +279,8 @@ public interface JavaSemantics {
   /**
    * Return the JVM flags to be used in a Java binary.
    */
-  Iterable<String> getJvmFlags(RuleContext ruleContext, JavaCommon javaCommon,
-      Artifact launcher, List<String> userJvmFlags);
+  Iterable<String> getJvmFlags(
+      RuleContext ruleContext, JavaCommon javaCommon, List<String> userJvmFlags);
 
   /**
    * Adds extra providers to a Java target.
