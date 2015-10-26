@@ -185,8 +185,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * @param offset how many characters from the start of the string to ignore.
    */
   private static String[] segment(String toSegment, int offset) {
-    char[] chars = toSegment.toCharArray();
-    int length = chars.length;
+    int length = toSegment.length();
 
     // Handle "/" and "" quickly.
     if (length == offset) {
@@ -198,7 +197,7 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     int seg = 0;
     int start = offset;
     for (int i = offset; i < length; i++) {
-      if (isSeparator(chars[i])) {
+      if (isSeparator(toSegment.charAt(i))) {
         if (i > start) {  // to skip repeated separators
           seg++;
         }
@@ -212,20 +211,16 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
     seg = 0;
     start = offset;
     for (int i = offset; i < length; i++) {
-      if (isSeparator(chars[i])) {
+      if (isSeparator(toSegment.charAt(i))) {
         if (i > start) {  // to skip repeated separators
-          // Make a copy of the String here to allow the interning to save memory. String.substring
-          // does not make a copy, but refers to the original char array, preventing garbage
-          // collection of the parts that are unnecessary.
-          result[seg] = StringCanonicalizer.intern(new String(chars, start,  i - start));
+          result[seg] = StringCanonicalizer.intern(toSegment.substring(start,  i));
           seg++;
         }
         start = i + 1;
       }
     }
     if (start < length) {
-      result[seg] = StringCanonicalizer.intern(new String(chars, start, length - start));
-      seg++;
+      result[seg] = StringCanonicalizer.intern(toSegment.substring(start, length));
     }
     return result;
   }
