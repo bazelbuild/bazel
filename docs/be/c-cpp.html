@@ -33,7 +33,7 @@ layout: documentation
     cc_binary
   </h2>
 
-  <pre class="rule-signature">cc_binary(<a href="#cc_binary.name">name</a>, <a href="#cc_binary.deps">deps</a>, <a href="#cc_binary.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#cc_binary.abi">abi</a>, <a href="#cc_binary.abi_deps">abi_deps</a>, <a href="common-definitions.html#binary.args">args</a>, <a href="#cc_binary.copts">copts</a>, <a href="#cc_binary.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#cc_binary.hdrs_check">hdrs_check</a>, <a href="#cc_binary.includes">includes</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#cc_binary.linkopts">linkopts</a>, <a href="#cc_binary.linkshared">linkshared</a>, <a href="#cc_binary.linkstatic">linkstatic</a>, <a href="#cc_binary.malloc">malloc</a>, <a href="#cc_binary.nocopts">nocopts</a>, <a href="common-definitions.html#binary.output_licenses">output_licenses</a>, <a href="#cc_binary.stamp">stamp</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">cc_binary(<a href="#cc_binary.name">name</a>, <a href="#cc_binary.deps">deps</a>, <a href="#cc_binary.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#cc_binary.abi">abi</a>, <a href="#cc_binary.abi_deps">abi_deps</a>, <a href="common-definitions.html#binary.args">args</a>, <a href="#cc_binary.copts">copts</a>, <a href="#cc_binary.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#cc_binary.includes">includes</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#cc_binary.linkopts">linkopts</a>, <a href="#cc_binary.linkshared">linkshared</a>, <a href="#cc_binary.linkstatic">linkstatic</a>, <a href="#cc_binary.malloc">malloc</a>, <a href="#cc_binary.nocopts">nocopts</a>, <a href="common-definitions.html#binary.output_licenses">output_licenses</a>, <a href="#cc_binary.stamp">stamp</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 
@@ -106,10 +106,7 @@ layout: documentation
              inclusion by sources in this rule. Both <code>.cc</code> and
              <code>.h</code> files can directly include headers listed in
              these <code>srcs</code> or in the <code>hdrs</code> of any rule listed in
-             the <code>deps</code> argument. For compatibility with older
-             implementations, and depending on the checking strictness specified by
-             each library, additional headers may be available for inclusion. See
-             <a href="#cc_library.hdrs_check"><code>cc_library.hdrs_check</code></a>.
+             the <code>deps</code> argument.
           </p>
           <p>All <code>#include</code>d files must be mentioned in the
              <code>srcs</code> attribute of this rule, or in the
@@ -264,41 +261,6 @@ layout: documentation
         </td>
       </tr>
                                                     <tr>
-        <td id="cc_binary.hdrs_check" class="deprecated">
-          <code>hdrs_check</code>
-        </td>
-        <td>
-                    <p><code>String; optional; default is "strict"</code></p>
-                              Deprecated: we will roll out support for C++ modules, which are strict by design.
-          <a id="cc_library.hdrs_check"></a>
-          The strictness of the header file check to be applied to dependents and the
-          source files of this library. Must be one of: <code>"loose"</code>,
-          <code>"warn"</code> or <code>"strict"</code>.
-
-          <p>
-             The three levels of checking operate as follows:
-          </p>
-          <ul>
-             <li><code>"loose"</code>: Any source header file in any of the
-             directories of the containing package may be <code>#include</code>d by
-             sources in this rule and dependent rules. Generated header files must be
-             explicitly listed in <code>hdrs</code> or <code>srcs</code>. This
-             check level is the current default, but it will be phased out.</li>
-             <li><code>"warn"</code>: Enforcement is the same as for
-             <code>"loose"</code>, but any case that would violate the
-             <code>"strict"</code> check will cause a warning to be emitted.
-             This check level is provided to help with the migration to strict.</li>
-             <li><code>"strict"</code>: All <code>#include</code>d files must be explicitly declared
-             somewhere in the <code>hdrs</code> or <code>srcs</code> of the rules providing the
-             libraries or the rules containing the including source. Note that this means that a
-             rule can include any header that is in the <code>hdrs</code> or <code>srcs</code> of
-             any rule it transitively depends on. A stricter layering check is currently being
-             rolled out.</li>
-          </ul>
-
-        </td>
-      </tr>
-                      <tr>
         <td id="cc_binary.includes">
           <code>includes</code>
         </td>
@@ -476,7 +438,7 @@ layout: documentation
     cc_library
   </h2>
 
-  <pre class="rule-signature">cc_library(<a href="#cc_library.name">name</a>, <a href="#cc_library.deps">deps</a>, <a href="#cc_library.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#cc_library.hdrs">hdrs</a>, <a href="#cc_library.abi">abi</a>, <a href="#cc_library.abi_deps">abi_deps</a>, <a href="#cc_library.alwayslink">alwayslink</a>, <a href="#cc_library.copts">copts</a>, <a href="#cc_library.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#cc_library.hdrs_check">hdrs_check</a>, <a href="#cc_library.includes">includes</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#cc_library.linkopts">linkopts</a>, <a href="#cc_library.linkstatic">linkstatic</a>, <a href="#cc_library.nocopts">nocopts</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#cc_library.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">cc_library(<a href="#cc_library.name">name</a>, <a href="#cc_library.deps">deps</a>, <a href="#cc_library.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#cc_library.hdrs">hdrs</a>, <a href="#cc_library.abi">abi</a>, <a href="#cc_library.abi_deps">abi_deps</a>, <a href="#cc_library.alwayslink">alwayslink</a>, <a href="#cc_library.copts">copts</a>, <a href="#cc_library.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#cc_library.includes">includes</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#cc_library.linkopts">linkopts</a>, <a href="#cc_library.linkstatic">linkstatic</a>, <a href="#cc_library.nocopts">nocopts</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#cc_library.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 
@@ -487,8 +449,7 @@ layout: documentation
 
 <p>
   All header files that are used in the build must be declared in the <code>hdrs</code> or
-  <code>srcs</code> of <code>cc_*</code> rules. This is enforced by default (i.e.
-  <code><a href="#cc_library.hdrs_check">hdrs_check</a> = 'strict'</code>).
+  <code>srcs</code> of <code>cc_*</code> rules. This is enforced.
 </p>
 
 <p>
@@ -643,10 +604,7 @@ cc_library(
              inclusion by sources in this rule. Both <code>.cc</code> and
              <code>.h</code> files can directly include headers listed in
              these <code>srcs</code> or in the <code>hdrs</code> of any rule listed in
-             the <code>deps</code> argument. For compatibility with older
-             implementations, and depending on the checking strictness specified by
-             each library, additional headers may be available for inclusion. See
-             <a href="#cc_library.hdrs_check"><code>cc_library.hdrs_check</code></a>.
+             the <code>deps</code> argument.
           </p>
           <p>All <code>#include</code>d files must be mentioned in the
              <code>srcs</code> attribute of this rule, or in the
@@ -836,41 +794,6 @@ cc_library(
         </td>
       </tr>
                                                     <tr>
-        <td id="cc_library.hdrs_check" class="deprecated">
-          <code>hdrs_check</code>
-        </td>
-        <td>
-                    <p><code>String; optional; default is "strict"</code></p>
-                              Deprecated: we will roll out support for C++ modules, which are strict by design.
-          <a id="cc_library.hdrs_check"></a>
-          The strictness of the header file check to be applied to dependents and the
-          source files of this library. Must be one of: <code>"loose"</code>,
-          <code>"warn"</code> or <code>"strict"</code>.
-
-          <p>
-             The three levels of checking operate as follows:
-          </p>
-          <ul>
-             <li><code>"loose"</code>: Any source header file in any of the
-             directories of the containing package may be <code>#include</code>d by
-             sources in this rule and dependent rules. Generated header files must be
-             explicitly listed in <code>hdrs</code> or <code>srcs</code>. This
-             check level is the current default, but it will be phased out.</li>
-             <li><code>"warn"</code>: Enforcement is the same as for
-             <code>"loose"</code>, but any case that would violate the
-             <code>"strict"</code> check will cause a warning to be emitted.
-             This check level is provided to help with the migration to strict.</li>
-             <li><code>"strict"</code>: All <code>#include</code>d files must be explicitly declared
-             somewhere in the <code>hdrs</code> or <code>srcs</code> of the rules providing the
-             libraries or the rules containing the including source. Note that this means that a
-             rule can include any header that is in the <code>hdrs</code> or <code>srcs</code> of
-             any rule it transitively depends on. A stricter layering check is currently being
-             rolled out.</li>
-          </ul>
-
-        </td>
-      </tr>
-                      <tr>
         <td id="cc_library.includes">
           <code>includes</code>
         </td>
@@ -991,7 +914,7 @@ cc_library(
     cc_test
   </h2>
 
-  <pre class="rule-signature">cc_test(<a href="#cc_test.name">name</a>, <a href="#cc_test.deps">deps</a>, <a href="#cc_test.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#cc_test.abi">abi</a>, <a href="#cc_test.abi_deps">abi_deps</a>, <a href="common-definitions.html#test.args">args</a>, <a href="#cc_test.copts">copts</a>, <a href="#cc_test.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="#cc_test.hdrs_check">hdrs_check</a>, <a href="#cc_test.includes">includes</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#cc_test.linkopts">linkopts</a>, <a href="#cc_test.linkstatic">linkstatic</a>, <a href="common-definitions.html#test.local">local</a>, <a href="#cc_test.malloc">malloc</a>, <a href="#cc_test.nocopts">nocopts</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="#cc_test.stamp">stamp</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">cc_test(<a href="#cc_test.name">name</a>, <a href="#cc_test.deps">deps</a>, <a href="#cc_test.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#cc_test.abi">abi</a>, <a href="#cc_test.abi_deps">abi_deps</a>, <a href="common-definitions.html#test.args">args</a>, <a href="#cc_test.copts">copts</a>, <a href="#cc_test.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="#cc_test.includes">includes</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#cc_test.linkopts">linkopts</a>, <a href="#cc_test.linkstatic">linkstatic</a>, <a href="common-definitions.html#test.local">local</a>, <a href="#cc_test.malloc">malloc</a>, <a href="#cc_test.nocopts">nocopts</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="#cc_test.stamp">stamp</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 
@@ -1051,10 +974,7 @@ cc_library(
              inclusion by sources in this rule. Both <code>.cc</code> and
              <code>.h</code> files can directly include headers listed in
              these <code>srcs</code> or in the <code>hdrs</code> of any rule listed in
-             the <code>deps</code> argument. For compatibility with older
-             implementations, and depending on the checking strictness specified by
-             each library, additional headers may be available for inclusion. See
-             <a href="#cc_library.hdrs_check"><code>cc_library.hdrs_check</code></a>.
+             the <code>deps</code> argument.
           </p>
           <p>All <code>#include</code>d files must be mentioned in the
              <code>srcs</code> attribute of this rule, or in the
@@ -1209,41 +1129,6 @@ cc_library(
         </td>
       </tr>
                                                               <tr>
-        <td id="cc_test.hdrs_check" class="deprecated">
-          <code>hdrs_check</code>
-        </td>
-        <td>
-                    <p><code>String; optional; default is "strict"</code></p>
-                              Deprecated: we will roll out support for C++ modules, which are strict by design.
-          <a id="cc_library.hdrs_check"></a>
-          The strictness of the header file check to be applied to dependents and the
-          source files of this library. Must be one of: <code>"loose"</code>,
-          <code>"warn"</code> or <code>"strict"</code>.
-
-          <p>
-             The three levels of checking operate as follows:
-          </p>
-          <ul>
-             <li><code>"loose"</code>: Any source header file in any of the
-             directories of the containing package may be <code>#include</code>d by
-             sources in this rule and dependent rules. Generated header files must be
-             explicitly listed in <code>hdrs</code> or <code>srcs</code>. This
-             check level is the current default, but it will be phased out.</li>
-             <li><code>"warn"</code>: Enforcement is the same as for
-             <code>"loose"</code>, but any case that would violate the
-             <code>"strict"</code> check will cause a warning to be emitted.
-             This check level is provided to help with the migration to strict.</li>
-             <li><code>"strict"</code>: All <code>#include</code>d files must be explicitly declared
-             somewhere in the <code>hdrs</code> or <code>srcs</code> of the rules providing the
-             libraries or the rules containing the including source. Note that this means that a
-             rule can include any header that is in the <code>hdrs</code> or <code>srcs</code> of
-             any rule it transitively depends on. A stricter layering check is currently being
-             rolled out.</li>
-          </ul>
-
-        </td>
-      </tr>
-                      <tr>
         <td id="cc_test.includes">
           <code>includes</code>
         </td>
