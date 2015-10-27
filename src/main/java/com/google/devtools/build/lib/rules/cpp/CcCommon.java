@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -264,31 +263,6 @@ public final class CcCommon {
       }
     }
     return hdrs;
-  }
-
-  HeadersCheckingMode determineHeadersCheckingMode() {
-    HeadersCheckingMode headersCheckingMode = cppConfiguration.getHeadersCheckingMode();
-
-    // Package default overrides command line option.
-    if (ruleContext.getRule().getPackage().isDefaultHdrsCheckSet()) {
-      String value =
-          ruleContext.getRule().getPackage().getDefaultHdrsCheck().toUpperCase(Locale.ENGLISH);
-      headersCheckingMode = HeadersCheckingMode.valueOf(value);
-    }
-
-    // 'hdrs_check' attribute overrides package default.
-    if (hasAttribute("hdrs_check", Type.STRING)
-        && ruleContext.getRule().isAttributeValueExplicitlySpecified("hdrs_check")) {
-      try {
-        String value = ruleContext.attributes().get("hdrs_check", Type.STRING)
-            .toUpperCase(Locale.ENGLISH);
-        headersCheckingMode = HeadersCheckingMode.valueOf(value);
-      } catch (IllegalArgumentException e) {
-        ruleContext.attributeError("hdrs_check", "must be one of: 'loose', 'warn' or 'strict'");
-      }
-    }
-
-    return headersCheckingMode;
   }
 
   private static ImmutableList<String> getPackageCopts(RuleContext ruleContext) {

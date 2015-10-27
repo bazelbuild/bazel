@@ -209,7 +209,7 @@ public final class CcLibraryHelper {
         .addPicIndependentObjectFiles(common.getLinkerScripts())
         .addSystemIncludeDirs(common.getSystemIncludeDirs())
         .setNoCopts(common.getNoCopts())
-        .setHeadersCheckingMode(common.determineHeadersCheckingMode());
+        .setHeadersCheckingMode(semantics.determineHeadersCheckingMode(ruleContext));
     return this;
   }
 

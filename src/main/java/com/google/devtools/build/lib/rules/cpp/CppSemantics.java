@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -46,4 +47,9 @@ public interface CppSemantics {
    */
   void setupCompilationContext(
       RuleContext ruleContext, CppCompilationContext.Builder contextBuilder);
+
+  /**
+   * Determines the applicable mode of headers checking for the passed in ruleContext.
+   */
+  HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext);
 }

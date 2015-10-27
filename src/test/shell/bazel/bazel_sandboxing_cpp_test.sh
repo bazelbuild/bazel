@@ -154,7 +154,7 @@ function test_standalone_cpp_build_rebuilds_on_change() {
   bazel --batch clean &> $TEST_log \
     || fail "bazel clean failed"
 
-  bazel build --hdrs_check=strict --spawn_strategy=standalone //examples/cpp:hello-world &> $TEST_log \
+  bazel build --spawn_strategy=standalone //examples/cpp:hello-world &> $TEST_log \
     || fail "Building hello-world failed"
 
   bazel-bin/examples/cpp/hello-world | fgrep "greetings from the header" \
@@ -166,7 +166,7 @@ function test_standalone_cpp_build_rebuilds_on_change() {
   mv tmp examples/cpp/lib/hello-lib.h \
     || fail "moving modified header file back to examples/cpp/lib/hello-lib.h failed"
 
-  bazel build --hdrs_check=strict --spawn_strategy=standalone //examples/cpp:hello-world &> $TEST_log \
+  bazel build --spawn_strategy=standalone //examples/cpp:hello-world &> $TEST_log \
     || fail "Building modified hello-world failed"
 
   bazel-bin/examples/cpp/hello-world | fgrep "greetings from the modified header" \
@@ -184,7 +184,7 @@ cc_library(
 )
 EOF
 
-  bazel build --hdrs_check=strict --spawn_strategy=standalone //examples/cpp:hello-lib &> $TEST_log \
+  bazel build --spawn_strategy=standalone //examples/cpp:hello-lib &> $TEST_log \
     && fail "build should not have succeeded with missing header file"
 
   fgrep "undeclared inclusion(s) in rule '//examples/cpp:hello-lib'" $TEST_log \
@@ -210,10 +210,10 @@ cc_binary(
 )
 EOF
 
-  bazel build --hdrs_check=strict --spawn_strategy=standalone //examples/cpp:hello-lib &> $TEST_log \
+  bazel build --spawn_strategy=standalone //examples/cpp:hello-lib &> $TEST_log \
     || fail "building hello-lib should have succeeded with header file in srcs"
 
-  bazel build --hdrs_check=strict --spawn_strategy=standalone //examples/cpp:hello-world &> $TEST_log \
+  bazel build --spawn_strategy=standalone //examples/cpp:hello-world &> $TEST_log \
     && fail "building hello-world should not have succeeded with library header file in srcs"
 
   fgrep "undeclared inclusion(s) in rule '//examples/cpp:hello-world'" $TEST_log \

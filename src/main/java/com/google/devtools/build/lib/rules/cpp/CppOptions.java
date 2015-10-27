@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.LibcTop;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.StripMode;
 import com.google.devtools.build.lib.util.OptionsUtils;
@@ -147,15 +146,6 @@ public class CppOptions extends FragmentOptions {
   }
 
   /**
-   * Converter for the --hdrs_check option.
-   */
-  public static class HdrsCheckConverter extends EnumConverter<HeadersCheckingMode> {
-    public HdrsCheckConverter() {
-      super(HeadersCheckingMode.class, "Headers check mode");
-    }
-  }
-
-  /**
    * Converter for the --lipo option.
    */
   public static class LipoModeConverter extends EnumConverter<LipoMode> {
@@ -268,16 +258,6 @@ public class CppOptions extends FragmentOptions {
             + "network and disk I/O load (and thus, continuous build cycle times) by a lot.  "
             + "NOTE: use of this flag REQUIRES --distinct_host_configuration.")
   public boolean skipStaticOutputs;
-
-  @Option(name = "hdrs_check",
-          allowMultiple = false,
-          defaultValue = "loose",
-          converter = HdrsCheckConverter.class,
-          category = "semantics",
-          help = "Headers check mode for rules that don't specify it explicitly using a "
-              + "hdrs_check attribute. Allowed values: 'loose' allows undeclared headers, 'warn' "
-              + "warns about undeclared headers, and 'strict' disallows them.")
-  public HeadersCheckingMode headersCheckingMode;
 
   @Option(name = "copt",
           allowMultiple = true,

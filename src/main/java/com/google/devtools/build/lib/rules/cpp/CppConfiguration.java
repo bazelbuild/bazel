@@ -118,10 +118,13 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Values for the --hdrs_check option.
+   * Values for the --hdrs_check option. Note that Bazel only supports and will default to "strict".
    */
   public static enum HeadersCheckingMode {
-    /** Legacy behavior: Silently allow undeclared headers. */
+    /**
+     * Legacy behavior: Silently allow any source header file in any of the directories of the
+     * containing package to be included by sources in this rule and dependent rules.
+     */
     LOOSE,
     /** Warn about undeclared headers. */
     WARN,
@@ -1413,10 +1416,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   public boolean shouldScanIncludes() {
-    if (!Constants.ALLOW_CC_INCLUDE_SCANNING) {
-      return false;
-    }
-    return cppOptions.scanIncludes;
+    return Constants.ALLOW_CC_INCLUDE_SCANNING && cppOptions.scanIncludes;
   }
 
   /**
@@ -1445,13 +1445,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   public boolean isAutoFdoLipo() {
     return cppOptions.fdoOptimize != null && FdoSupport.isAutoFdo(cppOptions.fdoOptimize)
            && getLipoMode() != LipoMode.OFF;
-  }
-
-  /**
-   * Returns the default header check mode.
-   */
-  public HeadersCheckingMode getHeadersCheckingMode() {
-    return cppOptions.headersCheckingMode;
   }
 
   /**

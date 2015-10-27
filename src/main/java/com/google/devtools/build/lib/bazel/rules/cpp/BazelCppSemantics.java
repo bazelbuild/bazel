@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.cpp.CppSemantics;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -48,5 +49,10 @@ public class BazelCppSemantics implements CppSemantics {
 
   @Override
   public void setupCompilationContext(RuleContext ruleContext, Builder contextBuilder) {
+  }
+
+  @Override
+  public HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext) {
+    return HeadersCheckingMode.STRICT;
   }
 }
