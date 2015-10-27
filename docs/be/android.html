@@ -195,7 +195,9 @@ Bazel source tree.
                             Densities to filter for when building the apk.
 
         This will strip out raster drawable resources that would not be loaded by a device with
-        the specified screen densities, to reduce APK size.
+        the specified screen densities, to reduce APK size. A corresponding compatible-screens
+        section will also be added to the manifest if it does not already contain a superset
+        listing.
 
         </td>
       </tr>
