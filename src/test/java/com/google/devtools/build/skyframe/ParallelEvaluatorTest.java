@@ -89,7 +89,7 @@ public class ParallelEvaluatorTest {
 
   @Before
   public void initializeReporter() {
-    eventCollector = new EventCollector(EventKind.ALL_EVENTS);
+    eventCollector = new EventCollector();
     reporter = new Reporter(eventCollector);
   }
 

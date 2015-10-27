@@ -40,6 +40,13 @@ public class EventCollector extends AbstractEventHandler implements Iterable<Eve
   }
 
   /**
+   * This collector will collect all events.
+   */
+  public EventCollector() {
+    this(EventKind.ALL_EVENTS, new ArrayList<Event>());
+  }
+
+  /**
    * This collector will collect all events that match the event mask.
    */
   public EventCollector(EventKind... mask) {

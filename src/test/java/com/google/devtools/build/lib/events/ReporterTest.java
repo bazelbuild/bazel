@@ -50,7 +50,7 @@ public class ReporterTest extends EventTestTemplate {
   @Test
   public void reporterShowOutput() {
     reporter.setOutputFilter(OutputFilter.RegexOutputFilter.forRegex("naughty"));
-    EventCollector collector = new EventCollector(EventKind.ALL_EVENTS);
+    EventCollector collector = new EventCollector();
     reporter.addHandler(collector);
     Event interesting = new Event(EventKind.WARNING, null, "show-me", "naughty");
 
@@ -63,7 +63,7 @@ public class ReporterTest extends EventTestTemplate {
   @Test
   public void reporterCollectsEvents() {
     ImmutableList<Event> want = ImmutableList.of(Event.warn("xyz"), Event.error("err"));
-    EventCollector collector = new EventCollector(EventKind.ALL_EVENTS);
+    EventCollector collector = new EventCollector();
     reporter.addHandler(collector);
     for (Event e : want) {
       reporter.handle(e);
