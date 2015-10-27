@@ -36,8 +36,7 @@ public class EventCollectorTest extends EventTestTemplate {
   @Test
   public void usesPassedInCollection() {
     Collection<Event> events = new ArrayList<>();
-    EventCollector collector =
-        new EventCollector(EventKind.ERRORS_AND_WARNINGS, events);
+    EventCollector collector = new EventCollector(EventKind.ERRORS_AND_WARNINGS, events);
     collector.handle(event);
     Event onlyEvent = events.iterator().next();
     assertEquals(event.getMessage(), onlyEvent.getMessage());
@@ -51,8 +50,7 @@ public class EventCollectorTest extends EventTestTemplate {
 
   @Test
   public void collectsEvents() {
-    EventCollector collector =
-        new EventCollector(EventKind.ERRORS_AND_WARNINGS);
+    EventCollector collector = new EventCollector(EventKind.ERRORS_AND_WARNINGS);
     collector.handle(event);
     Iterator<Event> collectedEventIt = collector.iterator();
     Event onlyEvent = collectedEventIt.next();
@@ -63,5 +61,4 @@ public class EventCollectorTest extends EventTestTemplate {
         onlyEvent.getLocation().getStartOffset());
     assertFalse(collectedEventIt.hasNext());
   }
-
 }

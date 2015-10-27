@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.events;
 
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 
 import java.util.ArrayList;
@@ -36,6 +37,13 @@ public class EventCollector extends AbstractEventHandler implements Iterable<Eve
    */
   public EventCollector(Set<EventKind> mask) {
     this(mask, new ArrayList<Event>());
+  }
+
+  /**
+   * This collector will collect all events that match the event mask.
+   */
+  public EventCollector(EventKind... mask) {
+    this(ImmutableSet.copyOf(mask), new ArrayList<Event>());
   }
 
   /**
