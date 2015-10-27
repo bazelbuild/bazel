@@ -1,8 +1,16 @@
 filegroup(
-    name = "srcs",
-    # include this BUILD file for the default android tools repository
-    srcs = glob(["**"]),
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        "classes_deploy.jar",
+    ],
     visibility = ["//src:__pkg__"],
+)
+
+java_binary(
+    name = "classes",
+    main_class = "does.not.exist",
+    runtime_deps = [":idlclass_lib"],
 )
 
 java_binary(

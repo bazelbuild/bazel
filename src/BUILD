@@ -66,30 +66,18 @@ genrule(
 genrule(
     name = "embedded_tools",
     srcs = [
+        ":create_embedded_tools.sh",
         "//tools:embedded_tools_srcs",
         "//third_party:srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
-        "//src/tools/android/java/com/google/devtools/build/android:srcs",
-        "//src/tools/android/java/com/google/devtools/build/android/idlclass:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
+        "//src/tools/android/java/com/google/devtools/build/android/idlclass:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:srcs",
-        "//src/tools/android/java/com/google/devtools/build/android/ziputils:srcs",
-        "//src/main/java/com/google/devtools/common/options:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/ziputils:embedded_tools",
         "//src/main/protobuf:srcs",
     ],
     outs = ["embedded_tools.zip"],
-    cmd = "\n".join([
-        "mkdir -p $(@D)/embedded-tools-zip",
-        "for i in $(SRCS); do",
-        "  mkdir -p $$(dirname $(@D)/embedded-tools-zip/$$i)",
-        "  cp $$i $$(dirname $(@D)/embedded-tools-zip/$$i)",
-        "done",
-        "touch $(@D)/embedded-tools-zip/WORKSPACE",
-        "mkdir -p $(@D)/embedded-tools-zip/tools/defaults",
-        "touch $(@D)/embedded-tools-zip/tools/defaults/BUILD",
-        "find $(@D)/embedded-tools-zip -exec touch -t 198001010000.00 '{}' ';'",
-        "P=$$PWD; (cd $(@D)/embedded-tools-zip && zip -qrD $$P/$@ *)",
-        "rm -fr $(@D)/embedded-tools-zip",
-    ]),
+    cmd = "$(location :create_embedded_tools.sh) $@ $(SRCS)",
 )
 
 [genrule(

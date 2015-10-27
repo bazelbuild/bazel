@@ -3,8 +3,17 @@
 package(default_visibility = ["//visibility:public"])
 
 filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        "classes_deploy.jar",
+    ],
+)
+
+java_binary(
+    name = "classes",
+    main_class = "does.not.exist",
+    runtime_deps = [":android_builder_lib"],
 )
 
 java_binary(

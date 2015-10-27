@@ -9,6 +9,14 @@ filegroup(
     srcs = glob(["**"]),
 )
 
+filegroup(
+    name = "embedded_tools",
+    srcs = [
+        "BUILD.tools",
+        "all_deploy.jar",
+    ],
+)
+
 java_library(
     name = "ziputils_lib",
     srcs = glob(
@@ -64,6 +72,20 @@ java_binary(
     main_class = "com.google.devtools.build.android.ziputils.DexReducer",
     visibility = ["//visibility:public"],
     deps = [
+        ":ziputils_lib",
+        "//src/main/java/com/google/devtools/common/options",
+    ],
+)
+
+java_binary(
+    name = "all",
+    srcs = [
+        "DexMapper.java",
+        "DexReducer.java",
+    ],
+    main_class = "does.not.exist",
+    deps = [
+        ":splitter_lib",
         ":ziputils_lib",
         "//src/main/java/com/google/devtools/common/options",
     ],
