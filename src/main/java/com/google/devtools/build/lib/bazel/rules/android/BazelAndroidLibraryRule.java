@@ -39,6 +39,8 @@ public class BazelAndroidLibraryRule implements RuleDefinition {
           <li><code>lib<var>name</var>.jar</code>: A Java archive.</li>
           <li><code>lib<var>name</var>-src.jar</code>: An archive containing the
           sources ("source jar").</li>
+          <li><code><var>name</var>.aar</code>: An android 'aar' bundle containing the java archive
+          and resources of this target. It does not contain the transitive closure.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS --> */
         .setImplicitOutputsFunction(AndroidRuleClasses.ANDROID_LIBRARY_IMPLICIT_OUTPUTS)
