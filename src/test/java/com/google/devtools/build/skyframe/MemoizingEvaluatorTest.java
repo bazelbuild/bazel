@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
@@ -137,7 +136,7 @@ public class MemoizingEvaluatorTest {
   @Before
   public void initializeReporter() {
     eventCollector = new EventCollector();
-    reporter = new Reporter(eventCollector);
+    reporter = eventCollector;
     tester.resetPlayedEvents();
   }
 
