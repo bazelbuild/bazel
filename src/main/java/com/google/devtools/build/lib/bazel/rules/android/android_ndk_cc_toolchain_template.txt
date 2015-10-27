@@ -9,7 +9,7 @@ cc_toolchain(
     cpu = "%cpu%",
     dwp_files = ":%toolchainName%-toolchain_files",
     dynamic_runtime_libs = [":%dynamicRuntimeLibs%"],
-    linker_files = ":%toolchainName%-toolchain_files",
+    linker_files = ":%toolchainName%-all_files",
     objcopy_files = ":%toolchainName%-toolchain_files",
     static_runtime_libs = [":%staticRuntimeLibs%"],
     strip_files = ":%toolchainName%-toolchain_files",
