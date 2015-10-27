@@ -226,20 +226,19 @@ public class TestSupport {
    * builder.
    */
   public Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> getExtraProviders() {
-    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      return ImmutableMap.<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>of(
-          TestEnvironmentProvider.class, new TestEnvironmentProvider(gcovEnv()));
-    }
-    return ImmutableMap.of();
-  }
+    ObjcConfiguration configuration = ruleContext.getFragment(ObjcConfiguration.class);
 
-  /**
-   * Returns a map of extra environment variable names to their values used to point to gcov binary,
-   * which should be added to the test action environment, if coverage is enabled.
-   */
-  private ImmutableMap<String, String> gcovEnv() {
-    return ImmutableMap.of(
-        "COVERAGE_GCOV_PATH", ruleContext.getHostPrerequisiteArtifact(":gcov").getExecPathString());
+    ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
+
+    envBuilder.putAll(configuration.getEnvironmentForDarwin());
+
+    if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
+      envBuilder.put("COVERAGE_GCOV_PATH",
+          ruleContext.getHostPrerequisiteArtifact(":gcov").getExecPathString());
+    }
+
+    return ImmutableMap.<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>of(
+        TestEnvironmentProvider.class, new TestEnvironmentProvider(envBuilder.build()));
   }
 
   /**
