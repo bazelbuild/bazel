@@ -44,8 +44,9 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       "-D_GLIBCPP_CONCEPT_CHECKS");
 
   @VisibleForTesting
-  static final ImmutableList<String> OPT_COPTS = ImmutableList.of("-Os", "-DNDEBUG=1",
-      "-Wno-unused-variable", "-Winit-self", "-Wno-extra", "-DNS_BLOCK_ASSERTIONS=1");
+  static final ImmutableList<String> OPT_COPTS =
+      ImmutableList.of(
+          "-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
 
   private static final String XCODE_VERSION_ENV_NAME = "XCODE_VERSION_OVERRIDE";
   /**
