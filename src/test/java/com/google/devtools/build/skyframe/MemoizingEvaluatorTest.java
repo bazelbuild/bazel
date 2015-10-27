@@ -219,9 +219,9 @@ public class MemoizingEvaluatorTest {
   public void crashAfterInterruptCrashes() throws Exception {
     SkyKey failKey = GraphTester.skyKey("fail");
     SkyKey badInterruptkey = GraphTester.skyKey("bad-interrupt");
-    tester.getOrCreate(failKey).setHasError(true);
     // Given a SkyFunction implementation which is improperly coded to throw a runtime exception
     // when it is interrupted,
+    final CountDownLatch badInterruptStarted = new CountDownLatch(1);
     tester
         .getOrCreate(badInterruptkey)
         .setBuilder(
@@ -229,6 +229,7 @@ public class MemoizingEvaluatorTest {
               @Nullable
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) {
+                badInterruptStarted.countDown();
                 try {
                   Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
                   throw new AssertionError("Shouldn't have slept so long");
@@ -243,10 +244,21 @@ public class MemoizingEvaluatorTest {
                 return null;
               }
             });
+    // And another SkyFunction that waits for the first to start, and then throws,
+    tester
+        .getOrCreate(failKey)
+        .setBuilder(
+            new ChainedFunction(
+                null,
+                badInterruptStarted,
+                null,
+                /*waitForException=*/ false,
+                null,
+                ImmutableList.<SkyKey>of()));
 
     try {
-      // When it is interrupted during evaluation (here, caused by the failure of a sibling node
-      // during a no-keep-going evaluation),
+      // When it is interrupted during evaluation (here, caused by the failure of the throwing
+      // SkyFunction during a no-keep-going evaluation),
       EvaluationResult<StringValue> unexpectedResult =
           tester.eval(/*keepGoing=*/ false, badInterruptkey, failKey);
       fail(unexpectedResult.toString());
@@ -261,9 +273,9 @@ public class MemoizingEvaluatorTest {
   public void interruptAfterFailFails() throws Exception {
     SkyKey failKey = GraphTester.skyKey("fail");
     SkyKey interruptedKey = GraphTester.skyKey("interrupted");
-    tester.getOrCreate(failKey).setHasError(true);
     // Given a SkyFunction implementation that is properly coded to as not to throw a
     // runtime exception when it is interrupted,
+    final CountDownLatch interruptStarted = new CountDownLatch(1);
     tester
         .getOrCreate(interruptedKey)
         .setBuilder(
@@ -271,6 +283,7 @@ public class MemoizingEvaluatorTest {
               @Nullable
               @Override
               public SkyValue compute(SkyKey skyKey, Environment env) throws InterruptedException {
+                interruptStarted.countDown();
                 Thread.sleep(TestUtils.WAIT_TIMEOUT_MILLISECONDS);
                 throw new AssertionError("Shouldn't have slept so long");
               }
@@ -281,6 +294,17 @@ public class MemoizingEvaluatorTest {
                 return null;
               }
             });
+    // And another SkyFunction that waits for the first to start, and then throws,
+    tester
+        .getOrCreate(failKey)
+        .setBuilder(
+            new ChainedFunction(
+                null,
+                interruptStarted,
+                null,
+                /*waitForException=*/ false,
+                null,
+                ImmutableList.<SkyKey>of()));
 
     // When it is interrupted during evaluation (here, caused by the failure of a sibling node
     // during a no-keep-going evaluation),
