@@ -3,7 +3,7 @@ package(
 
 filegroup(
   name = "toolchain",
-  srcs = glob(["go/bin/*", "go/pkg/linux_amd64/**", "go/pkg/tool/**", "go/pkg/include/**"]),
+  srcs = glob(["go/bin/*", "go/pkg/**", ]),
 )
 
 filegroup(
