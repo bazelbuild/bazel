@@ -174,8 +174,8 @@ public class PlistMerging extends Value<PlistMerging> {
   }
 
   /**
-   * Generates final merged Plist file and PkgInfo file in the specified locations, and includes the
-   * "automatic" entries in the Plist.
+   * Generates a Plistmerging combining values from sourceFiles and automaticEntries, and modifying
+   * them based on subsitutions and keysToRemoveIfEmptyString.
    */
   public static PlistMerging from(List<Path> sourceFiles, Map<String, NSObject> automaticEntries,
       Map<String, String> substitutions, KeysToRemoveIfEmptyString keysToRemoveIfEmptyString)
@@ -206,27 +206,30 @@ public class PlistMerging extends Value<PlistMerging> {
     // Info.plist files must contain a valid CFBundleVersion and a valid CFBundleShortVersionString,
     // or it will be rejected by Apple.
     // A valid Bundle Version is 18 characters or less, and only contains [0-9.]
+    // We know we have an info.plist file as opposed to a strings file if the automaticEntries
+    // have any values set.
     // TODO(bazel-team): warn user if we replace their values.
-    Pattern versionPattern = Pattern.compile("[^0-9.]");
-    if (!merged.containsKey(BUNDLE_VERSION_PLIST_KEY)) {
-      merged.put(BUNDLE_VERSION_PLIST_KEY, BUNDLE_VERSION_DEFAULT);
-    } else {
-      NSObject nsVersion = merged.get(BUNDLE_VERSION_PLIST_KEY);
-      String version = (String) nsVersion.toJavaObject();
-      if (version.length() > 18 || versionPattern.matcher(version).find()) {
+    if (automaticEntries.size() > 0) {
+      Pattern versionPattern = Pattern.compile("[^0-9.]");
+      if (!merged.containsKey(BUNDLE_VERSION_PLIST_KEY)) {
         merged.put(BUNDLE_VERSION_PLIST_KEY, BUNDLE_VERSION_DEFAULT);
+      } else {
+        NSObject nsVersion = merged.get(BUNDLE_VERSION_PLIST_KEY);
+        String version = (String) nsVersion.toJavaObject();
+        if (version.length() > 18 || versionPattern.matcher(version).find()) {
+          merged.put(BUNDLE_VERSION_PLIST_KEY, BUNDLE_VERSION_DEFAULT);
+        }
       }
-    }
-    if (!merged.containsKey(BUNDLE_SHORT_VERSION_STRING_PLIST_KEY)) {
-      merged.put(BUNDLE_SHORT_VERSION_STRING_PLIST_KEY, BUNDLE_SHORT_VERSION_STRING_DEFAULT);
-    } else {
-      NSObject nsVersion = merged.get(BUNDLE_SHORT_VERSION_STRING_PLIST_KEY);
-      String version = (String) nsVersion.toJavaObject();
-      if (version.length() > 18 || versionPattern.matcher(version).find()) {
+      if (!merged.containsKey(BUNDLE_SHORT_VERSION_STRING_PLIST_KEY)) {
         merged.put(BUNDLE_SHORT_VERSION_STRING_PLIST_KEY, BUNDLE_SHORT_VERSION_STRING_DEFAULT);
+      } else {
+        NSObject nsVersion = merged.get(BUNDLE_SHORT_VERSION_STRING_PLIST_KEY);
+        String version = (String) nsVersion.toJavaObject();
+        if (version.length() > 18 || versionPattern.matcher(version).find()) {
+          merged.put(BUNDLE_SHORT_VERSION_STRING_PLIST_KEY, BUNDLE_SHORT_VERSION_STRING_DEFAULT);
+        }
       }
     }
-
     return new PlistMerging(merged);
   }
 
