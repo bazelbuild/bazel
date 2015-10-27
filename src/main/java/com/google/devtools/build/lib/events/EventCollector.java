@@ -23,13 +23,11 @@ import java.util.Iterator;
 import java.util.Set;
 
 /**
- * An {@link EventHandler} that collects all events it encounters, and makes
- * them available via the {@link Iterable} interface. The collected events
- * contain not just the original event information but also the location
- * context.
+ * An {@link EventHandler} that collects all events it encounters, and makes them available via the
+ * {@link Iterable} interface. The collected events contain not just the original event information
+ * but also the location context.
  */
-public class EventCollector extends AbstractEventHandler implements Iterable<Event> {
-
+public final class EventCollector extends AbstractEventHandler implements Iterable<Event> {
   private final Collection<Event> collected;
 
   /**
@@ -66,20 +64,25 @@ public class EventCollector extends AbstractEventHandler implements Iterable<Eve
    * Implements {@link EventHandler#handle(Event)}.
    */
   @Override
-  public void handle(Event event) {
+  public synchronized void handle(Event event) {
     if (getEventMask().contains(event.getKind())) {
       collected.add(event);
     }
   }
 
   /**
-   * Returns an iterator over the collected events.
+   * Returns an iterator over the collected events. This must not be called in a scenario where
+   * there may still be concurrent modifications to the collector.
    */
   @Override
   public Iterator<Event> iterator() {
     return collected.iterator();
   }
 
+  /**
+   * Returns an iterator over the collected events of the given kind. This must not be called in a
+   * scenario where there may still be concurrent modifications to the collector.
+   */
   public Iterable<Event> filtered(final EventKind eventKind) {
     return Iterables.filter(collected, new Predicate<Event>() {
       @Override
@@ -92,19 +95,19 @@ public class EventCollector extends AbstractEventHandler implements Iterable<Eve
   /**
    * Returns the number of events collected.
    */
-  public int count() {
+  public synchronized int count() {
     return collected.size();
   }
 
   /*
    * Clears the collected events
    */
-  public void clear() {
+  public synchronized void clear() {
     collected.clear();
   }
 
   @Override
-  public String toString() {
+  public synchronized String toString() {
     return "EventCollector: " + Iterables.toString(collected);
   }
 }

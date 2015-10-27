@@ -16,11 +16,10 @@ package com.google.devtools.build.lib.events;
 import java.util.Set;
 
 /**
- * An abstract event handler that keeps track of the event mask. Events
- * matching the mask will be handled.
+ * An abstract event handler that keeps track of the event mask. Events matching the mask will be
+ * handled.
  */
 public abstract class AbstractEventHandler implements EventHandler {
-
   private final Set<EventKind> mask;
 
   /**
