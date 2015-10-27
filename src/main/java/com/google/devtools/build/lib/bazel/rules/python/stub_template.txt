@@ -11,6 +11,7 @@ PYTHON_BINARY = '%python_binary%'
 def SearchPath(name):
   search_path = os.getenv('PATH', os.defpath).split(os.pathsep)
   for directory in search_path:
+    if directory == '': continue
     path = os.path.join(directory, name)
     if os.path.exists(path):
       return path
