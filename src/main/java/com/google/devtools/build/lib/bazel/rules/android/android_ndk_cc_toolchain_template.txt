@@ -18,7 +18,7 @@ cc_toolchain(
 
 filegroup(
     name = "%toolchainName%-toolchain_files",
-    srcs = glob(["toolchains/%toolchainDirectory%/**"]),
+    srcs = glob(["ndk/toolchains/%toolchainDirectory%/**"]),
     output_licenses = ["unencumbered"],
 )
 
