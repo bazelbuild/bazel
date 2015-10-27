@@ -21,7 +21,7 @@
 OUTPUT="${PWD}/$1"
 shift
 
-TMP_DIR=${TMPDIR:+/tmp}
+TMP_DIR=${TMPDIR:-/tmp}
 PACKAGE_DIR="$(mktemp -d ${TMP_DIR%%/}/bazel.XXXXXXXX)"
 mkdir -p "${PACKAGE_DIR}"
 trap "rm -fr \"${PACKAGE_DIR}\"" EXIT
