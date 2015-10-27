@@ -144,7 +144,7 @@ public abstract class FileStateValue implements SkyValue {
     @Nullable private final byte[] digest;
     @Nullable private final FileContentsProxy contentsProxy;
 
-    private RegularFileStateValue(long size, long mtime, byte[] digest,
+    public RegularFileStateValue(long size, long mtime, byte[] digest,
         FileContentsProxy contentsProxy) {
       Preconditions.checkState((digest == null) != (contentsProxy == null));
       this.size = size;
@@ -198,14 +198,22 @@ public abstract class FileStateValue implements SkyValue {
     }
 
     @Override
-    long getSize() {
+    public long getSize() {
       return size;
+    }
+
+    public long getMtime() {
+      return mtime;
     }
 
     @Override
     @Nullable
-    byte[] getDigest() {
+    public byte[] getDigest() {
       return digest;
+    }
+
+    public FileContentsProxy getContentsProxy() {
+      return contentsProxy;
     }
 
     @Override
@@ -237,7 +245,7 @@ public abstract class FileStateValue implements SkyValue {
   public static final class SpecialFileStateValue extends FileStateValue {
     private final FileContentsProxy contentsProxy;
 
-    private SpecialFileStateValue(FileContentsProxy contentsProxy) {
+    public SpecialFileStateValue(FileContentsProxy contentsProxy) {
       this.contentsProxy = contentsProxy;
     }
 
@@ -266,6 +274,10 @@ public abstract class FileStateValue implements SkyValue {
     @Nullable
     byte[] getDigest() {
       return null;
+    }
+
+    public FileContentsProxy getContentsProxy() {
+      return contentsProxy;
     }
 
     @Override
@@ -321,7 +333,7 @@ public abstract class FileStateValue implements SkyValue {
 
     private final PathFragment symlinkTarget;
 
-    private SymlinkFileStateValue(PathFragment symlinkTarget) {
+    public SymlinkFileStateValue(PathFragment symlinkTarget) {
       this.symlinkTarget = symlinkTarget;
     }
 
@@ -331,7 +343,7 @@ public abstract class FileStateValue implements SkyValue {
     }
 
     @Override
-    PathFragment getSymlinkTarget() {
+    public PathFragment getSymlinkTarget() {
       return symlinkTarget;
     }
 

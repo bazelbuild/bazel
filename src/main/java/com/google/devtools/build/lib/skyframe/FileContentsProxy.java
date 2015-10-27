@@ -31,13 +31,21 @@ public final class FileContentsProxy implements Serializable {
   private final long mtime;
   private final long valueId;
 
-  private FileContentsProxy(long mtime, long valueId) {
+  public FileContentsProxy(long mtime, long valueId) {
     this.mtime = mtime;
     this.valueId = valueId;
   }
 
   public static FileContentsProxy create(long mtime, long valueId) {
     return new FileContentsProxy(mtime, valueId);
+  }
+
+  public long getMtime() {
+    return mtime;
+  }
+
+  public long getValueId() {
+    return valueId;
   }
 
   @Override
