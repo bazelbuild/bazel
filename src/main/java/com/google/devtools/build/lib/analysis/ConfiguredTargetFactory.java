@@ -232,19 +232,19 @@ public final class ConfiguredTargetFactory {
     }
     ConfigurationFragmentPolicy configurationFragmentPolicy =
         rule.getRuleClassObject().getConfigurationFragmentPolicy();
-    if (!configurationFragmentPolicy.getRequiredConfigurationFragments().isEmpty()) {
-      MissingFragmentPolicy missingFragmentPolicy =
-          configurationFragmentPolicy.getMissingFragmentPolicy();
-      if (missingFragmentPolicy != MissingFragmentPolicy.IGNORE
-          && !configuration.hasAllFragments(
-              configurationFragmentPolicy.getRequiredConfigurationFragments())) {
-        if (missingFragmentPolicy == MissingFragmentPolicy.FAIL_ANALYSIS) {
-          ruleContext.ruleError(missingFragmentError(ruleContext, configurationFragmentPolicy));
-          return null;
-        }
-        return createFailConfiguredTarget(ruleContext);
+
+    MissingFragmentPolicy missingFragmentPolicy =
+        configurationFragmentPolicy.getMissingFragmentPolicy();
+    if (missingFragmentPolicy != MissingFragmentPolicy.IGNORE
+        && !configuration.hasAllFragments(
+            configurationFragmentPolicy.getRequiredConfigurationFragments())) {
+      if (missingFragmentPolicy == MissingFragmentPolicy.FAIL_ANALYSIS) {
+        ruleContext.ruleError(missingFragmentError(ruleContext, configurationFragmentPolicy));
+        return null;
       }
+      return createFailConfiguredTarget(ruleContext);
     }
+
     if (rule.getRuleClassObject().isSkylarkExecutable()) {
       // TODO(bazel-team): maybe merge with RuleConfiguredTargetBuilder?
       return SkylarkRuleConfiguredTargetBuilder.buildRule(

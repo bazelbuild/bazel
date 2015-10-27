@@ -72,10 +72,6 @@ public final class ConfigurationFragmentPolicy {
      * Declares that the implementation of the associated rule class requires the given
      * configuration fragments to be present in the configuration. The value is inherited by
      * subclasses.
-     *
-     * <p>For backwards compatibility, if the set is empty, all fragments may be accessed. But note
-     * that this is only enforced in the {@link com.google.devtools.build.lib.analysis.RuleContext}
-     * class.
      */
     public Builder requiresConfigurationFragments(Collection<Class<?>> configurationFragments) {
       requiredConfigurationFragments.addAll(configurationFragments);
@@ -86,10 +82,6 @@ public final class ConfigurationFragmentPolicy {
      * Declares that the implementation of the associated rule class requires the given
      * configuration fragments to be present in the configuration. The value is inherited by
      * subclasses.
-     *
-     * <p>For backwards compatibility, if the set is empty, all fragments may be accessed. But note
-     * that this is only enforced in the {@link com.google.devtools.build.lib.analysis.RuleContext}
-     * class.
      */
     public Builder requiresConfigurationFragments(Class<?>... configurationFragments) {
       Collections.addAll(requiredConfigurationFragments, configurationFragments);
@@ -131,8 +123,7 @@ public final class ConfigurationFragmentPolicy {
 
   /**
    * The set of required configuration fragments; this should list all fragments that can be
-   * accessed by the rule implementation. If empty, all fragments are allowed to be accessed for
-   * backwards compatibility.
+   * accessed by the rule implementation.
    */
   private final ImmutableSet<Class<?>> requiredConfigurationFragments;
 
@@ -168,8 +159,7 @@ public final class ConfigurationFragmentPolicy {
 
   /**
    * The set of required configuration fragments; this contains all fragments that can be
-   * accessed by the rule implementation. If empty, all fragments are allowed to be accessed for
-   * backwards compatibility.
+   * accessed by the rule implementation.
    */
   public Set<Class<?>> getRequiredConfigurationFragments() {
     return requiredConfigurationFragments;

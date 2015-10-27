@@ -14,11 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -141,12 +139,7 @@ public class TransitiveTargetFunction
     if (target instanceof Rule) {
       ConfigurationFragmentPolicy configurationFragmentPolicy =
           target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy();
-      Set<Class<?>> configFragments =
-          configurationFragmentPolicy.getRequiredConfigurationFragments();
-      // An empty result means this rule requires all fragments (which practically means
-      // the rule isn't yet declaring its actually needed fragments). So load everything.
-      configFragments = configFragments.isEmpty() ? getAllFragments() : configFragments;
-      for (Class<?> fragment : configFragments) {
+      for (Class<?> fragment : configurationFragmentPolicy.getRequiredConfigurationFragments()) {
         if (!builder.getConfigFragmentsFromDeps().contains(fragment)) {
           builder.getTransitiveConfigFragments().add(
               fragment.asSubclass(BuildConfiguration.Fragment.class));
@@ -209,17 +202,6 @@ public class TransitiveTargetFunction
                 TargetUtils.formatMissingEdge(target, depLabel, e)));
       }
     }
-  }
-
-  /**
-   * Returns every configuration fragment known to the system.
-   */
-  private Set<Class<?>> getAllFragments() {
-    ImmutableSet.Builder<Class<?>> builder = ImmutableSet.builder();
-    for (ConfigurationFragmentFactory factory : ruleClassProvider.getConfigurationFragments()) {
-      builder.add(factory.creates());
-    }
-    return builder.build();
   }
 
   /**
