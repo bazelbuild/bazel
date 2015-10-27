@@ -37,7 +37,6 @@ public class Constants {
   public static final String ANDROID_DEFAULT_CROSSTOOL = "//external:android/crosstool".toString();
   public static final ImmutableList<String> ANDROID_DEFAULT_FAT_APK_CPUS =
       ImmutableList.<String>of("armeabi-v7a");
-  public static final String ANDROID_DEP_PREFIX = "//external:android/".toString();
   public static final String TOOLS_REPOSITORY = "@bazel_tools".toString();
 
   /**

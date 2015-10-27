@@ -30,8 +30,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.constraints.EnvironmentRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidRepositoryRules;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidRepositoryRules.AndroidHttpToolsRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidLibraryRule;
@@ -365,8 +363,6 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new NewLocalRepositoryRule());
     builder.addRuleDefinition(new AndroidSdkRepositoryRule());
     builder.addRuleDefinition(new AndroidNdkRepositoryRule());
-    builder.addRuleDefinition(new AndroidRepositoryRules.AndroidLocalRepositoryRule());
-    builder.addRuleDefinition(new AndroidHttpToolsRepositoryRule());
 
     builder.addAspectFactory(AndroidStudioInfoAspect.NAME, AndroidStudioInfoAspect.class);
 

@@ -43,7 +43,8 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
         .add(attr("$debug_keystore", BuildType.LABEL)
             .cfg(HOST)
             .singleArtifact()
-            .value(environment.getLabel(Constants.ANDROID_DEP_PREFIX + "debug_keystore")))
+            .value(environment.getLabel(
+                Constants.TOOLS_REPOSITORY + "//tools/android:debug_keystore")))
         .add(attr(":cc_toolchain_split", BuildType.LABEL)
             .cfg(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION)
             .value(BazelCppRuleClasses.CC_TOOLCHAIN))

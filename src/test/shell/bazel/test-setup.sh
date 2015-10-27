@@ -244,11 +244,6 @@ android_sdk_repository(
     build_tools_version = "$ANDROID_SDK_TOOLS_VERSION",
     api_level = $ANDROID_SDK_API_LEVEL,
 )
-
-android_local_tools_repository(
-    name = "androidtools",
-    path = "$ANDROID_TOOLS",
-)
 EOF
 }
 

@@ -119,31 +119,32 @@ public final class AndroidRuleClasses {
   public static final SafeImplicitOutputsFunction JAVA_RESOURCES_JAR =
       fromTemplates("%{name}_files/java_resources.jar");
   public static final String MANIFEST_MERGE_TOOL_LABEL =
-      Constants.ANDROID_DEP_PREFIX + "merge_manifests";
+      Constants.TOOLS_REPOSITORY + "//tools/android:merge_manifests";
   public static final String BUILD_INCREMENTAL_DEXMANIFEST_LABEL =
-      Constants.ANDROID_DEP_PREFIX + "build_incremental_dexmanifest";
+      Constants.TOOLS_REPOSITORY + "//tools/android:build_incremental_dexmanifest";
   public static final String STUBIFY_MANIFEST_LABEL =
-      Constants.ANDROID_DEP_PREFIX + "stubify_manifest";
+      Constants.TOOLS_REPOSITORY + "//tools/android:stubify_manifest";
   public static final String INCREMENTAL_INSTALL_LABEL =
-      Constants.ANDROID_DEP_PREFIX + "incremental_install";
+      Constants.TOOLS_REPOSITORY + "//tools/android:incremental_install";
   public static final String BUILD_SPLIT_MANIFEST_LABEL =
-      Constants.ANDROID_DEP_PREFIX + "build_split_manifest";
+      Constants.TOOLS_REPOSITORY + "//tools/android:build_split_manifest";
   public static final String STRIP_RESOURCES_LABEL =
-      Constants.ANDROID_DEP_PREFIX + "strip_resources";
+      Constants.TOOLS_REPOSITORY + "//tools/android:strip_resources";
 
   public static final Label DEFAULT_ANDROID_SDK =
       Label.parseAbsoluteUnchecked(
           Constants.ANDROID_DEFAULT_SDK);
   public static final Label DEFAULT_INCREMENTAL_STUB_APPLICATION =
       Label.parseAbsoluteUnchecked(
-          Constants.ANDROID_DEP_PREFIX + "incremental_stub_application");
+          Constants.TOOLS_REPOSITORY + "//tools/android:incremental_stub_application");
   public static final Label DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION =
       Label.parseAbsoluteUnchecked(
-          Constants.ANDROID_DEP_PREFIX + "incremental_split_stub_application");
+          Constants.TOOLS_REPOSITORY + "//tools/android:incremental_split_stub_application");
   public static final Label DEFAULT_RESOURCES_PROCESSOR =
-      Label.parseAbsoluteUnchecked(Constants.ANDROID_DEP_PREFIX + "resources_processor");
+      Label.parseAbsoluteUnchecked(
+          Constants.TOOLS_REPOSITORY + "//tools/android:resources_processor");
   public static final Label DEFAULT_AAR_GENERATOR =
-      Label.parseAbsoluteUnchecked(Constants.ANDROID_DEP_PREFIX + "aar_generator");
+      Label.parseAbsoluteUnchecked(Constants.TOOLS_REPOSITORY + "//tools/android:aar_generator");
 
   /**
    * Implementation for the :proguard attribute.
@@ -539,7 +540,7 @@ public final class AndroidRuleClasses {
               .value(env.getLabel(
                   Constants.TOOLS_REPOSITORY + "//third_party/java/jarjar:jarjar_bin")))
           .add(attr("$idlclass", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(Constants.ANDROID_DEP_PREFIX + "IdlClass")))
+              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/android:IdlClass")))
           .build();
     }
 
@@ -603,9 +604,9 @@ public final class AndroidRuleClasses {
           .add(attr("$stubify_manifest", LABEL).cfg(HOST).exec()
               .value(env.getLabel(AndroidRuleClasses.STUBIFY_MANIFEST_LABEL)))
           .add(attr("$shuffle_jars", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(Constants.ANDROID_DEP_PREFIX + "shuffle_jars")))
+              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/android:shuffle_jars")))
           .add(attr("$merge_dexzips", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(Constants.ANDROID_DEP_PREFIX + "merge_dexzips")))
+              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/android:merge_dexzips")))
           .add(attr("$incremental_install", LABEL).cfg(HOST).exec()
               .value(env.getLabel(INCREMENTAL_INSTALL_LABEL)))
           .add(attr("$build_split_manifest", LABEL).cfg(HOST).exec()

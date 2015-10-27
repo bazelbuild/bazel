@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfigurationCollection;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidRepositoryRules;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.bazel.rules.workspace.LocalRepositoryRule;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -78,11 +77,6 @@ public class BazelAnalysisMock extends AnalysisMock {
                 "  actual = '//objcproto:ProtocolBuffersCPP_lib',",
                 ")",
                 "bind(name = 'android/sdk', actual='//tools/android:sdk')"));
-    ImmutableList<String> tools = AndroidRepositoryRules.toolsForTesting();
-    for (String tool : tools) {
-      workspaceContents.add(
-          "bind(name = 'android/" + tool + "', actual = '//tools/android:" + tool + "')");
-    }
 
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[workspaceContents.size()]));
     config.create("tools/jdk/BUILD",
