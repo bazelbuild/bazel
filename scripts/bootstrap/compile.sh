@@ -325,16 +325,16 @@ fi
 
 log "Compiling build-runfiles..."
 # Clang on Linux requires libstdc++
-run_silent "${CXX}" -o ${OUTPUT_DIR}/build-runfiles -std=c++0x src/main/tools/build-runfiles.cc -lstdc++
+run_silent "${CXX}" -o ${OUTPUT_DIR}/build-runfiles -std=c++0x src/main/tools/build-runfiles.cc -lstdc++ ${LDFLAGS}
 
 log "Compiling process-wrapper..."
-run_silent "${CC}" -o ${OUTPUT_DIR}/process-wrapper -std=c99 src/main/tools/process-wrapper.c src/main/tools/process-tools.c -lm
+run_silent "${CC}" -o ${OUTPUT_DIR}/process-wrapper -std=c99 src/main/tools/process-wrapper.c src/main/tools/process-tools.c -lm ${LDFLAGS}
 
 log "Compiling namespace-sandbox..."
 if [[ $PLATFORM == "linux" ]]; then
-  run_silent "${CC}" -o ${OUTPUT_DIR}/namespace-sandbox -std=c99 src/main/tools/namespace-sandbox.c src/main/tools/network-tools.c src/main/tools/process-tools.c -lm
+  run_silent "${CC}" -o ${OUTPUT_DIR}/namespace-sandbox -std=c99 src/main/tools/namespace-sandbox.c src/main/tools/network-tools.c src/main/tools/process-tools.c -lm ${LDFLAGS}
 else
-  run_silent "${CC}" -o ${OUTPUT_DIR}/namespace-sandbox -std=c99 src/main/tools/namespace-sandbox-dummy.c -lm
+  run_silent "${CC}" -o ${OUTPUT_DIR}/namespace-sandbox -std=c99 src/main/tools/namespace-sandbox-dummy.c -lm ${LDFLAGS}
 fi
 
 cp src/main/tools/build_interface_so ${OUTPUT_DIR}/build_interface_so
