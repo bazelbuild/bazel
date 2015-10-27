@@ -65,7 +65,7 @@ public interface CoverageReportActionFactory {
    * implementation, such as command line options.
    */
   @Nullable
-  public CoverageReportActionsWrapper createCoverageReportActionsWrapper(
+  CoverageReportActionsWrapper createCoverageReportActionsWrapper(
       Collection<ConfiguredTarget> targetsToTest,
       Iterable<Artifact> baselineCoverageArtifacts,
       ArtifactFactory artifactFactory, ArtifactOwner artifactOwner);
