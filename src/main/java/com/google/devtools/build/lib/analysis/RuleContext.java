@@ -284,7 +284,7 @@ public final class RuleContext extends TargetContext
         + "in %s configuration in order to access it.%s",
         rule.getRuleClass(), name, FragmentCollection.getConfigurationName(config),
         additionalErrorMessage);
-    return getConfiguration().getFragment(fragment);
+    return getConfiguration(config).getFragment(fragment);
   }
 
   @Nullable
@@ -295,7 +295,8 @@ public final class RuleContext extends TargetContext
 
   @Nullable
   public Fragment getSkylarkFragment(String name, ConfigurationTransition config) {
-    Class<? extends Fragment> fragmentClass = getConfiguration().getSkylarkFragmentByName(name);
+    Class<? extends Fragment> fragmentClass =
+        getConfiguration(config).getSkylarkFragmentByName(name);
     if (fragmentClass == null) {
       return null;
     }
