@@ -590,7 +590,9 @@ EOF
   bazel build @x//:catter || fail "Build failed"
   assert_contains "abc" bazel-genfiles/external/x/catter.out
   mv x.BUILD x.BUILD.new || fail "Moving x.BUILD failed"
-  sed -i 's/x.BUILD/x.BUILD.new/g' WORKSPACE || fail "Editing WORKSPACE failed"
+  sed 's/x.BUILD/x.BUILD.new/g' WORKSPACE > WORKSPACE.tmp || \
+    fail "Editing WORKSPACE failed"
+  mv WORKSPACE.tmp WORKSPACE
   bazel build @x//:catter || fail "Build failed"
   assert_contains "abc" bazel-genfiles/external/x/catter.out
 }
@@ -630,7 +632,9 @@ EOF
 
   bazel build @x//:catter || fail "Build failed"
   assert_contains "abc" bazel-genfiles/external/x/catter.out
-  sed -i 's/x.BUILD/x.BUILD.new/g' WORKSPACE || fail "Editing WORKSPACE failed"
+  sed 's/x.BUILD/x.BUILD.new/g' WORKSPACE > WORKSPACE.tmp || \
+    fail "Editing WORKSPACE failed"
+  mv WORKSPACE.tmp WORKSPACE
   bazel build @x//:catter || fail "Build failed"
   assert_contains "def" bazel-genfiles/external/x/catter.out
 }
