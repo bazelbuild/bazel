@@ -60,11 +60,9 @@ class X86Crosstools {
               // gcc-4.8 x86 toolchain doesn't have gcov-tool.
               CppConfiguration.Tool.GCOVTOOL))
 
-          .addAllCxxBuiltinIncludeDirectory(ndkPaths.createToolchainIncludePaths(
-              "x86-4.8", "i686-linux-android", "4.8"))
-
           .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86"));
 
+      ndkPaths.addToolchainIncludePaths(x86Clang, "x86-4.8", "i686-linux-android", "4.8");
       stlImpl.addStlImpl(x86Clang, "4.8");
       toolchains.add(x86Clang);
     }
@@ -81,13 +79,11 @@ class X86Crosstools {
         .addAllToolPath(ndkPaths.createToolpaths(
             "x86_64-4.9", "x86_64-linux-android"))
 
-        .addAllCxxBuiltinIncludeDirectory(ndkPaths.createToolchainIncludePaths(
-            "x86_64-4.9", "x86_64-linux-android", "4.9"))
-
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86_64"))
 
         .addCompilerFlag("-fstack-protector-strong");
 
+    ndkPaths.addToolchainIncludePaths(x8664, "x86_64-4.9", "x86_64-linux-android", "4.9");
     stlImpl.addStlImpl(x8664, "4.9");
     toolchains.add(x8664);
 
@@ -102,11 +98,9 @@ class X86Crosstools {
               .addAllToolPath(ndkPaths.createClangToolpaths(
                   "x86_64-4.9", "x86_64-linux-android", clangVersion))
     
-              .addAllCxxBuiltinIncludeDirectory(ndkPaths.createToolchainIncludePaths(
-                  "x86_64-4.9", "x86_64-linux-android", "4.9"))
-    
               .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86_64"));
 
+      ndkPaths.addToolchainIncludePaths(x8664Clang, "x86_64-4.9", "x86_64-linux-android", "4.9");
       stlImpl.addStlImpl(x8664Clang, "4.9");
       toolchains.add(x8664Clang);
     }
@@ -131,14 +125,13 @@ class X86Crosstools {
     
         .addAllToolPath(ndkPaths.createToolpaths(
             "x86-" + gccVersion, "i686-linux-android", excludedTools))
-        
-        .addAllCxxBuiltinIncludeDirectory(ndkPaths.createToolchainIncludePaths(
-            "x86-" + gccVersion, "i686-linux-android", gccVersion))
-    
+
         .setBuiltinSysroot(ndkPaths.createBuiltinSysroot("x86"))
     
         .addCompilerFlag(stackProtrectorFlag);
 
+    ndkPaths.addToolchainIncludePaths(
+        toolchain, "x86-" + gccVersion, "i686-linux-android", gccVersion);
     stlImpl.addStlImpl(toolchain, gccVersion);
     return toolchain;
   }

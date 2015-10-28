@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
+import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.ToolPath;
 
 import java.util.Arrays;
@@ -116,7 +117,34 @@ public class NdkPaths {
         .replace("%hostPlatform%", hostPlatform);
   }
 
-  ImmutableList<String> createToolchainIncludePaths(
+  void addToolchainIncludePaths(
+      List<CToolchain.Builder> toolchains,
+      String toolchainName,
+      String targetPlatform,
+      String gccVersion) {
+
+    for (CToolchain.Builder toolchain : toolchains) {
+      addToolchainIncludePaths(toolchain, toolchainName, targetPlatform, gccVersion);
+    }
+  }
+
+  void addToolchainIncludePaths(
+      CToolchain.Builder toolchain,
+      String toolchainName,
+      String targetPlatform,
+      String gccVersion) {
+
+    List<String> includePaths =
+        this.createToolchainIncludePaths(toolchainName, targetPlatform, gccVersion);
+    
+    for (String includePath : includePaths) {
+      toolchain.addCxxBuiltinIncludeDirectory(includePath);
+      toolchain.addUnfilteredCxxFlag("-isystem");
+      toolchain.addUnfilteredCxxFlag(includePath);
+    }
+  }
+  
+  private ImmutableList<String> createToolchainIncludePaths(
       String toolchainName, String targetPlatform, String gccVersion) {
 
     ImmutableList.Builder<String> includePaths = ImmutableList.builder();
