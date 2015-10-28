@@ -48,8 +48,8 @@ import java.util.concurrent.TimeUnit;
 public abstract class GraphConcurrencyTest {
 
   private static final SkyFunctionName SKY_FUNCTION_NAME = SkyFunctionName.FOR_TESTING;
-  private ProcessableGraph graph;
-  private TestRunnableWrapper wrapper;
+  protected ProcessableGraph graph;
+  protected TestRunnableWrapper wrapper;
 
   // This code should really be in a @Before method, but @Before methods are executed from the
   // top down, and this class's @Before method calls #getGraph, so makeGraph must have already
@@ -67,7 +67,7 @@ public abstract class GraphConcurrencyTest {
     this.wrapper = new TestRunnableWrapper("GraphConcurrencyTest");
   }
 
-  private SkyKey key(String name) {
+  protected SkyKey key(String name) {
     return new SkyKey(SKY_FUNCTION_NAME, name);
   }
 
