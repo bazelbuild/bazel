@@ -41,6 +41,9 @@ public final class ForStatement extends Statement {
     return variable;
   }
 
+  /**
+   * @return The collection we iterate on, e.g. `col` in `for x in col:`
+   */
   public Expression getCollection() {
     return collection;
   }
