@@ -40,6 +40,11 @@ function.
 
 An ecosystem for building tools that work with code.
 
+## [Jsonnet](http://google.github.io/jsonnet/doc/)
+
+An elegant, formally-specified config generation language for JSON. (Bazel is a
+supported build system.)
+
 ## [PetitParser for Java](https://github.com/petitparser/java-petitparser)
 
 Grammars for programming languages are traditionally specified statically. They
