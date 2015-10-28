@@ -73,7 +73,13 @@ public class UserDefinedFunction extends BaseFunction {
 
       try {
         for (Statement stmt : statements) {
-          stmt.exec(env);
+          if (stmt instanceof ReturnStatement) {
+            // Performance optimization.
+            // Executing the statement would throw an exception, which is slow.
+            return ((ReturnStatement) stmt).getReturnExpression().eval(env);
+          } else {
+            stmt.exec(env);
+          }
         }
       } catch (ReturnStatement.ReturnException e) {
         return e.getValue();
