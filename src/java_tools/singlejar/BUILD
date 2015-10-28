@@ -11,7 +11,7 @@ java_library(
     srcs = glob(["java/**/singlejar/**/*.java"]),
     deps = [
         ":zip",
-        "//src/main/java:shell",
+        "//src/main/java/com/google/devtools/build/lib:shell",
         "//third_party:jsr305",
     ],
 )
@@ -29,7 +29,7 @@ java_test(
     deps = [
         ":libSingleJar",
         ":zip",
-        "//src/main/java:shell",
+        "//src/main/java/com/google/devtools/build/lib:shell",
         "//src/test/java:testutil",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -81,6 +81,6 @@ bootstrap_java_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":skylark-deps",
-        "//src/main/java:shell-skylark",
+        "//src/main/java/com/google/devtools/build/lib:shell-skylark",
     ],
 )

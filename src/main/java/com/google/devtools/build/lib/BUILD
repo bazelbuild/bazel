@@ -3,7 +3,7 @@ package(default_visibility = ["//src:__subpackages__"])
 java_library(
     name = "shell",
     srcs = glob([
-        "com/google/devtools/build/lib/shell/*.java",
+        "shell/*.java",
     ]),
     deps = ["//third_party:guava"],
 )
@@ -11,7 +11,7 @@ java_library(
 java_library(
     name = "cmdline",
     srcs = glob([
-        "com/google/devtools/build/lib/cmdline/*.java",
+        "cmdline/*.java",
     ]),
     deps = [
         ":base-util",
@@ -28,7 +28,7 @@ java_library(
 java_library(
     name = "collect",
     srcs = glob([
-        "com/google/devtools/build/lib/collect/**/*.java",
+        "collect/**/*.java",
     ]),
     deps = [
         ":common",
@@ -41,7 +41,7 @@ java_library(
 java_library(
     name = "common",
     srcs = [
-        "com/google/devtools/build/lib/Constants.java",
+        "Constants.java",
     ],
     deps = [
         "//third_party:guava",
@@ -52,7 +52,7 @@ java_library(
 java_library(
     name = "concurrent",
     srcs = glob([
-        "com/google/devtools/build/lib/concurrent/*.java",
+        "concurrent/*.java",
     ]),
     deps = [
         ":common",
@@ -64,7 +64,7 @@ java_library(
 java_library(
     name = "events",
     srcs = glob([
-        "com/google/devtools/build/lib/events/*.java",
+        "events/*.java",
     ]),
     deps = [
         ":common",
@@ -78,7 +78,7 @@ java_library(
 
 java_library(
     name = "syntax",
-    srcs = glob(["com/google/devtools/build/lib/syntax/*.java"]),
+    srcs = glob(["syntax/*.java"]),
     deps = [
         ":base-util",
         ":collect",
@@ -98,8 +98,8 @@ java_library(
 java_library(
     name = "packages",
     srcs = glob([
-        "com/google/devtools/build/lib/packages/*.java",
-        "com/google/devtools/build/lib/pkgcache/*.java",
+        "packages/*.java",
+        "pkgcache/*.java",
     ]),
     exports = [
         ":cmdline",
@@ -124,9 +124,9 @@ java_library(
 java_library(
     name = "unix",
     srcs = glob([
-        "com/google/devtools/build/lib/unix/*.java",
+        "unix/*.java",
     ]) + [
-        "com/google/devtools/build/lib/UnixJniLoader.java",
+        "UnixJniLoader.java",
     ],
     deps = [
         ":common",
@@ -139,8 +139,8 @@ java_library(
 java_library(
     name = "vfs",
     srcs = glob([
-        "com/google/devtools/build/lib/vfs/**/*.java",
-        "com/google/devtools/build/lib/profiler/*.java",
+        "vfs/**/*.java",
+        "profiler/*.java",
     ]),
     deps = [
         ":base-util",
@@ -159,9 +159,9 @@ java_library(
 java_library(
     name = "profiler-output",
     srcs = glob([
-        "com/google/devtools/build/lib/profiler/chart/*.java",
-        "com/google/devtools/build/lib/profiler/output/*.java",
-        "com/google/devtools/build/lib/profiler/statistics/*.java",
+        "profiler/chart/*.java",
+        "profiler/output/*.java",
+        "profiler/statistics/*.java",
     ]),
     deps = [
         ":collect",
@@ -177,9 +177,9 @@ java_library(
 java_library(
     name = "clock",
     srcs = [
-        "com/google/devtools/build/lib/util/BlazeClock.java",
-        "com/google/devtools/build/lib/util/Clock.java",
-        "com/google/devtools/build/lib/util/JavaClock.java",
+        "util/BlazeClock.java",
+        "util/Clock.java",
+        "util/JavaClock.java",
     ],
     deps = [
         ":concurrent",
@@ -190,9 +190,9 @@ java_library(
 java_library(
     name = "base-util",
     srcs = [
-        "com/google/devtools/build/lib/util/StringCanonicalizer.java",
-        "com/google/devtools/build/lib/util/StringTrie.java",
-        "com/google/devtools/build/lib/util/VarInt.java",
+        "util/StringCanonicalizer.java",
+        "util/StringTrie.java",
+        "util/VarInt.java",
     ],
     deps = [
         ":common",
@@ -203,7 +203,7 @@ java_library(
 # I/O utilities.
 java_library(
     name = "io",
-    srcs = glob(["com/google/devtools/build/lib/util/io/*.java"]),
+    srcs = glob(["util/io/*.java"]),
     deps = [
         ":clock",
         ":common",
@@ -216,21 +216,21 @@ java_library(
 # General utilities.
 java_library(
     name = "os_util",
-    srcs = ["com/google/devtools/build/lib/util/OS.java"],
+    srcs = ["util/OS.java"],
 )
 
 java_library(
     name = "util",
     srcs = glob(
-        ["com/google/devtools/build/lib/util/*.java"],
+        ["util/*.java"],
         exclude = [
-            "com/google/devtools/build/lib/util/BlazeClock.java",
-            "com/google/devtools/build/lib/util/Clock.java",
-            "com/google/devtools/build/lib/util/JavaClock.java",
-            "com/google/devtools/build/lib/util/OS.java",
-            "com/google/devtools/build/lib/util/StringCanonicalizer.java",
-            "com/google/devtools/build/lib/util/StringTrie.java",
-            "com/google/devtools/build/lib/util/VarInt.java",
+            "util/BlazeClock.java",
+            "util/Clock.java",
+            "util/JavaClock.java",
+            "util/OS.java",
+            "util/StringCanonicalizer.java",
+            "util/StringTrie.java",
+            "util/VarInt.java",
         ],
     ),
     deps = [
@@ -250,37 +250,20 @@ java_library(
 )
 
 java_library(
-    name = "skyframe-base",
-    srcs = glob([
-        "com/google/devtools/build/skyframe/*.java",
-    ]),
-    deps = [
-        ":collect",
-        ":common",
-        ":concurrent",
-        ":events",
-        ":util",
-        ":vfs",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "analysis-exec-rules-skyframe",
     srcs = glob(
         [
-            "com/google/devtools/build/lib/analysis/**/*.java",
-            "com/google/devtools/build/lib/exec/*.java",
-            "com/google/devtools/build/lib/ideinfo/**/*.java",
-            "com/google/devtools/build/lib/rules/**/*.java",
-            "com/google/devtools/build/lib/skyframe/*.java",
+            "analysis/**/*.java",
+            "exec/*.java",
+            "ideinfo/**/*.java",
+            "rules/**/*.java",
+            "skyframe/*.java",
         ],
         exclude = [
-            "com/google/devtools/build/lib/rules/java/JavaToolchainDataParser.java",
+            "rules/java/JavaToolchainDataParser.java",
         ],
     ) + [
-        "com/google/devtools/build/lib/runtime/BlazeServerStartupOptions.java",
+        "runtime/BlazeServerStartupOptions.java",
     ],
     deps = [
         ":base-util",
@@ -293,10 +276,10 @@ java_library(
         ":os_util",
         ":packages",
         ":shell",
-        ":skyframe-base",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:android_studio_ide_info_proto",
         "//src/main/protobuf:bundlemerge_proto",
@@ -316,7 +299,7 @@ java_library(
 java_library(
     name = "graph",
     srcs = glob([
-        "com/google/devtools/build/lib/graph/*.java",
+        "graph/*.java",
     ]),
     deps = [
         "//third_party:guava",
@@ -327,7 +310,7 @@ java_library(
 java_library(
     name = "query2",
     srcs = glob([
-        "com/google/devtools/build/lib/query2/**/*.java",
+        "query2/**/*.java",
     ]),
     deps = [
         ":analysis-exec-rules-skyframe",
@@ -337,9 +320,9 @@ java_library(
         ":events",
         ":graph",
         ":packages",
-        ":skyframe-base",
         ":util",
         ":vfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_proto",
         "//third_party:guava",
@@ -350,8 +333,8 @@ java_library(
 java_library(
     name = "buildtool-runtime",
     srcs = glob([
-        "com/google/devtools/build/lib/buildtool/**/*.java",
-        "com/google/devtools/build/lib/runtime/**/*.java",
+        "buildtool/**/*.java",
+        "runtime/**/*.java",
     ]),
     deps = [
         ":analysis-exec-rules-skyframe",
@@ -367,11 +350,11 @@ java_library(
         ":query2",
         ":server",
         ":shell",
-        ":skyframe-base",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/docgen",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_proto",
         "//src/main/protobuf:invocation_policy_proto",
@@ -386,9 +369,9 @@ java_library(
 java_library(
     name = "runtime",
     srcs = glob([
-        "com/google/devtools/build/lib/runtime/**/*.java",
-        "com/google/devtools/build/lib/buildtool/**/*.java",
-        "com/google/devtools/build/lib/server/**/*.java",
+        "runtime/**/*.java",
+        "buildtool/**/*.java",
+        "server/**/*.java",
     ]),
     deps = [
         ":analysis-exec-rules-skyframe",
@@ -404,12 +387,12 @@ java_library(
         ":profiler-output",
         ":query2",
         ":shell",
-        ":skyframe-base",
         ":unix",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/docgen",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_proto",
         "//src/main/protobuf:invocation_policy_proto",
@@ -424,7 +407,7 @@ java_library(
 java_library(
     name = "server",
     srcs = glob([
-        "com/google/devtools/build/lib/server/**/*.java",
+        "server/**/*.java",
     ]),
     deps = [
         ":clock",
@@ -441,19 +424,19 @@ java_library(
     name = "bazel-core",
     srcs = glob(
         [
-            "com/google/devtools/build/lib/bazel/**/*.java",
+            "bazel/**/*.java",
         ],
         exclude = [
-            "com/google/devtools/build/lib/bazel/repository/MavenConnector.java",
+            "bazel/repository/MavenConnector.java",
         ],
     ),
     resources = glob([
-        "com/google/devtools/build/lib/**/*.txt",
-        "com/google/devtools/build/lib/**/*.html",
-        "com/google/devtools/build/lib/**/*.css",
-        "com/google/devtools/build/lib/**/*.js",
-        "com/google/devtools/build/lib/**/*.WORKSPACE",
-        "com/google/devtools/build/lib/**/*.vm",
+        "**/*.txt",
+        "**/*.html",
+        "**/*.css",
+        "**/*.js",
+        "**/*.WORKSPACE",
+        "**/*.vm",
     ]) + [
         "//third_party:d3-js",
         "//third_party:jquery",
@@ -490,7 +473,6 @@ java_library(
         ":query2",
         ":runtime",
         ":shell",
-        ":skyframe-base",
         ":unix",
         ":util",
         ":vfs",
@@ -501,6 +483,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/worker",
+        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_proto",
         "//src/main/protobuf:crosstool_config_proto",
@@ -526,7 +509,7 @@ java_library(
 
 java_library(
     name = "maven-connector",
-    srcs = ["com/google/devtools/build/lib/bazel/repository/MavenConnector.java"],
+    srcs = ["bazel/repository/MavenConnector.java"],
     deps = [
         "//third_party:aether",
         "//third_party:jsr330_inject",
@@ -539,10 +522,10 @@ java_library(
     testonly = 1,
     srcs = glob([
         # JavaToolchain parser
-        "com/google/devtools/build/lib/rules/java/JavaToolchainData.java",
-        "com/google/devtools/build/lib/rules/java/JavaToolchainDataParser.java",
+        "rules/java/JavaToolchainData.java",
+        "rules/java/JavaToolchainDataParser.java",
         # Concurrent stuff
-        "com/google/devtools/build/lib/concurrent/*.java",
+        "concurrent/*.java",
     ]),
     visibility = [
         "//src/java_tools/buildjar:__pkg__",
@@ -571,6 +554,7 @@ filegroup(
         "//src/main/java/com/google/devtools/common/options:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/dash:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
+        "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/worker:srcs",
         "//src/main/java/com/google/devtools/build/docgen:srcs",
@@ -580,7 +564,7 @@ filegroup(
 
 filegroup(
     name = "docs_embedded_in_sources",
-    srcs = glob(["com/google/devtools/build/lib/**/*.java"]),
+    srcs = glob(["**/*.java"]),
 )
 
 genrule(
@@ -616,6 +600,6 @@ load("/tools/build_rules/java_rules_skylark", "bootstrap_java_library")
 
 bootstrap_java_library(
     name = "shell-skylark",
-    srcs = glob(["com/google/devtools/build/lib/shell/*.java"]),
+    srcs = glob(["shell/*.java"]),
     jars = ["//third_party:guava"],
 )

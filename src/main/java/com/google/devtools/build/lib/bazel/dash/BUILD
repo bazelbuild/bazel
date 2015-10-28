@@ -1,21 +1,21 @@
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),
-    visibility = ["//src/main/java:__pkg__"],
+    visibility = ["//src/main/java/com/google/devtools/build/lib:__pkg__"],
 )
 
 java_library(
     name = "dash",
     srcs = glob(["*.java"]),
     visibility = [
-        "//src/main/java:__pkg__",
+        "//src/main/java/com/google/devtools/build/lib:__pkg__",
     ],
     deps = [
-        "//src/main/java:analysis-exec-rules-skyframe",
-        "//src/main/java:events",
-        "//src/main/java:packages",
-        "//src/main/java:runtime",
-        "//src/main/java:vfs",
+        "//src/main/java/com/google/devtools/build/lib:analysis-exec-rules-skyframe",
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:packages",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:dash_proto",
         "//third_party:apache_httpclient",

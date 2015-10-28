@@ -123,7 +123,7 @@ genrule(
     srcs = [
         "//src/java_tools/singlejar:srcs",
         "//src/main/protobuf:srcs",
-        "//src/main/java:srcs",
+        "//src/main/java/com/google/devtools/build/lib:srcs",
         "//src/main/java/com/google/devtools/build/lib/actions:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",

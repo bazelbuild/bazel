@@ -89,7 +89,7 @@ java_binary(
     srcs = ["java/com/google/devtools/build/java/bazel/JavaBuilderConfigGenerator.java"],
     main_class = "com.google.devtools.build.java.bazel.JavaBuilderConfigGenerator",
     deps = [
-        "//src/main/java:java-toolchain-parser",
+        "//src/main/java/com/google/devtools/build/lib:java-toolchain-parser",
         "//third_party:guava",
     ],
 )

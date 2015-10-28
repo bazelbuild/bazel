@@ -23,7 +23,7 @@ source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
 
 function test_docgen() {
   unzip -q -n ${bazel_tree}
-  bazel build src/main/java:gen_buildencyclopedia &> $TEST_log || \
+  bazel build src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia &> $TEST_log || \
     fail "Unexpected error generating build encyclopedia"
 }
 

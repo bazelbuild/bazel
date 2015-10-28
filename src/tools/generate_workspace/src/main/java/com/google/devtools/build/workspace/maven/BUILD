@@ -15,8 +15,8 @@ java_library(
     ],
     deps = [
         ":rule",
-        "//src/main/java:events",
-        "//src/main/java:maven-connector",
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:maven-connector",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:maven_model",
@@ -31,8 +31,8 @@ java_library(
         "//src/tools/generate_workspace/src/main/java/com/google/devtools/build/workspace:__pkg__",
     ],
     deps = [
-        "//src/main/java:events",
-        "//src/main/java:maven-connector",
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:maven-connector",
         "//third_party:aether",
         "//third_party:guava",
         "//third_party:maven_model",
