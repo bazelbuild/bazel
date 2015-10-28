@@ -207,6 +207,13 @@ public final class Attribute implements Comparable<Attribute> {
      * (for visibility, etc.).
      */
     SKIP_PREREQ_VALIDATOR_CHECKS,
+
+    /**
+     * Whether we should check constraints on dependencies under this attribute
+     * (see {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics}). If set,
+     * the attribute is constraint-enforced even if default enforcement policy would skip it.
+     */
+    CHECK_CONSTRAINTS,
   }
 
   // TODO(bazel-team): modify this interface to extend Predicate and have an extra error
@@ -533,6 +540,19 @@ public final class Attribute implements Comparable<Attribute> {
     public Builder<TYPE> skipPrereqValidatorCheck() {
       return setPropertyFlag(PropertyFlag.SKIP_PREREQ_VALIDATOR_CHECKS,
           "skip_prereq_validator_checks");
+    }
+
+    /**
+     * Enforces constraint checking on dependencies under this attribute. Not calling this method
+     * does <i>not</i> mean the attribute won't be enforced. This method simply overrides default
+     * enforcement policy, so it's useful for special-case attributes that would otherwise be
+     * skipped.
+     *
+     * <p>See {@link com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics#getConstraintCheckedDependencies}
+     * for default enforcement policy.
+     */
+    public Builder<TYPE> checkConstraints() {
+      return setPropertyFlag(PropertyFlag.CHECK_CONSTRAINTS, "check_constraints");
     }
 
     /**
@@ -1255,6 +1275,10 @@ public final class Attribute implements Comparable<Attribute> {
 
   public boolean performPrereqValidatorCheck() {
     return !getPropertyFlag(PropertyFlag.SKIP_PREREQ_VALIDATOR_CHECKS);
+  }
+
+  public boolean checkConstraintsOverride() {
+    return getPropertyFlag(PropertyFlag.CHECK_CONSTRAINTS);
   }
 
   /**

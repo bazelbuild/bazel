@@ -128,6 +128,27 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     }
   }
 
+  private static final class RuleClassWithEnforcedImplicitAttribute implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .setUndocumented()
+          .add(Attribute.attr("$implicit", BuildType.LABEL)
+              .value(Label.parseAbsoluteUnchecked("//helpers:implicit"))
+              .checkConstraints())
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("rule_with_enforced_implicit_deps")
+          .ancestors(BaseRuleClasses.RuleBase.class)
+          .factoryClass(UnknownRuleConfiguredTarget.class)
+          .build();
+    }
+  }
+
   private static final class ConstraintExemptRuleClass implements RuleDefinition {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -157,6 +178,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     builder.addRuleDefinition(new RuleClassDefaultRule());
     builder.addRuleDefinition(new BadRuleClassDefaultRule());
     builder.addRuleDefinition(new RuleClassWithImplicitAndLateBoundDefaults());
+    builder.addRuleDefinition(new RuleClassWithEnforcedImplicitAttribute());
     builder.addRuleDefinition(new ConstraintExemptRuleClass());
     return builder.build();
   }
@@ -672,6 +694,18 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertDoesNotContainEvent(":implicit doesn't support expected environment");
     assertDoesNotContainEvent(":latebound doesn't support expected environment");
     assertDoesNotContainEvent("normal doesn't support expected environment");
+  }
+
+  public void testImplicitDepsWithWhiteListedAttributeAreChecked() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
+    scratch.file("hello/BUILD",
+        "rule_with_enforced_implicit_deps(",
+        "    name = 'hi',",
+        "    compatible_with = ['//buildenv/foo:b'])");
+    reporter.removeHandler(failFastHandler);
+    assertNull(getConfiguredTarget("//hello:hi"));
+    assertContainsEvent(
+        "dependency //helpers:implicit doesn't support expected environment: //buildenv/foo:b");
   }
 
   public void testOutputFilesAreChecked() throws Exception {
