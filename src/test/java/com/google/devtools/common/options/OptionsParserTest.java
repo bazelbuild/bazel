@@ -1046,6 +1046,8 @@ public class OptionsParserTest {
     parser.parse("--new_name=foo");
     result = parser.getOptions(OldNameExample.class);
     assertEquals("foo", result.flag);
+    // Should be no warnings if the new name is used.
+    assertThat(parser.getWarnings()).isEmpty();
   }
 
   @Test
