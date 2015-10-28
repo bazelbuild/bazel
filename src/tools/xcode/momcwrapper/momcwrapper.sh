@@ -22,7 +22,12 @@
 
 set -eu
 
-OUTZIP=$(tools/objc/realpath "$1")
+REALPATH=$0.runfiles/external/bazel_tools/tools/objc/realpath
+if [ ! -e $REALPATH ]; then
+  REALPATH=tools/objc/realpath
+fi
+
+OUTZIP=$($REALPATH "$1")
 NAME="$2"
 shift 2
 TEMPDIR=$(mktemp -d -t momcZippingOutput)

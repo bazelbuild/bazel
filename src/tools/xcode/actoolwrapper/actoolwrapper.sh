@@ -21,7 +21,12 @@
 
 set -eu
 
-OUTZIP=$(tools/objc/realpath "$1")
+REALPATH=$0.runfiles/external/bazel_tools/tools/objc/realpath
+if [ ! -e $REALPATH ]; then
+  REALPATH=tools/objc/realpath
+fi
+
+OUTZIP=$($REALPATH "$1")
 shift 1
 TEMPDIR=$(mktemp -d -t actoolZippingOutput)
 trap "rm -rf \"$TEMPDIR\"" EXIT
@@ -41,7 +46,7 @@ for i in $@; do
     touch "$i"
   fi
   if [ -e "$i" ]; then
-    ARG=$(tools/objc/realpath "$i")
+    ARG=$($REALPATH "$i")
     TOOLARGS+=("$ARG")
   else
     TOOLARGS+=("$i")
