@@ -14,6 +14,10 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -50,7 +54,11 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -67,7 +75,8 @@ import javax.annotation.Nullable;
 /**
  * Tests for {@link FilesystemValueChecker}.
  */
-public class FilesystemValueCheckerTest extends TestCase {
+@RunWith(JUnit4.class)
+public class FilesystemValueCheckerTest {
 
   private RecordingDifferencer differencer;
   private MemoizingEvaluator evaluator;
@@ -76,10 +85,8 @@ public class FilesystemValueCheckerTest extends TestCase {
   private Path pkgRoot;
   private TimestampGranularityMonitor tsgm;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
-
+  @Before
+  public void setUp() throws Exception {
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> skyFunctions = ImmutableMap.builder();
 
     fs = new MockFileSystem();
@@ -102,16 +109,13 @@ public class FilesystemValueCheckerTest extends TestCase {
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
   }
 
-  @Override
-  protected void tearDown() throws Exception {
-    super.tearDown();
-  }
-
+  @Test
   public void testEmpty() throws Exception {
     FilesystemValueChecker checker = new FilesystemValueChecker(evaluator, tsgm, null);
     assertEmptyDiff(getDirtyFilesystemKeys(checker));
   }
 
+  @Test
   public void testSimple() throws Exception {
     FilesystemValueChecker checker = new FilesystemValueChecker(evaluator, tsgm, null);
 
@@ -155,6 +159,7 @@ public class FilesystemValueCheckerTest extends TestCase {
    * the same. Then do a null build, change sym1 back to point at path, and change symlink to not be
    * a symlink anymore. The fact that it is not a symlink should be detected.
    */
+  @Test
   public void testDirtySymlink() throws Exception {
     FilesystemValueChecker checker = new FilesystemValueChecker(evaluator, tsgm, null);
 
@@ -226,6 +231,7 @@ public class FilesystemValueCheckerTest extends TestCase {
     assertEmptyDiff(getDirtyFilesystemKeys(checker));
   }
 
+  @Test
   public void testExplicitFiles() throws Exception {
     FilesystemValueChecker checker = new FilesystemValueChecker(evaluator, tsgm, null);
 
@@ -263,6 +269,7 @@ public class FilesystemValueCheckerTest extends TestCase {
     assertEmptyDiff(getDirtyFilesystemKeys(checker));
   }
 
+  @Test
   public void testFileWithIOExceptionNotConsideredDirty() throws Exception {
     Path path = fs.getPath("/testroot/foo");
     path.getParentDirectory().createDirectory();
@@ -285,6 +292,7 @@ public class FilesystemValueCheckerTest extends TestCase {
     assertThat(diff.changedKeysWithNewValues()).isEmpty();
   }
 
+  @Test
   public void testFilesInCycleNotConsideredDirty() throws Exception {
     Path path1 = pkgRoot.getRelative("foo1");
     Path path2 = pkgRoot.getRelative("foo2");
@@ -346,10 +354,12 @@ public class FilesystemValueCheckerTest extends TestCase {
         outputPath.getRelative(relPath), Root.asDerivedRoot(fs.getPath("/"), outputPath));
   }
 
+  @Test
   public void testDirtyActions() throws Exception {
     checkDirtyActions(null, false);
   }
 
+  @Test
   public void testDirtyActionsBatchStat() throws Exception {
     checkDirtyActions(
         new BatchStat() {
@@ -369,6 +379,7 @@ public class FilesystemValueCheckerTest extends TestCase {
         false);
   }
 
+  @Test
   public void testDirtyActionsBatchStatWithDigest() throws Exception {
     checkDirtyActions(
         new BatchStat() {
@@ -387,6 +398,7 @@ public class FilesystemValueCheckerTest extends TestCase {
         true);
   }
 
+  @Test
   public void testDirtyActionsBatchStatFallback() throws Exception {
     checkDirtyActions(
         new BatchStat() {
@@ -415,6 +427,7 @@ public class FilesystemValueCheckerTest extends TestCase {
     return new ActionExecutionValue(artifactData, ImmutableMap.<Artifact, FileArtifactValue>of());
   }
 
+  @Test
   public void testPropagatesRuntimeExceptions() throws Exception {
     Collection<SkyKey> values =
         ImmutableList.of(FileValue.key(RootedPath.toRootedPath(pkgRoot, new PathFragment("foo"))));

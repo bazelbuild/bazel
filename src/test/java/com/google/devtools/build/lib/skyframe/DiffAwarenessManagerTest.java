@@ -14,6 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -26,7 +29,10 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
-import junit.framework.TestCase;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.List;
 import java.util.Map;
@@ -37,21 +43,23 @@ import javax.annotation.Nullable;
  * Unit tests for {@link DiffAwarenessManager}, especially of the fact that it works in a sequential
  * manner and of its correctness in the presence of unprocesed diffs.
  */
-public class DiffAwarenessManagerTest extends TestCase {
+@RunWith(JUnit4.class)
+public class DiffAwarenessManagerTest {
 
   private FileSystem fs;
   private Path root;
   protected EventCollectionApparatus events;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public void setUp() throws Exception {
+    
     fs = new InMemoryFileSystem();
     root = fs.getRootDirectory();
     events = new EventCollectionApparatus();
     events.setFailFast(false);
   }
 
+  @Test
   public void testEverythingModifiedIfNoDiffAwareness() throws Exception {
     Path pathEntry = root.getRelative("pathEntry");
     DiffAwarenessFactoryStub factory = new DiffAwarenessFactoryStub();
@@ -63,6 +71,7 @@ public class DiffAwarenessManagerTest extends TestCase {
     events.assertNoWarningsOrErrors();
   }
 
+  @Test
   public void testResetAndSetPathEntriesCallClose() throws Exception {
     Path pathEntry = root.getRelative("pathEntry");
     ModifiedFileSet diff = ModifiedFileSet.NOTHING_MODIFIED;
@@ -81,6 +90,7 @@ public class DiffAwarenessManagerTest extends TestCase {
     events.assertNoWarningsOrErrors();
   }
 
+  @Test
   public void testHandlesUnprocessedDiffs() throws Exception {
     Path pathEntry = root.getRelative("pathEntry");
     ModifiedFileSet diff1 = ModifiedFileSet.builder().modify(new PathFragment("file1")).build();
@@ -110,6 +120,7 @@ public class DiffAwarenessManagerTest extends TestCase {
     events.assertContainsWarning("error");
   }
 
+  @Test
   public void testHandlesBrokenDiffs() throws Exception {
     Path pathEntry = root.getRelative("pathEntry");
     DiffAwarenessFactoryStub factory1 = new DiffAwarenessFactoryStub();

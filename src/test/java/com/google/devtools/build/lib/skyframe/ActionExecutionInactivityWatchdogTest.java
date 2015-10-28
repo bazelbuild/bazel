@@ -14,18 +14,22 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
 
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog.InactivityMonitor;
 import com.google.devtools.build.lib.skyframe.ActionExecutionInactivityWatchdog.InactivityReporter;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /** Tests for ActionExecutionInactivityWatchdog. */
-public final class ActionExecutionInactivityWatchdogTest extends TestCase {
+@RunWith(JUnit4.class)
+public class ActionExecutionInactivityWatchdogTest {
 
   private void assertInactivityWatchdogReports(final boolean shouldReport) throws Exception {
     // The monitor implementation below is a state machine. This variable indicates which state
@@ -157,10 +161,12 @@ public final class ActionExecutionInactivityWatchdogTest extends TestCase {
         .inOrder();
   }
 
+  @Test
   public void testInactivityWatchdogReportsWhenItShould() throws Exception {
     assertInactivityWatchdogReports(true);
   }
 
+  @Test
   public void testInactivityWatchdogDoesNotReportWhenItShouldNot() throws Exception {
     assertInactivityWatchdogReports(false);
   }

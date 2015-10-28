@@ -20,10 +20,14 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-public class FileSymlinkCycleUniquenessFunctionTest extends TestCase {
+@RunWith(JUnit4.class)
+public class FileSymlinkCycleUniquenessFunctionTest {
 
+  @Test
   public void testHashCodeAndEqualsContract() throws Exception {
     Path root = new InMemoryFileSystem().getRootDirectory().getRelative("root");
     RootedPath p1 = RootedPath.toRootedPath(root, new PathFragment("p1"));

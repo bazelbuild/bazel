@@ -14,6 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
@@ -50,7 +53,10 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-import junit.framework.TestCase;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -63,7 +69,8 @@ import javax.annotation.Nullable;
 /**
  * Tests for {@link GlobFunction}.
  */
-public abstract class GlobFunctionTest extends TestCase {
+public abstract class GlobFunctionTest {
+  @RunWith(JUnit4.class)
   public static class GlobFunctionAlwaysUseDirListingTest extends GlobFunctionTest {
     @Override
     protected boolean alwaysUseDirListing() {
@@ -71,6 +78,7 @@ public abstract class GlobFunctionTest extends TestCase {
     }
   }
 
+  @RunWith(JUnit4.class)
   public static class RegularGlobFunctionTest extends GlobFunctionTest {
     @Override
     protected boolean alwaysUseDirListing() {
@@ -89,9 +97,9 @@ public abstract class GlobFunctionTest extends TestCase {
 
   private static final PackageIdentifier PKG_PATH_ID = PackageIdentifier.createInDefaultRepo("pkg");
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public void setUp() throws Exception {
+    
     fs = new CustomInMemoryFs(new ManualClock());
     root = fs.getRootDirectory().getRelative("root/workspace");
     pkgPath = root.getRelative(PKG_PATH_ID.getPackageFragment());
@@ -147,78 +155,96 @@ public abstract class GlobFunctionTest extends TestCase {
     FileSystemUtils.createEmptyFile(pkgPath.getRelative("a2/b2/BUILD"));
   }
 
+  @Test
   public void testSimple() throws Exception {
     assertGlobMatches("food", /* => */ "food");
   }
 
+  @Test
   public void testStartsWithStar() throws Exception {
     assertGlobMatches("*oo", /* => */ "foo");
   }
 
+  @Test
   public void testStartsWithStarWithMiddleStar() throws Exception {
     assertGlobMatches("*f*o", /* => */ "foo");
   }
 
+  @Test
   public void testSingleMatchEqual() throws Exception {
     assertGlobsEqual("*oo", "*f*o"); // both produce "foo"
   }
 
+  @Test
   public void testEndsWithStar() throws Exception {
     assertGlobMatches("foo*", /* => */ "foo", "food", "fool");
   }
 
+  @Test
   public void testEndsWithStarWithMiddleStar() throws Exception {
     assertGlobMatches("f*oo*", /* => */ "foo", "food", "fool");
   }
 
+  @Test
   public void testMultipleMatchesEqual() throws Exception {
     assertGlobsEqual("foo*", "f*oo*"); // both produce "foo", "food", "fool"
   }
 
+  @Test
   public void testMiddleStar() throws Exception {
     assertGlobMatches("f*o", /* => */ "foo");
   }
 
+  @Test
   public void testTwoMiddleStars() throws Exception {
     assertGlobMatches("f*o*o", /* => */ "foo");
   }
 
+  @Test
   public void testSingleStarPatternWithNamedChild() throws Exception {
     assertGlobMatches("*/bar", /* => */ "foo/bar");
   }
 
+  @Test
   public void testDeepSubpackages() throws Exception {
     assertGlobMatches("*/*/c", /* => */ "a1/b1/c");
   }
 
+  @Test
   public void testSingleStarPatternWithChildGlob() throws Exception {
     assertGlobMatches(
         "*/bar*", /* => */ "foo/bar", "foo/barnacle", "food/barnacle", "fool/barnacle");
   }
 
+  @Test
   public void testSingleStarAsChildGlob() throws Exception {
     assertGlobMatches("foo/*/wiz", /* => */ "foo/bar/wiz", "foo/barnacle/wiz");
   }
 
+  @Test
   public void testNoAsteriskAndFilesDontExist() throws Exception {
     // Note un-UNIX like semantics:
     assertGlobMatches("ceci/n'est/pas/une/globbe" /* => nothing */);
   }
 
+  @Test
   public void testSingleAsteriskUnderNonexistentDirectory() throws Exception {
     // Note un-UNIX like semantics:
     assertGlobMatches("not-there/*" /* => nothing */);
   }
 
+  @Test
   public void testDifferentGlobsSameResultEqual() throws Exception {
     // Once the globs are run, it doesn't matter what pattern ran; only the output.
     assertGlobsEqual("not-there/*", "syzygy/*"); // Both produce nothing.
   }
 
+  @Test
   public void testGlobUnderFile() throws Exception {
     assertGlobMatches("foo/bar/wiz/file/*" /* => nothing */);
   }
 
+  @Test
   public void testGlobEqualsHashCode() throws Exception {
     // Each "equality group" forms a set of elements that are all equals() to one another,
     // and also produce the same hashCode.
@@ -232,6 +258,7 @@ public abstract class GlobFunctionTest extends TestCase {
         .testEquals();
   }
 
+  @Test
   public void testGlobMissingPackage() throws Exception {
     // This is a malformed value key, because "missing" is not a package. Nevertheless, we have a
     // sanity check that building the corresponding GlobValue fails loudly. The test depends on
@@ -258,18 +285,21 @@ public abstract class GlobFunctionTest extends TestCase {
     }
   }
 
+  @Test
   public void testGlobDoesNotCrossPackageBoundary() throws Exception {
     FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/BUILD"));
     // "foo/bar" should not be in the results because foo is a separate package.
     assertGlobMatches("f*/*", /* => */ "food/barnacle", "fool/barnacle");
   }
 
+  @Test
   public void testGlobDirectoryMatchDoesNotCrossPackageBoundary() throws Exception {
     FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/bar/BUILD"));
     // "foo/bar" should not be in the results because foo/bar is a separate package.
     assertGlobMatches("foo/*", /* => */ "foo/barnacle");
   }
 
+  @Test
   public void testStarStarDoesNotCrossPackageBoundary() throws Exception {
     FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/bar/BUILD"));
     // "foo/bar" should not be in the results because foo/bar is a separate package.
@@ -326,6 +356,7 @@ public abstract class GlobFunctionTest extends TestCase {
     return (GlobValue) result.get(skyKey);
   }
 
+  @Test
   public void testGlobWithoutWildcards() throws Exception {
     String pattern = "foo/bar/wiz/file";
 
@@ -366,6 +397,7 @@ public abstract class GlobFunctionTest extends TestCase {
     }
   }
 
+  @Test
   public void testIllegalPatterns() throws Exception {
     assertIllegalPattern("(illegal) pattern");
     assertIllegalPattern("[illegal pattern");
@@ -382,6 +414,7 @@ public abstract class GlobFunctionTest extends TestCase {
     assertIllegalPattern("foo//bar");
   }
 
+  @Test
   public void testIllegalRecursivePatterns() throws Exception {
     for (String prefix : Lists.newArrayList("", "*/", "**/", "ba/")) {
       String suffix = ("/" + prefix).substring(0, prefix.length());
@@ -404,6 +437,7 @@ public abstract class GlobFunctionTest extends TestCase {
   /**
    * Tests that globs can contain Java regular expression special characters
    */
+  @Test
   public void testSpecialRegexCharacter() throws Exception {
     Path aDotB = pkgPath.getChild("a.b");
     FileSystemUtils.createEmptyFile(aDotB);
@@ -414,10 +448,12 @@ public abstract class GlobFunctionTest extends TestCase {
         .containsExactly(aDotB);
   }
 
+  @Test
   public void testMatchesCallWithNoCache() {
     assertTrue(UnixGlob.matches("*a*b", "CaCb", null));
   }
 
+  @Test
   public void testHiddenFiles() throws Exception {
     for (String dir : ImmutableList.of(".hidden", "..also.hidden", "not.hidden")) {
       FileSystemUtils.createDirectoryAndParents(pkgPath.getRelative(dir));
@@ -428,6 +464,7 @@ public abstract class GlobFunctionTest extends TestCase {
     assertGlobMatches("*.hidden", "not.hidden");
   }
 
+  @Test
   public void testDoubleStar() throws Exception {
     assertGlobMatches(
         "**",
@@ -451,10 +488,12 @@ public abstract class GlobFunctionTest extends TestCase {
         "fool/barnacle/wiz");
   }
 
+  @Test
   public void testDoubleStarExcludeDirs() throws Exception {
     assertGlobWithoutDirsMatches("**", "BUILD", "foo/bar/wiz/file");
   }
 
+  @Test
   public void testDoubleDoubleStar() throws Exception {
     assertGlobMatches(
         "**/**",
@@ -478,6 +517,7 @@ public abstract class GlobFunctionTest extends TestCase {
         "fool/barnacle/wiz");
   }
 
+  @Test
   public void testDirectoryWithDoubleStar() throws Exception {
     assertGlobMatches(
         "foo/**",
@@ -489,14 +529,17 @@ public abstract class GlobFunctionTest extends TestCase {
         "foo/barnacle/wiz");
   }
 
+  @Test
   public void testDoubleStarPatternWithNamedChild() throws Exception {
     assertGlobMatches("**/bar", "foo/bar");
   }
 
+  @Test
   public void testDoubleStarPatternWithChildGlob() throws Exception {
     assertGlobMatches("**/ba*", "foo/bar", "foo/barnacle", "food/barnacle", "fool/barnacle");
   }
 
+  @Test
   public void testDoubleStarAsChildGlob() throws Exception {
     FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/barnacle/wiz/wiz"));
     FileSystemUtils.createDirectoryAndParents(pkgPath.getRelative("foo/barnacle/baz/wiz"));
@@ -509,15 +552,18 @@ public abstract class GlobFunctionTest extends TestCase {
         "foo/barnacle/wiz/wiz");
   }
 
+  @Test
   public void testDoubleStarUnderNonexistentDirectory() throws Exception {
     assertGlobMatches("not-there/**" /* => nothing */);
   }
 
+  @Test
   public void testDoubleStarUnderFile() throws Exception {
     assertGlobMatches("foo/bar/wiz/file/**" /* => nothing */);
   }
 
   /** Regression test for b/13319874: Directory listing crash. */
+  @Test
   public void testResilienceToFilesystemInconsistencies_DirectoryExistence() throws Exception {
     long nodeId = pkgPath.getRelative("BUILD").stat().getNodeId();
     // Our custom filesystem says "pkgPath/BUILD" exists but "pkgPath" does not exist.
@@ -546,6 +592,7 @@ public abstract class GlobFunctionTest extends TestCase {
     assertThat(errorInfo.getException().getMessage()).contains(expectedMessage);
   }
 
+  @Test
   public void testResilienceToFilesystemInconsistencies_SubdirectoryExistence() throws Exception {
     // Our custom filesystem says directory "pkgPath/foo/bar" contains a subdirectory "wiz" but a
     // direct stat on "pkgPath/foo/bar/wiz" says it does not exist.
@@ -572,6 +619,7 @@ public abstract class GlobFunctionTest extends TestCase {
     assertThat(errorInfo.getException().getMessage()).contains(expectedMessage);
   }
 
+  @Test
   public void testResilienceToFilesystemInconsistencies_SymlinkType() throws Exception {
     RootedPath wizRootedPath = RootedPath.toRootedPath(root, pkgPath.getRelative("foo/bar/wiz"));
     RootedPath fileRootedPath =

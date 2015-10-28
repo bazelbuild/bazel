@@ -16,6 +16,11 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.FileArtifactValue.create;
 import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -51,7 +56,10 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-import junit.framework.TestCase;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -67,7 +75,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * Tests for {@link ArtifactFunction}.
  */
 // Doesn't actually need any particular Skyframe, but is only relevant to Skyframe full mode.
-public class ArtifactFunctionTest extends TestCase {
+@RunWith(JUnit4.class)
+public class ArtifactFunctionTest {
   private static final SkyKey OWNER_KEY = new SkyKey(SkyFunctions.ACTION_LOOKUP, "OWNER");
   private static final ActionLookupKey ALL_OWNER = new SingletonActionLookupKey();
 
@@ -79,9 +88,9 @@ public class ArtifactFunctionTest extends TestCase {
   private Path root;
   private TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public void setUp() throws Exception {
+    
     setupRoot(new CustomInMemoryFs());
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(new PathPackageLocator());
@@ -111,21 +120,25 @@ public class ArtifactFunctionTest extends TestCase {
     assertValueMatches(path.stat(), expectDigest ? path.getMD5Digest() : null, evaluateFAN(output));
   }
 
+  @Test
   public void testBasicArtifact() throws Throwable {
     fastDigest = false;
     assertFileArtifactValueMatches(/*expectDigest=*/ true);
   }
 
+  @Test
   public void testBasicArtifactWithXattr() throws Throwable {
     fastDigest = true;
     assertFileArtifactValueMatches(/*expectDigest=*/ true);
   }
 
+  @Test
   public void testMissingNonMandatoryArtifact() throws Throwable {
     Artifact input = createSourceArtifact("input1");
     assertNotNull(evaluateArtifactValue(input, /*mandatory=*/ false));
   }
 
+  @Test
   public void testMissingMandatoryArtifact() throws Throwable {
     Artifact input = createSourceArtifact("input1");
     try {
@@ -136,6 +149,7 @@ public class ArtifactFunctionTest extends TestCase {
     }
   }
 
+  @Test
   public void testMiddlemanArtifact() throws Throwable {
     Artifact output = createDerivedArtifact("output");
     Artifact input1 = createSourceArtifact("input1");
@@ -161,6 +175,7 @@ public class ArtifactFunctionTest extends TestCase {
         .containsExactly(Pair.of(input1, create(input1)), Pair.of(input2, create(input2)));
   }
 
+  @Test
   public void testIOException() throws Exception {
     fastDigest = false;
     final IOException exception = new IOException("beep");
@@ -185,6 +200,7 @@ public class ArtifactFunctionTest extends TestCase {
    * Tests that ArtifactFunction rethrows transitive {@link IOException}s as
    * {@link MissingInputFileException}s.
    */
+  @Test
   public void testIOException_EndToEnd() throws Throwable {
     final IOException exception = new IOException("beep");
     setupRoot(
@@ -205,6 +221,7 @@ public class ArtifactFunctionTest extends TestCase {
     }
   }
 
+  @Test
   public void testNoMtimeIfNonemptyFile() throws Exception {
     Artifact artifact = createDerivedArtifact("no-digest");
     Path path = artifact.getPath();
@@ -219,6 +236,7 @@ public class ArtifactFunctionTest extends TestCase {
     }
   }
 
+  @Test
   public void testDirectory() throws Exception {
     Artifact artifact = createDerivedArtifact("dir");
     Path path = artifact.getPath();
@@ -231,6 +249,7 @@ public class ArtifactFunctionTest extends TestCase {
 
   // Empty files need to store their mtimes, so touching an empty file
   // can be used to trigger rebuilds.
+  @Test
   public void testEmptyFile() throws Exception {
     Artifact artifact = createDerivedArtifact("empty");
     Path path = artifact.getPath();
@@ -242,6 +261,7 @@ public class ArtifactFunctionTest extends TestCase {
     assertEquals(0L, value.getSize());
   }
 
+  @Test
   public void testEquality() throws Exception {
     Artifact artifact1 = createDerivedArtifact("artifact1");
     Artifact artifact2 = createDerivedArtifact("artifact2");
