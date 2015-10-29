@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -23,7 +24,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.skyframe.TransitiveTraversalFunction.DummyAccumulator;
+import com.google.devtools.build.lib.skyframe.TransitiveTraversalFunction.FirstErrorMessageAccumulator;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
@@ -32,13 +33,17 @@ import java.util.Collection;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import javax.annotation.Nullable;
+
 /**
  * This class is like {@link TransitiveTargetFunction}, but the values it returns do not contain
- * {@link NestedSet}s. It should be used only when the side-effects of {@link
- * TransitiveTargetFunction} on the skyframe graph are desired (i.e., ensuring that transitive
- * targets and their packages have been loaded).
+ * {@link NestedSet}s. It performs the side-effects of {@link TransitiveTargetFunction} (i.e.,
+ * ensuring that transitive targets and their packages have been loaded). It evaluates to a
+ * {@link TransitiveTraversalValue} that contains the first error message it encountered, and a
+ * set of names of providers if the target is a rule.
  */
-public class TransitiveTraversalFunction extends TransitiveBaseTraversalFunction<DummyAccumulator> {
+public class TransitiveTraversalFunction
+    extends TransitiveBaseTraversalFunction<FirstErrorMessageAccumulator> {
 
   @Override
   SkyKey getKey(Label label) {
@@ -46,15 +51,36 @@ public class TransitiveTraversalFunction extends TransitiveBaseTraversalFunction
   }
 
   @Override
-  DummyAccumulator processTarget(Label label, TargetAndErrorIfAny targetAndErrorIfAny) {
-    return DummyAccumulator.INSTANCE;
+  FirstErrorMessageAccumulator processTarget(Label label, TargetAndErrorIfAny targetAndErrorIfAny) {
+    NoSuchTargetException errorIfAny = targetAndErrorIfAny.getErrorLoadingTarget();
+    String errorMessageIfAny = errorIfAny == null ? null : errorIfAny.getMessage();
+    return new FirstErrorMessageAccumulator(errorMessageIfAny);
   }
 
   @Override
-  void processDeps(DummyAccumulator processedTargets, EventHandler eventHandler,
+  void processDeps(
+      FirstErrorMessageAccumulator accumulator,
+      EventHandler eventHandler,
       TargetAndErrorIfAny targetAndErrorIfAny,
       Iterable<Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>>>
           depEntries) {
+    for (Entry<SkyKey, ValueOrException2<NoSuchPackageException, NoSuchTargetException>> entry :
+        depEntries) {
+      TransitiveTraversalValue transitiveTraversalValue;
+      try {
+        transitiveTraversalValue = (TransitiveTraversalValue) entry.getValue().get();
+        if (transitiveTraversalValue == null) {
+          continue;
+        }
+      } catch (NoSuchPackageException | NoSuchTargetException e) {
+        accumulator.maybeSet(e.getMessage());
+        continue;
+      }
+      String firstErrorMessage = transitiveTraversalValue.getFirstErrorMessage();
+      if (firstErrorMessage != null) {
+        accumulator.maybeSet(firstErrorMessage);
+      }
+    }
   }
 
   protected Collection<Label> getAspectLabels(Target fromTarget, Attribute attr, Label toLabel,
@@ -79,21 +105,38 @@ public class TransitiveTraversalFunction extends TransitiveBaseTraversalFunction
   }
 
   @Override
-  SkyValue computeSkyValue(TargetAndErrorIfAny targetAndErrorIfAny,
-      DummyAccumulator processedTargets) {
-    NoSuchTargetException errorLoadingTarget = targetAndErrorIfAny.getErrorLoadingTarget();
-    return errorLoadingTarget == null
-        ? TransitiveTraversalValue.forTarget(targetAndErrorIfAny.getTarget())
-        : TransitiveTraversalValue.unsuccessfulTransitiveTraversal(errorLoadingTarget);
+  SkyValue computeSkyValue(
+      TargetAndErrorIfAny targetAndErrorIfAny, FirstErrorMessageAccumulator accumulator) {
+    boolean targetLoadedSuccessfully = targetAndErrorIfAny.getErrorLoadingTarget() == null;
+    String firstErrorMessage = accumulator.getFirstErrorMessage();
+    return targetLoadedSuccessfully
+        ? TransitiveTraversalValue.forTarget(targetAndErrorIfAny.getTarget(), firstErrorMessage)
+        : TransitiveTraversalValue.unsuccessfulTransitiveTraversal(firstErrorMessage);
   }
 
- /**
-   * Because {@link TransitiveTraversalFunction} is invoked only when its side-effects are desired,
-   * this value accumulator has nothing to keep track of.
+  /**
+   * Keeps track of the first error message encountered while traversing itself and its
+   * dependencies.
    */
-  static class DummyAccumulator {
-    static final DummyAccumulator INSTANCE = new DummyAccumulator();
+  static class FirstErrorMessageAccumulator {
 
-    private DummyAccumulator() {}
+    @Nullable private String firstErrorMessage;
+
+    public FirstErrorMessageAccumulator(@Nullable String firstErrorMessage) {
+      this.firstErrorMessage = firstErrorMessage;
+    }
+
+    /** Remembers {@param errorMessage} if it is the first error message. */
+    void maybeSet(String errorMessage) {
+      Preconditions.checkNotNull(errorMessage);
+      if (firstErrorMessage == null) {
+        firstErrorMessage = errorMessage;
+      }
+    }
+
+    @Nullable
+    String getFirstErrorMessage() {
+      return firstErrorMessage;
+    }
   }
 }

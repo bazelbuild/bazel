@@ -1,4 +1,4 @@
-// Copyright 2006-2015 Google Inc. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ public class ExportsFilesTest {
         "genrule(name = 'foo', srcs = ['bar'], outs = [],",
         "        cmd = '/bin/true')");
     Package pkg = packages.createPackage("pkg2", buildFile);
-    events.assertContainsEvent("rule 'foo' in package 'pkg2' conflicts with "
+    events.assertContainsError("rule 'foo' in package 'pkg2' conflicts with "
                                + "existing source file");
     assertTrue(pkg.getTarget("foo") instanceof InputFile);
   }

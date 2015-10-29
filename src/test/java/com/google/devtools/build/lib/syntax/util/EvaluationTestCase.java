@@ -1,4 +1,4 @@
-// Copyright 2006-2015 Google Inc. All rights reserved.
+// Copyright 2006 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -198,8 +198,12 @@ public class EvaluationTestCase {
     return eventCollectionApparatus.collector();
   }
 
-  public Event assertContainsEvent(String expectedMessage) {
-    return eventCollectionApparatus.assertContainsEvent(expectedMessage);
+  public Event assertContainsError(String expectedMessage) {
+    return eventCollectionApparatus.assertContainsError(expectedMessage);
+  }
+
+  public Event assertContainsWarning(String expectedMessage) {
+    return eventCollectionApparatus.assertContainsWarning(expectedMessage);
   }
 
   public List<Event> assertContainsEventWithFrequency(

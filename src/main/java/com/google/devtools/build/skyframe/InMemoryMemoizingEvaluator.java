@@ -53,7 +53,7 @@ import javax.annotation.Nullable;
  */
 public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
 
-  private final ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions;
+  private final ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions;
   @Nullable private final EvaluationProgressReceiver progressReceiver;
   // Not final only for testing.
   private InMemoryGraph graph;
@@ -80,20 +80,23 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   private final AtomicBoolean evaluating = new AtomicBoolean(false);
 
   public InMemoryMemoizingEvaluator(
-      Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer) {
+      Map<SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer) {
     this(skyFunctions, differencer, null);
   }
 
   public InMemoryMemoizingEvaluator(
-      Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer,
+      Map<SkyFunctionName, ? extends SkyFunction> skyFunctions,
+      Differencer differencer,
       @Nullable EvaluationProgressReceiver invalidationReceiver) {
     this(skyFunctions, differencer, invalidationReceiver, new EmittedEventState(), true);
   }
 
   public InMemoryMemoizingEvaluator(
-      Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer,
+      Map<SkyFunctionName, ? extends SkyFunction> skyFunctions,
+      Differencer differencer,
       @Nullable EvaluationProgressReceiver invalidationReceiver,
-      EmittedEventState emittedEventState, boolean keepEdges) {
+      EmittedEventState emittedEventState,
+      boolean keepEdges) {
     this.skyFunctions = ImmutableMap.copyOf(skyFunctions);
     this.differencer = Preconditions.checkNotNull(differencer);
     this.progressReceiver = invalidationReceiver;
@@ -308,8 +311,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
     }
   }
 
-  public ImmutableMap<? extends SkyFunctionName, ? extends SkyFunction>
-      getSkyFunctionsForTesting() {
+  public ImmutableMap<SkyFunctionName, ? extends SkyFunction> getSkyFunctionsForTesting() {
     return skyFunctions;
   }
   public static final EventFilter DEFAULT_STORED_EVENT_FILTER =
@@ -336,14 +338,17 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
         }
       };
 
-  public static final EvaluatorSupplier SUPPLIER = new EvaluatorSupplier() {
-    @Override
-    public MemoizingEvaluator create(
-        Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer,
-        @Nullable EvaluationProgressReceiver invalidationReceiver,
-        EmittedEventState emittedEventState, boolean keepEdges) {
-      return new InMemoryMemoizingEvaluator(skyFunctions, differencer, invalidationReceiver,
-          emittedEventState, keepEdges);
-    }
-  };
+  public static final EvaluatorSupplier SUPPLIER =
+      new EvaluatorSupplier() {
+        @Override
+        public MemoizingEvaluator create(
+            Map<SkyFunctionName, ? extends SkyFunction> skyFunctions,
+            Differencer differencer,
+            @Nullable EvaluationProgressReceiver invalidationReceiver,
+            EmittedEventState emittedEventState,
+            boolean keepEdges) {
+          return new InMemoryMemoizingEvaluator(
+              skyFunctions, differencer, invalidationReceiver, emittedEventState, keepEdges);
+        }
+      };
 }

@@ -27,7 +27,7 @@ java_library(
     name = "android_builder_lib",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java:options",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:android_common",
         "//third_party:apache_commons_compress",
         "//third_party:guava",

@@ -17,7 +17,6 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor.HackHackEitherList;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 
 import java.lang.reflect.InvocationTargetException;
@@ -281,9 +280,6 @@ public class BuiltinFunction extends BaseFunction {
 
     if (returnType != null) {
       Class<?> type = returnType;
-      if (type == HackHackEitherList.class) {
-        type = Object.class;
-      }
       Class<?> methodReturnType = invokeMethod.getReturnType();
       Preconditions.checkArgument(type == methodReturnType,
           "signature for function %s says it returns %s but its invoke method returns %s",

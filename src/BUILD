@@ -96,13 +96,12 @@ genrule(
 
 [genrule(
     name = "package-zip" + suffix,
-    srcs = [
-        # The script assumes that the deploy jar is the first item here, the
-        # install base key is the second, and the embedded tools zip (if exists)
-        # is the third
+    srcs = ([":embedded_tools.zip"] if embed else []) + [
+        # The script assumes that the embedded tools zip (if exists) is the
+        # first item here, the deploy jar the second and install base key is the
+        # third
         "//src/main/java:bazel-main_deploy.jar",
         "install_base_key" + suffix,
-    ] + ([":embedded_tools.zip"] if embed else []) + [
         "//src/main/cpp:client",
         ":libunix",
         "//src/main/tools:build-runfiles",

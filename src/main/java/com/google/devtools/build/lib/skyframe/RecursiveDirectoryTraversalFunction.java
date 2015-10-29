@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -31,6 +33,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.ValueOrException4;
 
 import java.io.IOException;
 import java.util.List;
@@ -132,16 +135,32 @@ abstract class RecursiveDirectoryTraversalFunction
 
     PackageIdentifier packageId = PackageIdentifier.create(
         recursivePkgKey.getRepository(), rootRelativePath);
+    SkyKey pkgLookupKey = PackageLookupValue.key(packageId);
+    SkyKey dirListingKey = DirectoryListingValue.key(rootedPath);
+    Map<SkyKey,
+        ValueOrException4<
+            NoSuchPackageException,
+            InconsistentFilesystemException,
+            FileSymlinkException,
+            IOException>> pkgLookupAndDirectoryListingDeps = env.getValuesOrThrow(
+                ImmutableList.of(pkgLookupKey, dirListingKey),
+                NoSuchPackageException.class,
+                InconsistentFilesystemException.class,
+                FileSymlinkException.class,
+                IOException.class);
+    if (env.valuesMissing()) {
+      return null;
+    }
     PackageLookupValue pkgLookupValue;
     try {
-      pkgLookupValue = (PackageLookupValue) env.getValueOrThrow(PackageLookupValue.key(packageId),
-          NoSuchPackageException.class, InconsistentFilesystemException.class);
+      pkgLookupValue = (PackageLookupValue) Preconditions.checkNotNull(
+          pkgLookupAndDirectoryListingDeps.get(pkgLookupKey).get(), "%s %s", recursivePkgKey,
+          pkgLookupKey);
     } catch (NoSuchPackageException | InconsistentFilesystemException e) {
       return reportErrorAndReturn("Failed to load package", e, rootRelativePath,
           env.getListener());
-    }
-    if (pkgLookupValue == null) {
-      return null;
+    } catch (IOException | FileSymlinkException e) {
+      throw new IllegalStateException(e);
     }
 
     TVisitor visitor = getInitialVisitor();
@@ -187,11 +206,11 @@ abstract class RecursiveDirectoryTraversalFunction
       //  'foo/bar' under 'rootA/workspace'.
     }
 
-    DirectoryListingValue dirValue;
+    DirectoryListingValue dirListingValue;
     try {
-      dirValue = (DirectoryListingValue) env.getValueOrThrow(DirectoryListingValue.key(rootedPath),
-          InconsistentFilesystemException.class, IOException.class,
-          FileSymlinkException.class);
+      dirListingValue = (DirectoryListingValue) Preconditions.checkNotNull(
+          pkgLookupAndDirectoryListingDeps.get(dirListingKey).get(), "%s %s", recursivePkgKey,
+          dirListingKey);
     } catch (InconsistentFilesystemException | IOException e) {
       return reportErrorAndReturn("Failed to list directory contents", e, rootRelativePath,
           env.getListener());
@@ -201,13 +220,12 @@ abstract class RecursiveDirectoryTraversalFunction
       // be able to avoid throwing there but throw here.
       throw new IllegalStateException("Symlink cycle found after not being found for \""
           + rootedPath + "\"");
-    }
-    if (dirValue == null) {
-      return null;
+    } catch (NoSuchPackageException e) {
+      throw new IllegalStateException(e);
     }
 
     List<SkyKey> childDeps = Lists.newArrayList();
-    for (Dirent dirent : dirValue.getDirents()) {
+    for (Dirent dirent : dirListingValue.getDirents()) {
       if (dirent.getType() != Type.DIRECTORY && dirent.getType() != Type.SYMLINK) {
         // Non-directories can never host packages. Symlinks to non-directories are weeded out at
         // the next level of recursion when we check if its FileValue is a directory. This is slower

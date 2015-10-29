@@ -69,7 +69,7 @@ public final class ProjectFileSupport {
           optionsParser.getOptions(PackageCacheOptions.class).packagePath,
           env.getReporter(),
           runtime.getWorkspace(),
-          runtime.getWorkingDirectory()).getPathEntries();
+          env.getWorkingDirectory()).getPathEntries();
       ProjectFile projectFile = projectFileProvider.getProjectFile(packagePath, projectFilePath);
       env.getReporter().handle(Event.info("Using " + projectFile.getName()));
 

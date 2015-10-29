@@ -550,11 +550,7 @@ public class LoadingPhaseRunner {
       EventBus eventBus, TransitivePackageLoader pkgLoader, Collection<Target> targetsToLoad,
       ListMultimap<String, Label> labelsToLoadUnconditionally) throws LoadingFailedException {
     // Error out if any of the labels needed for the configuration could not be loaded.
-    Collection<Label> labelsToLoad = new ArrayList<>(labelsToLoadUnconditionally.values());
-    for (Target target : targetsToLoad) {
-      labelsToLoad.add(target.getLabel());
-    }
-    Multimap<Label, Label> rootCauses = pkgLoader.getRootCauses(labelsToLoad);
+    Multimap<Label, Label> rootCauses = pkgLoader.getRootCauses();
     for (Map.Entry<String, Label> entry : labelsToLoadUnconditionally.entries()) {
       if (rootCauses.containsKey(entry.getValue())) {
         throw new LoadingFailedException("Failed to load required " + entry.getKey()

@@ -529,24 +529,24 @@ public class AbstractQueueVisitorTest {
   private static class QueueVisitorWithCriticalError extends AbstractQueueVisitor {
 
     public QueueVisitorWithCriticalError(ThreadPoolExecutor executor) {
-      super(executor, false);
+      super(/*concurrent=*/ true, executor, true, /*failFastOnException=*/ false, true);
     }
 
     @Override
-    protected boolean isCriticalError(Throwable e) {
-      return true;
+    protected ErrorClassification classifyError(Throwable e) {
+      return ErrorClassification.CRITICAL;
     }
   }
 
   private static class QueueVisitorWithoutCriticalError extends AbstractQueueVisitor {
 
     public QueueVisitorWithoutCriticalError(ThreadPoolExecutor executor) {
-      super(executor, false);
+      super(/*concurrent=*/ true, executor, true, /*failFastOnException=*/ false, true);
     }
 
     @Override
-    protected boolean isCriticalError(Throwable e) {
-      return false;
+    protected ErrorClassification classifyError(Throwable e) {
+      return ErrorClassification.NOT_CRITICAL;
     }
   }
 }

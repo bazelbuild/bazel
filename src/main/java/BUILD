@@ -76,18 +76,6 @@ java_library(
     ],
 )
 
-java_library(
-    name = "options",
-    srcs = glob([
-        "com/google/devtools/common/options/*.java",
-    ]),
-    visibility = ["//visibility:public"],
-    deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
 filegroup(
     name = "options-srcs",
     srcs = glob([
@@ -105,9 +93,9 @@ java_library(
         ":common",
         ":concurrent",
         ":events",
-        ":options",
         ":util",
         ":vfs",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_proto",
         "//third_party:auto_value",
         "//third_party:guava",
@@ -131,10 +119,10 @@ java_library(
         ":common",
         ":concurrent",
         ":events",
-        ":options",
         ":syntax",
         ":util",
         ":vfs",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_proto",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -167,10 +155,10 @@ java_library(
         ":clock",
         ":common",
         ":concurrent",
-        ":options",
         ":os_util",
         ":shell",
         ":unix",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -259,11 +247,11 @@ java_library(
         ":collect",
         ":common",
         ":concurrent",
-        ":options",
         ":os_util",
         ":shell",
         ":unix",
         ":vfs",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -310,7 +298,6 @@ java_library(
         ":events",
         ":graph",
         ":io",
-        ":options",
         ":os_util",
         ":packages",
         ":shell",
@@ -318,6 +305,7 @@ java_library(
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:android_studio_ide_info_proto",
         "//src/main/protobuf:bundlemerge_proto",
         "//src/main/protobuf:crosstool_config_proto",
@@ -356,11 +344,11 @@ java_library(
         ":concurrent",
         ":events",
         ":graph",
-        ":options",
         ":packages",
         ":skyframe-base",
         ":util",
         ":vfs",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_proto",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -379,10 +367,8 @@ java_library(
         ":collect",
         ":common",
         ":concurrent",
-        ":docgen",
         ":events",
         ":io",
-        ":options",
         ":os_util",
         ":packages",
         ":profiler-output",
@@ -392,7 +378,9 @@ java_library(
         ":skyframe-base",
         ":util",
         ":vfs",
+        "//src/main/java/com/google/devtools/build/docgen",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_proto",
         "//src/main/protobuf:invocation_policy_proto",
         "//src/main/protobuf:test_status_proto",
@@ -400,22 +388,6 @@ java_library(
         "//third_party:joda_time",
         "//third_party:jsr305",
         "//third_party:protobuf",
-    ],
-)
-
-java_library(
-    name = "docgen",
-    srcs = glob([
-        "com/google/devtools/build/docgen/**/*.java",
-    ]),
-    deps = [
-        ":analysis-exec-rules-skyframe",
-        ":common",
-        ":concurrent",
-        ":packages",
-        ":util",
-        "//third_party:apache_velocity",
-        "//third_party:guava",
     ],
 )
 
@@ -433,10 +405,8 @@ java_library(
         ":collect",
         ":common",
         ":concurrent",
-        ":docgen",
         ":events",
         ":io",
-        ":options",
         ":os_util",
         ":packages",
         ":profiler-output",
@@ -446,7 +416,9 @@ java_library(
         ":unix",
         ":util",
         ":vfs",
+        "//src/main/java/com/google/devtools/build/docgen",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_proto",
         "//src/main/protobuf:invocation_policy_proto",
         "//src/main/protobuf:test_status_proto",
@@ -495,7 +467,7 @@ java_library(
         "//third_party:jquery",
     ],
     visibility = [
-        "//src/test/java:__subpackages__",
+        "//src:__subpackages__",
         "//src/tools/generate_workspace/src/main/java/com/google/devtools/build/workspace:__pkg__",
     ],
     runtime_deps = [
@@ -520,7 +492,6 @@ java_library(
         ":graph",
         ":io",
         ":maven-connector",
-        ":options",
         ":os_util",
         ":packages",
         ":query2",
@@ -537,6 +508,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/worker",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_proto",
         "//src/main/protobuf:crosstool_config_proto",
         "//src/main/protobuf:extra_actions_base_proto",
@@ -603,46 +575,14 @@ java_binary(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/common/options:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/dash:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/worker:srcs",
+        "//src/main/java/com/google/devtools/build/docgen:srcs",
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
-)
-
-filegroup(
-    name = "be-template_files",
-    srcs = glob([
-        "com/google/devtools/build/docgen/templates/**/*.html",
-        "com/google/devtools/build/docgen/templates/**/*.vm",
-    ]),
-)
-
-java_library(
-    name = "docgen_javalib",
-    srcs = glob(
-        ["com/google/devtools/build/docgen/**/*.java"],
-        exclude = [
-            "com/google/devtools/build/docgen/BuildEncyclopediaGenerator.java",
-            "com/google/devtools/build/docgen/SkylarkDocumentationGenerator.java",
-        ],
-    ),
-    resources = [":be-template_files"],
-    exports = [
-        ":bazel-core",
-    ],
-    deps = [
-        ":analysis-exec-rules-skyframe",
-        ":bazel-core",
-        ":common",
-        ":concurrent",
-        ":packages",
-        ":util",
-        "//third_party:apache_velocity",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
 )
 
 filegroup(
@@ -650,35 +590,17 @@ filegroup(
     srcs = glob(["com/google/devtools/build/lib/**/*.java"]),
 )
 
-java_binary(
-    name = "docgen_bin",
-    srcs = ["com/google/devtools/build/docgen/BuildEncyclopediaGenerator.java"],
-    main_class = "com.google.devtools.build.docgen.BuildEncyclopediaGenerator",
-    deps = [
-        ":analysis-exec-rules-skyframe",
-        ":common",
-        ":docgen_javalib",
-    ],
-)
-
-java_binary(
-    name = "skydoc_bin",
-    srcs = ["com/google/devtools/build/docgen/SkylarkDocumentationGenerator.java"],
-    main_class = "com.google.devtools.build.docgen.SkylarkDocumentationGenerator",
-    deps = [":docgen_javalib"],
-)
-
 genrule(
     name = "gen_buildencyclopedia",
     srcs = [":docs_embedded_in_sources"],
     outs = ["build-encyclopedia.html"],
-    cmd = ("$(location docgen_bin)" +
+    cmd = ("$(location //src/main/java/com/google/devtools/build/docgen:docgen_bin)" +
            " $$PWD/src/main/java/com/google/devtools/build/lib" +
            " $$PWD" +
            " && cp $$PWD/build-encyclopedia.html $@"),
     tools = [
-        ":docgen_bin",
-        ":docgen_javalib",
+        "//src/main/java/com/google/devtools/build/docgen:docgen_bin",
+        "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
     ],
 )
 
@@ -686,9 +608,9 @@ genrule(
     name = "gen_skylarklibrary",
     outs = ["skylark-library.zip"],
     cmd = "mkdir -p $(@D)/skylark-lib &&" +
-          "$(location :skydoc_bin) $(@D)/skylark-lib &&" +
+          "$(location //src/main/java/com/google/devtools/build/docgen:skydoc_bin) $(@D)/skylark-lib &&" +
           "zip -qj $@ $(@D)/skylark-lib/*",
-    tools = [":skydoc_bin"],
+    tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],
 )
 
 #

@@ -88,11 +88,7 @@ public final class ListLiteral extends Expression {
       }
       result.add(expr.eval(env));
     }
-    if (env.isSkylark()) {
-      return isTuple() ? Tuple.copyOf(result) : new MutableList(result, env);
-    } else {
-      return EvalUtils.makeSequence(result, isTuple());
-    }
+    return isTuple() ? Tuple.copyOf(result) : new MutableList(result, env);
   }
 
   @Override

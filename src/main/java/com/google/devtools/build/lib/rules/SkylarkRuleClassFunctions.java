@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
-import static com.google.devtools.build.lib.syntax.SkylarkType.castList;
 import static com.google.devtools.build.lib.syntax.SkylarkType.castMap;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
@@ -69,6 +68,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
+import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -76,6 +76,7 @@ import com.google.devtools.build.lib.syntax.SkylarkModuleNameResolver;
 import com.google.devtools.build.lib.syntax.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
+import com.google.devtools.build.lib.syntax.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -313,7 +314,8 @@ public class SkylarkRuleClassFunctions {
     }
 
     private void registerRequiredFragments(
-        SkylarkList fragments, SkylarkList hostFragments, RuleClass.Builder builder) {
+        SkylarkList fragments, SkylarkList hostFragments, RuleClass.Builder builder)
+        throws EvalException {
       Map<ConfigurationTransition, ImmutableSet<String>> map = new HashMap<>();
       addFragmentsToMap(map, fragments, NONE); // NONE represents target configuration
       addFragmentsToMap(map, hostFragments, HOST);
@@ -322,14 +324,29 @@ public class SkylarkRuleClassFunctions {
     }
 
     private void addFragmentsToMap(Map<ConfigurationTransition, ImmutableSet<String>> map,
-        SkylarkList fragments, ConfigurationTransition config) {
+        SkylarkList fragments, ConfigurationTransition config) throws EvalException {
       if (!fragments.isEmpty()) {
-        map.put(config, ImmutableSet.copyOf(castList(fragments, String.class)));
+        map.put(config, ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")));
       }
     }
   };
 
-  // This class is needed for testing
+  @SkylarkSignature(
+    name = "aspect",
+    returnType = SkylarkAspect.class,
+    documented = false, // TODO(dslomov): Experimental, document later.
+    mandatoryPositionals = {@Param(name = "implementation", type = BaseFunction.class)},
+    useEnvironment = true
+  )
+  private static final BuiltinFunction aspect =
+      new BuiltinFunction("aspect") {
+        public SkylarkAspect invoke(BaseFunction implementation, Environment funcallEnv) {
+          return new SkylarkAspect(implementation, funcallEnv);
+        }
+      };
+
+
+  /** The implementation for the magic function "rule" that creates Skylark rule classes */
   public static final class RuleFunction extends BaseFunction {
     // Note that this means that we can reuse the same builder.
     // This is fine since we don't modify the builder from here.
@@ -425,8 +442,8 @@ public class SkylarkRuleClassFunctions {
       @Param(name = "types", type = SkylarkList.class, generic1 = String.class, defaultValue = "[]",
           doc = "a list of the accepted file extensions")})
   private static final BuiltinFunction fileType = new BuiltinFunction("FileType") {
-      public SkylarkFileType invoke(SkylarkList types) throws ConversionException {
-        return SkylarkFileType.of(castList(types, String.class));
+      public SkylarkFileType invoke(SkylarkList types) throws EvalException {
+        return SkylarkFileType.of(types.getContents(String.class, "types"));
       }
     };
 
@@ -495,7 +512,7 @@ public class SkylarkRuleClassFunctions {
             printSimpleTextMessage(key, item, sb, indent, loc, "list element in struct field");
           }
         } else {
-        printSimpleTextMessage(key, value, sb, indent, loc, "struct field");
+          printSimpleTextMessage(key, value, sb, indent, loc, "struct field");
         }
       }
 
@@ -515,5 +532,37 @@ public class SkylarkRuleClassFunctions {
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkRuleClassFunctions.class);
+  }
+
+  /**
+   * A Skylark value that is a result of 'aspect(..)' function call.
+   */
+  public static class SkylarkAspect implements SkylarkValue {
+    private final BaseFunction implementation;
+    private final Environment funcallEnv;
+
+    public SkylarkAspect(BaseFunction implementation, Environment funcallEnv) {
+      this.implementation = implementation;
+      this.funcallEnv = funcallEnv;
+    }
+
+    public BaseFunction getImplementation() {
+      return implementation;
+    }
+
+    public Environment getFuncallEnv() {
+      return funcallEnv;
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return implementation.isImmutable();
+    }
+
+    @Override
+    public void write(Appendable buffer, char quotationMark) {
+      Printer.append(buffer, "Aspect:");
+      implementation.write(buffer, quotationMark);
+    }
   }
 }

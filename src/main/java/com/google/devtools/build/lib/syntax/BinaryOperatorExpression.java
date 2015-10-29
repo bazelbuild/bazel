@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
@@ -258,47 +257,18 @@ public final class BinaryOperatorExpression extends Expression {
       return (String) lval + (String) rval;
     }
 
-    // list + list, tuple + tuple (list + tuple, tuple + list => error)
-    if (lval instanceof List<?> && rval instanceof List<?>) {
-      List<?> llist = (List<?>) lval;
-      List<?> rlist = (List<?>) rval;
-      if (EvalUtils.isTuple(llist) != EvalUtils.isTuple(rlist)) {
-        throw new EvalException(getLocation(), "can only concatenate "
-            + EvalUtils.getDataTypeName(llist) + " (not \"" + EvalUtils.getDataTypeName(rlist)
-            + "\") to " + EvalUtils.getDataTypeName(llist));
-      }
-      if (llist instanceof GlobList<?> || rlist instanceof GlobList<?>) {
-        return GlobList.concat(llist, rlist);
-      } else {
-        List<Object> result = Lists.newArrayListWithCapacity(llist.size() + rlist.size());
-        result.addAll(llist);
-        result.addAll(rlist);
-        return EvalUtils.makeSequence(result, EvalUtils.isTuple(llist));
-      }
-    }
-
     if (lval instanceof SelectorValue || rval instanceof SelectorValue
         || lval instanceof SelectorList
         || rval instanceof SelectorList) {
       return SelectorList.concat(getLocation(), lval, rval);
     }
 
-    if ((lval instanceof SkylarkList || lval instanceof List<?>)
-        && ((rval instanceof SkylarkList || rval instanceof List<?>))) {
-      SkylarkList left = (SkylarkList) SkylarkType.convertToSkylark(lval, env);
-      SkylarkList right = (SkylarkList) SkylarkType.convertToSkylark(rval, env);
-      boolean isImmutable = left.isTuple();
-      if (isImmutable != right.isTuple()) {
-        throw new EvalException(getLocation(), "can only concatenate "
-            + EvalUtils.getDataTypeName(left) + " (not \"" + EvalUtils.getDataTypeName(right)
-            + "\") to " + EvalUtils.getDataTypeName(left));
-      }
-      Iterable<Object> concatenated = Iterables.concat(left, right);
-      if (isImmutable) {
-        return Tuple.copyOf(concatenated);
-      } else {
-        return new MutableList(concatenated, env);
-      }
+    if ((lval instanceof Tuple) && (rval instanceof Tuple)) {
+      return Tuple.copyOf(Iterables.concat((Tuple) lval, (Tuple) rval));
+    }
+
+    if ((lval instanceof MutableList) && (rval instanceof MutableList)) {
+      return MutableList.concat((MutableList) lval, (MutableList) rval, env);
     }
 
     if (lval instanceof Map<?, ?> && rval instanceof Map<?, ?>) {

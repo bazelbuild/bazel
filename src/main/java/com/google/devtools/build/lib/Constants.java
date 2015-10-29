@@ -44,5 +44,5 @@ public class Constants {
    * Whether C++ include scanning should be disabled no matter what the --cc_include_scanning flag
    * says.
    */
-  public static final boolean HARD_DISABLE_CC_INCLUDE_SCANNING = true;
+  public static final boolean HARD_DISABLE_CC_INCLUDE_SCANNING = new Boolean(false).booleanValue();
 }

@@ -770,7 +770,7 @@ macro(
 
 ## <a name="debugging-tips"></a>Debugging tips
 
-Here are some examples on how to do debug Skylark macros and rules.
+Here are some examples on how to debug Skylark macros and rules.
 
 `debug.bzl`:
 

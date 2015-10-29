@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.rules;
 
-import static com.google.devtools.build.lib.syntax.SkylarkType.castList;
-
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -40,6 +38,7 @@ import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -123,7 +122,8 @@ public final class SkylarkAttr {
       }
     }
 
-    for (String flag : castList(arguments.get(FLAGS_ARG), String.class)) {
+    for (String flag : SkylarkList.castSkylarkListOrNoneToList(
+        arguments.get(FLAGS_ARG), String.class, FLAGS_ARG)) {
       builder.setPropertyFlag(flag);
     }
 
@@ -163,16 +163,19 @@ public final class SkylarkAttr {
     Object ruleClassesObj = arguments.get(ALLOW_RULES_ARG);
     if (ruleClassesObj != null && ruleClassesObj != Runtime.NONE) {
       builder.allowedRuleClasses(
-          castList(ruleClassesObj, String.class, "allowed rule classes for attribute definition"));
+          SkylarkList.castSkylarkListOrNoneToList(
+              ruleClassesObj, String.class, "allowed rule classes for attribute definition"));
     }
 
-    Iterable<Object> values = castList(arguments.get(VALUES_ARG), Object.class);
+    List<Object> values = SkylarkList.castSkylarkListOrNoneToList(
+        arguments.get(VALUES_ARG), Object.class, VALUES_ARG);
     if (!Iterables.isEmpty(values)) {
       builder.allowedValues(new AllowedValueSet(values));
     }
 
     if (containsNonNoneKey(arguments, PROVIDERS_ARG)) {
-      builder.mandatoryProviders(castList(arguments.get(PROVIDERS_ARG), String.class));
+      builder.mandatoryProviders(SkylarkList.castSkylarkListOrNoneToList(
+          arguments.get(PROVIDERS_ARG), String.class, PROVIDERS_ARG));
     }
 
     if (containsNonNoneKey(arguments, CONFIGURATION_ARG)) {

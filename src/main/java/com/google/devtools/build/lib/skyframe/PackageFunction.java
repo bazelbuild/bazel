@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.Globber;
 import com.google.devtools.build.lib.packages.Preprocessor;
-import com.google.devtools.build.lib.packages.Preprocessor.Result;
+import com.google.devtools.build.lib.packages.Preprocessor.AstAfterPreprocessing;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -84,7 +85,7 @@ public class PackageFunction implements SkyFunction {
   private final PackageFactory packageFactory;
   private final CachingPackageLocator packageLocator;
   private final Cache<PackageIdentifier, Package.LegacyBuilder> packageFunctionCache;
-  private final Cache<PackageIdentifier, Preprocessor.Result> preprocessCache;
+  private final Cache<PackageIdentifier, Preprocessor.AstAfterPreprocessing> astCache;
   private final AtomicBoolean showLoadingProgress;
   private final AtomicInteger numPackagesLoaded;
   private final Profiler profiler = Profiler.instance();
@@ -101,7 +102,7 @@ public class PackageFunction implements SkyFunction {
       CachingPackageLocator pkgLocator,
       AtomicBoolean showLoadingProgress,
       Cache<PackageIdentifier, LegacyBuilder> packageFunctionCache,
-      Cache<PackageIdentifier, Result> preprocessCache,
+      Cache<PackageIdentifier, AstAfterPreprocessing> astCache,
       AtomicInteger numPackagesLoaded,
       @Nullable SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining) {
     this.skylarkImportLookupFunctionForInlining = skylarkImportLookupFunctionForInlining;
@@ -113,7 +114,7 @@ public class PackageFunction implements SkyFunction {
     this.packageLocator = pkgLocator;
     this.showLoadingProgress = showLoadingProgress;
     this.packageFunctionCache = packageFunctionCache;
-    this.preprocessCache = preprocessCache;
+    this.astCache = astCache;
     this.numPackagesLoaded = numPackagesLoaded;
   }
 
@@ -382,7 +383,6 @@ public class PackageFunction implements SkyFunction {
       switch (packageLookupValue.getErrorReason()) {
         case NO_BUILD_FILE:
         case DELETED_PACKAGE:
-        case NO_EXTERNAL_PACKAGE:
           throw new PackageFunctionException(new BuildFileNotFoundException(packageId,
               packageLookupValue.getErrorMsg()), Transience.PERSISTENT);
         case INVALID_PACKAGE_NAME:
@@ -409,33 +409,19 @@ public class PackageFunction implements SkyFunction {
           Transience.PERSISTENT);
     }
 
-    boolean isDefaultsPackage =  packageNameFragment.equals(DEFAULTS_PACKAGE_NAME)
-        && packageId.getRepository().isDefault();
-
     PathFragment buildFileFragment = packageNameFragment.getChild("BUILD");
     RootedPath buildFileRootedPath = RootedPath.toRootedPath(packageLookupValue.getRoot(),
         buildFileFragment);
     FileValue buildFileValue = null;
-    if (!isDefaultsPackage) {
-      try {
-        buildFileValue = (FileValue) env.getValueOrThrow(FileValue.key(buildFileRootedPath),
-            IOException.class, FileSymlinkException.class,
-            InconsistentFilesystemException.class);
-      } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
-        throw new IllegalStateException("Package lookup succeeded but encountered error when "
-            + "getting FileValue for BUILD file directly.", e);
-      }
+    Path buildFilePath = buildFileRootedPath.asPath();
+    String replacementContents = null;
+
+    if (!isDefaultsPackage(packageId)) {
+      buildFileValue = getBuildFileValue(env, buildFileRootedPath);
       if (buildFileValue == null) {
         return null;
       }
-      Preconditions.checkState(buildFileValue.exists(),
-          "Package lookup succeeded but BUILD file doesn't exist");
-    }
-
-    Path buildFilePath = buildFileRootedPath.asPath();
-
-    String replacementContents = null;
-    if (isDefaultsPackage) {
+    } else {
       replacementContents = PrecomputedValue.DEFAULTS_PACKAGE_CONTENTS.get(env);
       if (replacementContents == null) {
         return null;
@@ -478,6 +464,12 @@ public class PackageFunction implements SkyFunction {
     }
     legacyPkgBuilder.buildPartial();
     try {
+      // Since the Skyframe dependencies we request below in
+      // markDependenciesAndPropagateInconsistentFilesystemExceptions are requested independently of
+      // the ones requested here in
+      // handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions, we don't
+      // bother checking for missing values and instead piggyback on the env.missingValues() call
+      // for the former. This avoids a Skyframe restart.
       handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions(
           packageLookupValue.getRoot(), packageId, legacyPkgBuilder, env);
     } catch (InternalInconsistentFilesystemException e) {
@@ -485,14 +477,8 @@ public class PackageFunction implements SkyFunction {
       throw new PackageFunctionException(e,
           e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
     }
-    if (env.valuesMissing()) {
-      // The package we just loaded will be in the {@code packageFunctionCache} next when this
-      // SkyFunction is called again.
-      return null;
-    }
     Collection<Pair<String, Boolean>> globPatterns = legacyPkgBuilder.getGlobPatterns();
     Map<Label, Path> subincludes = legacyPkgBuilder.getSubincludes();
-    Event.replayEventsOn(env.getListener(), legacyPkgBuilder.getEvents());
     boolean packageShouldBeConsideredInError;
     try {
       packageShouldBeConsideredInError =
@@ -503,10 +489,11 @@ public class PackageFunction implements SkyFunction {
       throw new PackageFunctionException(e,
           e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
     }
-
     if (env.valuesMissing()) {
       return null;
     }
+
+    Event.replayEventsOn(env.getListener(), legacyPkgBuilder.getEvents());
 
     if (packageShouldBeConsideredInError) {
       legacyPkgBuilder.setContainsErrors();
@@ -519,32 +506,42 @@ public class PackageFunction implements SkyFunction {
     return new PackageValue(pkg);
   }
 
-  // TODO(bazel-team): this should take the AST so we don't parse the file twice.
+  private FileValue getBuildFileValue(Environment env, RootedPath buildFileRootedPath) {
+    FileValue buildFileValue;
+    try {
+      buildFileValue = (FileValue) env.getValueOrThrow(FileValue.key(buildFileRootedPath),
+          IOException.class, FileSymlinkException.class,
+          InconsistentFilesystemException.class);
+    } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
+      throw new IllegalStateException("Package lookup succeeded but encountered error when "
+          + "getting FileValue for BUILD file directly.", e);
+    }
+    if (buildFileValue == null) {
+      return null;
+    }
+    Preconditions.checkState(buildFileValue.exists(),
+        "Package lookup succeeded but BUILD file doesn't exist");
+    return buildFileValue;
+  }
+
   @Nullable
   private SkylarkImportResult discoverSkylarkImports(
       Path buildFilePath,
       PathFragment buildFileFragment,
       PackageIdentifier packageId,
-      Environment env,
-      ParserInputSource inputSource,
-      List<Statement> preludeStatements)
+      AstAfterPreprocessing astAfterPreprocessing,
+      Environment env)
       throws PackageFunctionException, InterruptedException {
-    StoredEventHandler eventHandler = new StoredEventHandler();
-    BuildFileAST buildFileAST =
-        BuildFileAST.parseBuildFile(
-            inputSource,
-            preludeStatements,
-            eventHandler,
-            /* parse python */ false);
     SkylarkImportResult importResult;
-    if (eventHandler.hasErrors()) {
+    if (astAfterPreprocessing.containsAstParsingErrors) {
       importResult =
           new SkylarkImportResult(
               ImmutableMap.<PathFragment, Extension>of(),
               ImmutableList.<Label>of());
     } else {
       importResult =
-          fetchImportsFromBuildFile(buildFilePath, buildFileFragment, packageId, buildFileAST, env);
+          fetchImportsFromBuildFile(buildFilePath, buildFileFragment, packageId,
+              astAfterPreprocessing.ast, env);
     }
 
     return importResult;
@@ -849,7 +846,7 @@ public class PackageFunction implements SkyFunction {
    *
    * <p>May return null if the computation has to be restarted.
    *
-   * <p>Exactly one of {@code replacementContents} and {@link buildFileValue} will be
+   * <p>Exactly one of {@code replacementContents} and {@code buildFileValue} will be
    * non-{@code null}. The former indicates that we have a faux BUILD file with the given contents
    * and the latter indicates that we have a legitimate BUILD file and should actually do
    * preprocessing.
@@ -872,19 +869,19 @@ public class PackageFunction implements SkyFunction {
       try {
         Globber globber = packageFactory.createLegacyGlobber(buildFilePath.getParentDirectory(),
             packageId, packageLocator);
-        Preprocessor.Result preprocessingResult = preprocessCache.getIfPresent(packageId);
-        if (preprocessingResult == null) {
+        AstAfterPreprocessing astAfterPreprocessing = astCache.getIfPresent(packageId);
+        if (astAfterPreprocessing == null) {
           if (showLoadingProgress.get()) {
             env.getListener().handle(Event.progress("Loading package: " + packageId));
           }
-          // Even though we only open and read the file on a cache miss, note that the BUILD is
-          // still parsed two times. Also, the preprocessor may suboptimally open and read it again
-          // anyway.
-          ParserInputSource inputSource;
+          Preprocessor.Result preprocessingResult;
           if (replacementContents == null) {
-            long buildFileSize = Preconditions.checkNotNull(buildFileValue, packageId).getSize();
+            Preconditions.checkNotNull(buildFileValue, packageId);
+            byte[] buildFileBytes;
             try {
-              inputSource = ParserInputSource.create(buildFilePath, buildFileSize);
+              buildFileBytes = buildFileValue.isSpecialFile()
+                  ? FileSystemUtils.readContent(buildFilePath)
+                  : FileSystemUtils.readWithKnownFileSize(buildFilePath, buildFileValue.getSize());
             } catch (IOException e) {
               env.getListener().handle(Event.error(Location.fromFile(buildFilePath),
                   e.getMessage()));
@@ -894,7 +891,8 @@ public class PackageFunction implements SkyFunction {
                   packageId, e.getMessage()), Transience.TRANSIENT);
             }
             try {
-              preprocessingResult = packageFactory.preprocess(packageId, inputSource, globber);
+              preprocessingResult = packageFactory.preprocess(buildFilePath, packageId,
+                  buildFileBytes, globber);
             } catch (IOException e) {
               env.getListener().handle(Event.error(
                   Location.fromFile(buildFilePath),
@@ -908,31 +906,32 @@ public class PackageFunction implements SkyFunction {
                 ParserInputSource.create(replacementContents, buildFilePath.asFragment());
             preprocessingResult = Preprocessor.Result.noPreprocessing(replacementSource);
           }
-          preprocessCache.put(packageId, preprocessingResult);
+          StoredEventHandler astParsingEventHandler = new StoredEventHandler();
+          BuildFileAST ast = PackageFactory.parseBuildFile(packageId, preprocessingResult.result,
+              preludeStatements, astParsingEventHandler);
+          astAfterPreprocessing = new AstAfterPreprocessing(preprocessingResult, ast,
+              astParsingEventHandler);
+          astCache.put(packageId, astAfterPreprocessing);
         }
-
         SkylarkImportResult importResult;
         try {
           importResult = discoverSkylarkImports(
-                  buildFilePath,
-                  buildFileFragment,
-                  packageId,
-                  env,
-                  preprocessingResult.result,
-                  preludeStatements);
+              buildFilePath,
+              buildFileFragment,
+              packageId,
+              astAfterPreprocessing,
+              env);
         } catch (PackageFunctionException | InterruptedException e) {
-          preprocessCache.invalidate(packageId);
+          astCache.invalidate(packageId);
           throw e;
         }
         if (importResult == null) {
           return null;
         }
-        preprocessCache.invalidate(packageId);
-
-        pkgBuilder = packageFactory.createPackageFromPreprocessingResult(externalPkg, packageId,
-            buildFilePath, preprocessingResult, preprocessingResult.events, preludeStatements,
-            importResult.importMap, importResult.fileDependencies, packageLocator,
-            defaultVisibility, globber);
+        astCache.invalidate(packageId);
+        pkgBuilder = packageFactory.createPackageFromPreprocessingAst(externalPkg, packageId,
+            buildFilePath, astAfterPreprocessing, importResult.importMap,
+            importResult.fileDependencies, defaultVisibility, globber);
         numPackagesLoaded.incrementAndGet();
         packageFunctionCache.put(packageId, pkgBuilder);
       } finally {
@@ -1002,5 +1001,10 @@ public class PackageFunction implements SkyFunction {
       this.importMap = importMap;
       this.fileDependencies = fileDependencies;
     }
+  }
+
+  static boolean isDefaultsPackage(PackageIdentifier packageIdentifier) {
+    return packageIdentifier.getRepository().isDefault()
+        && packageIdentifier.getPackageFragment().equals(DEFAULTS_PACKAGE_NAME);
   }
 }

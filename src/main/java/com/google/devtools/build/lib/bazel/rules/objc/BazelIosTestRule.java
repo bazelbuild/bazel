@@ -93,6 +93,10 @@ public final class BazelIosTestRule implements RuleDefinition {
                 Constants.TOOLS_REPOSITORY + "//tools/objc:ios_test.sh.bazel_template")))
         .add(attr("$test_runner", LABEL)
             .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:testrunner")))
+        .add(attr(IosTest.MEMLEAKS_DEP, LABEL)
+            .value(env.getLabel("//tools/objc/memleaks:memleaks")))
+        .add(attr(IosTest.MEMLEAKS_PLUGIN, LABEL)
+            .value(env.getLabel("//tools/objc:memleaks_plugin")))
         .override(attr(":gcov", LABEL_LIST).cfg(HOST)
             .value(new LateBoundLabelList<BuildConfiguration>() {
               @Override

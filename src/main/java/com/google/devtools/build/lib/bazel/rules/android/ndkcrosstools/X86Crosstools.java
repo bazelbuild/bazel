@@ -149,28 +149,30 @@ class X86Crosstools {
         .addCompilerFlag("-ffunction-sections")
         .addCompilerFlag("-funwind-tables")
         .addCompilerFlag("-no-canonical-prefixes")
-  
+
         // Linker flags
         .addLinkerFlag("-no-canonical-prefixes")
-  
+
         // Additional release flags
-        .addCompilationModeFlags(CompilationModeFlags.newBuilder()
-            .setMode(CompilationMode.OPT)
-            .addCompilerFlag("-O2")
-            .addCompilerFlag("-g")
-            .addCompilerFlag("-DNDEBUG")
-            .addCompilerFlag("-fomit-frame-pointer")
-            .addCompilerFlag("-fstrict-aliasing")
-            .addCompilerFlag("-funswitch-loops")
-            .addCompilerFlag("finline-limit=300"))
-  
+        .addCompilationModeFlags(
+            CompilationModeFlags.newBuilder()
+                .setMode(CompilationMode.OPT)
+                .addCompilerFlag("-O2")
+                .addCompilerFlag("-g")
+                .addCompilerFlag("-DNDEBUG")
+                .addCompilerFlag("-fomit-frame-pointer")
+                .addCompilerFlag("-fstrict-aliasing")
+                .addCompilerFlag("-funswitch-loops")
+                .addCompilerFlag("-finline-limit=300"))
+
         // Additional debug flags
-        .addCompilationModeFlags(CompilationModeFlags.newBuilder()
-            .setMode(CompilationMode.DBG)
-            .addCompilerFlag("-O0")
-            .addCompilerFlag("-g")
-            .addCompilerFlag("-fno-omit-frame-pointer")
-            .addCompilerFlag("-fno-strict-aliasing"));
+        .addCompilationModeFlags(
+            CompilationModeFlags.newBuilder()
+                .setMode(CompilationMode.DBG)
+                .addCompilerFlag("-O0")
+                .addCompilerFlag("-g")
+                .addCompilerFlag("-fno-omit-frame-pointer")
+                .addCompilerFlag("-fno-strict-aliasing"));
   }
 
   private CToolchain.Builder createBaseX86ClangToolchain(

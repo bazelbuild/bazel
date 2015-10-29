@@ -398,17 +398,6 @@ public final class Environment implements Freezable {
     return isSkylark;
   }
 
-  /**
-   * Is the caller of the current function executing Skylark code?
-   * @return true if this is skylark was enabled when this code was read.
-   */
-  // TODO(bazel-team): Delete this function.
-  // This function is currently used by MethodLibrary to modify behavior of lists
-  // depending on the Skylark-ness of the code; lists should be unified between the two modes.
-  boolean isCallerSkylark() {
-    return continuation.isSkylark;
-  }
-
   @Override
   public Mutability mutability() {
     // the mutability of the environment is that of its dynamic frame.
@@ -808,11 +797,6 @@ public final class Environment implements Freezable {
     }
 
     Object value = ext.get(nameInLoadedFile);
-    // TODO(bazel-team): Unify data structures between Skylark and BUILD,
-    // and stop doing the conversions below:
-    if (!isSkylark) {
-      value = SkylarkType.convertFromSkylark(value);
-    }
 
     try {
       update(symbol.getName(), value);

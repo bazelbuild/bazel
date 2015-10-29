@@ -256,3 +256,56 @@ def groovy_test(
     data = data,
     jvm_flags = jvm_flags,
   )
+
+def spock_test(
+    name,
+    specs,
+    deps=[],
+    groovy_srcs=[],
+    java_srcs=[],
+    data=[],
+    resources=[],
+    jvm_flags=[],
+    size="small",
+    tags=[]):
+  groovy_lib_deps = deps + [
+    "//external:junit",
+    "//external:spock",
+  ]
+  test_deps = deps + [
+    "//external:junit",
+    "//external:spock",
+  ]
+
+  # Put all Java sources into a Java library
+  if java_srcs:
+    native.java_library(
+      name = name + "-javalib",
+      srcs = java_srcs,
+      deps = deps + [
+        "//external:junit",
+        "//external:spock",
+      ],
+    )
+    groovy_lib_deps += [name + "-javalib"]
+    test_deps += [name + "-javalib"]
+
+  # Put all specs and Groovy sources into a Groovy library
+  groovy_library(
+    name = name + "-groovylib",
+    srcs = specs + groovy_srcs,
+    deps = groovy_lib_deps,
+  )
+  test_deps += [name + "-groovylib"]
+
+  # Create a groovy test
+  groovy_test(
+    name = name,
+    deps = test_deps,
+    srcs = specs,
+    data = data,
+    resources = resources,
+    jvm_flags = jvm_flags,
+    size = size,
+    tags = tags,
+  )

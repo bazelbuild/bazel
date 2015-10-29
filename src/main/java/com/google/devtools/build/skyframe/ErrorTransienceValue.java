@@ -13,16 +13,44 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+
 /**
  * A value that represents "error transience", i.e. anything which may have caused an unexpected
- * failure.
+ * failure. Is not equal to anything, including itself, in order to force re-evaluation.
  */
 public final class ErrorTransienceValue implements SkyValue {
   public static final SkyFunctionName FUNCTION_NAME = SkyFunctionName.create("ERROR_TRANSIENCE");
+  public static final SkyKey KEY = new SkyKey(FUNCTION_NAME, "ERROR_TRANSIENCE");
+  public static final ErrorTransienceValue INSTANCE = new ErrorTransienceValue();
 
-  ErrorTransienceValue() {}
+  private ErrorTransienceValue() {}
 
-  public static SkyKey key() {
-    return new SkyKey(FUNCTION_NAME, "ERROR_TRANSIENCE");
+  @Override
+  public int hashCode() {
+    // Not the prettiest, but since we always return false for equals throw exception here to
+    // catch any errors related to hash-based collections quickly.
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    return false;
+  }
+
+  @Override
+  public String toString() {
+    return "ErrorTransienceValue";
+  }
+
+  @SuppressWarnings("unused")
+  private void writeObject(ObjectOutputStream unused) {
+    throw new UnsupportedOperationException("Java serialization not supported");
+  }
+
+  @SuppressWarnings("unused")
+  private void readObject(ObjectInputStream unused) {
+    throw new UnsupportedOperationException("Java serialization not supported");
   }
 }

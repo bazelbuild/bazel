@@ -7,7 +7,7 @@ java_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":plmerge_lib",
-        "//src/main/java:options",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:guava",
         "//third_party/java/dd_plist",
     ],

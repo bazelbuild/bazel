@@ -7,7 +7,7 @@ java_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":xcodegen_lib",
-        "//src/main/java:options",
+        "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:xcodegen_proto",
         "//third_party:guava",
         "//third_party:protobuf",

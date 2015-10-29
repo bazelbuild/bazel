@@ -25,9 +25,13 @@ public class Dirent implements Serializable {
 
   /** Type of the directory entry */
   public enum Type {
+    // A regular file.
     FILE,
+    // A directory.
     DIRECTORY,
+    // A symlink.
     SYMLINK,
+    // Not one of the above. For example, a special file.
     UNKNOWN;
   }
 

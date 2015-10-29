@@ -349,6 +349,9 @@ cc_library(
     hdrs = [
         "gtest/gtest.h",
     ],
+    data = [
+        "//tools:test_sharding_compliant",
+    ],
     includes = ["."],
     # gtest detects pthread, and the linker fails without it.
     linkopts = ["-lpthread"],

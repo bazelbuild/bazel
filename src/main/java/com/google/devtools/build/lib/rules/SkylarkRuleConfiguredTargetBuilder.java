@@ -13,12 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules;
 
-import com.google.common.base.Function;
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -26,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
@@ -62,7 +59,8 @@ public final class SkylarkRuleConfiguredTargetBuilder {
           .setGlobals(
               ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironment().getGlobals())
           .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
-          .build(); // NB: we do *not* setLoadingPhase()
+          .build(); // NB: loading phase functions are not available: this is analysis already,
+                    // so we do *not* setLoadingPhase().
       Object target = ruleImplementation.call(
           ImmutableList.<Object>of(skylarkRuleContext),
           ImmutableMap.<String, Object>of(),
@@ -79,7 +77,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
         return null;
       }
       ConfiguredTarget configuredTarget = createTarget(ruleContext, target);
-      checkOrphanArtifacts(ruleContext);
+      SkylarkProviderValidationUtil.checkOrphanArtifacts(ruleContext);
       return configuredTarget;
     } catch (EvalException e) {
       addRuleToStackTrace(e, ruleContext.getRule(), ruleImplementation);
@@ -99,9 +97,11 @@ public final class SkylarkRuleConfiguredTargetBuilder {
    */
   private static void addRuleToStackTrace(EvalException ex, Rule rule, BaseFunction ruleImpl) {
     if (ex instanceof EvalExceptionWithStackTrace) {
-      ((EvalExceptionWithStackTrace) ex).registerRule(
-          String.format("%s(name = '%s')", rule.getRuleClass(), rule.getName()),
-          rule.getLocation(), ruleImpl);
+      ((EvalExceptionWithStackTrace) ex)
+          .registerPhantomFuncall(
+              String.format("%s(name = '%s')", rule.getRuleClass(), rule.getName()),
+              rule.getLocation(),
+              ruleImpl);
     }
   }
 
@@ -113,20 +113,6 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       return ((EvalExceptionWithStackTrace) ex).getOriginalMessage();
     }
     return ex.getMessage();
-  }
-
-  private static void checkOrphanArtifacts(RuleContext ruleContext) throws EvalException {
-    ImmutableSet<Artifact> orphanArtifacts =
-        ruleContext.getAnalysisEnvironment().getOrphanArtifacts();
-    if (!orphanArtifacts.isEmpty()) {
-      throw new EvalException(null, "The following files have no generating action:\n"
-          + Joiner.on("\n").join(Iterables.transform(orphanArtifacts,
-        new Function<Artifact, String>() {
-          @Override
-          public String apply(Artifact artifact) {
-            return artifact.getRootRelativePathString();
-          }})));
-    }
   }
 
   // TODO(bazel-team): this whole defaulting - overriding executable, runfiles and files_to_build

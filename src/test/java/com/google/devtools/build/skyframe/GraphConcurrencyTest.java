@@ -47,8 +47,7 @@ import java.util.concurrent.TimeUnit;
 /** Base class for concurrency sanity tests on {@link EvaluableGraph} implementations. */
 public abstract class GraphConcurrencyTest {
 
-  private static final SkyFunctionName SKY_FUNCTION_NAME =
-      SkyFunctionName.create("GraphConcurrencyTestKey");
+  private static final SkyFunctionName SKY_FUNCTION_NAME = SkyFunctionName.FOR_TESTING;
   private ProcessableGraph graph;
   private TestRunnableWrapper wrapper;
 

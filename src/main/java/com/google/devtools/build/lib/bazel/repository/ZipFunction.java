@@ -42,6 +42,9 @@ public class ZipFunction implements SkyFunction {
 
   public static final SkyFunctionName NAME = SkyFunctionName.create("ZIP_FUNCTION");
 
+  private static final int WINDOWS_DIRECTORY = 0x10;
+  private static final int WINDOWS_FILE = 0x20;
+
   /**
    * This unzips the zip file to a sibling directory of {@link DecompressorDescriptor#archivePath}.
    * The zip file is expected to have the WORKSPACE file at the top level, e.g.:
@@ -137,10 +140,11 @@ public class ZipFunction implements SkyFunction {
     // checks if the filename ends with / (for directories) and extra attributes set to 0 for
     // files. From  https://github.com/miloyip/rapidjson/archive/v1.0.2.zip, it looks like
     // executables end up with "normal" (posix) permissions (oddly), so they'll be handled above.
-    if (path.endsWith("/")) {
+    int windowsPermission = permissions & 0xff;
+    if (path.endsWith("/") || (windowsPermission & WINDOWS_DIRECTORY) == WINDOWS_DIRECTORY) {
       // Directory.
       return 040755;
-    } else if (permissions == 0) {
+    } else if (permissions == 0 || (windowsPermission & WINDOWS_FILE) == WINDOWS_FILE) {
       // File.
       return 010644;
     }

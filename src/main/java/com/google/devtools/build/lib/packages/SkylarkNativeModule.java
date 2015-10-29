@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
-import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
@@ -39,7 +38,7 @@ public class SkylarkNativeModule {
 
   // TODO(bazel-team): shouldn't we return a SkylarkList instead?
   @SkylarkSignature(name = "glob", objectType = SkylarkNativeModule.class,
-      returnType = GlobList.class,
+      returnType = SkylarkList.class,
       doc = "Glob returns a list of every file in the current package that:<ul>\n"
           + "<li>Matches at least one pattern in <code>include</code>.</li>\n"
           + "<li>Does not match any of the patterns in <code>exclude</code> "
@@ -57,7 +56,7 @@ public class SkylarkNativeModule {
           doc = "A flag whether to exclude directories or not.")},
       useAst = true, useEnvironment = true)
   private static final BuiltinFunction glob = new BuiltinFunction("glob") {
-      public GlobList<String> invoke(
+      public SkylarkList invoke(
           SkylarkList include, SkylarkList exclude,
           Integer excludeDirectories, FuncallExpression ast, Environment env)
           throws EvalException, ConversionException, InterruptedException {
