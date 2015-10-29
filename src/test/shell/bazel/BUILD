@@ -192,7 +192,7 @@ sh_test(
 
 sh_test(
     name = "maven_test",
-    size = "large",
+    size = "medium",
     srcs = ["maven_test.sh"],
     data = [":test-deps"],
 )
@@ -214,7 +214,7 @@ sh_test(
 
 sh_test(
     name = "process_wrapper_test",
-    size = "large",
+    size = "small",
     srcs = ["process-wrapper_test.sh"],
     data = [":test-deps"],
 )
