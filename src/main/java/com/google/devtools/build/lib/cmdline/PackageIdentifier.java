@@ -48,6 +48,7 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 public final class PackageIdentifier implements Comparable<PackageIdentifier>, Serializable {
+  public static final String EXTERNAL_PREFIX = "external";
 
   private static final Interner<PackageIdentifier> INTERNER = Interners.newWeakInterner();
 
@@ -96,7 +97,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
       }
     }
 
-    private void readObject(ObjectInputStream in) throws IOException {
+    private void readObject(@SuppressWarnings("unused") ObjectInputStream in) throws IOException {
       throw new IOException("Serialization is allowed only by proxy");
     }
 
@@ -123,7 +124,8 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
     /**
      * Makes sure that name is a valid repository name and creates a new RepositoryName using it.
-     * @throws TargetParsingException if the name is invalid.
+     *
+     * @throws LabelSyntaxException if the name is invalid
      */
     public static RepositoryName create(String name) throws LabelSyntaxException {
       try {
@@ -143,7 +145,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
      * was invalid.
      */
     public static Pair<RepositoryName, PathFragment> fromPathFragment(PathFragment path) {
-      if (path.segmentCount() < 2 || !path.getSegment(0).equals("external")) {
+      if (path.segmentCount() < 2 || !path.getSegment(0).equals(EXTERNAL_PREFIX)) {
         return null;
       }
       try {
@@ -211,6 +213,15 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     // TODO(bazel-team): Use this over toString()- easier to track its usage.
     public String getName() {
       return name;
+    }
+
+    /**
+     * Returns the path at which this repository is mapped within the exec root.
+     */
+    public PathFragment getPathFragment() {
+      return isDefault()
+          ? PathFragment.EMPTY_FRAGMENT
+          : new PathFragment(EXTERNAL_PREFIX).getRelative(strippedName());
     }
 
     /**
@@ -325,9 +336,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
    * repository and package names.
    */
   public PathFragment getPathFragment() {
-    return repository.isDefault() ? pkgName
-        : new PathFragment("external").getRelative(repository.strippedName())
-            .getRelative(pkgName);
+    return repository.getPathFragment().getRelative(pkgName);
   }
 
   /**
