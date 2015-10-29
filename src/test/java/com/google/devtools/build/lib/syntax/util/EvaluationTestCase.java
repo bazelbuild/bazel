@@ -119,16 +119,8 @@ public class EvaluationTestCase {
     return eventCollectionApparatus.reporter();
   }
 
-  protected PackageFactory getFactory() {
-    return factory;
-  }
-
   public Environment getEnvironment() {
     return env;
-  }
-
-  public boolean isSkylark() {
-    return env.isSkylark();
   }
 
   protected List<Statement> parseFile(String... input) {
@@ -174,15 +166,6 @@ public class EvaluationTestCase {
     }
   }
 
-  public void checkEvalErrorStartsWith(String msg, String... input) throws Exception {
-    try {
-      eval(input);
-      fail("Expected error starting with '" + msg + "' but got no error");
-    } catch (IllegalArgumentException | EvalException e) {
-      assertThat(e.getMessage()).startsWith(msg);
-    }
-  }
-
   // Forward relevant methods to the EventCollectionApparatus
   public EvaluationTestCase setFailFast(boolean failFast) {
     eventCollectionApparatus.setFailFast(failFast);
@@ -204,16 +187,6 @@ public class EvaluationTestCase {
 
   public Event assertContainsWarning(String expectedMessage) {
     return eventCollectionApparatus.assertContainsWarning(expectedMessage);
-  }
-
-  public List<Event> assertContainsEventWithFrequency(
-      String expectedMessage, int expectedFrequency) {
-    return eventCollectionApparatus.assertContainsEventWithFrequency(
-        expectedMessage, expectedFrequency);
-  }
-
-  public Event assertContainsEventWithWordsInQuotes(String... words) {
-    return eventCollectionApparatus.assertContainsEventWithWordsInQuotes(words);
   }
 
   public EvaluationTestCase clearEvents() {

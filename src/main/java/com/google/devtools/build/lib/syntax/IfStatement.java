@@ -18,8 +18,6 @@ import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-// TODO(bazel-team): maybe we should get rid of the ConditionalStatements and
-// create a chain of if-else statements for elif-s.
 /**
  * Syntax node for an if/else statement.
  */
@@ -47,7 +45,6 @@ public final class IfStatement extends Statement {
 
     @Override
     public String toString() {
-      // TODO(bazel-team): see TODO in the outer class
       return "[el]if " + condition + ": " + stmts + "\n";
     }
 
@@ -66,7 +63,6 @@ public final class IfStatement extends Statement {
 
     @Override
     void validate(ValidationEnvironment env) throws EvalException {
-      // EvalUtils.toBoolean() evaluates everything so we don't need type check here.
       condition.validate(env);
       validateStmts(env, stmts);
     }

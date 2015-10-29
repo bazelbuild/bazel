@@ -171,7 +171,6 @@ public abstract class LineNumberTable implements Serializable {
    * Line number table implementation for source files that have been
    * preprocessed. Ignores newlines and uses only #line directives.
    */
-  // TODO(bazel-team): Use binary search instead of linear search.
   @Immutable
   public static class HashLine extends LineNumberTable {
 
