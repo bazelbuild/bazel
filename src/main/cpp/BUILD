@@ -13,6 +13,10 @@ cc_library(
             "blaze_util_darwin.cc",
             "blaze_util_posix.cc",
         ],
+        "//src:darwin_x86_64": [
+            "blaze_util_darwin.cc",
+            "blaze_util_posix.cc",
+        ],
         "//src:freebsd": [
             "blaze_util_freebsd.cc",
             "blaze_util_posix.cc",
@@ -28,6 +32,8 @@ cc_library(
     ],
     linkopts = select({
         "//src:darwin": [
+        ],
+        "//src:darwin_x86_64": [
         ],
         "//src:freebsd": [
         ],
@@ -59,6 +65,8 @@ cc_binary(
     ],
     linkopts = select({
         "//src:darwin": [
+        ],
+        "//src:darwin_x86_64": [
         ],
         "//src:freebsd": [
             "-lprocstat",

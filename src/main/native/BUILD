@@ -2,6 +2,7 @@ genrule(
     name = "copy_link_jni_md_header",
     srcs = select({
         "//src:darwin": ["//tools/jdk:jni_md_header-darwin"],
+        "//src:darwin_x86_64": ["//tools/jdk:jni_md_header-darwin"],
         "//src:freebsd": ["//tools/jdk:jni_md_header-freebsd"],
         "//conditions:default": ["//tools/jdk:jni_md_header-linux"],
     }),
@@ -20,6 +21,7 @@ filegroup(
     name = "jni_os",
     srcs = select({
         "//src:darwin": ["unix_jni_darwin.cc"],
+        "//src:darwin_x86_64": ["unix_jni_darwin.cc"],
         "//src:freebsd": ["unix_jni_freebsd.cc"],
         "//conditions:default": ["unix_jni_linux.cc"],
     }),

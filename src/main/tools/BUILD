@@ -32,6 +32,7 @@ cc_binary(
     name = "namespace-sandbox",
     srcs = select({
         "//src:darwin": ["namespace-sandbox-dummy.c"],
+        "//src:darwin_x86_64": ["namespace-sandbox-dummy.c"],
         "//src:freebsd": ["namespace-sandbox-dummy.c"],
         "//conditions:default": ["namespace-sandbox.c"],
     }),
@@ -39,6 +40,7 @@ cc_binary(
     linkopts = ["-lm"],
     deps = select({
         "//src:darwin": [],
+        "//src:darwin_x86_64": [],
         "//src:freebsd": [],
         "//conditions:default": [
             ":process-tools",
