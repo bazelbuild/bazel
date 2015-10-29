@@ -468,6 +468,7 @@ java_test(
     args = ["com.google.devtools.build.lib.AllTests"],
     deps = [
         ":actions_testutil",
+        ":analysis_testutil",
         ":foundations_testutil",
         ":packages_testutil",
         ":test_runner",
@@ -476,8 +477,10 @@ java_test(
         "//src/main/java:bazel-core",
         "//src/main/java:events",
         "//src/main/java:packages",
+        "//src/main/java:skyframe-base",
         "//src/main/java:util",
         "//src/main/java:vfs",
+        "//src/main/protobuf:build_proto",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",
@@ -628,7 +631,6 @@ java_library(
         "//src/main/java:concurrent",
         "//src/main/java:events",
         "//src/main/java:packages",
-        "//src/main/java:skyframe-base",
         "//src/main/java:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//third_party:guava",
@@ -645,7 +647,6 @@ java_test(
         "com/google/devtools/build/lib/skylark/*.java",
     ]),
     args = ["com.google.devtools.build.lib.AllTests"],
-    tags = ["skylark"],
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -659,6 +660,7 @@ java_test(
         "//src/main/java:concurrent",
         "//src/main/java:events",
         "//src/main/java:packages",
+        "//src/main/java:skyframe-base",
         "//src/main/java:util",
         "//src/main/java:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -831,7 +833,6 @@ TEST_SUITES = [
     "foundations",
     "shell",
     "skyframe",
-    "skylark",
     "ideinfo",
 ]
 

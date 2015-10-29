@@ -68,6 +68,8 @@ INVOKEDYNAMIC_JAR=$IJAR_SRCDIR/test/libinvokedynamic.jar
 INVOKEDYNAMIC_IJAR=$TEST_TMPDIR/invokedynamic_interface.jar
 METHODPARAM_JAR=$IJAR_SRCDIR/test/libmethodparameters.jar
 METHODPARAM_IJAR=$TEST_TMPDIR/methodparameters_interface.jar
+SOURCEDEBUGEXT_JAR=$IJAR_SRCDIR/test/source_debug_extension.jar
+SOURCEDEBUGEXT_IJAR=$TEST_TMPDIR/source_debug_extension.jar
 
 #### Setup
 
@@ -503,5 +505,16 @@ function test_method_parameters_attribute() {
     || fail "javap failed"
   expect_log "MethodParameters" "MethodParameters not preserved!"
 }
+
+function test_source_debug_extension_attribute() {
+  # Check that SourceDebugExtension attributes are dropped without a warning
+  $IJAR $SOURCEDEBUGEXT_JAR $SOURCEDEBUGEXT_IJAR >& $TEST_log || fail "ijar failed"
+  expect_not_log "skipping unknown attribute"
+  $JAVAP -classpath $SOURCEDEBUGEXT_IJAR -v sourcedebugextension.Test >& $TEST_log \
+    || fail "javap failed"
+  expect_not_log "SourceDebugExtension" "SourceDebugExtension preserved!"
+}
+
+SOURCEDEBUGEXT_JAR=$IJAR_SRCDIR/test/source_debug_extension.jar
 
 run_suite "ijar tests"

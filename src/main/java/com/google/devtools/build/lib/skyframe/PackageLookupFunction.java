@@ -51,6 +51,10 @@ public class PackageLookupFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws PackageLookupFunctionException {
     PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
     PackageIdentifier packageKey = (PackageIdentifier) skyKey.argument();
+    if (PackageFunction.isDefaultsPackage(packageKey)) {
+      return PackageLookupValue.success(pkgLocator.getPathEntries().get(0));
+    }
+
     if (!packageKey.getRepository().equals(PackageIdentifier.MAIN_REPOSITORY_NAME)
         && !packageKey.getRepository().isDefault()) {
       return computeExternalPackageLookupValue(skyKey, env, packageKey);
@@ -66,7 +70,7 @@ public class PackageLookupFunction implements SkyFunction {
     }
 
     if (deletedPackages.get().contains(packageKey)) {
-      return PackageLookupValue.deletedPackage();
+      return PackageLookupValue.DELETED_PACKAGE_VALUE;
     }
 
     // TODO(bazel-team): The following is O(n^2) on the number of elements on the package path due
@@ -79,7 +83,7 @@ public class PackageLookupFunction implements SkyFunction {
         return value;
       }
     }
-    return PackageLookupValue.noBuildFile();
+    return PackageLookupValue.NO_BUILD_FILE_VALUE;
   }
 
   @Nullable
@@ -129,7 +133,7 @@ public class PackageLookupFunction implements SkyFunction {
     if (fileValue.isFile()) {
       return PackageLookupValue.success(buildFileRootedPath.getRoot());
     }
-    return PackageLookupValue.noBuildFile();
+    return PackageLookupValue.NO_BUILD_FILE_VALUE;
   }
 
   /**
@@ -169,7 +173,7 @@ public class PackageLookupFunction implements SkyFunction {
         return PackageLookupValue.success(repositoryValue.getPath());
       }
     }
-    return PackageLookupValue.noBuildFile();
+    return PackageLookupValue.NO_BUILD_FILE_VALUE;
   }
 
   /**

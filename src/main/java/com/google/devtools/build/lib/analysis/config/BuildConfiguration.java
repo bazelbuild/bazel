@@ -1101,6 +1101,11 @@ public final class BuildConfiguration {
           + "benefit from sharding certain tests. Please don't keep this option in your "
           + ".blazerc or continuous build"));
     }
+
+    if (options.useDynamicConfigurations && !options.useDistinctHostConfiguration) {
+      reporter.handle(Event.error(
+          "--nodistinct_host_configuration does not currently work with dynamic configurations"));
+    }
   }
 
   private ImmutableMap<String, String> setupShellEnvironment() {

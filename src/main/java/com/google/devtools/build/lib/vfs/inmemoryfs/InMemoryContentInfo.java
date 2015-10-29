@@ -80,10 +80,16 @@ public abstract class InMemoryContentInfo implements ScopeEscapableStatus {
   public abstract boolean isSymbolicLink();
 
   /**
-   * Returns true if the current object is a regular file.
+   * Returns true if the current object is a regular or special file.
    */
   @Override
   public abstract boolean isFile();
+
+  /**
+   * Returns true if the current object is a special file.
+   */
+  @Override
+  public abstract boolean isSpecialFile();
 
   /**
    * Returns the size of the entity denoted by the current object. For files,

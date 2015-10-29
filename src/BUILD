@@ -15,8 +15,8 @@ filegroup(
     ],
 )
 
-genrule(
-    name = "install_base_key-file",
+[genrule(
+    name = "install_base_key-file" + suffix,
     srcs = [
         "//src/main/java:bazel-main_deploy.jar",
         "//src/main/cpp:client",
@@ -25,14 +25,16 @@ genrule(
         "//src/main/tools:process-wrapper",
         "//src/main/tools:namespace-sandbox",
         "//src/main/tools:build_interface_so",
-        ":embedded_tools",
-    ],
-    outs = ["install_base_key"],
+    ] + embedded_tools,
+    outs = ["install_base_key" + suffix],
     cmd = select({
         ":darwin": md5_cmd % "/sbin/md5",
         "//conditions:default": md5_cmd % "md5sum",
     }),
-)
+) for suffix, embedded_tools in {
+    "": [":embedded_tools"],
+    "_notools": [],
+}.items()]
 
 # Try to grab the java version from the java_toolchain.
 # Unfortunately, we don't have access to the javac options
@@ -92,10 +94,14 @@ genrule(
     ]),
 )
 
-genrule(
-    name = "package-zip",
-    srcs = [
+[genrule(
+    name = "package-zip" + suffix,
+    srcs = ([":embedded_tools.zip"] if embed else []) + [
+        # The script assumes that the embedded tools zip (if exists) is the
+        # first item here, the deploy jar the second and install base key is the
+        # third
         "//src/main/java:bazel-main_deploy.jar",
+        "install_base_key" + suffix,
         "//src/main/cpp:client",
         ":libunix",
         "//src/main/tools:build-runfiles",
@@ -103,35 +109,24 @@ genrule(
         "//src/main/tools:jdk-support",
         "//src/main/tools:namespace-sandbox",
         "//src/main/tools:build_interface_so",
-        "install_base_key",
         ":java-version",
-        ":embedded_tools.zip",
     ],
-    outs = ["package.zip"],
-    # Terrible hack to remove timestamps in the zip file
-    cmd = "\n".join([
-        "mkdir -p $(@D)/package-zip",
-        "cp $(SRCS) $(@D)/package-zip",
-        # TODO(dmarting): we should change the client to connect to server.jar
-        # instead of the first binary in the list.
-        "mv $(@D)/package-zip/bazel-main_deploy.jar $(@D)/package-zip/A-server.jar",
-        "touch -t 198001010000.00 $(@D)/package-zip/*",
-        "mkdir $(@D)/package-zip/embedded_tools",
-        "(cd $(@D)/package-zip/embedded_tools && unzip -q ../embedded_tools.zip)",
-        "rm $(@D)/package-zip/embedded_tools.zip",
-        "P=$$PWD; (cd $(@D)/package-zip && zip -qrD $$P/$@ *)",
-        "rm -fr $(@D)/package-zip",
-    ]),
-)
+    outs = ["package" + suffix + ".zip"],
+    cmd = "$(location :package-bazel.sh) $@ " + ("" if embed else "''") + " $(SRCS)",
+    tools = ["package-bazel.sh"],
+) for suffix, embed in [
+    ("", True),
+    ("_notools", False),
+]]
 
-genrule(
-    name = "bazel-bin",
+[genrule(
+    name = "bazel-bin" + suffix,
     srcs = [
         "//src/main/cpp:client",
-        "package-zip",
+        "package-zip" + suffix,
     ],
-    outs = ["bazel"],
-    cmd = "cat $(location //src/main/cpp:client) $(location :package-zip) > $@ && zip -qA $@",
+    outs = ["bazel" + suffix],
+    cmd = "cat $(location //src/main/cpp:client) $(location :package-zip" + suffix + ") > $@ && zip -qA $@",
     executable = 1,
     output_to_bindir = 1,
     visibility = [
@@ -139,7 +134,10 @@ genrule(
         "//scripts/packages:__pkg__",  # For installer generation
         "//src/test:__subpackages__",  # For integration tests
     ],
-)
+) for suffix in [
+    "",
+    "_notools",
+]]
 
 config_setting(
     name = "darwin",

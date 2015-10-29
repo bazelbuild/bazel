@@ -129,9 +129,11 @@ public interface MemoizingEvaluator {
    */
   public static interface EvaluatorSupplier {
     MemoizingEvaluator create(
-        Map<? extends SkyFunctionName, ? extends SkyFunction> skyFunctions, Differencer differencer,
+        Map<SkyFunctionName, ? extends SkyFunction> skyFunctions,
+        Differencer differencer,
         @Nullable EvaluationProgressReceiver invalidationReceiver,
-        EmittedEventState emittedEventState, boolean keepEdges);
+        EmittedEventState emittedEventState,
+        boolean keepEdges);
   }
 
   /**

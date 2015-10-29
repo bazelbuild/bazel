@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
+import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
@@ -313,8 +314,18 @@ public final class SkyframeBuildView {
       Throwable cause = errorInfo.getException();
       Preconditions.checkState(cause != null || !Iterables.isEmpty(errorInfo.getCycleInfo()),
           errorInfo);
-      String errorMsg = "Analysis of target '" + ConfiguredTargetValue.extractLabel(topLevel)
-          + "' failed; build aborted";
+      String errorMsg = null;
+      if (topLevel.argument() instanceof ConfiguredTargetKey) {
+        errorMsg =
+            "Analysis of target '"
+                + ConfiguredTargetValue.extractLabel(topLevel)
+                + "' failed; build aborted";
+      } else if (topLevel.argument() instanceof AspectKey) {
+        AspectKey aspectKey = (AspectKey) topLevel.argument();
+        errorMsg = "Analysis of aspect '" + aspectKey.getDescription() + "' failed; build aborted";
+      } else {
+        assert false;
+      }
       if (cause instanceof ActionConflictException) {
         ((ActionConflictException) cause).reportTo(eventHandler);
       }
@@ -413,8 +424,13 @@ public final class SkyframeBuildView {
     if (cause != null) {
       // We should only be trying to configure targets when the loading phase succeeds, meaning
       // that the only errors should be analysis errors.
-      Preconditions.checkState(cause instanceof ConfiguredValueCreationException
-          || cause instanceof ActionConflictException, "%s -> %s", key, errorInfo);
+      Preconditions.checkState(
+          cause instanceof ConfiguredValueCreationException
+              || cause instanceof AspectCreationException // for top-level aspects
+              || cause instanceof ActionConflictException,
+          "%s -> %s",
+          key,
+          errorInfo);
     }
   }
 

@@ -36,6 +36,11 @@ public class InjectedStat implements FileStatus {
   }
 
   @Override
+  public boolean isSpecialFile() {
+    return false;
+  }
+
+  @Override
   public boolean isDirectory() {
     return false;
   }

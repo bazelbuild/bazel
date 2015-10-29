@@ -45,6 +45,11 @@ public class FileStatusWithDigestAdapter implements FileStatusWithDigest {
   }
 
   @Override
+  public boolean isSpecialFile() {
+    return stat.isSpecialFile();
+  }
+
+  @Override
   public boolean isDirectory() {
     return stat.isDirectory();
   }

@@ -30,6 +30,7 @@ sh_test(
         "WellCompressed2.java",
         ":libtypeannotations2.jar",
         ":libmethodparameters.jar",
+        ":source_debug_extension.jar",
         "TypeAnnotationTest2.java",
         # invokedynamic/ClassWithLambda.java, compiled with javac8
         ":libinvokedynamic.jar",
@@ -105,6 +106,21 @@ java_library(
     name = "methodparameters",
     srcs = ["methodparameters/Test.java"],
     javacopts = ["-source 8 -target 8 -parameters"],
+)
+
+java_binary(
+    name = "gen_source_debug_extension",
+    srcs = ["GenSourceDebugExtension.java"],
+    main_class = "test.GenSourceDebugExtension",
+    deps = ["//third_party:asm"],
+)
+
+genrule(
+    name = "gen_source_debug_extension_jar",
+    srcs = [],
+    outs = ["source_debug_extension.jar"],
+    cmd = "$(location :gen_source_debug_extension) $@",
+    tools = ["gen_source_debug_extension"],
 )
 
 java_test(

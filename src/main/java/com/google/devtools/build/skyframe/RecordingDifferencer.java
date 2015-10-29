@@ -63,7 +63,7 @@ public class RecordingDifferencer implements Differencer, Injectable {
   public void invalidateTransientErrors() {
     // All transient error values have a dependency on the single global ERROR_TRANSIENCE value,
     // so we only have to invalidate that one value to catch everything.
-    invalidate(ImmutableList.of(ErrorTransienceValue.key()));
+    invalidate(ImmutableList.of(ErrorTransienceValue.KEY));
   }
 
   /**

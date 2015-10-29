@@ -102,6 +102,11 @@ public class PerBuildSyscallCache implements UnixGlob.FilesystemCalls {
     }
 
     @Override
+    public boolean isSpecialFile() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public boolean isSymbolicLink() {
       throw new UnsupportedOperationException();
     }

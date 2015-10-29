@@ -146,7 +146,8 @@ public class ASTFileLookupFunction implements SkyFunction {
                         // the two below don't matter for extracting the ValidationEnvironment:
                         /*astFileContentHashCode=*/null,
                         /*importMap=*/null)
-                    .setupDynamic(Runtime.PKG_NAME, Runtime.NONE)));
+                    .setupDynamic(Runtime.PKG_NAME, Runtime.NONE)
+                    .setupDynamic(Runtime.REPOSITORY_NAME, Runtime.NONE)));
         }
       } else {
         ast = BuildFileAST.parseBuildFile(path, fileSize, env.getListener(), false);

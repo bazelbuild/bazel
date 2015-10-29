@@ -114,8 +114,10 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
   }
 
   @Override
-  protected boolean isCriticalError(Throwable e) {
-    return e instanceof RuntimeException;
+  protected ErrorClassification classifyError(Throwable e) {
+    return e instanceof RuntimeException
+        ? ErrorClassification.CRITICAL_AND_LOG
+        : ErrorClassification.NOT_CRITICAL;
   }
 
   protected abstract long count();

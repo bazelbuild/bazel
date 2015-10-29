@@ -537,6 +537,15 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
   }
 
   @Override
+  protected boolean isSpecialFile(Path path, boolean followSymlinks) {
+    try {
+      return stat(path, followSymlinks).isSpecialFile();
+    } catch (IOException e) {
+      return false;
+    }
+  }
+
+  @Override
   protected boolean isSymbolicLink(Path path) {
     try {
       return stat(path, false).isSymbolicLink();

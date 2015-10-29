@@ -26,7 +26,6 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.common.testing.GcFinalization;
@@ -144,7 +143,7 @@ public class EagerInvalidatorTest {
         new ParallelEvaluator(
             graph,
             graphVersion,
-            ImmutableMap.of(GraphTester.NODE_TYPE, tester.createDelegatingFunction()),
+            tester.getSkyFunctionMap(),
             reporter,
             new MemoizingEvaluator.EmittedEventState(),
             InMemoryMemoizingEvaluator.DEFAULT_STORED_EVENT_FILTER,

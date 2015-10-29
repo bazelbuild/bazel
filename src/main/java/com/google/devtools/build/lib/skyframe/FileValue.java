@@ -59,11 +59,20 @@ public abstract class FileValue implements SkyValue {
   }
 
   /**
-   * Returns true if this value corresponds to a file or symlink to an existing file. If so, its
-   * parent directory is guaranteed to exist.
+   * Returns true if this value corresponds to a file or symlink to an existing regular or special
+   * file. If so, its parent directory is guaranteed to exist.
    */
   public boolean isFile() {
-    return realFileStateValue().getType() == Type.FILE;
+    return realFileStateValue().getType() == Type.REGULAR_FILE
+        || realFileStateValue().getType() == Type.SPECIAL_FILE;
+  }
+
+  /**
+   * Returns true if this value corresponds to a file or symlink to an existing special file. If so,
+   * its parent directory is guaranteed to exist.
+   */
+  public boolean isSpecialFile() {
+    return realFileStateValue().getType() == Type.SPECIAL_FILE;
   }
 
   /**

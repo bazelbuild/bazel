@@ -259,4 +259,23 @@ public class FileStatus {
     return (i & 0x7FFFFFFF) - (long) (i & 0x80000000);
   }
 
+  public static boolean isFile(int rawType) {
+    int type = rawType & S_IFMT;
+    return type == S_IFREG || isSpecialFile(rawType);
+  }
+
+  public static boolean isSpecialFile(int rawType) {
+    int type = rawType & S_IFMT;
+    return type == S_IFSOCK || type == S_IFBLK || type == S_IFCHR || type == S_IFIFO;
+  }
+
+  public static boolean isDirectory(int rawType) {
+    int type = rawType & S_IFMT;
+    return type == S_IFDIR;
+  }
+
+  public static boolean isSymbolicLink(int rawType) {
+    int type = rawType & S_IFMT;
+    return type == S_IFLNK;
+  }
 }

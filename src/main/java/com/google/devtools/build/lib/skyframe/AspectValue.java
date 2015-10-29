@@ -19,12 +19,12 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.Aspect;
 import com.google.devtools.build.lib.analysis.AspectWithParameters;
-import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -56,6 +56,8 @@ public final class AspectValue extends ActionLookupValue {
 
     public abstract AspectParameters getParameters();
 
+    public abstract String getDescription();
+
     public BuildConfiguration getConfiguration() {
       return configuration;
     }
@@ -70,21 +72,26 @@ public final class AspectValue extends ActionLookupValue {
     private NativeAspectKey(
         Label label,
         BuildConfiguration configuration,
-        Class<? extends ConfiguredAspectFactory> aspectFactory,
+        AspectClass aspectClass ,
         AspectParameters parameters) {
       super(label, configuration);
       Preconditions.checkNotNull(parameters);
-      this.aspect = new AspectWithParameters(aspectFactory, parameters);
+      this.aspect = new AspectWithParameters(aspectClass, parameters);
     }
 
-    public Class<? extends ConfiguredAspectFactory> getAspect() {
-      return aspect.getAspectFactory();
+    public AspectClass getAspect() {
+      return aspect.getAspectClass();
     }
 
     @Override
     @Nullable
     public AspectParameters getParameters() {
       return aspect.getParameters();
+    }
+
+    @Override
+    public String getDescription() {
+      return String.format("%s of %s", aspect.getAspectClass().getName(), getLabel());
     }
 
     @Override
@@ -115,7 +122,7 @@ public final class AspectValue extends ActionLookupValue {
 
     @Override
     public String toString() {
-      return label + "#" + aspect.getAspectFactory().getSimpleName() + " "
+      return label + "#" + aspect.getAspectClass().getName() + " "
           + (configuration == null ? "null" : configuration.checksum()) + " "
           + aspect.getParameters();
     }
@@ -149,6 +156,13 @@ public final class AspectValue extends ActionLookupValue {
     @Override
     public AspectParameters getParameters() {
       return AspectParameters.EMPTY;
+    }
+
+    @Override
+    public String getDescription() {
+      // Skylark aspects are referred to on command line with <file>%<value name>
+      return String.format(
+          "%s%%%s of %s", extensionFile.toString(), skylarkFunctionName, getLabel());
     }
 
     @Override
@@ -195,8 +209,10 @@ public final class AspectValue extends ActionLookupValue {
     return transitivePackages;
   }
 
-  public static SkyKey key(Label label, BuildConfiguration configuration,
-      Class<? extends ConfiguredAspectFactory> aspectFactory,
+  public static SkyKey key(
+      Label label,
+      BuildConfiguration configuration,
+      AspectClass aspectFactory,
       AspectParameters additionalConfiguration) {
     return new SkyKey(
         SkyFunctions.NATIVE_ASPECT,
@@ -208,9 +224,7 @@ public final class AspectValue extends ActionLookupValue {
   }
 
   public static NativeAspectKey createAspectKey(
-      Label label,
-      BuildConfiguration configuration,
-      Class<? extends ConfiguredAspectFactory> aspectFactory) {
+      Label label, BuildConfiguration configuration, AspectClass aspectFactory) {
     return new NativeAspectKey(label, configuration, aspectFactory, AspectParameters.EMPTY);
   }
 

@@ -47,6 +47,7 @@ public abstract class IosTest implements RuleConfiguredTargetFactory {
   public static final String IS_XCTEST = "xctest";
   public static final String XCTEST_APP = "xctest_app";
   public static final String MEMLEAKS_DEP = "$memleaks_dep";
+  public static final String MEMLEAKS_PLUGIN = "$memleaks_plugin";
 
   @VisibleForTesting
   public static final String REQUIRES_SOURCE_ERROR =

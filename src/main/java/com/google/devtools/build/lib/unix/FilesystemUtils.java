@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.unix;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.UnixJniLoader;
 
@@ -372,6 +373,16 @@ public final class FilesystemUtils {
    * @throws IOException if the remove failed, but the file was present prior to the call.
    */
   public static native boolean remove(String path) throws IOException;
+
+  /**
+   * Native wrapper around POSIX mkfifo(3) C library call.
+   *
+   * @param path the name of the pipe to create.
+   * @param mode the mode with which to create the pipe.
+   * @throws IOException if the mkfifo failed.
+   */
+  @VisibleForTesting
+  public static native void mkfifo(String path, int mode) throws IOException;
 
   /********************************************************************
    *                                                                  *

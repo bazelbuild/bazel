@@ -17,10 +17,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.Options;
@@ -35,6 +37,7 @@ import com.google.devtools.build.skyframe.ValueOrException;
 
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -64,6 +67,18 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       testTargets = determineTests(env, options.getTargetPatterns(), options.getTestFilter());
       Preconditions.checkState(env.valuesMissing() || (testTargets != null));
     }
+
+    Map<Label, SkyKey> testExpansionKeys = new LinkedHashMap<>();
+    if (targets != null) {
+      for (Target target : targets.getTargets()) {
+        if (TargetUtils.isTestSuiteRule(target)) {
+          Label label = target.getLabel();
+          SkyKey testExpansionKey = TestSuiteExpansionValue.key(ImmutableSet.of(label));
+          testExpansionKeys.put(label, testExpansionKey);
+        }
+      }
+    }
+    Map<SkyKey, SkyValue> expandedTests = env.getValues(testExpansionKeys.values());
     if (env.valuesMissing()) {
       return null;
     }
@@ -127,8 +142,22 @@ final class TargetPatternPhaseFunction implements SkyFunction {
 
     LoadingPhaseRunner.maybeReportDeprecation(env.getListener(), targets.getTargets());
 
-    return new TargetPatternPhaseValue(targets.getTargets(), testsToRun, targets.hasError(),
-        filteredTargets, testFilteredTargets);
+    boolean preExpansionError = targets.hasError();
+    ResolvedTargets.Builder<Target> expandedTargetsBuilder = ResolvedTargets.builder();
+    for (Target target : targets.getTargets()) {
+      if (TargetUtils.isTestSuiteRule(target)) {
+        SkyKey expansionKey =
+            Preconditions.checkNotNull(testExpansionKeys.get(target.getLabel()));
+        TestSuiteExpansionValue testExpansion =
+            (TestSuiteExpansionValue) expandedTests.get(expansionKey);
+        expandedTargetsBuilder.merge(testExpansion.getTargets());
+      } else {
+        expandedTargetsBuilder.add(target);
+      }
+    }
+    targets = expandedTargetsBuilder.build();
+    return new TargetPatternPhaseValue(targets.getTargets(), testsToRun, preExpansionError,
+        targets.hasError(), filteredTargets, testFilteredTargets);
   }
 
   /**

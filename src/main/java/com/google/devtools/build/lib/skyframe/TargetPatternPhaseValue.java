@@ -43,16 +43,18 @@ public final class TargetPatternPhaseValue implements SkyValue {
   private final ImmutableSet<Target> targets;
   @Nullable private final ImmutableSet<Target> testsToRun;
   private final boolean hasError;
+  private final boolean hasPostExpansionError;
 
   private final ImmutableSet<Target> filteredTargets;
   private final ImmutableSet<Target> testFilteredTargets;
 
   TargetPatternPhaseValue(ImmutableSet<Target> targets, @Nullable ImmutableSet<Target> testsToRun,
-      boolean hasError, ImmutableSet<Target> filteredTargets,
+      boolean hasError, boolean hasPostExpansionError, ImmutableSet<Target> filteredTargets,
       ImmutableSet<Target> testFilteredTargets) {
     this.targets = Preconditions.checkNotNull(targets);
     this.testsToRun = testsToRun;
     this.hasError = hasError;
+    this.hasPostExpansionError = hasPostExpansionError;
     this.filteredTargets = Preconditions.checkNotNull(filteredTargets);
     this.testFilteredTargets = Preconditions.checkNotNull(testFilteredTargets);
   }
@@ -68,6 +70,10 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
   public boolean hasError() {
     return hasError;
+  }
+
+  public boolean hasPostExpansionError() {
+    return hasPostExpansionError;
   }
 
   public ImmutableSet<Target> getFilteredTargets() {

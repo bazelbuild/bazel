@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.Aspect;
 import com.google.devtools.build.lib.analysis.AspectWithParameters;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
@@ -46,6 +45,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.AspectParameters;
@@ -510,7 +510,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       }
       ConfiguredTarget depConfiguredTarget = configuredTargetMap.get(depKey);
       for (AspectWithParameters depAspect : dep.getAspects()) {
-        if (!aspectMatchesConfiguredTarget(depConfiguredTarget, depAspect.getAspectFactory())) {
+        if (!aspectMatchesConfiguredTarget(depConfiguredTarget, depAspect.getAspectClass())) {
           continue;
         }
 
@@ -523,7 +523,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
           throw new IllegalStateException(e);
         } catch (NoSuchThingException e) {
           AspectFactory<?, ?, ?> depAspectFactory =
-              AspectFactory.Util.create(depAspect.getAspectFactory());
+              AspectFactory.Util.create(depAspect.getAspectClass());
           throw new AspectCreationException(
               String.format("Evaluation of aspect %s on %s failed: %s",
                   depAspectFactory.getDefinition().getName(), dep.getLabel(), e.toString()));
@@ -544,13 +544,13 @@ final class ConfiguredTargetFunction implements SkyFunction {
       AspectWithParameters depAspect) {
     return AspectValue.key(label,
         buildConfiguration,
-        depAspect.getAspectFactory(),
+        depAspect.getAspectClass(),
         depAspect.getParameters());
   }
 
-  private static boolean aspectMatchesConfiguredTarget(ConfiguredTarget dep,
-      Class<? extends ConfiguredAspectFactory> aspectFactory) {
-    AspectDefinition aspectDefinition = AspectFactory.Util.create(aspectFactory).getDefinition();
+  private static boolean aspectMatchesConfiguredTarget(
+      ConfiguredTarget dep, AspectClass aspectClass) {
+    AspectDefinition aspectDefinition = AspectFactory.Util.create(aspectClass).getDefinition();
     for (Class<?> provider : aspectDefinition.getRequiredProviders()) {
       if (dep.getProvider(provider.asSubclass(TransitiveInfoProvider.class)) == null) {
         return false;

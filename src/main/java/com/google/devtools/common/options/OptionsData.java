@@ -260,12 +260,19 @@ final class OptionsData {
           throw new DuplicateOptionDeclarationException(
               "Duplicate option name: --" + annotation.name());
         }
+        if (!annotation.oldName().isEmpty()) {
+          if (nameToFieldBuilder.put(annotation.oldName(), field) != null) {
+            throw new DuplicateOptionDeclarationException(
+                "Old option name duplicates option name: --" + annotation.oldName());
+          }
+        }
         if (annotation.abbrev() != '\0') {
           if (abbrevToFieldBuilder.put(annotation.abbrev(), field) != null) {
             throw new DuplicateOptionDeclarationException(
                   "Duplicate option abbrev: -" + annotation.abbrev());
           }
         }
+
         optionDefaultsBuilder.put(field, retrieveDefaultFromAnnotation(field));
 
         convertersBuilder.put(field, OptionsParserImpl.findConverter(field));

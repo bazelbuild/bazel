@@ -248,6 +248,12 @@ public class UnionFileSystem extends FileSystem {
   }
 
   @Override
+  protected boolean isSpecialFile(Path path, boolean followSymlinks) {
+    FileSystem delegate = getDelegate(path);
+    return delegate.isSpecialFile(adjustPath(path, delegate), followSymlinks);
+  }
+
+  @Override
   protected void createSymbolicLink(Path linkPath, PathFragment targetFragment) throws IOException {
     checkModifiable();
     if (!supportsSymbolicLinks()) {

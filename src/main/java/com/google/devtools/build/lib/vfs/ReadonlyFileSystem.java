@@ -33,7 +33,7 @@ import java.io.OutputStream;
  * </ul>
  * The above calls will always result in an {@link IOException}.
  */
-public abstract class ReadonlyFileSystem extends FileSystem {
+public abstract class ReadonlyFileSystem extends AbstractFileSystem {
 
   protected ReadonlyFileSystem() {
   }

@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.collect.CompactHashSet;
 
 import java.util.BitSet;
 import java.util.Set;
@@ -68,13 +68,23 @@ class RecordingUniqueifier implements Uniqueifier {
     SHARED_SMALL_MEMOS_2 = memos2;
   }
 
-  private final Set<Object> witnessed = Sets.newHashSetWithExpectedSize(256);
+  private final Set<Object> witnessed;
   private final BitSet memo = new BitSet();
   private int idx = 0;
 
+  RecordingUniqueifier() {
+    this(256);
+  }
+
+  RecordingUniqueifier(int expectedSize) {
+    this.witnessed = CompactHashSet.createWithExpectedSize(expectedSize);
+  }
+
   static Uniqueifier createReplayUniqueifier(Object memo) {
     if (memo == NO_MEMO) {
-      return new RecordingUniqueifier();
+      // We receive NO_MEMO for nested sets that are under a size threshold. Therefore, use a
+      // smaller initial size than the default.
+      return new RecordingUniqueifier(64);
     } else if (memo instanceof Integer) {
       BitSet bs = new BitSet();
       bs.set(0, (Integer) memo);
@@ -107,7 +117,7 @@ class RecordingUniqueifier implements Uniqueifier {
     Preconditions.checkState(
         (length < 2) || ((ba[0] & 3) == 3),
         "The memo machinery expects memos to always begin with two 1 bits, "
-            + "but instead, this memo starts with %X.", ba[0]);
+            + "but instead, this memo starts with %s.", ba[0]);
     
     // For short memos, use an interned array for the memo
     if (ba.length == 1) {

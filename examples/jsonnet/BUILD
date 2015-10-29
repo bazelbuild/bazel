@@ -1,6 +1,11 @@
 package(default_visibility = ["//visibility:public"])
 
-load("/tools/build_defs/jsonnet/jsonnet", "jsonnet_library", "jsonnet_to_json")
+load(
+    "/tools/build_defs/jsonnet/jsonnet",
+    "jsonnet_library",
+    "jsonnet_to_json",
+    "jsonnet_to_json_test",
+)
 
 jsonnet_library(
     name = "workflow",
@@ -14,10 +19,24 @@ jsonnet_to_json(
     deps = [":workflow"],
 )
 
+jsonnet_to_json_test(
+    name = "wordcount_test",
+    src = "wordcount.jsonnet",
+    golden = "wordcount_golden.json",
+    deps = [":workflow"],
+)
+
 jsonnet_to_json(
     name = "intersection",
     src = "intersection.jsonnet",
     outs = ["intersection.json"],
+    deps = [":workflow"],
+)
+
+jsonnet_to_json_test(
+    name = "intersection_test",
+    src = "intersection.jsonnet",
+    golden = "intersection_golden.json",
     deps = [":workflow"],
 )
 
@@ -38,4 +57,11 @@ jsonnet_to_json(
         "wordcount-workflow.json",
     ],
     deps = [":shell-workflows-lib"],
+)
+
+jsonnet_to_json_test(
+    name = "invalid_test",
+    src = "invalid.jsonnet",
+    error = 1,
+    golden = "invalid.out",
 )

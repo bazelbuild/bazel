@@ -726,6 +726,23 @@ Java_com_google_devtools_build_lib_unix_FilesystemUtils_remove(JNIEnv *env,
   return ::delete_common(env, path, ::remove, ::remove_err);
 }
 
+/*
+ * Class:     com.google.devtools.build.lib.unix.FilesystemUtils
+ * Method:    mkfifo
+ * Signature: (Ljava/lang/String;I)V
+ * Throws:    java.io.IOException
+ */
+extern "C" JNIEXPORT void JNICALL
+Java_com_google_devtools_build_lib_unix_FilesystemUtils_mkfifo(JNIEnv *env,
+                                                   jclass clazz,
+                                                   jstring path,
+                                                   jint mode) {
+  const char *path_chars = GetStringLatin1Chars(env, path);
+  if (mkfifo(path_chars, mode) == -1) {
+    ::PostFileException(env, errno, path_chars);
+  }
+  ReleaseStringLatin1Chars(path_chars);
+}
 
 ////////////////////////////////////////////////////////////////////////
 // Linux extended file attributes
