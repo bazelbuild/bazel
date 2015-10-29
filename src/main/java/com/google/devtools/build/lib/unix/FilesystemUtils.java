@@ -211,12 +211,10 @@ public final class FilesystemUtils {
    *
    * @param path the file whose times to change.
    * @param now if true, ignore actime/modtime parameters and use current time.
-   * @param actime the file access time in seconds since the UNIX epoch.
    * @param modtime the file modification time in seconds since the UNIX epoch.
    * @throws IOException if the utime() syscall failed.
    */
-  public static native void utime(String path, boolean now,
-                                  int actime, int modtime) throws IOException;
+  public static native void utime(String path, boolean now, int modtime) throws IOException;
 
   /**
    * Native wrapper around POSIX mkdir(2) syscall.
