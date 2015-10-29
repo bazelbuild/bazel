@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALO
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.XCRUN;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Verify;
@@ -312,12 +313,15 @@ final class BundleSupport {
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
     for (Artifact strings : objcProvider.get(ObjcProvider.STRINGS)) {
       Artifact bundled = intermediateArtifacts.convertedStringsFile(strings);
-      ruleContext.registerAction(new SpawnAction.Builder()
+      ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
           .setMnemonic("ConvertStringsPlist")
-          .setExecutable(attributes.plmerge())
+          .setExecutable(XCRUN)
           .setCommandLine(CustomCommandLine.builder()
-              .addExecPath("--source_file", strings)
-              .addExecPath("--out_file", bundled)
+              .add("plutil")
+              .add("-convert").add("binary1")
+              .addExecPath("-o", bundled)
+              .add("--")
+              .addPath(strings.getExecPath())
               .build())
           .addInput(strings)
           .addOutput(bundled)
