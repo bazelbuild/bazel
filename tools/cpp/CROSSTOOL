@@ -206,14 +206,9 @@ toolchain {
   linker_flag: "-lstdc++"
   linker_flag: "-undefined"
   linker_flag: "dynamic_lookup"
-  cxx_builtin_include_directory: "/usr/include"
-  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain"
-  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
-  cxx_builtin_include_directory: "/opt/local/include"
-  cxx_builtin_include_directory: "/usr/local/include"
-  cxx_builtin_include_directory: "/Library/Developer/CommandLineTools"
-  cxx_builtin_include_directory: "/System/Library/Frameworks"
-  cxx_builtin_include_directory: "/Library/Frameworks"
+  # TODO(ulfjack): This is wrong on so many levels. Figure out a way to auto-detect the proper
+  # setting from the local compiler, and also how to make incremental builds correct.
+  cxx_builtin_include_directory: "/"
   tool_path { name: "gcov" path: "/usr/bin/gcov" }
   tool_path { name: "ld" path: "/usr/bin/ld" }
   tool_path { name: "nm" path: "/usr/bin/nm" }
