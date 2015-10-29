@@ -813,6 +813,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           .addArgument(proguardMapping.getExecPathString());
     }
 
+    builder.addArgument("-outjars")
+        .addArgument(proguardOutputJar.getExecPathString());
+
+    for (Artifact proguardSpec : proguardSpecs) {
+      builder.addArgument("@" + proguardSpec.getExecPathString());
+    }
+
     Artifact proguardOutputMap = null;
     if (ruleContext.attributes().get("proguard_generate_mapping", Type.BOOLEAN)) {
        proguardOutputMap = ruleContext.getImplicitOutputArtifact(
@@ -822,13 +829,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           .addArgument("-printmapping")
           .addArgument(proguardOutputMap.getExecPathString());
       filesBuilder.add(proguardOutputMap);
-    }
-
-    builder.addArgument("-outjars")
-        .addArgument(proguardOutputJar.getExecPathString());
-
-    for (Artifact proguardSpec : proguardSpecs) {
-      builder.addArgument("@" + proguardSpec.getExecPathString());
     }
 
     ruleContext.registerAction(builder.build(ruleContext));
