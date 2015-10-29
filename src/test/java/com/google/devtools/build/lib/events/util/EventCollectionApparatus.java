@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.events.util;
 
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.PrintingEventHandler;
 import com.google.devtools.build.lib.events.Reporter;
@@ -66,6 +67,10 @@ public class EventCollectionApparatus {
     } else {
       reporter.removeHandler(Environment.FAIL_FAST_HANDLER);
     }
+  }
+
+  public void addHandler(EventHandler eventHandler) {
+    reporter.addHandler(eventHandler);
   }
 
   /**
