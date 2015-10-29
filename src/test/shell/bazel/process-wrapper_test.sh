@@ -18,8 +18,9 @@
 #
 
 # Load test environment
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
-  || { echo "test-setup.sh not found!" >&2; exit 1; }
+
+source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
+  || { echo "testenv.sh not found!" >&2; exit 1; }
 
 readonly WRAPPER="${bazel_data}/src/main/tools/process-wrapper"
 readonly OUT_DIR="${TEST_TMPDIR}/out"

@@ -216,7 +216,12 @@ sh_test(
     name = "process_wrapper_test",
     size = "small",
     srcs = ["process-wrapper_test.sh"],
-    data = [":test-deps"],
+    data = [
+        "test-setup.sh",
+        "testenv.sh",
+        "//src/main/tools:process-wrapper",
+        "//src/test/shell:bashunit",
+    ],
 )
 
 sh_test(
