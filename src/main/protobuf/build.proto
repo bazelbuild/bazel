@@ -239,6 +239,9 @@ message Rule {
 
   // The rule's class's public by default value.
   optional bool public_by_default = 9;
+
+  // If this rule is of a skylark-defined RuleClass.
+  optional bool is_skylark = 10;
 }
 
 // Summary of all transitive dependencies of 'rule,' where each dependent

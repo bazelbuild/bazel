@@ -563,9 +563,9 @@ public final class RuleClass {
       Preconditions.checkState(skylarkExecutable == (ruleDefinitionEnvironment != null));
       Preconditions.checkState(workspaceOnly || externalBindingsFunction == NO_EXTERNAL_BINDINGS);
 
-      return new RuleClass(name, skylarkExecutable, documented, publicByDefault, binaryOutput,
-          workspaceOnly, outputsDefaultExecutable, implicitOutputsFunction, configurator,
-          configuredTargetFactory, validityPredicate, preferredDependencyPredicate,
+      return new RuleClass(name, skylark, skylarkExecutable, documented, publicByDefault,
+          binaryOutput, workspaceOnly, outputsDefaultExecutable, implicitOutputsFunction,
+          configurator, configuredTargetFactory, validityPredicate, preferredDependencyPredicate,
           ImmutableSet.copyOf(advertisedProviders), configuredTargetFunction,
           externalBindingsFunction, ruleDefinitionEnvironment, configurationFragmentPolicy.build(),
           supportsConstraintChecking, attributes.values().toArray(new Attribute[0]));
@@ -883,6 +883,7 @@ public final class RuleClass {
    */
   private final String targetKind;
 
+  private final boolean isSkylark;
   private final boolean skylarkExecutable;
   private final boolean documented;
   private final boolean publicByDefault;
@@ -963,7 +964,7 @@ public final class RuleClass {
   private final boolean supportsConstraintChecking;
 
   /**
-   * Helper constructor that skips allowedConfigurationFragmentNames and fragmentNameResolver
+   * Helper constructor that skips allowedConfigurationFragmentNames and fragmentNameResolver.
    */
   @VisibleForTesting
   RuleClass(String name,
@@ -987,6 +988,7 @@ public final class RuleClass {
       boolean supportsConstraintChecking,
       Attribute... attributes) {
     this(name,
+        /*isSkylark=*/ skylarkExecutable,
         skylarkExecutable,
         documented,
         publicByDefault,
@@ -1034,7 +1036,7 @@ public final class RuleClass {
    */
   @VisibleForTesting
   RuleClass(String name,
-      boolean skylarkExecutable, boolean documented, boolean publicByDefault,
+      boolean isSkylark, boolean skylarkExecutable, boolean documented, boolean publicByDefault,
       boolean binaryOutput, boolean workspaceOnly, boolean outputsDefaultExecutable,
       ImplicitOutputsFunction implicitOutputsFunction,
       Configurator<?, ?> configurator,
@@ -1048,6 +1050,7 @@ public final class RuleClass {
       boolean supportsConstraintChecking,
       Attribute... attributes) {
     this.name = name;
+    this.isSkylark = isSkylark;
     this.targetKind = name + " rule";
     this.skylarkExecutable = skylarkExecutable;
     this.documented = documented;
@@ -1611,6 +1614,11 @@ public final class RuleClass {
    */
   @Nullable public Environment getRuleDefinitionEnvironment() {
     return ruleDefinitionEnvironment;
+  }
+
+  /** Returns true if this RuleClass is a skylark-defined RuleClass. */
+  public boolean isSkylark() {
+    return isSkylark;
   }
 
   /**
