@@ -137,8 +137,10 @@ public class BazelAnalysisMock extends AnalysisMock {
         "package(default_visibility=['//visibility:public'])",
         "licenses(['notice'])",
         "java_binary(name = 'jarjar_bin',",
-        "            srcs = [ 'jarjar.jar' ],",
-        "            main_class = 'com.tonicsystems.jarjar.Main')");
+        "            runtime_deps = [ ':jarjar_import' ],",
+        "            main_class = 'com.tonicsystems.jarjar.Main')",
+        "java_import(name = 'jarjar_import',",
+        "            jars = [ 'jarjar.jar' ])");
 
     config.create("tools/test/BUILD", "filegroup(name = 'runtime')");
   }
@@ -194,8 +196,10 @@ public class BazelAnalysisMock extends AnalysisMock {
     }
     androidBuildContents
         .add("java_binary(name = 'IdlClass',")
-        .add("            srcs = [ 'idlclass.jar' ],")
-        .add("            main_class = 'com.google.devtools.build.android.idlclass.IdlClass')");
+        .add("            runtime_deps = [ ':idlclass_import' ],")
+        .add("            main_class = 'com.google.devtools.build.android.idlclass.IdlClass')")
+        .add("java_import(name = 'idlclass_import',")
+        .add("            jars = [ 'idlclass.jar' ])");
 
     return androidBuildContents.build();
   }
