@@ -30,7 +30,7 @@ java_test(
         ":libSingleJar",
         ":zip",
         "//src/main/java/com/google/devtools/build/lib:shell",
-        "//src/test/java:testutil",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
@@ -54,7 +54,7 @@ java_test(
     tags = ["zip"],
     deps = [
         ":zip",
-        "//src/test/java:testutil",
+        "//src/test/java/com/google/devtools/build/lib:testutil",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:junit4",

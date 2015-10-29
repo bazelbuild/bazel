@@ -243,7 +243,7 @@ sh_test(
     srcs = ["bazel_worker_test.sh"],
     data = [
         ":test-deps",
-        "//src/test/java:worker-example_deploy.jar",
+        "//src/test/java/com/google/devtools/build/lib:worker-example_deploy.jar",
     ],
 )
 

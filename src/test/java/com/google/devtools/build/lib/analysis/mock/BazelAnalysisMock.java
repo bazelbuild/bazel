@@ -122,7 +122,8 @@ public class BazelAnalysisMock extends AnalysisMock {
         "    linker_files = ':empty',",
         "    objcopy_files = ':empty', static_runtime_libs = [':empty'], strip_files = ':empty',",
         ")");
-    config.create("tools/cpp/CROSSTOOL", readFromResources("MOCK_CROSSTOOL"));
+    config.create(
+        "tools/cpp/CROSSTOOL", readFromResources("com/google/devtools/build/lib/MOCK_CROSSTOOL"));
 
     ImmutableList<String> androidBuildContents = createAndroidBuildContents();
     config.create(
