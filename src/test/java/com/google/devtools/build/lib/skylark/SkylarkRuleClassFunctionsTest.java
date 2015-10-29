@@ -132,6 +132,13 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testStringListDictAttr() throws Exception {
+    Object result = evalRuleClassCode("attr.string_list_dict(default = {'a': ['b', 'c']})");
+    Attribute attr = ((Attribute.Builder<?>) result).build("a1");
+    assertEquals(Type.STRING_LIST_DICT, attr.getType());
+  }
+
+  @Test
   public void testAttrAllowedFileTypesAnyFile() throws Exception {
     Object result = evalRuleClassCode("attr.label_list(allow_files = True)");
     Attribute attr = ((Attribute.Builder<?>) result).build("a1");

@@ -888,14 +888,14 @@ public class MethodLibrary {
       mandatoryPositionals = {
         @Param(name = "self", type = Map.class, doc = "This object."),
         @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
-      useLocation = true)
+      useLocation = true, useEnvironment = true)
   private static BuiltinFunction dictIndexOperator = new BuiltinFunction("$index") {
     public Object invoke(Map<?, ?> self, Object key,
-        Location loc) throws EvalException, ConversionException {
+        Location loc, Environment env) throws EvalException, ConversionException {
       if (!self.containsKey(key)) {
         throw new EvalException(loc, Printer.format("Key %r not found in dictionary", key));
       }
-      return self.get(key);
+      return SkylarkType.convertToSkylark(self.get(key), env);
     }
   };
 
@@ -905,15 +905,15 @@ public class MethodLibrary {
       mandatoryPositionals = {
         @Param(name = "self", type = MutableList.class, doc = "This list."),
         @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
-      useLocation = true)
+      useLocation = true, useEnvironment = true)
   private static BuiltinFunction listIndexOperator = new BuiltinFunction("$index") {
       public Object invoke(MutableList self, Object key,
-          Location loc) throws EvalException, ConversionException {
+          Location loc, Environment env) throws EvalException, ConversionException {
         if (self.isEmpty()) {
           throw new EvalException(loc, "List is empty");
         }
         int index = getListIndex(key, self.size(), loc);
-        return self.getList().get(index);
+        return SkylarkType.convertToSkylark(self.getList().get(index), env);
       }
     };
 
@@ -923,15 +923,15 @@ public class MethodLibrary {
       mandatoryPositionals = {
         @Param(name = "self", type = Tuple.class, doc = "This tuple."),
         @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
-      useLocation = true)
+      useLocation = true, useEnvironment = true)
   private static BuiltinFunction tupleIndexOperator = new BuiltinFunction("$index") {
       public Object invoke(Tuple self, Object key,
-          Location loc) throws EvalException, ConversionException {
+          Location loc, Environment env) throws EvalException, ConversionException {
         if (self.isEmpty()) {
           throw new EvalException(loc, "tuple is empty");
         }
         int index = getListIndex(key, self.size(), loc);
-        return self.getList().get(index);
+        return SkylarkType.convertToSkylark(self.getList().get(index), env);
       }
     };
 

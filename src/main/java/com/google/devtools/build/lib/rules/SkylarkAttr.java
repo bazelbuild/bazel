@@ -708,6 +708,42 @@ public final class SkylarkAttr {
       };
 
   @SkylarkSignature(
+    name = "string_list_dict",
+    doc =
+        "Creates an attribute of type dictionary, mapping from string to list of string. "
+            + "Its default value is dict().",
+    objectType = SkylarkAttr.class,
+    returnType = Attribute.Builder.class,
+    optionalNamedOnly = {
+      @Param(name = DEFAULT_ARG, type = Map.class, defaultValue = "{}", doc = DEFAULT_DOC),
+      @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
+      ),
+      @Param(name = NON_EMPTY_ARG, type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC
+      )
+    },
+    useAst = true,
+    useEnvironment = true
+  )
+  private static BuiltinFunction stringListDict =
+      new BuiltinFunction("string_list_dict") {
+        public Attribute.Builder<?> invoke(
+            Map<?, ?> defaultO,
+            Boolean mandatory,
+            Boolean nonEmpty,
+            FuncallExpression ast,
+            Environment env)
+            throws EvalException {
+          env.checkLoadingPhase("attr.string_list_dict", ast.getLocation());
+          return createAttribute(
+              EvalUtils.optionMap(
+                  DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory, NON_EMPTY_ARG, nonEmpty),
+              Type.STRING_LIST_DICT,
+              ast,
+              env);
+        }
+      };
+
+  @SkylarkSignature(
     name = "license",
     doc = "Creates an attribute of type license. Its default value is NO_LICENSE.",
     // TODO(bazel-team): Implement proper license support for Skylark.

@@ -227,7 +227,7 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
      * @param contents the contents of the list
      * @return a Skylark list containing the specified arguments as elements.
      */
-    public static MutableList of(Environment env, Object... contents) {
+    public static MutableList of(@Nullable Environment env, Object... contents) {
       return new MutableList(ImmutableList.copyOf(contents), env);
     }
 
