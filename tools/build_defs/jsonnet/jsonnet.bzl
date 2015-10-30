@@ -71,7 +71,7 @@ def _jsonnet_to_json_impl(ctx):
       ["--var '%s'='%s'"
           % (var, jsonnet_vars[var]) for var in jsonnet_vars.keys()] +
       ["--code-var '%s'='%s'"
-          % (var, jsonnet_code_vars[var]) for var in jsonnet_vars.keys()])
+          % (var, jsonnet_code_vars[var]) for var in jsonnet_code_vars.keys()])
 
   outputs = []
   # If multiple_outputs is set to true, then jsonnet will be invoked with the
@@ -163,7 +163,7 @@ def _jsonnet_to_json_test_impl(ctx):
       ["--var %s=%s"
           % (var, jsonnet_vars[var]) for var in jsonnet_vars.keys()] +
       ["--code-var %s=%s"
-          % (var, jsonnet_code_vars[var]) for var in jsonnet_vars.keys()] +
+          % (var, jsonnet_code_vars[var]) for var in jsonnet_code_vars.keys()] +
       [
           ctx.file.src.path,
           "2>&1)",
