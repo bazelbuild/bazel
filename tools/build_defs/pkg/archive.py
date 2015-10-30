@@ -108,6 +108,7 @@ class TarFileWriter(object):
       mode = 'w:'
     self.tar = tarfile.open(name=name, mode=mode)
     self.members = set([])
+    self.directories = set([])
 
   def __enter__(self):
     return self
@@ -228,6 +229,22 @@ class TarFileWriter(object):
       return
     if not (name == '.' or name.startswith('/') or name.startswith('./')):
       name = './' + name
+    if kind == tarfile.DIRTYPE:
+      name = name.rstrip('/')
+      if name in self.directories:
+        return
+
+    components = name.rsplit('/', 1)
+    if len(components) > 1:
+      d = components[0]
+      self.add_file(d,
+                    tarfile.DIRTYPE,
+                    uid=uid,
+                    gid=gid,
+                    uname=uname,
+                    gname=gname,
+                    mtime=mtime,
+                    mode=0755)
     tarinfo = tarfile.TarInfo(name)
     tarinfo.mtime = mtime
     tarinfo.uid = uid
@@ -243,12 +260,14 @@ class TarFileWriter(object):
       tarinfo.linkname = link
     if content:
       tarinfo.size = len(content)
-      self.tar.addfile(tarinfo, StringIO(content))
+      self._addfile(tarinfo, StringIO(content))
     elif file_content:
       with open(file_content, 'rb') as f:
         tarinfo.size = os.fstat(f.fileno()).st_size
         self._addfile(tarinfo, f)
     else:
+      if kind == tarfile.DIRTYPE:
+        self.directories.add(name)
       self._addfile(tarinfo)
 
   def add_tar(self,
