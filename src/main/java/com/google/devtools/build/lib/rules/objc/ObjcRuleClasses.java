@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -951,7 +952,7 @@ public class ObjcRuleClasses {
                 public Label getDefault(Rule rule, BuildConfiguration configuration) {
                   ObjcConfiguration objcConfiguration =
                       configuration.getFragment(ObjcConfiguration.class);
-                  if (objcConfiguration.getBundlingPlatform() != Platform.DEVICE) {
+                  if (objcConfiguration.getBundlingPlatform() != Platform.IOS_DEVICE) {
                     return null;
                   }
                   if (rule.isAttributeValueExplicitlySpecified("provisioning_profile")) {

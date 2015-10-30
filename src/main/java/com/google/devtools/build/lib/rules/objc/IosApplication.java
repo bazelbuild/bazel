@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 
@@ -52,7 +53,7 @@ public class IosApplication extends ReleaseBundlingTargetFactory {
       ReleaseBundlingSupport releaseBundlingSupport) throws InterruptedException {
     // If this is an application built for the simulator, make it runnable.
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
-    if (objcConfiguration.getBundlingPlatform() == Platform.SIMULATOR) {
+    if (objcConfiguration.getBundlingPlatform() == Platform.IOS_SIMULATOR) {
       Artifact runnerScript = ObjcRuleClasses.intermediateArtifacts(ruleContext).runnerScript();
       Artifact ipaFile = ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA);
       releaseBundlingSupport.registerGenerateRunnerScriptAction(runnerScript, ipaFile);

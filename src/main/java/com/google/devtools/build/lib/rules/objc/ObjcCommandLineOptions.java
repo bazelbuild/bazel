@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -224,15 +225,15 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       labelMap.put("dump_syms", dumpSyms);
     }
 
-    if (getPlatform() == Platform.DEVICE) {
+    if (getPlatform() == Platform.IOS_DEVICE) {
       labelMap.put("default_provisioning_profile", defaultProvisioningProfile);
     }
   }
 
   private Platform getPlatform() {
     for (String architecture : iosMultiCpus) {
-      if (Platform.forArch(architecture) == Platform.DEVICE) {
-        return Platform.DEVICE;
+      if (Platform.forArch(architecture) == Platform.IOS_DEVICE) {
+        return Platform.IOS_DEVICE;
       }
     }
     return Platform.forArch(iosCpu);

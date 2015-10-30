@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.objc.BundleSupport.ExtraActoolArgs;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.Type;
@@ -244,7 +245,7 @@ public final class ReleaseBundlingSupport {
     Artifact ipaOutput = ruleContext.getImplicitOutputArtifact(IPA);
 
     Artifact maybeSignedIpa;
-    if (objcConfiguration.getBundlingPlatform() == Platform.SIMULATOR) {
+    if (objcConfiguration.getBundlingPlatform() == Platform.IOS_SIMULATOR) {
       maybeSignedIpa = ipaOutput;
     } else if (attributes.provisioningProfile() == null) {
       throw new IllegalStateException(DEVICE_NO_PROVISIONING_PROFILE);
@@ -466,7 +467,7 @@ public final class ReleaseBundlingSupport {
       String bundleDirFormat, String bundleName, String minimumOsVersion) {
     ImmutableList<BundleableFile> extraBundleFiles;
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
-    if (objcConfiguration.getBundlingPlatform() == Platform.DEVICE) {
+    if (objcConfiguration.getBundlingPlatform() == Platform.IOS_DEVICE) {
       extraBundleFiles = ImmutableList.of(new BundleableFile(
           new Attributes(ruleContext).provisioningProfile(),
           PROVISIONING_PROFILE_BUNDLE_FILE));

@@ -88,6 +88,21 @@ public final class BundleMerging {
   private static final String PKGINFO_FILENAME = "PkgInfo";
 
   /**
+   * A hack needed briefly to maintain backwards compatibility during rename of {@link Platform}
+   * enums. Except for backwards-compatible names, falls back to usage of {@link Platform#valueOf}.
+   */
+  // TODO(bazel-team): Remove this hack.
+  private static Platform platformFromName(String platformName) {
+    if ("SIMULATOR".equals(platformName)) {
+      return Platform.IOS_SIMULATOR;
+    } else if ("DEVICE".equals(platformName)) {
+      return Platform.IOS_DEVICE;
+    } else {
+      return Platform.valueOf(platformName);
+    }
+  }
+
+  /**
    * Adds merge artifacts from the given {@code control} into builders that collect merge zips and
    * individual files. {@code bundleRoot} is prepended to each path, except the paths in the merge
    * zips.
@@ -113,7 +128,7 @@ public final class BundleMerging {
         sourcePlistFiles,
         PlistMerging.automaticEntries(
             control.getTargetDeviceFamilyList(),
-            Platform.valueOf(control.getPlatform()),
+            platformFromName(control.getPlatform()),
             control.getSdkVersion(),
             control.getMinimumOsVersion()),
         substitutionMap.build(),

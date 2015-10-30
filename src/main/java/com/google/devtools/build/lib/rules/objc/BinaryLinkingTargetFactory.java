@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
@@ -126,7 +127,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             .validateAttributes();
 
         xcTestAppProvider = Optional.of(releaseBundlingSupport.xcTestAppProvider());
-        if (objcConfiguration.getBundlingPlatform() == Platform.SIMULATOR) {
+        if (objcConfiguration.getBundlingPlatform() == Platform.IOS_SIMULATOR) {
           Artifact runnerScript = intermediateArtifacts.runnerScript();
           Artifact ipaFile = ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA);
           releaseBundlingSupport.registerGenerateRunnerScriptAction(runnerScript, ipaFile);

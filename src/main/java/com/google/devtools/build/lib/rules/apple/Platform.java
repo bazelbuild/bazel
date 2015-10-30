@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.objc;
+package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -21,12 +21,14 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * An enum that can be used to distinguish between an iOS simulator and device.
+ * An enum that can be used to distinguish between various apple platforms.
  */
 public enum Platform {
-  DEVICE("iPhoneOS"), SIMULATOR("iPhoneSimulator");
+  IOS_DEVICE("iPhoneOS"), IOS_SIMULATOR("iPhoneSimulator");
 
-  private static final Set<String> SIMULATOR_ARCHS = ImmutableSet.of("i386", "x86_64");
+  private static final Set<String> IOS_SIMULATOR_ARCHS = ImmutableSet.of("i386", "x86_64");
+  private static final Set<String> IOS_DEVICE_ARCHS =
+      ImmutableSet.of("armv6", "armv7", "armv7s", "arm64");
 
   private final String nameInPlist;
 
@@ -50,9 +52,19 @@ public enum Platform {
   }
 
   /**
-   * Returns the platform for the arch.
+   * Returns the platform for the architecture.
+   * 
+   * @throws IllegalArgumentException if there is no valid apple platform for the given
+   *     architecture
    */
   public static Platform forArch(String arch) {
-    return SIMULATOR_ARCHS.contains(arch) ? SIMULATOR : DEVICE;
+    if (IOS_SIMULATOR_ARCHS.contains(arch)) {
+      return IOS_SIMULATOR;
+    } else if (IOS_DEVICE_ARCHS.contains(arch)) {
+      return IOS_DEVICE;
+    } else {
+      throw new IllegalArgumentException(
+          "No supported apple platform registered for architecture " + arch);
+    }
   }
 }

@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
@@ -118,7 +119,7 @@ public class IosSdkCommands {
   public static List<String> commonLinkAndCompileFlagsForClang(
       ObjcProvider provider, ObjcConfiguration configuration) {
     ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
-    if (Platform.forArch(configuration.getIosCpu()) == Platform.SIMULATOR) {
+    if (Platform.forArch(configuration.getIosCpu()) == Platform.IOS_SIMULATOR) {
       builder.add("-mios-simulator-version-min=" + configuration.getMinimumOs());
     } else {
       builder.add("-miphoneos-version-min=" + configuration.getMinimumOs());
@@ -154,9 +155,9 @@ public class IosSdkCommands {
   private static List<String> platformSpecificCompileFlagsForClang(
       ObjcConfiguration configuration) {
     switch (Platform.forArch(configuration.getIosCpu())) {
-      case DEVICE:
+      case IOS_DEVICE:
         return ImmutableList.of();
-      case SIMULATOR:
+      case IOS_SIMULATOR:
         // These are added by Xcode when building, because the simulator is built on OSX
         // frameworks so we aim compile to match the OSX objc runtime.
         return ImmutableList.of(
