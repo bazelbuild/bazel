@@ -217,7 +217,7 @@ public class TestResultAnalyzer {
         int passes = 0;
         for (BlazeTestStatus runStatusForShard : singleShardStatuses) {
           shardStatus = aggregateStatus(shardStatus, runStatusForShard);
-          if (TestResult.isBlazeTestStatusPassed(shardStatus)) {
+          if (TestResult.isBlazeTestStatusPassed(runStatusForShard)) {
             passes++;
           }
         }
