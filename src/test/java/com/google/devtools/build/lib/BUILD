@@ -738,6 +738,28 @@ java_test(
 )
 
 java_test(
+    name = "bazel-rules-tests",
+    srcs = glob([
+        "bazel/rules/**/*.java",
+    ]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    resources = glob(["bazel/rules/**/*.txt"]),
+    tags = ["rules"],
+    deps = [
+        ":foundations_testutil",
+        ":test_runner",
+        "//src/main/java/com/google/devtools/build/lib:bazel-core",
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/protobuf:crosstool_config_proto",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "repository_test",
     srcs = glob([
         "bazel/repository/*.java",
