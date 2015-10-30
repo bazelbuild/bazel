@@ -23,6 +23,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.devtools.build.lib.concurrent.ErrorClassifier.ErrorClassification;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
 
@@ -342,7 +343,8 @@ public class AbstractQueueVisitorTest {
     ThreadPoolExecutor executor = new ThreadPoolExecutor(3, 3, 0, TimeUnit.SECONDS,
         new LinkedBlockingQueue<Runnable>());
 
-    final QueueVisitorWithCriticalError visitor = new QueueVisitorWithCriticalError(executor);
+    final AbstractQueueVisitor visitor =
+        createQueueVisitorWithErrorClassification(executor, ErrorClassification.CRITICAL);
     final CountDownLatch latch1 = new CountDownLatch(1);
     final AtomicBoolean wasInterrupted = new AtomicBoolean(false);
 
@@ -381,7 +383,8 @@ public class AbstractQueueVisitorTest {
   public void javaErrorConsideredCriticalNoMatterWhat() throws Exception {
     ThreadPoolExecutor executor = new ThreadPoolExecutor(2, 2, 0, TimeUnit.SECONDS,
         new LinkedBlockingQueue<Runnable>());
-    QueueVisitorWithoutCriticalError visitor = new QueueVisitorWithoutCriticalError(executor);
+    AbstractQueueVisitor visitor =
+        createQueueVisitorWithErrorClassification(executor, ErrorClassification.NOT_CRITICAL);
     final CountDownLatch latch = new CountDownLatch(1);
     final AtomicBoolean sleepFinished = new AtomicBoolean(false);
     final AtomicBoolean sleepInterrupted = new AtomicBoolean(false);
@@ -533,27 +536,19 @@ public class AbstractQueueVisitorTest {
     }
   }
 
-  private static class QueueVisitorWithCriticalError extends AbstractQueueVisitor {
-
-    public QueueVisitorWithCriticalError(ThreadPoolExecutor executor) {
-      super(/*concurrent=*/ true, executor, true, /*failFastOnException=*/ false, true);
-    }
-
-    @Override
-    protected ErrorClassification classifyError(Throwable e) {
-      return ErrorClassification.CRITICAL;
-    }
-  }
-
-  private static class QueueVisitorWithoutCriticalError extends AbstractQueueVisitor {
-
-    public QueueVisitorWithoutCriticalError(ThreadPoolExecutor executor) {
-      super(/*concurrent=*/ true, executor, true, /*failFastOnException=*/ false, true);
-    }
-
-    @Override
-    protected ErrorClassification classifyError(Throwable e) {
-      return ErrorClassification.NOT_CRITICAL;
-    }
+  private static AbstractQueueVisitor createQueueVisitorWithErrorClassification(
+      ThreadPoolExecutor executor, final ErrorClassification classification) {
+    return new AbstractQueueVisitor(
+        /*concurrent=*/ true,
+        executor,
+        /*shutdownOnCompletion=*/ true,
+        /*failFastOnException=*/ false,
+        /*failFastOnInterrupt=*/ true,
+        new ErrorClassifier() {
+          @Override
+          protected ErrorClassification classifyException(Exception e) {
+            return classification;
+          }
+        });
   }
 }

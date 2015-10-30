@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.ExecutorParams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
@@ -61,6 +62,16 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
 
   private static final boolean MUST_EXIST = true;
 
+  private static final ErrorClassifier errorClassifier =
+      new ErrorClassifier() {
+        @Override
+        protected ErrorClassification classifyException(Exception e) {
+          return e instanceof RuntimeException
+              ? ErrorClassification.CRITICAL_AND_LOG
+              : ErrorClassification.NOT_CRITICAL;
+        }
+      };
+
   protected final TGraph graph;
   @Nullable protected final EvaluationProgressReceiver invalidationReceiver;
   protected final DirtyKeyTracker dirtyKeyTracker;
@@ -81,14 +92,16 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
       Function<ExecutorParams, ? extends ExecutorService> executorFactory) {
-    super(/*concurrent=*/true,
-        /*parallelism=*/DEFAULT_THREAD_COUNT,
-        /*keepAliveTime=*/1,
-        /*units=*/TimeUnit.SECONDS,
-        /*failFastOnException=*/true,
-        /*failFastOnInterrupt=*/true,
+    super(
+        /*concurrent=*/ true,
+        /*parallelism=*/ DEFAULT_THREAD_COUNT,
+        /*keepAliveTime=*/ 1,
+        /*units=*/ TimeUnit.SECONDS,
+        /*failFastOnException=*/ true,
+        /*failFastOnInterrupt=*/ true,
         "skyframe-invalidator",
-        executorFactory);
+        executorFactory,
+        errorClassifier);
     this.graph = Preconditions.checkNotNull(graph);
     this.invalidationReceiver = invalidationReceiver;
     this.dirtyKeyTracker = Preconditions.checkNotNull(dirtyKeyTracker);
@@ -111,13 +124,6 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
     awaitQuiescence(/*interruptWorkers=*/ true);
     Preconditions.checkState(pendingVisitations.isEmpty(),
         "All dirty nodes should have been processed: %s", pendingVisitations);
-  }
-
-  @Override
-  protected ErrorClassification classifyError(Throwable e) {
-    return e instanceof RuntimeException
-        ? ErrorClassification.CRITICAL_AND_LOG
-        : ErrorClassification.NOT_CRITICAL;
   }
 
   protected abstract long count();

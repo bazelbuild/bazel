@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
+import com.google.devtools.build.lib.concurrent.ErrorClassifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -595,29 +596,35 @@ public final class ParallelEvaluator implements Evaluator {
     }
   }
 
+  private static final ErrorClassifier VALUE_VISITOR_ERROR_CLASSIFIER =
+      new ErrorClassifier() {
+        @Override
+        protected ErrorClassification classifyException(Exception e) {
+          if (e instanceof SchedulerException) {
+            return ErrorClassification.CRITICAL;
+          }
+          if (e instanceof RuntimeException) {
+            return ErrorClassification.CRITICAL_AND_LOG;
+          }
+          return ErrorClassification.NOT_CRITICAL;
+        }
+      };
+
   private class ValueVisitor extends AbstractQueueVisitor {
     private AtomicBoolean preventNewEvaluations = new AtomicBoolean(false);
     private final Set<SkyKey> inflightNodes = Sets.newConcurrentHashSet();
     private final Set<RuntimeException> crashes = Sets.newConcurrentHashSet();
 
     private ValueVisitor(int threadCount) {
-      super(/*concurrent*/true,
+      super(
+          /*concurrent*/ true,
           threadCount,
-          1, TimeUnit.SECONDS,
-          /*failFastOnException*/true,
-          /*failFastOnInterrupt*/true,
-          "skyframe-evaluator");
-    }
-
-    @Override
-    protected ErrorClassification classifyError(Throwable e) {
-      if (e instanceof SchedulerException) {
-        return ErrorClassification.CRITICAL;
-      }
-      if (e instanceof RuntimeException) {
-        return ErrorClassification.CRITICAL_AND_LOG;
-      }
-      return ErrorClassification.NOT_CRITICAL;
+          1,
+          TimeUnit.SECONDS,
+          /*failFastOnException*/ true,
+          /*failFastOnInterrupt*/ true,
+          "skyframe-evaluator",
+          VALUE_VISITOR_ERROR_CLASSIFIER);
     }
 
     protected void waitForCompletion() throws InterruptedException {
