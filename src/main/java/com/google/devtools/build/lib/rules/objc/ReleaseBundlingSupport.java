@@ -430,7 +430,9 @@ public final class ReleaseBundlingSupport {
         Substitution.of("%ipa_file%", ipaInput.getRootRelativePath().getPathString()),
         Substitution.of("%sim_device%", escapedSimDevice),
         Substitution.of("%sdk_version%", escapedSdkVersion),
-        Substitution.of("%iossim%", attributes.iossim().getRootRelativePath().getPathString()));
+        Substitution.of("%iossim%", attributes.iossim().getRootRelativePath().getPathString()),
+        Substitution.of("%std_redirect_dylib_path%",
+            attributes.stdRedirectDylib().getRootRelativePath().getPathString()));
 
     ruleContext.registerAction(
         new TemplateExpansionAction(ruleContext.getActionOwner(), attributes.runnerScriptTemplate(),
@@ -864,6 +866,10 @@ public final class ReleaseBundlingSupport {
 
     Artifact iossim() {
       return checkNotNull(ruleContext.getPrerequisiteArtifact("$iossim", Mode.HOST));
+    }
+
+    Artifact stdRedirectDylib() {
+      return checkNotNull(ruleContext.getPrerequisiteArtifact("$std_redirect_dylib", Mode.HOST));
     }
 
     Artifact runnerScriptTemplate() {
