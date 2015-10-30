@@ -12,15 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.repository;
+package com.google.devtools.build.lib.rules.repository;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.bazel.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -58,7 +58,8 @@ public class RepositoryDelegatorFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
-    Rule rule = RepositoryFunction.getRule(repositoryName, null, env);
+    Rule rule = RepositoryFunction
+        .getRule(repositoryName, null, env);
     if (rule == null) {
       return null;
     }
@@ -68,7 +69,8 @@ public class RepositoryDelegatorFunction implements SkyFunction {
     // directory already exists and, if it does, just use that.
     if (!isFetch.get()) {
       FileValue repoRoot = RepositoryFunction.getRepositoryDirectory(
-          RepositoryFunction.getExternalRepositoryDirectory(directories)
+          RepositoryFunction
+              .getExternalRepositoryDirectory(directories)
               .getRelative(rule.getName()), env);
       if (repoRoot == null) {
         return null;

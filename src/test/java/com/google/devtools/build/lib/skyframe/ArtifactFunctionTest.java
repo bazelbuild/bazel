@@ -93,7 +93,7 @@ public class ArtifactFunctionTest {
     
     setupRoot(new CustomInMemoryFs());
     AtomicReference<PathPackageLocator> pkgLocator =
-        new AtomicReference<>(new PathPackageLocator());
+        new AtomicReference<>(PathPackageLocator.EMPTY);
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator);
     differencer = new RecordingDifferencer();
     evaluator =

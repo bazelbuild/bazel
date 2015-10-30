@@ -86,7 +86,8 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             ImmutableList.<PrecomputedValue.Injected>of(),
             ImmutableList.<SkyValueDirtinessChecker>of());
     skyframeExecutor.preparePackageLoading(
-        new PathPackageLocator(rootDirectory), ConstantRuleVisibility.PUBLIC, true, 7, "",
+        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
+        ConstantRuleVisibility.PUBLIC, true, 7, "",
         UUID.randomUUID());
     setUpSkyframe(parsePackageCacheOptions());
   }

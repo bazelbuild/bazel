@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
@@ -37,7 +38,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     Path alternativeRoot = scratch.dir("/root_2");
     getSkyframeExecutor()
         .preparePackageLoading(
-            new PathPackageLocator(rootDirectory, alternativeRoot),
+            new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory, alternativeRoot)),
             ConstantRuleVisibility.PUBLIC,
             true,
             7,

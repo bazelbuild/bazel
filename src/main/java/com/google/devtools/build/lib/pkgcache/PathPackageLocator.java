@@ -53,7 +53,11 @@ public class PathPackageLocator implements Serializable {
   // representation is used as a key. We want a change to output base not to invalidate things.
   private final transient Path outputBase;
 
-  private PathPackageLocator(Path outputBase, List<Path> pathEntries) {
+  public static final PathPackageLocator EMPTY =
+      new PathPackageLocator(null, ImmutableList.<Path>of());
+
+  @VisibleForTesting
+  public PathPackageLocator(Path outputBase, List<Path> pathEntries) {
     this.outputBase = outputBase;
     this.pathEntries = ImmutableList.copyOf(pathEntries);
   }
@@ -62,13 +66,6 @@ public class PathPackageLocator implements Serializable {
    * Constructs a PathPackageLocator based on the specified list of package root directories.
    */
   @VisibleForTesting
-  public PathPackageLocator(List<Path> pathEntries) {
-    this(null, pathEntries);
-  }
-
-  /**
-   * Constructs a PathPackageLocator based on the specified array of package root directories.
-   */
   public PathPackageLocator(Path... pathEntries) {
     this(null, Arrays.asList(pathEntries));
   }

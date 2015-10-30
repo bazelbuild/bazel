@@ -91,6 +91,7 @@ public abstract class GlobFunctionTest {
   private SequentialBuildDriver driver;
   private RecordingDifferencer differencer;
   private Path root;
+  private Path outputBase;
   private Path pkgPath;
   private AtomicReference<PathPackageLocator> pkgLocator;
   private TimestampGranularityMonitor tsgm;
@@ -102,9 +103,10 @@ public abstract class GlobFunctionTest {
     
     fs = new CustomInMemoryFs(new ManualClock());
     root = fs.getRootDirectory().getRelative("root/workspace");
+    outputBase = fs.getRootDirectory().getRelative("output_base");
     pkgPath = root.getRelative(PKG_PATH_ID.getPackageFragment());
 
-    pkgLocator = new AtomicReference<>(new PathPackageLocator(root));
+    pkgLocator = new AtomicReference<>(new PathPackageLocator(outputBase, ImmutableList.of(root)));
     tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
 
     differencer = new RecordingDifferencer();

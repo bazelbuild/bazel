@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.repository;
+package com.google.devtools.build.lib.rules.repository;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -129,7 +129,7 @@ public abstract class RepositoryFunction implements SkyFunction {
    * @param directoryValue the FileValue corresponding to the external repository's root directory.
    * @param env the Skyframe environment.
    * @return the file value of the symlink created.
-   * @throws com.google.devtools.build.lib.bazel.repository.RepositoryFunction.RepositoryFunctionException if the BUILD file specified does not exist or cannot be
+   * @throws RepositoryFunctionException if the BUILD file specified does not exist or cannot be
    *         linked.
    */
   protected RepositoryValue symlinkBuildFile(

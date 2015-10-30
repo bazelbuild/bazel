@@ -48,7 +48,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
   protected void setUp() throws Exception {
     super.setUp();
     AtomicReference<PathPackageLocator> pkgLocator =
-        new AtomicReference<>(new PathPackageLocator(rootDirectory));
+        new AtomicReference<>(new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)));
     deletedPackages = new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator);
     TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(BlazeClock.instance());

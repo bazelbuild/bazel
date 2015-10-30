@@ -18,21 +18,15 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.bazel.repository.LocalRepositoryFunction;
-import com.google.devtools.build.lib.bazel.repository.RepositoryDelegatorFunction;
-import com.google.devtools.build.lib.bazel.repository.RepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfigurationCollection;
 import com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
-import com.google.devtools.build.lib.bazel.rules.workspace.LocalRepositoryRule;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
@@ -43,12 +37,9 @@ import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
 import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
-import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -56,7 +47,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class BazelAnalysisMock extends AnalysisMock {
   public static final AnalysisMock INSTANCE = new BazelAnalysisMock();
@@ -247,21 +237,5 @@ public class BazelAnalysisMock extends AnalysisMock {
   @Override
   public ImmutableList<Class<? extends FragmentOptions>> getBuildOptions() {
     return BazelRuleClassProvider.BUILD_OPTIONS;
-  }
-
-  @Override
-  public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
-    // Bazel will access tools using a local_repository rule, thus, we need to support those rules
-    // in test cases, too. So we need the appropriate SkyFunctions.
-    RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
-    localRepositoryFunction.setDirectories(directories);
-    ImmutableMap<String, RepositoryFunction> repositoryHandlers = ImmutableMap.of(
-        LocalRepositoryRule.NAME, localRepositoryFunction);
-
-    return ImmutableMap.of(
-        SkyFunctions.REPOSITORY,
-        new RepositoryDelegatorFunction(directories, repositoryHandlers, new AtomicBoolean(true)),
-        localRepositoryFunction.getSkyFunctionName(),
-        localRepositoryFunction);
   }
 }

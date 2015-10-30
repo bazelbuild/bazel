@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.actions.util.ActionCacheTestHelper.A
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Range;
@@ -42,18 +43,6 @@ import com.google.devtools.build.lib.buildtool.SkyframeBuilder;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.ActionExecutionFunction;
-import com.google.devtools.build.lib.skyframe.ActionLookupValue;
-import com.google.devtools.build.lib.skyframe.ArtifactFunction;
-import com.google.devtools.build.lib.skyframe.ArtifactValue;
-import com.google.devtools.build.lib.skyframe.AspectValue;
-import com.google.devtools.build.lib.skyframe.Builder;
-import com.google.devtools.build.lib.skyframe.ExternalFilesHelper;
-import com.google.devtools.build.lib.skyframe.FileFunction;
-import com.google.devtools.build.lib.skyframe.FileStateFunction;
-import com.google.devtools.build.lib.skyframe.PrecomputedValue;
-import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -143,7 +132,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       final boolean keepGoing,
       @Nullable EvaluationProgressReceiver evaluationProgressReceiver) {
     AtomicReference<PathPackageLocator> pkgLocator =
-        new AtomicReference<>(new PathPackageLocator());
+        new AtomicReference<>(new PathPackageLocator(outputBase, ImmutableList.<Path>of()));
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator);
     differencer = new RecordingDifferencer();
 

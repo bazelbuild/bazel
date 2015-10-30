@@ -73,7 +73,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   protected void setUp() throws Exception {
     super.setUp();
 
-    pkgLocator = new AtomicReference<>(new PathPackageLocator(rootDirectory));
+    pkgLocator = new AtomicReference<>(
+        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)));
     AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator);
@@ -630,8 +631,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     // to the definition of //a/b/ under pp1, not under pp2.
 
     // Set the package paths.
-    pkgLocator.set(
-        new PathPackageLocator(rootDirectory.getRelative("pp1"), rootDirectory.getRelative("pp2")));
+    pkgLocator.set(new PathPackageLocator(outputBase,
+        ImmutableList.of(rootDirectory.getRelative("pp1"), rootDirectory.getRelative("pp2"))));
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
 
     Artifact aBuildArtifact = sourceArtifactUnderPackagePath("a/BUILD", "pp1");

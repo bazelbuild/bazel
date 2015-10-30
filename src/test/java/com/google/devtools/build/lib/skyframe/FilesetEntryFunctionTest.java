@@ -77,7 +77,8 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
   protected void setUp() throws Exception {
     super.setUp();
 
-    pkgLocator = new AtomicReference<>(new PathPackageLocator(rootDirectory));
+    pkgLocator = new AtomicReference<>(
+        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)));
     AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator);

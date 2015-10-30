@@ -88,6 +88,7 @@ import javax.annotation.Nullable;
 public class FileFunctionTest {
   private CustomInMemoryFs fs;
   private Path pkgRoot;
+  private Path outputBase;
   private PathPackageLocator pkgLocator;
   private TimestampGranularityMonitor tsgm;
   private boolean fastMd5;
@@ -106,7 +107,8 @@ public class FileFunctionTest {
   private void createFsAndRoot(CustomInMemoryFs fs) throws IOException {
     this.fs = fs;
     pkgRoot = fs.getRootDirectory().getRelative("root");
-    pkgLocator = new PathPackageLocator(pkgRoot);
+    outputBase = fs.getRootDirectory().getRelative("output_base");
+    pkgLocator = new PathPackageLocator(outputBase, ImmutableList.of(pkgRoot));
     FileSystemUtils.createDirectoryAndParents(pkgRoot);
   }
 
@@ -531,7 +533,7 @@ public class FileFunctionTest {
   @Test
   public void testSymlinkAcrossPackageRoots() throws Exception {
     Path otherPkgRoot = fs.getRootDirectory().getRelative("other_root");
-    pkgLocator = new PathPackageLocator(pkgRoot, otherPkgRoot);
+    pkgLocator = new PathPackageLocator(outputBase, ImmutableList.of(pkgRoot, otherPkgRoot));
     symlink("a", "/other_root/b");
     assertValueChangesIfContentsOfFileChanges("/other_root/b", true, "a");
   }

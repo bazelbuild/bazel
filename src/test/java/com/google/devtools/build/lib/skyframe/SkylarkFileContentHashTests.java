@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
@@ -140,7 +141,7 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
   private String getHash(String pkg, String name) throws Exception {
     getSkyframeExecutor()
         .preparePackageLoading(
-            new PathPackageLocator(rootDirectory),
+            new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
             ConstantRuleVisibility.PUBLIC,
             true,
             7,

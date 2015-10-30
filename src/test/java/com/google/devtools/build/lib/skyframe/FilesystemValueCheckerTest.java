@@ -54,7 +54,6 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -94,7 +93,7 @@ public class FilesystemValueCheckerTest {
 
     tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
     AtomicReference<PathPackageLocator> pkgLocator =
-        new AtomicReference<>(new PathPackageLocator());
+        new AtomicReference<>(PathPackageLocator.EMPTY);
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator);
     skyFunctions.put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper));
     skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator, tsgm, externalFilesHelper));

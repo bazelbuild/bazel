@@ -82,9 +82,9 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   protected void setUp() throws Exception {
     super.setUp();
     workspace = rootDirectory;
-
     ConfiguredRuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
-    PathPackageLocator pkgLocator = new PathPackageLocator(rootDirectory);
+    PathPackageLocator pkgLocator =
+        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory));
     final PackageFactory pkgFactory;
     BlazeDirectories directories = new BlazeDirectories(outputBase, outputBase, rootDirectory);
     pkgFactory = new PackageFactory(ruleClassProvider);

@@ -131,7 +131,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected void setUp() throws Exception {
     super.setUp();
     analysisMock = getAnalysisMock();
-    pkgLocator = new PathPackageLocator(rootDirectory);
+    pkgLocator = new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory));
     directories = new BlazeDirectories(outputBase, outputBase, rootDirectory);
     workspaceStatusActionFactory =
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
