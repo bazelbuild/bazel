@@ -91,27 +91,29 @@ public class MapBasedActionGraphTest {
     }
 
     private void registerAction(final Action action) {
-      enqueue(new Runnable() {
-        @Override
-        public void run() {
-          try {
-            graph.registerAction(action);
-          } catch (ActionConflictException e) {
-            throw new UncheckedActionConflictException(e);
-          }
-          doRandom();
-        }
-      });
+      execute(
+          new Runnable() {
+            @Override
+            public void run() {
+              try {
+                graph.registerAction(action);
+              } catch (ActionConflictException e) {
+                throw new UncheckedActionConflictException(e);
+              }
+              doRandom();
+            }
+          });
     }
 
     private void unregisterAction(final Action action) {
-      enqueue(new Runnable() {
-        @Override
-        public void run() {
-          graph.unregisterAction(action);
-          doRandom();
-        }
-      });
+      execute(
+          new Runnable() {
+            @Override
+            public void run() {
+              graph.unregisterAction(action);
+              doRandom();
+            }
+          });
     }
 
     private void doRandom() {
@@ -134,7 +136,7 @@ public class MapBasedActionGraphTest {
     }
 
     private void work() throws InterruptedException {
-      work(/*failFastOnInterrupt=*/true);
+      awaitQuiescence(/*interruptWorkers=*/ true);
     }
   }
 

@@ -32,27 +32,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * AbstractQueueVisitor is a wrapper around {@link ExecutorService} which delays service shutdown
- * until entire visitation is complete. This is useful for cases in which worker tasks may submit
- * additional tasks.
- *
- * <p>Consider the following example:
- * <pre>
- *   ThreadPoolExecutor executor = <...>
- *   executor.submit(myRunnableTask);
- *   executor.shutdown();
- *   executor.awaitTermination();
- * </pre>
- *
- * <p>This won't work properly if {@code myRunnableTask} submits additional
- * tasks to the executor, because it may already have shut down
- * by that point.
- *
- * <p>AbstractQueueVisitor supports interruption. If the main thread is
- * interrupted, tasks will no longer be added to the queue, and the
- * {@link #work(boolean)} method will throw {@link InterruptedException}.
+ * AbstractQueueVisitor is a {@link QuiescingExecutor} implementation that wraps an {@link
+ * ExecutorService}.
  */
-public class AbstractQueueVisitor {
+public class AbstractQueueVisitor implements QuiescingExecutor {
 
   /**
    * Default factory function for constructing {@link ThreadPoolExecutor}s. The {@link
@@ -114,7 +97,7 @@ public class AbstractQueueVisitor {
 
   /**
    * If {@link #concurrent} is {@code true}, then this is a counter of the number of {@link
-   * Runnable}s {@link #enqueue}-d that have not finished evaluation.
+   * Runnable}s {@link #execute}-d that have not finished evaluation.
    */
   private final AtomicLong remainingTasks = new AtomicLong(0);
 
@@ -124,13 +107,13 @@ public class AbstractQueueVisitor {
 
   /**
    * The {@link ExecutorService}. If !{@code concurrent}, always {@code null}. Created lazily on
-   * first call to {@link #enqueue(Runnable)}, and removed after call to {@link #work(boolean)}.
+   * first call to {@link #execute(Runnable)}, and removed after call to {@link #awaitQuiescence}.
    */
   private final ExecutorService pool;
 
   /**
    * Flag used to record when the main thread (the thread which called
-   * {@link #work(boolean)}) is interrupted.
+   * {@link #awaitQuiescence(boolean)}) is interrupted.
    *
    * When this is true, adding tasks to the thread pool will
    * fail quietly as a part of the process of shutting down the
@@ -341,19 +324,9 @@ public class AbstractQueueVisitor {
     this(true, parallelism, keepAlive, units, false, true, poolName, EXECUTOR_FACTORY);
   }
 
-  /**
-   * Executes all tasks on the queue, and optionally shuts the pool down and deletes it.
-   *
-   * <p>Throws (the same) unchecked exception if any worker thread failed unexpectedly. If the pool
-   * is interrupted and a worker also throws an unchecked exception, the unchecked exception is
-   * rethrown, since it may indicate a programming bug. If callers handle the unchecked exception,
-   * they may check the interrupted bit to see if the pool was interrupted.
-   *
-   * @param interruptWorkers if true, interrupt worker threads if main thread gets an interrupt or
-   *        if a worker throws a critical error (see {@link #classifyError(Throwable)}. If false,
-   *        just wait for them to terminate normally.
-   */
-  protected final void work(boolean interruptWorkers) throws InterruptedException {
+
+  @Override
+  public final void awaitQuiescence(boolean interruptWorkers) throws InterruptedException {
     if (concurrent) {
       awaitTermination(interruptWorkers);
     } else {
@@ -367,7 +340,8 @@ public class AbstractQueueVisitor {
    * Schedules a call.
    * Called in a worker thread if concurrent.
    */
-  protected final void enqueue(Runnable runnable) {
+  @Override
+  public final void execute(Runnable runnable) {
     if (concurrent) {
       AtomicBoolean ranTask = new AtomicBoolean(false);
       try {

@@ -306,7 +306,7 @@ final class LabelVisitor {
 
     @ThreadSafe
     public boolean finish() throws InterruptedException {
-      work(true);
+      awaitQuiescence(/*interruptWorkers=*/ true);
       return !errorObserver.hasErrors();
     }
 
@@ -338,7 +338,7 @@ final class LabelVisitor {
           !blockNewActions() && count < RECURSION_LIMIT) {
         newVisitRunnable(from, attr, label, depth, count + 1).run();
       } else {
-        enqueue(newVisitRunnable(from, attr, label, depth, 0));
+        execute(newVisitRunnable(from, attr, label, depth, 0));
       }
     }
 

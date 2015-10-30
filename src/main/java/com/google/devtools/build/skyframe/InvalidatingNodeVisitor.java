@@ -108,7 +108,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
       // exist in the graph, so we must be tolerant of that case.
       visit(visitData.first, visitData.second, !MUST_EXIST);
     }
-    work(/*failFastOnInterrupt=*/true);
+    awaitQuiescence(/*interruptWorkers=*/ true);
     Preconditions.checkState(pendingVisitations.isEmpty(),
         "All dirty nodes should have been processed: %s", pendingVisitations);
   }
@@ -226,7 +226,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
       }
       final Pair<SkyKey, InvalidationType> invalidationPair = Pair.of(key, invalidationType);
       pendingVisitations.add(invalidationPair);
-      enqueue(
+      execute(
           new Runnable() {
             @Override
             public void run() {
@@ -345,7 +345,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
         return;
       }
       pendingVisitations.add(invalidationPair);
-      enqueue(
+      execute(
           new Runnable() {
             @Override
             public void run() {

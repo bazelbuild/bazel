@@ -621,7 +621,7 @@ public final class ParallelEvaluator implements Evaluator {
     }
 
     protected void waitForCompletion() throws InterruptedException {
-      work(/*failFastOnInterrupt=*/true);
+      awaitQuiescence(/*interruptWorkers=*/ true);
     }
 
     public void enqueueEvaluation(final SkyKey key) {
@@ -642,7 +642,7 @@ public final class ParallelEvaluator implements Evaluator {
       if (newlyEnqueued && progressReceiver != null) {
         progressReceiver.enqueueing(key);
       }
-      enqueue(new Evaluate(this, key));
+      execute(new Evaluate(this, key));
     }
 
     /**

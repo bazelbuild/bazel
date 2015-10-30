@@ -139,14 +139,15 @@ public class ConcurrentMultimapWithHeadElementTest {
     }
 
     private void addAndRemove(final Boolean key, final Integer add, final Integer remove) {
-      enqueue(new Runnable() {
-        @Override
-        public void run() {
-          assertNotNull(multimap.putAndGet(key, add));
-          multimap.remove(key, remove);
-          doRandom();
-        }
-      });
+      execute(
+          new Runnable() {
+            @Override
+            public void run() {
+              assertNotNull(multimap.putAndGet(key, add));
+              multimap.remove(key, remove);
+              doRandom();
+            }
+          });
     }
 
     private Integer getRandomInt() {
@@ -162,7 +163,7 @@ public class ConcurrentMultimapWithHeadElementTest {
     }
 
     private void work() throws InterruptedException {
-      work(/*failFastOnInterrupt=*/true);
+      awaitQuiescence(/*interruptWorkers=*/ true);
     }
   }
 
