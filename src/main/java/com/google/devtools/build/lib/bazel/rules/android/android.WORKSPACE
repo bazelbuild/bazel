@@ -12,6 +12,6 @@
 # bind(name = "android/shuffle_jars", actual = "//tools/android:shuffle_jars")
 # bind(name = "android/merge_dexzips", actual = "//tools/android:merge_dexzips")
 bind(name = "android/sdk")
-bind(name = "android/crosstool", actual = "//tools/cpp:toolchain")
+bind(name = "android/crosstool", actual = "@bazel_tools//tools/cpp:toolchain")
 bind(name = "android/appcompat_v4")
 bind(name = "android/appcompat_v7")

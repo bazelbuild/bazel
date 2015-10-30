@@ -91,8 +91,7 @@ public class NdkPaths {
 
   private String createToolPath(String toolchainName, String toolName) {
 
-    String toolpathTemplate =
-        "external/%repositoryName%/ndk/toolchains/%toolchainName%/prebuilt/%hostPlatform%"
+    String toolpathTemplate = "ndk/toolchains/%toolchainName%/prebuilt/%hostPlatform%"
         + "/bin/%toolName%";
 
     return toolpathTemplate
@@ -103,7 +102,7 @@ public class NdkPaths {
   }
 
   public static String getToolchainDirectoryFromToolPath(String toolPath) {
-    return toolPath.split("/")[4];
+    return toolPath.split("/")[2];
   }
 
   String createGccToolchainPath(String toolchainName) {

@@ -377,7 +377,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.greppedIncludesDirectory = Root.asDerivedRoot(execRoot,
         execRoot.getRelative(IncludeScanningUtil.GREPPED_INCLUDES));
 
-    this.crosstoolTopPathFragment = crosstoolTop.getPackageFragment();
+    this.crosstoolTopPathFragment = crosstoolTop.getPackageIdentifier().getPathFragment();
 
     try {
       this.staticRuntimeLibsLabel =

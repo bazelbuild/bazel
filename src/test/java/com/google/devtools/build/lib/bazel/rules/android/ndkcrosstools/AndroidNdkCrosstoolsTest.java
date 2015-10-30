@@ -134,8 +134,7 @@ public class AndroidNdkCrosstoolsTest {
   
         // Test that all tool paths exist.
         for (ToolPath toolpath : toolchain.getToolPathList()) {
-          String path = NdkPaths.stripRepositoryPrefix(toolpath.getPath());
-          assertThat(NDK_FILES).contains(path);
+          assertThat(NDK_FILES).contains(toolpath.getPath());
         }
   
         // Test that all cxx_builtin_include_directory paths exist.
