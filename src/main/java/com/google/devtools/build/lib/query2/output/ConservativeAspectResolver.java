@@ -20,7 +20,6 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -44,10 +43,7 @@ public class ConservativeAspectResolver implements AspectResolver {
     for (Attribute attribute : ((Rule) target).getAttributes()) {
       for (AspectClass aspectFactory : attribute.getAspects()) {
         AspectDefinition.addAllAttributesOfAspect(
-            (Rule) target,
-            result,
-            AspectFactory.Util.create(aspectFactory).getDefinition(),
-            Rule.ALL_DEPS);
+            (Rule) target, result, aspectFactory.getDefinition(), Rule.ALL_DEPS);
       }
     }
 

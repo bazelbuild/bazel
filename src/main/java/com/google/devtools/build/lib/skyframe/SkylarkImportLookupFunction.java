@@ -177,7 +177,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
 
     // Skylark UserDefinedFunction-s in that file will share this function definition Environment,
     // which will be frozen by the time it is returned by createExtension.
-    Extension extension = createExtension(ast, file, importMap, env);
+    Extension extension = createExtension(ast, pkgId, importMap, env);
 
     return new SkylarkImportLookupValue(
         extension, new SkylarkFileDependency(label, fileDependencies.build()));
@@ -229,26 +229,27 @@ public class SkylarkImportLookupFunction implements SkyFunction {
    */
   private Extension createExtension(
       BuildFileAST ast,
-      PathFragment file,
+      PackageIdentifier packageIdentifier,
       Map<PathFragment, Extension> importMap,
       Environment env)
-          throws InterruptedException, SkylarkImportLookupFunctionException {
+      throws InterruptedException, SkylarkImportLookupFunctionException {
     StoredEventHandler eventHandler = new StoredEventHandler();
     // TODO(bazel-team): this method overestimates the changes which can affect the
     // Skylark RuleClass. For example changes to comments or unused functions can modify the hash.
     // A more accurate - however much more complicated - way would be to calculate a hash based on
     // the transitive closure of the accessible AST nodes.
-    try (Mutability mutability = Mutability.create("importing %s", file)) {
+    try (Mutability mutability = Mutability.create("importing %s", packageIdentifier)) {
       com.google.devtools.build.lib.syntax.Environment extensionEnv =
           ruleClassProvider.createSkylarkRuleClassEnvironment(
               mutability, eventHandler, ast.getContentHashCode(), importMap)
           .setupOverride("native", packageFactory.getNativeModule());
       ast.exec(extensionEnv, eventHandler);
-      SkylarkRuleClassFunctions.exportRuleFunctions(extensionEnv, file);
+      SkylarkRuleClassFunctions.exportRuleFunctionsAndAspects(extensionEnv, packageIdentifier);
 
       Event.replayEventsOn(env.getListener(), eventHandler.getEvents());
       if (eventHandler.hasErrors()) {
-        throw new SkylarkImportLookupFunctionException(SkylarkImportFailedException.errors(file));
+        throw new SkylarkImportLookupFunctionException(
+            SkylarkImportFailedException.errors(packageIdentifier.getPackageFragment()));
       }
       return new Extension(extensionEnv);
     }

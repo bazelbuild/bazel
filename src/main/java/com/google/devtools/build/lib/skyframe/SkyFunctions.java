@@ -65,8 +65,9 @@ public final class SkyFunctions {
       SkyFunctionName.create("CONFIGURED_TARGET");
   public static final SkyFunctionName POST_CONFIGURED_TARGET =
       SkyFunctionName.create("POST_CONFIGURED_TARGET");
-  public static final SkyFunctionName NATIVE_ASPECT = SkyFunctionName.create("NATIVE_ASPECT");
-  public static final SkyFunctionName SKYLARK_ASPECT = SkyFunctionName.create("SKYLARK_ASPECT");
+  public static final SkyFunctionName ASPECT = SkyFunctionName.create("ASPECT");
+  public static final SkyFunctionName LOAD_SKYLARK_ASPECT =
+      SkyFunctionName.create("LOAD_SKYLARK_ASPECT");
   public static final SkyFunctionName TARGET_COMPLETION =
       SkyFunctionName.create("TARGET_COMPLETION");
   public static final SkyFunctionName ASPECT_COMPLETION =

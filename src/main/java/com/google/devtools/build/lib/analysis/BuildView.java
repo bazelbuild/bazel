@@ -68,7 +68,7 @@ import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory.Cove
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue;
 import com.google.devtools.build.lib.skyframe.AspectValue;
-import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.CoverageReportValue;
 import com.google.devtools.build.lib.skyframe.SkyframeAnalysisResult;
@@ -451,7 +451,7 @@ public class BuildView {
           }
         });
 
-    List<AspectKey> aspectKeys = new ArrayList<>();
+    List<AspectValueKey> aspectKeys = new ArrayList<>();
     for (String aspect : aspects) {
 
       // Syntax: label%aspect
@@ -478,8 +478,8 @@ public class BuildView {
         }
       } else {
         @SuppressWarnings("unchecked")
-        final Class<? extends ConfiguredAspectFactory> aspectFactoryClass =
-            (Class<? extends ConfiguredAspectFactory>)
+        final Class<? extends ConfiguredNativeAspectFactory> aspectFactoryClass =
+            (Class<? extends ConfiguredNativeAspectFactory>)
                 ruleClassProvider.getAspectFactoryMap().get(aspect);
         if (aspectFactoryClass != null) {
           for (ConfiguredTargetKey targetSpec : targetSpecs) {

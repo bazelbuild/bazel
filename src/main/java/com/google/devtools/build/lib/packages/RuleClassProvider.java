@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.NativeAspectClass.NativeAspectFactory;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -45,11 +46,6 @@ public interface RuleClassProvider {
   Map<String, RuleClass> getRuleClassMap();
 
   /**
-   * Returns a map from aspect names to aspect factory objects.
-   */
-  Map<String, Class<? extends AspectFactory<?, ?, ?>>> getAspectFactoryMap();
-
-  /**
    * Returns a new Skylark Environment instance for rule creation.
    * Implementations need to be thread safe.
    * Be sure to close() the mutability before you return the results of said evaluation.
@@ -63,6 +59,11 @@ public interface RuleClassProvider {
       EventHandler eventHandler,
       @Nullable String astFileContentHashCode,
       @Nullable Map<PathFragment, Extension> importMap);
+
+  /**
+   * Returns a map from aspect names to aspect factory objects.
+   */
+  Map<String, Class<? extends NativeAspectFactory>> getAspectFactoryMap();
 
   /**
    * Returns the default content of the WORKSPACE file.

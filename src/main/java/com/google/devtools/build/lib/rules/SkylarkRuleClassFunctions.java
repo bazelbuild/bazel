@@ -28,6 +28,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -40,7 +41,11 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.packages.AspectClass;
+import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
@@ -83,6 +88,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -336,12 +342,26 @@ public class SkylarkRuleClassFunctions {
     returnType = SkylarkAspect.class,
     documented = false, // TODO(dslomov): Experimental, document later.
     mandatoryPositionals = {@Param(name = "implementation", type = BaseFunction.class)},
+    optionalPositionals = {
+      @Param(
+        name = "attr_aspects",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]"
+      )
+    },
     useEnvironment = true
   )
   private static final BuiltinFunction aspect =
       new BuiltinFunction("aspect") {
-        public SkylarkAspect invoke(BaseFunction implementation, Environment funcallEnv) {
-          return new SkylarkAspect(implementation, funcallEnv);
+        public SkylarkAspect invoke(
+            BaseFunction implementation, SkylarkList attributeAspects, Environment funcallEnv)
+            throws ConversionException {
+          ImmutableList.Builder<String> builder = ImmutableList.<String>builder();
+          for (Object attributeAspect : attributeAspects) {
+            builder.add(STRING.convert(attributeAspect, ""));
+          }
+          return new SkylarkAspect(implementation, builder.build(), funcallEnv);
         }
       };
 
@@ -399,14 +419,20 @@ public class SkylarkRuleClassFunctions {
     }
   }
 
-  public static void exportRuleFunctions(Environment env, PathFragment skylarkFile) {
+  public static void exportRuleFunctionsAndAspects(Environment env, PackageIdentifier skylarkFile) {
     for (String name : env.getGlobals().getDirectVariableNames()) {
       try {
         Object value = env.lookup(name);
         if (value instanceof RuleFunction) {
           RuleFunction function = (RuleFunction) value;
           if (function.skylarkFile == null) {
-            function.export(skylarkFile, name);
+            function.export(skylarkFile.getPackageFragment(), name);
+          }
+        }
+        if (value instanceof SkylarkAspect) {
+          SkylarkAspect skylarkAspect = (SkylarkAspect) value;
+          if (!skylarkAspect.isExported()) {
+            skylarkAspect.export(skylarkFile, name);
           }
         }
       } catch (NoSuchVariableException e) {
@@ -539,15 +565,25 @@ public class SkylarkRuleClassFunctions {
    */
   public static class SkylarkAspect implements SkylarkValue {
     private final BaseFunction implementation;
+    private final ImmutableList<String> attributeAspects;
     private final Environment funcallEnv;
+    private Exported exported;
 
-    public SkylarkAspect(BaseFunction implementation, Environment funcallEnv) {
+    public SkylarkAspect(
+        BaseFunction implementation,
+        ImmutableList<String> attributeAspects,
+        Environment funcallEnv) {
       this.implementation = implementation;
+      this.attributeAspects = attributeAspects;
       this.funcallEnv = funcallEnv;
     }
 
     public BaseFunction getImplementation() {
       return implementation;
+    }
+
+    public ImmutableList<String> getAttributeAspects() {
+      return attributeAspects;
     }
 
     public Environment getFuncallEnv() {
@@ -564,5 +600,100 @@ public class SkylarkRuleClassFunctions {
       Printer.append(buffer, "Aspect:");
       implementation.write(buffer, quotationMark);
     }
+
+    public String getName() {
+      return exported != null ? exported.toString() : "<skylark aspect>";
+    }
+
+    void export(PackageIdentifier extensionFile, String name) {
+      this.exported = new Exported(extensionFile, name);
+    }
+
+    public boolean isExported() {
+      return exported != null;
+    }
+
+    private PackageIdentifier getExtensionFile() {
+      Preconditions.checkArgument(isExported());
+      return exported.extensionFile;
+    }
+
+    private String getExportedName() {
+      Preconditions.checkArgument(isExported());
+      return exported.name;
+    }
+
+    @Immutable
+    private static class Exported {
+      private final PackageIdentifier extensionFile;
+      private final String name;
+
+      public Exported(PackageIdentifier extensionFile, String name) {
+        this.extensionFile = extensionFile;
+        this.name = name;
+      }
+
+      public String toString() {
+        return extensionFile.toString() + "%" + name;
+      }
+    }
+  }
+
+  /**
+   * Implementation of an aspect class defined in Skylark.
+   */
+  @Immutable
+  public static final class SkylarkAspectClass implements AspectClass {
+    private final AspectDefinition aspectDefinition;
+    private final PackageIdentifier extensionFile;
+    private final String exportedName;
+
+    public SkylarkAspectClass(SkylarkAspect skylarkAspect) {
+      Preconditions.checkArgument(skylarkAspect.isExported(), "Skylark aspects must be exported");
+      AspectDefinition.Builder builder = new AspectDefinition.Builder(skylarkAspect.getName());
+      for (String attributeAspect : skylarkAspect.getAttributeAspects()) {
+        builder.attributeAspect(attributeAspect, this);
+      }
+      this.aspectDefinition = builder.build();
+
+      this.extensionFile = skylarkAspect.getExtensionFile();
+      this.exportedName = skylarkAspect.getExportedName();
+    }
+
+    @Override
+    public String getName() {
+      return aspectDefinition.getName();
+    }
+
+    @Override
+    public AspectDefinition getDefinition() {
+      return aspectDefinition;
+    }
+
+    public PackageIdentifier getExtensionFile() {
+      return extensionFile;
+    }
+
+    public String getExportedName() {
+      return exportedName;
+    }
+
+    public int hashCode() {
+      return Objects.hash(extensionFile, exportedName);
+    }
+
+    public boolean equals(Object other) {
+      if (this == other) {
+        return true;
+      }
+      if (!(other instanceof SkylarkAspectClass)) {
+        return false;
+      }
+
+      SkylarkAspectClass that = (SkylarkAspectClass) other;
+      return Objects.equals(this.extensionFile, that.extensionFile)
+          && Objects.equals(this.exportedName, that.exportedName);
+    }
+
   }
 }

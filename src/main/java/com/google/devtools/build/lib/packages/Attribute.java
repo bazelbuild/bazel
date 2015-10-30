@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.NativeAspectClass.NativeAspectFactory;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -701,7 +702,7 @@ public final class Attribute implements Comparable<Attribute> {
      * Asserts that a particular aspect probably needs to be computed for all direct dependencies
      * through this attribute.
      */
-    public Builder<TYPE> aspect(Class<? extends AspectFactory<?, ?, ?>> aspect) {
+    public <T extends NativeAspectFactory> Builder<TYPE> aspect(Class<T> aspect) {
       Function<Rule, AspectParameters> noParameters = new Function<Rule, AspectParameters>() {
         @Override
         public AspectParameters apply(Rule input) {
@@ -717,9 +718,9 @@ public final class Attribute implements Comparable<Attribute> {
      *
      * @param evaluator function that extracts aspect parameters from rule.
      */
-    public Builder<TYPE> aspect(Class<? extends AspectFactory<?, ?, ?>> aspect,
-        Function<Rule, AspectParameters> evaluator) {
-      this.aspects.add(new RuleAspect(new NativeAspectClass(aspect), evaluator));
+    public <T extends NativeAspectFactory> Builder<TYPE> aspect(
+        Class<T> aspect, Function<Rule, AspectParameters> evaluator) {
+      this.aspects.add(new RuleAspect(new NativeAspectClass<T>(aspect), evaluator));
       return this;
     }
 

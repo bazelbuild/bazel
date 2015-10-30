@@ -21,8 +21,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 import javax.annotation.Nullable;
 
@@ -42,7 +46,7 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
     AnalysisResult analysisResult =
         update(
             ImmutableList.of("//test:xxx"),
-            ImmutableList.<String>of("test/aspect.bzl%MyAspect"),
+            ImmutableList.of("test/aspect.bzl%MyAspect"),
             false,
             LOADING_PHASE_THREADS,
             true,
@@ -58,6 +62,82 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
                   }
                 }))
         .containsExactly("//test:xxx");
+    assertThat(
+            transform(
+                analysisResult.getAspects(),
+                new Function<AspectValue, String>() {
+                  @Nullable
+                  @Override
+                  public String apply(AspectValue aspectValue) {
+                    return String.format(
+                        "%s(%s)",
+                        aspectValue.getAspect().getName(),
+                        aspectValue.getLabel().toString());
+                  }
+                }))
+        .containsExactly("test/aspect.bzl%MyAspect(//test:xxx)");
+  }
+
+  public void testAspectPropagating() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   s = set([target.label])",
+        "   for i in ctx.attr.deps:",
+        "       s += i.target_labels",
+        "   return struct(target_labels = s)",
+        "",
+        "MyAspect = aspect(",
+        "   implementation=_impl,",
+        "   attr_aspects=['deps'],",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "java_library(",
+        "     name = 'yyy',",
+        ")",
+        "java_library(",
+        "     name = 'xxx',",
+        "     srcs = ['A.java'],",
+        "     deps = [':yyy'],",
+        ")");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("//test:xxx"),
+            ImmutableList.of("test/aspect.bzl%MyAspect"),
+            false,
+            LOADING_PHASE_THREADS,
+            true,
+            new EventBus());
+    assertThat(
+            transform(
+                analysisResult.getTargetsToBuild(),
+                new Function<ConfiguredTarget, String>() {
+                  @Nullable
+                  @Override
+                  public String apply(ConfiguredTarget configuredTarget) {
+                    return configuredTarget.getLabel().toString();
+                  }
+                }))
+        .containsExactly("//test:xxx");
+    AspectValue aspectValue = analysisResult.getAspects().iterator().next();
+    SkylarkProviders skylarkProviders = aspectValue.getAspect().getProvider(SkylarkProviders.class);
+    assertThat(skylarkProviders).isNotNull();
+    Object names = skylarkProviders.getValue("target_labels");
+    assertThat(names).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(
+            transform(
+                (SkylarkNestedSet) names,
+                new Function<Object, String>() {
+                  @Nullable
+                  @Override
+                  public String apply(Object o) {
+                    assertThat(o).isInstanceOf(Label.class);
+                    return o.toString();
+                  }
+                }))
+        .containsExactly("//test:xxx", "//test:yyy");
   }
 
   public void testAspectFailingExecution() throws Exception {
@@ -85,7 +165,7 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
         "ERROR /workspace/test/BUILD:1:1: in java_library rule //test:xxx: \n"
             + "Traceback (most recent call last):\n"
             + "\tFile \"/workspace/test/BUILD\", line 1\n"
-            + "\t\tMyAspect(...)\n"
+            + "\t\ttest/aspect.bzl%MyAspect(...)\n"
             + "\tFile \"/workspace/test/aspect.bzl\", line 2, in _impl\n"
             + "\t\t1 / 0\n"
             + "integer division by zero");

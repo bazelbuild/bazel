@@ -26,7 +26,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Aspect;
-import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredNativeAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -133,7 +133,7 @@ public class TestAspects {
   /**
    * A base class for mock aspects to reduce boilerplate.
    */
-  public abstract static class BaseAspect implements ConfiguredAspectFactory {
+  public abstract static class BaseAspect implements ConfiguredNativeAspectFactory {
     @Override
     public Aspect create(ConfiguredTarget base, RuleContext ruleContext,
         AspectParameters parameters) {
@@ -222,7 +222,7 @@ public class TestAspects {
   /**
    * An aspect that raises an error.
    */
-  public static class ErrorAspect implements ConfiguredAspectFactory {
+  public static class ErrorAspect implements ConfiguredNativeAspectFactory {
     @Override
     public Aspect create(ConfiguredTarget base, RuleContext ruleContext,
         AspectParameters parameters) {

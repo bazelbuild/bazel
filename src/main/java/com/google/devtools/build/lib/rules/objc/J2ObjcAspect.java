@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.Aspect;
-import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredNativeAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -54,7 +54,7 @@ import java.util.List;
 /**
  * J2ObjC transpilation aspect for Java rules.
  */
-public class J2ObjcAspect implements ConfiguredAspectFactory {
+public class J2ObjcAspect implements ConfiguredNativeAspectFactory {
   public static final String NAME = "J2ObjcAspect";
   /**
    * Adds the attribute aspect args to the given AspectDefinition.Builder.

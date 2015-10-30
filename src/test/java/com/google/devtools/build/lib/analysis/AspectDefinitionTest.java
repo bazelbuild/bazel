@@ -34,7 +34,7 @@ public class AspectDefinitionTest {
    * A dummy aspect factory. Is there to demonstrate how to define aspects and so that we can test
    * {@code attributeAspect}.
    */
-  public static final class TestAspectFactory implements ConfiguredAspectFactory {
+  public static final class TestAspectFactory implements ConfiguredNativeAspectFactory {
     private final AspectDefinition definition;
 
     /**

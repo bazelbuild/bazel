@@ -34,8 +34,8 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
-import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.NativeAspectClass.NativeAspectFactory;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
@@ -90,7 +90,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final Map<String, RuleClass> ruleClassMap = new HashMap<>();
     private final  Map<String, Class<? extends RuleDefinition>> ruleDefinitionMap =
         new HashMap<>();
-    private final Map<String, Class<? extends AspectFactory<?, ?, ?>>> aspectFactoryMap =
+    private final Map<String, Class<? extends NativeAspectFactory>> aspectFactoryMap =
         new HashMap<>();
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Map<Class<? extends RuleDefinition>, RuleDefinition> ruleDefinitionInstanceCache =
@@ -140,7 +140,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     }
 
     public Builder addAspectFactory(
-        String name, Class<? extends AspectFactory<?, ?, ?>> configuredAspectFactoryClass) {
+        String name, Class<? extends ConfiguredNativeAspectFactory> configuredAspectFactoryClass) {
       aspectFactoryMap.put(name, configuredAspectFactoryClass);
 
       return this;
@@ -291,7 +291,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   /**
    * Maps aspect name to the aspect factory meta class.
    */
-  private final ImmutableMap<String, Class<? extends AspectFactory<?, ?, ?>>> aspectFactoryMap;
+  private final ImmutableMap<String, Class<? extends NativeAspectFactory>> aspectFactoryMap;
 
   /**
    * The configuration options that affect the behavior of the rules.
@@ -319,7 +319,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       String runfilesPrefix,
       ImmutableMap<String, RuleClass> ruleClassMap,
       ImmutableMap<String, Class<? extends RuleDefinition>> ruleDefinitionMap,
-      ImmutableMap<String, Class<? extends AspectFactory<?, ?, ?>>> aspectFactoryMap,
+      ImmutableMap<String, Class<? extends NativeAspectFactory>> aspectFactoryMap,
       String defaultWorkspaceFile,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       ImmutableList<Class<? extends FragmentOptions>> configurationOptions,
@@ -361,7 +361,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   @Override
-  public Map<String, Class<? extends AspectFactory<?, ?, ?>>> getAspectFactoryMap() {
+  public Map<String, Class<? extends NativeAspectFactory>> getAspectFactoryMap() {
     return aspectFactoryMap;
   }
 

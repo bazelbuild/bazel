@@ -92,7 +92,7 @@ import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.FileDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionCompletedReceiver;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ProgressSupplier;
@@ -351,12 +351,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.TRANSITIVE_TRAVERSAL, new TransitiveTraversalFunction());
     map.put(SkyFunctions.CONFIGURED_TARGET,
         new ConfiguredTargetFunction(new BuildViewProvider(), ruleClassProvider));
-    map.put(
-        SkyFunctions.NATIVE_ASPECT,
-        AspectFunction.createNativeAspectFunction(new BuildViewProvider(), ruleClassProvider));
-    map.put(
-        SkyFunctions.SKYLARK_ASPECT,
-        AspectFunction.createSkylarkAspectFunction(new BuildViewProvider(), ruleClassProvider));
+    map.put(SkyFunctions.ASPECT, new AspectFunction(new BuildViewProvider(), ruleClassProvider));
+    map.put(SkyFunctions.LOAD_SKYLARK_ASPECT, new ToplevelSkylarkAspectFunction());
     map.put(SkyFunctions.POST_CONFIGURED_TARGET,
         new PostConfiguredTargetFunction(new BuildViewProvider(), ruleClassProvider));
     map.put(SkyFunctions.BUILD_CONFIGURATION,
@@ -1320,13 +1316,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /** Configures a given set of configured targets. */
-  public EvaluationResult<ActionLookupValue> configureTargets(EventHandler eventHandler,
-      List<ConfiguredTargetKey> values, List<AspectKey> aspectKeys, boolean keepGoing)
-          throws InterruptedException {
+  public EvaluationResult<ActionLookupValue> configureTargets(
+      EventHandler eventHandler,
+      List<ConfiguredTargetKey> values,
+      List<AspectValueKey> aspectKeys,
+      boolean keepGoing)
+      throws InterruptedException {
     checkActive();
 
     List<SkyKey> keys = new ArrayList<>(ConfiguredTargetValue.keys(values));
-    for (AspectKey aspectKey : aspectKeys) {
+    for (AspectValueKey aspectKey : aspectKeys) {
       keys.add(AspectValue.key(aspectKey));
     }
     // Make sure to not run too many analysis threads. This can cause memory thrashing.

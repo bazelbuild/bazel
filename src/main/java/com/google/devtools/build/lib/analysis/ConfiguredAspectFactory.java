@@ -13,16 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.packages.AspectFactory;
+import com.google.devtools.build.lib.packages.AspectParameters;
 
 /**
- * Instantiation of {@link AspectFactory} with the actual types.
- *
- * <p>This is needed because {@link AspectFactory} is needed in the {@code packages} package to
- * do loading phase things properly and to be able to specify them on attributes, but the actual
- * classes are in the {@code view} package, which is not available there.
+ * Creates the Skyframe node of an aspect.
  */
-public interface ConfiguredAspectFactory
-    extends AspectFactory<ConfiguredTarget, RuleContext, Aspect> {
-
+public interface ConfiguredAspectFactory {
+  /**
+   * Creates the aspect based on the configured target of the associated rule.
+   *
+   * @param base the configured target of the associated rule
+   * @param context the context of the associated configured target plus all the attributes the
+   *     aspect itself has defined
+   * @param parameters information from attributes of the rule that have requested this
+   *     aspect
+   */
+  Aspect create(ConfiguredTarget base, RuleContext context, AspectParameters parameters)
+      throws InterruptedException;
 }

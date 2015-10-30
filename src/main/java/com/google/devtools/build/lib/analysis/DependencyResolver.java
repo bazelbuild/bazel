@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
@@ -560,11 +559,11 @@ public abstract class DependencyResolver {
     RuleClass ruleClass = ((Rule) target).getRuleClassObject();
     ImmutableSet.Builder<AspectWithParameters> result = ImmutableSet.builder();
     for (AspectWithParameters candidateClass : aspectCandidates) {
-      ConfiguredAspectFactory candidate =
-          (ConfiguredAspectFactory) AspectFactory.Util.create(candidateClass.getAspectClass());
+      AspectClass aspectClass = candidateClass.getAspectClass();
       if (Sets.difference(
-          candidate.getDefinition().getRequiredProviders(),
-          ruleClass.getAdvertisedProviders()).isEmpty()) {
+              aspectClass.getDefinition().getRequiredProviders(),
+              ruleClass.getAdvertisedProviders())
+          .isEmpty()) {
         result.add(candidateClass);
       }
     }
@@ -581,8 +580,8 @@ public abstract class DependencyResolver {
     Set<AspectWithParameters> aspectCandidates = new LinkedHashSet<>();
     for (Map.Entry<AspectClass, AspectParameters> aspectWithParameters :
         attribute.getAspectsWithParameters(originalRule).entrySet()) {
-      aspectCandidates.add(
-          new AspectWithParameters(aspectWithParameters.getKey(), aspectWithParameters.getValue()));
+      AspectClass key = aspectWithParameters.getKey();
+      aspectCandidates.add(new AspectWithParameters(key, aspectWithParameters.getValue()));
     }
     if (aspectDefinition != null) {
       for (AspectClass aspect : aspectDefinition.getAttributeAspects().get(attribute.getName())) {

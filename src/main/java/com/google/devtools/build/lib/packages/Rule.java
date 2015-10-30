@@ -692,9 +692,8 @@ public final class Rule implements Target {
     LinkedHashMultimap<Attribute, Label> labels = LinkedHashMultimap.create();
     for (Attribute attribute : this.getAttributes()) {
       for (AspectClass candidateClass : attribute.getAspects()) {
-        AspectFactory<?, ?, ?> candidate = AspectFactory.Util.create(candidateClass);
-        AspectDefinition.addAllAttributesOfAspect(Rule.this, labels,
-            candidate.getDefinition(), predicate);
+        AspectDefinition.addAllAttributesOfAspect(
+            Rule.this, labels, candidateClass.getDefinition(), predicate);
       }
     }
     return labels.values();

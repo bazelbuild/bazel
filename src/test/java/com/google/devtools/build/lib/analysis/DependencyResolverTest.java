@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AspectRequiringRule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -111,9 +110,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
   private ListMultimap<Attribute, Dependency> dependentNodeMap(
       String targetName, Class<? extends ConfiguredAspectFactory> aspect) throws Exception {
     AspectDefinition aspectDefinition =
-        aspect == null
-            ? null
-            : AspectFactory.Util.create(new NativeAspectClass(aspect)).getDefinition();
+        aspect == null ? null : new NativeAspectClass(aspect).getDefinition();
     Target target = packageManager.getTarget(reporter, Label.parseAbsolute(targetName));
     return dependencyResolver.dependentNodeMap(
         new TargetAndConfiguration(target, getTargetConfiguration()),

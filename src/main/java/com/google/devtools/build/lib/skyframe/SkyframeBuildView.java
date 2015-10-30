@@ -63,7 +63,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
-import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
@@ -238,7 +238,7 @@ public final class SkyframeBuildView {
   public SkyframeAnalysisResult configureTargets(
       EventHandler eventHandler,
       List<ConfiguredTargetKey> values,
-      List<AspectKey> aspectKeys,
+      List<AspectValueKey> aspectKeys,
       EventBus eventBus,
       boolean keepGoing)
       throws InterruptedException, ViewCreationFailedException {
@@ -253,7 +253,7 @@ public final class SkyframeBuildView {
 
     Collection<AspectValue> goodAspects = Lists.newArrayListWithCapacity(values.size());
     NestedSetBuilder<Package> packages = NestedSetBuilder.stableOrder();
-    for (AspectKey aspectKey : aspectKeys) {
+    for (AspectValueKey aspectKey : aspectKeys) {
       AspectValue value = (AspectValue) result.get(AspectValue.key(aspectKey));
       if (value == null) {
         // Skip aspects that couldn't be applied to targets.
@@ -320,8 +320,8 @@ public final class SkyframeBuildView {
             "Analysis of target '"
                 + ConfiguredTargetValue.extractLabel(topLevel)
                 + "' failed; build aborted";
-      } else if (topLevel.argument() instanceof AspectKey) {
-        AspectKey aspectKey = (AspectKey) topLevel.argument();
+      } else if (topLevel.argument() instanceof AspectValueKey) {
+        AspectValueKey aspectKey = (AspectValueKey) topLevel.argument();
         errorMsg = "Analysis of aspect '" + aspectKey.getDescription() + "' failed; build aborted";
       } else {
         assert false;

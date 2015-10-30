@@ -17,7 +17,13 @@ package com.google.devtools.build.lib.packages;
 /**
  *  A class of aspects.
  *
- *  <p>This interface serves as a factory for {@link AspectFactory}.
+ *  <p>This interface serves as a factory for {@code AspectFactory}.
+ *  {@code AspectFactory} type argument is a placeholder for
+ *  a {@link com.google.devtools.build.lib.analysis.ConfiguredAspectFactory}, which is
+ *  an analysis-phase class. All loading-phase code uses {@code AspectClass&lt;?&gt;},
+ *  whereas analysis-phase code uses {@code AspectClass&lt;ConfiguredAspectFactory&gt;}.
+ *  The latter is what all real implementations of this interface should implement.
+ *
  */
 public interface AspectClass {
 
@@ -26,8 +32,5 @@ public interface AspectClass {
    */
   String getName();
 
-  /**
-   * Instantiates an {@link AspectFactory} for this aspect class.
-   */
-  AspectFactory<?, ?, ?> newInstance();
+  AspectDefinition getDefinition();
 }

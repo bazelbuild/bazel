@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.Aspect;
-import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredNativeAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -38,7 +38,7 @@ import java.util.List;
  * <p>One would think that using the compile time classpath would be enough, but alas, those are
  * ijars,
  */
-public class AndroidNeverlinkAspect implements ConfiguredAspectFactory {
+public class AndroidNeverlinkAspect implements ConfiguredNativeAspectFactory {
   public static final String NAME = "AndroidNeverlinkAspect";
   private static final ImmutableList<String> ATTRIBUTES =
       ImmutableList.of(

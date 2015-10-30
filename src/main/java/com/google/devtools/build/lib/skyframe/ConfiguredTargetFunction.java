@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -510,7 +509,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
       }
       ConfiguredTarget depConfiguredTarget = configuredTargetMap.get(depKey);
       for (AspectWithParameters depAspect : dep.getAspects()) {
-        if (!aspectMatchesConfiguredTarget(depConfiguredTarget, depAspect.getAspectClass())) {
+        AspectClass depAspectClass = depAspect.getAspectClass();
+        if (!aspectMatchesConfiguredTarget(depConfiguredTarget, depAspectClass)) {
           continue;
         }
 
@@ -522,11 +522,12 @@ final class ConfiguredTargetFunction implements SkyFunction {
           // The configured target should have been created in resolveConfiguredTargetDependencies()
           throw new IllegalStateException(e);
         } catch (NoSuchThingException e) {
-          AspectFactory<?, ?, ?> depAspectFactory =
-              AspectFactory.Util.create(depAspect.getAspectClass());
           throw new AspectCreationException(
-              String.format("Evaluation of aspect %s on %s failed: %s",
-                  depAspectFactory.getDefinition().getName(), dep.getLabel(), e.toString()));
+              String.format(
+                  "Evaluation of aspect %s on %s failed: %s",
+                  depAspectClass.getDefinition().getName(),
+                  dep.getLabel(),
+                  e.toString()));
         }
 
         if (aspectValue == null) {
@@ -550,7 +551,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
   private static boolean aspectMatchesConfiguredTarget(
       ConfiguredTarget dep, AspectClass aspectClass) {
-    AspectDefinition aspectDefinition = AspectFactory.Util.create(aspectClass).getDefinition();
+    AspectDefinition aspectDefinition = aspectClass.getDefinition();
     for (Class<?> provider : aspectDefinition.getRequiredProviders()) {
       if (dep.getProvider(provider.asSubclass(TransitiveInfoProvider.class)) == null) {
         return false;

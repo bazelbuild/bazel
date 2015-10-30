@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.Aspect;
 import com.google.devtools.build.lib.analysis.Aspect.Builder;
-import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredNativeAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -70,7 +70,7 @@ import javax.annotation.Nullable;
 /**
  * Generates ide-build information for Android Studio.
  */
-public class AndroidStudioInfoAspect implements ConfiguredAspectFactory {
+public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
   public static final String NAME = "AndroidStudioInfoAspect";
 
   // Output groups.

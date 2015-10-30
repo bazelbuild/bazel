@@ -19,7 +19,7 @@ import static com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Aspect;
-import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredNativeAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -49,7 +49,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * by this class and provided by proto_library will be exported all the way to objc_binary for ObjC
  * compilation and linking into the final application bundle.
  */
-public abstract class AbstractJ2ObjcProtoAspect implements ConfiguredAspectFactory {
+public abstract class AbstractJ2ObjcProtoAspect implements ConfiguredNativeAspectFactory {
   public static final String NAME = "J2ObjcProtoAspect";
 
   public AspectDefinition getDefinition() {

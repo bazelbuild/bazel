@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.SkylarkAspect;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
@@ -37,11 +36,11 @@ import com.google.devtools.build.lib.syntax.Mutability;
 public class SkylarkAspectFactory implements ConfiguredAspectFactory {
 
   private final String name;
-  private final SkylarkAspect aspectFunction;
+  private final SkylarkAspect skylarkAspect;
 
-  public SkylarkAspectFactory(String name, SkylarkAspect aspectFunction) {
+  public SkylarkAspectFactory(String name, SkylarkAspect skylarkAspect) {
     this.name = name;
-    this.aspectFunction = aspectFunction;
+    this.skylarkAspect = skylarkAspect;
   }
 
   @Override
@@ -58,14 +57,14 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
       Environment env =
           Environment.builder(mutability)
               .setSkylark()
-              .setGlobals(aspectFunction.getFuncallEnv().getGlobals())
+              .setGlobals(skylarkAspect.getFuncallEnv().getGlobals())
               .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())
               .build(); // NB: loading phase functions are not available: this is analysis already,
                         // so we do *not* setLoadingPhase().
       Object aspectSkylarkObject;
       try {
         aspectSkylarkObject =
-            aspectFunction
+            skylarkAspect
                 .getImplementation()
                 .call(
                     ImmutableList.<Object>of(base, skylarkRuleContext),
@@ -105,12 +104,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
           .registerPhantomFuncall(
               String.format("%s(...)", name),
               base.getTarget().getAssociatedRule().getLocation(),
-              aspectFunction.getImplementation());
+              skylarkAspect.getImplementation());
     }
-  }
-
-  @Override
-  public AspectDefinition getDefinition() {
-    return new AspectDefinition.Builder(name).build();
   }
 }

@@ -25,21 +25,21 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.AspectFactory;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.SkylarkAspect;
+import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.SkylarkAspectClass;
 import com.google.devtools.build.lib.skyframe.ASTFileLookupValue.ASTLookupInputException;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
-import com.google.devtools.build.lib.skyframe.AspectValue.NativeAspectKey;
-import com.google.devtools.build.lib.skyframe.AspectValue.SkylarkAspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.DependencyEvaluationException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
@@ -55,30 +55,38 @@ import javax.annotation.Nullable;
 /**
  * The Skyframe function that generates aspects.
  */
-public final class AspectFunction<T extends AspectKey> implements SkyFunction {
+public final class AspectFunction implements SkyFunction {
   private final BuildViewProvider buildViewProvider;
   private final RuleClassProvider ruleClassProvider;
-  private final AspectFactoryCreator<T> aspectFactoryCreator;
 
-  public static AspectFunction<NativeAspectKey> createNativeAspectFunction(
-      BuildViewProvider buildViewProvider, RuleClassProvider ruleClassProvider) {
-    return new AspectFunction<>(
-        buildViewProvider, ruleClassProvider, new NativeAspectFactoryCreator());
-  }
-
-  public static AspectFunction<SkylarkAspectKey> createSkylarkAspectFunction(
-      BuildViewProvider buildViewProvider, RuleClassProvider ruleClassProvider) {
-    return new AspectFunction<>(
-        buildViewProvider, ruleClassProvider, new SkylarkAspectFactoryCreator());
-  }
-
-  private AspectFunction(
-      BuildViewProvider buildViewProvider,
-      RuleClassProvider ruleClassProvider,
-      AspectFactoryCreator<T> aspectFactoryCreator) {
+  public AspectFunction(BuildViewProvider buildViewProvider, RuleClassProvider ruleClassProvider) {
     this.buildViewProvider = buildViewProvider;
     this.ruleClassProvider = ruleClassProvider;
-    this.aspectFactoryCreator = aspectFactoryCreator;
+  }
+
+  /**
+   * Load Skylark aspect from an extension file. Is to be called from a SkyFunction.
+   *
+   * @return {@code null} if dependencies cannot be satisfied.
+   */
+  @Nullable
+  public static SkylarkAspect loadSkylarkAspect(
+      Environment env, PackageIdentifier extensionFile, String skylarkValueName)
+      throws ASTLookupInputException, ConversionException {
+    SkyKey importFileKey;
+    importFileKey = SkylarkImportLookupValue.key(extensionFile);
+    SkylarkImportLookupValue skylarkImportLookupValue =
+        (SkylarkImportLookupValue) env.getValue(importFileKey);
+    if (skylarkImportLookupValue == null) {
+      return null;
+    }
+
+    Object skylarkValue = skylarkImportLookupValue.getEnvironmentExtension().get(skylarkValueName);
+    if (!(skylarkValue instanceof SkylarkAspect)) {
+      throw new ConversionException(
+          skylarkValueName + " from " + extensionFile.toString() + " is not an aspect");
+    }
+    return (SkylarkAspect) skylarkValue;
   }
 
   @Nullable
@@ -88,7 +96,28 @@ public final class AspectFunction<T extends AspectKey> implements SkyFunction {
     SkyframeBuildView view = buildViewProvider.getSkyframeBuildView();
     NestedSetBuilder<Package> transitivePackages = NestedSetBuilder.stableOrder();
     AspectKey key = (AspectKey) skyKey.argument();
-    ConfiguredAspectFactory aspectFactory = aspectFactoryCreator.createAspectFactory(skyKey, env);
+    ConfiguredAspectFactory aspectFactory;
+    if (key.getAspect() instanceof NativeAspectClass<?>) {
+      aspectFactory =
+          (ConfiguredAspectFactory) ((NativeAspectClass<?>) key.getAspect()).newInstance();
+    } else if (key.getAspect() instanceof SkylarkAspectClass) {
+      SkylarkAspectClass skylarkAspectClass = (SkylarkAspectClass) key.getAspect();
+      SkylarkAspect skylarkAspect;
+      try {
+        skylarkAspect =
+            loadSkylarkAspect(
+                env, skylarkAspectClass.getExtensionFile(), skylarkAspectClass.getExportedName());
+      } catch (ASTLookupInputException | ConversionException e) {
+        throw new AspectFunctionException(skyKey, e);
+      }
+      if (skylarkAspect == null) {
+        return null;
+      }
+
+      aspectFactory = new SkylarkAspectFactory(skylarkAspect.getName(), skylarkAspect);
+    } else {
+      throw new IllegalStateException();
+    }
 
     PackageValue packageValue =
         (PackageValue) env.getValue(PackageValue.key(key.getLabel().getPackageIdentifier()));
@@ -148,9 +177,15 @@ public final class AspectFunction<T extends AspectKey> implements SkyFunction {
       }
 
       ListMultimap<Attribute, ConfiguredTarget> depValueMap =
-          ConfiguredTargetFunction.computeDependencies(env, resolver, ctgValue,
-              aspectFactory.getDefinition(), key.getParameters(), configConditions,
-              ruleClassProvider, view.getHostConfiguration(ctgValue.getConfiguration()),
+          ConfiguredTargetFunction.computeDependencies(
+              env,
+              resolver,
+              ctgValue,
+              key.getAspect().getDefinition(),
+              key.getParameters(),
+              configConditions,
+              ruleClassProvider,
+              view.getHostConfiguration(ctgValue.getConfiguration()),
               transitivePackages);
 
       return createAspect(
@@ -247,57 +282,4 @@ public final class AspectFunction<T extends AspectKey> implements SkyFunction {
     }
   }
 
-  /**
-   * Factory for {@link ConfiguredAspectFactory} given a particular kind of {@link AspectKey}.
-   */
-  private interface AspectFactoryCreator<T extends AspectKey> {
-    ConfiguredAspectFactory createAspectFactory(SkyKey skyKey, Environment env)
-        throws AspectFunctionException;
-  }
-
-  /**
-   * Factory for native aspects.
-   */
-  private static class NativeAspectFactoryCreator implements AspectFactoryCreator<NativeAspectKey> {
-
-    @Override
-    public ConfiguredAspectFactory createAspectFactory(SkyKey skyKey, Environment env) {
-      NativeAspectKey key = (NativeAspectKey) skyKey.argument();
-      return (ConfiguredAspectFactory) AspectFactory.Util.create(key.getAspect());
-    }
-  }
-
-  /**
-   * Factory for Skylark aspects.
-   */
-  private static class SkylarkAspectFactoryCreator
-      implements AspectFactoryCreator<SkylarkAspectKey> {
-
-    @Override
-    public ConfiguredAspectFactory createAspectFactory(SkyKey skyKey, Environment env)
-        throws AspectFunctionException {
-      SkylarkAspectKey skylarkAspectKey = (SkylarkAspectKey) skyKey.argument();
-      SkyKey importFileKey;
-      try {
-        importFileKey = SkylarkImportLookupValue.key(skylarkAspectKey.getExtensionFile());
-      } catch (ASTLookupInputException e) {
-        throw new AspectFunctionException(skyKey, e);
-      }
-      SkylarkImportLookupValue skylarkImportLookupValue =
-          (SkylarkImportLookupValue) env.getValue(importFileKey);
-      if (skylarkImportLookupValue == null) {
-        return null;
-      }
-      Object skylarkValue = skylarkImportLookupValue
-          .getEnvironmentExtension()
-          .get(skylarkAspectKey.getSkylarkValueName());
-      if (!(skylarkValue instanceof SkylarkAspect)) {
-        throw new AspectFunctionException(
-            new ConversionException(skylarkAspectKey.getSkylarkValueName() + " from "
-                + skylarkAspectKey.getExtensionFile().toString() + " is not an aspect"));
-      }
-      SkylarkAspect skylarkAspect = (SkylarkAspect) skylarkValue;
-      return new SkylarkAspectFactory(skylarkAspectKey.getSkylarkValueName(), skylarkAspect);
-    }
-  }
 }
