@@ -185,7 +185,8 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
             xcrunStatus.toString(), new String(xcrunResult.getStderr(), StandardCharsets.UTF_8)));
       }
 
-      envBuilder.put("SDKROOT", new String(xcrunResult.getStdout(), StandardCharsets.UTF_8));
+      // calling xcrun via Command returns a value with a newline on the end.
+      envBuilder.put("SDKROOT", new String(xcrunResult.getStdout(), StandardCharsets.UTF_8).trim());
     } catch (AbnormalTerminationException e) {
       String message = String.format("%s : %s",
           e.getResult().getTerminationStatus(), new String(e.getResult().getStderr()));
