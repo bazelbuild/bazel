@@ -79,7 +79,7 @@ _groovy_jar = rule(
     implementation = _groovy_jar_impl,
     attrs = {
         "srcs": attr.label_list(
-            mandatory=False,
+            non_empty=True,
             allow_files=FileType([".groovy"])),
         "deps": attr.label_list(
             mandatory=False,
@@ -276,6 +276,9 @@ def spock_test(
     "//external:junit",
     "//external:spock",
   ]
+
+  if len(specs) == 0:
+    fail("Must provide at least one file in specs")
 
   # Put all Java sources into a Java library
   if java_srcs:
