@@ -27,7 +27,7 @@ public abstract class PyTest implements RuleConfiguredTargetFactory {
    * Create a {@link PythonSemantics} object that governs
    * the behavior of this rule.
    */
-protected abstract PythonSemantics createSemantics();
+  protected abstract PythonSemantics createSemantics();
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
