@@ -20,6 +20,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
               <li><a href="#string">string</a></li>
               <li><a href="#string_dict">string_dict</a></li>
               <li><a href="#string_list">string_list</a></li>
+              <li><a href="#string_list_dict">string_list_dict</a></li>
         </ul>
 </div>
 
@@ -612,6 +613,55 @@ Module for creating new attributes. They are only for use with the <a href="glob
           </tr>
                   <tr>
             <td id="string_list.non_empty">
+              <code>non_empty</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="globals.html#bool">bool</a></code></p>
+                          <p>True if the attribute must not be empty</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="string_list_dict">string_list_dict</h2>
+        <p><pre>Builder attr.string_list_dict(default={}, mandatory=False, non_empty=False)
+</pre></p>
+
+    Creates an attribute of type dictionary, mapping from string to list of string. Its default value is dict().
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="string_list_dict.default">
+              <code>default</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="dict.html">dict</a></code></p>
+                          <p>the default value of the attribute.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="string_list_dict.mandatory">
+              <code>mandatory</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="globals.html#bool">bool</a></code></p>
+                          <p>True if the value must be explicitly specified</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="string_list_dict.non_empty">
               <code>non_empty</code>
             </td>
             <td>
