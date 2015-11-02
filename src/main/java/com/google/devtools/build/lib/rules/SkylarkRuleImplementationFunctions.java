@@ -260,12 +260,13 @@ public class SkylarkRuleImplementationFunctions {
                       + "command instead of "
                       + EvalUtils.getDataTypeName(commandO));
             }
-
-            // The actual command can refer to an executable from the inputs, which could 
-            // require some runfiles. Consequently, we add the runfiles of every executable
-            // input file that is in HOST configuration to the action as a precaution.
-            addRequiredIndirectRunfiles(ctx, builder);
           }
+
+          // The actual command can refer to an executable from the inputs, which could
+          // require some runfiles. Consequently, we add the runfiles of every executable
+          // input file that is in HOST configuration to the action as a precaution.
+          addRequiredIndirectRunfiles(ctx, builder);
+
           if (mnemonicO != Runtime.NONE) {
             builder.setMnemonic((String) mnemonicO);
           }
