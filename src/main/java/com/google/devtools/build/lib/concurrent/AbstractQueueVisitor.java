@@ -574,15 +574,6 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     return (failFastOnInterrupt && isInterrupted()) || (unhandled != null && failFastOnException);
   }
 
-  /**
-   * Await interruption.  Used only in tests.
-   */
-  @VisibleForTesting
-  public boolean awaitInterruptionForTestingOnly(long timeout, TimeUnit units)
-      throws InterruptedException {
-    return interruptedLatch.await(timeout, units);
-  }
-
   /** Get latch that is released when exception is received by visitor. Used only in tests. */
   @VisibleForTesting
   public CountDownLatch getExceptionLatchForTestingOnly() {

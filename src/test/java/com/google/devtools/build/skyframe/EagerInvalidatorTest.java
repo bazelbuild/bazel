@@ -388,41 +388,43 @@ public class EagerInvalidatorTest {
     eval(/*keepGoing=*/false, parent);
     final Thread mainThread = Thread.currentThread();
     final AtomicReference<SkyKey> badKey = new AtomicReference<>();
-    EvaluationProgressReceiver receiver = new EvaluationProgressReceiver() {
-      @Override
-      public void invalidated(SkyKey skyKey, InvalidationState state) {
-        if (skyKey.equals(child)) {
-          // Interrupt on the very first invalidate
-          mainThread.interrupt();
-        } else if (!skyKey.functionName().equals(NODE_TYPE)) {
-          // All other invalidations should have the GraphTester's key type.
-          // Exceptions thrown here may be silently dropped, so keep track of errors ourselves.
-          badKey.set(skyKey);
-        }
-        try {
-          assertTrue(visitor.get().awaitInterruptionForTestingOnly(2, TimeUnit.HOURS));
-        } catch (InterruptedException e) {
-          // We may well have thrown here because by the time we try to await, the main thread is
-          // already interrupted.
-        }
-      }
+    EvaluationProgressReceiver receiver =
+        new EvaluationProgressReceiver() {
+          @Override
+          public void invalidated(SkyKey skyKey, InvalidationState state) {
+            if (skyKey.equals(child)) {
+              // Interrupt on the very first invalidate
+              mainThread.interrupt();
+            } else if (!skyKey.functionName().equals(NODE_TYPE)) {
+              // All other invalidations should have the GraphTester's key type.
+              // Exceptions thrown here may be silently dropped, so keep track of errors ourselves.
+              badKey.set(skyKey);
+            }
+            try {
+              assertTrue(
+                  visitor.get().getInterruptionLatchForTestingOnly().await(2, TimeUnit.HOURS));
+            } catch (InterruptedException e) {
+              // We may well have thrown here because by the time we try to await, the main
+              // thread is already interrupted.
+            }
+          }
 
-      @Override
-      public void enqueueing(SkyKey skyKey) {
-        throw new UnsupportedOperationException();
-      }
+          @Override
+          public void enqueueing(SkyKey skyKey) {
+            throw new UnsupportedOperationException();
+          }
 
-      @Override
-      public void computed(SkyKey skyKey, long elapsedTimeNanos) {
-        throw new UnsupportedOperationException();
-      }
+          @Override
+          public void computed(SkyKey skyKey, long elapsedTimeNanos) {
+            throw new UnsupportedOperationException();
+          }
 
-      @Override
-      public void evaluated(SkyKey skyKey, Supplier<SkyValue> skyValueSupplier,
-          EvaluationState state) {
-        throw new UnsupportedOperationException();
-      }
-    };
+          @Override
+          public void evaluated(
+              SkyKey skyKey, Supplier<SkyValue> skyValueSupplier, EvaluationState state) {
+            throw new UnsupportedOperationException();
+          }
+        };
     try {
       invalidateWithoutError(receiver, child);
       fail();

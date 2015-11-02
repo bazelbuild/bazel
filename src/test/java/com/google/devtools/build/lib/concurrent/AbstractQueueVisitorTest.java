@@ -190,16 +190,19 @@ public class AbstractQueueVisitorTest {
           }
         });
 
-    TestThread interrupterThread = new TestThread() {
-      @Override
-      public void runTest() throws Exception {
-        latch1.await();
-        mainThread.interrupt();
-        assertTrue(visitor.awaitInterruptionForTestingOnly(TestUtils.WAIT_TIMEOUT_MILLISECONDS,
-            TimeUnit.MILLISECONDS));
-        latch2.countDown();
-      }
-    };
+    TestThread interrupterThread =
+        new TestThread() {
+          @Override
+          public void runTest() throws Exception {
+            latch1.await();
+            mainThread.interrupt();
+            assertTrue(
+                visitor
+                    .getInterruptionLatchForTestingOnly()
+                    .await(TestUtils.WAIT_TIMEOUT_MILLISECONDS, TimeUnit.MILLISECONDS));
+            latch2.countDown();
+          }
+        };
 
     interrupterThread.start();
 
@@ -461,7 +464,7 @@ public class AbstractQueueVisitorTest {
         try {
           assertTrue(
               interrupt
-                  ? visitor.awaitInterruptionForTestingOnly(1, TimeUnit.MINUTES)
+                  ? visitor.getInterruptionLatchForTestingOnly().await(1, TimeUnit.MINUTES)
                   : visitor.getExceptionLatchForTestingOnly().await(1, TimeUnit.MINUTES));
         } catch (InterruptedException e) {
           // Unexpected.

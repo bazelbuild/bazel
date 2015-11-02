@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
+import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -613,17 +614,17 @@ public final class ParallelEvaluator implements Evaluator {
 
   private class ValueVisitor {
 
-    private final AbstractQueueVisitor abstractQueueVisitor;
-    private AtomicBoolean preventNewEvaluations = new AtomicBoolean(false);
+    private final QuiescingExecutor quiescingExecutor;
+    private final AtomicBoolean preventNewEvaluations = new AtomicBoolean(false);
     private final Set<SkyKey> inflightNodes = Sets.newConcurrentHashSet();
     private final Set<RuntimeException> crashes = Sets.newConcurrentHashSet();
 
     private ValueVisitor(int threadCount) {
-      abstractQueueVisitor =
+      quiescingExecutor =
           new AbstractQueueVisitor(
               /*concurrent*/ true,
               threadCount,
-              1,
+              /*keepAliveTime=*/ 1,
               TimeUnit.SECONDS,
               /*failFastOnException*/ true,
               /*failFastOnInterrupt*/ true,
@@ -631,11 +632,11 @@ public final class ParallelEvaluator implements Evaluator {
               VALUE_VISITOR_ERROR_CLASSIFIER);
     }
 
-    protected void waitForCompletion() throws InterruptedException {
-      abstractQueueVisitor.awaitQuiescence(/*interruptWorkers=*/ true);
+    private void waitForCompletion() throws InterruptedException {
+      quiescingExecutor.awaitQuiescence(/*interruptWorkers=*/ true);
     }
 
-    public void enqueueEvaluation(final SkyKey key) {
+    private void enqueueEvaluation(SkyKey key) {
       // We unconditionally add the key to the set of in-flight nodes because even if evaluation is
       // never scheduled we still want to remove the previously created NodeEntry from the graph.
       // Otherwise we would leave the graph in a weird state (wasteful garbage in the best case and
@@ -653,7 +654,7 @@ public final class ParallelEvaluator implements Evaluator {
       if (newlyEnqueued && progressReceiver != null) {
         progressReceiver.enqueueing(key);
       }
-      abstractQueueVisitor.execute(new Evaluate(this, key));
+      quiescingExecutor.execute(new Evaluate(this, key));
     }
 
     /**
@@ -662,19 +663,19 @@ public final class ParallelEvaluator implements Evaluator {
      * thread already requested a halt and will throw an exception, and so this thread can simply
      * end.
      */
-    boolean preventNewEvaluations() {
+    private boolean preventNewEvaluations() {
       return preventNewEvaluations.compareAndSet(false, true);
     }
 
-    void noteCrash(RuntimeException e) {
+    private void noteCrash(RuntimeException e) {
       crashes.add(e);
     }
 
-    Collection<RuntimeException> getCrashes() {
+    private Collection<RuntimeException> getCrashes() {
       return crashes;
     }
 
-    void notifyDone(SkyKey key) {
+    private void notifyDone(SkyKey key) {
       inflightNodes.remove(key);
     }
 
@@ -683,8 +684,8 @@ public final class ParallelEvaluator implements Evaluator {
     }
 
     @VisibleForTesting
-    public CountDownLatch getExceptionLatchForTestingOnly() {
-      return abstractQueueVisitor.getExceptionLatchForTestingOnly();
+    private CountDownLatch getExceptionLatchForTestingOnly() {
+      return quiescingExecutor.getExceptionLatchForTestingOnly();
     }
   }
 
