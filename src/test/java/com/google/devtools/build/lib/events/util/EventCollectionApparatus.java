@@ -23,16 +23,20 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.io.OutErr;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 /**
  * An apparatus for reporting / collecting events.
  */
-public class EventCollectionApparatus {
+public final class EventCollectionApparatus {
   private EventCollector eventCollector;
   private Reporter reporter;
   private PrintingEventHandler printingEventHandler;
+
+  private boolean failFast;
+  private List<EventHandler> handlers = new ArrayList<>();
 
   /**
    * Determine which events the {@link #collector()} created by this apparatus
@@ -40,10 +44,8 @@ public class EventCollectionApparatus {
    */
   public EventCollectionApparatus(Set<EventKind> mask) {
     eventCollector = new EventCollector(mask);
-    reporter = new Reporter(eventCollector);
     printingEventHandler = new PrintingEventHandler(EventKind.ERRORS_AND_WARNINGS_AND_OUTPUT);
-    reporter.addHandler(printingEventHandler);
-
+    reporter = new Reporter(eventCollector, printingEventHandler);
     this.setFailFast(true);
   }
 
@@ -55,6 +57,19 @@ public class EventCollectionApparatus {
     eventCollector.clear();
   }
 
+  public void initExternal(Reporter reporter) {
+    // TODO(ulfjack): Changes to the EventCollectionApparatus are not reflected in the external
+    // reporter, i.e., this is a one-shot change. Maybe we should store the external reporter here?
+    reporter.addHandler(eventCollector);
+    reporter.addHandler(printingEventHandler);
+    for (EventHandler handler : handlers) {
+      reporter.addHandler(handler);
+    }
+    if (failFast) {
+      reporter.addHandler(Environment.FAIL_FAST_HANDLER);
+    }
+  }
+
   /**
    * Determine whether the {#link reporter()} created by this apparatus will
    * fail fast, that is, throw an exception whenever we encounter an event of
@@ -62,6 +77,7 @@ public class EventCollectionApparatus {
    * Default: {@code true}.
    */
   public void setFailFast(boolean failFast) {
+    this.failFast = failFast;
     if (failFast) {
       reporter.addHandler(Environment.FAIL_FAST_HANDLER);
     } else {
@@ -71,6 +87,7 @@ public class EventCollectionApparatus {
 
   public void addHandler(EventHandler eventHandler) {
     reporter.addHandler(eventHandler);
+    handlers.add(eventHandler);
   }
 
   /**

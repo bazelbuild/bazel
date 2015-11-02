@@ -206,7 +206,7 @@ public class BlazeCommandDispatcher {
    * client process, or throws {@link ShutdownBlazeServerException} to
    * indicate that a command wants to shutdown the Blaze server.
    */
-  public int exec(List<String> args, OutErr outErr, long firstContactTime)
+  int exec(List<String> args, OutErr outErr, long firstContactTime)
       throws ShutdownBlazeServerException {
     // Record the start time for the profiler and the timestamp granularity monitor. Do not put
     // anything before this!
