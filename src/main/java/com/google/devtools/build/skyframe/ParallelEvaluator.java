@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import static com.google.devtools.build.skyframe.SkyKeyInterner.SKY_KEY_INTERNER;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -610,25 +611,28 @@ public final class ParallelEvaluator implements Evaluator {
         }
       };
 
-  private class ValueVisitor extends AbstractQueueVisitor {
+  private class ValueVisitor {
+
+    private final AbstractQueueVisitor abstractQueueVisitor;
     private AtomicBoolean preventNewEvaluations = new AtomicBoolean(false);
     private final Set<SkyKey> inflightNodes = Sets.newConcurrentHashSet();
     private final Set<RuntimeException> crashes = Sets.newConcurrentHashSet();
 
     private ValueVisitor(int threadCount) {
-      super(
-          /*concurrent*/ true,
-          threadCount,
-          1,
-          TimeUnit.SECONDS,
-          /*failFastOnException*/ true,
-          /*failFastOnInterrupt*/ true,
-          "skyframe-evaluator",
-          VALUE_VISITOR_ERROR_CLASSIFIER);
+      abstractQueueVisitor =
+          new AbstractQueueVisitor(
+              /*concurrent*/ true,
+              threadCount,
+              1,
+              TimeUnit.SECONDS,
+              /*failFastOnException*/ true,
+              /*failFastOnInterrupt*/ true,
+              "skyframe-evaluator",
+              VALUE_VISITOR_ERROR_CLASSIFIER);
     }
 
     protected void waitForCompletion() throws InterruptedException {
-      awaitQuiescence(/*interruptWorkers=*/ true);
+      abstractQueueVisitor.awaitQuiescence(/*interruptWorkers=*/ true);
     }
 
     public void enqueueEvaluation(final SkyKey key) {
@@ -649,7 +653,7 @@ public final class ParallelEvaluator implements Evaluator {
       if (newlyEnqueued && progressReceiver != null) {
         progressReceiver.enqueueing(key);
       }
-      execute(new Evaluate(this, key));
+      abstractQueueVisitor.execute(new Evaluate(this, key));
     }
 
     /**
@@ -676,6 +680,11 @@ public final class ParallelEvaluator implements Evaluator {
 
     private boolean isInflight(SkyKey key) {
       return inflightNodes.contains(key);
+    }
+
+    @VisibleForTesting
+    public CountDownLatch getExceptionLatchForTestingOnly() {
+      return abstractQueueVisitor.getExceptionLatchForTestingOnly();
     }
   }
 
