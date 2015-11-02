@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetVisitor;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
+import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
@@ -59,6 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -145,6 +147,7 @@ public final class ParallelEvaluator implements Evaluator {
   private final NestedSetVisitor<TaggedEvents> replayingNestedSetEventVisitor;
   private final boolean keepGoing;
   private final int threadCount;
+  @Nullable private final ForkJoinPool forkJoinPool;
   @Nullable private final EvaluationProgressReceiver progressReceiver;
   private final DirtyKeyTracker dirtyKeyTracker;
   private final Receiver<Collection<SkyKey>> inflightKeysReceiver;
@@ -174,6 +177,34 @@ public final class ParallelEvaluator implements Evaluator {
     this.replayingNestedSetEventVisitor =
         new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
     this.storedEventFilter = storedEventFilter;
+    this.forkJoinPool = null;
+  }
+
+  public ParallelEvaluator(
+      ProcessableGraph graph,
+      Version graphVersion,
+      ImmutableMap<SkyFunctionName, ? extends SkyFunction> skyFunctions,
+      final EventHandler reporter,
+      EmittedEventState emittedEventState,
+      EventFilter storedEventFilter,
+      boolean keepGoing,
+      @Nullable EvaluationProgressReceiver progressReceiver,
+      DirtyKeyTracker dirtyKeyTracker,
+      Receiver<Collection<SkyKey>> inflightKeysReceiver,
+      ForkJoinPool forkJoinPool) {
+    this.graph = graph;
+    this.skyFunctions = skyFunctions;
+    this.graphVersion = graphVersion;
+    this.inflightKeysReceiver = inflightKeysReceiver;
+    this.reporter = Preconditions.checkNotNull(reporter);
+    this.keepGoing = keepGoing;
+    this.threadCount = 0;
+    this.progressReceiver = progressReceiver;
+    this.dirtyKeyTracker = Preconditions.checkNotNull(dirtyKeyTracker);
+    this.replayingNestedSetEventVisitor =
+        new NestedSetVisitor<>(new NestedSetEventReceiver(reporter), emittedEventState);
+    this.storedEventFilter = storedEventFilter;
+    this.forkJoinPool = Preconditions.checkNotNull(forkJoinPool);
   }
 
   /**
@@ -618,6 +649,11 @@ public final class ParallelEvaluator implements Evaluator {
     private final AtomicBoolean preventNewEvaluations = new AtomicBoolean(false);
     private final Set<SkyKey> inflightNodes = Sets.newConcurrentHashSet();
     private final Set<RuntimeException> crashes = Sets.newConcurrentHashSet();
+
+    private ValueVisitor(ForkJoinPool forkJoinPool) {
+      quiescingExecutor =
+          new ForkJoinQuiescingExecutor(forkJoinPool, VALUE_VISITOR_ERROR_CLASSIFIER);
+    }
 
     private ValueVisitor(int threadCount) {
       quiescingExecutor =
@@ -1177,7 +1213,9 @@ public final class ParallelEvaluator implements Evaluator {
 
     Profiler.instance().startTask(ProfilerTask.SKYFRAME_EVAL, skyKeySet);
     try {
-      return eval(skyKeySet, new ValueVisitor(threadCount));
+      ValueVisitor valueVisitor =
+          forkJoinPool == null ? new ValueVisitor(threadCount) : new ValueVisitor(forkJoinPool);
+      return eval(skyKeySet, valueVisitor);
     } finally {
       Profiler.instance().completeTask(ProfilerTask.SKYFRAME_EVAL);
     }
