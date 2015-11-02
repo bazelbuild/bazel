@@ -282,7 +282,7 @@ _get_commands() {
   # descriptions.
   if _bazel_cmd_list=("${(@f)$(b help | awk '
 /Available commands/ { command=1; }
-/  \w+\s+.+/ { if (command) { printf "%s:", $1; for (i=2; i<=NF; i++) printf "%s ", $i; print "" } }
+/  [-a-z]+[ \t]+.+/ { if (command) { printf "%s:", $1; for (i=2; i<=NF; i++) printf "%s ", $i; print "" } }
 /^$/ { command=0; }')}"); then
     _store_cache BAZEL_commands _bazel_cmd_list
   fi
