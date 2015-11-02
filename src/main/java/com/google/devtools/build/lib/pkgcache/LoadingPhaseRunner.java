@@ -128,22 +128,6 @@ public final class LoadingPhaseRunner {
   }
 
   /**
-   * This method only exists for the benefit of InfoCommand, which needs to construct
-   * a {@code BuildConfigurationCollection} without running a full loading phase. Don't
-   * add any more clients; instead, we should change info so that it doesn't need the configuration.
-   */
-  public boolean loadForConfigurations(EventHandler eventHandler,
-      Set<Label> labelsToLoad, boolean keepGoing) throws InterruptedException {
-    // Use a new Label Visitor here to avoid erasing the cache on the existing one.
-    TransitivePackageLoader transitivePackageLoader = packageManager.newTransitiveLoader();
-    boolean loadingSuccessful = transitivePackageLoader.sync(
-        eventHandler, ImmutableSet.<Target>of(),
-        labelsToLoad, keepGoing, /*parallelThreads=*/10,
-        /*maxDepth=*/Integer.MAX_VALUE);
-    return loadingSuccessful;
-  }
-
-  /**
    * Performs target pattern evaluation, test suite expansion (if requested), and loads the
    * transitive closure of the resulting targets as well as of the targets needed to use the
    * given build configuration provider.
