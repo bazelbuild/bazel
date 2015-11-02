@@ -137,6 +137,7 @@ Bazel also comes with a zsh completion script. To install it:
     zstyle ':completion:*' use-cache on
     zstyle ':completion:*' cache-path ~/.zsh/cache
     ```
+
 ## Compiling from source
 
 If you would like to build Bazel from source, clone the source from GitHub and

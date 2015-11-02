@@ -28,7 +28,7 @@ Find more background about Bazel in our [FAQ](http://bazel.io/faq.html).
   * How to [install Bazel](http://bazel.io/docs/install.html)
   * How to [get started using Bazel](http://bazel.io/docs/getting-started.html)
   * The Bazel command line is documented in the  [user manual](http://bazel.io/docs/bazel-user-manual.html)
-  * The rule reference documentation is in the [build encyclopedia](http://bazel.io/docs/build-encyclopedia.html)
+  * The rule reference documentation is in the [build encyclopedia](http://bazel.io/docs/be/overview.html)
   * How to [use the query command](http://bazel.io/docs/query.html)
   * How to [extend Bazel](http://bazel.io/docs/skylark/index.html)
   * The test environment is described in the [test encyclopedia](http://bazel.io/docs/test-encyclopedia.html)

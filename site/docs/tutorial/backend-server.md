@@ -14,8 +14,7 @@ Here, you'll do the following:
 *   Deploy to a local development server
 *   Deploy to Google App Engine
 
-Bazel provides a set of
-[App Engine build rules](https://github.com/bazelbuild/bazel/blob/master/tools/build_rules/appengine/README.md)
+Bazel provides a set of [App Engine build rules](/docs/be/appengine.html)
 written using the [Skylark](/docs/skylark/index.html) framework. You'll use
 these in the steps below to build the application.
 
@@ -60,7 +59,7 @@ backend server, however, you'll give Bazel instructions for downloading the
 required App Engine SDK package from a remote server. This is optional. You
 can also download and install the SDK manually on your filesystem and reference
 it from that location as described in the
-[App Engine rule documentation](https://github.com/google/bazel/blob/master/tools/build_rules/appengine/README.md).
+[App Engine rule documentation](/docs/be/appengine.html).
 
 Add the following to your `WORKSPACE` file:
 
@@ -73,7 +72,7 @@ new_http_archive(
 )
 ```
 
-The [`new_http_archive`](/docs/build-encyclopedia.html#new_http_archive) rule
+The [`new_http_archive`](/docs/be/workspace.html#new_http_archive) rule
 instructs Bazel to download a remote archive file, uncompress it and add it to
 the virtual `external` package by combining the archive contents with
 the referenced `BUILD` file, here `appengine.BUILD`. You'll create this file
@@ -81,7 +80,7 @@ below after you finish updating your `WORKSPACE` file.
 
 ### Add bind rules
 
-You also need to add some [`bind`](docs/build-encyclopedia.html#bind) rules
+You also need to add some [`bind`](/docs/be/workspace.html#bind) rules
 to the file. These provide aliases to targets in the virtual `external` package
 so they can be located either either inside or outside the workspace without
 changing the App Engine build rules.
@@ -108,7 +107,7 @@ bind(
 ### Add maven_jar rules
 
 Finally, you need to add some
-[`maven_jar`](/docs/build-encyclopedia.html#maven_jar) rules to the file. These
+[`maven_jar`](/docs/be/workspace.html#maven_jar) rules to the file. These
 tell Bazel to download `.jar` files from the Maven repository and allow Bazel
 to use them as Java dependencies.
 
@@ -173,7 +172,7 @@ filegroup(
 )
 ```
 
-The [`java_import`](/docs/build-encyclopedia.html#java_import) rules tell
+The [`java_import`](/docs/be/java.html#java_import) rules tell
 Bazel how to use the precompiled SDK `.jar` files as libraries. These rules
 define the targets that you referenced in the `bind` rules in the `WORKSPACE`
 file above.
@@ -209,11 +208,11 @@ java_binary(
 )
 ```
 
-The [`java_binary`](/docs/build-encyclopedia.html#java_binary) tells Bazel
+The [`java_binary`](/docs/be/java.html#java_binary) tells Bazel
 how to build a Java `.jar` library for your application, plus a wrapper shell
 script that launches the application code from the specified main class. Here,
 we're using this rule instead of the
-[`java_library`](/docs/build-encyclopedia.html#java_library) because we need
+[`java_library`](/docs/be/java.html#java_library) because we need
 the `.jar` file to contain all the dependencies required to build the final
 App Engine `.war` file. For this reason, we specify a bogus class name
 for the `main_class` attribute.
@@ -236,7 +235,7 @@ filegroup(
 )
 ```
 
-The [`appengine_war`](https://github.com/google/bazel/blob/master/tools/build_rules/appengine/README.md)
+The [`appengine_war`](/docs/be/appengine.html#appengine_war)
 rule builds the final App Engine `war` file from the library `.jar` file and web
 application metadata files in the `webapp` directory.
 

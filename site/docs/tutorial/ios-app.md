@@ -38,7 +38,7 @@ $ vi $WORKSPACE/ios-app/BUILD
 
 Bazel provides several build rules that you can use to build an app for the
 iOS platform. For this tutorial, you'll first use the
-[`objc_library`](/docs/build-encyclopedia.html#objc_library) rule to tell Bazel
+[`objc_library`](/docs/be/objective-c.html#objc_library) rule to tell Bazel
 how to build an
 [static library](https://developer.apple.com/library/ios/technotes/iOSStaticLibraries/Introduction.html)
 from the app source code and Xib files. Then you'll use the
@@ -65,7 +65,7 @@ Note the name of the rule, `UrlGetClasses`.
 
 ## Add an objc_binary rule
 
-The [`objc_binary`](/docs/build-encyclopedia.html#objc_binary) rule creates a
+The [`objc_binary`](/docs/be/objective-c.html#objc_binary) rule creates a
 binary to be bundled in the application.
 
 Add the following to your `BUILD` file:
@@ -87,7 +87,7 @@ Note how the `deps` attribute references the output of the
 
 ## Add an ios_application rule
 
-The [`ios_application`](/docs/build-encyclopedia.html#ios_application) rule
+The [`ios_application`](/docs/be/objective-c.html#ios_application) rule
 creates the bundled `.ipa` archive file for the application and also generates
 an Xcode project file.
 

@@ -169,7 +169,7 @@ appengine_war(name, jars, data, data_path)
   </tbody>
 </table>
 
-<a name="java_war">
+<a name="java_war"></a>
 ## java_war
 
 ```
@@ -213,7 +213,7 @@ java_war(name, data, data_path, **kwargs)
     <tr>
       <td><code>**kwargs</code></td>
       <td>
-        <code>see <a href="http://bazel.io/docs/build-encyclopedia.html#java_library">java_library</a></code>
+        <code>see <a href="http://bazel.io/docs/be/java.html#java_library">java_library</a></code>
         <p>
           The other arguments of this rule will be passed to build a `java_library`
           that will be passed in the `jar` arguments of a

@@ -89,7 +89,7 @@ src/my/app/tests/test.cc
   A package is a container.  The elements of a package are called
   <i>targets</i>. Most targets are one of two principal kinds, <i>files</i>
   and <i>rules</i>. Additionally, there is another kind of target,
-  <a href="build-encyclopedia.html#package_group">package groups</a>,
+  <a href="be/functions.html#package_group">package groups</a>,
   but they are far less numerous.
 </p>
 
@@ -246,7 +246,7 @@ src/my/app/tests/test.cc
   <i>visibility</i> attribute of rules or from the <i>default_visibility</i>
   attribute of the <i>package</i> function; they do not generate or consume
   files. For more information, refer to the appropriate section of the
-  <a href='build-encyclopedia.html#package_group'>Build Encyclopedia</a>.
+  <a href='be/functions.html#package_group'>Build Encyclopedia</a>.
 </p>
 
 
@@ -443,7 +443,7 @@ testdata/input.txt
   kinds or <i>classes</i>, which produce compiled
   executables and libraries, test executables and other supported
   outputs as described in the
-  <a href="build-encyclopedia.html">Build Encyclopedia</a>.
+  <a href="be/overview.html">Build Encyclopedia</a>.
 </p>
 
 <p>
@@ -461,7 +461,7 @@ testdata/input.txt
   Every rule has a set of <i>attributes</i>; the applicable attributes
   for a given rule, and the significance and semantics of each
   attribute are a function of the rule's class; see
-  the <a href='build-encyclopedia.html'>Build
+  the <a href='be/overview.html'>Build
   Encyclopedia</a> for the full list of supported rules and their
   corresponding attributes.  Each attribute has a name and a
   type.  The full set of types that an attribute can have is: integer,
@@ -774,12 +774,11 @@ arg ::= IDENTIFIER '=' expr
   libraries, and tests, respectively.  Other languages use the same
   naming scheme, with a different prefix, e.g. <code>java_*</code> for
   Java. These functions are all documented in the
-  <a href="build-encyclopedia.html">Build Encyclopedia</a>.
+  <a href="be/overview.html">Build Encyclopedia</a>.
 </p>
 
 <ul>
-  <li><p>A <a href='build-encyclopedia.html#binary'><code>*_binary</code></a>
-
+  <li><p>A <code>*_binary</code>
       rule builds an executable program in a given language.  After a
       build, the executable will reside in the build tool's binary
       output tree at the corresponding name for the rule's label,
@@ -794,7 +793,7 @@ arg ::= IDENTIFIER '=' expr
       one place for ease of deployment to production.</p>
   </li>
 
-  <li><p>A <a href='build-encyclopedia.html#test'><code>*_test</code></a>
+  <li><p>A <code>*_test</code>
       rule is a specialization of a *_binary rule, used for automated
       testing.  Tests are simply programs that return zero on success.
 
@@ -816,7 +815,7 @@ arg ::= IDENTIFIER '=' expr
     </p>
   </li>
 
-  <li>A <a href='build-encyclopedia.html#library'><code>*_library</code></a>
+  <li>A <code>*_library</code>
     rule specifies a separately-compiled module in the given
     programming language.  Libraries can depend on other libraries,
     and binaries and tests can depend on libraries, with the expected
@@ -1036,7 +1035,7 @@ Actual dependency graph:    a --&gt; b    _c
   Most build rules have three attributes for specifying different kinds
   of generic dependencies: <code>srcs</code>, <code>deps</code> and
   <code>data</code>. These are explained below. See also
-  <a href='build-encyclopedia.html#common-attributes'>Attributes common
+  <a href='be/common-definitions.html'>Attributes common
   to all rules</a> in the Build Encyclopedia.)
 </p>
 
@@ -1136,8 +1135,8 @@ or like so:
        Rather than specifying directories as inputs to the build system,
        you should enumerate the set of files contained within them, either
        explicitly or using the
-       <a href='build-encyclopedia.html#glob'><code>glob()</code></a> function.
-       (Use <code>**</code> to force the <a href='build-encyclopedia.html#glob'>
+       <a href='be/functions.html#glob'><code>glob()</code></a> function.
+       (Use <code>**</code> to force the <a href='be/functions.html#glob'>
        <code>glob()</code></a> to be recursive.)
    </p>
 
@@ -1150,7 +1149,7 @@ data = glob(["testdata/**"])  # use this instead
       names do not conform to the strict <a href='#lexi'>label syntax</a>
       (e.g. they contain certain punctuation symbols), then explicit
       enumeration of files, or use of the
-      <a href='build-encyclopedia.html#glob'><code>glob()</code></a> function will
+      <a href='be/functions.html#glob'><code>glob()</code></a> function will
       produce an invalid labels error.  You must use directory labels in this case,
       but beware of the concomitant risk of incorrect rebuilds described above.
    </p>

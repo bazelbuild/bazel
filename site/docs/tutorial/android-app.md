@@ -131,7 +131,7 @@ files or other dependencies.
 
 Bazel provides two build rules, `android_library` and `android_binary`, that you
 can use to build an Android app. For this tutorial, you'll first use the
-[`android_library`](/docs/build-encyclopedia.html#android_library) rule to tell
+[`android_library`](/docs/be/android.html#android_library) rule to tell
 Bazel how to build an
 [Android library module](http://developer.android.com/tools/projects/index.html#LibraryProjects)
 from the app source code and resource files. Then you'll use the
@@ -156,7 +156,7 @@ reference the rule using this name as a dependency in the `android_binary` rule.
 
 ### Add an android_binary rule
 
-The [`android_binary`](/docs/build-encyclopedia.html#android_binary) rule builds
+The [`android_binary`](/docs/be/android.html#android_binary) rule builds
 the Android application package (`.apk` file) for your app.
 
 Add the following to your build file:

@@ -1032,9 +1032,9 @@ $ bazel fetch //...
 </h4>
 <p>
   The <code>experimental_action_listener</code> option instructs Bazel to use
-  details from the <a href="build-encyclopedia.html#action_listener"
+  details from the <a href="be/extra-actions.html#action_listener"
   ><code>action_listener</code></a> rule specified by <var>label</var> to
-  insert <a href="build-encyclopedia.html#extra_action"
+  insert <a href="be/extra-actions.html#extra_action"
   ><code>extra_actions</code></a> into the build graph.
 </p>
 
@@ -1212,7 +1212,7 @@ $ bazel fetch //...
 <p>
   Build rules can also specify link options in their attributes. This option's
   settings always take precedence. Also see
-  <a href="build-encyclopedia.html#cc_library.linkopts">cc_library.linkopts</a>.
+  <a href="be/c-cpp.html#cc_library.linkopts">cc_library.linkopts</a>.
 </p>
 
 <h4 id='flag--strip'><code class='flag'>--strip (always|never|sometimes)</code></h4>
@@ -1246,7 +1246,7 @@ $ bazel fetch //...
 <h4 id='flag--stripopt'><code class='flag'>--stripopt <var>strip-option</var></code></h4>
 <p>
   An additional option to pass to the <code>strip</code> command when generating
-  a <a href="build-encyclopedia.html#cc_binary_implicit_outputs"><code>*.stripped</code>
+  a <a href="be/c-cpp.html#cc_binary_implicit_outputs"><code>*.stripped</code>
   binary</a>. The default is <code>-S -p</code>. This option can be used
   multiple times.
 </p>
@@ -1575,7 +1575,7 @@ the compilation of binaries during the build.
 <h4 id='flag--dynamic_mode'><code class='flag'>--dynamic_mode <var>mode</var></code></h4>
 <p>
   Determines whether C++ binaries will be linked dynamically, interacting with
-  the <a href='build-encyclopedia.html#cc_binary.linkstatic'>linkstatic
+  the <a href='be/c-cpp.html#cc_binary.linkstatic'>linkstatic
   attribute</a> on build rules.
 </p>
 
@@ -1586,14 +1586,14 @@ the compilation of binaries during the build.
   <li><code>auto</code>: Translates to a platform-dependent mode;
       <code>default</code> for linux and <code>off</code> for cygwin.</li>
   <li><code>default</code>: Allows bazel to choose whether to link dynamically.
-      See <a href='build-encyclopedia.html#cc_binary.linkstatic'>linkstatic</a> for more
+      See <a href='be/c-cpp.html#cc_binary.linkstatic'>linkstatic</a> for more
       information.</li>
   <li><code>fully</code>: Links all targets dynamically.  This will speed up
       linking time, and reduce the size of the resulting binaries.
 
   </li>
   <li><code>off</code>: Links all targets in
-      <a href='build-encyclopedia.html#cc_binary.linkstatic'>mostly static</a> mode.
+      <a href='be/c-cpp.html#cc_binary.linkstatic'>mostly static</a> mode.
       If <code>-static</code> is set in linkopts, targets will change to fully
       static.</li>
 </ul>
@@ -1705,7 +1705,7 @@ the compilation of binaries during the build.
   This options set the label or the path of the base Java installation to use
   for running JavaBuilder, SingleJar, and is also used for bazel run and inside
   Java binaries built by <code>java_binary</code> rules. The various
-  <a href='build-encyclopedia.html#make_variables'>"Make" variables</a> for
+  <a href='be/make-variables.html'>"Make" variables</a> for
   Java (<code>JAVABASE</code>, <code>JAVA</code>, <code>JAVAC</code> and
   <code>JAR</code>) are derived from this option.
 </p>
@@ -2140,7 +2140,7 @@ cores directly from system configuration and will assume 1.0 I/O resource.
 <h4 id='flag--test_lang_filters'><code class='flag'>--test_lang_filters <var>lang[,lang]*</var></code></h4>
 <p>
   Specifies a comma-separated list of test languages for languages with an official <code>*_test</code> rule the
-  (see <a href="build-encyclopedia.html">build encyclopedia</a> for a full list of these). Each
+  (see <a href="be/overview.html">build encyclopedia</a> for a full list of these). Each
   language can be optionally preceded with '-' to specify excluded
   languages.  The name used for each language should be the same as
   the language prefix in the <code>*_test</code> rule, for example,
@@ -2350,7 +2350,7 @@ either to the terminal, or to additional log files.
 <p>
   Stamping can be enabled or disabled explicitly in BUILD using
   the <code>stamp</code> attribute of certain rule types, please refer to
-  the <a href="build-encyclopedia.html">build encyclopedia</a> for details. For
+  the <a href="be/overview.html">build encyclopedia</a> for details. For
   rules that are neither explicitly or implicitly configured as <code>stamp =
   0</code> or <code>stamp = 1</code>, the <code class='flag'>--[no]stamp</code> option
   selects whether stamping is enabled. Bazel never stamps binaries that are
@@ -3046,7 +3046,7 @@ in an environment closer to the current shell environment. Note that none of the
   </li>
   <li>
     The complete
-    <a href='build-encyclopedia.html#make_variables'
+    <a href='be/make-variables.html'
     >"Make" environment</a>. If the <code class='flag'>--show_make_env</code> flag is
     specified, all variables in the current configuration's "Make" environment
     are also displayed (e.g. <code>CC</code>, <code>GLIBC_VERSION</code>, etc).
