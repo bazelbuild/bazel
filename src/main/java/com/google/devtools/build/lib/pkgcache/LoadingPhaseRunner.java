@@ -69,26 +69,6 @@ import javax.annotation.Nullable;
  */
 public final class LoadingPhaseRunner {
 
-  /**
-   * A callback interface to notify the caller about specific events.
-   * TODO(bazel-team): maybe we should use the EventBus instead?
-   */
-  public interface Callback {
-    /**
-     * Called after the target patterns have been resolved to give the caller a chance to validate
-     * the list before proceeding.
-     */
-    void notifyTargets(Collection<Target> targets) throws LoadingFailedException;
-
-    /**
-     * Called after loading has finished, to notify the caller about the visited packages.
-     *
-     * <p>The set of visited packages is the set of packages in the transitive closure of the
-     * union of the top level targets.
-     */
-    void notifyVisitedPackages(Set<PackageIdentifier> visitedPackages);
-  }
-
   private static final class ParseFailureListenerImpl extends DelegatingEventHandler
       implements ParseFailureListener {
     private final EventBus eventBus;
@@ -135,7 +115,7 @@ public final class LoadingPhaseRunner {
   public LoadingResult execute(EventHandler eventHandler, EventBus eventBus,
       List<String> targetPatterns, LoadingOptions options,
       ListMultimap<String, Label> labelsToLoadUnconditionally, boolean keepGoing,
-      boolean enableLoading, boolean determineTests, @Nullable Callback callback)
+      boolean enableLoading, boolean determineTests, @Nullable LoadingCallback callback)
           throws TargetParsingException, LoadingFailedException, InterruptedException {
     LOG.info("Starting pattern evaluation");
     Stopwatch timer = Stopwatch.createStarted();
@@ -225,7 +205,7 @@ public final class LoadingPhaseRunner {
     }
   }
 
-  private void freeMemoryAfterLoading(Callback callback, Set<PackageIdentifier> visitedPackages) {
+  private void freeMemoryAfterLoading(LoadingCallback callback, Set<PackageIdentifier> visitedPackages) {
     if (callback != null) {
       callback.notifyVisitedPackages(visitedPackages);
     }
@@ -264,7 +244,7 @@ public final class LoadingPhaseRunner {
   private LoadingResult doLoadingPhase(EventHandler eventHandler, EventBus eventBus,
       ResolvedTargets<Target> targets, ImmutableSet<Target> testsToRun,
       ListMultimap<String, Label> labelsToLoadUnconditionally, boolean keepGoing,
-      int loadingPhaseThreads, @Nullable Callback callback)
+      int loadingPhaseThreads, @Nullable LoadingCallback callback)
           throws InterruptedException, LoadingFailedException {
     Stopwatch timer = preLoadingLogging(eventHandler);
 
