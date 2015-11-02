@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Objects;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.Aspect;
-import com.google.devtools.build.lib.analysis.AspectWithParameters;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -25,6 +24,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.AspectWithParameters;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -32,7 +32,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import javax.annotation.Nullable;
 
 /**
- * An aspect in the context of the Skyframe graph.
+ * An aspectWithParameters in the context of the Skyframe graph.
  */
 public final class AspectValue extends ActionLookupValue {
 
@@ -50,8 +50,7 @@ public final class AspectValue extends ActionLookupValue {
   public static final class AspectKey extends AspectValueKey {
     private final Label label;
     private final BuildConfiguration configuration;
-    private final AspectWithParameters aspect;
-    private final String aspectName;
+    private final AspectWithParameters aspectWithParameters;
 
     protected AspectKey(
         Label label,
@@ -60,8 +59,7 @@ public final class AspectValue extends ActionLookupValue {
         AspectParameters parameters) {
       this.label = label;
       this.configuration = configuration;
-      this.aspectName = aspectClass.getName();
-      this.aspect = new AspectWithParameters(aspectClass, parameters);
+      this.aspectWithParameters = new AspectWithParameters(aspectClass, parameters);
     }
 
     @Override
@@ -76,16 +74,20 @@ public final class AspectValue extends ActionLookupValue {
     }
 
     public AspectClass getAspect() {
-      return aspect.getAspectClass();
+      return aspectWithParameters.getAspectClass();
     }
 
     @Nullable
     public AspectParameters getParameters() {
-      return aspect.getParameters();
+      return aspectWithParameters.getParameters();
+    }
+
+    public AspectWithParameters getAspectWithParameters() {
+      return aspectWithParameters;
     }
 
     public String getDescription() {
-      return String.format("%s of %s", aspect.getAspectClass().getName(), getLabel());
+      return String.format("%s of %s", aspectWithParameters.getAspectClass().getName(), getLabel());
     }
 
     public BuildConfiguration getConfiguration() {
@@ -94,7 +96,7 @@ public final class AspectValue extends ActionLookupValue {
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(label, configuration, aspect);
+      return Objects.hashCode(label, configuration, aspectWithParameters);
     }
 
     @Override
@@ -110,19 +112,23 @@ public final class AspectValue extends ActionLookupValue {
       AspectKey that = (AspectKey) other;
       return Objects.equal(label, that.label)
           && Objects.equal(configuration, that.configuration)
-          && Objects.equal(aspect, that.aspect);
+          && Objects.equal(aspectWithParameters, that.aspectWithParameters);
     }
 
     @Override
     public String toString() {
-      return label + "#" + aspect.getAspectClass().getName() + " "
-          + (configuration == null ? "null" : configuration.checksum()) + " "
-          + aspect.getParameters();
+      return label
+          + "#"
+          + aspectWithParameters.getAspectClass().getName()
+          + " "
+          + (configuration == null ? "null" : configuration.checksum())
+          + " "
+          + aspectWithParameters.getParameters();
     }
   }
 
   /**
-   * The key for a skylark aspect.
+   * The key for a skylark aspectWithParameters.
    */
   public static class SkylarkAspectLoadingKey extends AspectValueKey {
 

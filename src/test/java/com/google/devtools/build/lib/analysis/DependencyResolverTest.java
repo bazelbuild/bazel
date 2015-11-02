@@ -26,8 +26,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AspectRequiringRule;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.AspectWithParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -107,16 +106,14 @@ public class DependencyResolverTest extends AnalysisTestCase {
     update();
   }
 
-  private ListMultimap<Attribute, Dependency> dependentNodeMap(
-      String targetName, Class<? extends ConfiguredAspectFactory> aspect) throws Exception {
-    AspectDefinition aspectDefinition =
-        aspect == null ? null : new NativeAspectClass(aspect).getDefinition();
+  private <T extends ConfiguredNativeAspectFactory>
+    ListMultimap<Attribute, Dependency> dependentNodeMap(
+      String targetName, Class<T> aspect) throws Exception {
     Target target = packageManager.getTarget(reporter, Label.parseAbsolute(targetName));
     return dependencyResolver.dependentNodeMap(
         new TargetAndConfiguration(target, getTargetConfiguration()),
         getHostConfiguration(),
-        aspectDefinition,
-        AspectParameters.EMPTY,
+        aspect != null ? new AspectWithParameters(new NativeAspectClass<T>(aspect)) : null,
         ImmutableSet.<ConfigMatchingProvider>of());
   }
 

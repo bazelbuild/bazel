@@ -174,7 +174,7 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
         ValueOrException2<NoSuchPackageException, NoSuchTargetException> value =
             labelDepMap.get(entry.getValue());
         for (Label label :
-                getAspectLabels(target, entry.getKey(), entry.getValue(), value, env)) {
+                getAspectLabels((Rule) target, entry.getKey(), entry.getValue(), value, env)) {
           depKeys.add(getKey(label));
         }
       }
@@ -184,7 +184,7 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
 
   /** Get the Aspect-related Label deps for the given edge. */
   protected abstract Collection<Label> getAspectLabels(
-      Target fromTarget,
+      Rule fromRule,
       Attribute attr,
       Label toLabel,
       ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,

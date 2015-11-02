@@ -91,7 +91,7 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
   };
 
   @Override
-  public AspectDefinition getDefinition() {
+  public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     return new AspectDefinition.Builder(NAME)
         .attributeAspect("deps", AndroidStudioInfoAspect.class)
         .attributeAspect("exports", AndroidStudioInfoAspect.class)

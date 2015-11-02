@@ -77,7 +77,7 @@ public class AndroidNeverlinkAspect implements ConfiguredNativeAspectFactory {
   }
 
   @Override
-  public AspectDefinition getDefinition() {
+  public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     AspectDefinition.Builder builder = new AspectDefinition.Builder("AndroidNeverlinkAspect");
     for (String attribute : ATTRIBUTES) {
       builder.attributeAspect(attribute, AndroidNeverlinkAspect.class);

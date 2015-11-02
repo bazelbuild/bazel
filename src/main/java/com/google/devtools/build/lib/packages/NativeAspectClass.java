@@ -34,8 +34,8 @@ public final class NativeAspectClass<T extends NativeAspectClass.NativeAspectFac
   }
 
   @Override
-  public AspectDefinition getDefinition() {
-    return newInstance().getDefinition();
+  public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+    return newInstance().getDefinition(aspectParameters);
   }
 
   public T newInstance() {
@@ -66,6 +66,6 @@ public final class NativeAspectClass<T extends NativeAspectClass.NativeAspectFac
     /**
      * Returns the definition of the aspect.
      */
-    AspectDefinition getDefinition();
+    AspectDefinition getDefinition(AspectParameters aspectParameters);
   }
 }

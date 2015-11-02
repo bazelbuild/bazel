@@ -52,7 +52,7 @@ public class AspectDefinitionTest {
     }
 
     @Override
-    public AspectDefinition getDefinition() {
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       return definition;
     }
   }

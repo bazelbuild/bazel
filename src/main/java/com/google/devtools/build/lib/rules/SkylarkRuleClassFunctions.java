@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
@@ -666,7 +667,7 @@ public class SkylarkRuleClassFunctions {
     }
 
     @Override
-    public AspectDefinition getDefinition() {
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       return aspectDefinition;
     }
 

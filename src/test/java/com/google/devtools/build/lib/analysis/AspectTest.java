@@ -104,6 +104,28 @@ public class AspectTest extends AnalysisTestCase {
   }
 
   @Test
+  public void aspectWithParametrizedDefinition() throws Exception {
+    setRules(
+        new TestAspects.BaseRule(),
+        new TestAspects.HonestRule(),
+        new TestAspects.ParametrizedDefinitionAspectRule());
+
+    pkg(
+        "a",
+        "honest(name='q', foo=[])",
+        "parametrized_definition_aspect(name='a', foo=[':b'], baz='//a:q')",
+        "honest(name='c', foo=[])",
+        "honest(name='b', foo=[':c'])");
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(TestAspects.RuleInfo.class).getData())
+        .containsExactly(
+            "rule //a:a",
+            "aspect //a:b data //a:q $dep:[ //a:q]",
+            "aspect //a:c data //a:q $dep:[ //a:q]");
+  }
+
+  @Test
   public void aspectInError() throws Exception {
     setRules(new TestAspects.BaseRule(), new TestAspects.ErrorAspectRule(),
         new TestAspects.SimpleRule());

@@ -23,6 +23,7 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.base.Function;
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Aspect;
@@ -35,19 +36,24 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.util.FileTypeSet;
+
+import java.util.List;
 
 /**
  * Various rule and aspect classes that aid in testing the aspect machinery.
@@ -157,7 +163,7 @@ public class TestAspects {
    */
   public static class SimpleAspect extends BaseAspect {
     @Override
-    public AspectDefinition getDefinition() {
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       return SIMPLE_ASPECT;
     }
   }
@@ -178,7 +184,7 @@ public class TestAspects {
    */
   public static class ExtraAttributeAspect extends BaseAspect {
     @Override
-    public AspectDefinition getDefinition() {
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       return EXTRA_ATTRIBUTE_ASPECT;
     }
   }
@@ -192,7 +198,7 @@ public class TestAspects {
    */
   public static class AttributeAspect extends BaseAspect {
     @Override
-    public AspectDefinition getDefinition() {
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       return ATTRIBUTE_ASPECT;
     }
   }
@@ -202,17 +208,63 @@ public class TestAspects {
    */
   public static class ExtraAttributeAspectRequiringProvider extends BaseAspect {
     @Override
-    public AspectDefinition getDefinition() {
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       return EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER;
     }
   }
 
   public static class AspectRequiringProvider extends BaseAspect {
     @Override
-    public AspectDefinition getDefinition() {
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       return ASPECT_REQUIRING_PROVIDER;
     }
   }
+
+  /**
+   * An aspect that has a definition depending on parameters provided by originating rule.
+   */
+  public static class ParametrizedDefinitionAspect implements ConfiguredNativeAspectFactory {
+
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      AspectDefinition.Builder builder =
+          new AspectDefinition.Builder("parametrized_definition_aspect")
+              .attributeAspect("foo", ParametrizedDefinitionAspect.class);
+      ImmutableCollection<String> baz = aspectParameters.getAttribute("baz");
+      if (baz != null) {
+        try {
+          builder.add(
+              Attribute.attr("$dep", LABEL).value(Label.parseAbsolute(baz.iterator().next())));
+        } catch (LabelSyntaxException e) {
+          throw new IllegalStateException();
+        }
+      }
+      return builder.build();
+    }
+
+    public Aspect create(
+        ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
+      StringBuilder information = new StringBuilder("aspect " + ruleContext.getLabel());
+      if (!parameters.isEmpty()) {
+        information.append(" data " + Iterables.getFirst(parameters.getAttribute("baz"), null));
+        information.append(" ");
+      }
+      List<? extends TransitiveInfoCollection> deps =
+          ruleContext.getPrerequisites("$dep", Mode.TARGET);
+      information.append("$dep:[");
+      for (TransitiveInfoCollection dep : deps) {
+        information.append(" ");
+        information.append(dep.getLabel());
+      }
+      information.append("]");
+      return new Aspect.Builder(getClass().getName())
+          .addProvider(
+              AspectInfo.class,
+              new AspectInfo(collectAspectData(information.toString(), ruleContext)))
+          .build();
+    }
+  }
+
 
   private static final AspectDefinition ASPECT_REQUIRING_PROVIDER =
       new AspectDefinition.Builder("requiring_provider")
@@ -231,7 +283,7 @@ public class TestAspects {
     }
 
     @Override
-    public AspectDefinition getDefinition() {
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       return ERROR_ASPECT;
     }
   }
@@ -330,6 +382,46 @@ public class TestAspects {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("aspect_requiring_provider")
+          .factoryClass(DummyRuleFactory.class)
+          .ancestors(BaseRule.class)
+          .build();
+    }
+  }
+
+  /**
+   * A rule that defines an {@link ParametrizedDefinitionAspect} on one of its attributes.
+   */
+  public static class ParametrizedDefinitionAspectRule implements RuleDefinition {
+
+    private static final class TestAspectParametersExtractor
+        implements Function<Rule, AspectParameters> {
+      @Override
+      public AspectParameters apply(Rule rule) {
+        if (rule.isAttrDefined("baz", STRING)) {
+          String value = rule.getAttributeContainer().getAttr("baz").toString();
+          if (!value.equals("")) {
+            return new AspectParameters.Builder().addAttribute("baz", value).build();
+          }
+        }
+        return AspectParameters.EMPTY;
+      }
+    }
+
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
+      return builder
+          .add(
+              attr("foo", LABEL_LIST)
+                  .allowedFileTypes(FileTypeSet.ANY_FILE)
+                  .aspect(ParametrizedDefinitionAspect.class, new TestAspectParametersExtractor()))
+          .add(attr("baz", STRING))
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("parametrized_definition_aspect")
           .factoryClass(DummyRuleFactory.class)
           .ancestors(BaseRule.class)
           .build();

@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -892,9 +891,12 @@ public class BuildView {
     TargetAndConfiguration ctNode = new TargetAndConfiguration(target);
     ListMultimap<Attribute, Dependency> depNodeNames;
     try {
-      depNodeNames = resolver.dependentNodeMap(ctNode, configurations.getHostConfiguration(),
-          /*aspect=*/null, AspectParameters.EMPTY,
-          getConfigurableAttributeKeysForTesting(eventHandler, ctNode));
+      depNodeNames =
+          resolver.dependentNodeMap(
+              ctNode,
+              configurations.getHostConfiguration(),
+              /*aspect=*/ null,
+              getConfigurableAttributeKeysForTesting(eventHandler, ctNode));
     } catch (EvalException e) {
       throw new IllegalStateException(e);
     }

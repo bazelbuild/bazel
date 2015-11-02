@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.Aspect;
-import com.google.devtools.build.lib.analysis.AspectWithParameters;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
@@ -45,9 +44,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.AspectWithParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -186,9 +184,16 @@ final class ConfiguredTargetFunction implements SkyFunction {
         return null;
       }
 
-      ListMultimap<Attribute, ConfiguredTarget> depValueMap = computeDependencies(env, resolver,
-          ctgValue, null, AspectParameters.EMPTY, configConditions, ruleClassProvider,
-          view.getHostConfiguration(configuration), transitivePackages);
+      ListMultimap<Attribute, ConfiguredTarget> depValueMap =
+          computeDependencies(
+              env,
+              resolver,
+              ctgValue,
+              null,
+              configConditions,
+              ruleClassProvider,
+              view.getHostConfiguration(configuration),
+              transitivePackages);
       ConfiguredTargetValue ans = createConfiguredTarget(
           view, env, target, configuration, depValueMap, configConditions, transitivePackages);
       return ans;
@@ -206,34 +211,34 @@ final class ConfiguredTargetFunction implements SkyFunction {
    *
    * <p>Returns null if Skyframe hasn't evaluated the required dependencies yet. In this case, the
    * caller should also return null to Skyframe.
-   *
-   * @param env the Skyframe environment
+   *  @param env the Skyframe environment
    * @param resolver The dependency resolver
    * @param ctgValue The label and the configuration of the node
-   * @param aspectDefinition the aspect of the node (if null, the node is a configured target,
-   *     otherwise it's an aspect)
-   * @param aspectParameters additional parameters for aspect construction
+   * @param aspectWithParameters
    * @param configConditions the configuration conditions for evaluating the attributes of the node
    * @param ruleClassProvider rule class provider for determining the right configuration fragments
    *   to apply to deps
    * @param hostConfiguration the host configuration. There's a noticeable performance hit from
    *     instantiating this on demand for every dependency that wants it, so it's best to compute
    *     the host configuration as early as possible and pass this reference to all consumers
-   *     without involving Skyframe.
-   * @return an attribute -&gt; direct dependency multimap
-   */
+   * */
   @Nullable
   static ListMultimap<Attribute, ConfiguredTarget> computeDependencies(
-      Environment env, SkyframeDependencyResolver resolver, TargetAndConfiguration ctgValue,
-      AspectDefinition aspectDefinition, AspectParameters aspectParameters, 
-      Set<ConfigMatchingProvider> configConditions, RuleClassProvider ruleClassProvider,
-      BuildConfiguration hostConfiguration, NestedSetBuilder<Package> transitivePackages)
+      Environment env,
+      SkyframeDependencyResolver resolver,
+      TargetAndConfiguration ctgValue,
+      AspectWithParameters aspectWithParameters,
+      Set<ConfigMatchingProvider> configConditions,
+      RuleClassProvider ruleClassProvider,
+      BuildConfiguration hostConfiguration,
+      NestedSetBuilder<Package> transitivePackages)
       throws DependencyEvaluationException, AspectCreationException, InterruptedException {
     // Create the map from attributes to list of (target, configuration) pairs.
     ListMultimap<Attribute, Dependency> depValueNames;
     try {
-      depValueNames = resolver.dependentNodeMap(ctgValue, hostConfiguration, aspectDefinition,
-          aspectParameters, configConditions);
+      depValueNames =
+          resolver.dependentNodeMap(
+              ctgValue, hostConfiguration, aspectWithParameters, configConditions);
     } catch (EvalException e) {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(new ConfiguredValueCreationException(e.print()));
@@ -509,8 +514,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       }
       ConfiguredTarget depConfiguredTarget = configuredTargetMap.get(depKey);
       for (AspectWithParameters depAspect : dep.getAspects()) {
-        AspectClass depAspectClass = depAspect.getAspectClass();
-        if (!aspectMatchesConfiguredTarget(depConfiguredTarget, depAspectClass)) {
+        if (!aspectMatchesConfiguredTarget(depConfiguredTarget, depAspect)) {
           continue;
         }
 
@@ -525,7 +529,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
           throw new AspectCreationException(
               String.format(
                   "Evaluation of aspect %s on %s failed: %s",
-                  depAspectClass.getDefinition().getName(),
+                  depAspect.getDefinition().getName(),
                   dep.getLabel(),
                   e.toString()));
         }
@@ -550,7 +554,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   private static boolean aspectMatchesConfiguredTarget(
-      ConfiguredTarget dep, AspectClass aspectClass) {
+      ConfiguredTarget dep, AspectWithParameters aspectClass) {
     AspectDefinition aspectDefinition = aspectClass.getDefinition();
     for (Class<?> provider : aspectDefinition.getRequiredProviders()) {
       if (dep.getProvider(provider.asSubclass(TransitiveInfoProvider.class)) == null) {

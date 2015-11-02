@@ -66,7 +66,7 @@ public class J2ObjcAspect implements ConfiguredNativeAspectFactory {
   }
 
   @Override
-  public AspectDefinition getDefinition() {
+  public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     return addAttributeAspects(new AspectDefinition.Builder("J2ObjCAspect"))
         .requireProvider(JavaSourceInfoProvider.class)
         .requireProvider(JavaCompilationArgsProvider.class)

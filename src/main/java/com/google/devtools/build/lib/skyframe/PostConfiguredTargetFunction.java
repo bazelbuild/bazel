@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -102,8 +101,9 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     try {
       BuildConfiguration hostConfiguration =
           buildViewProvider.getSkyframeBuildView().getHostConfiguration(ct.getConfiguration());
-      deps = resolver.dependentNodeMap(ctgValue, hostConfiguration, /*aspect=*/null,
-          AspectParameters.EMPTY, configConditions);
+      deps =
+          resolver.dependentNodeMap(
+              ctgValue, hostConfiguration, /*aspect=*/ null, configConditions);
       if (ct.getConfiguration() != null && ct.getConfiguration().useDynamicConfigurations()) {
         deps = ConfiguredTargetFunction.trimConfigurations(env, ctgValue, deps, hostConfiguration,
             ruleClassProvider);

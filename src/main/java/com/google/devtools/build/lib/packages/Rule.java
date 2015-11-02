@@ -691,7 +691,7 @@ public final class Rule implements Target {
       BinaryPredicate<Rule, Attribute> predicate) {
     LinkedHashMultimap<Attribute, Label> labels = LinkedHashMultimap.create();
     for (Attribute attribute : this.getAttributes()) {
-      for (AspectClass candidateClass : attribute.getAspects()) {
+      for (AspectWithParameters candidateClass : attribute.getAspectsWithParameters(this)) {
         AspectDefinition.addAllAttributesOfAspect(
             Rule.this, labels, candidateClass.getDefinition(), predicate);
       }

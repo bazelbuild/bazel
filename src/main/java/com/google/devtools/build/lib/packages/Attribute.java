@@ -20,7 +20,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
@@ -1346,10 +1345,12 @@ public final class Attribute implements Comparable<Attribute> {
   /**
    * Returns set of pairs of aspect factories and corresponding aspect parameters.
    */
-  public ImmutableMap<AspectClass, AspectParameters> getAspectsWithParameters(Rule rule) {
-    ImmutableMap.Builder<AspectClass, AspectParameters> builder = ImmutableMap.builder();
+  public ImmutableList<AspectWithParameters> getAspectsWithParameters(Rule rule) {
+    ImmutableList.Builder<AspectWithParameters> builder = ImmutableList.builder();
     for (RuleAspect aspect : aspects) {
-      builder.put(aspect.getAspectFactory(), aspect.getParametersExtractor().apply(rule));
+      builder.add(
+          new AspectWithParameters(
+              aspect.getAspectFactory(), aspect.getParametersExtractor().apply(rule)));
     }
     return builder.build();
   }

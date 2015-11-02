@@ -150,7 +150,7 @@ public class TransitiveTargetFunction
     return builder.build(errorLoadingTarget);
   }
 
-  protected Collection<Label> getAspectLabels(Target fromTarget, Attribute attr, Label toLabel,
+  protected Collection<Label> getAspectLabels(Rule fromRule, Attribute attr, Label toLabel,
       ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
       Environment env) {
     SkyKey packageKey = PackageValue.key(toLabel.getPackageIdentifier());
@@ -167,7 +167,7 @@ public class TransitiveTargetFunction
         return ImmutableList.of();
       }
       Target dependedTarget = pkgValue.getPackage().getTarget(toLabel.getName());
-      return AspectDefinition.visitAspectsIfRequired(fromTarget, attr, dependedTarget).values();
+      return AspectDefinition.visitAspectsIfRequired(fromRule, attr, dependedTarget).values();
     } catch (NoSuchThingException e) {
       // Do nothing. This error was handled when we computed the corresponding
       // TransitiveTargetValue.

@@ -52,7 +52,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 public abstract class AbstractJ2ObjcProtoAspect implements ConfiguredNativeAspectFactory {
   public static final String NAME = "J2ObjcProtoAspect";
 
-  public AspectDefinition getDefinition() {
+  public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     AspectDefinition.Builder builder = new AspectDefinition.Builder("J2ObjcProtoAspect")
         .requireProvider(ProtoSourcesProvider.class)
         .attributeAspect("deps", getClass())

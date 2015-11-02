@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
-import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.TransitiveTraversalFunction.FirstErrorMessageAccumulator;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -83,7 +83,7 @@ public class TransitiveTraversalFunction
     }
   }
 
-  protected Collection<Label> getAspectLabels(Target fromTarget, Attribute attr, Label toLabel,
+  protected Collection<Label> getAspectLabels(Rule fromRule, Attribute attr, Label toLabel,
       ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal, Environment env) {
     try {
       if (toVal == null) {
@@ -96,7 +96,7 @@ public class TransitiveTraversalFunction
       // Retrieve the providers of the dep from the TransitiveTraversalValue, so we can avoid
       // issuing a dep on its defining Package.
       Set<String> providers = traversalVal.getProviders();
-      return AspectDefinition.visitAspectsIfRequired(fromTarget, attr, providers).values();
+      return AspectDefinition.visitAspectsIfRequired(fromRule, attr, providers).values();
     } catch (NoSuchThingException e) {
       // Do nothing. This error was handled when we computed the corresponding
       // TransitiveTargetValue.

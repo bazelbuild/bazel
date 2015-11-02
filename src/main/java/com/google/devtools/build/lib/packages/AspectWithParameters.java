@@ -11,18 +11,16 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.analysis;
+package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.packages.AspectClass;
-import com.google.devtools.build.lib.packages.AspectParameters;
 
 import java.util.Objects;
 
 /**
- * Wrapper around {@link ConfiguredAspectFactory} class and {@link AspectParameters}. Aspects are
+ * Wrapper around {@link AspectClass} class and {@link AspectParameters}. Aspects are
  * created with help of aspect factory instances and parameters are used to configure them, so we
- * have to keep them together. 
+ * have to keep them together.
  */
 public final class AspectWithParameters {
   // TODO(bazel-team): class objects are not really hashable or comparable for equality other than
@@ -32,14 +30,14 @@ public final class AspectWithParameters {
   private final AspectParameters parameters;
 
   public AspectWithParameters(AspectClass aspect, AspectParameters parameters) {
+    Preconditions.checkNotNull(aspect);
     Preconditions.checkNotNull(parameters);
     this.aspectClass = aspect;
     this.parameters = parameters;
   }
 
   public AspectWithParameters(AspectClass aspect) {
-    this.aspectClass = aspect;
-    this.parameters = AspectParameters.EMPTY;
+    this(aspect, AspectParameters.EMPTY);
   }
 
   /**
@@ -77,5 +75,9 @@ public final class AspectWithParameters {
   @Override
   public String toString() {
     return String.format("AspectWithParameters %s(%s)", aspectClass, parameters);
+  }
+
+  public AspectDefinition getDefinition() {
+    return aspectClass.getDefinition(parameters);
   }
 }
