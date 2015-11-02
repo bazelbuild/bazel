@@ -20,9 +20,9 @@ new_http_archive(
 # android_sdk_repository(
 #     name = "androidsdk",
 #     path = "/path/to/sdk",
-#     # Available versions are under build-tools/.
+#     # Available versions are under /path/to/sdk/build-tools/.
 #     build_tools_version = "21.1.1",
-#     # Available versions are under platforms/.
+#     # Available versions are under /path/to/sdk/platforms/.
 #     api_level = 19,
 # )
 
