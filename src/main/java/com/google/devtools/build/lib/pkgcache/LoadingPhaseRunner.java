@@ -89,57 +89,6 @@ public final class LoadingPhaseRunner {
     void notifyVisitedPackages(Set<PackageIdentifier> visitedPackages);
   }
 
-  /**
-   * The result of the loading phase, i.e., whether there were errors, and which targets were
-   * successfully loaded, plus some related metadata.
-   */
-  public static final class LoadingResult {
-    private final boolean hasTargetPatternError;
-    private final boolean hasLoadingError;
-    private final ImmutableSet<Target> targetsToAnalyze;
-    private final ImmutableSet<Target> testsToRun;
-    private final ImmutableMap<PackageIdentifier, Path> packageRoots;
-
-    public LoadingResult(boolean hasTargetPatternError, boolean hasLoadingError,
-        Collection<Target> targetsToAnalyze, Collection<Target> testsToRun,
-        ImmutableMap<PackageIdentifier, Path> packageRoots) {
-      this.hasTargetPatternError = hasTargetPatternError;
-      this.hasLoadingError = hasLoadingError;
-      this.targetsToAnalyze =
-          targetsToAnalyze == null ? null : ImmutableSet.copyOf(targetsToAnalyze);
-      this.testsToRun = testsToRun == null ? null : ImmutableSet.copyOf(testsToRun);
-      this.packageRoots = packageRoots;
-    }
-
-    /** Whether there were errors during target pattern evaluation. */
-    public boolean hasTargetPatternError() {
-      return hasTargetPatternError;
-    }
-
-    /** Whether there were errors during the loading phase. */
-    public boolean hasLoadingError() {
-      return hasLoadingError;
-    }
-
-    /** Successfully loaded targets that should be built. */
-    public Collection<Target> getTargets() {
-      return targetsToAnalyze;
-    }
-
-    /** Successfully loaded targets that should be run as tests. Must be a subset of the targets. */
-    public Collection<Target> getTestsToRun() {
-      return testsToRun;
-    }
-
-    /**
-     * The map from package names to the package root where each package was found; this is used to
-     * set up the symlink tree.
-     */
-    public ImmutableMap<PackageIdentifier, Path> getPackageRoots() {
-      return packageRoots;
-    }
-  }
-
   private static final class ParseFailureListenerImpl extends DelegatingEventHandler
       implements ParseFailureListener {
     private final EventBus eventBus;
