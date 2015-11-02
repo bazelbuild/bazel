@@ -61,15 +61,15 @@ be refined if appropriate.
       <td rowspan="9"><b>2015&#8209;03</b></td>
       <td>Linux &amp; OS X Support</td>
     </tr>
-    <tr><td>C++ (<a href="http://bazel.io/docs/build-encyclopedia.html#cc_binary">build</a> and <a href="http://bazel.io/docs/build-encyclopedia.html#cc_test">test</a>)</td></tr>
-    <tr><td>Java (<a href="http://bazel.io/docs/build-encyclopedia.html#java_binary">build</a> and <a href="http://bazel.io/docs/build-encyclopedia.html#java_test">test</a>)</td></tr>
-    <tr><td>Objective-C for iOS (<a href="http://bazel.io/docs/build-encyclopedia.html#objc_binary">build</a>)</td></tr>
-    <tr><td>Python (<a href="http://bazel.io/docs/build-encyclopedia.html#py_binary">build</a>)</td></tr>
-    <tr><td>iOS applications (<a href="http://bazel.io/docs/build-encyclopedia.html#ios_application">build</a>)</td></tr>
+    <tr><td>C++ (<a href="http://bazel.io/docs/be/c-cpp.html#cc_binary">build</a> and <a href="http://bazel.io/docs/be/c-cpp.html#cc_test">test</a>)</td></tr>
+    <tr><td>Java (<a href="http://bazel.io/docs/be/java.html#java_binary">build</a> and <a href="http://bazel.io/docs/be/java.html#java_test">test</a>)</td></tr>
+    <tr><td>Objective-C for iOS (<a href="http://bazel.io/docs/be/objective-c.html#objc_binary">build</a>)</td></tr>
+    <tr><td>Python (<a href="http://bazel.io/docs/be/python.html#py_binary">build</a>)</td></tr>
+    <tr><td>iOS applications (<a href="http://bazel.io/docs/be/objective-c.html#ios_application">build</a>)</td></tr>
     <tr><td>Skylark extension mechanism (<a href="http://bazel.io/docs/skylark/index.html">build</a>)</td></tr>
     <tr><td>Basic test suite on GitHub</td></tr>
-    <tr><td>Support for fetching dependencies from <a href="http://bazel.io/docs/build-encyclopedia.html#maven_jar">Maven repositories</a>
-        and <a href="http://bazel.io/docs/build-encyclopedia.html#http_archive">web servers</a></td></tr>
+    <tr><td>Support for fetching dependencies from <a href="http://bazel.io/docs/be/workspace.html#maven_jar">Maven repositories</a>
+        and <a href="http://bazel.io/docs/be/workspace.html#http_archive">web servers</a></td></tr>
     <tr>
       <td rowspan="23"><b><a name="beta"></a>Beta</b></td>
       <td rowspan="9"><b>0.1</b></td>
@@ -78,12 +78,12 @@ be refined if appropriate.
     </tr>
     <tr><td>P0. Public <a href="http://ci.bazel.io">continuous integration system</a></td></tr>
     <tr><td>P0. Support for <a href="http://bazel.io/docs/external.html">fetching transitive dependencies from Maven Central</a></td></tr>
-    <tr><td>P0. Android application (<a href="http://bazel.io/docs/build-encyclopedia.html#android_binary">build</a>
+    <tr><td>P0. Android application (<a href="http://bazel.io/docs/be/android.html#android_binary">build</a>
         and <a href="http://bazel.io/docs/bazel-user-manual.html#mobile-install">install</a>)</td></tr>
     <tr><td>P1. Support for <a href="http://bazel.io/docs/external.html">prefetching and caching remote dependencies</a></td></tr>
-    <tr><td>P1. Docker (<a href="https://github.com/google/bazel/blob/master/tools/build_defs/docker/README.md">build and load</a>)</td></tr>
+    <tr><td>P1. Docker (<a href="http://bazel.io/docs/be/docker.html">build and load</a>)</td></tr>
     <tr><td>P2. <a href="http://bazel.io/docs/bazel-user-manual.html#sandboxing">Sandboxing of actions for Linux</a></td></tr>
-    <tr><td>P2. AppEngine (<a href="https://github.com/google/bazel/blob/master/tools/build_rules/appengine/README.md">build and load</a>)</td></tr>
+    <tr><td>P2. AppEngine (<a href="http://bazel.io/docs/be/appengine.html">build and load</a>)</td></tr>
     <tr><td>P2. <a href="http://bazel.io/blog/2015/07/29/dashboard-dogfood.html">Test result dashboard</a></tr></td>
     <tr>
       <td rowspan="3"><b>0.2</b></td>

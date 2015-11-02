@@ -77,7 +77,7 @@ identifier you'll use when you ask bazel to build the binary. `srcs` lists the
 Java source files Bazel should compile into a Java binary.
 `glob(["**/*.java"])` is a handy shorthand for "recursively include every file
 that ends with .java" (see the
-[build encyclopedia](build-encyclopedia.html#glob) for more information about
+[build encyclopedia](be/functions.html#glob) for more information about
 globbing). `com.example.ProjectRunner` specifies the class that contains the
 main method.
 
@@ -221,7 +221,7 @@ INFO: Running command line: bazel-bin/src/main/java/com/example/cmdline/runner
 Hi!
 {% endhighlight %}
 
-See the [build encyclopedia](build-encyclopedia.html#common.visibility) for more
+See the [build encyclopedia](be/common-definitions.html#common.visibility) for more
 visibility options.
 
 ## Deploying
@@ -261,7 +261,7 @@ INFO: Elapsed time: 1.700s, Critical Path: 0.23s
 You can now create your own targets and compose them. Next, check out the
 [tutorial](/docs/tutorial/index.html) to learn how to build a server backend,
 Android app, and iOS app with Bazel. Also see the
-[build encyclopedia](build-encyclopedia.html) and
+[build encyclopedia](be/overview.html) and
 [user manual](bazel-user-manual.html) for more information.
 [Let us know](https://groups.google.com/forum/#!forum/bazel-discuss) if you have
 any questions!

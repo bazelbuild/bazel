@@ -14,7 +14,7 @@ External dependencies can be specified in a `WORKSPACE` file in the
 [workspace directory](/docs/build-ref.html#workspaces). This `WORKSPACE` file
 uses the same Python-like syntax of BUILD files, but allows a different set of
 rules. See the full list of rules that are allowed in the
-[Workspace](/docs/build-encyclopedia.html#workspace) list of rules in the Build
+[Workspace](/docs/be/workspace.html) list of rules in the Build
 Encyclopedia.
 
 ## Fetching dependencies
@@ -99,8 +99,8 @@ There are a few basic types of external dependencies that can be created.
 
 If you have a second Bazel project that you'd like to use targets from, you can
 use
-[`local_repository`](http://bazel.io/docs/build-encyclopedia.html#local_repository)
-or [`http_archive`](http://bazel.io/docs/build-encyclopedia.html#http_archive)
+[`local_repository`](http://bazel.io/docs/be/workspace.html#local_repository)
+or [`http_archive`](http://bazel.io/docs/be/workspace.html#http_archive)
 to symlink it from the local filesystem or download it (respectively).
 
 For example, suppose you are working on a project, `my-project/`, and you want
@@ -122,8 +122,8 @@ If your coworker has a target `//foo:bar`, your project can refer to it as
 ## Depending on non-Bazel projects
 
 Rules prefixed with `new_` (e.g.,
-[`new_local_repository`](http://bazel.io/docs/build-encyclopedia.html#new_local_repository)
-and [`new_http_archive`](http://bazel.io/docs/build-encyclopedia.html#new_http_archive)
+[`new_local_repository`](http://bazel.io/docs/be/workspace.html#new_local_repository)
+and [`new_http_archive`](http://bazel.io/docs/be/workspace.html#new_http_archive)
 ) allow you to create targets from projects that do not use Bazel.
 
 For example, suppose you are working on a project, `my-project/`, and you want

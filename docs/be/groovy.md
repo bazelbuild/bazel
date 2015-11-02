@@ -178,7 +178,7 @@ groovy_library(name, srcs, deps, **kwargs)
     <tr>
       <td><code>**kwargs</code></td>
       <td>
-        <code>see <a href="http://bazel.io/docs/build-encyclopedia.html#java_import">java_binary</a></code>
+        <code>see <a href="http://bazel.io/docs/be/java.html#java_import">java_binary</a></code>
         <p>
           The other arguments of this rule will be passed to the `java_import`
           that wraps the groovy library.
@@ -237,7 +237,7 @@ groovy_and_java_library(name, srcs, deps, **kwargs)
     <tr>
       <td><code>**kwargs</code></td>
       <td>
-        <code>see <a href="http://bazel.io/docs/build-encyclopedia.html#java_import">java_binary</a></code>
+        <code>see <a href="http://bazel.io/docs/be/java.html#java_import">java_binary</a></code>
         <p>
           The other arguments of this rule will be passed to the `java_import`
           that wraps the groovy library.
@@ -309,7 +309,7 @@ groovy_binary(name, main_class, srcs, deps, **kwargs)
     <tr>
       <td><code>**kwargs</code></td>
       <td>
-        <code>see <a href="http://bazel.io/docs/build-encyclopedia.html#java_binary">java_binary</a></code>
+        <code>see <a href="http://bazel.io/docs/be/java.html#java_binary">java_binary</a></code>
         <p>
           The other arguments of this rule will be passed to the `java_binary`
           underlying the `groovy_binary`.

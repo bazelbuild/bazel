@@ -24,7 +24,7 @@ Our beta release provides:
 * Binary releases for
   [Linux and OS X](https://github.com/bazelbuild/bazel/releases).
 * Support for building and testing C++, Java, Python, Rust,
-  [and more](http://bazel.io/docs/build-encyclopedia.html).
+  [and more](http://bazel.io/docs/be/overview.html).
 * Support for building Docker images, Android apps, and iOS apps.
 * Support for using libraries from
   [Maven, GitHub, and more](http://bazel.io/docs/external.html).

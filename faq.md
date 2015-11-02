@@ -386,9 +386,9 @@ Can I use Bazel for my [INSERT LANGUAGE HERE] project?
 We have an extension mechanism called Skylark that allows you to add new rules
 without recompiling Bazel.
 
-For documentation: see [here](docs/skylark/index.html). We have support for
+For documentation: see [here](/docs/skylark/index.html). We have support for
 several languages that use that extension mechanism, see our
-[build encyclopedia](http://bazel.io/docs/build-encyclopedia.html) for the full
+[build encyclopedia](/docs/be/overview.html) for the full
 list of supported languages.
 
 I need more functionality. Can I add rules that are compiled into Bazel?
