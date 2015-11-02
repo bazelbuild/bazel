@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
+import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommandEventHandler;
 import com.google.devtools.build.lib.util.OptionsUtils;
@@ -313,7 +313,7 @@ public class BuildRequest implements OptionsClassProvider {
   private static final List<Class<? extends OptionsBase>> MANDATORY_OPTIONS = ImmutableList.of(
           BuildRequestOptions.class,
           PackageCacheOptions.class,
-          LoadingPhaseRunner.Options.class,
+          LoadingOptions.class,
           BuildView.Options.class,
           ExecutionOptions.class);
 
@@ -431,8 +431,8 @@ public class BuildRequest implements OptionsClassProvider {
   /**
    * Returns the set of options related to the loading phase.
    */
-  public LoadingPhaseRunner.Options getLoadingOptions() {
-    return getOptions(LoadingPhaseRunner.Options.class);
+  public LoadingOptions getLoadingOptions() {
+    return getOptions(LoadingOptions.class);
   }
 
   /**

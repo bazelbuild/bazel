@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildRequest.BuildRequestOptions;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
+import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -42,7 +42,7 @@ import java.util.List;
                      ExecutionOptions.class,
                      PackageCacheOptions.class,
                      BuildView.Options.class,
-                     LoadingPhaseRunner.Options.class,
+                     LoadingOptions.class,
                      BuildConfiguration.Options.class,
                    },
          usesConfigurationOptions = true,

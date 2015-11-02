@@ -34,17 +34,11 @@ import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTargetUtils;
-import com.google.devtools.build.lib.packages.TestTimeout;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionsBase;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -73,87 +67,7 @@ import javax.annotation.Nullable;
  * <p>For full caching, this class tracks the exact values of all inputs to the loading phase. To
  * maximize caching, it is vital that these change as rarely as possible.
  */
-public class LoadingPhaseRunner {
-
-  /**
-   * Loading phase options.
-   */
-  public static class Options extends OptionsBase {
-
-    @Option(name = "loading_phase_threads",
-        defaultValue = "200",
-        category = "undocumented",
-        help = "Number of parallel threads to use for the loading phase.")
-    public int loadingPhaseThreads;
-
-    @Option(name = "build_tests_only",
-        defaultValue = "false",
-        category = "what",
-        help = "If specified, only *_test and test_suite rules will be built "
-          + "and other targets specified on the command line will be ignored. "
-          + "By default everything that was requested will be built.")
-    public boolean buildTestsOnly;
-
-    @Option(name = "compile_one_dependency",
-            defaultValue = "false",
-            category = "what",
-            help = "Compile a single dependency of the argument files.  "
-            + "This is useful for syntax checking source files in IDEs, "
-            + "for example, by rebuilding a single target that depends on "
-            + "the source file to detect errors as early as possible in the "
-            + "edit/build/test cycle.  This argument affects the way all "
-            + "non-flag arguments are interpreted; instead of being targets "
-            + "to build they are source filenames.  For each source filename "
-            + "an arbitrary target that depends on it will be built.")
-    public boolean compileOneDependency;
-
-    @Option(name = "test_tag_filters",
-        converter = CommaSeparatedOptionListConverter.class,
-        defaultValue = "",
-        category = "what",
-        help = "Specifies a comma-separated list of test tags. Each tag can be optionally " +
-               "preceded with '-' to specify excluded tags. Only those test targets will be " +
-               "found that contain at least one included tag and do not contain any excluded " +
-               "tags. This option affects --build_tests_only behavior and the test command."
-        )
-    public List<String> testTagFilterList;
-
-    @Option(name = "test_size_filters",
-        converter = TestSize.TestSizeFilterConverter.class,
-        defaultValue = "",
-        category = "what",
-        help = "Specifies a comma-separated list of test sizes. Each size can be optionally " +
-               "preceded with '-' to specify excluded sizes. Only those test targets will be " +
-               "found that contain at least one included size and do not contain any excluded " +
-               "sizes. This option affects --build_tests_only behavior and the test command."
-        )
-    public Set<TestSize> testSizeFilterSet;
-
-    @Option(name = "test_timeout_filters",
-        converter = TestTimeout.TestTimeoutFilterConverter.class,
-        defaultValue = "",
-        category = "what",
-        help = "Specifies a comma-separated list of test timeouts. Each timeout can be " +
-               "optionally preceded with '-' to specify excluded timeouts. Only those test " +
-               "targets will be found that contain at least one included timeout and do not " +
-               "contain any excluded timeouts. This option affects --build_tests_only behavior " +
-               "and the test command."
-        )
-    public Set<TestTimeout> testTimeoutFilterSet;
-
-    @Option(name = "test_lang_filters",
-        converter = CommaSeparatedOptionListConverter.class,
-        defaultValue = "",
-        category = "what",
-        help = "Specifies a comma-separated list of test languages. Each language can be " +
-               "optionally preceded with '-' to specify excluded languages. Only those " +
-               "test targets will be found that are written in the specified languages. " +
-               "The name used for each language should be the same as the language prefix in the " +
-               "*_test rule, e.g. one of 'cc', 'java', 'py', etc." +
-               "This option affects --build_tests_only behavior and the test command."
-        )
-    public List<String> testLangFilterList;
-  }
+public final class LoadingPhaseRunner {
 
   /**
    * A callback interface to notify the caller about specific events.
@@ -286,7 +200,7 @@ public class LoadingPhaseRunner {
    * given build configuration provider.
    */
   public LoadingResult execute(EventHandler eventHandler, EventBus eventBus,
-      List<String> targetPatterns, Options options,
+      List<String> targetPatterns, LoadingOptions options,
       ListMultimap<String, Label> labelsToLoadUnconditionally, boolean keepGoing,
       boolean enableLoading, boolean determineTests, @Nullable Callback callback)
           throws TargetParsingException, LoadingFailedException, InterruptedException {
@@ -587,7 +501,7 @@ public class LoadingPhaseRunner {
    *
    * @param targetPatterns the list of command-line target patterns specified by the user
    * @param compileOneDependency if true, enables alternative interpretation of targetPatterns; see
-   *     {@link Options#compileOneDependency}
+   *     {@link LoadingOptions#compileOneDependency}
    * @throws TargetParsingException if parsing failed and !keepGoing
    */
   private ResolvedTargets<Target> getTargetsToBuild(EventHandler eventHandler,
@@ -613,7 +527,7 @@ public class LoadingPhaseRunner {
    * @param keepGoing value of the --keep_going flag
    */
   private ResolvedTargets<Target> determineTests(EventHandler eventHandler,
-      List<String> targetPatterns, Options options, boolean keepGoing)
+      List<String> targetPatterns, LoadingOptions options, boolean keepGoing)
           throws TargetParsingException, InterruptedException {
     // Parse the targets to get the tests.
     ResolvedTargets<Target> testTargetsBuilder = targetPatternEvaluator.parseTargetPatternList(

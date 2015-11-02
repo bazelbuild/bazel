@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
+import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -240,8 +241,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected void update(EventBus eventBus, FlagBuilder config, String... labels) throws Exception {
     Set<Flag> flags = config.flags;
 
-    LoadingPhaseRunner.Options loadingOptions =
-        Options.getDefaults(LoadingPhaseRunner.Options.class);
+    LoadingOptions loadingOptions = Options.getDefaults(LoadingOptions.class);
     loadingOptions.loadingPhaseThreads = LOADING_PHASE_THREADS;
 
     BuildView.Options viewOptions = optionsParser.getOptions(BuildView.Options.class);

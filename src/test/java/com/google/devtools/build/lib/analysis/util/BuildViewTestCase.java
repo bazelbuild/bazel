@@ -100,6 +100,7 @@ import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
+import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -1295,8 +1296,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       EventBus eventBus)
       throws Exception {
 
-    LoadingPhaseRunner.Options loadingOptions =
-        Options.getDefaults(LoadingPhaseRunner.Options.class);
+    LoadingOptions loadingOptions = Options.getDefaults(LoadingOptions.class);
     loadingOptions.loadingPhaseThreads = loadingPhaseThreads;
 
     BuildView.Options viewOptions = Options.getDefaults(BuildView.Options.class);
