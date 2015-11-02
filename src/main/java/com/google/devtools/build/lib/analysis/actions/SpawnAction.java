@@ -839,7 +839,7 @@ public class SpawnAction extends AbstractAction {
     }
 
     /**
-     * Appends the argument both to the ouputs and to the list of command-line
+     * Appends the argument both to the outputs and to the list of command-line
      * arguments.
      */
     public Builder addOutputArgument(Artifact argument) {

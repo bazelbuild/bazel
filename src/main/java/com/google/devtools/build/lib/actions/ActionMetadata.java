@@ -34,7 +34,7 @@ public interface ActionMetadata {
    * message should be reported.
    */
   @Nullable
-  public String getProgressMessage();
+  String getProgressMessage();
 
   /**
    * Returns the owner of this executable if this executable can supply verbose information. This is
@@ -44,7 +44,7 @@ public interface ActionMetadata {
    * <p>If this executable does not supply verbose information, this function may throw an
    * IllegalStateException.
    */
-  public ActionOwner getOwner();
+  ActionOwner getOwner();
 
   /**
    * Returns a mnemonic (string constant) for this kind of action; written into
@@ -71,7 +71,7 @@ public interface ActionMetadata {
    *   executor parameter of the top-level call to
    *   Builder.buildArtifacts().
    */
-  public String describeStrategy(Executor executor);
+  String describeStrategy(Executor executor);
 
   /**
    * Returns true iff the getInputs set is known to be complete.
@@ -124,7 +124,7 @@ public interface ActionMetadata {
    * orphaned (not consumed by any downstream {@link Action}s and potentially
    * discarded during the build process.
    */
-  public ImmutableSet<Artifact> getMandatoryOutputs();
+  ImmutableSet<Artifact> getMandatoryOutputs();
 
   /**
    * Returns the "primary" input of this action, if applicable.
