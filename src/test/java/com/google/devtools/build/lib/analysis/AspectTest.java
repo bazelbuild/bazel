@@ -14,10 +14,24 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode.TARGET;
+import static com.google.devtools.build.lib.analysis.util.TestAspects.EMPTY_LATE_BOUND_LABEL;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
+import com.google.devtools.build.lib.analysis.util.TestAspects.AspectInfo;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AspectRequiringRule;
+import com.google.devtools.build.lib.analysis.util.TestAspects.BaseRule;
+import com.google.devtools.build.lib.analysis.util.TestAspects.DummyRuleFactory;
+import com.google.devtools.build.lib.analysis.util.TestAspects.RuleInfo;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 
 import org.junit.After;
@@ -46,7 +60,6 @@ public class AspectTest extends AnalysisTestCase {
     super.tearDown();
   }
 
-  @SafeVarargs
   private final void setRules(RuleDefinition... rules) throws Exception {
     ConfiguredRuleClassProvider.Builder builder =
         new ConfiguredRuleClassProvider.Builder();
@@ -71,7 +84,7 @@ public class AspectTest extends AnalysisTestCase {
         "aspect(name='b', foo=[])");
 
     ConfiguredTarget a = getConfiguredTarget("//a:a");
-    assertThat(a.getProvider(TestAspects.RuleInfo.class).getData())
+    assertThat(a.getProvider(RuleInfo.class).getData())
         .containsExactly("aspect //a:b", "rule //a:a");
   }
 
@@ -85,8 +98,7 @@ public class AspectTest extends AnalysisTestCase {
         "liar(name='b', foo=[])");
 
     ConfiguredTarget a = getConfiguredTarget("//a:a");
-    assertThat(a.getProvider(TestAspects.RuleInfo.class).getData())
-        .containsExactly("rule //a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData()).containsExactly("rule //a:a");
   }
 
   @Test
@@ -99,7 +111,7 @@ public class AspectTest extends AnalysisTestCase {
         "honest(name='b', foo=[])");
 
     ConfiguredTarget a = getConfiguredTarget("//a:a");
-    assertThat(a.getProvider(TestAspects.RuleInfo.class).getData())
+    assertThat(a.getProvider(RuleInfo.class).getData())
         .containsExactly("rule //a:a", "aspect //a:b");
   }
 
@@ -179,7 +191,7 @@ public class AspectTest extends AnalysisTestCase {
         "aspect(name='b', foo=[])");
 
     ConfiguredTarget a = getConfiguredTarget("//a:a");
-    assertThat(a.getProvider(TestAspects.RuleInfo.class).getData())
+    assertThat(a.getProvider(RuleInfo.class).getData())
         .containsExactly("aspect //a:b", "rule //a:a");
   }
 
@@ -193,8 +205,65 @@ public class AspectTest extends AnalysisTestCase {
         "honest(name='b', foo=[])");
 
     ConfiguredTarget a = getConfiguredTarget("//a:a");
-    assertThat(a.getProvider(TestAspects.RuleInfo.class).getData())
+    assertThat(a.getProvider(RuleInfo.class).getData())
         .containsExactly("rule //a:a", "aspect //a:b data hello");
+  }
+
+  /**
+   * Rule definitions to be used in emptyAspectAttributesAreAvailableInRuleContext().
+   */
+  public static class EmptyAspectAttributesAreAvailableInRuleContext {
+    public static class TestRule implements RuleDefinition {
+      @Override
+      public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
+        return builder
+            .add(attr("foo", LABEL_LIST).legacyAllowAnyFileType()
+                .aspect(AspectWithEmptyLateBoundAttribute.class))
+            .build();
+      }
+
+      @Override
+      public Metadata getMetadata() {
+        return RuleDefinition.Metadata.builder().name("testrule")
+            .factoryClass(DummyRuleFactory.class).ancestors(BaseRule.class).build();
+      }
+    }
+
+    public static class AspectWithEmptyLateBoundAttribute implements ConfiguredNativeAspectFactory {
+      @Override
+      public AspectDefinition getDefinition(AspectParameters params) {
+        return new AspectDefinition.Builder("testaspect")
+            .add(attr(":late", LABEL).value(EMPTY_LATE_BOUND_LABEL)).build();
+      }
+
+      @Override
+      public Aspect create(ConfiguredTarget base,
+          RuleContext ruleContext, AspectParameters parameters) throws InterruptedException {
+        Object lateBoundPrereq = ruleContext.getPrerequisite(":late", TARGET);
+        return new Aspect.Builder("testaspect")
+            .addProvider(
+                new AspectInfo(NestedSetBuilder.create(
+                    Order.STABLE_ORDER, lateBoundPrereq != null ? "non-empty" : "empty")))
+            .build();
+      }
+    }
+  }
+
+  /**
+   * An Aspect has a late-bound attribute with no value (that is, a LateBoundLabel whose
+   * getDefault() returns `null`).
+   * Test that this attribute is available in the RuleContext which is provided to the Aspect's
+   * `create()` method.
+   */
+  @Test
+  public void emptyAspectAttributesAreAvailableInRuleContext() throws Exception {
+    setRules(new TestAspects.BaseRule(),
+        new EmptyAspectAttributesAreAvailableInRuleContext.TestRule());
+    pkg("a",
+        "testrule(name='a', foo=[':b'])",
+        "testrule(name='b')");
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData()).contains("empty");
   }
 
   @RunWith(JUnit4.class)

@@ -136,7 +136,7 @@ public final class RuleContext extends TargetContext
   private final Set<ConfigMatchingProvider> configConditions;
   private final AttributeMap attributes;
   private final ImmutableSet<String> features;
-  private final Map<String, Attribute> attributeMap;
+  private final Map<String, Attribute> aspectAttributes;
   private final BuildConfiguration hostConfiguration;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
   private final ErrorReporter reporter;
@@ -148,7 +148,7 @@ public final class RuleContext extends TargetContext
 
   private RuleContext(Builder builder, ListMultimap<String, ConfiguredTarget> targetMap,
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap,
-      Set<ConfigMatchingProvider> configConditions, Map<String, Attribute> attributeMap) {
+      Set<ConfigMatchingProvider> configConditions, Map<String, Attribute> aspectAttributes) {
     super(builder.env, builder.rule, builder.configuration, builder.prerequisiteMap.get(null),
         builder.visibility);
     this.rule = builder.rule;
@@ -159,7 +159,7 @@ public final class RuleContext extends TargetContext
     this.attributes =
         ConfiguredAttributeMapper.of(builder.rule, configConditions);
     this.features = getEnabledFeatures();
-    this.attributeMap = attributeMap;
+    this.aspectAttributes = aspectAttributes;
     this.hostConfiguration = builder.hostConfiguration;
     reporter = builder.reporter;
   }
@@ -561,16 +561,11 @@ public final class RuleContext extends TargetContext
   }
 
   private Attribute getAttribute(String attributeName) {
-    // TODO(bazel-team): We should check original rule for such attribute first, because aspect
-    // can't contain empty attribute. Consider changing type of prerequisiteMap from
-    // ListMultimap<Attribute, ConfiguredTarget> to Map<Attribute, List<ConfiguredTarget>>. This can
-    // also simplify logic in DependencyResolver#resolveExplicitAttributes.
     Attribute result = getRule().getAttributeDefinition(attributeName);
     if (result != null) {
       return result;
     }
-    // Also this attribute can come from aspects, so we also have to check attributeMap.
-    return attributeMap.get(attributeName);
+    return aspectAttributes.get(attributeName);
   }
 
   /**
@@ -1239,6 +1234,7 @@ public final class RuleContext extends TargetContext
     private ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap;
     private Set<ConfigMatchingProvider> configConditions;
     private NestedSet<PackageSpecification> visibility;
+    private Map<String, Attribute> aspectAttributes;
 
     Builder(AnalysisEnvironment env, Rule rule, BuildConfiguration configuration,
         BuildConfiguration hostConfiguration,
@@ -1259,14 +1255,8 @@ public final class RuleContext extends TargetContext
       ListMultimap<String, ConfiguredTarget> targetMap = createTargetMap();
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap =
           createFilesetEntryMap(rule, configConditions);
-      Map<String, Attribute> attributeMap = new HashMap<>();
-      for (Attribute attribute : prerequisiteMap.keySet()) {
-        if (attribute == null) {
-          continue;
-        }
-        attributeMap.put(attribute.getName(), attribute);
-      }
-      return new RuleContext(this, targetMap, filesetEntryMap, configConditions, attributeMap);
+      return new RuleContext(this, targetMap, filesetEntryMap, configConditions,
+          aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of());
     }
 
     Builder setVisibility(NestedSet<PackageSpecification> visibility) {
@@ -1280,6 +1270,14 @@ public final class RuleContext extends TargetContext
      */
     Builder setPrerequisites(ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap) {
       this.prerequisiteMap = Preconditions.checkNotNull(prerequisiteMap);
+      return this;
+    }
+
+    /**
+     * Adds attributes which are defined by an Aspect (and not by RuleClass).
+     */
+    Builder setAspectAttributes(Map<String, Attribute> aspectAttributes) {
+      this.aspectAttributes = aspectAttributes;
       return this;
     }
 

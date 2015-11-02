@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -223,9 +224,10 @@ public final class AspectFunction implements SkyFunction {
       return null;
     }
 
+    AspectParameters aspectParams = key.getParameters();
     Aspect aspect = view.createAspect(
         analysisEnvironment, associatedTarget, aspectFactory, directDeps, configConditions,
-        key.getParameters());
+        aspectParams, key.getAspect().getDefinition(aspectParams).getAttributes());
 
     events.replayOn(env.getListener());
     if (events.hasErrors()) {

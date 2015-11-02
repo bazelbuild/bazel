@@ -46,7 +46,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
@@ -62,6 +62,14 @@ import java.util.List;
  * and {@link com.google.devtools.build.lib.analysis.AspectTest}.
  */
 public class TestAspects {
+
+  public static final LateBoundLabel EMPTY_LATE_BOUND_LABEL = new LateBoundLabel<Object>() {
+    @Override
+    public Label getDefault(Rule rule, Object configuration) {
+      return null;
+    }
+  };
+
   /**
    * A transitive info provider for collecting aspects in the transitive closure. Created by
    * aspects.
@@ -233,8 +241,7 @@ public class TestAspects {
       ImmutableCollection<String> baz = aspectParameters.getAttribute("baz");
       if (baz != null) {
         try {
-          builder.add(
-              Attribute.attr("$dep", LABEL).value(Label.parseAbsolute(baz.iterator().next())));
+          builder.add(attr("$dep", LABEL).value(Label.parseAbsolute(baz.iterator().next())));
         } catch (LabelSyntaxException e) {
           throw new IllegalStateException();
         }

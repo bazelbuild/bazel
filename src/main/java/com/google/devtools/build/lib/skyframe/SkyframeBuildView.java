@@ -528,10 +528,11 @@ public final class SkyframeBuildView {
       ConfiguredAspectFactory aspectFactory,
       ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       Set<ConfigMatchingProvider> configConditions,
-      AspectParameters aspectParameters)
-      throws InterruptedException {
+      AspectParameters aspectParameters,
+      Map<String, Attribute> aspectAttributes)
+          throws InterruptedException {
     return factory.createAspect(env, associatedTarget, aspectFactory, aspectParameters,
-        prerequisiteMap, configConditions,
+        aspectAttributes, prerequisiteMap, configConditions,
         getHostConfiguration(associatedTarget.getConfiguration()));
   }
 
