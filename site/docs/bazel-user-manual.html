@@ -2785,41 +2785,7 @@ Examples:
   <a href='#build'>bazel build</a>.
 </p>
 
-<h3 id='tags_keywords'>Test rule <code>tags</code> attribute keywords and other
-  common attributes</h3>
 
-<p>
-  Bazel modifies test behavior if it finds the following keywords in the
-  <code>tags</code> attribute of the test rule:
-</p>
-<ul>
-  <li><code>exclusive</code> keyword will force test to be run in the
-    &quot;exclusive&quot; mode, ensuring that no other tests are running at the
-    same time. Such tests will be executed in serial fashion after all build
-    activity and non-exclusive tests have been completed.
-
-  </li>
-
-  <li><code>manual</code> keyword will force test to be ignored by all command
-    line wildcards (<code>...</code>, <code>:*</code>, <code>:all</code>, etc).
-    It will also be ignored by the <code>test_suite</code> rules that do not
-    mention this test explicitly. The only way
-    to run such test is to specify it explicitly on the command line.
-  </li>
-  <li><code>external</code> keyword will force test to be unconditionally
-    executed (regardless of <code class='flag'>--cache_test_results</code> value).
-  </li>
-</ul>
-<p>
-  There are also several other attributes that affect test behavior:
-</p>
-<ul>
-  <li>Test rules marked with the <code>flaky=1</code> attribute are considered
-    to be flaky and will be automatically retried up to 3 times unless larger
-    <code class='flag'>--flaky_test_attempts</code> value has been specified.
-  </li>
-
-</ul>
 
 <h2 id='run'>Running executables with Bazel</h2>
 <p>
