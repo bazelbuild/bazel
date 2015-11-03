@@ -20,6 +20,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.base.Stopwatch;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
@@ -71,6 +72,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -92,11 +94,13 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingCallback;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
+import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
@@ -146,6 +150,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -1724,6 +1729,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         ListMultimap<String, Label> labelsToLoadUnconditionally, boolean keepGoing,
         boolean enableLoading, boolean determineTests, @Nullable LoadingCallback callback)
         throws TargetParsingException, LoadingFailedException, InterruptedException {
+      Stopwatch timer = Stopwatch.createStarted();
       SkyKey key = TargetPatternPhaseValue.key(ImmutableList.copyOf(targetPatterns),
           options.compileOneDependency, options.buildTestsOnly, determineTests,
           TestFilter.forOptions(options, eventHandler, ruleClassNames));
@@ -1740,13 +1746,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               + Iterables.toString(errorInfo.getRootCauses()), e);
         }
       }
+      long time = timer.stop().elapsed(TimeUnit.MILLISECONDS);
 
       TargetPatternPhaseValue patternParsingValue = evalResult.get(key);
-      LoadingResult result = new LoadingResult(patternParsingValue.hasError(),
-          patternParsingValue.hasPostExpansionError(),
-          patternParsingValue.getTargets(), patternParsingValue.getTestsToRun(),
-          ImmutableMap.<PackageIdentifier, Path>of());
-      return result;
+      // TODO(ulfjack): The first event should be pre-test_suite expansion, the second post.
+      eventBus.post(new TargetParsingCompleteEvent(patternParsingValue.getTargets(),
+          patternParsingValue.getFilteredTargets(), patternParsingValue.getTestFilteredTargets(),
+          time));
+      eventBus.post(new LoadingPhaseCompleteEvent(
+          /*was expandedTargetsToLoad*/patternParsingValue.getTargets(),
+          // TODO(ulfjack): Should be: Sets.difference(originalTargetsToLoad, expandedTargetsToLoad)
+          /*was testSuiteTargets*/ImmutableSet.<Target>of(),
+          packageManager.getStatistics(), /*timeInMs=*/0));
+      return patternParsingValue.toLoadingResult();
     }
   }
 
