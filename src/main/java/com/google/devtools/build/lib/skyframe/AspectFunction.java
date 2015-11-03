@@ -224,10 +224,9 @@ public final class AspectFunction implements SkyFunction {
       return null;
     }
 
-    AspectParameters aspectParams = key.getParameters();
     Aspect aspect = view.createAspect(
         analysisEnvironment, associatedTarget, aspectFactory, directDeps, configConditions,
-        aspectParams, key.getAspect().getDefinition(aspectParams).getAttributes());
+        key.getAspectWithParameters());
 
     events.replayOn(env.getListener());
     if (events.hasErrors()) {

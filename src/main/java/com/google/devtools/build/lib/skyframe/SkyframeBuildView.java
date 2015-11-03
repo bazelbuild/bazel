@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.Aspect;
+import com.google.devtools.build.lib.packages.AspectWithParameters;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
@@ -528,11 +529,10 @@ public final class SkyframeBuildView {
       ConfiguredAspectFactory aspectFactory,
       ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       Set<ConfigMatchingProvider> configConditions,
-      AspectParameters aspectParameters,
-      Map<String, Attribute> aspectAttributes)
+      AspectWithParameters aspectWithParameters)
           throws InterruptedException {
-    return factory.createAspect(env, associatedTarget, aspectFactory, aspectParameters,
-        aspectAttributes, prerequisiteMap, configConditions,
+    return factory.createAspect(env, associatedTarget, aspectFactory, aspectWithParameters,
+        prerequisiteMap, configConditions,
         getHostConfiguration(associatedTarget.getConfiguration()));
   }
 

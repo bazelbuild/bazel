@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.devtools.build.lib.packages.AspectWithParameters;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ListMultimap;
@@ -290,8 +291,7 @@ public final class ConfiguredTargetFactory {
       AnalysisEnvironment env,
       RuleConfiguredTarget associatedTarget,
       ConfiguredAspectFactory aspectFactory,
-      AspectParameters aspectParameters,
-      Map<String, Attribute> aspectAttributes,
+      AspectWithParameters aspectWithParameters,
       ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       Set<ConfigMatchingProvider> configConditions,
       BuildConfiguration hostConfiguration)
@@ -305,14 +305,15 @@ public final class ConfiguredTargetFactory {
         .setVisibility(convertVisibility(
             prerequisiteMap, env.getEventHandler(), associatedTarget.getTarget(), null))
         .setPrerequisites(prerequisiteMap)
-        .setAspectAttributes(aspectAttributes)
+        .setAspectAttributes(aspectWithParameters.getDefinition().getAttributes())
         .setConfigConditions(configConditions)
         .build();
     if (ruleContext.hasErrors()) {
       return null;
     }
 
-    return aspectFactory.create(associatedTarget, ruleContext, aspectParameters);
+    return aspectFactory.create(associatedTarget, ruleContext,
+        aspectWithParameters.getParameters());
   }
 
   /**
