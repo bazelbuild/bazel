@@ -386,6 +386,7 @@ groovy_test(name, deps, srcs, data, resources, jvm_flags, size, tags)
       </td>
     </tr>
   </tbody>
+</table>
 
 <a name="spock_test"></a>
 ### spock_test
