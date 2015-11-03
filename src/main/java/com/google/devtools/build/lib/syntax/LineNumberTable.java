@@ -27,7 +27,9 @@ import java.nio.CharBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -207,11 +209,18 @@ public abstract class LineNumberTable implements Serializable {
       CharSequence bufString = CharBuffer.wrap(buffer);
       Matcher m = pattern.matcher(bufString);
       List<SingleHashLine> unorderedTable = new ArrayList<>();
+      Map<String, PathFragment> pathCache = new HashMap<>();
       while (m.find()) {
+        String pathString = m.group(2);
+        PathFragment pathFragment = pathCache.get(pathString);
+        if (pathFragment == null) {
+          pathFragment = defaultPath.getRelative(pathString);
+          pathCache.put(pathString, pathFragment);
+        }
         unorderedTable.add(new SingleHashLine(
-            m.start(0) + 1,  //offset (+1 to skip \n in pattern)
-            Integer.valueOf(m.group(1)),  // line number
-            defaultPath.getRelative(m.group(2))));  // filename is an absolute path
+                m.start(0) + 1,  //offset (+1 to skip \n in pattern)
+                Integer.parseInt(m.group(1)),  // line number
+                pathFragment));  // filename is an absolute path
       }
       this.table = hashOrdering.immutableSortedCopy(unorderedTable);
       this.bufferLength = buffer.length;
