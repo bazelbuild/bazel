@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.PackageFactory.PackageArgument;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
@@ -40,8 +39,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorFactory;
-import com.google.devtools.build.lib.syntax.BaseFunction;
-import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -368,22 +365,7 @@ public abstract class BlazeModule {
    * Returns the extensions this module contributes to the global namespace of the BUILD language.
    */
   public PackageFactory.EnvironmentExtension getPackageEnvironmentExtension() {
-    return new PackageFactory.EnvironmentExtension() {
-      @Override
-      public void update(Environment environment) {}
-
-      @Override
-      public void updateWorkspace(Environment environment) {}
-      @Override
-      public Iterable<PackageArgument<?>> getPackageArguments() {
-        return ImmutableList.of();
-      }
-
-      @Override
-      public ImmutableList<BaseFunction> nativeModuleFunctions() {
-        return ImmutableList.<BaseFunction>of();
-      }
-    };
+    return new PackageFactory.EmptyEnvironmentExtension();
   }
 
   /**

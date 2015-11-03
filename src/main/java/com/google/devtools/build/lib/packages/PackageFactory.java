@@ -1458,4 +1458,22 @@ public final class PackageFactory {
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(PackageFactory.class);
   }
+
+  public static class EmptyEnvironmentExtension implements EnvironmentExtension {
+    @Override
+    public void update(Environment environment) {}
+
+    @Override
+    public void updateWorkspace(Environment environment) {}
+
+    @Override
+    public Iterable<PackageArgument<?>> getPackageArguments() {
+      return ImmutableList.of();
+    }
+
+    @Override
+    public ImmutableList<BaseFunction> nativeModuleFunctions() {
+      return ImmutableList.<BaseFunction>of();
+    }
+  }
 }
