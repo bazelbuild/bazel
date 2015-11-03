@@ -138,6 +138,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("proguard_apply_mapping")
+        && ruleContext.attributes().get(PROGUARD_SPECS, BuildType.LABEL_LIST).isEmpty()) {
+      ruleContext.attributeError("proguard_apply_mapping",
+          "'proguard_apply_mapping' can only be used when 'proguard_specs' is also set");
+      return null;
+    }
+
     // TODO(bazel-team): Find a way to simplify this code.
     // treeKeys() means that the resulting map sorts the entries by key, which is necessary to
     // ensure determinism.
@@ -281,6 +288,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     Artifact deployJar = createDeployJar(ruleContext, javaSemantics, androidCommon, resourceClasses,
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_DEPLOY_JAR));
 
+    Artifact proguardMapping = ruleContext.getPrerequisiteArtifact(
+        "proguard_apply_mapping", Mode.TARGET);
+
 
     return createAndroidBinary(
         ruleContext,
@@ -297,7 +307,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         splitResourceApk,
         resourceClasses,
         ImmutableList.<Artifact>of(),
-        null);
+        proguardMapping);
   }
 
 
