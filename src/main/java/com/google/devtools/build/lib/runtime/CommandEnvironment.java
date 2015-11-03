@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.LegacyLoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -64,8 +65,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-
-import javax.annotation.Nullable;
 
 /**
  * Encapsulates the state needed for a single command. The environment is dropped when the current
@@ -113,7 +112,7 @@ public final class CommandEnvironment {
     this.eventBus = eventBus;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
 
-    this.loadingPhaseRunner = new LoadingPhaseRunner(
+    this.loadingPhaseRunner = new LegacyLoadingPhaseRunner(
         runtime.getSkyframeExecutor().getPackageManager(),
         runtime.getPackageFactory().getRuleClassNames());
     this.view = new BuildView(runtime.getDirectories(), runtime.getRuleClassProvider(),

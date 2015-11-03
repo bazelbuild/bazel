@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
+import com.google.devtools.build.lib.pkgcache.LegacyLoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
@@ -182,7 +183,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         Options.getDefaults(PackageCacheOptions.class).defaultVisibility, true,
         3, ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID());
     packageManager = skyframeExecutor.getPackageManager();
-    loadingPhaseRunner = new LoadingPhaseRunner(packageManager, pkgFactory.getRuleClassNames());
+    loadingPhaseRunner =
+        new LegacyLoadingPhaseRunner(packageManager, pkgFactory.getRuleClassNames());
     buildView = new BuildView(directories, ruleClassProvider, skyframeExecutor, null);
     useConfiguration();
   }

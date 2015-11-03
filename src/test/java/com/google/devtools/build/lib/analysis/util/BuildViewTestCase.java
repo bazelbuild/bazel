@@ -100,6 +100,7 @@ import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
+import com.google.devtools.build.lib.pkgcache.LegacyLoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
@@ -1302,7 +1303,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     BuildView.Options viewOptions = Options.getDefaults(BuildView.Options.class);
     viewOptions.keepGoing = keepGoing;
 
-    LoadingPhaseRunner runner = new LoadingPhaseRunner(getPackageManager(),
+    LoadingPhaseRunner runner = new LegacyLoadingPhaseRunner(getPackageManager(),
         Collections.unmodifiableSet(ruleClassProvider.getRuleClassMap().keySet()));
     LoadingResult loadingResult = runner.execute(reporter, eventBus, targets, loadingOptions,
         getTargetConfiguration().getAllLabels(), viewOptions.keepGoing,
