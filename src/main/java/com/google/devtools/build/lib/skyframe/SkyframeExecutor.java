@@ -30,6 +30,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
@@ -70,6 +71,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -87,9 +89,16 @@ import com.google.devtools.build.lib.packages.Preprocessor.AstAfterPreprocessing
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.LoadingCallback;
+import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
+import com.google.devtools.build.lib.pkgcache.LoadingOptions;
+import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
+import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
+import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
@@ -1678,6 +1687,68 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * and purged in version V+1.
    */
   public abstract void deleteOldNodes(long versionWindowForDirtyGc);
+
+  public LoadingPhaseRunner getLoadingPhaseRunner(Set<String> ruleClassNames) {
+    return new SkyframeLoadingPhaseRunner(ruleClassNames);
+  }
+
+  /**
+   * Skyframe-based implementation of {@link LoadingPhaseRunner} based on {@link
+   * TargetPatternPhaseFunction}.
+   */
+  // TODO(ulfjack): This is still incomplete.
+  final class SkyframeLoadingPhaseRunner extends LoadingPhaseRunner {
+    private final TargetPatternEvaluator targetPatternEvaluator;
+    private final Set<String> ruleClassNames;
+
+    public SkyframeLoadingPhaseRunner(Set<String> ruleClassNames) {
+      this.targetPatternEvaluator = getPackageManager().newTargetPatternEvaluator();
+      this.ruleClassNames = ruleClassNames;
+    }
+
+    @Override
+    public TargetPatternEvaluator getTargetPatternEvaluator() {
+      return targetPatternEvaluator;
+    }
+
+    @Override
+    public void updatePatternEvaluator(PathFragment relativeWorkingDirectory) {
+      if (!relativeWorkingDirectory.equals(PathFragment.EMPTY_FRAGMENT)) {
+        throw new UnsupportedOperationException();
+      }
+    }
+
+    @Override
+    public LoadingResult execute(EventHandler eventHandler, EventBus eventBus,
+        List<String> targetPatterns, LoadingOptions options,
+        ListMultimap<String, Label> labelsToLoadUnconditionally, boolean keepGoing,
+        boolean enableLoading, boolean determineTests, @Nullable LoadingCallback callback)
+        throws TargetParsingException, LoadingFailedException, InterruptedException {
+      SkyKey key = TargetPatternPhaseValue.key(ImmutableList.copyOf(targetPatterns),
+          options.compileOneDependency, options.buildTestsOnly, determineTests,
+          TestFilter.forOptions(options, eventHandler, ruleClassNames));
+      EvaluationResult<TargetPatternPhaseValue> evalResult =
+          buildDriver.evaluate(
+              ImmutableList.of(key), keepGoing, /*numThreads=*/10, eventHandler);
+      if (evalResult.hasError()) {
+        ErrorInfo errorInfo = evalResult.getError(key);
+        if (errorInfo != null && errorInfo.getException() != null) {
+          Exception e = errorInfo.getException();
+          Throwables.propagateIfInstanceOf(e, TargetParsingException.class);
+          throw new IllegalStateException("Unexpected Exception type from TargetPatternPhaseValue "
+              + "for '" + targetPatterns + "'' with root causes: "
+              + Iterables.toString(errorInfo.getRootCauses()), e);
+        }
+      }
+
+      TargetPatternPhaseValue patternParsingValue = evalResult.get(key);
+      LoadingResult result = new LoadingResult(patternParsingValue.hasError(),
+          patternParsingValue.hasPostExpansionError(),
+          patternParsingValue.getTargets(), patternParsingValue.getTestsToRun(),
+          ImmutableMap.<PackageIdentifier, Path>of());
+      return result;
+    }
+  }
 
   /**
    * A progress received to track analysis invalidation and update progress messages.

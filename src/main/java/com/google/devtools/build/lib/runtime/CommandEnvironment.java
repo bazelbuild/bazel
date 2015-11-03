@@ -71,6 +71,8 @@ import java.util.concurrent.atomic.AtomicReference;
  * command is done and all corresponding objects are garbage collected.
  */
 public final class CommandEnvironment {
+  private static final boolean USE_SKYFRAME_LOADING_PHASE = false;
+
   private final BlazeRuntime runtime;
 
   private final UUID commandId;  // Unique identifier for the command being run
@@ -112,9 +114,14 @@ public final class CommandEnvironment {
     this.eventBus = eventBus;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
 
-    this.loadingPhaseRunner = new LegacyLoadingPhaseRunner(
-        runtime.getSkyframeExecutor().getPackageManager(),
-        runtime.getPackageFactory().getRuleClassNames());
+    if (USE_SKYFRAME_LOADING_PHASE) {
+      this.loadingPhaseRunner = runtime.getSkyframeExecutor().getLoadingPhaseRunner(
+          runtime.getPackageFactory().getRuleClassNames());
+    } else {
+      this.loadingPhaseRunner = new LegacyLoadingPhaseRunner(
+          runtime.getSkyframeExecutor().getPackageManager(),
+          runtime.getPackageFactory().getRuleClassNames());
+    }
     this.view = new BuildView(runtime.getDirectories(), runtime.getRuleClassProvider(),
         runtime.getSkyframeExecutor(), runtime.getCoverageReportActionFactory());
 
