@@ -123,6 +123,11 @@ public abstract class GraphConcurrencyTest {
     ExecutorService pool = Executors.newFixedThreadPool(numThreads);
     // Add single rdep before transition to done.
     assertEquals(DependencyState.NEEDS_SCHEDULING, entry.addReverseDepAndCheckIfDone(key("rdep")));
+    List<SkyKey> rdepKeys = new ArrayList<>();
+    for (int i = 0; i < numKeys; i++) {
+      rdepKeys.add(key("rdep" + i));
+    }
+    graph.createIfAbsentBatch(rdepKeys);
     for (int i = 0; i < numKeys; i++) {
       final int j = i;
       Runnable r =
@@ -158,11 +163,10 @@ public abstract class GraphConcurrencyTest {
     waitForAddedRdep.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     entry.setValue(new StringValue("foo1"), startingVersion);
     waitForSetValue.countDown();
-    entry.removeReverseDep(key("rdep"));
     wrapper.waitForTasksAndMaybeThrow();
     assertFalse(ExecutorUtil.interruptibleShutdown(pool));
     assertEquals(new StringValue("foo1"), graph.get(key).getValue());
-    assertEquals(numKeys, Iterables.size(graph.get(key).getReverseDeps()));
+    assertEquals(numKeys + 1, Iterables.size(graph.get(key).getReverseDeps()));
 
     graph = getGraph(startingVersion.next());
     NodeEntry sameEntry = Preconditions.checkNotNull(graph.get(key));
@@ -172,7 +176,7 @@ public abstract class GraphConcurrencyTest {
     sameEntry.markRebuildingAndGetAllRemainingDirtyDirectDeps();
     sameEntry.setValue(new StringValue("foo2"), startingVersion.next());
     assertEquals(new StringValue("foo2"), graph.get(key).getValue());
-    assertEquals(numKeys, Iterables.size(graph.get(key).getReverseDeps()));
+    assertEquals(numKeys + 1, Iterables.size(graph.get(key).getReverseDeps()));
   }
 
   // Tests adding inflight nodes with a given key while an existing node with the same key
