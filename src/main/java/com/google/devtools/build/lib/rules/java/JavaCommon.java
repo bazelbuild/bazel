@@ -499,19 +499,6 @@ public class JavaCommon {
     semantics.commonDependencyProcessing(ruleContext, javaTargetAttributes,
         targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
 
-    if (!ruleContext.getFragment(JavaConfiguration.class).allowPrecompiledJarsInSrcs()
-        && javaTargetAttributes.hasJarFiles()) {
-      ruleContext.attributeError(
-          "srcs", "precompiled jars are not allowed as sources; use java_import instead?");
-    }
-
-    // Check that we have do not have both sources and jars.
-    if ((javaTargetAttributes.hasSourceFiles() || javaTargetAttributes.hasSourceJars())
-        && javaTargetAttributes.hasJarFiles()) {
-      ruleContext.attributeWarning("srcs", "cannot use both Java sources - source "
-          + "jars or source files - and precompiled jars");
-    }
-
     if (disallowDepsWithoutSrcs(ruleContext.getRule().getRuleClass())
         && ruleContext.attributes().get("srcs", BuildType.LABEL_LIST).isEmpty()
         && ruleContext.getRule().isAttributeValueExplicitlySpecified("deps")) {

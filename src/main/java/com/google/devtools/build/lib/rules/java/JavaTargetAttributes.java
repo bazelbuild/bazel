@@ -60,7 +60,6 @@ public class JavaTargetAttributes {
     // but is not sorted according to a property of the elements. Thus we are
     // stuck with Set.
     private final Set<Artifact> sourceFiles = new LinkedHashSet<>();
-    private final Set<Artifact> jarFiles = new LinkedHashSet<>();
     private final Set<Artifact> compileTimeJarFiles = new LinkedHashSet<>();
 
     private final NestedSetBuilder<Artifact> runtimeClassPath =
@@ -105,10 +104,7 @@ public class JavaTargetAttributes {
       Preconditions.checkArgument(!built);
       for (Artifact srcArtifact : sourceArtifacts) {
         String srcFilename = srcArtifact.getExecPathString();
-        if (JavaSemantics.JAR.matches(srcFilename)) {
-          runtimeClassPath.add(srcArtifact);
-          jarFiles.add(srcArtifact);
-        } else if (JavaSemantics.SOURCE_JAR.matches(srcFilename)) {
+        if (JavaSemantics.SOURCE_JAR.matches(srcFilename)) {
           sourceJars.add(srcArtifact);
         } else if (JavaSemantics.PROPERTIES.matches(srcFilename)) {
           // output files of the message compiler
@@ -339,7 +335,6 @@ public class JavaTargetAttributes {
       built = true;
       return new JavaTargetAttributes(
           sourceFiles,
-          jarFiles,
           compileTimeJarFiles,
           runtimeClassPath,
           compileTimeClassPath,
@@ -379,11 +374,6 @@ public class JavaTargetAttributes {
     public boolean hasSourceJars() {
       return !sourceJars.isEmpty();
     }
-
-    @Deprecated
-    public boolean hasJarFiles() {
-      return !jarFiles.isEmpty();
-    }
   }
 
   //
@@ -391,7 +381,6 @@ public class JavaTargetAttributes {
   //
 
   private final ImmutableSet<Artifact> sourceFiles;
-  private final ImmutableSet<Artifact> jarFiles;
   private final ImmutableSet<Artifact> compileTimeJarFiles;
 
   private final NestedSet<Artifact> runtimeClassPath;
@@ -422,7 +411,6 @@ public class JavaTargetAttributes {
    */
   private JavaTargetAttributes(
       Set<Artifact> sourceFiles,
-      Set<Artifact> jarFiles,
       Set<Artifact> compileTimeJarFiles,
       NestedSetBuilder<Artifact> runtimeClassPath,
       NestedSetBuilder<Artifact> compileTimeClassPath,
@@ -441,7 +429,6 @@ public class JavaTargetAttributes {
       NestedSetBuilder<Artifact> excludedArtifacts,
       BuildConfiguration.StrictDepsMode strictJavaDeps) {
     this.sourceFiles = ImmutableSet.copyOf(sourceFiles);
-    this.jarFiles = ImmutableSet.copyOf(jarFiles);
     this.compileTimeJarFiles = ImmutableSet.copyOf(compileTimeJarFiles);
     this.runtimeClassPath = runtimeClassPath.build();
     this.compileTimeClassPath = compileTimeClassPath.build();
@@ -531,10 +518,6 @@ public class JavaTargetAttributes {
     return sourceFiles;
   }
 
-  public Set<Artifact> getJarFiles() {
-    return jarFiles;
-  }
-
   public Set<Artifact> getCompileTimeJarFiles() {
     return compileTimeJarFiles;
   }
@@ -553,10 +536,6 @@ public class JavaTargetAttributes {
 
   public boolean hasSourceJars() {
     return !sourceJars.isEmpty();
-  }
-
-  public boolean hasJarFiles() {
-    return !jarFiles.isEmpty();
   }
 
   public boolean hasResources() {

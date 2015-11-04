@@ -115,8 +115,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    Artifact classesJar = mergeJarsFromSrcs(ruleContext,
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR));
+    Artifact classesJar =
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
     Artifact aarOut = ruleContext.getImplicitOutputArtifact(
         AndroidRuleClasses.ANDROID_LIBRARY_AAR);
 
@@ -193,24 +193,6 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       .add(AndroidLibraryAarProvider.class, new AndroidLibraryAarProvider(
                   aar, transitiveAars.build()))
       .build();
-  }
-
-  private static Artifact mergeJarsFromSrcs(RuleContext ruleContext, Artifact inputJar)
-      throws InterruptedException {
-    ImmutableList<Artifact> jarSources =
-        ruleContext
-        .getPrerequisiteArtifacts("srcs", Mode.TARGET).filter(JavaSemantics.JAR).list();
-    if (jarSources.isEmpty()) {
-      return inputJar;
-    }
-    Artifact mergedJar = ruleContext.getImplicitOutputArtifact(
-        AndroidRuleClasses.ANDROID_LIBRARY_AAR_CLASSES_JAR);
-    new SingleJarBuilder(ruleContext)
-        .setOutputJar(mergedJar)
-        .addInputJar(inputJar)
-        .addInputJars(jarSources)
-        .build();
-    return mergedJar;
   }
 
   private void checkResourceInlining(RuleContext ruleContext) {

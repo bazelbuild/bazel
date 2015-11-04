@@ -87,14 +87,6 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
 
     JavaTargetAttributes attributes = helper.getAttributes();
-    if (attributes.hasJarFiles()) {
-      // This rule is repackaging some source jars as a java library.
-      Set<Artifact> jarFiles = attributes.getJarFiles();
-      javaArtifactsBuilder.addRuntimeJars(jarFiles);
-      javaArtifactsBuilder.addCompileTimeJars(attributes.getCompileTimeJarFiles());
-
-      filesBuilder.addAll(jarFiles);
-    }
     if (attributes.hasMessages()) {
       helper.addTranslations(semantics.translate(ruleContext, javaConfig,
           attributes.getMessages()));

@@ -67,8 +67,7 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("srcs", LABEL_LIST)
             .direct_compile_time_input()
-            .allowedFileTypes(JavaSemantics.JAVA_SOURCE, JavaSemantics.JAR,
-                JavaSemantics.SOURCE_JAR))
+            .allowedFileTypes(JavaSemantics.JAVA_SOURCE, JavaSemantics.SOURCE_JAR))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(deps) -->
         The list of other libraries to link against.
         ${SYNOPSIS}

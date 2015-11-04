@@ -455,7 +455,6 @@ public class AndroidCommon {
         // sources
         .addJavaSources(attributes.getSourceFiles())
         .addSourceJars(attributes.getSourceJars())
-        .addCompiledJars(attributes.getJarFiles())
         .addResources(attributes.getResources())
         .addProcessorNames(attributes.getProcessorNames())
         .addProcessorClasspathJars(attributes.getProcessorPath())
@@ -481,15 +480,6 @@ public class AndroidCommon {
       // the real error.
       filesToBuild = filesBuilder.build();
       return;
-    }
-
-    if (attributes.hasJarFiles()) {
-      // This rule is repackaging some source jars as a java library
-
-      javaArtifactsBuilder.addRuntimeJars(attributes.getJarFiles());
-      javaArtifactsBuilder.addCompileTimeJars(attributes.getCompileTimeJarFiles());
-
-      filesBuilder.addAll(attributes.getJarFiles());
     }
 
     Artifact jar = null;

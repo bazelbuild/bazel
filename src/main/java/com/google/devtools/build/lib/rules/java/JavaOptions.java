@@ -364,9 +364,9 @@ public class JavaOptions extends FragmentOptions {
   public boolean disableJvm;
 
   @Option(name = "allow_precompiled_jars_in_srcs",
-      defaultValue = "true",
+      defaultValue = "false",
       category = "undocumented",
-      help = "Allows pre-compiled jars to be used in srcs of java rules.")
+      help = "No-op. Kept here for backwards compatibility.")
   public boolean allowPrecompiledJarsInSrcs;
 
   @Override
@@ -391,7 +391,6 @@ public class JavaOptions extends FragmentOptions {
 
     host.javaDeps = javaDeps;
     host.experimentalJavaClasspath = experimentalJavaClasspath;
-    host.allowPrecompiledJarsInSrcs = allowPrecompiledJarsInSrcs;
 
     return host;
   }

@@ -179,12 +179,6 @@ public class BazelJavaRuleClasses {
             you need to generate a set of <code>.java</code> files with a genrule.)
           </p>
           <p>
-            Source files of type <code>.jar</code> are linked in. <em class="harmful">This is
-            discouraged, use <a href="#java_import"><code>java_import</code></a></em> if you need to
-            link against existing (or generated) jar files (which is useful if you have a
-            <code>.jar</code> file without sources).
-          </p>
-          <p>
             Rules: if the rule (typically <code>genrule</code> or <code>filegroup</code>) generates
             any of the files listed above, they will be used the same way as described for source
             files.
@@ -199,7 +193,7 @@ public class BazelJavaRuleClasses {
           .add(attr("srcs", LABEL_LIST)
               .orderIndependent()
               .direct_compile_time_input()
-              .allowedFileTypes(JavaSemantics.JAVA_SOURCE, JavaSemantics.JAR,
+              .allowedFileTypes(JavaSemantics.JAVA_SOURCE,
                   JavaSemantics.SOURCE_JAR, JavaSemantics.PROPERTIES))
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(resources) -->
           A list of data files to include in a Java jar.

@@ -119,7 +119,6 @@ public final class JavaSourceInfoProvider implements TransitiveInfoProvider {
     return new Builder()
         .setSourceFiles(attributes.getSourceFiles())
         .setSourceJars(attributes.getSourceJars())
-        .setJarFiles(attributes.getJarFiles())
         .setResources(attributes.getResources())
         .setProcessorNames(attributes.getProcessorNames())
         .setProcessorPath(attributes.getProcessorPath())
