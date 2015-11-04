@@ -956,7 +956,7 @@ public class FileSystemUtils {
     byte[] buffer = new byte[limit];
     try (InputStream inputStream = byteSource.openBufferedStream()) {
       int read = ByteStreams.read(inputStream, buffer, 0, limit);
-      return Arrays.copyOf(buffer, read);
+      return read == limit ? buffer : Arrays.copyOf(buffer, read);
     }
   }
 
