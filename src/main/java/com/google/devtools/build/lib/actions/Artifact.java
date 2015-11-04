@@ -478,7 +478,7 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
         }
       };
 
-  private static final Function<Artifact, String> ROOT_RELATIVE_PATH_STRING =
+  public static final Function<Artifact, String> ROOT_RELATIVE_PATH_STRING =
       new Function<Artifact, String>() {
         @Override
         public String apply(Artifact artifact) {
