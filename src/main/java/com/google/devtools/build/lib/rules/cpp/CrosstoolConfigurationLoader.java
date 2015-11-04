@@ -43,6 +43,7 @@ import com.google.protobuf.TextFormat.ParseException;
 import com.google.protobuf.UninitializedMessageException;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.Callable;
@@ -224,7 +225,9 @@ public class CrosstoolConfigurationLoader {
     return new CrosstoolProto(path.getMD5Digest(), "CROSSTOOL file " + path.getPathString()) {
       @Override
       public String getContents() throws IOException {
-        return new String(FileSystemUtils.readContentAsLatin1(path.getInputStream()));
+        try (InputStream inputStream = path.getInputStream()) {
+          return new String(FileSystemUtils.readContentAsLatin1(inputStream));
+        }
       }
     };
   }

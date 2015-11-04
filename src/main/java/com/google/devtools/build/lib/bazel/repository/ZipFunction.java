@@ -29,6 +29,7 @@ import com.google.devtools.build.zip.ZipReader;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.Collection;
@@ -116,8 +117,9 @@ public class ZipFunction implements SkyFunction {
       // The zip file is not re-unzipped when the WORKSPACE file is changed (because it is assumed
       // to be immutable) but is on server restart (which is a bug).
       File outputFile = outputPath.getPathFile();
-      Files.copy(reader.getInputStream(entry), outputFile.toPath(),
-          StandardCopyOption.REPLACE_EXISTING);
+      try (InputStream input = reader.getInputStream(entry)) {
+        Files.copy(input, outputFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+      }
       outputPath.chmod(permissions);
     }
   }

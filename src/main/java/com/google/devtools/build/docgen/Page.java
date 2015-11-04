@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.docgen;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.apache.velocity.exception.MethodInvocationException;
@@ -24,11 +22,8 @@ import org.apache.velocity.exception.ResourceNotFoundException;
 
 import java.io.File;
 import java.io.FileWriter;
-import java.io.StringWriter;
 import java.io.IOException;
-import java.io.OutputStream;
-import java.io.OutputStreamWriter;
-import java.io.Writer;
+import java.io.StringWriter;
 
 /**
  * Class that represents a page to be generated using the {@link TemplateEngine}.
@@ -70,11 +65,11 @@ class Page {
     stringWriter.close();
 
     String[] lines = stringWriter.toString().split(System.getProperty("line.separator"));
-    FileWriter fileWriter = new FileWriter(outputFile);
-    for (String line : lines) {
-      // Strip trailing whitespace then append newline before writing to file.
-      fileWriter.write(line.replaceFirst("\\s+$", "") + "\n");
+    try (FileWriter fileWriter = new FileWriter(outputFile)) {
+      for (String line : lines) {
+        // Strip trailing whitespace then append newline before writing to file.
+        fileWriter.write(line.replaceFirst("\\s+$", "") + "\n");
+      }
     }
-    fileWriter.close();
   }
 }

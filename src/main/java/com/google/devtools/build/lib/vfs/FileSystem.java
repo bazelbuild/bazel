@@ -142,18 +142,20 @@ public abstract class FileSystem {
     try {
       Path canonicalPath = path.resolveSymbolicLinks();
       Path mountTable = path.getRelative("/proc/mounts");
-      for (String line : CharStreams.readLines(new InputStreamReader(mountTable.getInputStream(),
-                                                                     ISO_8859_1))) {
-        String[] words = line.split("\\s+");
-        if (words.length >= 3) {
-          if (!words[1].startsWith("/")) {
-            continue;
-          }
-          Path mountPoint = path.getFileSystem().getPath(words[1]);
-          int segmentCount = mountPoint.asFragment().segmentCount();
-          if (canonicalPath.startsWith(mountPoint) && segmentCount > bestMountPointSegmentCount) {
-            bestMountPointSegmentCount = segmentCount;
-            fileSystem = words[2];
+      try (InputStreamReader reader = new InputStreamReader(mountTable.getInputStream(),
+          ISO_8859_1)) {
+        for (String line : CharStreams.readLines(reader)) {
+          String[] words = line.split("\\s+");
+          if (words.length >= 3) {
+            if (!words[1].startsWith("/")) {
+              continue;
+            }
+            Path mountPoint = path.getFileSystem().getPath(words[1]);
+            int segmentCount = mountPoint.asFragment().segmentCount();
+            if (canonicalPath.startsWith(mountPoint) && segmentCount > bestMountPointSegmentCount) {
+              bestMountPointSegmentCount = segmentCount;
+              fileSystem = words[2];
+            }
           }
         }
       }
