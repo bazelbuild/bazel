@@ -30,15 +30,18 @@ SIMHOME="$(mktemp -d -t simhome)"
 
 LOGFILE="$(mktemp -t logfile)"
 
+SIMULATOR_PLATFORM="$(/usr/bin/xcrun --sdk iphonesimulator --show-sdk-platform-path)"
+SIMULATOR_DEV_LIBRARY="$SIMULATOR_PLATFORM/Developer/Library"
+
 "%(iossim_path)s" \
     -u "${SIMHOME}" \
     -d "%(device_type)s" \
     -s "%(simulator_sdk)s" \
     -t 60 \
-    -e DYLD_INSERT_LIBRARIES=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/PrivateFrameworks/IDEBundleInjection.framework/IDEBundleInjection \
+    -e DYLD_INSERT_LIBRARIES="$SIMULATOR_DEV_LIBRARY/PrivateFrameworks/IDEBundleInjection.framework/IDEBundleInjection" \
     -e "XCInjectBundle=${TEST_APP_DIR}" \
     -e "XCInjectBundleInto=${XCTEST_APP_DIR}" \
-    -e DYLD_FALLBACK_FRAMEWORK_PATH=/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks \
+    -e DYLD_FALLBACK_FRAMEWORK_PATH="$SIMULATOR_DEV_LIBRARY/Frameworks" \
     "${XCTEST_APP_DIR}" \
     -NSTreatUnknownArgumentsAsOpen NO \
     -ApplePersistenceIgnoreState YES \
