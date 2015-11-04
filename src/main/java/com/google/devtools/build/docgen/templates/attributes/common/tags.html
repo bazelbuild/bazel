@@ -1,44 +1,56 @@
 
-<p><code>List of arbitrary text tags.  Tags may be any valid string; default is the
-empty list.</code></p>
+<p>
+  <code>List of arbitrary text tags.  Tags may be any valid string; default is
+  the empty list.</code>
+</p>
 
 <p>
-<i>Tags</i> can be used on any rule. <i>Tags</i> on test and
-<code>test_suite</code> rules are useful for categorizing the tests. <i>Tags</i>
-on non-test rules are used to control sandboxed execution of
-<code>genrule</code>s and [Skylark](/docs/skylark/index.html) actions, and for
-parsing by humans and/or external tools.
+  <i>Tags</i> can be used on any rule. <i>Tags</i> on test and
+  <code>test_suite</code> rules are useful for categorizing the tests.
+  <i>Tags</i> on non-test rules are used to control sandboxed execution of
+  <code>genrule</code>s and [Skylark](/docs/skylark/index.html) actions, and for
+  parsing by humans and/or external tools.
 </p>
+
 <p>
-Bazel modifies the behavior of its sandboxing code if it finds the following
-keywords in the <code>tags</code> attribute of any test rule or
-<code>genrule</code>, or the keys of <code>execution_requirements</code> for
-any Skylark action.
+  Bazel modifies the behavior of its sandboxing code if it finds the following
+  keywords in the <code>tags</code> attribute of any test rule or
+  <code>genrule</code>, or the keys of <code>execution_requirements</code> for
+  any Skylark action.
 </p>
+
 <ul>
   <li><code>local</code> keyword results in the action or test never being
-    run inside the [sandbox](/docs/bazel-user-manual.html#sandboxing).
+    run remotely or inside the
+    [sandbox](/docs/bazel-user-manual.html#sandboxing).
+    For genrules and tests, marking the rule with the <code>local=1</code>
+    attribute has the same effect.
+  </li>
+
+  <li><code>requires-network</code> keyword allows access to the external
+    network from inside the sandbox.
   </li>
 </ul>
+
 <p>
-<i>Tags</i> on tests are generally used to annotate a test's role in your debug
-and release process.  Typically, tags are most useful for C++ and
-Python tests, which
-lack any runtime annotation ability.  The use of tags and size elements
-gives flexibility in assembling suites of tests based around codebase
-check-in policy.
+  <i>Tags</i> on tests are generally used to annotate a test's role in your
+  debug and release process.  Typically, tags are most useful for C++ and Python
+  tests, which lack any runtime annotation ability.  The use of tags and size
+  elements gives flexibility in assembling suites of tests based around codebase
+  check-in policy.
 </p>
+
 <p>
   Bazel modifies test running behavior if it finds the following keywords in the
   <code>tags</code> attribute of the test rule:
 </p>
+
 <ul>
   <li><code>exclusive</code> keyword will force test to be run in the
     &quot;exclusive&quot; mode, ensuring that no other tests are running at the
     same time. Such tests will be executed in serial fashion after all build
-    activity and non-exclusive tests have been completed.
-
-
+    activity and non-exclusive tests have been completed. They will also always
+    run locally and thus without sandboxing.
   </li>
 
   <li><code>manual</code> keyword will force test to be ignored by all command
@@ -47,9 +59,9 @@ check-in policy.
     mention this test explicitly. The only way
     to run such test is to specify it explicitly on the command line.
   </li>
+
   <li><code>external</code> keyword will force test to be unconditionally
-    executed (regardless of <code class='flag'>--cache_test_results</code> value).
+    executed (regardless of <code class='flag'>--cache_test_results</code>
+    value).
   </li>
-
-
 </ul>

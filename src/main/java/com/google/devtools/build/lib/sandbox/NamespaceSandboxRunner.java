@@ -113,7 +113,8 @@ public class NamespaceSandboxRunner {
       File cwd,
       FileOutErr outErr,
       Collection<? extends ActionInput> outputs,
-      int timeout)
+      int timeout,
+      boolean blockNetwork)
       throws IOException, UserExecException {
     createFileSystem(outputs);
 
@@ -144,6 +145,11 @@ public class NamespaceSandboxRunner {
     for (Path createDir : createDirs) {
       fileArgs.add("-d");
       fileArgs.add(createDir.getPathString());
+    }
+
+    if (blockNetwork) {
+      // Block network access out of the namespace.
+      fileArgs.add("-n");
     }
 
     // Mount all the inputs.

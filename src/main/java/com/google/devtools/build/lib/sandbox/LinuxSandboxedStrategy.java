@@ -146,7 +146,8 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
             execRoot.getPathFile(),
             outErr,
             spawn.getOutputFiles(),
-            timeout);
+            timeout,
+            !spawn.getExecutionInfo().containsKey("requires-network"));
       } finally {
         // Due to the Linux kernel behavior, if we try to remove the sandbox too quickly after the
         // process has exited, we get "Device busy" errors because some of the mounts have not yet
