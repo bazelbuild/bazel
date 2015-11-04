@@ -27,6 +27,7 @@ import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ChangedFilesMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -46,11 +47,13 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.OptionsClassProvider;
+import com.google.protobuf.ByteString;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -143,16 +146,32 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
     Path workDir = actionExecutionContext.getExecutor().getExecRoot();
 
     try {
-      HashCode workerFilesHash =
-          combineActionInputHashes(
-              spawn.getToolFiles(), actionExecutionContext.getActionInputFileCache());
+      ActionInputFileCache inputFileCache = actionExecutionContext.getActionInputFileCache();
+
+      HashCode workerFilesHash = combineActionInputHashes(spawn.getToolFiles(), inputFileCache);
       WorkerKey key = new WorkerKey(args, env, workDir, spawn.getMnemonic(), workerFilesHash);
 
       WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
       expandArgument(requestBuilder, Iterables.getLast(spawn.getArguments()));
 
-      WorkResponse response =
-          execInWorker(executor.getEventHandler(), key, requestBuilder.build(), maxRetries);
+      List<ActionInput> inputs =
+          ActionInputHelper.expandMiddlemen(
+              spawn.getInputFiles(), actionExecutionContext.getMiddlemanExpander());
+
+      for (ActionInput input : inputs) {
+        ByteString digest = inputFileCache.getDigest(input);
+        if (digest == null) {
+          digest = ByteString.EMPTY;
+        }
+
+        requestBuilder
+            .addInputsBuilder()
+            .setPath(input.getExecPathString())
+            .setDigest(digest)
+            .build();
+      }
+
+      WorkResponse response = execInWorker(eventHandler, key, requestBuilder.build(), maxRetries);
 
       outErr.getErrorStream().write(response.getOutputBytes().toByteArray());
 

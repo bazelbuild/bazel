@@ -158,7 +158,7 @@ def _impl(ctx):
   ctx.file_action(output=argfile, content=argfile_contents)
 
   ctx.action(
-      inputs=[argfile],
+      inputs=[argfile] + ctx.files.srcs,
       outputs=[output],
       executable=worker,
       progress_message="Working on %s" % ctx.label.name,
@@ -172,6 +172,7 @@ work = rule(
         "worker": attr.label(cfg=HOST_CFG, mandatory=True, allow_files=True, executable=True),
         "worker_args": attr.string_list(),
         "args": attr.string_list(),
+        "srcs": attr.label_list(allow_files=True),
     },
     outputs = {"out": "%{name}.out"},
 )
@@ -392,6 +393,49 @@ EOF
 
   # Check that the worker failed & was restarted.
   assert_not_equals "$worker_uuid_1" "$worker_uuid_2"
+}
+
+function test_input_digests() {
+  prepare_example_worker
+
+  cat >>BUILD <<'EOF'
+[work(
+  name = "hello_world_%s" % idx,
+  worker = ":worker",
+  args = ["--write_uuid", "--print_inputs"],
+  srcs = [":input.txt"],
+) for idx in range(10)]
+EOF
+
+  bazel --batch clean
+  assert_workers_not_running
+
+  echo "hello world" > input.txt
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 \
+    || fail "build failed"
+  worker_uuid_1=$(cat bazel-bin/hello_world_1.out | grep UUID | cut -d' ' -f2)
+  hash1=$(fgrep "INPUT input.txt " bazel-bin/hello_world_1.out | cut -d' ' -f3)
+  assert_workers_running
+
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_2 \
+    || fail "build failed"
+  worker_uuid_2=$(cat bazel-bin/hello_world_2.out | grep UUID | cut -d' ' -f2)
+  hash2=$(fgrep "INPUT input.txt " bazel-bin/hello_world_2.out | cut -d' ' -f3)
+  assert_workers_running
+
+  assert_equals "$worker_uuid_1" "$worker_uuid_2"
+  assert_equals "$hash1" "$hash2"
+
+  echo "changeddata" > input.txt
+
+  bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_3 \
+    || fail "build failed"
+  worker_uuid_3=$(cat bazel-bin/hello_world_3.out | grep UUID | cut -d' ' -f2)
+  hash3=$(fgrep "INPUT input.txt " bazel-bin/hello_world_3.out | cut -d' ' -f3)
+  assert_workers_running
+
+  assert_equals "$worker_uuid_2" "$worker_uuid_3"
+  assert_not_equals "$hash2" "$hash3"
 }
 
 run_suite "Worker integration tests"

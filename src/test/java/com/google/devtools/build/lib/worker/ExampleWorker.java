@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.worker.ExampleWorkerOptions.ExampleWorkOptions;
+import com.google.devtools.build.lib.worker.WorkerProtocol.Input;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 import com.google.devtools.common.options.OptionsParser;
@@ -30,7 +31,9 @@ import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.UUID;
 
 /**
@@ -46,6 +49,9 @@ public class ExampleWorker {
 
   // If true, returns corrupt responses instead of correct protobufs.
   static boolean poisoned = false;
+
+  // Keep state across multiple builds.
+  static final LinkedHashMap<String, String> inputs = new LinkedHashMap<>();
 
   public static void main(String[] args) throws Exception {
     if (ImmutableSet.copyOf(args).contains("--persistent_worker")) {
@@ -71,6 +77,11 @@ public class ExampleWorker {
         WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
         if (request == null) {
           break;
+        }
+
+        inputs.clear();
+        for (Input input : request.getInputsList()) {
+          inputs.put(input.getPath(), input.getDigest().toStringUtf8());
         }
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -141,6 +152,12 @@ public class ExampleWorker {
       residueStr = residueStr.toUpperCase();
     }
     outputs.add(residueStr);
+
+    if (options.printInputs) {
+      for (Entry<String, String> input : inputs.entrySet()) {
+        outputs.add("INPUT " + input.getKey() + " " + input.getValue());
+      }
+    }
 
     String outputStr = Joiner.on('\n').join(outputs);
     if (options.outputFile.isEmpty()) {

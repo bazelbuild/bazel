@@ -44,6 +44,13 @@ public class ExampleWorkerOptions extends OptionsBase {
       help = "Writes a counter that increases with each work unit processed into the output."
     )
     public boolean writeCounter;
+
+    @Option(
+      name = "print_inputs",
+      defaultValue = "false",
+      help = "Writes a list of input files and their digests."
+    )
+    public boolean printInputs;
   }
 
   @Option(name = "persistent_worker", defaultValue = "false")
