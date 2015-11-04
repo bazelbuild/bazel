@@ -1588,7 +1588,7 @@ public final class RuleContext extends TargetContext
 
     @Override
     public void attributeError(String attrName, String message) {
-      reportError(getAttributeLocation(attrName), completeAttributeMessage(attrName, message));
+      reportError(rule.getAttributeLocation(attrName), completeAttributeMessage(attrName, message));
     }
 
     public void reportWarning(Location location, String message) {
@@ -1602,7 +1602,8 @@ public final class RuleContext extends TargetContext
 
     @Override
     public void attributeWarning(String attrName, String message) {
-      reportWarning(getAttributeLocation(attrName), completeAttributeMessage(attrName, message));
+      reportWarning(
+          rule.getAttributeLocation(attrName), completeAttributeMessage(attrName, message));
     }
 
     private String prefixRuleMessage(String message) {
@@ -1620,33 +1621,16 @@ public final class RuleContext extends TargetContext
     private String completeAttributeMessage(String attrName, String message) {
       // Appends a note to the given message if the offending rule was created by a macro.
       String macroMessageAppendix =
-          wasCreatedByMacro()
+          rule.wasCreatedByMacro()
               ? String.format(
                   ". Since this rule was created by the macro '%s', the error might have been "
                   + "caused by the macro implementation in %s",
-                  getGeneratorFunction(), rule.getAttributeLocation(attrName))
+                  getGeneratorFunction(), rule.getAttributeLocationWithoutMacro(attrName))
               : "";
 
       return String.format("in %s attribute of %s rule %s: %s%s",
           maskInternalAttributeNames(attrName), rule.getRuleClass(), rule.getLabel(), message,
           macroMessageAppendix);
-    }
-
-    /**
-     * Returns the location of the specified attribute.
-     *
-     * <p>If the rule was created by a macro, we return the location from the BUILD file instead.
-     */
-    private Location getAttributeLocation(String attrName) {
-      // TODO(bazel-team): We assume that macros have set the rule location to the generator
-      // location. It would be better to read the "generator_location" attribute (which is currently
-      // not implemented).
-      return wasCreatedByMacro() ? rule.getLocation() : rule.getAttributeLocation(attrName);
-    }
-
-    private boolean wasCreatedByMacro() {
-      String generator = getGeneratorFunction();
-      return generator != null && !generator.isEmpty();
     }
 
     private String getGeneratorFunction() {

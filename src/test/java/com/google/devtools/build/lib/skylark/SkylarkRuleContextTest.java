@@ -46,6 +46,7 @@ import java.util.List;
 @RunWith(JUnit4.class)
 public class SkylarkRuleContextTest extends SkylarkTestCase {
 
+  @Override
   @Before
   public void setUp() throws Exception {
     super.setUp();
@@ -174,6 +175,124 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
           + "skylark_rule rule //test:skyrule: '//test:jlib' does not have mandatory provider "
           + "'some_provider'");
     }
+  }
+
+  /* Sharing setup code between the testPackageBoundaryError*() methods is not possible since the
+   * errors already happen when loading the file. Consequently, all tests would fail at the same
+   * statement. */
+  @Test
+  public void testPackageBoundaryError_NativeRule() throws Exception {
+    scratch.file("test/BUILD", "cc_library(name = 'cclib',", "  srcs = ['sub/my_sub_lib.h'])");
+    scratch.file("test/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:cclib");
+    assertContainsEvent(
+        "ERROR /workspace/test/BUILD:2:10: Label '//test:sub/my_sub_lib.h' crosses boundary of "
+        + "subpackage 'test/sub' (perhaps you meant to put the colon here: "
+        + "'//test/sub:my_sub_lib.h'?)");
+  }
+
+  @Test
+  public void testPackageBoundaryError_SkylarkRule() throws Exception {
+    scratch.file("test/BUILD",
+        "load('/test/macros', 'skylark_rule')",
+        "skylark_rule(name = 'skyrule',",
+        "  srcs = ['sub/my_sub_lib.h'])");
+    scratch.file("test/sub/BUILD",
+        "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
+    scratch.file("test/macros.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "skylark_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=True)",
+        "  }",
+        ")");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:skyrule");
+    assertContainsEvent(
+        "ERROR /workspace/test/BUILD:3:10: Label '//test:sub/my_sub_lib.h' crosses boundary of "
+        + "subpackage 'test/sub' (perhaps you meant to put the colon here: "
+        + "'//test/sub:my_sub_lib.h'?)");
+  }
+
+  @Test
+  public void testPackageBoundaryError_SkylarkMacro() throws Exception {
+    scratch.file("test/BUILD",
+        "load('/test/macros', 'macro_skylark_rule')",
+        "macro_skylark_rule(name = 'm_skylark',",
+        "  srcs = ['sub/my_sub_lib.h'])");
+    scratch.file("test/sub/BUILD",
+        "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
+    scratch.file("test/macros.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "skylark_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=True)",
+        "  }",
+        ")",
+        "def macro_skylark_rule(name, srcs=[]):",
+        "  skylark_rule(name = name, srcs = srcs)");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:m_skylark");
+    assertContainsEvent("ERROR /workspace/test/BUILD:2:1: Label '//test:sub/my_sub_lib.h' "
+        + "crosses boundary of subpackage 'test/sub' (perhaps you meant to put the colon here: "
+        + "'//test/sub:my_sub_lib.h'?)");
+  }
+
+  /*
+   * Making the location in BUILD file the default for "crosses boundary of subpackage" errors does
+   * not work in this case since the error actually happens in the bzl file. However, because of
+   * the current design, we can neither show the location in the bzl file nor display both
+   * locations (BUILD + bzl).
+   *
+   * Since this case is less common than having such an error in a BUILD file, we can live
+   * with it.
+   */
+  @Test
+  public void testPackageBoundaryError_SkylarkMacroWithErrorInBzlFile() throws Exception {
+    scratch.file("test/BUILD",
+        "load('/test/macros', 'macro_skylark_rule')",
+        "macro_skylark_rule(name = 'm_skylark')");
+    scratch.file("test/sub/BUILD",
+        "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
+    scratch.file("test/macros.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "skylark_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=True)",
+        "  }",
+        ")",
+        "def macro_skylark_rule(name, srcs=[]):",
+        "  skylark_rule(name = name, srcs = srcs + ['sub/my_sub_lib.h'])");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:m_skylark");
+    assertContainsEvent("ERROR /workspace/test/BUILD:2:1: Label '//test:sub/my_sub_lib.h' "
+        + "crosses boundary of subpackage 'test/sub' (perhaps you meant to put the colon here: "
+        + "'//test/sub:my_sub_lib.h'?)");
+  }
+
+  @Test
+  public void testPackageBoundaryError_NativeMacro() throws Exception {
+    scratch.file("test/BUILD",
+        "load('/test/macros', 'macro_native_rule')",
+        "macro_native_rule(name = 'm_native',",
+        "  srcs = ['sub/my_sub_lib.h'])");
+    scratch.file("test/sub/BUILD",
+        "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
+    scratch.file("test/macros.bzl",
+        "def macro_native_rule(name, deps=[], srcs=[]): ",
+        "  native.cc_library(name = name, deps = deps, srcs = srcs)");
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("//test:m_native");
+    assertContainsEvent("ERROR /workspace/test/BUILD:2:1: Label '//test:sub/my_sub_lib.h' "
+        + "crosses boundary of subpackage 'test/sub' (perhaps you meant to put the colon here: "
+        + "'//test/sub:my_sub_lib.h'?)");
   }
 
   @Test
