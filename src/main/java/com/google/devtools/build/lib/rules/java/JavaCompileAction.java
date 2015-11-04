@@ -167,30 +167,32 @@ public class JavaCompileAction extends AbstractAction {
    *        parts (for example, ide_build_info) need access to the data
    * @param commandLine the actual invocation command line
    */
-  private JavaCompileAction(ActionOwner owner,
-                            Iterable<Artifact> baseInputs,
-                            Collection<Artifact> outputs,
-                            CommandLine javaCompileCommandLine,
-                            CommandLine commandLine,
-                            PathFragment classDirectory,
-                            Artifact outputJar,
-                            NestedSet<Artifact> classpathEntries,
-                            Collection<Artifact> extdirInputs,
-                            List<Artifact> processorPath,
-                            Artifact langtoolsJar,
-                            Artifact javaBuilderJar,
-                            Iterable<Artifact> instrumentationJars,
-                            List<String> processorNames,
-                            Collection<Artifact> messages,
-                            Map<PathFragment, Artifact> resources,
-                            Collection<Artifact> classpathResources,
-                            Collection<Artifact> sourceJars,
-                            Collection<Artifact> sourceFiles,
-                            List<String> javacOpts,
-                            Collection<Artifact> directJars,
-                            BuildConfiguration.StrictDepsMode strictJavaDeps,
-                            Collection<Artifact> compileTimeDependencyArtifacts) {
-    super(owner, NestedSetBuilder.<Artifact>stableOrder()
+  private JavaCompileAction(
+      ActionOwner owner,
+      NestedSet<Artifact> tools,
+      Iterable<Artifact> baseInputs,
+      Collection<Artifact> outputs,
+      CommandLine javaCompileCommandLine,
+      CommandLine commandLine,
+      PathFragment classDirectory,
+      Artifact outputJar,
+      NestedSet<Artifact> classpathEntries,
+      Collection<Artifact> extdirInputs,
+      List<Artifact> processorPath,
+      List<String> processorNames,
+      Collection<Artifact> messages,
+      Map<PathFragment, Artifact> resources,
+      Collection<Artifact> classpathResources,
+      Collection<Artifact> sourceJars,
+      Collection<Artifact> sourceFiles,
+      List<String> javacOpts,
+      Collection<Artifact> directJars,
+      BuildConfiguration.StrictDepsMode strictJavaDeps,
+      Collection<Artifact> compileTimeDependencyArtifacts) {
+    super(
+        owner,
+        tools,
+        NestedSetBuilder.<Artifact>stableOrder()
             .addTransitive(classpathEntries)
             .addAll(processorPath)
             .addAll(messages)
@@ -200,9 +202,7 @@ public class JavaCompileAction extends AbstractAction {
             .addAll(sourceFiles)
             .addAll(compileTimeDependencyArtifacts)
             .addAll(baseInputs)
-            .add(langtoolsJar)
-            .add(javaBuilderJar)
-            .addAll(instrumentationJars)
+            .addTransitive(tools)
             .build(),
         outputs);
     this.javaCompileCommandLine = javaCompileCommandLine;
@@ -888,7 +888,16 @@ public class JavaCompileAction extends AbstractAction {
           semantics.getJavaBuilderMainClass(),
           configuration.getHostPathSeparator());
 
-      return new JavaCompileAction(owner,
+      NestedSet<Artifact> tools =
+          NestedSetBuilder.<Artifact>stableOrder()
+              .add(langtoolsJar)
+              .add(javaBuilderJar)
+              .addAll(instrumentationJars)
+              .build();
+
+      return new JavaCompileAction(
+          owner,
+          tools,
           baseInputs,
           outputs,
           paramFileContents,
@@ -898,9 +907,6 @@ public class JavaCompileAction extends AbstractAction {
           classpathEntries,
           extdirInputs,
           processorPath,
-          langtoolsJar,
-          javaBuilderJar,
-          instrumentationJars,
           processorNames,
           translations,
           resources,

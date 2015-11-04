@@ -80,6 +80,11 @@ public class DelegateSpawn implements Spawn {
   }
 
   @Override
+  public Iterable<? extends ActionInput> getToolFiles() {
+    return spawn.getToolFiles();
+  }
+
+  @Override
   public Iterable<? extends ActionInput> getInputFiles() {
     return spawn.getInputFiles();
   }

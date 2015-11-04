@@ -84,6 +84,21 @@ public interface Spawn {
   ImmutableMap<String, String> getEnvironment();
 
   /**
+   * Returns the list of files that are required to execute this spawn (e.g. the compiler binary),
+   * in contrast to files necessary for the tool to do its work (e.g. source code to be compiled).
+   *
+   * <p>The returned set of files is a subset of what getInputFiles() returns.
+   *
+   * <p>This method explicitly does not expand middleman artifacts. Pass the result
+   * to an appropriate utility method on {@link com.google.devtools.build.lib.actions.Artifact} to
+   * expand the middlemen.
+   *
+   * <p>This is for use with persistent workers, so we can restart workers when their binaries
+   * have changed.
+   */
+  Iterable<? extends ActionInput> getToolFiles();
+
+  /**
    * Returns the list of files that this command may read.
    *
    * <p>This method explicitly does not expand middleman artifacts. Pass the result

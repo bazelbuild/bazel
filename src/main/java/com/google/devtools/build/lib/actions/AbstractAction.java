@@ -54,11 +54,32 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   public static final ResourceSet DEFAULT_RESOURCE_SET =
       ResourceSet.createWithRamCpuIo(250, 0.5, 0);
 
-  // owner/inputs/outputs attributes below should never be directly accessed even
-  // within AbstractAction itself. The appropriate getter methods should be used
-  // instead. This has to be done due to the fact that the getter methods can be
-  // overridden in subclasses.
+  /**
+   * The owner/inputs/outputs attributes below should never be directly accessed even within
+   * AbstractAction itself. The appropriate getter methods should be used instead. This has to be
+   * done due to the fact that the getter methods can be overridden in subclasses.
+   */
   private final ActionOwner owner;
+
+  /**
+   * Tools are a subset of inputs and used by the WorkerSpawnStrategy to determine whether a
+   * compiler has changed since the last time it was used. This should include all artifacts that
+   * the tool does not dynamically reload / check on each unit of work - e.g. its own binary, the
+   * JDK for Java binaries, shared libraries, ... but not a configuration file, if it reloads that
+   * when it has changed.
+   *
+   * <p>If the "tools" set does not contain exactly the right set of artifacts, the following can
+   * happen: If an artifact that should be included is missing, the tool might not be restarted when
+   * it should, and builds can become incorrect (example: The compiler binary is not part of this
+   * set, then the compiler gets upgraded, but the worker strategy still reuses the old version).
+   * If an artifact that should *not* be included is accidentally part of this set, the worker
+   * process will be restarted more often that is necessary - e.g. if a file that is unique to each
+   * unit of work, e.g. the source code that a compiler should compile for a compile action, is
+   * part of this set, then the worker will never be reused and will be restarted for each unit of
+   * work.
+   */
+  private final Iterable<Artifact> tools;
+
   // The variable inputs is non-final only so that actions that discover their inputs can modify it.
   private Iterable<Artifact> inputs;
   private final RunfilesSupplier runfilesSupplier;
@@ -72,16 +93,38 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   protected AbstractAction(ActionOwner owner,
                            Iterable<Artifact> inputs,
                            Iterable<Artifact> outputs) {
-    this(owner, inputs, EmptyRunfilesSupplier.INSTANCE, outputs);
+    this(owner, ImmutableList.<Artifact>of(), inputs, EmptyRunfilesSupplier.INSTANCE, outputs);
   }
 
-  protected AbstractAction(ActionOwner owner,
+  /**
+   * Construct an abstract action with the specified tools, inputs and outputs;
+   */
+  protected AbstractAction(
+      ActionOwner owner,
+      Iterable<Artifact> tools,
+      Iterable<Artifact> inputs,
+      Iterable<Artifact> outputs) {
+    this(owner, tools, inputs, EmptyRunfilesSupplier.INSTANCE, outputs);
+  }
+
+  protected AbstractAction(
+      ActionOwner owner,
+      Iterable<Artifact> inputs,
+      RunfilesSupplier runfilesSupplier,
+      Iterable<Artifact> outputs) {
+    this(owner, ImmutableList.<Artifact>of(), inputs, runfilesSupplier, outputs);
+  }
+
+  protected AbstractAction(
+      ActionOwner owner,
+      Iterable<Artifact> tools,
       Iterable<Artifact> inputs,
       RunfilesSupplier runfilesSupplier,
       Iterable<Artifact> outputs) {
     Preconditions.checkNotNull(owner);
     // TODO(bazel-team): Use RuleContext.actionOwner here instead
     this.owner = new ActionOwnerDescription(owner);
+    this.tools = CollectionUtils.makeImmutable(tools);
     this.inputs = CollectionUtils.makeImmutable(inputs);
     this.outputs = ImmutableSet.copyOf(outputs);
     this.runfilesSupplier = Preconditions.checkNotNull(runfilesSupplier,
@@ -124,6 +167,11 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   public void updateInputs(Iterable<Artifact> inputs) {
     throw new IllegalStateException(
         "Method must be overridden for actions that may have unknown inputs.");
+  }
+
+  @Override
+  public Iterable<Artifact> getTools() {
+    return tools;
   }
 
   /**

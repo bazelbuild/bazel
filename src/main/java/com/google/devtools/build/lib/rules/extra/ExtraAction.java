@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.extra;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -74,6 +75,7 @@ public final class ExtraAction extends SpawnAction {
       String mnemonic) {
     super(
         shadowedAction.getOwner(),
+        ImmutableList.<Artifact>of(),
         createInputs(shadowedAction.getInputs(), extraActionInputs),
         outputs,
         AbstractAction.DEFAULT_RESOURCE_SET,

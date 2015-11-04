@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.skylark.util;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.PackageFactory;
@@ -112,10 +114,11 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
   }
 
   protected void assertArtifactFilenames(Iterable<Artifact> artifacts, String... expected) {
-    int i = 0;
+    ImmutableList.Builder<String> artifactFilenames = ImmutableList.builder();
     for (Artifact artifact : artifacts) {
-      assertEquals(expected[i++], artifact.getFilename());
+      artifactFilenames.add(artifact.getFilename());
     }
+    assertThat(artifactFilenames.build()).containsAllIn(Lists.newArrayList(expected));
   }
 
   protected Object evalRuleClassCode(String... lines) throws Exception {

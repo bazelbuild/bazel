@@ -195,6 +195,11 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
+  public Iterable<? extends ActionInput> getToolFiles() {
+    return action.getTools();
+  }
+
+  @Override
   public Iterable<? extends ActionInput> getInputFiles() {
     return action.getInputs();
   }

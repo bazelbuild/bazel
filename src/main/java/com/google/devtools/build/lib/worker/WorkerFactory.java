@@ -72,10 +72,12 @@ final class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worker
   }
 
   /**
-   * The worker is considered to be valid when its process is still alive.
+   * The worker is considered to be valid when its files have not changed on disk and its process is
+   * still alive.
    */
   @Override
   public boolean validateObject(WorkerKey key, PooledObject<Worker> p) {
-    return p.getObject().isAlive();
+    Worker worker = p.getObject();
+    return key.getWorkerFilesHash().equals(worker.getWorkerFilesHash()) && worker.isAlive();
   }
 }

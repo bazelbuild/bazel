@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.base.Preconditions;
+import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
@@ -40,11 +41,13 @@ final class Worker {
   private final int workerId;
   private final Process process;
   private final Thread shutdownHook;
+  private final HashCode workerFilesHash;
 
-  private Worker(Process process, Thread shutdownHook, int pid) {
+  private Worker(Process process, Thread shutdownHook, int pid, HashCode workerFilesHash) {
     this.process = process;
     this.shutdownHook = shutdownHook;
     this.workerId = pid;
+    this.workerFilesHash = workerFilesHash;
   }
 
   static Worker create(WorkerKey key, Path logDir, Reporter reporter, boolean verbose)
@@ -83,7 +86,7 @@ final class Worker {
                   + logFile));
     }
 
-    return new Worker(process, shutdownHook, workerId);
+    return new Worker(process, shutdownHook, workerId, key.getWorkerFilesHash());
   }
 
   void destroy() {
@@ -123,6 +126,10 @@ final class Worker {
    */
   int getWorkerId() {
     return this.workerId;
+  }
+
+  HashCode getWorkerFilesHash() {
+    return workerFilesHash;
   }
 
   boolean isAlive() {

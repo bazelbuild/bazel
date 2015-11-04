@@ -130,10 +130,17 @@ public class GenRule implements RuleConfiguredTargetFactory {
       inputs.add(ruleContext.getAnalysisEnvironment().getVolatileWorkspaceStatusArtifact());
     }
 
-    ruleContext.registerAction(new GenRuleAction(
-        ruleContext.getActionOwner(), inputs.build(), filesToBuild, argv, env,
-        ImmutableMap.copyOf(executionInfo), commandHelper.getRemoteRunfileManifestMap(),
-        message + ' ' + ruleContext.getLabel()));
+    ruleContext.registerAction(
+        new GenRuleAction(
+            ruleContext.getActionOwner(),
+            commandHelper.getResolvedTools(),
+            inputs.build(),
+            filesToBuild,
+            argv,
+            env,
+            ImmutableMap.copyOf(executionInfo),
+            commandHelper.getRemoteRunfileManifestMap(),
+            message + ' ' + ruleContext.getLabel()));
 
     RunfilesProvider runfilesProvider = withData(
         // No runfiles provided if not a data dependency.

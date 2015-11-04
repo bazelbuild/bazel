@@ -37,7 +37,9 @@ public final class GenRuleAction extends SpawnAction {
       // Not chosen scientifically/carefully.  300MB memory, 100% CPU, no I/O.
       ResourceSet.createWithRamCpuIo(300, 1.0, 0.0);
 
-  public GenRuleAction(ActionOwner owner,
+  public GenRuleAction(
+      ActionOwner owner,
+      Iterable<Artifact> tools,
       Iterable<Artifact> inputs,
       Iterable<Artifact> outputs,
       List<String> argv,
@@ -45,10 +47,20 @@ public final class GenRuleAction extends SpawnAction {
       ImmutableMap<String, String> executionInfo,
       ImmutableMap<PathFragment, Artifact> runfilesManifests,
       String progressMessage) {
-    super(owner, inputs, outputs, GENRULE_RESOURCES,
-        CommandLine.of(argv, false), environment, executionInfo, progressMessage,
+    super(
+        owner,
+        tools,
+        inputs,
+        outputs,
+        GENRULE_RESOURCES,
+        CommandLine.of(argv, false),
+        environment,
+        executionInfo,
+        progressMessage,
         runfilesManifests,
-        "Genrule", false, null);
+        "Genrule",
+        false,
+        null);
   }
 
   @Override

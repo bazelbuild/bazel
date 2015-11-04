@@ -19,9 +19,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 
-import java.util.HashSet;
-import java.util.Set;
-
 import javax.annotation.concurrent.ThreadSafe;
 
 /**
@@ -33,7 +30,6 @@ import javax.annotation.concurrent.ThreadSafe;
 @ThreadSafe
 final class WorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
   final WorkerFactory workerFactory;
-  final Set<Worker> workers = new HashSet<>();
 
   public WorkerPool(WorkerFactory factory, GenericKeyedObjectPoolConfig config) {
     super(factory, config);

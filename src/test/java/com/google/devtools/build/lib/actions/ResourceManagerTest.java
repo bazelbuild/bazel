@@ -362,6 +362,11 @@ public class ResourceManagerTest {
     }
 
     @Override
+    public Iterable<Artifact> getTools() {
+      throw new IllegalStateException();
+    }
+
+    @Override
     public Iterable<Artifact> getInputs() {
       throw new IllegalStateException();
     }
