@@ -70,7 +70,7 @@ public class WorkerOptions extends OptionsBase {
 
   @Option(
     name = "worker_verbose",
-    defaultValue = "true",
+    defaultValue = "false",
     category = "strategy",
     help = "If enabled, prints verbose messages when workers are started, shutdown, ..."
   )
