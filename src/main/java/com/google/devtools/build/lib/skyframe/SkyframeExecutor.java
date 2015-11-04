@@ -72,7 +72,6 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
@@ -1718,9 +1717,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     @Override
     public void updatePatternEvaluator(PathFragment relativeWorkingDirectory) {
-      if (!relativeWorkingDirectory.equals(PathFragment.EMPTY_FRAGMENT)) {
-        throw new UnsupportedOperationException();
-      }
+      targetPatternEvaluator.updateOffset(relativeWorkingDirectory);
     }
 
     @Override
@@ -1731,7 +1728,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         throws TargetParsingException, LoadingFailedException, InterruptedException {
       Stopwatch timer = Stopwatch.createStarted();
       SkyKey key = TargetPatternPhaseValue.key(ImmutableList.copyOf(targetPatterns),
-          options.compileOneDependency, options.buildTestsOnly, determineTests,
+          targetPatternEvaluator.getOffset(), options.compileOneDependency,
+          options.buildTestsOnly, determineTests,
           TestFilter.forOptions(options, eventHandler, ruleClassNames));
       EvaluationResult<TargetPatternPhaseValue> evalResult =
           buildDriver.evaluate(
