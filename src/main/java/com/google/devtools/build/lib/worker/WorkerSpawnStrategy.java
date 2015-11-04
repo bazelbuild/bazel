@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -47,6 +49,8 @@ import com.google.devtools.common.options.OptionsClassProvider;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -129,7 +133,6 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
       return;
     }
 
-    String paramFile = Iterables.getLast(spawn.getArguments());
     FileOutErr outErr = actionExecutionContext.getFileOutErr();
 
     ImmutableList<String> args = ImmutableList.<String>builder()
@@ -145,19 +148,44 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
               spawn.getToolFiles(), actionExecutionContext.getActionInputFileCache());
       WorkerKey key = new WorkerKey(args, env, workDir, spawn.getMnemonic(), workerFilesHash);
 
-      WorkResponse response = execInWorker(executor.getEventHandler(), paramFile, key, maxRetries);
+      WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
+      expandArgument(requestBuilder, Iterables.getLast(spawn.getArguments()));
+
+      WorkResponse response =
+          execInWorker(executor.getEventHandler(), key, requestBuilder.build(), maxRetries);
 
       outErr.getErrorStream().write(response.getOutputBytes().toByteArray());
 
       if (response.getExitCode() != 0) {
         throw new UserExecException(
-            String.format("Worker process failed with exit code: %d.", response.getExitCode()));
+            String.format(
+                "Worker process sent response with exit code: %d.", response.getExitCode()));
       }
     } catch (Exception e) {
       String message =
           CommandFailureUtils.describeCommandFailure(
               verboseFailures, spawn.getArguments(), env, workDir.getPathString());
       throw new UserExecException(message, e);
+    }
+  }
+
+  /**
+   * Recursively expands arguments by replacing @filename args with the contents of the referenced
+   * files. The @ itself can be escaped with @@.
+   *
+   * @param requestBuilder the WorkRequest.Builder that the arguments should be added to.
+   * @param arg the argument to expand.
+   * @throws java.io.IOException if one of the files containing options cannot be read.
+   */
+  private void expandArgument(WorkRequest.Builder requestBuilder, String arg) throws IOException {
+    if (arg.startsWith("@") && !arg.startsWith("@@")) {
+      for (String line : Files.readAllLines(Paths.get(arg.substring(1)), UTF_8)) {
+        if (line.length() > 0) {
+          expandArgument(requestBuilder, line);
+        }
+      }
+    } else {
+      requestBuilder.addArguments(arg);
     }
   }
 
@@ -173,17 +201,14 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
   }
 
   private WorkResponse execInWorker(
-      EventHandler eventHandler, String paramFile, WorkerKey key, int retriesLeft)
+      EventHandler eventHandler, WorkerKey key, WorkRequest request, int retriesLeft)
       throws Exception {
     Worker worker = null;
     WorkResponse response = null;
 
     try {
       worker = workers.borrowObject(key);
-      WorkRequest.newBuilder()
-          .addArguments(paramFile)
-          .build()
-          .writeDelimitedTo(worker.getOutputStream());
+      request.writeDelimitedTo(worker.getOutputStream());
       worker.getOutputStream().flush();
 
       response = WorkResponse.parseDelimitedFrom(worker.getInputStream());
@@ -213,7 +238,7 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
                     + " worker failed ("
                     + e
                     + "), invalidating and retrying with new worker..."));
-        return execInWorker(eventHandler, paramFile, key, retriesLeft - 1);
+        return execInWorker(eventHandler, key, request, retriesLeft - 1);
       } else {
         throw e;
       }
