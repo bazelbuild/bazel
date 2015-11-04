@@ -103,7 +103,7 @@ public final class SkyKey implements Serializable {
       return false;
     }
     SkyKey other = (SkyKey) obj;
-    return argument.equals(other.argument) && functionName.equals(other.functionName);
+    return functionName.equals(other.functionName) && argument.equals(other.argument);
   }
 
   public static final Function<SkyKey, Object> NODE_NAME = new Function<SkyKey, Object>() {
