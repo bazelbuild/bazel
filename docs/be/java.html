@@ -185,12 +185,6 @@ java_binary(
             you need to generate a set of <code>.java</code> files with a genrule.)
           </p>
           <p>
-            Source files of type <code>.jar</code> are linked in. <em class="harmful">This is
-            discouraged, use <a href="#java_import"><code>java_import</code></a></em> if you need to
-            link against existing (or generated) jar files (which is useful if you have a
-            <code>.jar</code> file without sources).
-          </p>
-          <p>
             Rules: if the rule (typically <code>genrule</code> or <code>filegroup</code>) generates
             any of the files listed above, they will be used the same way as described for source
             files.
@@ -643,12 +637,6 @@ java_binary(
             you need to generate a set of <code>.java</code> files with a genrule.)
           </p>
           <p>
-            Source files of type <code>.jar</code> are linked in. <em class="harmful">This is
-            discouraged, use <a href="#java_import"><code>java_import</code></a></em> if you need to
-            link against existing (or generated) jar files (which is useful if you have a
-            <code>.jar</code> file without sources).
-          </p>
-          <p>
             Rules: if the rule (typically <code>genrule</code> or <code>filegroup</code>) generates
             any of the files listed above, they will be used the same way as described for source
             files.
@@ -979,12 +967,6 @@ java_test(
             you need to generate a set of <code>.java</code> files with a genrule.)
           </p>
           <p>
-            Source files of type <code>.jar</code> are linked in. <em class="harmful">This is
-            discouraged, use <a href="#java_import"><code>java_import</code></a></em> if you need to
-            link against existing (or generated) jar files (which is useful if you have a
-            <code>.jar</code> file without sources).
-          </p>
-          <p>
             Rules: if the rule (typically <code>genrule</code> or <code>filegroup</code>) generates
             any of the files listed above, they will be used the same way as described for source
             files.
@@ -1291,12 +1273,6 @@ java_test(
           <p>
             Source files of type <code>.srcjar</code> are unpacked and compiled. (This is useful if
             you need to generate a set of <code>.java</code> files with a genrule.)
-          </p>
-          <p>
-            Source files of type <code>.jar</code> are linked in. <em class="harmful">This is
-            discouraged, use <a href="#java_import"><code>java_import</code></a></em> if you need to
-            link against existing (or generated) jar files (which is useful if you have a
-            <code>.jar</code> file without sources).
           </p>
           <p>
             Rules: if the rule (typically <code>genrule</code> or <code>filegroup</code>) generates

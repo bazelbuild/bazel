@@ -33,7 +33,7 @@ Some command line options to Bazel that may be useful:
 
 When in doubt, look at the
 [example](https://github.com/bazelbuild/bazel/tree/master/examples/android)
-or [contact us](http://bazel.io/contributing.html).
+or [contact us](https://groups.google.com/forum/#!forum/bazel-discuss).
 
 ## Introduction
 
