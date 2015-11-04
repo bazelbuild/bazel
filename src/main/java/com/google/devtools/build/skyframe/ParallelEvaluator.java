@@ -1407,6 +1407,7 @@ public final class ParallelEvaluator implements Evaluator {
             errorEntry);
         break;
       }
+      Preconditions.checkNotNull(parentEntry, "%s %s", errorKey, parent);
       errorKey = parent;
       SkyFunction factory = skyFunctions.get(parent.functionName());
       if (parentEntry.isDirty()) {
