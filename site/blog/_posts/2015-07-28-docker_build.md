@@ -30,16 +30,16 @@ To use it, simply creates your images using the BUILD language:
 load("/tools/build_defs/docker/docker", "docker_build")
 
 docker_build(
-   name = “foo”,
-   tars = [ “base.tar” ],
+   name = "foo",
+   tars = [ "base.tar" ],
 )
 
 docker_build(
-   name = “bar”,
-   base = “:foo”,
-   debs = [ “blah.deb” ],
-   files = [ “:bazinga” ],
-   volumes = [ “/asdf” ],
+   name = "bar",
+   base = ":foo",
+   debs = [ "blah.deb" ],
+   files = [ ":bazinga" ],
+   volumes = [ "/asdf" ],
 )
 ```
 
@@ -51,6 +51,7 @@ FROM bazel/base
 ```
 
 And the `bar` target is roughly equivalent to the following Dockerfile:
+
 ```
 FROM bazel/foo
 RUN dpkg -i blah.deb
