@@ -316,9 +316,8 @@ final class BundleSupport {
       Artifact bundled = intermediateArtifacts.convertedStringsFile(strings);
       ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
           .setMnemonic("ConvertStringsPlist")
-          .setExecutable(XCRUN)
+          .setExecutable(new PathFragment("/usr/bin/plutil"))
           .setCommandLine(CustomCommandLine.builder()
-              .add("plutil")
               .add("-convert").add("binary1")
               .addExecPath("-o", bundled)
               .add("--")
