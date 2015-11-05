@@ -17,6 +17,8 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.collect.CompactHashSet;
@@ -46,6 +48,8 @@ public abstract class ReverseDepsUtil<T> {
 
   static final int MAYBE_CHECK_THRESHOLD = 10;
 
+  private static final Interner<KeyToConsolidate> consolidateInterner = Interners.newWeakInterner();
+
   abstract void setReverseDepsObject(T container, Object object);
 
   abstract void setSingleReverseDep(T container, boolean singleObject);
@@ -72,7 +76,7 @@ public abstract class ReverseDepsUtil<T> {
    */
   private abstract static class KeyToConsolidate {
     // Do not access directly -- use the {@link #key} static accessor instead.
-    private final SkyKey key;
+    protected final SkyKey key;
 
     /** Do not call directly -- use the {@link #create} static method instead. */
     private KeyToConsolidate(SkyKey key) {
@@ -110,12 +114,26 @@ public abstract class ReverseDepsUtil<T> {
         case CHECK:
           return key;
         case REMOVE:
-          return new KeyToRemove(key);
+          return consolidateInterner.intern(new KeyToRemove(key));
         case ADD:
-          return new KeyToAdd(key);
+          return consolidateInterner.intern(new KeyToAdd(key));
         default:
           throw new IllegalStateException(op + ", " + key);
       }
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj == null) {
+        return false;
+      }
+      return this.getClass() == obj.getClass() && this.key.equals(((KeyToConsolidate) obj).key);
+    }
+
+    @Override
+    public int hashCode() {
+      // Overridden in subclasses.
+      throw new UnsupportedOperationException(key.toString());
     }
   }
 
@@ -123,11 +141,21 @@ public abstract class ReverseDepsUtil<T> {
     KeyToAdd(SkyKey key) {
       super(key);
     }
+
+    @Override
+    public int hashCode() {
+      return key.hashCode();
+    }
   }
 
   private static final class KeyToRemove extends KeyToConsolidate {
     KeyToRemove(SkyKey key) {
       super(key);
+    }
+
+    @Override
+    public int hashCode() {
+      return 42 + 37 * key.hashCode();
     }
   }
 
