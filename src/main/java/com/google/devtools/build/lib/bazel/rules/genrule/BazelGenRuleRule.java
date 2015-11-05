@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -48,6 +49,8 @@ public final class BazelGenRuleRule implements RuleDefinition {
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
         .setOutputToGenfiles()
+        // For BuildConfiguration.getShExecutable():
+        .requiresConfigurationFragments(BazelConfiguration.class)
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(srcs) -->
         A list of inputs for this rule, such as source files to process.
         ${SYNOPSIS}
