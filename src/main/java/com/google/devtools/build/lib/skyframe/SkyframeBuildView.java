@@ -511,6 +511,20 @@ public final class SkyframeBuildView {
     if (config == null || !config.useDynamicConfigurations()) {
       return topLevelHostConfiguration;
     }
+    // TODO(bazel-team): have the fragment classes be those required by the consuming target's
+    // transitive closure. This isn't the same as the input configuration's fragment classes -
+    // the latter may be a proper subset of the former.
+    //
+    // ConfigurationFactory.getConfiguration provides the reason why: if a declared required
+    // fragment is evaluated and returns null, it never gets added to the configuration. So if we
+    // use the configuration's fragments as the source of truth, that excludes required fragments
+    // that never made it in.
+    //
+    // If we're just trimming an existing configuration, this is no big deal (if the original
+    // configuration doesn't need the fragment, the trimmed one doesn't either). But this method
+    // trims a host configuration to the same scope as a target configuration. Since their options
+    // are different, the host instance may actually be able to produce the fragment. So it's
+    // wrong and potentially dangerous to unilaterally exclude it.
     Set<Class<? extends BuildConfiguration.Fragment>> fragmentClasses = config.fragmentClasses();
     BuildConfiguration hostConfig = hostConfigurationCache.get(fragmentClasses);
     if (hostConfig != null) {
