@@ -277,7 +277,7 @@ public final class CompilationSupport {
     }
 
     if (compilationArtifacts.hasSwiftSources()) {
-      registerSwiftModuleMergeAction(intermediateArtifacts, compilationArtifacts);
+      registerSwiftModuleMergeAction(intermediateArtifacts, compilationArtifacts, objcProvider);
     }
 
     for (Artifact archive : compilationArtifacts.getArchive().asSet()) {
@@ -391,6 +391,8 @@ public final class CompilationSupport {
    *
    * @param sourceFile the artifact to compile
    * @param objFile the resulting object artifact
+   * @param intermediateArtifacts intermediary artifacts
+   * @param objcProvider ObjcProvider instance for this invocation
    */
   private void registerSwiftCompileAction(
       Artifact sourceFile,
@@ -431,8 +433,18 @@ public final class CompilationSupport {
       .addExecPath("-primary-file", sourceFile)
       .addExecPaths(otherSwiftSources)
       .addExecPath("-o", objFile)
-      .addExecPath("-emit-module-path", intermediateArtifacts.swiftModuleFile(sourceFile));
+      .addExecPath("-emit-module-path", intermediateArtifacts.swiftModuleFile(sourceFile))
+      // The swift compiler will invoke clang itself when compiling module maps. This invocation
+      // does not include the current working directory, causing cwd-relative imports to fail.
+      // Including the current working directory to the header search paths ensures that these
+      // relative imports will work.
+      .add("-Xcc").add("-I.");
 
+    // Using addExecPathBefore here adds unnecessary quotes around '-Xcc -I', which trips the
+    // compiler. Using two add() calls generates a correctly formed command line.
+    for (PathFragment directory : objcProvider.get(INCLUDE).toList()) {
+      commandLine.add("-Xcc").add(String.format("-I%s", directory.toString()));
+    }
 
     ImmutableList.Builder<Artifact> inputHeaders = ImmutableList.<Artifact>builder()
         .addAll(attributes.hdrs())
@@ -450,6 +462,7 @@ public final class CompilationSupport {
     if (objcConfiguration.moduleMapsEnabled()) {
       PathFragment moduleMapPath = intermediateArtifacts.moduleMap().getArtifact().getExecPath();
       commandLine.add("-I").add(moduleMapPath.getParentDirectory().toString());
+      commandLine.add("-import-underlying-module");
     }
 
     ruleContext.registerAction(
@@ -473,7 +486,8 @@ public final class CompilationSupport {
    */
   private void registerSwiftModuleMergeAction(
       IntermediateArtifacts intermediateArtifacts,
-      CompilationArtifacts compilationArtifacts) {
+      CompilationArtifacts compilationArtifacts,
+      ObjcProvider objcProvider) {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
 
     ImmutableList.Builder<Artifact> moduleFiles = new ImmutableList.Builder<>();
@@ -489,21 +503,45 @@ public final class CompilationSupport {
         .add("-emit-module")
         .add("-sdk").add(IosSdkCommands.sdkDir(objcConfiguration))
         .add("-target").add(IosSdkCommands.swiftTarget(objcConfiguration));
+
     if (objcConfiguration.generateDebugSymbols()) {
       commandLine.add("-g");
     }
 
-    commandLine.add("-module-name").add(getModuleName())
+    commandLine
+        .add("-module-name").add(getModuleName())
         .add("-parse-as-library")
         .addExecPaths(moduleFiles.build())
         .addExecPath("-o", intermediateArtifacts.swiftModule())
-        .addExecPath("-emit-objc-header-path", intermediateArtifacts.swiftHeader());
+        .addExecPath("-emit-objc-header-path", intermediateArtifacts.swiftHeader())
+        // The swift compiler will invoke clang itself when compiling module maps. This invocation
+        // does not include the current working directory, causing cwd-relative imports to fail.
+        // Including the current working directory to the header search paths ensures that these
+        // relative imports will work.
+        .add("-Xcc").add("-I.");
+
+
+    // Using addExecPathBefore here adds unnecessary quotes around '-Xcc -I', which trips the
+    // compiler. Using two add() calls generates a correctly formed command line.
+    for (PathFragment directory : objcProvider.get(INCLUDE).toList()) {
+      commandLine.add("-Xcc").add(String.format("-I%s", directory.toString()));
+    }
+
+    // Import the Objective-C module map.
+    // TODO(bazel-team): Find a way to import the module map directly, instead of the parent
+    // directory?
+    if (objcConfiguration.moduleMapsEnabled()) {
+      PathFragment moduleMapPath = intermediateArtifacts.moduleMap().getArtifact().getExecPath();
+      commandLine.add("-I").add(moduleMapPath.getParentDirectory().toString());
+    }
 
     ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
         .setMnemonic("SwiftModuleMerge")
         .setExecutable(XCRUN)
         .setCommandLine(commandLine.build())
         .addInputs(moduleFiles.build())
+        .addTransitiveInputs(objcProvider.get(HEADER))
+        .addTransitiveInputs(objcProvider.get(MODULE_MAP))
         .addOutput(intermediateArtifacts.swiftModule())
         .addOutput(intermediateArtifacts.swiftHeader())
         .build(ruleContext));
@@ -1170,6 +1208,12 @@ public final class CompilationSupport {
    * Returns the name of Swift module for this target.
    */
   private String getModuleName() {
+    // If we have module maps support, we need to use the generated module name, this way
+    // clang can properly load objc part of the module via -import-underlying-module command.
+    if (ObjcRuleClasses.objcConfiguration(ruleContext).moduleMapsEnabled()) {
+      return ObjcRuleClasses.intermediateArtifacts(ruleContext).moduleMap().getName();
+    }
+    // Otherwise, just use target name, it doesn't matter.
     return ruleContext.getLabel().getName();
   }
 
