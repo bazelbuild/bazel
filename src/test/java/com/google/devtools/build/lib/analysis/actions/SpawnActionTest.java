@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Arrays;
@@ -166,7 +167,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         ImmutableList.copyOf(
             ((ParameterFileWriteAction) getGeneratingAction(paramFile)).getContents()))
         .containsExactly("-X");
-    assertContainsSublist(actionInputsToPaths(action.getSpawn().getInputFiles()),
+    MoreAsserts.assertContainsSublist(actionInputsToPaths(action.getSpawn().getInputFiles()),
         "pkg/exe.jar");
   }
 
@@ -197,7 +198,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     assertEquals(Arrays.asList("-X"),
         ImmutableList.copyOf(
             ((ParameterFileWriteAction) getGeneratingAction(paramFile)).getContents()));
-    assertContainsSublist(actionInputsToPaths(action.getSpawn().getInputFiles()),
+    MoreAsserts.assertContainsSublist(actionInputsToPaths(action.getSpawn().getInputFiles()),
         "pkg/exe.jar");
   }
 

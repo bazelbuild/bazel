@@ -1146,15 +1146,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * sublist. This is useful for checking that a list of arguments contains a
    * particular set of arguments.
    */
-  protected void assertContainsSublist(List<String> list, String... sublist) {
-    assertContainsSublist(null, list, Arrays.asList(sublist));
-  }
-
-  /**
-   * Utility method for asserting that a list contains the elements of a
-   * sublist. This is useful for checking that a list of arguments contains a
-   * particular set of arguments.
-   */
   protected void assertContainsSublist(List<String> list, List<String> sublist) {
     assertContainsSublist(null, list, sublist);
   }
