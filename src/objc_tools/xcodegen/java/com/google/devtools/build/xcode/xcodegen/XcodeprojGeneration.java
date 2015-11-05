@@ -208,7 +208,7 @@ public class XcodeprojGeneration {
                 .withExplicitFileType(FILE_TYPE_APP_EXTENSION);
       case FRAMEWORK:
         return FileReference.of(
-            String.format("%s.framwork", productName), SourceTree.BUILT_PRODUCTS_DIR)
+            String.format("%s.framework", productName), SourceTree.BUILT_PRODUCTS_DIR)
                 .withExplicitFileType(FILE_TYPE_FRAMEWORK);
 
       default:
