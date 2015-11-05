@@ -530,6 +530,22 @@ public class EvaluationTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testAddSelectIncompatibleType() throws Exception {
+    newTest()
+        .testIfErrorContains(
+            "'+' operator applied to incompatible types (select of list, int)",
+            "select({'foo': ['FOO'], 'bar': ['BAR']}) + 1");
+  }
+
+  @Test
+  public void testAddSelectIncompatibleType2() throws Exception {
+    newTest()
+        .testIfErrorContains(
+            "'+' operator applied to incompatible types (select of list, select of int)",
+            "select({'foo': ['FOO']}) + select({'bar': 2})");
+  }
+
+  @Test
   public void testListComprehensionFailsOnNonSequence() throws Exception {
     newTest().testIfErrorContains("type 'int' is not iterable", "[x + 1 for x in 123]");
   }

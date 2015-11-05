@@ -60,7 +60,7 @@ public final class SelectorList {
   /**
    * Returns the native type contained by this expression.
    */
-  private Class<?> getType() {
+  public Class<?> getType() {
     return type;
   }
 
@@ -83,11 +83,16 @@ public final class SelectorList {
     Class<?> type1 = addValue(value1, builder);
     Class<?> type2 = addValue(value2, builder);
     if (!canConcatenate(type1, type2)) {
-      throw new EvalException(location, "'+' operator applied to incompatible types");
+      throw new EvalException(
+          location,
+          String.format(
+              "'+' operator applied to incompatible types (%s, %s)",
+              EvalUtils.getDataTypeName(value1, true),
+              EvalUtils.getDataTypeName(value2, true)));
     }
     return new SelectorList(type1, builder.build());
   }
-  
+
   // TODO(bazel-team): match on the List interface, not the actual implementation. For now,
   // we verify this is the right class through test coverage.
   private static final Class<?> NATIVE_LIST_TYPE = ArrayList.class;

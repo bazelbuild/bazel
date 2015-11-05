@@ -265,6 +265,9 @@ public final class EvalUtils {
     } else if (object instanceof SkylarkNestedSet) {
       SkylarkNestedSet set = (SkylarkNestedSet) object;
       return "set" + (full ? " of " + set.getContentType() + "s" : "");
+    } else if (object instanceof SelectorList) {
+      SelectorList list = (SelectorList) object;
+      return "select" + (full ? " of " + getDataTypeNameFromClass(list.getType()) : "");
     } else {
       return getDataTypeNameFromClass(object.getClass());
     }
