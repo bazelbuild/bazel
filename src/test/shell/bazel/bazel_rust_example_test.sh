@@ -29,7 +29,7 @@ function check_has_rustc() {
   PATH=/usr/bin:/usr/local/bin:$PATH
   if [ ! -x "$(which rustc)" ]; then
     echo "No rustc found. Skipping..."
-    return false
+    return 1
   fi
 }
 
