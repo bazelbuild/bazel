@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.base.Joiner.MapJoiner;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -35,6 +36,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Action to expand a template and write the expanded content to a file.
@@ -93,7 +95,28 @@ public class TemplateExpansionAction extends AbstractFileWriteAction {
         }
       };
     }
+    
+    /**
+     * Returns an immutable Substitution instance for the key and map of values.  Corresponding
+     * values in the map will be joined with "=", and pairs will be joined by spaces before
+     * substitution.
+     *
+     * <p>For example, the map <(a,1), (b,2), (c,3)> will become "a=1 b=2 c=3".
+     */
+    public static Substitution ofSpaceSeparatedMap(final String key, final Map<?, ?> value) {
+      return new Substitution() {
+        @Override
+        public String getKey() {
+          return key;
+        }
 
+        @Override
+        public String getValue() {
+          return Joiner.on(" ").withKeyValueSeparator("=").join(value);
+        }
+      };
+    }
+    
     @Override
     public boolean equals(Object object) {
       if (this == object) {

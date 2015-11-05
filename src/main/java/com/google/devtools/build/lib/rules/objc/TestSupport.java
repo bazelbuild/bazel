@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.util.FileType;
 
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 
 import javax.annotation.Nullable;
 
@@ -74,6 +75,8 @@ public class TestSupport {
     String runMemleaks =
         ruleContext.getFragment(ObjcConfiguration.class).runMemleaks() ? "true" : "false";
 
+    Map<String, String> testEnv = ruleContext.getConfiguration().getTestEnv();
+    
     // The substitutions below are common for simulator and lab device.
     ImmutableList.Builder<Substitution> substitutions =
         new ImmutableList.Builder<Substitution>()
@@ -82,7 +85,9 @@ public class TestSupport {
             .add(Substitution.of("%(test_app_name)s", baseNameWithoutIpa(testIpa)))
             .add(
                 Substitution.of("%(plugin_jars)s", Artifact.joinRootRelativePaths(":", plugins())));
-
+    
+    substitutions.add(Substitution.ofSpaceSeparatedMap("%(test_env)s", testEnv));
+        
     // xctestIpa is the app bundle being tested
     Optional<Artifact> xctestIpa = xctestIpa();
     if (xctestIpa.isPresent()) {
