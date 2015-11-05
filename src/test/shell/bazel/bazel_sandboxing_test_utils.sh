@@ -50,6 +50,6 @@ cc_test(name = "sandbox_enabled", srcs = ["test.c"], copts = ["-std=c99"])
 EOF
   bazel test //test:sandbox_enabled || {
     echo "Sandboxing disabled, skipping..."
-    return false
+    return 1
   }
 }

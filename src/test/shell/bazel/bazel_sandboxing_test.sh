@@ -246,7 +246,7 @@ function test_sandbox_undeclared_deps_with_local_tag() {
     || fail "Genrule didn't produce output: examples/genrule:breaks1_works_with_local_tag"
 }
 
-function test_sandbox_undeclared_deps_skylark() {
+function DISABLED_test_sandbox_undeclared_deps_skylark() {
   bazel build --genrule_strategy=sandboxed \
     examples/genrule:skylark_breaks1 \
     && fail "Non-hermetic genrule succeeded: examples/genrule:skylark_breaks1" || true
