@@ -81,6 +81,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @Nullable private final String signingCertName;
   @Nullable private final Path clientWorkspaceRoot;
   private final String xcodeOverrideWorkspaceRoot;
+  private final boolean useAbsolutePathsForActions;
 
   // We only load these labels if the mode which uses them is enabled. That is known as part of the
   // BuildConfiguration. This label needs to be part of a configuration because only configurations
@@ -123,6 +124,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.clientWorkspaceRoot = directories != null ? directories.getWorkspace() : null;
     this.signingCertName = objcOptions.iosSigningCertName;
     this.xcodeOverrideWorkspaceRoot = objcOptions.xcodeOverrideWorkspaceRoot;
+    this.useAbsolutePathsForActions = objcOptions.useAbsolutePathsForActions;
   }
 
   public Map<String, String> getEnvironmentForDarwin() {
@@ -138,7 +140,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   public String getIosSdkVersion() {
     return iosSdkVersion;
   }
-  
+
   public Optional<String> getXcodeVersionOverride() {
     return xcodeVersionOverride;
   }
@@ -330,6 +332,14 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean shouldStripBinary() {
     return this.enableBinaryStripping && getCompilationMode() == CompilationMode.OPT;
+  }
+
+  /**
+   * If true, all calls to actions are done with absolute paths instead of relative paths.
+   * Using absolute paths allows Xcode to debug and deal with blaze errors in the GUI properly.
+   */
+  public boolean getUseAbsolutePathsForActions() {
+    return this.useAbsolutePathsForActions;
   }
 
   /**

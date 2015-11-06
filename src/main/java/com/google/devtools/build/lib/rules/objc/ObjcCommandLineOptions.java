@@ -207,6 +207,14 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public String iosSigningCertName;
 
   @Option(
+    name = "experimental_use_absolute_paths_for_actions",
+    defaultValue = "false",
+    category = "undocumented",
+    help = "If set, then all actions objc actions will be executed with absolute paths."
+  )
+  public boolean useAbsolutePathsForActions;
+
+  @Option(
     name = "xcode_override_workspace_root",
     defaultValue = "",
     category = "xcode",
