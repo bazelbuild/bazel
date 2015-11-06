@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.LegacyLoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -114,14 +113,8 @@ public final class CommandEnvironment {
     this.eventBus = eventBus;
     this.blazeModuleEnvironment = new BlazeModuleEnvironment();
 
-    if (USE_SKYFRAME_LOADING_PHASE) {
-      this.loadingPhaseRunner = runtime.getSkyframeExecutor().getLoadingPhaseRunner(
-          runtime.getPackageFactory().getRuleClassNames());
-    } else {
-      this.loadingPhaseRunner = new LegacyLoadingPhaseRunner(
-          runtime.getSkyframeExecutor().getPackageManager(),
-          runtime.getPackageFactory().getRuleClassNames());
-    }
+    this.loadingPhaseRunner = runtime.getSkyframeExecutor().getLoadingPhaseRunner(
+        runtime.getPackageFactory().getRuleClassNames(), USE_SKYFRAME_LOADING_PHASE);
     this.view = new BuildView(runtime.getDirectories(), runtime.getRuleClassProvider(),
         runtime.getSkyframeExecutor(), runtime.getCoverageReportActionFactory());
 
