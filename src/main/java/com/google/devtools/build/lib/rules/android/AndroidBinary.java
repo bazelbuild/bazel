@@ -94,7 +94,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ruleContext, javaSemantics, deps, deps, deps);
 
     AndroidCommon androidCommon = new AndroidCommon(
-        ruleContext, javaCommon, true /* asNeverLink */, true /* exportDeps */);
+        javaCommon, true /* asNeverLink */, true /* exportDeps */);
     try {
       ResourceDependencies resourceDeps = LocalResourceContainer.definesAndroidResources(
           ruleContext.attributes())
