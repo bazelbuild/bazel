@@ -19,12 +19,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -46,7 +44,6 @@ import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.Instr
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.LocalMetadataCollector;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -492,7 +489,7 @@ public class JavaCommon {
     javaCompilationHelper = new JavaCompilationHelper(
         ruleContext, semantics, javacOpts, javaTargetAttributes);
 
-    processSrcs(javaCompilationHelper, javaTargetAttributes);
+    processSrcs(javaTargetAttributes);
     javaTargetAttributes.addSourceArtifacts(extraSrcs);
     processRuntimeDeps(javaTargetAttributes);
 
@@ -591,19 +588,16 @@ public class JavaCommon {
 
 
   /**
-   * Processes the sources of this target, adding them as messages, proper
-   * sources or to the list of targets treated as deps as required.
+   * Processes the sources of this target, adding them as messages or proper
+   * sources.
    */
-  private void processSrcs(JavaCompilationHelper helper,
-      JavaTargetAttributes.Builder attributes) {
+  private void processSrcs(JavaTargetAttributes.Builder attributes) {
     for (MessageBundleProvider srcItem : ruleContext.getPrerequisites(
         "srcs", Mode.TARGET, MessageBundleProvider.class)) {
       attributes.addMessages(srcItem.getMessages());
     }
 
     attributes.addSourceArtifacts(sources);
-
-    addCompileTimeClassPathEntriesMaybeThroughIjar(helper, attributes);
   }
 
   /**
@@ -622,23 +616,6 @@ public class JavaCommon {
   public Iterable<SourcesJavaCompilationArgsProvider> compilationArgsFromSources() {
     return ruleContext.getPrerequisites("srcs", Mode.TARGET,
         SourcesJavaCompilationArgsProvider.class);
-  }
-
-  /**
-   * Adds jars in the given group of entries to the compile time classpath after
-   * using ijar to create jar interfaces for the generated jars.
-   */
-  private void addCompileTimeClassPathEntriesMaybeThroughIjar(
-      JavaCompilationHelper helper,
-      JavaTargetAttributes.Builder attributes) {
-    for (FileProvider provider : ruleContext
-        .getPrerequisites("srcs", Mode.TARGET, FileProvider.class)) {
-      Iterable<Artifact> jarFiles = helper.filterGeneratedJarsThroughIjar(
-          FileType.filter(provider.getFilesToBuild(), JavaSemantics.JAR));
-      List<Artifact> jarsWithOwners = Lists.newArrayList(jarFiles);
-      attributes.addDirectCompileTimeClassPathEntries(jarsWithOwners);
-      attributes.addCompileTimeJarFiles(jarsWithOwners);
-    }
   }
 
   /**
