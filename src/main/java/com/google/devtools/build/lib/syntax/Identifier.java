@@ -14,6 +14,12 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
+import com.google.devtools.build.lib.syntax.compiler.Variable.SkylarkVariable;
+import com.google.devtools.build.lib.syntax.compiler.VariableScope;
+
+import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
+
 import javax.annotation.Nullable;
 
 // TODO(bazel-team): for extra performance:
@@ -33,14 +39,14 @@ public final class Identifier extends Expression {
   public Identifier(String name) {
     this.name = name;
   }
-  
+
   /**
    *  Returns the name of the Identifier.
    */
   public String getName() {
     return name;
   }
-  
+
   public boolean isPrivate() {
     return name.startsWith("_");
   }
@@ -58,12 +64,12 @@ public final class Identifier extends Expression {
     }
     return false;
   }
-  
+
   @Override
   public int hashCode() {
     return name.hashCode();
   }
-  
+
   @Override
   Object doEval(Environment env) throws EvalException {
     try {
@@ -89,5 +95,11 @@ public final class Identifier extends Expression {
     return name.equals("$error$")
         ? new EvalException(getLocation(), "contains syntax error(s)", true)
         : new EvalException(getLocation(), "name '" + name + "' is not defined");
+  }
+
+  @Override
+  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo) {
+    SkylarkVariable variable = scope.getVariable(this);
+    return variable.load(scope, debugInfo.add(this));
   }
 }
