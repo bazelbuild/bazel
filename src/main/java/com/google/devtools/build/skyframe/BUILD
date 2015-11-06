@@ -8,6 +8,7 @@ java_library(
         "*.java",
     ]),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:clock",
         "//src/main/java/com/google/devtools/build/lib:collect",
         "//src/main/java/com/google/devtools/build/lib:common",
         "//src/main/java/com/google/devtools/build/lib:concurrent",

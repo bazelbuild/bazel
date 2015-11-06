@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.GroupedList.GroupedListHelper;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver.EvaluationState;
 import com.google.devtools.build.skyframe.MemoizingEvaluator.EmittedEventState;
@@ -932,7 +933,7 @@ public final class ParallelEvaluator implements Evaluator {
       Preconditions.checkState(factory != null, "%s %s", functionName, state);
 
       SkyValue value = null;
-      long startTime = Profiler.nanoTimeMaybe();
+      long startTime = BlazeClock.instance().nanoTime();
       try {
         value = factory.compute(skyKey, env);
       } catch (final SkyFunctionException builderException) {
@@ -975,7 +976,7 @@ public final class ParallelEvaluator implements Evaluator {
         throw ex;
       } finally {
         env.doneBuilding();
-        long elapsedTimeNanos = Profiler.nanoTimeMaybe() - startTime;
+        long elapsedTimeNanos =  BlazeClock.instance().nanoTime() - startTime;
         if (elapsedTimeNanos > 0)  {
           if (progressReceiver != null) {
             progressReceiver.computed(skyKey, elapsedTimeNanos);
