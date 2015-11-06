@@ -101,6 +101,7 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
   protected RuleIdeInfo getRuleInfoAndVerifyLabel(
       String target, Map<String, RuleIdeInfo> ruleIdeInfos) {
     RuleIdeInfo ruleIdeInfo = ruleIdeInfos.get(target);
+    assertThat(ruleIdeInfo).named(target).isNotNull();
     assertThat(ruleIdeInfo.getLabel()).isEqualTo(target);
     return ruleIdeInfo;
   }

@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.MessageLite;
@@ -79,6 +80,21 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
   public static final String IDE_INFO_TEXT = "ide-info-text";
   public static final String IDE_RESOLVE = "ide-resolve";
 
+  private static class PrerequisiteAttr {
+    public final String name;
+    public final Type<?> type;
+    public PrerequisiteAttr(String name, Type<?> type) {
+      this.name = name;
+      this.type = type;
+    }
+  }
+  public static final PrerequisiteAttr[] PREREQUISITE_ATTRS = {
+      new PrerequisiteAttr("deps", BuildType.LABEL_LIST),
+      new PrerequisiteAttr("exports", BuildType.LABEL_LIST),
+      new PrerequisiteAttr("$robolectric", BuildType.LABEL_LIST),
+      new PrerequisiteAttr("$junit", BuildType.LABEL)
+  };
+
   // File suffixes.
   public static final String ASWB_BUILD_SUFFIX = ".aswb-build";
   public static final String ASWB_BUILD_TEXT_SUFFIX = ".aswb-build.txt";
@@ -92,11 +108,14 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
 
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
-    return new AspectDefinition.Builder(NAME)
-        .attributeAspect("deps", AndroidStudioInfoAspect.class)
-        .attributeAspect("exports", AndroidStudioInfoAspect.class)
-        .attributeAspect("runtime_deps", AndroidStudioInfoAspect.class)
-        .build();
+    AspectDefinition.Builder builder = new AspectDefinition.Builder(NAME)
+        .attributeAspect("runtime_deps", AndroidStudioInfoAspect.class);
+
+    for (PrerequisiteAttr prerequisiteAttr : PREREQUISITE_ATTRS) {
+      builder.attributeAspect(prerequisiteAttr.name, AndroidStudioInfoAspect.class);
+    }
+
+    return builder.build();
   }
 
   @Override
@@ -142,11 +161,10 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
 
     // Calculate direct dependencies
     ImmutableList.Builder<TransitiveInfoCollection> directDepsBuilder = ImmutableList.builder();
-    if (ruleContext.attributes().has("deps", BuildType.LABEL_LIST)) {
-      directDepsBuilder.addAll(ruleContext.getPrerequisites("deps", Mode.TARGET));
-    }
-    if (ruleContext.attributes().has("exports", BuildType.LABEL_LIST)) {
-      directDepsBuilder.addAll(ruleContext.getPrerequisites("exports", Mode.TARGET));
+    for (PrerequisiteAttr prerequisiteAttr : PREREQUISITE_ATTRS) {
+      if (ruleContext.attributes().has(prerequisiteAttr.name, prerequisiteAttr.type)) {
+        directDepsBuilder.addAll(ruleContext.getPrerequisites(prerequisiteAttr.name, Mode.TARGET));
+      }
     }
     List<TransitiveInfoCollection> directDeps = directDepsBuilder.build();
 
