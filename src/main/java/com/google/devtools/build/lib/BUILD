@@ -90,6 +90,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_proto",
         "//third_party:asm",
+        "//third_party:asm-util",
         "//third_party:auto_value",
         "//third_party:bytebuddy",
         "//third_party:guava",
