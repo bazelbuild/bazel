@@ -326,6 +326,7 @@ function setup_objc_test_support() {
   [ -e tools/objc/precomp_xcodegen_deploy.jar ] || ln -sv ${xcodegen_path} tools/objc/precomp_xcodegen_deploy.jar
   [ -e tools/objc/StdRedirect.dylib ] || ln -sv ${stdredirect_path} tools/objc/StdRedirect.dylib
   [ -e tools/objc/swiftstdlibtoolwrapper.sh ] || ln -sv ${swiftstdlibtoolwrapper_path} tools/objc/swiftstdlibtoolwrapper.sh
+  [ -e tools/objc/xcrunwrapper.sh ] || ln -sv ${xcrunwrapper_path} tools/objc/xcrunwrapper.sh
   [ -e tools/objc/realpath ] || ln -sv ${realpath_path} tools/objc/realpath
   [ -e tools/objc/environment_plist.sh ] || ln -sv ${environment_plist_path} tools/objc/environment_plist.sh
 

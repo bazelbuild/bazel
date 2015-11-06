@@ -499,10 +499,9 @@ public final class ObjcCommon {
 
       if (compilationAttributes.isPresent()) {
         CompilationAttributes attributes = compilationAttributes.get();
-        ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(context);
         Iterable<PathFragment> sdkIncludes = Iterables.transform(
             Interspersing.prependEach(
-                IosSdkCommands.sdkDir(objcConfiguration) + "/usr/include/",
+                IosSdkCommands.sdkDir() + "/usr/include/",
                 PathFragment.safePathStrings(attributes.sdkIncludes())),
             TO_PATH_FRAGMENT);
         objcProvider

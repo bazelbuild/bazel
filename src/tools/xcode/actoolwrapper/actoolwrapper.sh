@@ -21,7 +21,7 @@
 
 set -eu
 
-REALPATH=$0.runfiles/external/bazel_tools/tools/objc/realpath
+REALPATH="$0.runfiles/external/bazel_tools/tools/objc/realpath"
 if [ ! -e $REALPATH ]; then
   REALPATH=tools/objc/realpath
 fi
@@ -54,6 +54,11 @@ for i in $@; do
   LASTARG="$i"
 done
 
+WRAPPER="$0.runfiles/external/bazel_tools/tools/objc/xcrunwrapper.sh"
+if [ ! -e $WRAPPER ]; then
+  WRAPPER=tools/objc/xcrunwrapper.sh
+fi
+
 # If we are running into problems figuring out actool issues, there are a couple
 # of env variables that may help. Both of the following must be set to work.
 #   IBToolDebugLogFile=<OUTPUT FILE PATH>
@@ -63,7 +68,7 @@ done
 # helps.
 # Yes IBTOOL appears to be correct here due to actool and ibtool being based
 # on the same codebase.
-/usr/bin/xcrun actool --errors --warnings --notices \
+$WRAPPER actool --errors --warnings --notices \
     --compress-pngs --output-format human-readable-text \
     --compile "$TEMPDIR" "${TOOLARGS[@]}"
 

@@ -107,7 +107,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("objc_proto_library")
         .factoryClass(ObjcProtoLibrary.class)
-        .ancestors(BaseRuleClasses.RuleBase.class)
+        .ancestors(BaseRuleClasses.RuleBase.class, ObjcRuleClasses.XcrunRule.class)
         .build();
   }
 }

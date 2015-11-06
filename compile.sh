@@ -103,6 +103,7 @@ if [ $DO_TOOLS_COMPILATION ]; then
     bazel_bootstrap //src/tools/xcode/ibtoolwrapper:ibtoolwrapper tools/objc/ibtoolwrapper.sh 0755
     bazel_bootstrap //src/tools/xcode/momcwrapper:momcwrapper tools/objc/momcwrapper.sh 0755
     bazel_bootstrap //src/tools/xcode/swiftstdlibtoolwrapper:swiftstdlibtoolwrapper tools/objc/swiftstdlibtoolzip.sh 0755
+    bazel_bootstrap //src/tools/xcode/xcrunwrapper:xcrunwrapper tools/objc/xcrunwrapper.sh 0755
     bazel_bootstrap //src/objc_tools/bundlemerge:bundlemerge_deploy.jar \
         tools/objc/precomp_bundlemerge_deploy.jar
     bazel_bootstrap //src/objc_tools/plmerge:plmerge_deploy.jar \

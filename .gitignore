@@ -32,3 +32,4 @@
 /tools/objc/realpath
 /tools/objc/StdRedirect.dylib
 /tools/objc/swiftstdlibtoolwrapper.sh
+/tools/objc/xcrunwrapper.sh

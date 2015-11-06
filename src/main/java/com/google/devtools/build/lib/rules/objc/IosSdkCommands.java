@@ -32,7 +32,12 @@ import java.util.List;
  * Utility code for use when generating iOS SDK commands.
  */
 public class IosSdkCommands {
-  public static final String DEVELOPER_DIR = "/Applications/Xcode.app/Contents/Developer";
+
+  // These next two strings are shared secrets with the xcrunwrapper.sh to allow
+  // expansion of DeveloperDir and SDKRoot and runtime, since they aren't known
+  // until compile time on any given build machine.
+  private static final String DEVELOPER_DIR = "__BAZEL_XCODE_DEVELOPER_DIR__";
+  private static final String SDKROOT_DIR = "__BAZEL_XCODE_SDKROOT__";
 
   // There is a handy reference to many clang warning flags at
   // http://nshipster.com/clang-diagnostics/
@@ -73,17 +78,39 @@ public class IosSdkCommands {
     return Platform.forArch(configuration.getIosCpu()).getNameInPlist();
   }
 
+  /**
+   * Returns the platform directory inside of Xcode for a given configuration.
+   */
   public static String platformDir(ObjcConfiguration configuration) {
-    return DEVELOPER_DIR + "/Platforms/" + getPlatformPlistName(configuration) + ".platform";
+    return platformDir(getPlatformPlistName(configuration));
   }
 
-  public static String sdkDir(ObjcConfiguration configuration) {
-    return platformDir(configuration) + "/Developer/SDKs/"
-        + getPlatformPlistName(configuration) + configuration.getIosSdkVersion() + ".sdk";
+  /**
+   * Returns the platform directory inside of Xcode for a given platform name (e.g. iphoneos).
+   */
+  public static String platformDir(String platformName) {
+    return DEVELOPER_DIR + "/Platforms/" + platformName + ".platform";
   }
 
-  public static String frameworkDir(ObjcConfiguration configuration) {
+  /**
+   * Returns the platform directory inside of Xcode for a given configuration.
+   */
+  public static String sdkDir() {
+    return SDKROOT_DIR;
+  }
+
+  /**
+   * Returns the platform frameworks directory inside of Xcode for a given configuration.
+   */
+  public static String platformDeveloperFrameworkDir(ObjcConfiguration configuration) {
     return platformDir(configuration) + "/Developer/Library/Frameworks";
+  }
+
+  /**
+   * Returns the SDK frameworks directory inside of Xcode for a given configuration.
+   */
+  public static String sdkDeveloperFrameworkDir() {
+    return sdkDir() + "/Developer/Library/Frameworks";
   }
 
   /**
@@ -131,11 +158,11 @@ public class IosSdkCommands {
 
     return builder
         .add("-arch", configuration.getIosCpu())
-        .add("-isysroot", sdkDir(configuration))
+        .add("-isysroot", sdkDir())
         // TODO(bazel-team): Pass framework search paths to Xcodegen.
-        .add("-F", sdkDir(configuration) + "/Developer/Library/Frameworks")
+        .add("-F", sdkDeveloperFrameworkDir())
         // As of sdk8.1, XCTest is in a base Framework dir
-        .add("-F", frameworkDir(configuration))
+        .add("-F", platformDeveloperFrameworkDir(configuration))
         // Add custom (non-SDK) framework search paths. For each framework foo/bar.framework,
         // include "foo" as a search path.
         .addAll(Interspersing.beforeEach(

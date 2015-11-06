@@ -28,6 +28,7 @@ filegroup(
             "//src/tools/xcode/realpath",
             "//src/tools/xcode/stdredirect:StdRedirect.dylib",
             "//src/tools/xcode/swiftstdlibtoolwrapper",
+            "//src/tools/xcode/xcrunwrapper",
             "//third_party/iossim",
         ],
         "//conditions:default": [],

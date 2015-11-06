@@ -511,7 +511,7 @@ public final class ReleaseBundlingSupport {
         .setMnemonic("ObjcCombiningArchitectures")
         .addTransitiveInputs(linkedBinaries)
         .addOutput(resultingLinkedBinary)
-        .setExecutable(ObjcRuleClasses.XCRUN)
+        .setExecutable(CompilationSupport.xcrunwrapper(ruleContext))
         .setCommandLine(CustomCommandLine.builder()
             .add(ObjcRuleClasses.LIPO)
             .addExecPaths("-create", linkedBinaries)
@@ -763,9 +763,10 @@ public final class ReleaseBundlingSupport {
             .setCommandLine(commandLine.build())
             .addOutput(intermediateArtifacts.swiftFrameworksFileZip())
             .addInput(intermediateArtifacts.combinedArchitectureBinary())
-            // TODO(dmaclach): Adding realpath here should not be required once
+            // TODO(dmaclach): Adding realpath and xcrunwrapper should not be required once
             // https://github.com/google/bazel/issues/285 is fixed.
             .addInput(attributes.realpath())
+            .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
             .build(ruleContext));
   }
 

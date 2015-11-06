@@ -25,7 +25,7 @@
 
 set -eu
 
-REALPATH=$0.runfiles/external/bazel_tools/tools/objc/realpath
+REALPATH="$0.runfiles/external/bazel_tools/tools/objc/realpath"
 if [ ! -e $REALPATH ]; then
   REALPATH=tools/objc/realpath
 fi
@@ -54,6 +54,11 @@ for i in $@; do
   fi
 done
 
+WRAPPER="$0.runfiles/external/bazel_tools/tools/objc/xcrunwrapper.sh"
+if [ ! -e $WRAPPER ]; then
+  WRAPPER=tools/objc/xcrunwrapper.sh
+fi
+
 # If we are running into problems figuring out ibtool issues, there are a couple
 # of env variables that may help. Both of the following must be set to work.
 #   IBToolDebugLogFile=<OUTPUT FILE PATH>
@@ -61,7 +66,7 @@ done
 # you may also see if
 #   IBToolNeverDeque=1
 # helps.
-/usr/bin/xcrun ibtool --errors --warnings --notices \
+$WRAPPER ibtool --errors --warnings --notices \
     --auto-activate-custom-fonts --output-format human-readable-text \
     --compile "$FULLPATH" "${TOOLARGS[@]}"
 

@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.ASSET_CATALO
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.BUNDLE_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.XCRUN;
 
 import com.google.common.base.Optional;
 import com.google.common.base.Verify;
@@ -231,9 +230,10 @@ final class BundleSupport {
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, storyboardInput))
               .addOutput(zipOutput)
               .addInput(storyboardInput)
-              // TODO(dmaclach): Adding realpath here should not be required once
+              // TODO(dmaclach): Adding realpath and xcrunwrapper should not be required once
               // https://github.com/bazelbuild/bazel/issues/285 is fixed.
               .addInput(attributes.realpath())
+              .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
               .build(ruleContext));
     }
   }
@@ -270,13 +270,14 @@ final class BundleSupport {
               .setExecutable(attributes.momcWrapper())
               .addOutput(outputZip)
               .addInputs(datamodel.getInputs())
-              // TODO(dmaclach): Adding realpath here should not be required once
+              // TODO(dmaclach): Adding realpath and xcrunwrapper should not be required once
               // https://github.com/google/bazel/issues/285 is fixed.
               .addInput(attributes.realpath())
-              .setCommandLine(CustomCommandLine.builder()
+              .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
+             .setCommandLine(CustomCommandLine.builder()
                   .addPath(outputZip.getExecPath())
                   .add(datamodel.archiveRootForMomczip())
-                  .add("-XD_MOMC_SDKROOT=" + IosSdkCommands.sdkDir(objcConfiguration))
+                  .add("-XD_MOMC_SDKROOT=" + IosSdkCommands.sdkDir())
                   .add("-XD_MOMC_IOS_TARGET_VERSION=" + bundling.getMinimumOsVersion())
                   .add("-MOMC_PLATFORMS")
                   .add(objcConfiguration.getBundlingPlatform().getLowerCaseNameInPlist())
@@ -302,9 +303,10 @@ final class BundleSupport {
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, original))
               .addOutput(zipOutput)
               .addInput(original)
-              // TODO(dmaclach): Adding realpath here should not be required once
+              // TODO(dmaclach): Adding realpath and xcrunwrapper should not be required once
               // https://github.com/bazelbuild/bazel/issues/285 is fixed.
               .addInput(attributes.realpath())
+              .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
               .build(ruleContext));
     }
   }
@@ -324,6 +326,7 @@ final class BundleSupport {
               .addPath(strings.getExecPath())
               .build())
           .addInput(strings)
+          .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
           .addOutput(bundled)
           .build(ruleContext));
     }
@@ -385,9 +388,10 @@ final class BundleSupport {
             .addTransitiveInputs(objcProvider.get(ASSET_CATALOG))
             .addOutput(zipOutput)
             .addOutput(actoolPartialInfoplist)
-            // TODO(dmaclach): Adding realpath here should not be required once
+            // TODO(dmaclach): Adding realpath and xcrunwrapper should not be required once
             // https://github.com/google/bazel/issues/285 is fixed.
             .addInput(attributes.realpath())
+            .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
             .setCommandLine(actoolzipCommandLine(
                 objcProvider,
                 zipOutput,

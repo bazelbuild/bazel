@@ -42,7 +42,6 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_S
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.STRIP;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SWIFT;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.XCRUN;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.intermediateArtifacts;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
@@ -60,6 +59,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -115,6 +115,13 @@ public final class CompilationSupport {
   @VisibleForTesting
   static final ImmutableList<String> CLANG_COVERAGE_FLAGS =
       ImmutableList.of("-fprofile-arcs", "-ftest-coverage");
+
+  /**
+   * Returns the location of the xcrunwrapper tool.
+   */
+  public static final FilesToRunProvider xcrunwrapper(RuleContext ruleContext) {
+   return ruleContext.getExecutablePrerequisite("$xcrunwrapper", Mode.HOST);
+  }
 
   /**
    * Files which can be instrumented along with the attributes in which they may occur and the
@@ -397,7 +404,7 @@ public final class CompilationSupport {
     // TODO(bazel-team): Remote private headers from inputs once they're added to the provider.
     ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
         .setMnemonic("ObjcCompile")
-        .setExecutable(XCRUN)
+        .setExecutable(xcrunwrapper(ruleContext))
         .setCommandLine(commandLine.build())
         .addInput(sourceFile)
         .addInputs(additionalInputs.build())
@@ -445,7 +452,7 @@ public final class CompilationSupport {
         .add("-frontend")
         .add("-emit-object")
         .add("-target").add(IosSdkCommands.swiftTarget(objcConfiguration))
-        .add("-sdk").add(IosSdkCommands.sdkDir(objcConfiguration))
+        .add("-sdk").add(IosSdkCommands.sdkDir())
         .add("-enable-objc-interop");
 
     if (objcConfiguration.generateDebugSymbols()) {
@@ -494,7 +501,7 @@ public final class CompilationSupport {
     ruleContext.registerAction(
         ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
             .setMnemonic("SwiftCompile")
-            .setExecutable(XCRUN)
+            .setExecutable(xcrunwrapper(ruleContext))
             .setCommandLine(commandLine.build())
             .addInput(sourceFile)
             .addInputs(otherSwiftSources)
@@ -527,7 +534,7 @@ public final class CompilationSupport {
         .add(SWIFT)
         .add("-frontend")
         .add("-emit-module")
-        .add("-sdk").add(IosSdkCommands.sdkDir(objcConfiguration))
+        .add("-sdk").add(IosSdkCommands.sdkDir())
         .add("-target").add(IosSdkCommands.swiftTarget(objcConfiguration));
 
     if (objcConfiguration.generateDebugSymbols()) {
@@ -563,7 +570,7 @@ public final class CompilationSupport {
 
     ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
         .setMnemonic("SwiftModuleMerge")
-        .setExecutable(XCRUN)
+        .setExecutable(xcrunwrapper(ruleContext))
         .setCommandLine(commandLine.build())
         .addInputs(moduleFiles.build())
         .addTransitiveInputs(objcProvider.get(HEADER))
@@ -599,13 +606,13 @@ public final class CompilationSupport {
 
     actions.add(ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
         .setMnemonic("ObjcLink")
-        .setExecutable(XCRUN)
+        .setExecutable(xcrunwrapper(ruleContext))
         .setCommandLine(new CustomCommandLine.Builder()
             .add(LIBTOOL)
             .add("-static")
             .add("-filelist").add(objList.getExecPathString())
             .add("-arch_only").add(objcConfiguration.getIosCpu())
-            .add("-syslibroot").add(IosSdkCommands.sdkDir(objcConfiguration))
+            .add("-syslibroot").add(IosSdkCommands.sdkDir())
             .add("-o").add(archive.getExecPathString())
             .build())
         .addInputs(objFiles)
@@ -623,12 +630,12 @@ public final class CompilationSupport {
     ImmutableList<Artifact> ccLibraries = ccLibraries(objcProvider);
     ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
         .setMnemonic("ObjcLink")
-        .setExecutable(XCRUN)
+        .setExecutable(xcrunwrapper(ruleContext))
         .setCommandLine(new CustomCommandLine.Builder()
             .add(LIBTOOL)
             .add("-static")
             .add("-arch_only").add(objcConfiguration.getIosCpu())
-            .add("-syslibroot").add(IosSdkCommands.sdkDir(objcConfiguration))
+            .add("-syslibroot").add(IosSdkCommands.sdkDir())
             .add("-o").add(archive.getExecPathString())
             .addExecPaths(objcProvider.get(LIBRARY))
             .addExecPaths(objcProvider.get(IMPORTED_LIBRARY))
@@ -780,6 +787,7 @@ public final class CompilationSupport {
             .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
             .addInputs(ccLibraries)
             .addInputs(extraLinkInputs)
+            .addInput(xcrunwrapper(ruleContext).getExecutable())
             .build(ruleContext));
 
     if (objcConfiguration.shouldStripBinary()) {
@@ -793,7 +801,7 @@ public final class CompilationSupport {
       ruleContext.registerAction(
           ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
               .setMnemonic("ObjcBinarySymbolStrip")
-              .setExecutable(XCRUN)
+              .setExecutable(xcrunwrapper(ruleContext))
               .setCommandLine(symbolStripCommandLine(stripArgs, binaryToLink, strippedBinary))
               .addOutput(strippedBinary)
               .addInput(binaryToLink)
@@ -825,7 +833,7 @@ public final class CompilationSupport {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
 
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder()
-        .addPath(XCRUN);
+        .addPath(xcrunwrapper(ruleContext).getExecutable().getExecPath());
 
     if (objcProvider.is(USES_CPP)) {
       commandLine
@@ -885,7 +893,7 @@ public final class CompilationSupport {
       PathFragment dsymPath = FileSystemUtils.removeExtension(dsymBundle.get().getExecPath());
       commandLine
           .add("&&")
-          .addPath(XCRUN)
+          .addPath(xcrunwrapper(ruleContext).getExecutable().getExecPath())
           .add(DSYMUTIL)
           .add(linkedBinary.getExecPathString())
           .add("-o " + dsymPath)

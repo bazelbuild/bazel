@@ -22,7 +22,7 @@
 
 set -eu
 
-REALPATH=$0.runfiles/external/bazel_tools/tools/objc/realpath
+REALPATH="$0.runfiles/external/bazel_tools/tools/objc/realpath"
 if [ ! -e $REALPATH ]; then
   REALPATH=tools/objc/realpath
 fi
@@ -33,7 +33,12 @@ shift 2
 TEMPDIR=$(mktemp -d -t momcZippingOutput)
 trap "rm -rf \"$TEMPDIR\"" EXIT
 
-/usr/bin/xcrun momc "$@" "$TEMPDIR/$NAME"
+WRAPPER="$0.runfiles/external/bazel_tools/tools/objc/xcrunwrapper.sh"
+if [ ! -e $WRAPPER ]; then
+  WRAPPER=tools/objc/xcrunwrapper.sh
+fi
+
+$WRAPPER momc "$@" "$TEMPDIR/$NAME"
 
 # Need to push/pop tempdir so it isn't the current working directory
 # when we remove it via the EXIT trap.

@@ -54,25 +54,42 @@ filegroup(
 sh_binary(
     name = "ibtoolwrapper",
     srcs = [":ibtoolwrapper.sh"],
-    data = [":realpath"],
+    data = [
+        ":realpath",
+        ":xcrunwrapper",
+    ],
 )
 
 sh_binary(
     name = "actoolwrapper",
     srcs = [":actoolwrapper.sh"],
-    data = [":realpath"],
+    data = [
+        ":realpath",
+        ":xcrunwrapper",
+    ],
 )
 
 sh_binary(
     name = "momcwrapper",
     srcs = [":momcwrapper.sh"],
-    data = [":realpath"],
+    data = [
+        ":realpath",
+        ":xcrunwrapper",
+    ],
 )
 
 sh_binary(
     name = "swiftstdlibtoolwrapper",
     srcs = [":swiftstdlibtoolwrapper.sh"],
-    data = [":realpath"],
+    data = [
+        ":realpath",
+        ":xcrunwrapper",
+    ],
+)
+
+sh_binary(
+    name = "xcrunwrapper",
+    srcs = [":xcrunwrapper.sh"],
 )
 
 # TODO(bazel-team): Open-source the script once J2ObjC support is open-sourced.

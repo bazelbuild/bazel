@@ -65,7 +65,6 @@ public class ObjcRuleClasses {
   static final String DSYMUTIL = "dsymutil";
   static final String LIPO = "lipo";
   static final String STRIP = "strip";
-  static final PathFragment XCRUN = new PathFragment("/usr/bin/xcrun");
 
   private static final PathFragment JAVA = new PathFragment("/usr/bin/java");
 
@@ -482,7 +481,7 @@ public class ObjcRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$objc_resources_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(ResourceToolsRule.class)
+          .ancestors(ResourceToolsRule.class, XcrunRule.class)
           .build();
     }
   }
@@ -711,7 +710,8 @@ public class ObjcRuleClasses {
               BaseRuleClasses.RuleBase.class,
               CompileDependencyRule.class,
               OptionsRule.class,
-              CoptsRule.class)
+              CoptsRule.class,
+              XcrunRule.class)
           .build();
     }
   }
@@ -907,7 +907,7 @@ public class ObjcRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$objc_bundling_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(OptionsRule.class, ResourceToolsRule.class)
+          .ancestors(OptionsRule.class, ResourceToolsRule.class, XcrunRule.class)
           .build();
     }
   }
@@ -1038,6 +1038,26 @@ public class ObjcRuleClasses {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("$objc_simulator_rule")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
+  }
+
+  /**
+   * Common attributes for {@code objc_*} rules that need to call xcrun.
+   */
+  public static class XcrunRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .add(attr("$xcrunwrapper", LABEL).cfg(HOST).exec()
+              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:xcrunwrapper")))
+          .build();
+    }
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$objc_xcrun_rule")
           .type(RuleClassType.ABSTRACT)
           .build();
     }
