@@ -80,6 +80,37 @@ genrule(
     ".bz2",
 ]]
 
+pkg_tar(
+    name = "test-tar-strip_prefix-empty",
+    files = [
+        ":etc/nsswitch.conf",
+    ],
+    strip_prefix = "",
+)
+
+pkg_tar(
+    name = "test-tar-strip_prefix-none",
+    files = [
+        ":etc/nsswitch.conf",
+    ],
+)
+
+pkg_tar(
+    name = "test-tar-strip_prefix-etc",
+    files = [
+        ":etc/nsswitch.conf",
+    ],
+    strip_prefix = "etc",
+)
+
+pkg_tar(
+    name = "test-tar-strip_prefix-dot",
+    files = [
+        ":etc/nsswitch.conf",
+    ],
+    strip_prefix = ".",
+)
+
 pkg_deb(
     name = "test-deb",
     data = ":test-tar-gz.tar.gz",
@@ -105,6 +136,10 @@ sh_test(
         ":test-tar-.tar",
         ":test-tar-bz2.tar.bz2",
         ":test-tar-gz.tar.gz",
+        ":test-tar-strip_prefix-dot.tar",
+        ":test-tar-strip_prefix-empty.tar",
+        ":test-tar-strip_prefix-etc.tar",
+        ":test-tar-strip_prefix-none.tar",
     ],
     deps = [
         "//src/test/shell:bashunit",

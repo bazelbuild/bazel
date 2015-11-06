@@ -61,6 +61,11 @@ function test_tar() {
     check_eq "-rwxr-xr-x" "$(get_tar_permission test-tar-${i:1}.tar$i ./usr/titi)"
     check_eq "-rw-r--r--" "$(get_tar_permission test-tar-${i:1}.tar$i ./etc/nsswitch.conf)"
   done;
+
+  check_eq "./nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-empty.tar)"
+  check_eq "./nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-none.tar)"
+  check_eq "./nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-empty.tar)"
+  check_eq "./etc/nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-dot.tar)"
 }
 
 function test_deb() {

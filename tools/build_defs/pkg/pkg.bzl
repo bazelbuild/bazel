@@ -41,12 +41,12 @@ def _compute_data_path(out, data_path):
     # There is no way to handle .// correctly (no function that would make
     # that possible and Skylark is not turing complete) so just consider it
     # as an absolute path.
-    if data_path[0:2] == "./":
+    if len(data_path) >= 2 and data_path[0:2] == "./":
       data_path = data_path[2:]
-    if data_path[0] == "/":  # Absolute path
-      return data_path[1:]
-    elif not data_path or data_path == ".":  # Relative to current package
+    if not data_path or data_path == ".":  # Relative to current package
       return _short_path_dirname(out)
+    elif data_path[0] == "/":  # Absolute path
+      return data_path[1:]
     else:  # Relative to a sub-directory
       return _short_path_dirname(out) + "/" + data_path
   else:

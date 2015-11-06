@@ -71,6 +71,7 @@ pkg_tar(
     name = "bazel-completion",
     files = [":etc/bash_completion.d/bazel"],
     mode = "0644",
+    strip_prefix = ".",
 )
 
 pkg_tar(
