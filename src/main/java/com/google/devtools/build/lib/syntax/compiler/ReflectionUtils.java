@@ -24,6 +24,26 @@ import java.util.Arrays;
 public class ReflectionUtils {
 
   /**
+   * Get a Byte Buddy {@link MethodDescription} for a constructor of a class.
+   *
+   * @throws Error when the constructor cannot be found via reflection
+   */
+  public static MethodDescription.ForLoadedConstructor getConstructor(
+      Class<?> clazz, Class<?>... parameterTypes) {
+    try {
+      return new MethodDescription.ForLoadedConstructor(clazz.getConstructor(parameterTypes));
+    } catch (NoSuchMethodException e) {
+      throw new Error(
+          String.format(
+              "Error when reflectively getting a constructor with parameter"
+                  + " types %s from class %s",
+              Arrays.toString(parameterTypes),
+              clazz),
+          e);
+    }
+  }
+
+  /**
    * Get a Byte Buddy {@link MethodDescription} for a method from a class.
    *
    * @throws Error when the method cannot be found via reflection

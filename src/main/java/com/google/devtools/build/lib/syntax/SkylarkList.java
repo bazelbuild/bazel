@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.syntax.Mutability.Freezable;
 import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
@@ -213,12 +214,19 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
     }
 
     /**
-     * Creates a MutableList from contents and an Environment.
+     * Creates a MutableList from contents.
      * @param contents the contents of the list
      * @return an actually immutable MutableList containing the elements
      */
     public MutableList(Iterable<?> contents) {
       this(contents, Mutability.IMMUTABLE);
+    }
+
+    /**
+     * Creates a mutable or immutable MutableList depending on the given {@link Mutability}.
+     */
+    public MutableList(Mutability mutability) {
+      this(Collections.EMPTY_LIST, mutability);
     }
 
     /**

@@ -13,8 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax.compiler;
 
+import net.bytebuddy.description.method.MethodDescription.ForLoadedMethod;
+import net.bytebuddy.description.type.TypeDescription;
+import net.bytebuddy.description.type.generic.GenericTypeDescription;
 import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 import net.bytebuddy.implementation.bytecode.ByteCodeAppender.Compound;
+import net.bytebuddy.implementation.bytecode.Removal;
 import net.bytebuddy.implementation.bytecode.StackManipulation;
 import net.bytebuddy.implementation.bytecode.member.FieldAccess;
 import net.bytebuddy.implementation.bytecode.member.MethodInvocation;
@@ -25,6 +29,29 @@ import java.util.List;
  * Various utility methods for byte code generation.
  */
 public class ByteCodeUtils {
+
+  /**
+   * Helper method to wrap {@link StackManipulation}s into a {@link ByteCodeAppender} and add it
+   * to a list of appenders.
+   */
+  public static void append(List<ByteCodeAppender> code, StackManipulation... manipulations) {
+    code.add(new ByteCodeAppender.Simple(manipulations));
+  }
+
+  /**
+   * As {@link #invoke(Class, String, Class...)} and additionally clears the returned value from
+   * the stack, if any.
+   */
+  public static StackManipulation cleanInvoke(
+      Class<?> clazz, String methodName, Class<?>... parameterTypes) {
+    ForLoadedMethod method = ReflectionUtils.getMethod(clazz, methodName, parameterTypes);
+    GenericTypeDescription returnType = method.getReturnType();
+    if (returnType.equals(TypeDescription.VOID)) {
+      return MethodInvocation.invoke(method);
+    }
+    return new StackManipulation.Compound(
+        MethodInvocation.invoke(method), Removal.pop(returnType.asErasure()));
+  }
 
   /**
    * Create a {@link ByteCodeAppender} applying a list of them.
