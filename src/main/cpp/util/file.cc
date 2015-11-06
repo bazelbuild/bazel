@@ -13,7 +13,6 @@
 // limitations under the License.
 #include "src/main/cpp/util/file.h"
 
-#include <errno.h>   // EINVAL
 #include <limits.h>  // PATH_MAX
 #include <sys/stat.h>
 #include <unistd.h>  // access

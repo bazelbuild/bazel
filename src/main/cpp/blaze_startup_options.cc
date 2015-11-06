@@ -16,6 +16,7 @@
 #include <assert.h>
 #include <errno.h>  // errno, ENOENT
 #include <stdlib.h>  // getenv, exit
+#include <string.h>  // strerror
 #include <unistd.h>  // access
 
 #include <cstdio>

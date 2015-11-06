@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <errno.h>
+#include <errno.h>  // errno, ENAMETOOLONG
 #include <limits.h>
 #include <string.h>  // strerror
 #include <sys/socket.h>
