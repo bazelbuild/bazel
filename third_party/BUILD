@@ -110,7 +110,17 @@ java_import(
 
 java_import(
     name = "asm",
-    jars = ["asm/asm-5.0.3.jar"],
+    jars = ["asm/asm-5.0.4.jar"],
+)
+
+java_import(
+    name = "asm-commons",
+    jars = ["asm/asm-commons-5.0.4.jar"],
+)
+
+java_import(
+    name = "asm-util",
+    jars = ["asm/asm-util-5.0.4.jar"],
 )
 
 java_plugin(
@@ -180,6 +190,16 @@ java_library(
 java_import(
     name = "auto_value_value",
     jars = ["auto/auto-value-1.0.jar"],
+)
+
+java_import(
+    name = "bytebuddy",
+    jars = ["bytebuddy/byte-buddy-dep-0.7-rc6.jar"],
+    deps = [
+        ":asm",
+        ":asm-commons",
+        ":asm-util",
+    ],
 )
 
 java_import(

@@ -3,104 +3,96 @@ author, but ship together with the source so building Bazel requires
 a minimal set of extra dependencies.
 
 
-[aether](http://eclipse.org/aether/)
---------
+# [aether](http://eclipse.org/aether/)
 
 * Version: 1.0.0 v20140518
 * License: Eclipse Public License
 
 
-[android_common](http://mvnrepository.com/artifact/com.android.tools/sdk-common)
-----------------------------
+# [android_common](http://mvnrepository.com/artifact/com.android.tools/sdk-common)
 
 * Version: 22.8.4
 * License: Apache License 2.0.
 
 
-[apache_commons_codec](http://commons.apache.org/proper/commons-codec/)
-----------------------------
+# [apache_commons_codec](http://commons.apache.org/proper/commons-codec/)
 
 * Version: 1.9
 * License: Apache License 2.0.
 
 
-[apache_commons_collections](http://commons.apache.org/proper/commons-collections/)
-----------------------------
+# [apache_commons_collections](http://commons.apache.org/proper/commons-collections/)
 
 * Version: 3.2.1
 * License: Apache License 2.0.
 
 
-[apache_commons_compress](http://commons.apache.org/proper/commons-compress/)
-----------------------------
+# [apache_commons_compress](http://commons.apache.org/proper/commons-compress/)
 
 * Version: 1.9
 * License: Apache License 2.0.
 
 
-[apache_commons_logging](http://commons.apache.org/proper/commons-logging/)
-------------------------
+# [apache_commons_logging](http://commons.apache.org/proper/commons-logging/)
 
 * Version: 1.1.1
 * License: Apache License 2.0.
 
-[apache_commons_pool2](https://commons.apache.org/proper/commons-pool/)
-------------------------
+# [apache_commons_pool2](https://commons.apache.org/proper/commons-pool/)
 
 * Version: 2.3
 * License: Apache License 2.0.
 
 
-[apache_httpclient](http://hc.apache.org/httpclient-3.x/)
--------------------
+# [apache_httpclient](http://hc.apache.org/httpclient-3.x/)
 
 * Version: 4.2.5
 * License: Apache License 2.0
 
 
-[apache_httpcore](https://hc.apache.org/httpcomponents-core-ga/)
------------------
+# [apache_httpcore](https://hc.apache.org/httpcomponents-core-ga/)
 
 * Version: 4.2.4
 * License: Apache License 2.0
 
 
-[apache_velocity](http://velocity.apache.org/)
------------------
+# [apache_velocity](http://velocity.apache.org/)
 
 * Version: 1.7
 * License: Apache License 2.0.
 
 
-[asm](https://asm.ow2.org)
------
+# [asm](https://asm.ow2.org)
 
-* Version: 5.0.3
+* Version: 5.0.4
 * License: 3-clause revised BSD
 
 
-[auto](https://github.com/google/auto)
-------
+# [auto](https://github.com/google/auto)
 
 * [auto_common](https://github.com/google/auto/tree/master/common) (version 0.3)
 * [auto_service](https://github.com/google/auto/tree/master/service) (version 1.0-rc2)
 * [auto_value](https://github.com/google/auto/tree/master/value) (version 1.0)
 * License: Apache License 2.0
 
-[Error Prone](https://github.com/google/error-prone)
--------------
+
+# [bytebuddy](https://github.com/raphw/byte-buddy)
+
+* Version: 0.7-rc6
+* License: Apache License 2.0
+
+
+# [Error Prone](https://github.com/google/error-prone)
 
 * Version: 2.0.6-20151001-884eec772c13541a7b1af249a68373cd9f30e488
 * License: Apache License 2.0
 
-[jFormatString](https://code.google.com/p/j-format-string/)
----------------
+# [jFormatString](https://code.google.com/p/j-format-string/)
 
 * Version: 3.0.0
 * License: GNU GPL v2
 
-[Checker Framework Dataflow](http://code.google.com/p/checker-framework/)
-----------------------------
+# [Checker Framework Dataflow](http://code.google.com/p/checker-framework/)
 
 * Version: 1.8.10
 * License: GPLv2, portions MIT
