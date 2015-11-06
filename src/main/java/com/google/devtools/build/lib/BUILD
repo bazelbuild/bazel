@@ -78,7 +78,7 @@ java_library(
 
 java_library(
     name = "syntax",
-    srcs = glob(["syntax/*.java"]),
+    srcs = glob(["syntax/**/*.java"]),
     deps = [
         ":base-util",
         ":collect",

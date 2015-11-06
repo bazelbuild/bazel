@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import com.google.common.collect.Lists;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
 
 import java.io.Serializable;
@@ -26,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -49,7 +51,7 @@ import javax.annotation.Nullable;
  *   to an argument list, and we optimize for the common case of no key-only mandatory parameters.
  *   key-only parameters are thus grouped together.
  *   positional mandatory and key-only mandatory parameters are separate,
- *   but there no loop over a contiguous chunk of them, anyway.
+ *   but there is no loop over a contiguous chunk of them, anyway.
  * <li>The named are all grouped together, with star and star_star rest arguments coming last.
  * <li>Mandatory arguments in each category (positional and named-only) come before the optional
  *   arguments, for the sake of slightly better clarity to human implementers. This eschews an
@@ -58,7 +60,7 @@ import javax.annotation.Nullable;
  *   passed, at which point it is dwarfed by the slowness of keyword processing.
  * </ol>
  *
- * <p>Parameters are thus sorted in the following obvious order:
+ * <p>Parameters are thus sorted in the following order:
  * positional mandatory arguments (if any), positional optional arguments (if any),
  * key-only mandatory arguments (if any), key-only optional arguments (if any),
  * then star argument (if any), then star_star argument (if any).
@@ -109,13 +111,13 @@ public abstract class FunctionSignature implements Serializable {
     public abstract boolean hasKwArg();
 
 
-    // The are computed argument counts
-    /** number of optional positional arguments. */
+    // These are computed argument counts
+    /** number of optional and mandatory positional arguments. */
     public int getPositionals() {
       return getMandatoryPositionals() + getOptionalPositionals();
     }
 
-    /** number of optional named-only arguments. */
+    /** number of optional and mandatory named-only arguments. */
     public int getNamedOnly() {
       return getMandatoryNamedOnly() + getOptionalNamedOnly();
     }
@@ -125,9 +127,33 @@ public abstract class FunctionSignature implements Serializable {
       return getOptionalPositionals() + getOptionalNamedOnly();
     }
 
+    /** number of all named parameters: mandatory and optional of positionals and named-only */
+    public int getAllNamed() {
+      return getPositionals() + getNamedOnly();
+    }
+
     /** total number of arguments */
     public int getArguments() {
-      return getPositionals() + getNamedOnly() + (hasStarArg() ? 1 : 0) + (hasKwArg() ? 1 : 0);
+      return getAllNamed() + (hasStarArg() ? 1 : 0) + (hasKwArg() ? 1 : 0);
+    }
+
+    /**
+     * @return this signature shape converted to a list of classes
+     */
+    public List<Class<?>> toClasses() {
+      List<Class<?>> parameters = new ArrayList<>();
+
+      for (int i = 0; i < getAllNamed(); i++) {
+        parameters.add(Object.class);
+      }
+      if (hasStarArg()) {
+        parameters.add(Tuple.class);
+      }
+      if (hasKwArg()) {
+        parameters.add(Map.class);
+      }
+
+      return parameters;
     }
   }
 
@@ -181,7 +207,6 @@ public abstract class FunctionSignature implements Serializable {
     toStringBuilder(sb);
     return sb.toString();
   }
-
 
   /**
    * FunctionSignature.WithValues: also specifies a List of default values and types.
@@ -427,7 +452,8 @@ public abstract class FunctionSignature implements Serializable {
             }
           }
         }
-      };
+      }
+
       Show show = new Show();
 
       int i = skipFirstMandatory ? 1 : 0;

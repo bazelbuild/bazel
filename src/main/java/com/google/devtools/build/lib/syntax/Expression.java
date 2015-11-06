@@ -13,6 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
+import com.google.devtools.build.lib.syntax.compiler.VariableScope;
+
+import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
+
 /**
  * Base class for all expression nodes in the AST.
  */
@@ -66,4 +71,12 @@ public abstract class Expression extends ASTNode {
    * @see Statement
    */
   abstract void validate(ValidationEnvironment env) throws EvalException;
+
+  /**
+   * Builds a {@link ByteCodeAppender} that implements this expression by consuming its operands
+   * from the byte code stack and pushing its result.
+   */
+  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo) {
+    throw new UnsupportedOperationException(this.getClass().getSimpleName() + " unsupported.");
+  }
 }

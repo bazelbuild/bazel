@@ -13,6 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.base.Optional;
+import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
+import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
+import com.google.devtools.build.lib.syntax.compiler.VariableScope;
+
+import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
+
 /**
  * Base class for all statements nodes in the AST.
  */
@@ -59,4 +66,15 @@ public abstract class Statement extends ASTNode {
    * @throws EvalException if the Statement has a semantical error.
    */
   abstract void validate(ValidationEnvironment env) throws EvalException;
+
+  /**
+   * Builds a {@link ByteCodeAppender} that implements this statement.
+   *
+   * <p>A statement implementation should never require any particular state of the byte code
+   * stack and should leave it in the state it was before.
+   */
+  ByteCodeAppender compile(
+      VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo) {
+    throw new UnsupportedOperationException(this.getClass().getSimpleName() + " unsupported.");
+  }
 }

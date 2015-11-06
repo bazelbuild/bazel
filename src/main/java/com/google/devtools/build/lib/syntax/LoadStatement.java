@@ -14,9 +14,15 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
+import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
+import com.google.devtools.build.lib.syntax.compiler.VariableScope;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
+import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 
 import java.util.Map;
 
@@ -118,5 +124,13 @@ public final class LoadStatement extends Statement {
     if (error != null) {
       throw new EvalException(getLocation(), error);
     }
+  }
+
+  @Override
+  ByteCodeAppender compile(
+      VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo) {
+    throw new UnsupportedOperationException(
+        "load statements should never appear in method bodies and"
+            + " should never be compiled in general");
   }
 }
