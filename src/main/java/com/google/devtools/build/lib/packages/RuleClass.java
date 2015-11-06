@@ -572,15 +572,41 @@ public final class RuleClass {
     }
 
     /**
-     * Declares that the implementation of this rule class requires the given configuration
-     * fragments to be present in the configuration. The value is inherited by subclasses.
+     * Declares that the implementation of the associated rule class requires the given
+     * fragments to be present in this rule's host and target configurations.
      *
-     * <p>For backwards compatibility, if the set is empty, all fragments may be accessed. But note
-     * that this is only enforced in the {@link com.google.devtools.build.lib.analysis.RuleContext}
-     * class.
+     * <p>The value is inherited by subclasses.
      */
     public Builder requiresConfigurationFragments(Class<?>... configurationFragments) {
       configurationFragmentPolicy.requiresConfigurationFragments(configurationFragments);
+      return this;
+    }
+
+    /**
+     * Declares that the implementation of the associated rule class requires the given
+     * fragments to be present in the host configuration.
+     *
+     * <p>The value is inherited by subclasses.
+     */
+    public Builder requiresHostConfigurationFragments(Class<?>... configurationFragments) {
+      configurationFragmentPolicy
+          .requiresConfigurationFragments(ConfigurationTransition.HOST, configurationFragments);
+      return this;
+    }
+
+    /**
+     * Declares the configuration fragments that are required by this rule for the specified
+     * configuration. Valid transition values are HOST for the host configuration and NONE for
+     * the target configuration.
+     *
+     * <p>In contrast to {@link #requiresConfigurationFragments(Class...)}, this method takes the
+     * names of fragments instead of their classes.
+     */
+    public Builder requiresConfigurationFragments(
+        FragmentClassNameResolver fragmentNameResolver,
+        Map<ConfigurationTransition, ImmutableSet<String>> configurationFragmentNames) {
+      configurationFragmentPolicy.requiresConfigurationFragments(
+          fragmentNameResolver, configurationFragmentNames);
       return this;
     }
 
@@ -590,21 +616,6 @@ public final class RuleClass {
      */
     public Builder setMissingFragmentPolicy(MissingFragmentPolicy missingFragmentPolicy) {
       configurationFragmentPolicy.setMissingFragmentPolicy(missingFragmentPolicy);
-      return this;
-    }
-
-    /**
-     * Declares the configuration fragments that are required by this rule.
-     *
-     * <p>In contrast to {@link #requiresConfigurationFragments(Class...)}, this method a) takes the
-     * names of fragments instead of their classes and b) distinguishes whether the fragments can be
-     * accessed in host (HOST) or target (NONE) configuration.
-     */
-    public Builder requiresConfigurationFragments(
-        FragmentClassNameResolver fragmentNameResolver,
-        Map<ConfigurationTransition, ImmutableSet<String>> configurationFragmentNames) {
-      configurationFragmentPolicy.requiresConfigurationFragments(
-          fragmentNameResolver, configurationFragmentNames);
       return this;
     }
 

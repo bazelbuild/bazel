@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
+import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 
 /**
@@ -42,6 +43,7 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
     return builder
         .requiresConfigurationFragments(
             JavaConfiguration.class, CppConfiguration.class, J2ObjcConfiguration.class)
+        .requiresHostConfigurationFragments(Jvm.class) // For BaseJavaCompilationHelper
         /* <!-- #BLAZE_RULE(java_library).IMPLICIT_OUTPUTS -->
         <ul>
           <li><code>lib<var>name</var>.jar</code>: A Java archive containing the class files.</li>
