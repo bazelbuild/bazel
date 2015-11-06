@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import java.util.Collection;
-import java.util.Set;
 
 /**
  * Base class for expressions in the Blaze query language, revision 2.
@@ -56,18 +55,19 @@ public abstract class QueryExpression {
   protected QueryExpression() {}
 
   /**
-   * Evaluates this query in the specified environment, and returns a subgraph,
-   * concretely represented a new (possibly-immutable) set of target nodes.
+   * Evaluates this query in the specified environment, and notifies the callback with a the result.
+   * Note that it is allowed to notify the callback with partial results instead of just one final
+   * result.
    *
-   * Failures resulting from evaluation of an ill-formed query cause
+   * <p>Failures resulting from evaluation of an ill-formed query cause
    * QueryException to be thrown.
    *
-   * The reporting of failures arising from errors in BUILD files depends on
+   * <p>The reporting of failures arising from errors in BUILD files depends on
    * the --keep_going flag.  If enabled (the default), then QueryException is
    * thrown.  If disabled, evaluation will stumble on to produce a (possibly
    * inaccurate) result, but a result nonetheless.
    */
-  public abstract <T> Set<T> eval(QueryEnvironment<T> env)
+  public abstract <T> void eval(QueryEnvironment<T> env, Callback<T> callback)
       throws QueryException, InterruptedException;
 
   /**

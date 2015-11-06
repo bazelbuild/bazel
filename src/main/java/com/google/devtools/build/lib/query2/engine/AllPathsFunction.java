@@ -13,13 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Predicate;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -48,13 +50,11 @@ public class AllPathsFunction implements QueryFunction {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException, InterruptedException {
-    QueryExpression from = args.get(0).getExpression();
-    QueryExpression to = args.get(1).getExpression();
+  public <T> void eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args,
+      Callback<T> callback) throws QueryException, InterruptedException {
 
-    Set<T> fromValue = from.eval(env);
-    Set<T> toValue = to.eval(env);
+    Set<T> fromValue = QueryUtil.evalAll(env, args.get(0).getExpression());
+    Set<T> toValue = QueryUtil.evalAll(env, args.get(1).getExpression());
 
     // Algorithm: compute "reachableFromX", the forward transitive closure of
     // the "from" set, then find the intersection of "reachableFromX" with the
@@ -65,18 +65,16 @@ public class AllPathsFunction implements QueryFunction {
     env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
 
     Set<T> reachableFromX = env.getTransitiveClosure(fromValue);
-    Set<T> result = intersection(reachableFromX, toValue);
+    Predicate<T> reachable = Predicates.in(reachableFromX);
+    Uniquifier<T> uniquifier = env.createUniquifier();
+    Collection<T> result = uniquifier.unique(intersection(reachableFromX, toValue));
+    callback.process(result);
     Collection<T> worklist = result;
     while (!worklist.isEmpty()) {
       Collection<T> reverseDeps = env.getReverseDeps(worklist);
-      worklist = new ArrayList<>();
-      for (T np : reverseDeps) {
-        if (reachableFromX.contains(np) && result.add(np)) {
-          worklist.add(np);
-        }
-      }
+      worklist = uniquifier.unique(Iterables.filter(reverseDeps, reachable));
+      callback.process(worklist);
     }
-    return result;
   }
 
   /**

@@ -15,12 +15,13 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 
 import java.util.List;
-import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A some(x) filter expression, which returns an arbitrary node in set x, or
@@ -48,12 +49,22 @@ class SomeFunction implements QueryFunction {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
+  public <T> void eval(QueryEnvironment<T> env, QueryExpression expression,
+      List<Argument> args, final Callback<T> callback)
       throws QueryException, InterruptedException {
-    Set<T> argumentValue = args.get(0).getExpression().eval(env);
-    if (argumentValue.isEmpty()) {
+    final AtomicBoolean someFound = new AtomicBoolean(false);
+    env.eval(args.get(0).getExpression(), new Callback<T>() {
+      @Override
+      public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
+        if (someFound.get() || Iterables.isEmpty(partialResult)) {
+          return;
+        }
+        callback.process(ImmutableSet.of(partialResult.iterator().next()));
+        someFound.set(true);
+      }
+    });
+    if (!someFound.get()) {
       throw new QueryException(expression, "argument set is empty");
     }
-    return ImmutableSet.of(argumentValue.iterator().next());
   }
 }

@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -39,9 +41,17 @@ class BuildFilesFunction implements QueryFunction {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
+  public <T> void eval(final QueryEnvironment<T> env, final QueryExpression expression,
+      List<Argument> args, final Callback<T> callback)
       throws QueryException, InterruptedException {
-    return env.getBuildFiles(expression, args.get(0).getExpression().eval(env));
+    env.eval(args.get(0).getExpression(), new Callback<T>() {
+      @Override
+      public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
+        Set<T> result = CompactHashSet.create();
+        Iterables.addAll(result, partialResult);
+        callback.process(env.getBuildFiles(expression, result));
+      }
+    });
   }
 
   @Override

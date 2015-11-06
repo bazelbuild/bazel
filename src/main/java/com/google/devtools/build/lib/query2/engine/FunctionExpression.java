@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunctio
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 /**
  * A query expression for user-defined query functions.
@@ -38,8 +37,9 @@ public class FunctionExpression extends QueryExpression {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException, InterruptedException {
-    return function.<T>eval(env, this, args);
+  public <T> void eval(QueryEnvironment<T> env, Callback<T> callback)
+      throws QueryException, InterruptedException {
+    function.eval(env, this, args, callback);
   }
 
   @Override

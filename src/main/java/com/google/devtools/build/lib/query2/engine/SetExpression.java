@@ -16,9 +16,7 @@ package com.google.devtools.build.lib.query2.engine;
 import com.google.common.base.Joiner;
 
 import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 /**
  * A set(word, ..., word) expression, which computes the union of zero or more
@@ -48,12 +46,11 @@ class SetExpression extends QueryExpression {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException {
-    Set<T> result = new LinkedHashSet<>();
+  public <T> void eval(QueryEnvironment<T> env, Callback<T> callback)
+      throws QueryException, InterruptedException {
     for (TargetLiteral expr : words) {
-      result.addAll(expr.eval(env));
+      env.eval(expr, callback);
     }
-    return result;
   }
 
   @Override

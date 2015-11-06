@@ -47,9 +47,13 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.query2.engine.AllRdepsFunction;
+import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryUtil.AbstractUniquifier;
+import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
+import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
@@ -296,6 +300,24 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     // Note that the only current caller of this method checks first to see if there is a path
     // before calling this method. It is not clear what the return value should be here.
     return null;
+  }
+
+  @Override
+  public void eval(QueryExpression expr, Callback<Target> callback)
+      throws QueryException, InterruptedException {
+    AggregateAllCallback<Target> aggregator = new AggregateAllCallback<>();
+    expr.eval(this, aggregator);
+    callback.process(aggregator.getResult());
+  }
+
+  @Override
+  public Uniquifier<Target> createUniquifier() {
+    return new AbstractUniquifier<Target, Label>() {
+      @Override
+      protected Label extractKey(Target target) {
+        return target.getLabel();
+      }
+    };
   }
 
   @Override

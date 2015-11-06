@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
@@ -53,12 +54,13 @@ final class RdepsFunction extends AllRdepsFunction {
    * towards the universe while staying within the transitive closure.
    */
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
+  public <T> void eval(QueryEnvironment<T> env, QueryExpression expression,
+      List<Argument> args, Callback<T> callback)
       throws QueryException, InterruptedException {
-    Set<T> universeValue = args.get(0).getExpression().eval(env);
+    Set<T> universeValue = QueryUtil.evalAll(env, args.get(0).getExpression());
     env.buildTransitiveClosure(expression, universeValue, Integer.MAX_VALUE);
 
-    return eval(env, args.subList(1, args.size()),
-        Predicates.in(env.getTransitiveClosure(universeValue)));
+    Predicate<T> universe = Predicates.in(env.getTransitiveClosure(universeValue));
+    eval(env, args.subList(1, args.size()), callback, universe);
   }
 }

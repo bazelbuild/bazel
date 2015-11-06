@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryUtil;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 
@@ -153,7 +154,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
       }
 
       try {
-        resultNodes = expr.eval(this);
+        resultNodes = QueryUtil.evalAll(this, expr);
       } catch (QueryException e) {
         throw new QueryException(e, expr);
       }

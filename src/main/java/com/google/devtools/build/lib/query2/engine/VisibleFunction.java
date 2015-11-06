@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
@@ -53,24 +52,26 @@ public class VisibleFunction implements QueryFunction {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException, InterruptedException {
-    Set<T> toSet = args.get(0).getExpression().eval(env);
-    Set<T> targets = args.get(1).getExpression().eval(env);
-
-    ImmutableSet.Builder<T> visible = ImmutableSet.builder();
-    for (T target : targets) {
-      if (visibleToAll(env, toSet, target)) {
-        visible.add(target);
+  public <T> void eval(final QueryEnvironment<T> env, QueryExpression expression,
+      List<Argument> args,
+      final Callback<T> callback) throws QueryException, InterruptedException {
+    final Set<T> toSet = QueryUtil.evalAll(env, args.get(0).getExpression());
+    env.eval(args.get(1).getExpression(), new Callback<T>() {
+      @Override
+      public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
+        for (T t : partialResult) {
+          if (visibleToAll(env, toSet, t)) {
+            callback.process(ImmutableList.of(t));
+          }
+        }
       }
-    }
-    return visible.build();
+    });
   }
 
   /**
    * Returns true if {@code target} is visible to all targets in {@code toSet}.
    */
-  private <T> boolean visibleToAll(
+  private static <T> boolean visibleToAll(
       QueryEnvironment<T> env, Set<T> toSet, T target) throws QueryException {
     for (T to : toSet) {
       if (!visible(env, to, target)) {
@@ -83,7 +84,7 @@ public class VisibleFunction implements QueryFunction {
   /**
    * Returns true if the target {@code from} is visible to the target {@code to}.
    */
-  public <T> boolean visible(QueryEnvironment<T> env, T to, T from) throws QueryException {
+  public static <T> boolean visible(QueryEnvironment<T> env, T to, T from) throws QueryException {
     Set<QueryVisibility<T>> visiblePackages = env.getAccessor().getVisibility(from);
     for (QueryVisibility<T> spec : visiblePackages) {
       if (spec.contains(to)) {

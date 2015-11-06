@@ -52,14 +52,19 @@ class LetExpression extends QueryExpression {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException, InterruptedException {
+  public <T> void eval(QueryEnvironment<T> env, Callback<T> callback)
+      throws QueryException, InterruptedException {
     if (!NAME_PATTERN.matcher(varName).matches()) {
       throw new QueryException(this, "invalid variable name '" + varName + "' in let expression");
     }
-    Set<T> varValue = varExpr.eval(env);
+    // We eval all because we would need a stack of variable contexts for implementing setVariable
+    // correctly.
+    Set<T> varValue = QueryUtil.evalAll(env, varExpr);
     Set<T> prevValue = env.setVariable(varName, varValue);
     try {
-      return bodyExpr.eval(env);
+      // Same as varExpr. We cannot pass partial results to the parent without having
+      // a stack of variable contexts.
+      callback.process(QueryUtil.evalAll(env, bodyExpr));
     } finally {
       env.setVariable(varName, prevValue); // restore
     }

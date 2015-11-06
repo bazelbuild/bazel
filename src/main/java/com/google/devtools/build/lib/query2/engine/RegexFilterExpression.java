@@ -13,13 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.query2.engine;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -31,9 +30,10 @@ abstract class RegexFilterExpression implements QueryFunction {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
+  public <T> void eval(final QueryEnvironment<T> env, QueryExpression expression,
+      final List<Argument> args, final Callback<T> callback)
       throws QueryException, InterruptedException {
-    Pattern compiledPattern;
+    final Pattern compiledPattern;
     try {
       compiledPattern = Pattern.compile(getPattern(args));
     } catch (IllegalArgumentException e) {
@@ -41,18 +41,20 @@ abstract class RegexFilterExpression implements QueryFunction {
                                + e.getMessage());
     }
 
-    QueryExpression argument = args.get(args.size() - 1).getExpression();
-
-    Set<T> result = new LinkedHashSet<>();
-    for (T target : argument.eval(env)) {
-      for (String str : getFilterStrings(env, args, target)) {
-        if ((str != null) && compiledPattern.matcher(str).find()) {
-          result.add(target);
-          break;
+    final Predicate<T> matchFilter = new Predicate<T>() {
+      @Override
+      public boolean apply(T target) {
+        for (String str : getFilterStrings(env, args, target)) {
+          if ((str != null) && compiledPattern.matcher(str).find()) {
+            return true;
+          }
         }
+        return false;
       }
-    }
-    return result;
+    };
+
+    env.eval(args.get(args.size() - 1).getExpression(),
+        QueryUtil.filteredCallback(callback, matchFilter));
   }
 
   /**

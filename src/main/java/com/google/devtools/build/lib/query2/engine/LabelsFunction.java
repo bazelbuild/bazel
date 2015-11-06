@@ -18,9 +18,8 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 
-import java.util.LinkedHashSet;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 /**
  * A label(attr_name, argument) expression, which computes the set of targets
@@ -53,20 +52,28 @@ class LabelsFunction implements QueryFunction {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
+  public <T> void eval(final QueryEnvironment<T> env, final QueryExpression expression,
+      final List<Argument> args, final Callback<T> callback)
       throws QueryException, InterruptedException {
-    Set<T> inputs = args.get(1).getExpression().eval(env);
-    Set<T> result = new LinkedHashSet<>();
-    String attrName = args.get(0).getWord();
-    for (T input : inputs) {
-      if (env.getAccessor().isRule(input)) {
-        List<T> targets = env.getAccessor().getLabelListAttr(expression, input, attrName,
-            "in '" + attrName + "' of rule " + env.getAccessor().getLabel(input) + ": ");
-        for (T target : targets) {
-          result.add(env.getOrCreate(target));
+    final String attrName = args.get(0).getWord();
+    final Uniquifier<T> uniquifier = env.createUniquifier();
+    env.eval(args.get(1).getExpression(), new Callback<T>() {
+      @Override
+      public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
+        for (T input : partialResult) {
+          if (env.getAccessor().isRule(input)) {
+            List<T> targets = uniquifier.unique(
+                env.getAccessor().getLabelListAttr(expression, input, attrName,
+                    "in '" + attrName + "' of rule " + env.getAccessor().getLabel(input) + ": "));
+            List<T> result = new ArrayList<>(targets.size());
+            for (T target : targets) {
+              result.add(env.getOrCreate(target));
+            }
+            callback.process(result);
+          }
         }
+
       }
-    }
-    return result;
+    });
   }
 }

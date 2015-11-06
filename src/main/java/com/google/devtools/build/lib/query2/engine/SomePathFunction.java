@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -51,10 +50,11 @@ class SomePathFunction implements QueryFunction {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
+  public <T> void eval(QueryEnvironment<T> env, QueryExpression expression,
+      List<Argument> args, final Callback<T> callback)
       throws QueryException, InterruptedException {
-    Set<T> fromValue = args.get(0).getExpression().eval(env);
-    Set<T> toValue = args.get(1).getExpression().eval(env);
+    Set<T> fromValue = QueryUtil.evalAll(env, args.get(0).getExpression());
+    Set<T> toValue = QueryUtil.evalAll(env, args.get(1).getExpression());
 
     // Implementation strategy: for each x in "from", compute its forward
     // transitive closure.  If it intersects "to", then do a path search from x
@@ -64,12 +64,9 @@ class SomePathFunction implements QueryFunction {
     env.buildTransitiveClosure(expression, fromValue, Integer.MAX_VALUE);
 
     // This set contains all nodes whose TC does not intersect "toValue".
-    Set<T> done = new HashSet<>();
+    Uniquifier<T> uniquifier = env.createUniquifier();
 
-    for (T x : fromValue) {
-      if (done.contains(x)) {
-        continue;
-      }
+    for (T x : uniquifier.unique(fromValue)) {
       Set<T> xtc = env.getTransitiveClosure(ImmutableSet.of(x));
       SetView<T> result;
       if (xtc.size() > toValue.size()) {
@@ -78,10 +75,11 @@ class SomePathFunction implements QueryFunction {
         result = Sets.intersection(xtc, toValue);
       }
       if (!result.isEmpty()) {
-        return env.getNodesOnPath(x, result.iterator().next());
+        callback.process(env.getNodesOnPath(x, result.iterator().next()));
+        return;
       }
-      done.addAll(xtc);
+      uniquifier.unique(xtc);
     }
-    return ImmutableSet.of();
+    callback.process(ImmutableSet.<T>of());
   }
 }

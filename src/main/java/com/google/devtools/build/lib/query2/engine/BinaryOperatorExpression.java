@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.query2.engine;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.query2.engine.Lexer.TokenKind;
 
 import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -46,29 +46,35 @@ class BinaryOperatorExpression extends QueryExpression {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException, InterruptedException {
-    Set<T> lhsValue = new LinkedHashSet<>(operands.get(0).eval(env));
+  public <T> void eval(QueryEnvironment<T> env, Callback<T> callback)
+      throws QueryException, InterruptedException {
 
+    if (operator == TokenKind.PLUS || operator == TokenKind.UNION) {
+      for (QueryExpression operand : operands) {
+        env.eval(operand, callback);
+      }
+      return;
+    }
+    // We cannot do differences with partial results. So we fully evaluate the operands
+    Set<T> lhsValue = QueryUtil.evalAll(env, operands.get(0));
     for (int i = 1; i < operands.size(); i++) {
-      Set<T> rhsValue = operands.get(i).eval(env);
+      Set<T> rhsValue = QueryUtil.evalAll(env, operands.get(i));
       switch (operator) {
         case INTERSECT:
         case CARET:
           lhsValue.retainAll(rhsValue);
           break;
-        case UNION:
-        case PLUS:
-          lhsValue.addAll(rhsValue);
-          break;
         case EXCEPT:
         case MINUS:
           lhsValue.removeAll(rhsValue);
           break;
+        case UNION:
+        case PLUS:
         default:
           throw new IllegalStateException("operator=" + operator);
       }
     }
-    return lhsValue;
+    callback.process(lhsValue);
   }
 
   @Override

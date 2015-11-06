@@ -62,20 +62,24 @@ class TestsFunction implements QueryFunction {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException, InterruptedException {
-    Closure<T> closure = new Closure<>(expression, env);
-    Set<T> result = new HashSet<>();
-    for (T target : args.get(0).getExpression().eval(env)) {
-      if (env.getAccessor().isTestRule(target)) {
-        result.add(target);
-      } else if (env.getAccessor().isTestSuite(target)) {
-        for (T test : closure.getTestsInSuite(target)) {
-          result.add(env.getOrCreate(test));
+  public <T> void eval(final QueryEnvironment<T> env, QueryExpression expression,
+      List<Argument> args, final Callback<T> callback) throws QueryException, InterruptedException {
+    final Closure<T> closure = new Closure<>(expression, env);
+
+    env.eval(args.get(0).getExpression(), new Callback<T>() {
+      @Override
+      public void process(Iterable<T> partialResult) throws QueryException, InterruptedException {
+        for (T target : partialResult) {
+          if (env.getAccessor().isTestRule(target)) {
+            callback.process(ImmutableList.of(target));
+          } else if (env.getAccessor().isTestSuite(target)) {
+            for (T test : closure.getTestsInSuite(target)) {
+              callback.process(ImmutableList.of(env.getOrCreate(test)));
+            }
+          }
         }
       }
-    }
-    return result;
+    });
   }
 
   /**

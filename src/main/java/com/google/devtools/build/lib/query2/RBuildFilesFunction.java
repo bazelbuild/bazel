@@ -17,6 +17,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
@@ -66,8 +67,8 @@ public class RBuildFilesFunction implements QueryFunction {
 
   @Override
   @SuppressWarnings("unchecked") // Cast from <Target> to <T>. This will only be used with <Target>.
-  public <T> Set<T> eval(QueryEnvironment<T> env, QueryExpression expression, List<Argument> args)
-      throws QueryException {
+  public <T> void eval(QueryEnvironment<T> env, QueryExpression expression,
+      List<Argument> args, Callback<T> callback) throws QueryException, InterruptedException {
     if (!(env instanceof SkyQueryEnvironment)) {
       throw new QueryException("rbuildfiles can only be used with SkyQueryEnvironment");
     }
@@ -75,8 +76,8 @@ public class RBuildFilesFunction implements QueryFunction {
     for (Argument arg : args) {
       fileNames.add(arg.getWord());
     }
-    return (Set<T>)
+    callback.process((Set<T>)
         ((SkyQueryEnvironment) env)
-            .getRBuildFiles(Collections2.transform(args, ARGUMENT_TO_PATH_FRAGMENT));
+            .getRBuildFiles(Collections2.transform(args, ARGUMENT_TO_PATH_FRAGMENT)));
   }
 }

@@ -41,17 +41,18 @@ final class TargetLiteral extends QueryExpression {
   }
 
   @Override
-  public <T> Set<T> eval(QueryEnvironment<T> env) throws QueryException {
+  public <T> void eval(QueryEnvironment<T> env, Callback<T> callback)
+      throws QueryException, InterruptedException {
     if (isVariableReference()) {
       String varName = LetExpression.getNameFromReference(pattern);
       Set<T> value = env.getVariable(varName);
       if (value == null) {
         throw new QueryException(this, "undefined variable '" + varName + "'");
       }
-      return env.getVariable(varName);
+      callback.process(value);
+    } else {
+      callback.process(env.getTargetsMatchingPattern(this, pattern));
     }
-
-    return env.getTargetsMatchingPattern(this, pattern);
   }
 
   @Override
