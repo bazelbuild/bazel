@@ -11,10 +11,21 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.syntax;
 
+import static com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils.append;
+
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
+import com.google.devtools.build.lib.syntax.compiler.ByteCodeMethodCalls;
+import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
+import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
+import com.google.devtools.build.lib.syntax.compiler.DebugInfo.AstAccessors;
+import com.google.devtools.build.lib.syntax.compiler.NewObject;
+import com.google.devtools.build.lib.syntax.compiler.Variable.InternalVariable;
+import com.google.devtools.build.lib.syntax.compiler.VariableScope;
+
+import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
+import net.bytebuddy.implementation.bytecode.Removal;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +50,34 @@ public final class ListComprehension extends AbstractComprehension {
   @Override
   OutputCollector createCollector() {
     return new ListOutputCollector();
+  }
+
+  @Override
+  InternalVariable compileInitialization(VariableScope scope, List<ByteCodeAppender> code) {
+    InternalVariable list = scope.freshVariable(ArrayList.class);
+    append(code, NewObject.fromConstructor(ArrayList.class).arguments());
+    code.add(list.store());
+    return list;
+  }
+
+  @Override
+  ByteCodeAppender compileCollector(
+      VariableScope scope,
+      InternalVariable collection,
+      DebugInfo debugInfo,
+      AstAccessors debugAccessors) throws EvalException {
+    List<ByteCodeAppender> code = new ArrayList<>();
+    append(code, collection.load());
+    code.add(outputExpression.compile(scope, debugInfo));
+    append(code, ByteCodeMethodCalls.BCList.add, Removal.SINGLE);
+    return ByteCodeUtils.compoundAppender(code);
+  }
+
+  @Override
+  ByteCodeAppender compileBuilding(VariableScope scope, InternalVariable collection) {
+    return new ByteCodeAppender.Simple(
+        NewObject.fromConstructor(MutableList.class, Iterable.class, Environment.class)
+            .arguments(collection.load(), scope.loadEnvironment()));
   }
 
   /**
