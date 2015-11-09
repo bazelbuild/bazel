@@ -81,7 +81,8 @@ public class UserDefinedFunction extends BaseFunction {
 
   protected UserDefinedFunction(Identifier function,
       FunctionSignature.WithValues<Object, SkylarkType> signature,
-      ImmutableList<Statement> statements, Environment.Frame definitionGlobals) {
+      ImmutableList<Statement> statements, Environment.Frame definitionGlobals)
+    throws EvalException {
     super(function.getName(), signature, function.getLocation());
     this.statements = statements;
     this.definitionGlobals = definitionGlobals;
@@ -174,7 +175,7 @@ public class UserDefinedFunction extends BaseFunction {
    *
    * <p>The "call" method contains the compiled version of this function's AST.
    */
-  private Optional<Method> buildCompiledFunction() {
+  private Optional<Method> buildCompiledFunction() throws EvalException {
     // replace the / character in the path so we have file system compatible class names
     // the java specification mentions that $ should be used in generated code
     // see http://docs.oracle.com/javase/specs/jls/se7/html/jls-3.html#jls-3.8
@@ -253,11 +254,14 @@ public class UserDefinedFunction extends BaseFunction {
                   "call",
                   parameterTypes.toArray(new Class<?>[parameterTypes.size()]))
               .getLoadedMethod());
+    } catch (EvalException e) {
+      // don't capture EvalExceptions
+      throw e;
     } catch (Throwable e) {
       compilerDebug("Error while compiling", e);
       // TODO(bazel-team) don't capture all throwables? couldn't compile this, log somewhere?
-      return Optional.absent();
     }
+    return Optional.absent();
   }
 
   /**
@@ -280,7 +284,8 @@ public class UserDefinedFunction extends BaseFunction {
   /**
    * Builds a byte code implementation of the AST.
    */
-  private Implementation compileBody(VariableScope scope, DebugInfo debugInfo) {
+  private Implementation compileBody(VariableScope scope, DebugInfo debugInfo)
+      throws EvalException {
     List<ByteCodeAppender> code = new ArrayList<>(statements.size());
     code.add(null); // reserve space for later addition of the local variable initializer
 

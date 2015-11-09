@@ -72,9 +72,13 @@ public abstract class Statement extends ASTNode {
    *
    * <p>A statement implementation should never require any particular state of the byte code
    * stack and should leave it in the state it was before.
+   *
+   * @throws EvalException for any error that would have occurred during evaluation of the
+   *    function definition that contains this statement, e.g. type errors.
    */
   ByteCodeAppender compile(
-      VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo) {
+      VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo)
+          throws EvalException {
     throw new UnsupportedOperationException(this.getClass().getSimpleName() + " unsupported.");
   }
 }

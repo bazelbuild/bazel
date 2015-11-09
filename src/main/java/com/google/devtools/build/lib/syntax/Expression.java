@@ -75,8 +75,12 @@ public abstract class Expression extends ASTNode {
   /**
    * Builds a {@link ByteCodeAppender} that implements this expression by consuming its operands
    * from the byte code stack and pushing its result.
+   *
+   * @throws EvalException for any error that would have occurred during evaluation of the
+   *    function definition that contains this statement, e.g. type errors.
    */
-  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo) {
+  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo)
+      throws EvalException {
     throw new UnsupportedOperationException(this.getClass().getSimpleName() + " unsupported.");
   }
 }
