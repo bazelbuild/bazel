@@ -16,7 +16,15 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.FuncallExpression.MethodDescriptor;
+import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
+import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
+import com.google.devtools.build.lib.syntax.compiler.VariableScope;
 
+import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
+import net.bytebuddy.implementation.bytecode.Duplication;
+import net.bytebuddy.implementation.bytecode.constant.TextConstant;
+
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -52,14 +60,22 @@ public final class DotExpression extends Expression {
     Object objValue = obj.eval(env);
     String name = field.getName();
     Object result = eval(objValue, name, getLocation(), env);
+    return checkResult(objValue, result, name, getLocation());
+  }
+
+  /**
+   * Throws the correct error message if the result is null depending on the objValue.
+   */
+  public static Object checkResult(Object objValue, Object result, String name, Location loc)
+    throws EvalException {
     if (result == null) {
       if (objValue instanceof ClassObject) {
         String customErrorMessage = ((ClassObject) objValue).errorMessage(name);
         if (customErrorMessage != null) {
-          throw new EvalException(getLocation(), customErrorMessage);
+          throw new EvalException(loc, customErrorMessage);
         }
       }
-      throw new EvalException(getLocation(), Printer.format("Object of type '%s' has no field %r",
+      throw new EvalException(loc, Printer.format("Object of type '%s' has no field %r",
               EvalUtils.getDataTypeName(objValue), name));
     }
     return result;
@@ -96,6 +112,7 @@ public final class DotExpression extends Expression {
         return FuncallExpression.callMethod(method, name, objValue, new Object[] {}, loc, env);
       }
     }
+
     return null;
   }
 
@@ -107,5 +124,27 @@ public final class DotExpression extends Expression {
   @Override
   void validate(ValidationEnvironment env) throws EvalException {
     obj.validate(env);
+  }
+
+  @Override
+  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo) throws EvalException {
+    List<ByteCodeAppender> code = new ArrayList<>();
+    code.add(obj.compile(scope, debugInfo));
+    TextConstant name = new TextConstant(field.getName());
+    ByteCodeUtils.append(
+        code,
+        Duplication.SINGLE,
+        name,
+        debugInfo.add(this).loadLocation,
+        scope.loadEnvironment(),
+        ByteCodeUtils.invoke(DotExpression.class, "eval", Object.class, String.class,
+            Location.class, Environment.class),
+        // at this point we have the value of obj and the result of eval on the stack
+        name,
+        debugInfo.add(this).loadLocation,
+        ByteCodeUtils.invoke(DotExpression.class, "checkResult", Object.class, Object.class,
+            String.class, Location.class)
+        );
+    return ByteCodeUtils.compoundAppender(code);
   }
 }
