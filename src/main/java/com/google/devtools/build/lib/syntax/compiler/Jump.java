@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax.compiler;
 
+import com.google.devtools.build.lib.syntax.Operator;
 import net.bytebuddy.implementation.Implementation.Context;
 import net.bytebuddy.implementation.bytecode.StackManipulation;
 
@@ -126,6 +127,21 @@ public class Jump implements StackManipulation {
     GREATER_EQUAL,
     GREATER,
     LESS_EQUAL;
+
+    public static PrimitiveComparison forOperator(Operator operator) {
+      switch (operator) {
+        case LESS:
+          return LESS;
+        case LESS_EQUALS:
+          return PrimitiveComparison.LESS_EQUAL;
+        case GREATER:
+          return GREATER;
+        case GREATER_EQUALS:
+          return GREATER_EQUAL;
+        default:
+          throw new Error("unreachable code");
+      }
+    }
   }
 
   /**
