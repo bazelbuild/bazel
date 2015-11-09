@@ -12,39 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.objc;
+package com.google.devtools.build.lib.rules.apple;
 
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
-
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
-import java.util.List;
-
 /**
- * Utility code for use when generating iOS SDK commands.
+ * Utility class for resolving items for the Apple toolchain (such as common tool flags, and paths).
  */
-public class IosSdkCommands {
-
+public class AppleToolchain {
   // These next two strings are shared secrets with the xcrunwrapper.sh to allow
   // expansion of DeveloperDir and SDKRoot and runtime, since they aren't known
   // until compile time on any given build machine.
   private static final String DEVELOPER_DIR = "__BAZEL_XCODE_DEVELOPER_DIR__";
   private static final String SDKROOT_DIR = "__BAZEL_XCODE_SDKROOT__";
-
+  
   // There is a handy reference to many clang warning flags at
   // http://nshipster.com/clang-diagnostics/
   // There is also a useful narrative for many Xcode settings at
   // http://www.xs-labs.com/en/blog/2011/02/04/xcode-build-settings/
-  @VisibleForTesting
-  static final ImmutableMap<String, String> DEFAULT_WARNINGS =
+  public static final ImmutableMap<String, String> DEFAULT_WARNINGS =
       new ImmutableMap.Builder<String, String>()
           .put("GCC_WARN_64_TO_32_BIT_CONVERSION", "-Wshorten-64-to-32")
           .put("CLANG_WARN_BOOL_CONVERSION", "-Wbool-conversion")
@@ -62,11 +51,7 @@ public class IosSdkCommands {
           .put("GCC_WARN_UNUSED_VARIABLE", "-Wunused-variable")
           .build();
 
-  static final ImmutableList<String> DEFAULT_COMPILER_FLAGS = ImmutableList.of("-DOS_IOS");
-
-  static final ImmutableList<String> DEFAULT_LINKER_FLAGS = ImmutableList.of("-ObjC");
-
-  private IosSdkCommands() {
+  private AppleToolchain() {
     throw new UnsupportedOperationException("static-only");
   }
 
@@ -74,14 +59,15 @@ public class IosSdkCommands {
    * Returns the platform plist name (for example, iPhoneSimulator) for the platform corresponding
    * to the value of {@code --ios_cpu} in the given configuration.
    */
-  public static String getPlatformPlistName(ObjcConfiguration configuration) {
+  // TODO(bazel-team): Support non-ios platforms.
+  public static String getPlatformPlistName(AppleConfiguration configuration) {
     return Platform.forArch(configuration.getIosCpu()).getNameInPlist();
   }
 
   /**
    * Returns the platform directory inside of Xcode for a given configuration.
    */
-  public static String platformDir(ObjcConfiguration configuration) {
+  public static String platformDir(AppleConfiguration configuration) {
     return platformDir(getPlatformPlistName(configuration));
   }
 
@@ -102,7 +88,7 @@ public class IosSdkCommands {
   /**
    * Returns the platform frameworks directory inside of Xcode for a given configuration.
    */
-  public static String platformDeveloperFrameworkDir(ObjcConfiguration configuration) {
+  public static String platformDeveloperFrameworkDir(AppleConfiguration configuration) {
     return platformDir(configuration) + "/Developer/Library/Frameworks";
   }
 
@@ -116,7 +102,7 @@ public class IosSdkCommands {
   /**
    * Returns swift libraries path.
    */
-  public static String swiftLibDir(ObjcConfiguration configuration) {
+  public static String swiftLibDir(AppleConfiguration configuration) {
     return DEVELOPER_DIR + "/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/"
         + swiftPlatform(configuration);
   }
@@ -124,79 +110,15 @@ public class IosSdkCommands {
   /**
    * Returns a platform name string suitable for use in Swift tools.
    */
-  public static String swiftPlatform(ObjcConfiguration configuration) {
+  public static String swiftPlatform(AppleConfiguration configuration) {
     return getPlatformPlistName(configuration).toLowerCase();
   }
 
   /**
-   * Returns the target string for swift compiler. For example, "x86_64-apple-ios8.2"
+   * Returns a series of xcode build settings which configure compilation warnings to
+   * "recommended settings". Without these settings, compilation might result in some spurious
+   * warnings, and xcode would complain that the settings be changed to these values.
    */
-  public static String swiftTarget(ObjcConfiguration configuration) {
-    return configuration.getIosCpu() + "-apple-" + "ios" + configuration.getIosSdkVersion();
-  }
-
-  private static Iterable<PathFragment> uniqueParentDirectories(Iterable<PathFragment> paths) {
-    ImmutableSet.Builder<PathFragment> parents = new ImmutableSet.Builder<>();
-    for (PathFragment path : paths) {
-      parents.add(path.getParentDirectory());
-    }
-    return parents.build();
-  }
-
-  public static List<String> commonLinkAndCompileFlagsForClang(
-      ObjcProvider provider, ObjcConfiguration configuration) {
-    ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
-    if (Platform.forArch(configuration.getIosCpu()) == Platform.IOS_SIMULATOR) {
-      builder.add("-mios-simulator-version-min=" + configuration.getMinimumOs());
-    } else {
-      builder.add("-miphoneos-version-min=" + configuration.getMinimumOs());
-    }
-
-    if (configuration.generateDebugSymbols()) {
-      builder.add("-g");
-    }
-
-    return builder
-        .add("-arch", configuration.getIosCpu())
-        .add("-isysroot", sdkDir())
-        // TODO(bazel-team): Pass framework search paths to Xcodegen.
-        .add("-F", sdkDeveloperFrameworkDir())
-        // As of sdk8.1, XCTest is in a base Framework dir
-        .add("-F", platformDeveloperFrameworkDir(configuration))
-        // Add custom (non-SDK) framework search paths. For each framework foo/bar.framework,
-        // include "foo" as a search path.
-        .addAll(Interspersing.beforeEach(
-            "-F",
-            PathFragment.safePathStrings(uniqueParentDirectories(provider.get(FRAMEWORK_DIR)))))
-        .build();
-  }
-
-  public static Iterable<String> compileFlagsForClang(ObjcConfiguration configuration) {
-    return Iterables.concat(
-        DEFAULT_WARNINGS.values(),
-        platformSpecificCompileFlagsForClang(configuration),
-        DEFAULT_COMPILER_FLAGS
-    );
-  }
-
-  private static List<String> platformSpecificCompileFlagsForClang(
-      ObjcConfiguration configuration) {
-    switch (Platform.forArch(configuration.getIosCpu())) {
-      case IOS_DEVICE:
-        return ImmutableList.of();
-      case IOS_SIMULATOR:
-        // These are added by Xcode when building, because the simulator is built on OSX
-        // frameworks so we aim compile to match the OSX objc runtime.
-        return ImmutableList.of(
-          "-fexceptions",
-          "-fasm-blocks",
-          "-fobjc-abi-version=2",
-          "-fobjc-legacy-dispatch");
-      default:
-        throw new AssertionError();
-    }
-  }
-
   public static Iterable<? extends XcodeprojBuildSetting> defaultWarningsForXcode() {
     return Iterables.transform(DEFAULT_WARNINGS.keySet(),
         new Function<String, XcodeprojBuildSetting>() {

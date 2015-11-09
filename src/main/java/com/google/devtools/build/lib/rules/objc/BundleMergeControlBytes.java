@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteSource;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.Control;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.MergeZip;
@@ -36,15 +37,15 @@ import java.util.Map;
 final class BundleMergeControlBytes extends ByteSource {
   private final Bundling rootBundling;
   private final Artifact mergedIpa;
-  private final ObjcConfiguration objcConfiguration;
+  private final AppleConfiguration appleConfiguration;
   private final ImmutableSet<TargetDeviceFamily> families;
 
   public BundleMergeControlBytes(
-      Bundling rootBundling, Artifact mergedIpa, ObjcConfiguration objcConfiguration,
+      Bundling rootBundling, Artifact mergedIpa, AppleConfiguration appleConfiguration,
       ImmutableSet<TargetDeviceFamily> families) {
     this.rootBundling = Preconditions.checkNotNull(rootBundling);
     this.mergedIpa = Preconditions.checkNotNull(mergedIpa);
-    this.objcConfiguration = Preconditions.checkNotNull(objcConfiguration);
+    this.appleConfiguration = Preconditions.checkNotNull(appleConfiguration);
     this.families = Preconditions.checkNotNull(families);
   }
 
@@ -67,8 +68,8 @@ final class BundleMergeControlBytes extends ByteSource {
         .addAllSourcePlistFile(Artifact.toExecPaths(bundling.getBundleInfoplist().asSet()))
         // TODO(bazel-team): Add rule attribute for specifying targeted device family
         .setMinimumOsVersion(bundling.getMinimumOsVersion())
-        .setSdkVersion(objcConfiguration.getIosSdkVersion())
-        .setPlatform(objcConfiguration.getBundlingPlatform().name())
+        .setSdkVersion(appleConfiguration.getIosSdkVersion())
+        .setPlatform(appleConfiguration.getBundlingPlatform().name())
         .setBundleRoot(bundling.getBundleDir());
 
     for (Artifact mergeZip : bundling.getMergeZips()) {

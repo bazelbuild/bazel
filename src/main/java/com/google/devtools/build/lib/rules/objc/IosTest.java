@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.syntax.Type;
@@ -74,7 +75,7 @@ public abstract class IosTest implements RuleConfiguredTargetFactory {
       ruleContext.ruleError(REQUIRES_SOURCE_ERROR);
     }
 
-    if (!ObjcRuleClasses.objcConfiguration(ruleContext).getIosMultiCpus().isEmpty()) {
+    if (!ruleContext.getFragment(AppleConfiguration.class).getIosMultiCpus().isEmpty()) {
       ruleContext.ruleError(NO_MULTI_CPUS_ERROR);
     }
 

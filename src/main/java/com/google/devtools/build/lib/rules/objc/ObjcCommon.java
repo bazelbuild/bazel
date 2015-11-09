@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -501,7 +502,7 @@ public final class ObjcCommon {
         CompilationAttributes attributes = compilationAttributes.get();
         Iterable<PathFragment> sdkIncludes = Iterables.transform(
             Interspersing.prependEach(
-                IosSdkCommands.sdkDir() + "/usr/include/",
+                AppleToolchain.sdkDir() + "/usr/include/",
                 PathFragment.safePathStrings(attributes.sdkIncludes())),
             TO_PATH_FRAGMENT);
         objcProvider

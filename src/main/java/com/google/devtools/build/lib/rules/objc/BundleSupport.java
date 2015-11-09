@@ -31,6 +31,8 @@ import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.InvalidFamilyNameException;
 import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.RepeatedFamilyNameException;
@@ -128,16 +130,16 @@ final class BundleSupport {
   }
 
   private void validatePlatform() {
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     Platform platform = null;
-    for (String architecture : objcConfiguration.getIosMultiCpus()) {
+    for (String architecture : appleConfiguration.getIosMultiCpus()) {
       if (platform == null) {
         platform = Platform.forArch(architecture);
       } else if (platform != Platform.forArch(architecture)) {
         ruleContext.ruleError(
             String.format("In builds which require bundling, --ios_multi_cpus does not currently "
                 + "allow values for both simulator and device builds. Flag was %s",
-            objcConfiguration.getIosMultiCpus()));
+                appleConfiguration.getIosMultiCpus()));
       }
     }
   }
@@ -257,7 +259,7 @@ final class BundleSupport {
   }
 
   private void registerMomczipActions(ObjcProvider objcProvider) {
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
     Iterable<Xcdatamodel> xcdatamodels = Xcdatamodels.xcdatamodels(
@@ -277,10 +279,10 @@ final class BundleSupport {
              .setCommandLine(CustomCommandLine.builder()
                   .addPath(outputZip.getExecPath())
                   .add(datamodel.archiveRootForMomczip())
-                  .add("-XD_MOMC_SDKROOT=" + IosSdkCommands.sdkDir())
+                  .add("-XD_MOMC_SDKROOT=" + AppleToolchain.sdkDir())
                   .add("-XD_MOMC_IOS_TARGET_VERSION=" + bundling.getMinimumOsVersion())
                   .add("-MOMC_PLATFORMS")
-                  .add(objcConfiguration.getBundlingPlatform().getLowerCaseNameInPlist())
+                  .add(appleConfiguration.getBundlingPlatform().getLowerCaseNameInPlist())
                   .add("-XD_MOMC_TARGET_VERSION=10.6")
                   .add(datamodel.getContainer().getSafePathString())
                   .build())
@@ -401,11 +403,11 @@ final class BundleSupport {
 
   private CommandLine actoolzipCommandLine(ObjcProvider provider, Artifact zipOutput,
       Artifact partialInfoPlist) {
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder()
         // The next three arguments are positional, i.e. they don't have flags before them.
         .addPath(zipOutput.getExecPath())
-        .add("--platform").add(objcConfiguration.getBundlingPlatform().getLowerCaseNameInPlist())
+        .add("--platform").add(appleConfiguration.getBundlingPlatform().getLowerCaseNameInPlist())
         .addExecPath("--output-partial-info-plist", partialInfoPlist)
         .add("--minimum-deployment-target").add(bundling.getMinimumOsVersion());
 

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
@@ -78,7 +79,7 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
     XcodeSupport xcodeSupport = new XcodeSupport(ruleContext)
         .addFilesToBuild(filesToBuild)
         .addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), xcodeProductType,
-            ObjcRuleClasses.objcConfiguration(ruleContext).getDependencySingleArchitecture(),
+            ruleContext.getFragment(AppleConfiguration.class).getDependencySingleArchitecture(),
             configurationDistinguisher)
         .addDummySource(xcodeProviderBuilder);
 

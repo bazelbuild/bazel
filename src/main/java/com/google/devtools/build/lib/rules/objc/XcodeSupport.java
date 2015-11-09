@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Project;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
@@ -127,8 +127,9 @@ public final class XcodeSupport {
   XcodeSupport addXcodeSettings(XcodeProvider.Builder xcodeProviderBuilder,
       ObjcProvider objcProvider, XcodeProductType productType) {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     return addXcodeSettings(xcodeProviderBuilder, objcProvider, productType,
-        objcConfiguration.getIosCpu(), objcConfiguration.getConfigurationDistinguisher());
+        appleConfiguration.getIosCpu(), objcConfiguration.getConfigurationDistinguisher());
   }
 
   /**
@@ -228,6 +229,7 @@ public final class XcodeSupport {
       throws InterruptedException {
     final Artifact pbxproj = ruleContext.getImplicitOutputArtifact(XcodeSupport.PBXPROJ);
     final ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
+    final AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     return new ByteSource() {
       @Override
       public InputStream openStream() {
@@ -237,9 +239,9 @@ public final class XcodeSupport {
           builder.setWorkspaceRoot(workspaceRoot);
         }
 
-        List<String> multiCpus = objcConfiguration.getIosMultiCpus();
+        List<String> multiCpus = appleConfiguration.getIosMultiCpus();
         if (multiCpus.isEmpty()) {
-          builder.addCpuArchitecture(objcConfiguration.getIosCpu());
+          builder.addCpuArchitecture(appleConfiguration.getIosCpu());
         } else {
           builder.addAllCpuArchitecture(multiCpus);
         }

@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -156,9 +157,9 @@ public class ObjcRuleClasses {
    * Creates a new spawn action builder that requires a darwin architecture to run.
    */
   static SpawnAction.Builder spawnOnDarwinActionBuilder(RuleContext ruleContext) {
-    ObjcConfiguration objcConfiguration = objcConfiguration(ruleContext);
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     return new SpawnAction.Builder()
-        .setEnvironment(objcConfiguration.getEnvironmentForDarwin())
+        .setEnvironment(appleConfiguration.getEnvironmentForIosAction())
         .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""));
   }
 
@@ -950,15 +951,15 @@ public class ObjcRuleClasses {
               .value(new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
                 @Override
                 public Label getDefault(Rule rule, BuildConfiguration configuration) {
-                  ObjcConfiguration objcConfiguration =
-                      configuration.getFragment(ObjcConfiguration.class);
-                  if (objcConfiguration.getBundlingPlatform() != Platform.IOS_DEVICE) {
+                  AppleConfiguration appleConfiguration =
+                      configuration.getFragment(AppleConfiguration.class);
+                  if (appleConfiguration.getBundlingPlatform() != Platform.IOS_DEVICE) {
                     return null;
                   }
                   if (rule.isAttributeValueExplicitlySpecified("provisioning_profile")) {
                     return null;
                   }
-                  return objcConfiguration.getDefaultProvisioningProfileLabel();
+                  return appleConfiguration.getDefaultProvisioningProfileLabel();
                 }
               }))
           /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(app_icon) -->
