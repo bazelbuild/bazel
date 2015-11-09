@@ -71,7 +71,7 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
                   public String apply(AspectValue aspectValue) {
                     return String.format(
                         "%s(%s)",
-                        aspectValue.getAspect().getName(),
+                        aspectValue.getConfiguredAspect().getName(),
                         aspectValue.getLabel().toString());
                   }
                 }))
@@ -122,7 +122,8 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
                 }))
         .containsExactly("//test:xxx");
     AspectValue aspectValue = analysisResult.getAspects().iterator().next();
-    SkylarkProviders skylarkProviders = aspectValue.getAspect().getProvider(SkylarkProviders.class);
+    SkylarkProviders skylarkProviders =
+        aspectValue.getConfiguredAspect().getProvider(SkylarkProviders.class);
     assertThat(skylarkProviders).isNotNull();
     Object names = skylarkProviders.getValue("target_labels");
     assertThat(names).isInstanceOf(SkylarkNestedSet.class);

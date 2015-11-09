@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AspectRequiringRule;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.AspectWithParameters;
+import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -113,7 +113,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
     return dependencyResolver.dependentNodeMap(
         new TargetAndConfiguration(target, getTargetConfiguration()),
         getHostConfiguration(),
-        aspect != null ? new AspectWithParameters(new NativeAspectClass<T>(aspect)) : null,
+        aspect != null ? new Aspect(new NativeAspectClass<T>(aspect)) : null,
         ImmutableSet.<ConfigMatchingProvider>of());
   }
 
@@ -122,7 +122,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
       ListMultimap<Attribute, Dependency> dependentNodeMap,
       String attrName,
       String dep,
-      AspectWithParameters... aspects) {
+      Aspect... aspects) {
     Attribute attr = null;
     for (Attribute candidate : dependentNodeMap.keySet()) {
       if (candidate.getName().equals(attrName)) {
@@ -152,10 +152,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
         "aspect(name='b', foo=[])");
     ListMultimap<Attribute, Dependency> map = dependentNodeMap("//a:a", null);
     assertDep(
-        map,
-        "foo",
-        "//a:b",
-        new AspectWithParameters(new NativeAspectClass(TestAspects.SimpleAspect.class)));
+        map, "foo", "//a:b", new Aspect(new NativeAspectClass(TestAspects.SimpleAspect.class)));
   }
 
   @Test
@@ -167,10 +164,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
     ListMultimap<Attribute, Dependency> map =
         dependentNodeMap("//a:a", TestAspects.AttributeAspect.class);
     assertDep(
-        map,
-        "foo",
-        "//a:b",
-        new AspectWithParameters(new NativeAspectClass(TestAspects.AttributeAspect.class)));
+        map, "foo", "//a:b", new Aspect(new NativeAspectClass(TestAspects.AttributeAspect.class)));
   }
 
   @Test
@@ -205,18 +199,18 @@ public class DependencyResolverTest extends AnalysisTestCase {
     BuildConfiguration host = getHostConfiguration();
     BuildConfiguration target = getTargetConfiguration();
 
-    ImmutableSet<AspectWithParameters> twoAspects =
+    ImmutableSet<Aspect> twoAspects =
         ImmutableSet.of(
-            new AspectWithParameters(new NativeAspectClass(TestAspects.SimpleAspect.class)),
-            new AspectWithParameters(new NativeAspectClass(TestAspects.AttributeAspect.class)));
-    ImmutableSet<AspectWithParameters> inverseAspects =
+            new Aspect(new NativeAspectClass(TestAspects.SimpleAspect.class)),
+            new Aspect(new NativeAspectClass(TestAspects.AttributeAspect.class)));
+    ImmutableSet<Aspect> inverseAspects =
         ImmutableSet.of(
-            new AspectWithParameters(new NativeAspectClass(TestAspects.AttributeAspect.class)),
-            new AspectWithParameters(new NativeAspectClass(TestAspects.SimpleAspect.class)));
-    ImmutableSet<AspectWithParameters> differentAspects =
+            new Aspect(new NativeAspectClass(TestAspects.AttributeAspect.class)),
+            new Aspect(new NativeAspectClass(TestAspects.SimpleAspect.class)));
+    ImmutableSet<Aspect> differentAspects =
         ImmutableSet.of(
-            new AspectWithParameters(new NativeAspectClass(TestAspects.AttributeAspect.class)),
-            new AspectWithParameters(new NativeAspectClass(TestAspects.ErrorAspect.class)));
+            new Aspect(new NativeAspectClass(TestAspects.AttributeAspect.class)),
+            new Aspect(new NativeAspectClass(TestAspects.ErrorAspect.class)));
 
     new EqualsTester()
         .addEqualityGroup(

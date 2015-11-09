@@ -1332,25 +1332,13 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns the set of aspects required for dependencies through this attribute.
+   * Returns the list of aspects required for dependencies through this attribute.
    */
-  public ImmutableSet<AspectClass> getAspects() {
-    ImmutableSet.Builder<AspectClass> builder = ImmutableSet.builder();
-    for (RuleAspect aspect : aspects) {
-      builder.add(aspect.getAspectFactory());
-    }
-    return builder.build();
-  }
-
-  /**
-   * Returns set of pairs of aspect factories and corresponding aspect parameters.
-   */
-  public ImmutableList<AspectWithParameters> getAspectsWithParameters(Rule rule) {
-    ImmutableList.Builder<AspectWithParameters> builder = ImmutableList.builder();
+  public ImmutableList<Aspect> getAspects(Rule rule) {
+    ImmutableList.Builder<Aspect> builder = ImmutableList.builder();
     for (RuleAspect aspect : aspects) {
       builder.add(
-          new AspectWithParameters(
-              aspect.getAspectFactory(), aspect.getParametersExtractor().apply(rule)));
+          new Aspect(aspect.getAspectFactory(), aspect.getParametersExtractor().apply(rule)));
     }
     return builder.build();
   }

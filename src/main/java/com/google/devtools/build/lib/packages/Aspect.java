@@ -22,21 +22,21 @@ import java.util.Objects;
  * created with help of aspect factory instances and parameters are used to configure them, so we
  * have to keep them together.
  */
-public final class AspectWithParameters {
+public final class Aspect {
   // TODO(bazel-team): class objects are not really hashable or comparable for equality other than
   // by reference. We should identify the aspect here in a way that does not rely on comparison
   // by reference so that keys can be serialized and deserialized properly.
   private final AspectClass aspectClass;
   private final AspectParameters parameters;
 
-  public AspectWithParameters(AspectClass aspect, AspectParameters parameters) {
+  public Aspect(AspectClass aspect, AspectParameters parameters) {
     Preconditions.checkNotNull(aspect);
     Preconditions.checkNotNull(parameters);
     this.aspectClass = aspect;
     this.parameters = parameters;
   }
 
-  public AspectWithParameters(AspectClass aspect) {
+  public Aspect(AspectClass aspect) {
     this(aspect, AspectParameters.EMPTY);
   }
 
@@ -59,10 +59,10 @@ public final class AspectWithParameters {
     if (this == other) {
       return true;
     }
-    if (!(other instanceof AspectWithParameters)) {
+    if (!(other instanceof Aspect)) {
       return false;
     }
-    AspectWithParameters that = (AspectWithParameters) other;
+    Aspect that = (Aspect) other;
     return Objects.equals(this.aspectClass, that.aspectClass)
         && Objects.equals(this.parameters, that.parameters);
   }
@@ -74,7 +74,7 @@ public final class AspectWithParameters {
 
   @Override
   public String toString() {
-    return String.format("AspectWithParameters %s(%s)", aspectClass, parameters);
+    return String.format("Aspect %s(%s)", aspectClass, parameters);
   }
 
   public AspectDefinition getDefinition() {

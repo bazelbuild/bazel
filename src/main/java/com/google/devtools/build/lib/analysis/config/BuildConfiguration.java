@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.AspectWithParameters;
+import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.Configurator;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
@@ -1466,8 +1466,8 @@ public final class BuildConfiguration {
      * for each configuration represented by this instance.
      * TODO(bazel-team): this is a really ugly reverse dependency: factor this away.
      */
-    Iterable<DependencyResolver.Dependency> getDependencies(Label label,
-        ImmutableSet<AspectWithParameters> aspects);
+    Iterable<DependencyResolver.Dependency> getDependencies(
+        Label label, ImmutableSet<Aspect> aspects);
   }
 
   /**
@@ -1540,8 +1540,8 @@ public final class BuildConfiguration {
     }
 
     @Override
-    public Iterable<DependencyResolver.Dependency> getDependencies(Label label,
-        ImmutableSet<AspectWithParameters> aspects) {
+    public Iterable<DependencyResolver.Dependency> getDependencies(
+        Label label, ImmutableSet<Aspect> aspects) {
       return ImmutableList.of(
           new DependencyResolver.Dependency(label, currentConfiguration, aspects));
     }
@@ -1641,8 +1641,8 @@ public final class BuildConfiguration {
     }
 
     @Override
-    public Iterable<DependencyResolver.Dependency> getDependencies(Label label,
-        ImmutableSet<AspectWithParameters> aspects) {
+    public Iterable<DependencyResolver.Dependency> getDependencies(
+        Label label, ImmutableSet<Aspect> aspects) {
       return ImmutableList.of(new DependencyResolver.Dependency(label, transition, aspects));
     }
   }
@@ -1708,8 +1708,8 @@ public final class BuildConfiguration {
 
 
     @Override
-    public Iterable<DependencyResolver.Dependency> getDependencies(Label label,
-        ImmutableSet<AspectWithParameters> aspects) {
+    public Iterable<DependencyResolver.Dependency> getDependencies(
+        Label label, ImmutableSet<Aspect> aspects) {
       ImmutableList.Builder<DependencyResolver.Dependency> builder = ImmutableList.builder();
       for (TransitionApplier applier : appliers) {
         builder.addAll(applier.getDependencies(label, aspects));

@@ -42,12 +42,12 @@ import javax.annotation.Nullable;
  * <p>Aspects are created alongside configured targets on request from dependents.
  */
 @Immutable
-public final class Aspect implements Iterable<TransitiveInfoProvider> {
+public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> {
   private final String name;
   private final ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
       providers;
 
-  private Aspect(
+  private ConfiguredAspect(
       String name,
       ImmutableMap<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers) {
     this.name = name;
@@ -84,7 +84,7 @@ public final class Aspect implements Iterable<TransitiveInfoProvider> {
   }
 
   /**
-   * Builder for {@link Aspect}.
+   * Builder for {@link ConfiguredAspect}.
    */
   public static class Builder {
     private final Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>
@@ -140,7 +140,7 @@ public final class Aspect implements Iterable<TransitiveInfoProvider> {
       return this;
     }
 
-    public Aspect build() {
+    public ConfiguredAspect build() {
       if (!outputGroupBuilders.isEmpty()) {
         ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
         for (Map.Entry<String, NestedSetBuilder<Artifact>> entry : outputGroupBuilders.entrySet()) {
@@ -159,7 +159,7 @@ public final class Aspect implements Iterable<TransitiveInfoProvider> {
         providers.put(SkylarkProviders.class, new SkylarkProviders(skylarkProvidersMap));
       }
 
-      return new Aspect(name, ImmutableMap.copyOf(providers));
+      return new ConfiguredAspect(name, ImmutableMap.copyOf(providers));
     }
   }
 }

@@ -23,8 +23,8 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
-import com.google.devtools.build.lib.analysis.Aspect;
-import com.google.devtools.build.lib.analysis.Aspect.Builder;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect.Builder;
 import com.google.devtools.build.lib.analysis.ConfiguredNativeAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -119,9 +119,9 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
   }
 
   @Override
-  public Aspect create(ConfiguredTarget base, RuleContext ruleContext,
-      AspectParameters parameters) {
-    Aspect.Builder builder = new Builder(NAME);
+  public ConfiguredAspect create(
+      ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
+    ConfiguredAspect.Builder builder = new Builder(NAME);
 
     AndroidStudioInfoFilesProvider.Builder providerBuilder =
         new AndroidStudioInfoFilesProvider.Builder();

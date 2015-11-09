@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
-import com.google.devtools.build.lib.analysis.Aspect;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
@@ -44,8 +44,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
-import com.google.devtools.build.lib.packages.AspectWithParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -214,7 +214,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
    *  @param env the Skyframe environment
    * @param resolver The dependency resolver
    * @param ctgValue The label and the configuration of the node
-   * @param aspectWithParameters
+   * @param aspect
    * @param configConditions the configuration conditions for evaluating the attributes of the node
    * @param ruleClassProvider rule class provider for determining the right configuration fragments
    *   to apply to deps
@@ -227,7 +227,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       Environment env,
       SkyframeDependencyResolver resolver,
       TargetAndConfiguration ctgValue,
-      AspectWithParameters aspectWithParameters,
+      Aspect aspect,
       Set<ConfigMatchingProvider> configConditions,
       RuleClassProvider ruleClassProvider,
       BuildConfiguration hostConfiguration,
@@ -237,8 +237,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     ListMultimap<Attribute, Dependency> depValueNames;
     try {
       depValueNames =
-          resolver.dependentNodeMap(
-              ctgValue, hostConfiguration, aspectWithParameters, configConditions);
+          resolver.dependentNodeMap(ctgValue, hostConfiguration, aspect, configConditions);
     } catch (EvalException e) {
       env.getListener().handle(Event.error(e.getLocation(), e.getMessage()));
       throw new DependencyEvaluationException(new ConfiguredValueCreationException(e.print()));
@@ -263,8 +262,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
     }
 
     // Resolve required aspects.
-    ListMultimap<SkyKey, Aspect> depAspects = resolveAspectDependencies(
-        env, depValues, depValueNames.values(), transitivePackages);
+    ListMultimap<SkyKey, ConfiguredAspect> depAspects =
+        resolveAspectDependencies(env, depValues, depValueNames.values(), transitivePackages);
     if (depAspects == null) {
       return null;
     }
@@ -467,7 +466,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
   private static ListMultimap<Attribute, ConfiguredTarget> mergeAspects(
       ListMultimap<Attribute, Dependency> depValueNames,
       Map<SkyKey, ConfiguredTarget> depConfiguredTargetMap,
-      ListMultimap<SkyKey, Aspect> depAspectMap) {
+      ListMultimap<SkyKey, ConfiguredAspect> depAspectMap) {
     ListMultimap<Attribute, ConfiguredTarget> result = ArrayListMultimap.create();
 
     for (Map.Entry<Attribute, Dependency> entry : depValueNames.entries()) {
@@ -483,19 +482,21 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
   /**
    * Given a list of {@link Dependency} objects, returns a multimap from the {@link SkyKey} of the
-   * dependency to the {@link Aspect} instances that should be merged into it.
+   * dependency to the {@link ConfiguredAspect} instances that should be merged into it.
    *
    * <p>Returns null if the required aspects are not computed yet.
    */
   @Nullable
-  private static ListMultimap<SkyKey, Aspect> resolveAspectDependencies(Environment env,
-      Map<SkyKey, ConfiguredTarget> configuredTargetMap, Iterable<Dependency> deps,
+  private static ListMultimap<SkyKey, ConfiguredAspect> resolveAspectDependencies(
+      Environment env,
+      Map<SkyKey, ConfiguredTarget> configuredTargetMap,
+      Iterable<Dependency> deps,
       NestedSetBuilder<Package> transitivePackages)
       throws AspectCreationException {
-    ListMultimap<SkyKey, Aspect> result = ArrayListMultimap.create();
+    ListMultimap<SkyKey, ConfiguredAspect> result = ArrayListMultimap.create();
     Set<SkyKey> aspectKeys = new HashSet<>();
     for (Dependency dep : deps) {
-      for (AspectWithParameters depAspect : dep.getAspects()) {
+      for (Aspect depAspect : dep.getAspects()) {
         aspectKeys.add(createAspectKey(dep.getLabel(), dep.getConfiguration(), depAspect));
       }
     }
@@ -513,7 +514,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
         continue;
       }
       ConfiguredTarget depConfiguredTarget = configuredTargetMap.get(depKey);
-      for (AspectWithParameters depAspect : dep.getAspects()) {
+      for (Aspect depAspect : dep.getAspects()) {
         if (!aspectMatchesConfiguredTarget(depConfiguredTarget, depAspect)) {
           continue;
         }
@@ -538,23 +539,22 @@ final class ConfiguredTargetFunction implements SkyFunction {
           // Dependent aspect has either not been computed yet or is in error.
           return null;
         }
-        result.put(depKey, aspectValue.getAspect());
+        result.put(depKey, aspectValue.getConfiguredAspect());
         transitivePackages.addTransitive(aspectValue.getTransitivePackages());
       }
     }
     return result;
   }
 
-  public static SkyKey createAspectKey(Label label, BuildConfiguration buildConfiguration,
-      AspectWithParameters depAspect) {
+  public static SkyKey createAspectKey(
+      Label label, BuildConfiguration buildConfiguration, Aspect depAspect) {
     return AspectValue.key(label,
         buildConfiguration,
         depAspect.getAspectClass(),
         depAspect.getParameters());
   }
 
-  private static boolean aspectMatchesConfiguredTarget(
-      ConfiguredTarget dep, AspectWithParameters aspectClass) {
+  private static boolean aspectMatchesConfiguredTarget(ConfiguredTarget dep, Aspect aspectClass) {
     AspectDefinition aspectDefinition = aspectClass.getDefinition();
     for (Class<?> provider : aspectDefinition.getRequiredProviders()) {
       if (dep.getProvider(provider.asSubclass(TransitiveInfoProvider.class)) == null) {

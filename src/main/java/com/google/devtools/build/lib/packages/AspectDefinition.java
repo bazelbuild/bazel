@@ -32,8 +32,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * The definition of an aspect (see {@link com.google.devtools.build.lib.analysis.Aspect} for more
- * information.)
+ * The definition of an aspect (see {@link Aspect} for moreinformation.)
  *
  * <p>Contains enough information to build up the configured target graph except for the actual way
  * to build the Skyframe node (that is the territory of
@@ -145,7 +144,7 @@ public final class AspectDefinition {
     }
 
     LinkedHashMultimap<Attribute, Label> result = LinkedHashMultimap.create();
-    for (AspectWithParameters candidateClass : attribute.getAspectsWithParameters(from)) {
+    for (Aspect candidateClass : attribute.getAspects(from)) {
       // Check if target satisfies condition for this aspect (has to provide all required
       // TransitiveInfoProviders)
       if (!advertisedProviders.containsAll(

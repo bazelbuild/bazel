@@ -107,7 +107,7 @@ class BuildResultPrinter {
 
     for (AspectValue aspect : aspectsToPrint) {
       Label label = aspect.getLabel();
-      String aspectName = aspect.getAspect().getName();
+      String aspectName = aspect.getConfiguredAspect().getName();
       boolean headerFlag = true;
       NestedSet<Artifact> importantArtifacts =
           TopLevelArtifactHelper.getAllArtifactsToBuild(aspect, context).getImportantArtifacts();

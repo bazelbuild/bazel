@@ -34,11 +34,10 @@ import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
-import com.google.devtools.build.lib.analysis.Aspect;
-import com.google.devtools.build.lib.packages.AspectWithParameters;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -56,7 +55,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -537,16 +536,21 @@ public final class SkyframeBuildView {
   }
 
   @Nullable
-  public Aspect createAspect(
+  public ConfiguredAspect createAspect(
       AnalysisEnvironment env,
       RuleConfiguredTarget associatedTarget,
       ConfiguredAspectFactory aspectFactory,
       ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       Set<ConfigMatchingProvider> configConditions,
-      AspectWithParameters aspectWithParameters)
-          throws InterruptedException {
-    return factory.createAspect(env, associatedTarget, aspectFactory, aspectWithParameters,
-        prerequisiteMap, configConditions,
+      Aspect aspect)
+      throws InterruptedException {
+    return factory.createAspect(
+        env,
+        associatedTarget,
+        aspectFactory,
+        aspect,
+        prerequisiteMap,
+        configConditions,
         getHostConfiguration(associatedTarget.getConfiguration()));
   }
 

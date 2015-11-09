@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.Aspect;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -44,7 +44,8 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
   }
 
   @Override
-  public Aspect create(ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
+  public ConfiguredAspect create(
+      ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
       throws InterruptedException {
     try (Mutability mutability = Mutability.create("aspect")) {
       SkylarkRuleContext skylarkRuleContext;
@@ -79,16 +80,16 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
           return null;
         }
 
-        Aspect.Builder builder = new Aspect.Builder(name);
+        ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(name);
 
         SkylarkClassObject struct = (SkylarkClassObject) aspectSkylarkObject;
         Location loc = struct.getCreationLoc();
         for (String key : struct.getKeys()) {
           builder.addSkylarkTransitiveInfo(key, struct.getValue(key), loc);
         }
-        Aspect aspect = builder.build();
+        ConfiguredAspect configuredAspect = builder.build();
         SkylarkProviderValidationUtil.checkOrphanArtifacts(ruleContext);
-        return aspect;
+        return configuredAspect;
       } catch (EvalException e) {
         addAspectToStackTrace(base, e);
         ruleContext.ruleError("\n" + e.print());

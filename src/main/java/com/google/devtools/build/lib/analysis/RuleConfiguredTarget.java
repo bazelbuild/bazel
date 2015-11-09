@@ -53,7 +53,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   private final ImmutableMap<Class<? extends TransitiveInfoProvider>, Object> providers;
   private final ImmutableList<Artifact> mandatoryStampFiles;
   private final Set<ConfigMatchingProvider> configConditions;
-  private final ImmutableList<Aspect> aspects;
+  private final ImmutableList<ConfiguredAspect> configuredAspects;
 
   RuleConfiguredTarget(RuleContext ruleContext,
       ImmutableList<Artifact> mandatoryStampFiles,
@@ -80,7 +80,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     this.providers = ImmutableMap.copyOf(providerBuilder);
     this.mandatoryStampFiles = mandatoryStampFiles;
     this.configConditions = ruleContext.getConfigConditions();
-    this.aspects = ImmutableList.of();
+    this.configuredAspects = ImmutableList.of();
 
     // If this rule is the run_under target, then check that we have an executable; note that
     // run_under is only set in the target configuration, and the target must also be analyzed for
@@ -108,7 +108,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
    * an input or an output file).
    */
   public static ConfiguredTarget mergeAspects(
-      ConfiguredTarget base, Iterable<Aspect> aspects) {
+      ConfiguredTarget base, Iterable<ConfiguredAspect> aspects) {
     if (Iterables.isEmpty(aspects)) {
       // If there are no aspects, don't bother with creating a proxy object
       return base;
@@ -122,7 +122,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   /**
    * Creates an instance based on a configured target and a set of aspects.
    */
-  private RuleConfiguredTarget(RuleConfiguredTarget base, Iterable<Aspect> aspects) {
+  private RuleConfiguredTarget(RuleConfiguredTarget base, Iterable<ConfiguredAspect> aspects) {
     super(base.getTarget(), base.getConfiguration());
 
     Set<Class<? extends TransitiveInfoProvider>> providers = new HashSet<>();
@@ -138,8 +138,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         SkylarkProviders.merge(getAllProviders(base, aspects, SkylarkProviders.class));
 
     // Validate that all other providers are only provided once.
-    for (Aspect aspect : aspects) {
-      for (TransitiveInfoProvider aspectProvider : aspect) {
+    for (ConfiguredAspect configuredAspect : aspects) {
+      for (TransitiveInfoProvider aspectProvider : configuredAspect) {
         Class<? extends TransitiveInfoProvider> aClass = aspectProvider.getClass();
         if (OutputGroupProvider.class.equals(aClass)) {
           continue;
@@ -178,21 +178,19 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     }
     this.mandatoryStampFiles = base.mandatoryStampFiles;
     this.configConditions = base.configConditions;
-    this.aspects = ImmutableList.copyOf(aspects);
+    this.configuredAspects = ImmutableList.copyOf(aspects);
   }
 
   private static <T extends TransitiveInfoProvider> List<T> getAllProviders(
-      RuleConfiguredTarget base,
-      Iterable<Aspect> aspects,
-      Class<T> providerClass) {
+      RuleConfiguredTarget base, Iterable<ConfiguredAspect> aspects, Class<T> providerClass) {
     T baseProvider = base.getProvider(providerClass);
     List<T> providers = new ArrayList<>();
     if (baseProvider != null) {
       providers.add(baseProvider);
     }
 
-    for (Aspect aspect : aspects) {
-      final T aspectProvider = aspect.getProvider(providerClass);
+    for (ConfiguredAspect configuredAspect : aspects) {
+      final T aspectProvider = configuredAspect.getProvider(providerClass);
       if (aspectProvider == null) {
         continue;
       }
@@ -215,8 +213,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     // class?
     Object provider = providers.get(providerClass);
     if (provider == null) {
-      for (Aspect aspect : aspects) {
-        provider = aspect.getProviders().get(providerClass);
+      for (ConfiguredAspect configuredAspect : configuredAspects) {
+        provider = configuredAspect.getProviders().get(providerClass);
         if (provider != null) {
           break;
         }
@@ -247,8 +245,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
     Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> allProviders =
         new LinkedHashMap<>();
-    for (int i = aspects.size() - 1; i >= 0; i++) {
-      for (TransitiveInfoProvider tip : aspects.get(i)) {
+    for (int i = configuredAspects.size() - 1; i >= 0; i++) {
+      for (TransitiveInfoProvider tip : configuredAspects.get(i)) {
         allProviders.put(tip.getClass(), tip);
       }
     }

@@ -22,8 +22,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.Aspect;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -78,7 +78,7 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
       };
 
   private AnalysisResult analysisResult;
-  private Aspect aspect;
+  private ConfiguredAspect configuredAspect;
 
   protected static String jarString(String base, String jar, String iJar, String sourceJar) {
     StringBuilder sb = new StringBuilder();
@@ -118,14 +118,14 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
     Collection<AspectValue> aspects = analysisResult.getAspects();
     assertThat(aspects.size()).isEqualTo(1);
     AspectValue value = aspects.iterator().next();
-    this.aspect = value.getAspect();
-    assertThat(aspect.getName()).isEqualTo(AndroidStudioInfoAspect.NAME);
+    this.configuredAspect = value.getConfiguredAspect();
+    assertThat(configuredAspect.getName()).isEqualTo(AndroidStudioInfoAspect.NAME);
   }
 
   protected Map<String, RuleIdeInfo> buildRuleIdeInfo(String target) throws Exception {
     buildTarget(target);
     AndroidStudioInfoFilesProvider provider =
-        aspect.getProvider(AndroidStudioInfoFilesProvider.class);
+        configuredAspect.getProvider(AndroidStudioInfoFilesProvider.class);
     Iterable<Artifact> artifacts = provider.getIdeInfoFiles();
     ImmutableMap.Builder<String, RuleIdeInfo> builder = ImmutableMap.builder();
     for (Artifact artifact : artifacts) {
@@ -138,7 +138,8 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
   }
 
   protected List<String> getOutputGroupResult(String outputGroup) {
-    OutputGroupProvider outputGroupProvider = this.aspect.getProvider(OutputGroupProvider.class);
+    OutputGroupProvider outputGroupProvider =
+        this.configuredAspect.getProvider(OutputGroupProvider.class);
     assert outputGroupProvider != null;
     NestedSet<Artifact> artifacts = outputGroupProvider.getOutputGroup(outputGroup);
 

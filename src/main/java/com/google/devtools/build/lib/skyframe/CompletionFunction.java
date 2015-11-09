@@ -148,7 +148,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
           String.format(
               "%s, aspect %s: missing input file '%s'",
               value.getLabel(),
-              value.getAspect().getName(),
+              value.getConfiguredAspect().getName(),
               rootCause));
     }
 
@@ -157,7 +157,7 @@ public final class CompletionFunction<TValue extends SkyValue, TResult extends S
       return new MissingInputFileException(
           value.getLabel()
               + ", aspect "
-              + value.getAspect().getName()
+              + value.getConfiguredAspect().getName()
               + missingCount
               + " input file(s) do not exist",
           value.getLocation());

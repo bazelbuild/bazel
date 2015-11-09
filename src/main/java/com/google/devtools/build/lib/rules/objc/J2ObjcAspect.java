@@ -24,7 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
-import com.google.devtools.build.lib.analysis.Aspect;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredNativeAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -90,9 +90,9 @@ public class J2ObjcAspect implements ConfiguredNativeAspectFactory {
   }
 
   @Override
-  public Aspect create(ConfiguredTarget base, RuleContext ruleContext,
-      AspectParameters parameters) {
-    Aspect.Builder builder = new Aspect.Builder(NAME);
+  public ConfiguredAspect create(
+      ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
+    ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(NAME);
 
     JavaCompilationArgsProvider compilationArgsProvider =
         base.getProvider(JavaCompilationArgsProvider.class);

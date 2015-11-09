@@ -47,7 +47,8 @@ public class AspectDefinitionTest {
     }
 
     @Override
-    public Aspect create(ConfiguredTarget base, RuleContext context, AspectParameters parameters) {
+    public ConfiguredAspect create(
+        ConfiguredTarget base, RuleContext context, AspectParameters parameters) {
       throw new IllegalStateException();
     }
 

@@ -28,6 +28,6 @@ public interface ConfiguredAspectFactory {
    * @param parameters information from attributes of the rule that have requested this
    *     aspect
    */
-  Aspect create(ConfiguredTarget base, RuleContext context, AspectParameters parameters)
+  ConfiguredAspect create(ConfiguredTarget base, RuleContext context, AspectParameters parameters)
       throws InterruptedException;
 }

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.packages.AspectWithParameters;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ListMultimap;
@@ -33,7 +32,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
@@ -56,7 +55,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -284,36 +282,37 @@ public final class ConfiguredTargetFactory {
   }
 
   /**
-   * Constructs an {@link Aspect}. Returns null if an error occurs; in that case,
+   * Constructs an {@link ConfiguredAspect}. Returns null if an error occurs; in that case,
    * {@code aspectFactory} should call one of the error reporting methods of {@link RuleContext}.
    */
-  public Aspect createAspect(
+  public ConfiguredAspect createAspect(
       AnalysisEnvironment env,
       RuleConfiguredTarget associatedTarget,
       ConfiguredAspectFactory aspectFactory,
-      AspectWithParameters aspectWithParameters,
+      Aspect aspect,
       ListMultimap<Attribute, ConfiguredTarget> prerequisiteMap,
       Set<ConfigMatchingProvider> configConditions,
       BuildConfiguration hostConfiguration)
-          throws InterruptedException {
+      throws InterruptedException {
     RuleContext.Builder builder = new RuleContext.Builder(env,
         associatedTarget.getTarget(),
         associatedTarget.getConfiguration(),
         hostConfiguration,
         ruleClassProvider.getPrerequisiteValidator());
-    RuleContext ruleContext = builder
-        .setVisibility(convertVisibility(
-            prerequisiteMap, env.getEventHandler(), associatedTarget.getTarget(), null))
-        .setPrerequisites(prerequisiteMap)
-        .setAspectAttributes(aspectWithParameters.getDefinition().getAttributes())
-        .setConfigConditions(configConditions)
-        .build();
+    RuleContext ruleContext =
+        builder
+            .setVisibility(
+                convertVisibility(
+                    prerequisiteMap, env.getEventHandler(), associatedTarget.getTarget(), null))
+            .setPrerequisites(prerequisiteMap)
+            .setAspectAttributes(aspect.getDefinition().getAttributes())
+            .setConfigConditions(configConditions)
+            .build();
     if (ruleContext.hasErrors()) {
       return null;
     }
 
-    return aspectFactory.create(associatedTarget, ruleContext,
-        aspectWithParameters.getParameters());
+    return aspectFactory.create(associatedTarget, ruleContext, aspect.getParameters());
   }
 
   /**

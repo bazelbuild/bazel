@@ -18,7 +18,7 @@ import static com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.Aspect;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredNativeAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -75,10 +75,10 @@ public abstract class AbstractJ2ObjcProtoAspect implements ConfiguredNativeAspec
   protected abstract boolean checkShouldCreateAspect(RuleContext ruleContext);
 
   @Override
-  public Aspect create(ConfiguredTarget base, RuleContext ruleContext,
-      AspectParameters parameters) {
+  public ConfiguredAspect create(
+      ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
     if (!checkShouldCreateAspect(ruleContext)) {
-      return new Aspect.Builder(NAME).build();
+      return new ConfiguredAspect.Builder(NAME).build();
     }
 
     ProtoSourcesProvider protoSourcesProvider = base.getProvider(ProtoSourcesProvider.class);
@@ -110,7 +110,7 @@ public abstract class AbstractJ2ObjcProtoAspect implements ConfiguredNativeAspec
     NestedSet<Artifact> j2ObjcTransitiveClassMappingFiles = j2ObjcTransitiveClassMappingFiles(
         ruleContext, classMappingFiles);
 
-    return new Aspect.Builder(NAME)
+    return new ConfiguredAspect.Builder(NAME)
         .addProvider(J2ObjcSrcsProvider.class, j2objcSrcsProvider)
         .addProvider(
             J2ObjcMappingFileProvider.class,

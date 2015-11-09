@@ -134,12 +134,11 @@ public final class TopLevelArtifactHelper {
 
   public static ArtifactsToBuild getAllArtifactsToBuild(
       AspectValue aspectValue, TopLevelArtifactContext context) {
-    Aspect aspect = aspectValue.getAspect();
+    ConfiguredAspect configuredAspect = aspectValue.getConfiguredAspect();
     return getAllArtifactsToBuild(
-        aspect.getProvider(OutputGroupProvider.class),
-        aspect.getProvider(FileProvider.class),
-        context
-    );
+        configuredAspect.getProvider(OutputGroupProvider.class),
+        configuredAspect.getProvider(FileProvider.class),
+        context);
   }
 
   public static ArtifactsToBuild getAllArtifactsToBuild(

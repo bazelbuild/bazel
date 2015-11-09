@@ -237,13 +237,15 @@ public class AspectTest extends AnalysisTestCase {
       }
 
       @Override
-      public Aspect create(ConfiguredTarget base,
-          RuleContext ruleContext, AspectParameters parameters) throws InterruptedException {
+      public ConfiguredAspect create(
+          ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
+          throws InterruptedException {
         Object lateBoundPrereq = ruleContext.getPrerequisite(":late", TARGET);
-        return new Aspect.Builder("testaspect")
+        return new ConfiguredAspect.Builder("testaspect")
             .addProvider(
-                new AspectInfo(NestedSetBuilder.create(
-                    Order.STABLE_ORDER, lateBoundPrereq != null ? "non-empty" : "empty")))
+                new AspectInfo(
+                    NestedSetBuilder.create(
+                        Order.STABLE_ORDER, lateBoundPrereq != null ? "non-empty" : "empty")))
             .build();
       }
     }

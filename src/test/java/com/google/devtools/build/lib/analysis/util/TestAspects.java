@@ -26,7 +26,7 @@ import com.google.common.base.Function;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.Aspect;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredNativeAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -149,16 +149,16 @@ public class TestAspects {
    */
   public abstract static class BaseAspect implements ConfiguredNativeAspectFactory {
     @Override
-    public Aspect create(ConfiguredTarget base, RuleContext ruleContext,
-        AspectParameters parameters) {
+    public ConfiguredAspect create(
+        ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
       String information = parameters.isEmpty()
           ? ""
           : " data " + Iterables.getFirst(parameters.getAttribute("baz"), null);
-      return new Aspect.Builder(getClass().getName())
+      return new ConfiguredAspect.Builder(getClass().getName())
           .addProvider(
               AspectInfo.class,
-              new AspectInfo(collectAspectData("aspect " + ruleContext.getLabel() + information, 
-                  ruleContext)))
+              new AspectInfo(
+                  collectAspectData("aspect " + ruleContext.getLabel() + information, ruleContext)))
           .build();
     }
   }
@@ -249,7 +249,7 @@ public class TestAspects {
       return builder.build();
     }
 
-    public Aspect create(
+    public ConfiguredAspect create(
         ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
       StringBuilder information = new StringBuilder("aspect " + ruleContext.getLabel());
       if (!parameters.isEmpty()) {
@@ -264,7 +264,7 @@ public class TestAspects {
         information.append(dep.getLabel());
       }
       information.append("]");
-      return new Aspect.Builder(getClass().getName())
+      return new ConfiguredAspect.Builder(getClass().getName())
           .addProvider(
               AspectInfo.class,
               new AspectInfo(collectAspectData(information.toString(), ruleContext)))
@@ -283,8 +283,8 @@ public class TestAspects {
    */
   public static class ErrorAspect implements ConfiguredNativeAspectFactory {
     @Override
-    public Aspect create(ConfiguredTarget base, RuleContext ruleContext,
-        AspectParameters parameters) {
+    public ConfiguredAspect create(
+        ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
       ruleContext.ruleError("Aspect error");
       return null;
     }

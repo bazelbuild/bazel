@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.Aspect;
+import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredNativeAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -45,11 +45,11 @@ public class AndroidNeverlinkAspect implements ConfiguredNativeAspectFactory {
           "deps", "exports", "runtime_deps", "binary_under_test", "$instrumentation_test_runner");
 
   @Override
-  public Aspect create(ConfiguredTarget base, RuleContext ruleContext,
-      AspectParameters parameters) {
+  public ConfiguredAspect create(
+      ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
     if (!JavaCommon.getConstraints(ruleContext).contains("android")
         && !ruleContext.getRule().getRuleClass().startsWith("android_")) {
-      return new Aspect.Builder(NAME).build();
+      return new ConfiguredAspect.Builder(NAME).build();
     }
 
     List<TransitiveInfoCollection> deps = new ArrayList<>();
@@ -65,7 +65,7 @@ public class AndroidNeverlinkAspect implements ConfiguredNativeAspectFactory {
       deps.addAll(ruleContext.getPrerequisites(attribute, Mode.TARGET));
     }
 
-    return new Aspect.Builder(NAME)
+    return new ConfiguredAspect.Builder(NAME)
         .addProvider(
             AndroidNeverLinkLibrariesProvider.class,
             new AndroidNeverLinkLibrariesProvider(
