@@ -186,6 +186,7 @@ public final class XcodeProvider implements TransitiveInfoProvider {
         if (dependency.productType == XcodeProductType.EXTENSION) {
           this.extensions.add(dependency);
           this.inputsToXcodegen.addTransitive(dependency.inputsToXcodegen);
+          this.additionalSources.addTransitive(dependency.additionalSources);
         } else {
           if (doPropagate) {
             this.propagatedDependencies.add(dependency);
