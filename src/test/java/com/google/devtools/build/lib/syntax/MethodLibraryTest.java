@@ -858,6 +858,19 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testListIndexMethod() throws Exception {
+    new BothModesTest()
+        .testStatement("['a', 'b', 'c'].index('a')", 0)
+        .testStatement("['a', 'b', 'c'].index('b')", 1)
+        .testStatement("['a', 'b', 'c'].index('c')", 2)
+        .testStatement("[2, 4, 6].index(4)", 1)
+        .testStatement("[2, 4, 6].index(4)", 1)
+        .testStatement("[0, 1, [1]].index([1])", 2)
+        .testIfErrorContains("Item \"a\" not found in list", "[1, 2].index('a')")
+        .testIfErrorContains("Item 0 not found in list", "[].index(0)");
+  }
+
+  @Test
   public void testListIndex() throws Exception {
     new BothModesTest()
         .testStatement("['a', 'b', 'c', 'd'][0]", "a")

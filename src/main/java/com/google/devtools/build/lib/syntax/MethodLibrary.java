@@ -882,6 +882,33 @@ public class MethodLibrary {
         }
       };
 
+  @SkylarkSignature(
+    name = "index",
+    objectType = MutableList.class,
+    returnType = Integer.class,
+    doc =
+        "Returns the index in the list of the first item whose value is x. "
+            + "It is an error if there is no such item.",
+    mandatoryPositionals = {
+      @Param(name = "self", type = MutableList.class, doc = "This string, a separator."),
+      @Param(name = "x", type = Object.class, doc = "The object to search.")
+    },
+    useLocation = true
+  )
+  private static BuiltinFunction listIndex =
+      new BuiltinFunction("index") {
+        public Integer invoke(MutableList self, Object x, Location loc) throws EvalException {
+          int i = 0;
+          for (Object obj : self) {
+            if (obj.equals(x)) {
+              return i;
+            }
+            i++;
+          }
+          throw new EvalException(loc, Printer.format("Item %r not found in list", x));
+        }
+      };
+
   // dictionary access operator
   @SkylarkSignature(name = "$index", documented = false, objectType = Map.class,
       doc = "Looks up a value in a dictionary.",
