@@ -13,9 +13,19 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import static com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils.append;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.syntax.compiler.ByteCodeMethodCalls;
+import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
+import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
+import com.google.devtools.build.lib.syntax.compiler.VariableScope;
 
+import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
+import net.bytebuddy.implementation.bytecode.Duplication;
+
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -114,5 +124,21 @@ public class DictionaryLiteral extends Expression {
       entry.key.validate(env);
       entry.value.validate(env);
     }
+  }
+
+  @Override
+  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo) throws EvalException {
+    List<ByteCodeAppender> code = new ArrayList<>();
+    append(code, ByteCodeMethodCalls.BCImmutableMap.builder);
+
+    for (DictionaryEntryLiteral entry : entries) {
+      code.add(entry.key.compile(scope, debugInfo));
+      append(code, Duplication.SINGLE, EvalUtils.checkValidDictKey);
+      code.add(entry.value.compile(scope, debugInfo));
+      // add it to the builder which is already on the stack and returns itself
+      append(code, ByteCodeMethodCalls.BCImmutableMap.Builder.put);
+    }
+    append(code, ByteCodeMethodCalls.BCImmutableMap.Builder.build);
+    return ByteCodeUtils.compoundAppender(code);
   }
 }

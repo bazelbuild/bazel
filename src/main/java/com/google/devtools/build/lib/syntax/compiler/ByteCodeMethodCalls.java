@@ -14,8 +14,11 @@
 package com.google.devtools.build.lib.syntax.compiler;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 
 import net.bytebuddy.implementation.bytecode.StackManipulation;
+
+import java.util.Map;
 
 /**
  * Keeps often used {@link StackManipulation}s which call often needed methods from the standard
@@ -36,6 +39,28 @@ public class ByteCodeMethodCalls {
   }
 
   /**
+   * Byte code invocations for {@link ImmutableMap}.
+   */
+  public static class BCImmutableMap {
+    public static final StackManipulation builder =
+        ByteCodeUtils.invoke(ImmutableMap.class, "builder");
+
+    public static final StackManipulation copyOf =
+        ByteCodeUtils.invoke(ImmutableMap.class, "copyOf", Map.class);
+
+    /**
+     * Byte code invocations for {@link Builder}.
+     */
+    public static class Builder {
+      public static final StackManipulation put =
+          ByteCodeUtils.invoke(ImmutableMap.Builder.class, "put", Object.class, Object.class);
+
+      public static final StackManipulation build =
+          ByteCodeUtils.invoke(ImmutableMap.Builder.class, "build");
+    }
+  }
+
+  /**
    * Byte code invocations for {@link ImmutableList}.
    */
   public static class BCImmutableList {
@@ -43,7 +68,7 @@ public class ByteCodeMethodCalls {
         ByteCodeUtils.invoke(ImmutableList.class, "builder");
 
     /**
-     * Byte code invocations for {@link ImmutableList.Builder}.
+     * Byte code invocations for {@link com.google.common.collect.ImmutableList.Builder}.
      */
     public static class Builder {
       public static final StackManipulation build =
