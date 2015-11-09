@@ -17,9 +17,11 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -65,6 +67,26 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
     // Given a target pattern sequence consisting of a recursive pattern for "//foo/..." followed
     // by a negative pattern for the malformed package,
     ImmutableList<String> patternSequence = ImmutableList.of("//foo/...", "-//foo/foo/...");
+
+    assertSkipsFoo(patternSequence);
+  }
+
+  public void testBlacklistPatternBlocksPatternEvaluation() throws Exception {
+    // Given a well-formed package "//foo" and a malformed package "//foo/foo",
+    createFooAndFooFoo();
+
+    // Given a target pattern sequence consisting of a recursive pattern for "//foo/...",
+    ImmutableList<String> patternSequence = ImmutableList.of("//foo/...");
+
+    // and a blacklist for the malformed package,
+    getSkyframeExecutor().setBlacklistedPkgPrefixes(
+        ImmutableSet.of(new PathFragment("foo/foo")));
+
+    assertSkipsFoo(patternSequence);
+  }
+
+  private void assertSkipsFoo(ImmutableList<String> patternSequence) throws Exception {
+
 
     // When PrepareDepsOfPatternsFunction completes evaluation (successfully),
     WalkableGraph walkableGraph =

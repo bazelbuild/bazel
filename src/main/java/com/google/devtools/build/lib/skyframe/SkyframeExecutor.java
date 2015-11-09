@@ -500,6 +500,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
+  protected ImmutableSet<PathFragment> getBlacklistedPkgPrefixes() {
+    return ImmutableSet.of();
+  }
+
   class BuildViewProvider {
     /**
      * Returns the current {@link SkyframeBuildView} instance.
@@ -868,6 +872,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   public abstract void setDeletedPackages(Iterable<PackageIdentifier> pkgs);
 
+  @VisibleForTesting
+  public final void setBlacklistedPkgPrefixes(ImmutableSet<PathFragment> blacklist) {
+    PrecomputedValue.BLACKLISTED_PKG_PREFIXES.set(injectable(), blacklist);
+  }
+
   /**
    * Prepares the evaluator for loading.
    *
@@ -882,6 +891,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     maybeInjectPrecomputedValuesForAnalysis();
     setCommandId(commandId);
+    setBlacklistedPkgPrefixes(getBlacklistedPkgPrefixes());
     setShowLoadingProgress(showLoadingProgress);
     setDefaultVisibility(defaultVisibility);
     setupDefaultPackage(defaultsPackageContents);

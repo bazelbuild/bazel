@@ -97,6 +97,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
+    PrecomputedValue.BLACKLISTED_PKG_PREFIXES.set(differencer, ImmutableSet.<PathFragment>of());
   }
 
   private Artifact sourceArtifact(String path) {

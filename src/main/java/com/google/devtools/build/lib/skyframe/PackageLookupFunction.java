@@ -73,6 +73,18 @@ public class PackageLookupFunction implements SkyFunction {
       return PackageLookupValue.DELETED_PACKAGE_VALUE;
     }
 
+    ImmutableSet<PathFragment> patterns = PrecomputedValue.BLACKLISTED_PKG_PREFIXES.get(env);
+    if (patterns == null) {
+      return null;
+    }
+
+    PathFragment buildFileFragment = packageKey.getPackageFragment();
+    for (PathFragment pattern : patterns) {
+      if (buildFileFragment.startsWith(pattern)) {
+        return PackageLookupValue.DELETED_PACKAGE_VALUE;
+      }
+    }
+
     // TODO(bazel-team): The following is O(n^2) on the number of elements on the package path due
     // to having restart the SkyFunction after every new dependency. However, if we try to batch
     // the missing value keys, more dependencies than necessary will be declared. This wart can be

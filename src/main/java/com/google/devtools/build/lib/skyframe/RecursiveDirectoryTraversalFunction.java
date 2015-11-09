@@ -17,6 +17,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -112,7 +113,11 @@ abstract class RecursiveDirectoryTraversalFunction
    */
   TReturn visitDirectory(RecursivePkgKey recursivePkgKey, Environment env) {
     RootedPath rootedPath = recursivePkgKey.getRootedPath();
-    Set<PathFragment> excludedPaths = recursivePkgKey.getExcludedPaths();
+    ImmutableSet<PathFragment> blacklist = PrecomputedValue.BLACKLISTED_PKG_PREFIXES.get(env);
+    if (blacklist == null) {
+      return null;
+    }
+    Set<PathFragment> excludedPaths = Sets.union(recursivePkgKey.getExcludedPaths(), blacklist);
     Path root = rootedPath.getRoot();
     PathFragment rootRelativePath = rootedPath.getRelativePath();
 
