@@ -440,10 +440,7 @@ java_library(
         "**/*.js",
         "**/*.WORKSPACE",
         "**/*.vm",
-    ]) + [
-        "//third_party:d3-js",
-        "//third_party:jquery",
-    ],
+    ]),
     visibility = [
         "//src:__subpackages__",
         "//src/tools/generate_workspace/src/main/java/com/google/devtools/build/workspace:__pkg__",

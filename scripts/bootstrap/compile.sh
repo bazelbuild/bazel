@@ -296,7 +296,7 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
   done
 
   create_deploy_jar "libblaze" "com.google.devtools.build.lib.bazel.BazelMain" \
-      ${OUTPUT_DIR} third_party/javascript
+      ${OUTPUT_DIR}
 fi
 
 cc_build "client" "objs" "${OUTPUT_DIR}/client" ${BLAZE_CC_FILES[@]}
