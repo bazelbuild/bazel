@@ -46,7 +46,7 @@ public class ProtoCommon {
    * @return the direct sources of a proto library.
    */
   // TODO(bazel-team): Proto sources should probably be a NestedSet.
-  public static ImmutableList<Artifact> getDirectProtoSources(
+  public static ImmutableList<Artifact> getCheckDepsProtoSources(
       RuleContext ruleContext, ImmutableList<Artifact> protoSources) {
 
     if (protoSources.isEmpty()) {
@@ -56,7 +56,7 @@ public class ProtoCommon {
           .getPrerequisites("deps", Mode.TARGET)) {
         ProtoSourcesProvider sources = provider.getProvider(ProtoSourcesProvider.class);
         if (sources != null) {
-          builder.addAll(sources.getProtoSources());
+          builder.addAll(sources.getCheckDepsProtoSources());
         }
       }
       return builder.build();

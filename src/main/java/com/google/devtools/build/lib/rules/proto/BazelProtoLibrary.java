@@ -33,7 +33,7 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     ImmutableList<Artifact> protoSources =
         ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list();
-    ImmutableList<Artifact> directProtoSources = ProtoCommon.getDirectProtoSources(
+    ImmutableList<Artifact> checkDepsProtoSources = ProtoCommon.getCheckDepsProtoSources(
         ruleContext, protoSources);
     ProtoCommon.checkSourceFilesAreInSamePackage(ruleContext);
 
@@ -44,7 +44,8 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
         ProtoCommon.createRunfilesProvider(transitiveImports, ruleContext);
     // TODO(bazel-team): this second constructor argument is superfluous and should be removed.
     ProtoSourcesProvider sourcesProvider =
-        new ProtoSourcesProvider(transitiveImports, transitiveImports, directProtoSources);
+        new ProtoSourcesProvider(
+            transitiveImports, transitiveImports, protoSources, checkDepsProtoSources);
 
     return new RuleConfiguredTargetBuilder(ruleContext)
         .add(RunfilesProvider.class, runfilesProvider)

@@ -82,7 +82,7 @@ public abstract class AbstractJ2ObjcProtoAspect implements ConfiguredNativeAspec
     }
 
     ProtoSourcesProvider protoSourcesProvider = base.getProvider(ProtoSourcesProvider.class);
-    ImmutableList<Artifact> protoSources = protoSourcesProvider.getProtoSources();
+    ImmutableList<Artifact> protoSources = protoSourcesProvider.getDirectProtoSources();
     NestedSet<Artifact> transitiveImports = protoSourcesProvider.getTransitiveImports();
 
     J2ObjcSrcsProvider.Builder srcsBuilder = new J2ObjcSrcsProvider.Builder();
