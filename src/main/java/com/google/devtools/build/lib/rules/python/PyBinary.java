@@ -56,8 +56,8 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
     CcLinkParamsStore ccLinkParamsStore = initializeCcLinkParamStore(ruleContext);
 
     List<Artifact> srcs = common.validateSrcs();
-    List<Artifact> allOutputs = new ArrayList<>(srcs);
-    allOutputs.addAll(semantics.precompiledPythonFiles(ruleContext, srcs, common));
+    List<Artifact> allOutputs =
+        new ArrayList<>(semantics.precompiledPythonFiles(ruleContext, srcs, common));
 
     common.initBinary(allOutputs);
     semantics.validate(ruleContext, common);

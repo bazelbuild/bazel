@@ -50,8 +50,8 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
     common.validatePackageName();
 
     List<Artifact> srcs = common.validateSrcs();
-    List<Artifact> allOutputs = new ArrayList<>(srcs);
-    allOutputs.addAll(semantics.precompiledPythonFiles(ruleContext, srcs, common));
+    List<Artifact> allOutputs =
+        new ArrayList<>(semantics.precompiledPythonFiles(ruleContext, srcs, common));
 
     NestedSet<Artifact> filesToBuild =
         NestedSetBuilder.wrap(Order.STABLE_ORDER, allOutputs);

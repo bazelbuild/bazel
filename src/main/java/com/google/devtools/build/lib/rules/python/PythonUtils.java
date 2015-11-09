@@ -36,6 +36,7 @@ import java.util.Set;
  */
 public final class PythonUtils {
   public static final PathFragment INIT_PY = new PathFragment("__init__.py");
+  public static final PathFragment INIT_PYC = new PathFragment("__init__.pyc");
 
   private static final FileType REQUIRES_INIT_PY = FileType.of(".py", ".so", ".pyc");
 
@@ -52,7 +53,7 @@ public final class PythonUtils {
   }
 
   /**
-   * Returns the set of empty __init__.py files to be added to a given set of files to allow
+   * Returns the set of empty __init__.py(c) files to be added to a given set of files to allow
    * the Python runtime to find the <code>.py</code> and <code>.so</code> files present in the
    * tree.
    */
@@ -66,7 +67,9 @@ public final class PythonUtils {
         while (source.segmentCount() > 1) {
           source = source.getParentDirectory();
           PathFragment initpy = source.getRelative(INIT_PY);
-          if (!manifestFiles.contains(initpy)) {
+          PathFragment initpyc = source.getRelative(INIT_PYC);
+
+          if (!manifestFiles.contains(initpy) && !manifestFiles.contains(initpyc)) {
             result.add(initpy);
           }
         }

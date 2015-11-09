@@ -60,7 +60,7 @@ public class BazelPythonSemantics implements PythonSemantics {
   @Override
   public Collection<Artifact> precompiledPythonFiles(
       RuleContext ruleContext, Collection<Artifact> sources, PyCommon common) {
-    return ImmutableList.of();
+    return ImmutableList.copyOf(sources);
   }
 
   @Override
