@@ -77,14 +77,14 @@ class FilesystemValueChecker {
   private AtomicInteger modifiedOutputFilesIntraBuildCounter = new AtomicInteger(0);
 
   FilesystemValueChecker(Supplier<Map<SkyKey, SkyValue>> valuesSupplier,
-      TimestampGranularityMonitor tsgm, @Nullable Range<Long> lastExecutionTimeRange) {
+      @Nullable TimestampGranularityMonitor tsgm, @Nullable Range<Long> lastExecutionTimeRange) {
     this.valuesSupplier = valuesSupplier;
     this.tsgm = tsgm;
     this.lastExecutionTimeRange = lastExecutionTimeRange;
   }
 
-  FilesystemValueChecker(final MemoizingEvaluator evaluator, TimestampGranularityMonitor tsgm,
-      @Nullable Range<Long> lastExecutionTimeRange) {
+  FilesystemValueChecker(final MemoizingEvaluator evaluator,
+      @Nullable TimestampGranularityMonitor tsgm, @Nullable Range<Long> lastExecutionTimeRange) {
     this.tsgm = tsgm;
     this.lastExecutionTimeRange = lastExecutionTimeRange;
 
