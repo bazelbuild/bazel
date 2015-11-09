@@ -3619,6 +3619,77 @@ public class MemoizingEvaluatorTest {
     }
   }
 
+  private void removedNodeComesBack() throws Exception {
+    SkyKey top = GraphTester.skyKey("top");
+    SkyKey mid = GraphTester.skyKey("mid");
+    SkyKey leaf = GraphTester.skyKey("leaf");
+    // When top depends on mid, which depends on leaf,
+    tester.getOrCreate(top).addDependency(mid).setComputedValue(CONCATENATE);
+    tester.getOrCreate(mid).addDependency(leaf).setComputedValue(CONCATENATE);
+    StringValue leafValue = new StringValue("leaf");
+    tester.set(leaf, leafValue);
+    // Then when top is evaluated, its value is as expected.
+    assertThat(tester.evalAndGet(/*keepGoing=*/ true, top)).isEqualTo(leafValue);
+    // When top is changed to no longer depend on mid,
+    StringValue topValue = new StringValue("top");
+    tester
+        .getOrCreate(top, /*markAsModified=*/ true)
+        .removeDependency(mid)
+        .setComputedValue(null)
+        .setConstantValue(topValue);
+    // And leaf is invalidated,
+    tester.getOrCreate(leaf, /*markAsModified=*/ true);
+    // Then when top is evaluated, its value is as expected,
+    tester.invalidate();
+    assertThat(tester.evalAndGet(/*keepGoing=*/ true, top)).isEqualTo(topValue);
+    // And there is no value for mid in the graph,
+    assertThat(tester.driver.getExistingValueForTesting(mid)).isNull();
+    assertThat(tester.driver.getExistingErrorForTesting(mid)).isNull();
+    // Or for leaf.
+    assertThat(tester.driver.getExistingValueForTesting(leaf)).isNull();
+    assertThat(tester.driver.getExistingErrorForTesting(leaf)).isNull();
+
+    // When top is changed to depend directly on leaf,
+    tester
+        .getOrCreate(top, /*markAsModified=*/ true)
+        .addDependency(leaf)
+        .setConstantValue(null)
+        .setComputedValue(CONCATENATE);
+    // Then when top is evaluated, its value is as expected,
+    tester.invalidate();
+    assertThat(tester.evalAndGet(/*keepGoing=*/ true, top)).isEqualTo(leafValue);
+    // and there is no value for mid in the graph,
+    assertThat(tester.driver.getExistingValueForTesting(mid)).isNull();
+    assertThat(tester.driver.getExistingErrorForTesting(mid)).isNull();
+  }
+
+  // Tests that a removed and then reinstated node doesn't try to invalidate its erstwhile parent
+  // when it is invalidated.
+  @Test
+  public void removedNodeComesBackAndInvalidates() throws Exception {
+    removedNodeComesBack();
+    // When leaf is invalidated again,
+    tester.getOrCreate(GraphTester.skyKey("leaf"), /*markAsModified=*/ true);
+    // Then when top is evaluated, its value is as expected.
+    tester.invalidate();
+    assertThat(tester.evalAndGet(/*keepGoing=*/ true, "top")).isEqualTo(new StringValue("leaf"));
+  }
+
+  // Tests that a removed and then reinstated node behaves properly when its parent disappears and
+  // then reappears.
+  @Test
+  public void removedNodeComesBackAndOtherInvalidates() throws Exception {
+    removedNodeComesBack();
+    SkyKey top = GraphTester.skyKey("top");
+    SkyKey mid = GraphTester.skyKey("mid");
+    SkyKey leaf = GraphTester.skyKey("leaf");
+    // When top is invalidated again,
+    tester.getOrCreate(top, /*markAsModified=*/ true).removeDependency(leaf).addDependency(mid);
+    // Then when top is evaluated, its value is as expected.
+    tester.invalidate();
+    assertThat(tester.evalAndGet(/*keepGoing=*/ true, top)).isEqualTo(new StringValue("leaf"));
+  }
+
   @Test
   public void cleanReverseDepFromDirtyNodeNotInBuild() throws Exception {
     final SkyKey topKey = GraphTester.skyKey("top");
