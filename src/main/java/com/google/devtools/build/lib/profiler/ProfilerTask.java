@@ -89,6 +89,7 @@ public enum ProfilerTask {
   SKYLARK_PARSER("Skylark Parser"),
   SKYLARK_USER_FN("Skylark user function call", -1, 0xCC0033, 0),
   SKYLARK_BUILTIN_FN("Skylark builtin function call", -1, 0x990033, 0),
+  SKYLARK_USER_COMPILED_FN("Skylark compiled user function call", -1, 0xCC0033, 0),
   UNKNOWN("Unknown event", -1, 0x339966, 0);
 
   // Size of the ProfilerTask value space.

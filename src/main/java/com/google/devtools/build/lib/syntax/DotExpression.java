@@ -67,7 +67,7 @@ public final class DotExpression extends Expression {
    * Throws the correct error message if the result is null depending on the objValue.
    */
   public static Object checkResult(Object objValue, Object result, String name, Location loc)
-    throws EvalException {
+      throws EvalException {
     if (result == null) {
       if (objValue instanceof ClassObject) {
         String customErrorMessage = ((ClassObject) objValue).errorMessage(name);
@@ -75,8 +75,10 @@ public final class DotExpression extends Expression {
           throw new EvalException(loc, customErrorMessage);
         }
       }
-      throw new EvalException(loc, Printer.format("Object of type '%s' has no field %r",
-              EvalUtils.getDataTypeName(objValue), name));
+      throw new EvalException(
+          loc,
+          Printer.format(
+              "Object of type '%s' has no field %r", EvalUtils.getDataTypeName(objValue), name));
     }
     return result;
   }

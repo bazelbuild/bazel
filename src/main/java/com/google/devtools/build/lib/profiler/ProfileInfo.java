@@ -460,6 +460,7 @@ public class ProfileInfo {
   public List<Task> rootTasksById;  // Not final due to the late initialization.
   public final List<Task> phaseTasks;
   private ListMultimap<String, Task> userFunctions;
+  private ListMultimap<String, Task> compiledUserFunctions;
   private ListMultimap<String, Task> builtinFunctions;
 
   public final Map<Task, Task[]> actionDependencyMap;
@@ -543,6 +544,7 @@ public class ProfileInfo {
    */
   private void calculateSkylarkStatistics() {
     userFunctions = ListMultimapBuilder.treeKeys().arrayListValues().build();
+    compiledUserFunctions = ListMultimapBuilder.treeKeys().arrayListValues().build();
     builtinFunctions = ListMultimapBuilder.treeKeys().arrayListValues().build();
 
     for (Task task : allTasksById) {
@@ -550,6 +552,8 @@ public class ProfileInfo {
         builtinFunctions.put(task.getDescription(), task);
       } else if (task.type == ProfilerTask.SKYLARK_USER_FN) {
         userFunctions.put(task.getDescription(), task);
+      } else if (task.type == ProfilerTask.SKYLARK_USER_COMPILED_FN) {
+        compiledUserFunctions.put(task.getDescription(), task);
       }
     }
   }
@@ -563,6 +567,17 @@ public class ProfileInfo {
       calculateSkylarkStatistics();
     }
     return userFunctions;
+  }
+
+  /**
+   * {@link #calculateSkylarkStatistics} must have been called before.
+   * @return The {@link Task}s profiled for each user-defined Skylark function name.
+   */
+  public ListMultimap<String, Task> getCompiledSkylarkUserFunctionTasks() {
+    if (compiledUserFunctions == null) {
+      calculateSkylarkStatistics();
+    }
+    return compiledUserFunctions;
   }
 
   /**

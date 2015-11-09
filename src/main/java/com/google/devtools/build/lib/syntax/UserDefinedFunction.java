@@ -153,6 +153,8 @@ public class UserDefinedFunction extends BaseFunction {
   private Object callCompiledFunction(Object[] arguments, FuncallExpression ast, Environment env) {
     compilerDebug("Calling compiled function " + getLocationPathAndLine() + " " + getName());
     try {
+      Profiler.instance().startTask(ProfilerTask.SKYLARK_USER_COMPILED_FN,
+          getLocationPathAndLine() + "#" + getName());
       env.enterScope(this, ast, definitionGlobals);
 
       return method
@@ -167,6 +169,7 @@ public class UserDefinedFunction extends BaseFunction {
       compilerDebug("Error running compiled version", e.getCause());
       return null;
     } finally {
+      Profiler.instance().completeTask(ProfilerTask.SKYLARK_USER_COMPILED_FN);
       env.exitScope();
     }
   }

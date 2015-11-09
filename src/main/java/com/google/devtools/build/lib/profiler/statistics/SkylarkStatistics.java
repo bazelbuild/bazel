@@ -36,20 +36,25 @@ import java.util.Map.Entry;
 public final class SkylarkStatistics {
 
   private final Map<String, LongArrayList> userFunctionDurations;
+  private final Map<String, LongArrayList> userCompiledDurations;
   private final Map<String, LongArrayList> builtinFunctionDurations;
 
   /**
    * Self duration is the time taken just within a function itself, but not other subtasks of it.
    */
   private final Map<String, LongArrayList> userFunctionSelfDurations;
+  private final Map<String, LongArrayList> userCompiledSelfDurations;
   private final Map<String, LongArrayList> builtinFunctionSelfDurations;
   private long userTotalNanos;
+  private long userCompiledTotalNanos;
   private long builtinTotalNanos;
 
   public SkylarkStatistics() {
     userFunctionDurations = new HashMap<>();
+    userCompiledDurations = new HashMap<>();
     builtinFunctionDurations = new HashMap<>();
     userFunctionSelfDurations = new HashMap<>();
+    userCompiledSelfDurations = new HashMap<>();
     builtinFunctionSelfDurations = new HashMap<>();
   }
 
@@ -62,7 +67,10 @@ public final class SkylarkStatistics {
    * Adds Skylark function task durations from a {@link ProfileInfo} file.
    */
   public void addProfileInfo(ProfileInfo info) {
-    computeStatistics(info.getSkylarkUserFunctionTasks(), info.getSkylarkBuiltinFunctionTasks());
+    computeStatistics(
+        info.getSkylarkUserFunctionTasks(),
+        info.getCompiledSkylarkUserFunctionTasks(),
+        info.getSkylarkBuiltinFunctionTasks());
   }
 
   /**
@@ -70,6 +78,13 @@ public final class SkylarkStatistics {
    */
   public long getBuiltinTotalNanos() {
     return builtinTotalNanos;
+  }
+
+  /**
+   * @return the total time taken by all calls to user-defined Skylark functions
+   */
+  public long getCompiledUserTotalNanos() {
+    return userCompiledTotalNanos;
   }
 
   /**
@@ -113,6 +128,37 @@ public final class SkylarkStatistics {
   /**
    * @return The execution durations of all calls to user-defined Skylark functions.
    */
+  public Map<String, LongArrayList> getCompiledUserFunctionDurations() {
+    return userCompiledDurations;
+  }
+
+  /**
+   * return The execution durations of all calls to user-defined functions excluding the durations
+   * of all subtasks.
+   */
+  public Map<String, LongArrayList> getCompiledUserFunctionSelfDurations() {
+    return userCompiledSelfDurations;
+  }
+
+  /**
+   * Builds and returns the {@link TasksStatistics} for the durations of each user-defined
+   * function. The return value is not cached and will be recomputed on another call.
+   */
+  public Map<String, TasksStatistics> getCompiledUserFunctionStatistics() {
+    return buildTasksStatistics(userCompiledDurations);
+  }
+
+  /**
+   * Builds and returns the {@link TasksStatistics} for the self-times of each user-defined
+   * function. The return value is not cached and will be recomputed on another call.
+   */
+  public Map<String, TasksStatistics> getCompiledUserFunctionSelfStatistics() {
+    return buildTasksStatistics(userCompiledSelfDurations);
+  }
+
+  /**
+   * @return The execution durations of all calls to user-defined Skylark functions.
+   */
   public Map<String, LongArrayList> getUserFunctionDurations() {
     return userFunctionDurations;
   }
@@ -145,8 +191,12 @@ public final class SkylarkStatistics {
    * For each Skylark function get the list of durations and self durations from the task maps.
    */
   private void computeStatistics(
-      Multimap<String, Task> userTasks, Multimap<String, Task> builtinTasks) {
+      Multimap<String, Task> userTasks,
+      Multimap<String, Task> userCompiledTasks,
+      Multimap<String, Task> builtinTasks) {
     userTotalNanos += addDurations(userTasks, userFunctionDurations, userFunctionSelfDurations);
+    userCompiledTotalNanos +=
+        addDurations(userCompiledTasks, userCompiledDurations, userCompiledSelfDurations);
     builtinTotalNanos +=
         addDurations(builtinTasks, builtinFunctionDurations, builtinFunctionSelfDurations);
   }
