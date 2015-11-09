@@ -79,10 +79,12 @@ public class UserDefinedFunction extends BaseFunction {
   private static File debugFolder;
   public static boolean enableCompiler = false;
 
-  protected UserDefinedFunction(Identifier function,
+  protected UserDefinedFunction(
+      Identifier function,
       FunctionSignature.WithValues<Object, SkylarkType> signature,
-      ImmutableList<Statement> statements, Environment.Frame definitionGlobals)
-    throws EvalException {
+      ImmutableList<Statement> statements,
+      Environment.Frame definitionGlobals)
+      throws EvalException {
     super(function.getName(), signature, function.getLocation());
     this.statements = statements;
     this.definitionGlobals = definitionGlobals;

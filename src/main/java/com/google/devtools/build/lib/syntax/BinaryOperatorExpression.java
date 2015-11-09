@@ -481,15 +481,15 @@ public final class BinaryOperatorExpression extends Expression {
    * <p> The method must be named exactly as the lower case name of the operator and in addition to
    * the operands require an Environment and Location.
    */
-  private static StackManipulation callImplementation(VariableScope scope,
-      AstAccessors debugAccessors, Operator operator) {
+  private static StackManipulation callImplementation(
+      VariableScope scope, AstAccessors debugAccessors, Operator operator) {
     Class<?>[] parameterTypes =
         new Class<?>[] {Object.class, Object.class, Environment.class, Location.class};
     return new StackManipulation.Compound(
         scope.loadEnvironment(),
         debugAccessors.loadLocation,
         ByteCodeUtils.invoke(
-        BinaryOperatorExpression.class, operator.name().toLowerCase(), parameterTypes));
+            BinaryOperatorExpression.class, operator.name().toLowerCase(), parameterTypes));
   }
 
   /**
@@ -498,14 +498,13 @@ public final class BinaryOperatorExpression extends Expression {
    * <p> The method must be named exactly as the lower case name of the operator and in addition to
    * the operands require a Location.
    */
-  private static StackManipulation callImplementation(AstAccessors debugAccessors,
-      Operator operator) {
-    Class<?>[] parameterTypes =
-        new Class<?>[] {Object.class, Object.class, Location.class};
+  private static StackManipulation callImplementation(
+      AstAccessors debugAccessors, Operator operator) {
+    Class<?>[] parameterTypes = new Class<?>[] {Object.class, Object.class, Location.class};
     return new StackManipulation.Compound(
         debugAccessors.loadLocation,
         ByteCodeUtils.invoke(
-        BinaryOperatorExpression.class, operator.name().toLowerCase(), parameterTypes));
+            BinaryOperatorExpression.class, operator.name().toLowerCase(), parameterTypes));
   }
 
   /**

@@ -137,14 +137,23 @@ public final class DotExpression extends Expression {
         name,
         debugInfo.add(this).loadLocation,
         scope.loadEnvironment(),
-        ByteCodeUtils.invoke(DotExpression.class, "eval", Object.class, String.class,
-            Location.class, Environment.class),
+        ByteCodeUtils.invoke(
+            DotExpression.class,
+            "eval",
+            Object.class,
+            String.class,
+            Location.class,
+            Environment.class),
         // at this point we have the value of obj and the result of eval on the stack
         name,
         debugInfo.add(this).loadLocation,
-        ByteCodeUtils.invoke(DotExpression.class, "checkResult", Object.class, Object.class,
-            String.class, Location.class)
-        );
+        ByteCodeUtils.invoke(
+            DotExpression.class,
+            "checkResult",
+            Object.class,
+            Object.class,
+            String.class,
+            Location.class));
     return ByteCodeUtils.compoundAppender(code);
   }
 }

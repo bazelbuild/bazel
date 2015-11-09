@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.syntax;
 
+import static com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils.append;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.cache.CacheBuilder;
@@ -24,7 +26,21 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
+import com.google.devtools.build.lib.syntax.compiler.ByteCodeMethodCalls;
+import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
+import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
+import com.google.devtools.build.lib.syntax.compiler.DebugInfo.AstAccessors;
+import com.google.devtools.build.lib.syntax.compiler.NewObject;
+import com.google.devtools.build.lib.syntax.compiler.Variable.InternalVariable;
+import com.google.devtools.build.lib.syntax.compiler.VariableScope;
 import com.google.devtools.build.lib.util.StringUtilities;
+
+import net.bytebuddy.description.type.TypeDescription;
+import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
+import net.bytebuddy.implementation.bytecode.Removal;
+import net.bytebuddy.implementation.bytecode.StackManipulation;
+import net.bytebuddy.implementation.bytecode.assign.TypeCasting;
+import net.bytebuddy.implementation.bytecode.constant.TextConstant;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -294,7 +310,7 @@ public final class FuncallExpression extends Expression {
     List<String> names = new ArrayList<>();
     for (List<MethodDescriptor> methods : methodCache.get(objClass).values()) {
       for (MethodDescriptor method : methods) {
-        // TODO(bazel-team): store the Skylark name in the MethodDescriptor. 
+        // TODO(bazel-team): store the Skylark name in the MethodDescriptor.
         String name = method.annotation.name();
         if (name.isEmpty()) {
           name = StringUtilities.toPythonStyleFunctionName(method.method.getName());
@@ -410,30 +426,212 @@ public final class FuncallExpression extends Expression {
   }
 
   /**
-   * Add one argument to the keyword map, registering a duplicate in case of conflict.
+   * A {@link StackManipulation} invoking addKeywordArg.
+   * <p>Kept close to the definition of the method to avoid reflection errors when changing it.
    */
-  private void addKeywordArg(Map<String, Object> kwargs, String name,
-      Object value,  ImmutableList.Builder<String> duplicates) {
+  private static final StackManipulation addKeywordArg =
+      ByteCodeUtils.invoke(
+          FuncallExpression.class,
+          "addKeywordArg",
+          Map.class,
+          String.class,
+          Object.class,
+          ImmutableList.Builder.class);
+
+  /**
+   * Add one argument to the keyword map, registering a duplicate in case of conflict.
+   *
+   * <p>public for reflection by the compiler and calls from compiled functions
+   */
+  public static void addKeywordArg(
+      Map<String, Object> kwargs,
+      String name,
+      Object value,
+      ImmutableList.Builder<String> duplicates) {
     if (kwargs.put(name, value) != null) {
       duplicates.add(name);
     }
   }
 
   /**
-   * Add multiple arguments to the keyword map (**kwargs), registering duplicates
+   * A {@link StackManipulation} invoking addKeywordArgs.
+   * <p>Kept close to the definition of the method to avoid reflection errors when changing it.
    */
-  private void addKeywordArgs(Map<String, Object> kwargs,
-      Object items, ImmutableList.Builder<String> duplicates) throws EvalException {
+  private static final StackManipulation addKeywordArgs =
+      ByteCodeUtils.invoke(
+          FuncallExpression.class,
+          "addKeywordArgs",
+          Map.class,
+          Object.class,
+          ImmutableList.Builder.class,
+          Location.class);
+
+  /**
+   * Add multiple arguments to the keyword map (**kwargs), registering duplicates
+   *
+   * <p>public for reflection by the compiler and calls from compiled functions
+   */
+  public static void addKeywordArgs(
+      Map<String, Object> kwargs,
+      Object items,
+      ImmutableList.Builder<String> duplicates,
+      Location location)
+      throws EvalException {
     if (!(items instanceof Map<?, ?>)) {
-      throw new EvalException(getLocation(),
+      throw new EvalException(
+          location,
           "Argument after ** must be a dictionary, not " + EvalUtils.getDataTypeName(items));
     }
     for (Map.Entry<?, ?> entry : ((Map<?, ?>) items).entrySet()) {
       if (!(entry.getKey() instanceof String)) {
-        throw new EvalException(getLocation(),
-            "Keywords must be strings, not " + EvalUtils.getDataTypeName(entry.getKey()));
+        throw new EvalException(
+            location, "Keywords must be strings, not " + EvalUtils.getDataTypeName(entry.getKey()));
       }
       addKeywordArg(kwargs, (String) entry.getKey(), entry.getValue(), duplicates);
+    }
+  }
+
+  /**
+   * A {@link StackManipulation} invoking checkCallable.
+   * <p>Kept close to the definition of the method to avoid reflection errors when changing it.
+   */
+  private static final StackManipulation checkCallable =
+      ByteCodeUtils.invoke(FuncallExpression.class, "checkCallable", Object.class, Location.class);
+
+  /**
+   * Checks whether the given object is a {@link BaseFunction}.
+   *
+   * <p>Public for reflection by the compiler and access from generated byte code.
+   *
+   * @throws EvalException If not a BaseFunction.
+   */
+  public static BaseFunction checkCallable(Object functionValue, Location location)
+      throws EvalException {
+    if (functionValue instanceof BaseFunction) {
+      return (BaseFunction) functionValue;
+    } else {
+      throw new EvalException(
+          location, "'" + EvalUtils.getDataTypeName(functionValue) + "' object is not callable");
+    }
+  }
+
+  /**
+   * A {@link StackManipulation} invoking checkDuplicates.
+   * <p>Kept close to the definition of the method to avoid reflection errors when changing it.
+   */
+  private static final StackManipulation checkDuplicates =
+      ByteCodeUtils.invoke(
+          FuncallExpression.class,
+          "checkDuplicates",
+          ImmutableList.Builder.class,
+          String.class,
+          Location.class);
+
+  /**
+   * Check the list from the builder and report an {@link EvalException} if not empty.
+   *
+   * <p>public for reflection by the compiler and calls from compiled functions
+   */
+  public static void checkDuplicates(
+      ImmutableList.Builder<String> duplicates, String function, Location location)
+      throws EvalException {
+    List<String> dups = duplicates.build();
+    if (!dups.isEmpty()) {
+      throw new EvalException(
+          location,
+          "duplicate keyword"
+              + (dups.size() > 1 ? "s" : "")
+              + " '"
+              + Joiner.on("', '").join(dups)
+              + "' in call to "
+              + function);
+    }
+  }
+
+  /**
+   * A {@link StackManipulation} invoking invokeObjectMethod.
+   * <p>Kept close to the definition of the method to avoid reflection errors when changing it.
+   */
+  private static final StackManipulation invokeObjectMethod =
+      ByteCodeUtils.invoke(
+          FuncallExpression.class,
+          "invokeObjectMethod",
+          String.class,
+          ImmutableList.class,
+          ImmutableMap.class,
+          FuncallExpression.class,
+          Environment.class);
+
+  /**
+   * Call a method depending on the type of an object it is called on.
+   *
+   * <p>Public for reflection by the compiler and access from generated byte code.
+   *
+   * @param positionals The first object is expected to be the object the method is called on.
+   * @param call the original expression that caused this call, needed for rules especially
+   */
+  public static Object invokeObjectMethod(
+      String method,
+      ImmutableList<Object> positionals,
+      ImmutableMap<String, Object> keyWordArgs,
+      FuncallExpression call,
+      Environment env)
+      throws EvalException, InterruptedException {
+    Location location = call.getLocation();
+    Object value = positionals.get(0);
+    ImmutableList<Object> positionalArgs = positionals.subList(1, positionals.size());
+    BaseFunction function = Runtime.getFunction(EvalUtils.getSkylarkType(value.getClass()), method);
+    if (function != null) {
+      if (!isNamespace(value.getClass())) {
+        // Use self as an implicit parameter in front.
+        positionalArgs = positionals;
+      }
+      return function.call(
+          positionalArgs, ImmutableMap.<String, Object>copyOf(keyWordArgs), call, env);
+    } else if (value instanceof ClassObject) {
+      Object fieldValue = ((ClassObject) value).getValue(method);
+      if (fieldValue == null) {
+        throw new EvalException(location, String.format("struct has no method '%s'", method));
+      }
+      if (!(fieldValue instanceof BaseFunction)) {
+        throw new EvalException(
+            location, String.format("struct field '%s' is not a function", method));
+      }
+      function = (BaseFunction) fieldValue;
+      return function.call(
+          positionalArgs, ImmutableMap.<String, Object>copyOf(keyWordArgs), call, env);
+    } else if (env.isSkylark()) {
+      // Only allow native Java calls when using Skylark
+      // When calling a Java method, the name is not in the Environment,
+      // so evaluating 'func' would fail.
+      Class<?> objClass;
+      Object obj;
+      if (value instanceof Class<?>) {
+        // Static call
+        obj = null;
+        objClass = (Class<?>) value;
+      } else {
+        obj = value;
+        objClass = value.getClass();
+      }
+      MethodDescriptor methodDescriptor = call.findJavaMethod(objClass, method, positionalArgs);
+      if (!keyWordArgs.isEmpty()) {
+        throw new EvalException(
+            call.func.getLocation(),
+            String.format(
+                "Keyword arguments are not allowed when calling a java method"
+                    + "\nwhile calling method '%s' for type %s",
+                method,
+                EvalUtils.getDataTypeNameFromClass(objClass)));
+      }
+      return callMethod(methodDescriptor, method, obj, positionalArgs.toArray(), location, env);
+    } else {
+      throw new EvalException(
+          location,
+          String.format(
+              "%s is not defined on object of type '%s'",
+              call.functionName(),
+              EvalUtils.getDataTypeName(value)));
     }
   }
 
@@ -455,18 +653,12 @@ public final class FuncallExpression extends Expression {
           posargs.addAll((Iterable<Object>) value);
         }
       } else if (arg.isStarStar()) {  // expand the kwargs
-        addKeywordArgs(kwargs, value, duplicates);
+        addKeywordArgs(kwargs, value, duplicates, getLocation());
       } else {
         addKeywordArg(kwargs, arg.getName(), value, duplicates);
       }
     }
-    List<String> dups = duplicates.build();
-    if (!dups.isEmpty()) {
-      throw new EvalException(getLocation(),
-          "duplicate keyword" + (dups.size() > 1 ? "s" : "") + " '"
-          + Joiner.on("', '").join(dups)
-          + "' in call to " + func);
-    }
+    checkDuplicates(duplicates, func.getName(), getLocation());
   }
 
   @VisibleForTesting
@@ -486,68 +678,13 @@ public final class FuncallExpression extends Expression {
   private Object invokeObjectMethod(Environment env) throws EvalException, InterruptedException {
     Object objValue = obj.eval(env);
     ImmutableList.Builder<Object> posargs = new ImmutableList.Builder<>();
+    posargs.add(objValue);
     // We copy this into an ImmutableMap in the end, but we can't use an ImmutableMap.Builder, or
     // we'd still have to have a HashMap on the side for the sake of properly handling duplicates.
     Map<String, Object> kwargs = new HashMap<>();
-
-    // Strings, lists and dictionaries (maps) have functions that we want to use in
-    // MethodLibrary.
-    // For other classes, we can call the Java methods.
-    BaseFunction function =
-        Runtime.getFunction(EvalUtils.getSkylarkType(objValue.getClass()), func.getName());
-    if (function != null) {
-      if (!isNamespace(objValue.getClass())) {
-        // Add self as an implicit parameter in front.
-        posargs.add(objValue);
-      }
-      evalArguments(posargs, kwargs, env);
-      return function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env);
-    } else if (objValue instanceof ClassObject) {
-      Object fieldValue = ((ClassObject) objValue).getValue(func.getName());
-      if (fieldValue == null) {
-        throw new EvalException(
-            getLocation(), String.format("struct has no method '%s'", func.getName()));
-      }
-      if (!(fieldValue instanceof BaseFunction)) {
-        throw new EvalException(
-            getLocation(), String.format("struct field '%s' is not a function", func.getName()));
-      }
-      function = (BaseFunction) fieldValue;
-      evalArguments(posargs, kwargs, env);
-      return function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env);
-    } else if (env.isSkylark()) {
-      // Only allow native Java calls when using Skylark
-      // When calling a Java method, the name is not in the Environment,
-      // so evaluating 'func' would fail.
-      evalArguments(posargs, kwargs, env);
-      Class<?> objClass;
-      Object obj;
-      if (objValue instanceof Class<?>) {
-        // Static call
-        obj = null;
-        objClass = (Class<?>) objValue;
-      } else {
-        obj = objValue;
-        objClass = objValue.getClass();
-      }
-      String name = func.getName();
-      ImmutableList<Object> args = posargs.build();
-      MethodDescriptor method = findJavaMethod(objClass, name, args);
-      if (!kwargs.isEmpty()) {
-        throw new EvalException(
-            func.getLocation(),
-            String.format(
-                "Keyword arguments are not allowed when calling a java method"
-                + "\nwhile calling method '%s' for type %s",
-                name, EvalUtils.getDataTypeNameFromClass(objClass)));
-      }
-      return callMethod(method, name, obj, args.toArray(), getLocation(), env);
-    } else {
-      throw new EvalException(
-          getLocation(),
-          String.format("%s is not defined on object of type '%s'", functionName(),
-              EvalUtils.getDataTypeName(objValue)));
-    }
+    evalArguments(posargs, kwargs, env);
+    return invokeObjectMethod(
+        func.getName(), posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env);
   }
 
   /**
@@ -559,14 +696,9 @@ public final class FuncallExpression extends Expression {
     // We copy this into an ImmutableMap in the end, but we can't use an ImmutableMap.Builder, or
     // we'd still have to have a HashMap on the side for the sake of properly handling duplicates.
     Map<String, Object> kwargs = new HashMap<>();
-    if ((funcValue instanceof BaseFunction)) {
-      BaseFunction function = (BaseFunction) funcValue;
-      evalArguments(posargs, kwargs, env);
-      return function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env);
-    } else {
-      throw new EvalException(
-          getLocation(), "'" + EvalUtils.getDataTypeName(funcValue) + "' object is not callable");
-    }
+    BaseFunction function = checkCallable(funcValue, getLocation());
+    evalArguments(posargs, kwargs, env);
+    return function.call(posargs.build(), ImmutableMap.<String, Object>copyOf(kwargs), this, env);
   }
 
   /**
@@ -610,5 +742,120 @@ public final class FuncallExpression extends Expression {
   @Override
   protected boolean isNewScope() {
     return true;
+  }
+
+  @Override
+  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo) throws EvalException {
+    AstAccessors debugAccessors = debugInfo.add(this);
+    List<ByteCodeAppender> code = new ArrayList<>();
+    if (obj != null) {
+      compileObjectMethodCall(scope, debugInfo, debugAccessors, code);
+    } else {
+      compileGlobalFunctionCall(scope, debugInfo, debugAccessors, code);
+    }
+    return ByteCodeUtils.compoundAppender(code);
+  }
+
+  /**
+   * Add code that compiles the argument expressions.
+   *
+   * <p>The byte code leaves the arguments on the stack in order of:
+   * positional arguments, key word arguments, this FuncallExpression, Environment
+   * This is the order required by {@link #invokeObjectMethod} and
+   *  {@link BaseFunction#call(List, Map, FuncallExpression, Environment)}.
+   */
+  private void compileArguments(
+      VariableScope scope,
+      DebugInfo debugInfo,
+      AstAccessors debugAccessors,
+      List<ByteCodeAppender> code)
+      throws EvalException {
+    InternalVariable positionalsBuilder = scope.freshVariable(ImmutableList.Builder.class);
+    append(code, ByteCodeMethodCalls.BCImmutableList.builder);
+    code.add(positionalsBuilder.store());
+
+    InternalVariable keyWordArgs = scope.freshVariable(Map.class);
+    append(code, NewObject.fromConstructor(HashMap.class).arguments());
+    code.add(keyWordArgs.store());
+
+    InternalVariable duplicatesBuilder =
+        scope.freshVariable(new TypeDescription.ForLoadedType(ImmutableList.Builder.class));
+    append(code, ByteCodeMethodCalls.BCImmutableList.builder);
+    code.add(duplicatesBuilder.store());
+
+    StackManipulation builderAdd =
+        new StackManipulation.Compound(
+            ByteCodeMethodCalls.BCImmutableList.Builder.add, Removal.SINGLE);
+
+    // add an object the function is called on first
+    if (obj != null) {
+      append(code, positionalsBuilder.load());
+      code.add(obj.compile(scope, debugInfo));
+      append(code, builderAdd);
+    }
+    // add all arguments to their respective builder/map
+    for (Argument.Passed arg : args) {
+      ByteCodeAppender value = arg.getValue().compile(scope, debugInfo);
+      if (arg.isPositional()) {
+        append(code, positionalsBuilder.load());
+        code.add(value);
+        append(code, builderAdd);
+      } else if (arg.isStar()) {
+        // expand the starArg by adding all it's elements to the builder
+        append(code, positionalsBuilder.load());
+        code.add(value);
+        append(
+            code,
+            TypeCasting.to(new TypeDescription.ForLoadedType(Iterable.class)),
+            ByteCodeMethodCalls.BCImmutableList.Builder.addAll,
+            Removal.SINGLE);
+      } else if (arg.isStarStar()) {
+        append(code, keyWordArgs.load());
+        code.add(value);
+        append(code, duplicatesBuilder.load(), debugAccessors.loadLocation, addKeywordArgs);
+      } else {
+        append(code, keyWordArgs.load(), new TextConstant(arg.getName()));
+        code.add(value);
+        append(code, duplicatesBuilder.load(), addKeywordArg);
+      }
+    }
+    append(
+        code,
+        // check for duplicates in the key word arguments
+        duplicatesBuilder.load(),
+        new TextConstant(func.getName()),
+        debugAccessors.loadLocation,
+        checkDuplicates,
+        // load the arguments in the correct order for invokeObjectMethod and BaseFunction.call
+        positionalsBuilder.load(),
+        ByteCodeMethodCalls.BCImmutableList.Builder.build,
+        keyWordArgs.load(),
+        ByteCodeMethodCalls.BCImmutableMap.copyOf,
+        debugAccessors.loadAstNode,
+        TypeCasting.to(new TypeDescription.ForLoadedType(FuncallExpression.class)),
+        scope.loadEnvironment());
+  }
+
+  private void compileObjectMethodCall(
+      VariableScope scope,
+      DebugInfo debugInfo,
+      AstAccessors debugAccessors,
+      List<ByteCodeAppender> code)
+      throws EvalException {
+    append(code, new TextConstant(func.getName()));
+    compileArguments(scope, debugInfo, debugAccessors, code);
+    append(code, invokeObjectMethod);
+  }
+
+  private void compileGlobalFunctionCall(
+      VariableScope scope,
+      DebugInfo debugInfo,
+      AstAccessors debugAccessors,
+      List<ByteCodeAppender> code)
+      throws EvalException {
+    code.add(func.compile(scope, debugInfo));
+    append(code, debugAccessors.loadLocation, checkCallable);
+    compileArguments(scope, debugInfo, debugAccessors, code);
+    append(code, BaseFunction.call);
   }
 }

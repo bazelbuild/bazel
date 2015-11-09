@@ -23,6 +23,9 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
+
+import net.bytebuddy.implementation.bytecode.StackManipulation;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -401,6 +404,15 @@ public abstract class BaseFunction implements SkylarkValue {
   protected Environment getOrCreateChildEnvironment(Environment parent) throws EvalException {
     return parent;
   }
+
+  public static final StackManipulation call =
+      ByteCodeUtils.invoke(
+          BaseFunction.class,
+          "call",
+          List.class,
+          Map.class,
+          FuncallExpression.class,
+          Environment.class);
 
   /**
    * The outer calling convention to a BaseFunction.

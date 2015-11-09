@@ -140,8 +140,8 @@ public class LValue implements Serializable {
    *
    * <p>The value to possibly destructure and assign must already be on the stack.
    */
-  public ByteCodeAppender compileAssignment(ASTNode node, AstAccessors debugAccessors,
-      VariableScope scope) throws EvalException {
+  public ByteCodeAppender compileAssignment(
+      ASTNode node, AstAccessors debugAccessors, VariableScope scope) throws EvalException {
     List<ByteCodeAppender> code = new ArrayList<>();
     compileAssignment(node, debugAccessors, expr, scope, code);
     return ByteCodeUtils.compoundAppender(code);
@@ -155,21 +155,19 @@ public class LValue implements Serializable {
       AstAccessors debugAccessors,
       Expression leftValue,
       VariableScope scope,
-      List<ByteCodeAppender> code) throws EvalException {
+      List<ByteCodeAppender> code)
+      throws EvalException {
     if (leftValue instanceof Identifier) {
       code.add(compileAssignment(scope, (Identifier) leftValue));
     } else if (leftValue instanceof ListLiteral) {
       List<Expression> lValueExpressions = ((ListLiteral) leftValue).getElements();
       compileAssignment(node, debugAccessors, scope, lValueExpressions, code);
     } else {
-      String message = String.format(
-          "Can't assign to expression '%s', only to variables or nested tuples of variables",
-          leftValue);
-      throw new EvalExceptionWithStackTrace(
-          new EvalException(
-              node.getLocation(),
-              message),
-              node);
+      String message =
+          String.format(
+              "Can't assign to expression '%s', only to variables or nested tuples of variables",
+              leftValue);
+      throw new EvalExceptionWithStackTrace(new EvalException(node.getLocation(), message), node);
     }
   }
 
@@ -182,14 +180,16 @@ public class LValue implements Serializable {
       AstAccessors debugAccessors,
       VariableScope scope,
       List<Expression> lValueExpressions,
-      List<ByteCodeAppender> code) throws EvalException {
+      List<ByteCodeAppender> code)
+      throws EvalException {
     InternalVariable objects = scope.freshVariable(Collection.class);
     InternalVariable iterator = scope.freshVariable(Iterator.class);
     // convert the object on the stack into a collection and store it to a variable for loading
     // multiple times below below
     code.add(new ByteCodeAppender.Simple(debugAccessors.loadLocation, EvalUtils.toCollection));
     code.add(objects.store());
-    append(code,
+    append(
+        code,
         // check that we got exactly the amount of objects in the collection that we need
         IntegerConstant.forValue(lValueExpressions.size()),
         objects.load(),

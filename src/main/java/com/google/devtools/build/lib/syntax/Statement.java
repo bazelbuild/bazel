@@ -78,7 +78,7 @@ public abstract class Statement extends ASTNode {
    */
   ByteCodeAppender compile(
       VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo)
-          throws EvalException {
+      throws EvalException {
     throw new UnsupportedOperationException(this.getClass().getSimpleName() + " unsupported.");
   }
 }

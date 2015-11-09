@@ -59,7 +59,7 @@ public final class ExpressionStatement extends Statement {
   @Override
   ByteCodeAppender compile(
       VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo)
-          throws EvalException {
+      throws EvalException {
     return expr.compile(scope, debugInfo);
   }
 }

@@ -84,7 +84,7 @@ public class ReturnStatement extends Statement {
   @Override
   ByteCodeAppender compile(
       VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo)
-          throws EvalException {
+      throws EvalException {
     ByteCodeAppender compiledExpression = returnExpression.compile(scope, debugInfo);
     return new ByteCodeAppender.Compound(
         compiledExpression, new ByteCodeAppender.Simple(MethodReturn.REFERENCE));

@@ -79,8 +79,7 @@ public abstract class Expression extends ASTNode {
    * @throws EvalException for any error that would have occurred during evaluation of the
    *    function definition that contains this statement, e.g. type errors.
    */
-  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo)
-      throws EvalException {
+  ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo) throws EvalException {
     throw new UnsupportedOperationException(this.getClass().getSimpleName() + " unsupported.");
   }
 }

@@ -77,7 +77,7 @@ public final class AssignmentStatement extends Statement {
   @Override
   ByteCodeAppender compile(
       VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo)
-          throws EvalException {
+      throws EvalException {
     return new ByteCodeAppender.Compound(
         expression.compile(scope, debugInfo),
         lvalue.compileAssignment(this, debugInfo.add(this), scope));

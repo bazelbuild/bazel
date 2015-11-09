@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.syntax.compiler;
 
 import com.google.devtools.build.lib.syntax.Operator;
+
 import net.bytebuddy.implementation.Implementation.Context;
 import net.bytebuddy.implementation.bytecode.StackManipulation;
 

@@ -65,7 +65,8 @@ public final class ListComprehension extends AbstractComprehension {
       VariableScope scope,
       InternalVariable collection,
       DebugInfo debugInfo,
-      AstAccessors debugAccessors) throws EvalException {
+      AstAccessors debugAccessors)
+      throws EvalException {
     List<ByteCodeAppender> code = new ArrayList<>();
     append(code, collection.load());
     code.add(outputExpression.compile(scope, debugInfo));

@@ -84,7 +84,8 @@ public abstract class AbstractComprehension extends Expression {
         VariableScope scope,
         DebugInfo debugInfo,
         ASTNode node,
-        AstAccessors debugAccessors) throws EvalException;
+        AstAccessors debugAccessors)
+        throws EvalException;
 
     abstract void validate(ValidationEnvironment env) throws EvalException;
 
@@ -234,7 +235,8 @@ public abstract class AbstractComprehension extends Expression {
         VariableScope scope,
         DebugInfo debugInfo,
         ASTNode node,
-        AstAccessors debugAccessors) throws EvalException {
+        AstAccessors debugAccessors)
+        throws EvalException {
       List<ByteCodeAppender> code = new ArrayList<>();
       LabelAdder nopeLabel = new LabelAdder();
       // compile condition and convert to boolean
@@ -387,7 +389,8 @@ public abstract class AbstractComprehension extends Expression {
       VariableScope scope,
       InternalVariable collection,
       DebugInfo debugInfo,
-      AstAccessors debugAccessors) throws EvalException;
+      AstAccessors debugAccessors)
+      throws EvalException;
 
   /**
    * Add byte code which finalizes and loads the collection on the stack.

@@ -150,7 +150,7 @@ public final class ForStatement extends Statement {
   @Override
   ByteCodeAppender compile(
       VariableScope scope, Optional<LoopLabels> outerLoopLabels, DebugInfo debugInfo)
-          throws EvalException {
+      throws EvalException {
     AstAccessors debugAccessors = debugInfo.add(this);
     List<ByteCodeAppender> code = new ArrayList<>();
     InternalVariable originalIterable =
@@ -162,7 +162,8 @@ public final class ForStatement extends Statement {
     append(code, debugAccessors.loadLocation, EvalUtils.toIterable, Duplication.SINGLE);
     // save it for later concurrent modification check
     code.add(originalIterable.store());
-    append(code,
+    append(
+        code,
         ByteCodeMethodCalls.BCImmutableList.copyOf,
         ByteCodeMethodCalls.BCImmutableList.iterator);
     code.add(iterator.store());

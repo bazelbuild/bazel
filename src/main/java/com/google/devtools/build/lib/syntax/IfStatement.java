@@ -83,7 +83,7 @@ public final class IfStatement extends Statement {
     @Override
     ByteCodeAppender compile(
         VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo)
-            throws EvalException {
+        throws EvalException {
       List<ByteCodeAppender> code = new ArrayList<>();
       for (Statement statement : stmts) {
         code.add(statement.compile(scope, loopLabels, debugInfo));
@@ -160,7 +160,7 @@ public final class IfStatement extends Statement {
   @Override
   ByteCodeAppender compile(
       VariableScope scope, Optional<LoopLabels> loopLabels, DebugInfo debugInfo)
-          throws EvalException {
+      throws EvalException {
     List<ByteCodeAppender> code = new ArrayList<>();
     LabelAdder after = new LabelAdder();
     LabelAdder nextConditionalOrElse;
