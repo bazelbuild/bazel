@@ -98,3 +98,11 @@ new_http_archive(
     sha256 = "2593132ca490b9ee17509d65ee2cd078441ff544899f6afb97a03d08c25524e7",
     url = "https://storage.googleapis.com/golang/go1.5.1.linux-amd64.tar.gz",
 )
+
+new_http_archive(
+    name = "nunit",
+    build_file = "tools/build_defs/dotnet/nunit.BUILD",
+    sha256 = "1bd925514f31e7729ccde40a38a512c2accd86895f93465f3dfe6d0b593d7170",
+    type = "zip",
+    url = "https://github.com/nunit/nunitv2/releases/download/2.6.4/NUnit-2.6.4.zip",
+)
