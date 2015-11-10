@@ -53,8 +53,12 @@ function get_deb_permission() {
 
 
 function test_tar() {
-  local listing="./etc/nsswitch.conf
+  local listing="./
+./etc/
+./etc/nsswitch.conf
+./usr/
 ./usr/titi
+./usr/bin/
 ./usr/bin/java -> /path/to/bin/java"
   for i in "" ".gz" ".bz2"; do
     check_eq "$listing" "$(get_tar_listing test-tar-${i:1}.tar$i)"
@@ -62,10 +66,15 @@ function test_tar() {
     check_eq "-rw-r--r--" "$(get_tar_permission test-tar-${i:1}.tar$i ./etc/nsswitch.conf)"
   done;
 
-  check_eq "./nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-empty.tar)"
-  check_eq "./nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-none.tar)"
-  check_eq "./nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-empty.tar)"
-  check_eq "./etc/nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-dot.tar)"
+  check_eq "./
+./nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-empty.tar)"
+  check_eq "./
+./nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-none.tar)"
+  check_eq "./
+./nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-etc.tar)"
+  check_eq "./
+./etc/
+./etc/nsswitch.conf" "$(get_tar_listing test-tar-strip_prefix-dot.tar)"
 }
 
 function test_deb() {
@@ -73,8 +82,12 @@ function test_deb() {
     echo "Unable to run test for debian, no dpkg-deb!" >&2
     return 0
   fi
-  local listing="./etc/nsswitch.conf
+  local listing="./
+./etc/
+./etc/nsswitch.conf
+./usr/
 ./usr/titi
+./usr/bin/
 ./usr/bin/java -> /path/to/bin/java"
   check_eq "$listing" "$(get_deb_listing test-deb.deb)"
   check_eq "-rwxr-xr-x" "$(get_deb_permission test-deb.deb ./usr/titi)"
