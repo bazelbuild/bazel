@@ -22,7 +22,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Stopwatch;
 import com.google.common.base.Supplier;
-import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -779,6 +778,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   protected Differencer.Diff getDiff(Iterable<PathFragment> modifiedSourceFiles,
       final Path pathEntry) throws InterruptedException {
+    if (Iterables.isEmpty(modifiedSourceFiles)) {
+      return new ImmutableDiff(ImmutableList.<SkyKey>of(), ImmutableMap.<SkyKey, SkyValue>of());
+    }
     // TODO(bazel-team): change ModifiedFileSet to work with RootedPaths instead of PathFragments.
     Iterable<SkyKey> dirtyFileStateSkyKeys = Iterables.transform(modifiedSourceFiles,
         new Function<PathFragment, SkyKey>() {
@@ -794,16 +796,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     // information here, so we compute it ourselves.
     // TODO(bazel-team): Fancy filesystems could provide it with a hypothetically modified
     // DiffAwareness interface.
-    Supplier<Map<SkyKey, SkyValue>> valuesSupplier = Suppliers.memoize(
-        new Supplier<Map<SkyKey, SkyValue>>() {
-      @Override
-      public Map<SkyKey, SkyValue> get() {
-        return memoizingEvaluator.getValues();
-      }
-    });
-    FilesystemValueChecker fsvc = new FilesystemValueChecker(valuesSupplier, tsgm, null);
+    FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, null);
+    Map<SkyKey, SkyValue> valuesMap = memoizingEvaluator.getValues();
     Differencer.DiffWithDelta diff =
-        fsvc.getNewAndOldValues(dirtyFileStateSkyKeys, new FileDirtinessChecker());
+        fsvc.getNewAndOldValues(valuesMap, dirtyFileStateSkyKeys, new FileDirtinessChecker());
 
     Set<SkyKey> valuesToInvalidate = new HashSet<>();
     Map<SkyKey, SkyValue> valuesToInject = new HashMap<>();
@@ -830,7 +826,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         changedType = !oldValue.getType().equals(newValue.getType());
       } else {
         DirectoryListingStateValue oldDirListingStateValue =
-            (DirectoryListingStateValue) valuesSupplier.get().get(dirListingStateKey);
+            (DirectoryListingStateValue) valuesMap.get(dirListingStateKey);
         if (oldDirListingStateValue != null) {
           String baseName = rootedPath.getRelativePath().getBaseName();
           Dirent oldDirent = oldDirListingStateValue.getDirents().maybeGetDirent(baseName);
@@ -856,14 +852,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     RootedPath parentDirRootedPath = RootedPath.toRootedPath(
         rootedPath.getRoot(), rootedPath.getRelativePath().getParentDirectory());
     return DirectoryListingStateValue.key(parentDirRootedPath);
-  }
-
-  protected static SkyKey createFileStateKey(RootedPath rootedPath) {
-    return FileStateValue.key(rootedPath);
-  }
-
-  protected static SkyKey createDirectoryListingStateKey(RootedPath rootedPath) {
-    return DirectoryListingStateValue.key(rootedPath);
   }
 
   /**
@@ -1653,9 +1641,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     if (checkOutputFiles) {
       // Detect external modifications in the output tree.
-      FilesystemValueChecker fsvc = new FilesystemValueChecker(memoizingEvaluator, tsgm,
-          lastExecutionTimeRange);
-      invalidateDirtyActions(fsvc.getDirtyActionValues(batchStatter));
+      FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, lastExecutionTimeRange);
+      invalidateDirtyActions(fsvc.getDirtyActionValues(memoizingEvaluator.getValues(),
+          batchStatter));
       modifiedFiles += fsvc.getNumberOfModifiedOutputFiles();
       outputDirtyFiles += fsvc.getNumberOfModifiedOutputFiles();
       modifiedFilesDuringPreviousBuild += fsvc.getNumberOfModifiedOutputFilesDuringPreviousBuild();

@@ -86,8 +86,10 @@ public interface MemoizingEvaluator {
    *
    * <p>The returned map may be a live view of the graph.
    */
+  // TODO(bazel-team): Replace all usages of getValues, getDoneValues, getExistingValueForTesting,
+  // and getExistingErrorForTesting with usages of WalkableGraph. Changing the getValues usages
+  // require some care because getValues gives access to the previous value for changed/dirty nodes.
   Map<SkyKey, SkyValue> getValues();
-
 
   /**
    * Returns the done (without error) values in the graph.

@@ -110,17 +110,17 @@ public class FilesystemValueCheckerTest {
 
   @Test
   public void testEmpty() throws Exception {
-    FilesystemValueChecker checker = new FilesystemValueChecker(evaluator, tsgm, null);
-    assertEmptyDiff(getDirtyFilesystemKeys(checker));
+    FilesystemValueChecker checker = new FilesystemValueChecker(tsgm, null);
+    assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
   }
 
   @Test
   public void testSimple() throws Exception {
-    FilesystemValueChecker checker = new FilesystemValueChecker(evaluator, tsgm, null);
+    FilesystemValueChecker checker = new FilesystemValueChecker(tsgm, null);
 
     Path path = fs.getPath("/foo");
     FileSystemUtils.createEmptyFile(path);
-    assertEmptyDiff(getDirtyFilesystemKeys(checker));
+    assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
 
     SkyKey skyKey =
         FileStateValue.key(RootedPath.toRootedPath(fs.getRootDirectory(), new PathFragment("foo")));
@@ -132,13 +132,13 @@ public class FilesystemValueCheckerTest {
             NullEventHandler.INSTANCE);
     assertFalse(result.hasError());
 
-    assertEmptyDiff(getDirtyFilesystemKeys(checker));
+    assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
 
     FileSystemUtils.writeContentAsLatin1(path, "hello");
-    assertDiffWithNewValues(getDirtyFilesystemKeys(checker), skyKey);
+    assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), skyKey);
 
     // The dirty bits are not reset until the FileValues are actually revalidated.
-    assertDiffWithNewValues(getDirtyFilesystemKeys(checker), skyKey);
+    assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), skyKey);
 
     differencer.invalidate(ImmutableList.of(skyKey));
     result =
@@ -148,7 +148,7 @@ public class FilesystemValueCheckerTest {
             SkyframeExecutor.DEFAULT_THREAD_COUNT,
             NullEventHandler.INSTANCE);
     assertFalse(result.hasError());
-    assertEmptyDiff(getDirtyFilesystemKeys(checker));
+    assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
   }
 
   /**
@@ -160,7 +160,7 @@ public class FilesystemValueCheckerTest {
    */
   @Test
   public void testDirtySymlink() throws Exception {
-    FilesystemValueChecker checker = new FilesystemValueChecker(evaluator, tsgm, null);
+    FilesystemValueChecker checker = new FilesystemValueChecker(tsgm, null);
 
     Path path = fs.getPath("/foo");
     FileSystemUtils.writeContentAsLatin1(path, "foo contents");
@@ -194,12 +194,12 @@ public class FilesystemValueCheckerTest {
     assertTrue(symlinkValue.toString(), symlinkValue.isSymlink());
     // Digest is not always available, so use size as a proxy for contents.
     assertEquals(fooValue.getSize(), symlinkValue.getSize());
-    assertEmptyDiff(getDirtyFilesystemKeys(checker));
+    assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
 
     // Before second build, move sym1 to point to sym2.
     assertTrue(sym1.delete());
     FileSystemUtils.ensureSymbolicLink(sym1, sym2);
-    assertDiffWithNewValues(getDirtyFilesystemKeys(checker), sym1FileStateKey);
+    assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), sym1FileStateKey);
 
     differencer.invalidate(ImmutableList.of(sym1FileStateKey));
     result =
@@ -209,7 +209,7 @@ public class FilesystemValueCheckerTest {
             SkyframeExecutor.DEFAULT_THREAD_COUNT,
             NullEventHandler.INSTANCE);
     assertFalse(result.hasError());
-    assertDiffWithNewValues(getDirtyFilesystemKeys(checker), sym1FileStateKey);
+    assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), sym1FileStateKey);
 
     // Before third build, move sym1 back to original (so change pruning will prevent signaling of
     // its parents, but change symlink for real.
@@ -217,7 +217,7 @@ public class FilesystemValueCheckerTest {
     FileSystemUtils.ensureSymbolicLink(sym1, path);
     assertTrue(symlink.delete());
     FileSystemUtils.writeContentAsLatin1(symlink, "new symlink contents");
-    assertDiffWithNewValues(getDirtyFilesystemKeys(checker), symlinkFileStateKey);
+    assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), symlinkFileStateKey);
     differencer.invalidate(ImmutableList.of(symlinkFileStateKey));
     result =
         driver.evaluate(
@@ -227,18 +227,18 @@ public class FilesystemValueCheckerTest {
     assertFalse(symlinkValue.toString(), symlinkValue.isSymlink());
     assertEquals(fooValue, result.get(fooKey));
     assertThat(symlinkValue.getSize()).isNotEqualTo(fooValue.getSize());
-    assertEmptyDiff(getDirtyFilesystemKeys(checker));
+    assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
   }
 
   @Test
   public void testExplicitFiles() throws Exception {
-    FilesystemValueChecker checker = new FilesystemValueChecker(evaluator, tsgm, null);
+    FilesystemValueChecker checker = new FilesystemValueChecker(tsgm, null);
 
     Path path1 = fs.getPath("/foo1");
     Path path2 = fs.getPath("/foo2");
     FileSystemUtils.createEmptyFile(path1);
     FileSystemUtils.createEmptyFile(path2);
-    assertEmptyDiff(getDirtyFilesystemKeys(checker));
+    assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
 
     SkyKey key1 =
         FileStateValue.key(
@@ -252,20 +252,20 @@ public class FilesystemValueCheckerTest {
             skyKeys, false, SkyframeExecutor.DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
     assertFalse(result.hasError());
 
-    assertEmptyDiff(getDirtyFilesystemKeys(checker));
+    assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
 
     FileSystemUtils.writeContentAsLatin1(path1, "hello1");
     FileSystemUtils.writeContentAsLatin1(path1, "hello2");
     path1.setLastModifiedTime(27);
     path2.setLastModifiedTime(42);
-    assertDiffWithNewValues(getDirtyFilesystemKeys(checker), key1, key2);
+    assertDiffWithNewValues(getDirtyFilesystemKeys(evaluator, checker), key1, key2);
 
     differencer.invalidate(skyKeys);
     result =
         driver.evaluate(
             skyKeys, false, SkyframeExecutor.DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
     assertFalse(result.hasError());
-    assertEmptyDiff(getDirtyFilesystemKeys(checker));
+    assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
   }
 
   @Test
@@ -285,8 +285,8 @@ public class FilesystemValueCheckerTest {
     assertTrue(result.hasError());
 
     fs.readlinkThrowsIoException = false;
-    FilesystemValueChecker checker = new FilesystemValueChecker(evaluator, tsgm, null);
-    Diff diff = getDirtyFilesystemKeys(checker);
+    FilesystemValueChecker checker = new FilesystemValueChecker(tsgm, null);
+    Diff diff = getDirtyFilesystemKeys(evaluator, checker);
     assertThat(diff.changedKeysWithoutNewValues()).isEmpty();
     assertThat(diff.changedKeysWithNewValues()).isEmpty();
   }
@@ -309,8 +309,8 @@ public class FilesystemValueCheckerTest {
             NullEventHandler.INSTANCE);
     assertTrue(result.hasError());
 
-    FilesystemValueChecker checker = new FilesystemValueChecker(evaluator, tsgm, null);
-    Diff diff = getDirtyFilesystemKeys(checker);
+    FilesystemValueChecker checker = new FilesystemValueChecker(tsgm, null);
+    Diff diff = getDirtyFilesystemKeys(evaluator, checker);
     assertThat(diff.changedKeysWithoutNewValues()).isEmpty();
     assertThat(diff.changedKeysWithNewValues()).isEmpty();
   }
@@ -336,14 +336,15 @@ public class FilesystemValueCheckerTest {
         driver
             .evaluate(ImmutableList.<SkyKey>of(), false, 1, NullEventHandler.INSTANCE)
             .hasError());
-    assertThat(new FilesystemValueChecker(evaluator, tsgm, null).getDirtyActionValues(batchStatter))
-        .isEmpty();
+    assertThat(new FilesystemValueChecker(tsgm, null).getDirtyActionValues(evaluator.getValues(),
+        batchStatter)).isEmpty();
 
     FileSystemUtils.writeContentAsLatin1(out1.getPath(), "goodbye");
     assertEquals(
         ActionExecutionValue.key(action1),
         Iterables.getOnlyElement(
-            new FilesystemValueChecker(evaluator, tsgm, null).getDirtyActionValues(batchStatter)));
+            new FilesystemValueChecker(tsgm, null).getDirtyActionValues(evaluator.getValues(),
+                batchStatter)));
   }
 
   private Artifact createDerivedArtifact(String relPath) throws IOException {
@@ -432,13 +433,13 @@ public class FilesystemValueCheckerTest {
         ImmutableList.of(FileValue.key(RootedPath.toRootedPath(pkgRoot, new PathFragment("foo"))));
     driver.evaluate(
         values, false, SkyframeExecutor.DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
-    FilesystemValueChecker checker = new FilesystemValueChecker(evaluator, tsgm, null);
+    FilesystemValueChecker checker = new FilesystemValueChecker(tsgm, null);
 
-    assertEmptyDiff(getDirtyFilesystemKeys(checker));
+    assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
 
     fs.statThrowsRuntimeException = true;
     try {
-      getDirtyFilesystemKeys(checker);
+      getDirtyFilesystemKeys(evaluator, checker);
       fail();
     } catch (RuntimeException e) {
       assertThat(e).hasMessage("bork");
@@ -531,8 +532,8 @@ public class FilesystemValueCheckerTest {
     };
   }
 
-  private static Diff getDirtyFilesystemKeys(FilesystemValueChecker checker)
-      throws InterruptedException {
-    return checker.getDirtyKeys(new BasicFilesystemDirtinessChecker());
+  private static Diff getDirtyFilesystemKeys(MemoizingEvaluator evaluator,
+      FilesystemValueChecker checker) throws InterruptedException {
+    return checker.getDirtyKeys(evaluator.getValues(), new BasicFilesystemDirtinessChecker());
   }
 }

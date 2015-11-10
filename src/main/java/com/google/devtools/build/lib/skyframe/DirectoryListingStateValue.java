@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
  *
  * <p>This class is an implementation detail of {@link DirectoryListingValue}.
  */
-final class DirectoryListingStateValue implements SkyValue {
+public final class DirectoryListingStateValue implements SkyValue {
 
   private final CompactSortedDirents compactSortedDirents;
 

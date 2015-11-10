@@ -341,7 +341,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     buildDriver.evaluate(ImmutableList.<SkyKey>of(), false,
         DEFAULT_THREAD_COUNT, eventHandler);
 
-    FilesystemValueChecker fsvc = new FilesystemValueChecker(memoizingEvaluator, tsgm, null);
+    FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, null);
     // We need to manually check for changes to known files. This entails finding all dirty file
     // system values under package roots for which we don't have diff information. If at least
     // one path entry doesn't have diff information, then we're going to have to iterate over
@@ -353,6 +353,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
     Differencer.Diff diff =
         fsvc.getDirtyKeys(
+            memoizingEvaluator.getValues(),
             new UnionDirtinessChecker(
                 Iterables.concat(
                     customDirtinessCheckers,
@@ -444,7 +445,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     }
     Differencer.Diff diff;
     if (modifiedFileSet.treatEverythingAsModified()) {
-      diff = new FilesystemValueChecker(memoizingEvaluator, tsgm, null).getDirtyKeys(
+      diff = new FilesystemValueChecker(tsgm, null).getDirtyKeys(memoizingEvaluator.getValues(),
           new BasicFilesystemDirtinessChecker());
     } else {
       diff = getDiff(modifiedFileSet.modifiedSourceFiles(), pathEntry);

@@ -153,7 +153,8 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
       // It clears the internal data structures after getDiff is called and will not return
       // diffs for historical versions. This makes the following code sensitive to interrupts.
       // Ideally we would simply not update lastGraphVersion if an interrupt occurs.
-      Diff diff = differencer.getDiff(lastGraphVersion, version);
+      Diff diff = differencer.getDiff(new DelegatingWalkableGraph(graph), lastGraphVersion,
+          version);
       valuesToInject.putAll(diff.changedKeysWithNewValues());
       invalidate(diff.changedKeysWithoutNewValues());
       pruneInjectedValues(valuesToInject);

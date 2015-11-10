@@ -41,7 +41,7 @@ public class RecordingDifferencer implements Differencer, Injectable {
   }
 
   @Override
-  public Diff getDiff(Version fromVersion, Version toVersion) {
+  public Diff getDiff(WalkableGraph fromGraph, Version fromVersion, Version toVersion) {
     Diff diff = new ImmutableDiff(valuesToInvalidate, valuesToInject);
     clear();
     return diff;

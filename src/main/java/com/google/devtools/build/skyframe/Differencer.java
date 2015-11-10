@@ -92,5 +92,6 @@ public interface Differencer {
   /**
    * Returns the value keys that have changed between the two Versions.
    */
-  Diff getDiff(Version fromVersion, Version toVersion) throws InterruptedException;
+  Diff getDiff(WalkableGraph fromGraph, Version fromVersion, Version toVersion)
+      throws InterruptedException;
 }

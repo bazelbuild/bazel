@@ -58,7 +58,8 @@ public abstract class FileStateValue implements SkyValue {
   public static final NonexistentFileStateValue NONEXISTENT_FILE_STATE_NODE =
       new NonexistentFileStateValue();
 
-  enum Type {
+  /** Type of a path. */
+  public enum Type {
     REGULAR_FILE,
     SPECIAL_FILE,
     DIRECTORY,
@@ -69,7 +70,7 @@ public abstract class FileStateValue implements SkyValue {
   protected FileStateValue() {
   }
 
-  static FileStateValue create(RootedPath rootedPath,
+  public static FileStateValue create(RootedPath rootedPath,
       @Nullable TimestampGranularityMonitor tsgm) throws InconsistentFilesystemException,
       IOException {
     Path path = rootedPath.asPath();
@@ -105,7 +106,7 @@ public abstract class FileStateValue implements SkyValue {
     return new SkyKey(SkyFunctions.FILE_STATE, rootedPath);
   }
 
-  abstract Type getType();
+  public abstract Type getType();
 
   PathFragment getSymlinkTarget() {
     throw new IllegalStateException();
@@ -193,7 +194,7 @@ public abstract class FileStateValue implements SkyValue {
     }
 
     @Override
-    Type getType() {
+    public Type getType() {
       return Type.REGULAR_FILE;
     }
 
@@ -261,7 +262,7 @@ public abstract class FileStateValue implements SkyValue {
     }
 
     @Override
-    Type getType() {
+    public Type getType() {
       return Type.SPECIAL_FILE;
     }
 
@@ -307,7 +308,7 @@ public abstract class FileStateValue implements SkyValue {
     }
 
     @Override
-    Type getType() {
+    public Type getType() {
       return Type.DIRECTORY;
     }
 
@@ -338,7 +339,7 @@ public abstract class FileStateValue implements SkyValue {
     }
 
     @Override
-    Type getType() {
+    public Type getType() {
       return Type.SYMLINK;
     }
 
@@ -374,7 +375,7 @@ public abstract class FileStateValue implements SkyValue {
     }
 
     @Override
-    Type getType() {
+    public Type getType() {
       return Type.NONEXISTENT;
     }
 
