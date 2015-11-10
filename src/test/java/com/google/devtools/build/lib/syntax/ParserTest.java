@@ -1042,7 +1042,7 @@ public class ParserTest extends EvaluationTestCase {
   private static final String DOUBLE_SLASH_LOAD = "load('//foo/bar/file', 'test')\n";
   private static final String DOUBLE_SLASH_ERROR =
       "First argument of load() is a path, not a label. It should start with a "
-      + "single slash if it is an absolute path.";
+      + "single slash if it is an absolute path";
 
   @Test
   public void testLoadDoubleSlashBuild() throws Exception {

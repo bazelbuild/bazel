@@ -118,7 +118,7 @@ public final class LoadStatement extends Statement {
     } else if (pathString.getValue().startsWith("//")) {
       error =
           "First argument of load() is a path, not a label. "
-          + "It should start with a single slash if it is an absolute path.";
+          + "It should start with a single slash if it is an absolute path";
     }
 
     if (error != null) {
