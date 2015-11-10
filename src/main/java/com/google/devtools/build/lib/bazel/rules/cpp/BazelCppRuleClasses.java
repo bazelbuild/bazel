@@ -259,7 +259,8 @@ public class BazelCppRuleClasses {
           so be careful about header files included elsewhere.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("copts", STRING_LIST))
-          .add(attr("$stl", LABEL).value(env.getLabel("//tools/cpp:stl")))
+          .add(attr("$stl", LABEL).value(env.getLabel(
+              Constants.TOOLS_REPOSITORY + "//tools/cpp:stl")))
           .add(attr(":stl", LABEL).value(STL))
           .build();
     }
@@ -532,7 +533,7 @@ public class BazelCppRuleClasses {
               // Every cc_rule depends implicitly on STL to make
               // sure that the correct headers are used for inclusion. The only exception is
               // STL itself to avoid cycles in the dependency graph.
-              Label stl = env.getLabel("//tools/cpp:stl");
+              Label stl = env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/cpp:stl");
               return rule.getLabel().equals(stl) ? null : stl;
             }
           }))

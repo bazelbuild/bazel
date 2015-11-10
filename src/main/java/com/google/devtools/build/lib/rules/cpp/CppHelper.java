@@ -84,7 +84,8 @@ public class CppHelper {
     TransitiveInfoCollection stl = ruleContext.getPrerequisite(":stl", Mode.TARGET);
     if (stl != null) {
       // TODO(bazel-team): Clean this up.
-      contextBuilder.addSystemIncludeDir(stl.getLabel().getPackageFragment().getRelative("gcc3"));
+      contextBuilder.addSystemIncludeDir(
+          stl.getLabel().getPackageIdentifier().getPathFragment().getRelative("gcc3"));
       contextBuilder.mergeDependentContext(stl.getProvider(CppCompilationContext.class));
     }
     CcToolchainProvider toolchain = getToolchain(ruleContext);
