@@ -1,6 +1,6 @@
 # Packaging
 
-md5_cmd = "set -e -o pipefail && cat $(SRCS) | %s | awk '{ print $$1; }' > $@"
+md5_cmd = "set -e -o pipefail && cat $(SRCS) | sort | %s | awk '{ print $$1; }' > $@"
 
 # TODO(bazel-team): find a better way to handle dylib extensions.
 filegroup(

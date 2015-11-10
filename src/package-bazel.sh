@@ -42,4 +42,4 @@ if [[ ${EMBEDDED_TOOLS} != "" ]]; then
   (cd ${PACKAGE_DIR}/embedded_tools && unzip -q ${WORKDIR}/${EMBEDDED_TOOLS})
 fi
 
-(cd ${PACKAGE_DIR}; zip -qrD ${WORKDIR}/${OUT} *)
+(cd ${PACKAGE_DIR} && find . -type f | sort | zip -qDX@ ${WORKDIR}/${OUT})
