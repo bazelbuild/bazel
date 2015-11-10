@@ -407,6 +407,7 @@ public final class ReleaseBundlingSupport {
     ObjcProvider partialObjcProvider = new ObjcProvider.Builder()
         .addTransitiveAndPropagate(ObjcProvider.HEADER, objcProvider)
         .addTransitiveAndPropagate(ObjcProvider.INCLUDE, objcProvider)
+        .addTransitiveAndPropagate(ObjcProvider.DEFINE, objcProvider)
         .addTransitiveAndPropagate(ObjcProvider.SDK_DYLIB, objcProvider)
         .addTransitiveAndPropagate(ObjcProvider.SDK_FRAMEWORK, objcProvider)
         .addTransitiveAndPropagate(ObjcProvider.SOURCE, objcProvider)
