@@ -1,11 +1,206 @@
 package(default_visibility = ["//src:__subpackages__"])
 
 java_library(
-    name = "shell",
-    srcs = glob([
-        "shell/*.java",
+    name = "analysis-exec-rules-skyframe",
+    srcs = glob(
+        [
+            "analysis/**/*.java",
+            "exec/*.java",
+            "ideinfo/**/*.java",
+            "rules/**/*.java",
+            "skyframe/*.java",
+        ],
+        exclude = [
+            "rules/java/JavaToolchainDataParser.java",
+        ],
+    ) + [
+        "runtime/BlazeServerStartupOptions.java",
+    ],
+    deps = [
+        ":base-util",
+        ":collect",
+        ":common",
+        ":concurrent",
+        ":events",
+        ":graph",
+        ":io",
+        ":os_util",
+        ":packages",
+        ":shell",
+        ":util",
+        ":vfs",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:android_studio_ide_info_proto",
+        "//src/main/protobuf:bundlemerge_proto",
+        "//src/main/protobuf:crosstool_config_proto",
+        "//src/main/protobuf:extra_actions_base_proto",
+        "//src/main/protobuf:test_status_proto",
+        "//src/main/protobuf:xcodegen_proto",
+        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/common",
+        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/util",
+        "//third_party:guava",
+        "//third_party:joda_time",
+        "//third_party:jsr305",
+        "//third_party:protobuf",
+    ],
+)
+
+# String canonicalizer.
+java_library(
+    name = "base-util",
+    srcs = [
+        "util/StringCanonicalizer.java",
+        "util/StringTrie.java",
+        "util/VarInt.java",
+    ],
+    deps = [
+        ":common",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "bazel-core",
+    srcs = glob(
+        [
+            "bazel/**/*.java",
+        ],
+        exclude = [
+            "bazel/repository/MavenConnector.java",
+        ],
+    ),
+    resources = glob([
+        "**/*.txt",
+        "**/*.html",
+        "**/*.css",
+        "**/*.js",
+        "**/*.WORKSPACE",
+        "**/*.vm",
     ]),
-    deps = ["//third_party:guava"],
+    visibility = [
+        "//src:__subpackages__",
+        "//src/tools/generate_workspace/src/main/java/com/google/devtools/build/workspace:__pkg__",
+    ],
+    runtime_deps = [
+        "//third_party:aether",
+        "//third_party:apache_commons_codec",
+        "//third_party:apache_commons_logging",
+        "//third_party:apache_httpclient",
+        "//third_party:apache_httpcore",
+        "//third_party:jsch",
+        "//third_party:maven",
+        "//third_party:maven_model",
+        "//third_party:plexus_interpolation",
+        "//third_party:plexus_utils",
+    ],
+    deps = [
+        ":analysis-exec-rules-skyframe",
+        ":buildtool-runtime",
+        ":clock",
+        ":collect",
+        ":common",
+        ":concurrent",
+        ":events",
+        ":graph",
+        ":io",
+        ":maven-connector",
+        ":os_util",
+        ":packages",
+        ":runtime",
+        ":shell",
+        ":unix",
+        ":util",
+        ":vfs",
+        "//src/java_tools/singlejar:zip",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/bazel/dash",
+        "//src/main/java/com/google/devtools/build/lib/query2",
+        "//src/main/java/com/google/devtools/build/lib/rules/genquery",
+        "//src/main/java/com/google/devtools/build/lib/sandbox",
+        "//src/main/java/com/google/devtools/build/lib/standalone",
+        "//src/main/java/com/google/devtools/build/lib/worker",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:build_proto",
+        "//src/main/protobuf:crosstool_config_proto",
+        "//src/main/protobuf:extra_actions_base_proto",
+        "//src/main/protobuf:test_status_proto",
+        "//src/main/protobuf:worker_protocol_proto",
+        "//third_party:aether",
+        "//third_party:apache_commons_compress",
+        "//third_party:apache_commons_pool2",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jgit",
+        "//third_party:joda_time",
+        "//third_party:jsr305",
+        "//third_party:jsr330_inject",
+        "//third_party:maven",
+        "//third_party:maven_model",
+        "//third_party:plexus_component_annotations",
+        "//third_party:protobuf",
+        "//third_party:slf4j",
+    ],
+)
+
+java_binary(
+    name = "bazel-main",
+    main_class = "com.google.devtools.build.lib.bazel.BazelMain",
+    visibility = ["//src:__pkg__"],
+    runtime_deps = [
+        ":bazel-core",
+    ],
+)
+
+java_library(
+    name = "buildtool-runtime",
+    srcs = glob([
+        "buildtool/**/*.java",
+        "runtime/**/*.java",
+    ]),
+    deps = [
+        ":analysis-exec-rules-skyframe",
+        ":clock",
+        ":collect",
+        ":common",
+        ":concurrent",
+        ":events",
+        ":io",
+        ":os_util",
+        ":packages",
+        ":profiler-output",
+        ":server",
+        ":shell",
+        ":util",
+        ":vfs",
+        "//src/main/java/com/google/devtools/build/docgen",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/query2",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:build_proto",
+        "//src/main/protobuf:invocation_policy_proto",
+        "//src/main/protobuf:test_status_proto",
+        "//third_party:guava",
+        "//third_party:joda_time",
+        "//third_party:jsr305",
+        "//third_party:protobuf",
+    ],
+)
+
+# Clock classes.
+java_library(
+    name = "clock",
+    srcs = [
+        "util/BlazeClock.java",
+        "util/Clock.java",
+        "util/JavaClock.java",
+    ],
+    deps = [
+        ":concurrent",
+    ],
 )
 
 java_library(
@@ -80,25 +275,55 @@ java_library(
 )
 
 java_library(
-    name = "syntax",
-    srcs = glob(["syntax/**/*.java"]),
+    name = "graph",
+    srcs = glob([
+        "graph/*.java",
+    ]),
     deps = [
-        ":base-util",
-        ":collect",
-        ":common",
-        ":concurrent",
-        ":events",
-        ":util",
-        ":vfs",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:build_proto",
-        "//third_party:asm",
-        "//third_party:asm-util",
-        "//third_party:auto_value",
-        "//third_party:bytebuddy",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+# I/O utilities.
+java_library(
+    name = "io",
+    srcs = glob(["util/io/*.java"]),
+    deps = [
+        ":clock",
+        ":common",
+        ":concurrent",
+        ":vfs",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "java-toolchain-parser",
+    testonly = 1,
+    srcs = glob([
+        # JavaToolchain parser
+        "rules/java/JavaToolchainData.java",
+        "rules/java/JavaToolchainDataParser.java",
+        # Concurrent stuff
+        "concurrent/*.java",
+    ]),
+    visibility = [
+        "//src/java_tools/buildjar:__pkg__",
+    ],
+    deps = [
+        ":common",
+        "//src/main/protobuf:build_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:protobuf",
+    ],
+)
+
+# General utilities.
+java_library(
+    name = "os_util",
+    srcs = ["util/OS.java"],
 )
 
 java_library(
@@ -133,41 +358,6 @@ java_library(
 )
 
 java_library(
-    name = "unix",
-    srcs = glob([
-        "unix/*.java",
-    ]) + [
-        "UnixJniLoader.java",
-    ],
-    deps = [
-        ":common",
-        ":shell",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "vfs",
-    srcs = glob([
-        "vfs/**/*.java",
-        "profiler/*.java",
-    ]),
-    deps = [
-        ":base-util",
-        ":clock",
-        ":common",
-        ":concurrent",
-        ":os_util",
-        ":shell",
-        ":unix",
-        "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
     name = "profiler-output",
     srcs = glob([
         "profiler/chart/*.java",
@@ -184,50 +374,41 @@ java_library(
     ],
 )
 
-# Clock classes.
 java_library(
-    name = "clock",
-    srcs = [
-        "util/BlazeClock.java",
-        "util/Clock.java",
-        "util/JavaClock.java",
-    ],
+    name = "syntax",
+    srcs = glob(["syntax/**/*.java"]),
     deps = [
-        ":concurrent",
-    ],
-)
-
-# String canonicalizer.
-java_library(
-    name = "base-util",
-    srcs = [
-        "util/StringCanonicalizer.java",
-        "util/StringTrie.java",
-        "util/VarInt.java",
-    ],
-    deps = [
-        ":common",
-        "//third_party:guava",
-    ],
-)
-
-# I/O utilities.
-java_library(
-    name = "io",
-    srcs = glob(["util/io/*.java"]),
-    deps = [
-        ":clock",
+        ":base-util",
+        ":collect",
         ":common",
         ":concurrent",
+        ":events",
+        ":util",
         ":vfs",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:build_proto",
+        "//third_party:asm",
+        "//third_party:asm-util",
+        "//third_party:auto_value",
+        "//third_party:bytebuddy",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 
-# General utilities.
 java_library(
-    name = "os_util",
-    srcs = ["util/OS.java"],
+    name = "unix",
+    srcs = glob([
+        "unix/*.java",
+    ]) + [
+        "UnixJniLoader.java",
+    ],
+    deps = [
+        ":common",
+        ":shell",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
 )
 
 java_library(
@@ -267,119 +448,32 @@ java_library(
 )
 
 java_library(
-    name = "analysis-exec-rules-skyframe",
-    srcs = glob(
-        [
-            "analysis/**/*.java",
-            "exec/*.java",
-            "ideinfo/**/*.java",
-            "rules/**/*.java",
-            "skyframe/*.java",
-        ],
-        exclude = [
-            "rules/java/JavaToolchainDataParser.java",
-        ],
-    ) + [
-        "runtime/BlazeServerStartupOptions.java",
-    ],
+    name = "vfs",
+    srcs = glob([
+        "vfs/**/*.java",
+        "profiler/*.java",
+    ]),
     deps = [
         ":base-util",
-        ":collect",
-        ":common",
-        ":concurrent",
-        ":events",
-        ":graph",
-        ":io",
-        ":os_util",
-        ":packages",
-        ":shell",
-        ":util",
-        ":vfs",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:android_studio_ide_info_proto",
-        "//src/main/protobuf:bundlemerge_proto",
-        "//src/main/protobuf:crosstool_config_proto",
-        "//src/main/protobuf:extra_actions_base_proto",
-        "//src/main/protobuf:test_status_proto",
-        "//src/main/protobuf:xcodegen_proto",
-        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/common",
-        "//src/tools/xcode-common/java/com/google/devtools/build/xcode/util",
-        "//third_party:guava",
-        "//third_party:joda_time",
-        "//third_party:jsr305",
-        "//third_party:protobuf",
-    ],
-)
-
-java_library(
-    name = "graph",
-    srcs = glob([
-        "graph/*.java",
-    ]),
-    deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "query2",
-    srcs = glob([
-        "query2/**/*.java",
-    ]),
-    deps = [
-        ":analysis-exec-rules-skyframe",
-        ":collect",
-        ":common",
-        ":concurrent",
-        ":events",
-        ":graph",
-        ":packages",
-        ":util",
-        ":vfs",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:build_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "buildtool-runtime",
-    srcs = glob([
-        "buildtool/**/*.java",
-        "runtime/**/*.java",
-    ]),
-    deps = [
-        ":analysis-exec-rules-skyframe",
         ":clock",
-        ":collect",
         ":common",
         ":concurrent",
-        ":events",
-        ":io",
         ":os_util",
-        ":packages",
-        ":profiler-output",
-        ":query2",
-        ":server",
         ":shell",
-        ":util",
-        ":vfs",
-        "//src/main/java/com/google/devtools/build/docgen",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/skyframe",
+        ":unix",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:build_proto",
-        "//src/main/protobuf:invocation_policy_proto",
-        "//src/main/protobuf:test_status_proto",
         "//third_party:guava",
-        "//third_party:joda_time",
         "//third_party:jsr305",
-        "//third_party:protobuf",
+    ],
+)
+
+java_library(
+    name = "maven-connector",
+    srcs = ["bazel/repository/MavenConnector.java"],
+    deps = [
+        "//third_party:aether",
+        "//third_party:jsr330_inject",
+        "//third_party:maven_model",
     ],
 )
 
@@ -402,13 +496,13 @@ java_library(
         ":os_util",
         ":packages",
         ":profiler-output",
-        ":query2",
         ":shell",
         ":unix",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/docgen",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_proto",
@@ -438,128 +532,11 @@ java_library(
 )
 
 java_library(
-    name = "bazel-core",
-    srcs = glob(
-        [
-            "bazel/**/*.java",
-        ],
-        exclude = [
-            "bazel/repository/MavenConnector.java",
-        ],
-    ),
-    resources = glob([
-        "**/*.txt",
-        "**/*.html",
-        "**/*.css",
-        "**/*.js",
-        "**/*.WORKSPACE",
-        "**/*.vm",
-    ]),
-    visibility = [
-        "//src:__subpackages__",
-        "//src/tools/generate_workspace/src/main/java/com/google/devtools/build/workspace:__pkg__",
-    ],
-    runtime_deps = [
-        "//third_party:aether",
-        "//third_party:apache_commons_codec",
-        "//third_party:apache_commons_logging",
-        "//third_party:apache_httpclient",
-        "//third_party:apache_httpcore",
-        "//third_party:jsch",
-        "//third_party:maven",
-        "//third_party:maven_model",
-        "//third_party:plexus_interpolation",
-        "//third_party:plexus_utils",
-    ],
-    deps = [
-        ":analysis-exec-rules-skyframe",
-        ":buildtool-runtime",
-        ":clock",
-        ":collect",
-        ":common",
-        ":concurrent",
-        ":events",
-        ":graph",
-        ":io",
-        ":maven-connector",
-        ":os_util",
-        ":packages",
-        ":query2",
-        ":runtime",
-        ":shell",
-        ":unix",
-        ":util",
-        ":vfs",
-        "//src/java_tools/singlejar:zip",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/bazel/dash",
-        "//src/main/java/com/google/devtools/build/lib/rules/genquery",
-        "//src/main/java/com/google/devtools/build/lib/sandbox",
-        "//src/main/java/com/google/devtools/build/lib/standalone",
-        "//src/main/java/com/google/devtools/build/lib/worker",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:build_proto",
-        "//src/main/protobuf:crosstool_config_proto",
-        "//src/main/protobuf:extra_actions_base_proto",
-        "//src/main/protobuf:test_status_proto",
-        "//src/main/protobuf:worker_protocol_proto",
-        "//third_party:aether",
-        "//third_party:apache_commons_compress",
-        "//third_party:apache_commons_pool2",
-        "//third_party:auto_value",
-        "//third_party:guava",
-        "//third_party:jgit",
-        "//third_party:joda_time",
-        "//third_party:jsr305",
-        "//third_party:jsr330_inject",
-        "//third_party:maven",
-        "//third_party:maven_model",
-        "//third_party:plexus_component_annotations",
-        "//third_party:protobuf",
-        "//third_party:slf4j",
-    ],
-)
-
-java_library(
-    name = "maven-connector",
-    srcs = ["bazel/repository/MavenConnector.java"],
-    deps = [
-        "//third_party:aether",
-        "//third_party:jsr330_inject",
-        "//third_party:maven_model",
-    ],
-)
-
-java_library(
-    name = "java-toolchain-parser",
-    testonly = 1,
+    name = "shell",
     srcs = glob([
-        # JavaToolchain parser
-        "rules/java/JavaToolchainData.java",
-        "rules/java/JavaToolchainDataParser.java",
-        # Concurrent stuff
-        "concurrent/*.java",
+        "shell/*.java",
     ]),
-    visibility = [
-        "//src/java_tools/buildjar:__pkg__",
-    ],
-    deps = [
-        ":common",
-        "//src/main/protobuf:build_proto",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:protobuf",
-    ],
-)
-
-java_binary(
-    name = "bazel-main",
-    main_class = "com.google.devtools.build.lib.bazel.BazelMain",
-    visibility = ["//src:__pkg__"],
-    runtime_deps = [
-        ":bazel-core",
-    ],
+    deps = ["//third_party:guava"],
 )
 
 filegroup(
@@ -571,6 +548,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/worker:srcs",
+        "//src/main/java/com/google/devtools/build/lib/query2:srcs",
         "//src/main/java/com/google/devtools/build/docgen:srcs",
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
