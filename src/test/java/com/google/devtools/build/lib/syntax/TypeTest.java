@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.syntax;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertSameContents;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotSame;
@@ -181,17 +180,18 @@ public class TypeTest {
 
   @Test
   public void testTagConversion() throws Exception {
-    assertSameContents(Sets.newHashSet("attribute"),
-        Type.BOOLEAN.toTagSet(true, "attribute"));
-    assertSameContents(Sets.newHashSet("noattribute"),
-        Type.BOOLEAN.toTagSet(false, "attribute"));
+    assertThat(Type.BOOLEAN.toTagSet(true, "attribute"))
+        .containsExactlyElementsIn(Sets.newHashSet("attribute"));
+    assertThat(Type.BOOLEAN.toTagSet(false, "attribute"))
+        .containsExactlyElementsIn(Sets.newHashSet("noattribute"));
 
-    assertSameContents(Sets.newHashSet("whiskey"),
-        Type.STRING.toTagSet("whiskey", "preferred_cocktail"));
+    assertThat(Type.STRING.toTagSet("whiskey", "preferred_cocktail"))
+        .containsExactlyElementsIn(Sets.newHashSet("whiskey"));
 
-    assertSameContents(Sets.newHashSet("cheddar", "ementaler", "gruyere"),
-        Type.STRING_LIST.toTagSet(
-            Lists.newArrayList("cheddar", "ementaler", "gruyere"), "cheeses"));
+    assertThat(
+            Type.STRING_LIST.toTagSet(
+                Lists.newArrayList("cheddar", "ementaler", "gruyere"), "cheeses"))
+        .containsExactlyElementsIn(Sets.newHashSet("cheddar", "ementaler", "gruyere"));
   }
 
   @Test

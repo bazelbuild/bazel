@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertSameContents;
+import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -122,18 +122,20 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
 
     useConfiguration("-c", "opt");
     getMapper("//a:bin").visitLabels(testVisitor);
-    assertSameContents(ImmutableList.of(binSrc, Label.parseAbsolute("//a:adep")), visitedLabels);
+    assertThat(visitedLabels)
+        .containsExactlyElementsIn(ImmutableList.of(binSrc, Label.parseAbsolute("//a:adep")));
 
     visitedLabels.clear();
     useConfiguration("-c", "dbg");
     getMapper("//a:bin").visitLabels(testVisitor);
-    assertSameContents(ImmutableList.of(binSrc, Label.parseAbsolute("//a:bdep")), visitedLabels);
+    assertThat(visitedLabels)
+        .containsExactlyElementsIn(ImmutableList.of(binSrc, Label.parseAbsolute("//a:bdep")));
 
     visitedLabels.clear();
     useConfiguration("-c", "fastbuild");
     getMapper("//a:bin").visitLabels(testVisitor);
-    assertSameContents(
-        ImmutableList.of(binSrc, Label.parseAbsolute("//a:defaultdep")), visitedLabels);
+    assertThat(visitedLabels)
+        .containsExactlyElementsIn(ImmutableList.of(binSrc, Label.parseAbsolute("//a:defaultdep")));
   }
 
   /**
@@ -165,9 +167,8 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
     useConfiguration("-c", "dbg");
 
     // Target configuration is in dbg mode, so we should match //conditions:b:
-    assertSameContents(
-        ImmutableList.of(Label.parseAbsolute("//a:bdep")),
-        getMapper("//a:gen").get("tools", BuildType.LABEL_LIST));
+    assertThat(getMapper("//a:gen").get("tools", BuildType.LABEL_LIST))
+        .containsExactlyElementsIn(ImmutableList.of(Label.parseAbsolute("//a:bdep")));
 
     // Verify the "tools" dep uses a different configuration that's not also in "dbg":
     assertEquals(Attribute.ConfigurationTransition.HOST,
@@ -190,8 +191,9 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
         "    cmd = 'nothing',",
         ")");
     useConfiguration("--define", "foo=a", "--define", "bar=d");
-    assertSameContents(
-         ImmutableList.of(Label.parseAbsolute("//hello:a.in"), Label.parseAbsolute("//hello:d.in")),
-         getMapper("//hello:gen").get("srcs", BuildType.LABEL_LIST));
+    assertThat(getMapper("//hello:gen").get("srcs", BuildType.LABEL_LIST))
+        .containsExactlyElementsIn(
+            ImmutableList.of(
+                Label.parseAbsolute("//hello:a.in"), Label.parseAbsolute("//hello:d.in")));
   }
 }

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.analysis.select;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertSameContents;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -101,12 +100,12 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
 
   public void testGetConfigurabilityKeys() throws Exception {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
-    assertSameContents(
-        ImmutableSet.of(
-            Label.parseAbsolute("//conditions:a"),
-            Label.parseAbsolute("//conditions:b"),
-            Label.parseAbsolute("//conditions:default")),
-        rawMapper.getConfigurabilityKeys("srcs", BuildType.LABEL_LIST));
+    assertThat(rawMapper.getConfigurabilityKeys("srcs", BuildType.LABEL_LIST))
+        .containsExactlyElementsIn(
+            ImmutableSet.of(
+                Label.parseAbsolute("//conditions:a"),
+                Label.parseAbsolute("//conditions:b"),
+                Label.parseAbsolute("//conditions:default")));
     assertThat(rawMapper.getConfigurabilityKeys("data", BuildType.LABEL_LIST)).isEmpty();
   }
 

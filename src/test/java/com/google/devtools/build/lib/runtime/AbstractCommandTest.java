@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
@@ -29,9 +31,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-
-import static org.junit.Assert.assertEquals;
-
 /**
  * Tests {@link BlazeCommand}.
  */
@@ -79,9 +78,10 @@ public class AbstractCommandTest {
     ConfiguredRuleClassProvider ruleClassProvider = new ConfiguredRuleClassProvider.Builder()
         .build();
 
-    MoreAsserts.assertSameContents(optionClassesWithDefault(FooOptions.class, BarOptions.class),
-        BlazeCommandUtils.getOptions(
-            TestCommand.class, ImmutableList.<BlazeModule>of(), ruleClassProvider));
+    assertThat(
+            BlazeCommandUtils.getOptions(
+                TestCommand.class, ImmutableList.<BlazeModule>of(), ruleClassProvider))
+        .containsExactlyElementsIn(optionClassesWithDefault(FooOptions.class, BarOptions.class));
   }
 
   /***************************************************************************
@@ -100,12 +100,14 @@ public class AbstractCommandTest {
   public void testOptionsAreInherited() {
     ConfiguredRuleClassProvider ruleClassProvider = new ConfiguredRuleClassProvider.Builder()
         .build();
-    MoreAsserts.assertSameContents(optionClassesWithDefault(FooOptions.class),
-        BlazeCommandUtils.getOptions(
-            CommandA.class, ImmutableList.<BlazeModule>of(), ruleClassProvider));
-    MoreAsserts.assertSameContents(optionClassesWithDefault(FooOptions.class, BarOptions.class),
-        BlazeCommandUtils.getOptions(
-            CommandB.class, ImmutableList.<BlazeModule>of(), ruleClassProvider));
+    assertThat(
+            BlazeCommandUtils.getOptions(
+                CommandA.class, ImmutableList.<BlazeModule>of(), ruleClassProvider))
+        .containsExactlyElementsIn(optionClassesWithDefault(FooOptions.class));
+    assertThat(
+            BlazeCommandUtils.getOptions(
+                CommandB.class, ImmutableList.<BlazeModule>of(), ruleClassProvider))
+        .containsExactlyElementsIn(optionClassesWithDefault(FooOptions.class, BarOptions.class));
   }
 
   private Collection<Class<?>> optionClassesWithDefault(Class<?>... optionClasses) {

@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
 import com.google.common.util.concurrent.Uninterruptibles;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
@@ -228,11 +227,12 @@ public class GlobTest {
                                              Collection<String> excludes,
                                              String... expecteds)
       throws Exception {
-    MoreAsserts.assertSameContents(resolvePaths(expecteds),
-        new UnixGlob.Builder(tmpPath)
-            .addPatterns(pattern)
-            .addExcludes(excludes)
-            .globInterruptible());
+    assertThat(
+            new UnixGlob.Builder(tmpPath)
+                .addPatterns(pattern)
+                .addExcludes(excludes)
+                .globInterruptible())
+        .containsExactlyElementsIn(resolvePaths(expecteds));
   }
 
   private Set<Path> resolvePaths(String... relativePaths) {
@@ -260,11 +260,12 @@ public class GlobTest {
       }
     };
 
-    MoreAsserts.assertSameContents(ImmutableList.of(tmpPath.getRelative("foo/bar/wiz/file")),
-        new UnixGlob.Builder(tmpPath)
-            .addPattern("foo/bar/wiz/file")
-            .setFilesystemCalls(new AtomicReference<>(syscalls))
-            .glob());
+    assertThat(
+            new UnixGlob.Builder(tmpPath)
+                .addPattern("foo/bar/wiz/file")
+                .setFilesystemCalls(new AtomicReference<>(syscalls))
+                .glob())
+        .containsExactlyElementsIn(ImmutableList.of(tmpPath.getRelative("foo/bar/wiz/file")));
   }
 
   @Test
@@ -455,9 +456,22 @@ public class GlobTest {
     // In the non-interruptible case, the interrupt bit should be set, but the
     // glob should return the correct set of full results.
     assertTrue(Thread.interrupted());
-    MoreAsserts.assertSameContents(resolvePaths(".", "foo", "foo/bar", "foo/bar/wiz",
-        "foo/bar/wiz/file", "foo/barnacle", "foo/barnacle/wiz", "food", "food/barnacle",
-        "food/barnacle/wiz", "fool", "fool/barnacle", "fool/barnacle/wiz"), result);
+    assertThat(result)
+        .containsExactlyElementsIn(
+            resolvePaths(
+                ".",
+                "foo",
+                "foo/bar",
+                "foo/bar/wiz",
+                "foo/bar/wiz/file",
+                "foo/barnacle",
+                "foo/barnacle/wiz",
+                "food",
+                "food/barnacle",
+                "food/barnacle/wiz",
+                "fool",
+                "fool/barnacle",
+                "fool/barnacle/wiz"));
 
     assertFalse(executor.isShutdown());
     executor.shutdown();

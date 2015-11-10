@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertSameContents;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -177,11 +176,12 @@ public class RecursiveGlobTest {
   private void assertGlobWithExcludesMatches(Collection<String> pattern,
                                              Collection<String> excludes,
                                              String... expecteds) throws Exception {
-    assertSameContents(resolvePaths(expecteds),
-        new UnixGlob.Builder(tmpPath)
-            .addPatterns(pattern)
-            .addExcludes(excludes)
-            .globInterruptible());
+    assertThat(
+            new UnixGlob.Builder(tmpPath)
+                .addPatterns(pattern)
+                .addExcludes(excludes)
+                .globInterruptible())
+        .containsExactlyElementsIn(resolvePaths(expecteds));
   }
 
   private Set<Path> resolvePaths(String... relativePaths) {

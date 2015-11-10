@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertSameContents;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
@@ -66,12 +65,12 @@ public class FailActionTest {
 
   @Test
   public void testInputsAreEmptySet() {
-    assertSameContents(Collections.emptySet(), failAction.getInputs());
+    assertThat(failAction.getInputs()).containsExactlyElementsIn(Collections.emptySet());
   }
 
   @Test
   public void testRetainsItsOutputs() {
-    assertSameContents(outputs, failAction.getOutputs());
+    assertThat(failAction.getOutputs()).containsExactlyElementsIn(outputs);
   }
 
   @Test

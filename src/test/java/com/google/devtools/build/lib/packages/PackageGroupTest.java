@@ -13,13 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -126,8 +126,8 @@ public class PackageGroupTest {
   public void testEverythingSpecificationWorks() throws Exception {
     scratch.file("fruits/BUILD", "package_group(name = 'mango', packages = ['//...'])");
     PackageGroup packageGroup = getPackageGroup("fruits", "mango");
-    MoreAsserts.assertSameContents(
-        ImmutableList.of(PackageSpecification.EVERYTHING), packageGroup.getPackageSpecifications());
+    assertThat(packageGroup.getPackageSpecifications())
+        .containsExactlyElementsIn(ImmutableList.of(PackageSpecification.EVERYTHING));
   }
 
   private Package getPackage(String packageName) throws Exception {

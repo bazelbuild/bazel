@@ -51,34 +51,6 @@ import java.util.regex.Pattern;
  */
 public class MoreAsserts {
 
-  public static void assertContainsRegex(String regex, String actual) {
-    assertThat(actual).containsMatch(regex);
-  }
-
-  public static void assertContainsRegex(String msg, String regex, String actual) {
-    assertWithMessage(msg).that(actual).containsMatch(regex);
-  }
-
-  public static void assertNotContainsRegex(String regex, String actual) {
-    assertThat(actual).doesNotContainMatch(regex);
-  }
-
-  public static void assertNotContainsRegex(String msg, String regex, String actual) {
-    assertWithMessage(msg).that(actual).doesNotContainMatch(regex);
-  }
-
-  public static void assertMatchesRegex(String regex, String actual) {
-    assertThat(actual).matches(regex);
-  }
-
-  public static void assertMatchesRegex(String msg, String regex, String actual) {
-    assertWithMessage(msg).that(actual).matches(regex);
-  }
-
-  public static void assertNotMatchesRegex(String regex, String actual) {
-    assertThat(actual).doesNotMatch(regex);
-  }
-
   public static <T> void assertEquals(T expected, T actual, Comparator<T> comp) {
     assertThat(comp.compare(expected, actual)).isEqualTo(0);
   }
@@ -96,46 +68,6 @@ public class MoreAsserts {
       }
     }
     assertThat(actual).hasSize(i);
-  }
-
-  public static void assertGreaterThanOrEqual(long target, long actual) {
-    assertThat(actual).isAtLeast(target);
-  }
-
-  public static void assertGreaterThanOrEqual(String msg, long target, long actual) {
-    assertWithMessage(msg).that(actual).isAtLeast(target);
-  }
-
-  public static void assertGreaterThan(long target, long actual) {
-    assertThat(actual).isGreaterThan(target);
-  }
-
-  public static void assertGreaterThan(String msg, long target, long actual) {
-    assertWithMessage(msg).that(actual).isGreaterThan(target);
-  }
-
-  public static void assertLessThanOrEqual(long target, long actual) {
-    assertThat(actual).isAtMost(target);
-  }
-
-  public static void assertLessThanOrEqual(String msg, long target, long actual) {
-    assertWithMessage(msg).that(actual).isAtMost(target);
-  }
-
-  public static void assertLessThan(long target, long actual) {
-    assertThat(actual).isLessThan(target);
-  }
-
-  public static void assertLessThan(String msg, long target, long actual) {
-    assertWithMessage(msg).that(actual).isLessThan(target);
-  }
-
-  public static void assertEndsWith(String ending, String actual) {
-    assertThat(actual).endsWith(ending);
-  }
-
-  public static void assertStartsWith(String prefix, String actual) {
-    assertThat(actual).startsWith(prefix);
   }
 
   /**
@@ -316,13 +248,6 @@ public class MoreAsserts {
     return set;
   }
 
-  public static <T> void assertSameContents(
-      Iterable<? extends T> expected, Iterable<? extends T> actual) {
-    if (!Sets.newHashSet(expected).equals(Sets.newHashSet(actual))) {
-      fail("got string set: " + asStringSet(actual) + "\nwant: " + asStringSet(expected));
-    }
-  }
-
   /**
    * If the specified EventCollector contains any events, an informative
    * assertion fails in the context of the specified TestCase.
@@ -469,25 +394,6 @@ public class MoreAsserts {
       assertThat(Collections.indexOfSubList(arguments, sublist)).isEqualTo(-1);
     } catch (AssertionError e) {
       throw new AssertionError("Found " + sublist + " as a sublist of " + arguments, e);
-    }
-  }
-
-  /**
-   * If "arguments" does not contain "expectedSubset" as a subset, an
-   * informative assertion is failed in the context of the specified TestCase.
-   *
-   * <p>Argument order mnemonic: assert(X)ContainsSubset(Y).
-   */
-  public static <T> void assertContainsSubset(Iterable<T> arguments,
-                                              Iterable<T> expectedSubset) {
-    Set<T> argumentsSet = arguments instanceof Set<?>
-        ? (Set<T>) arguments
-        : Sets.newHashSet(arguments);
-
-    for (T x : expectedSubset) {
-      assertWithMessage("assertContainsSubset failed: did not find element " + x
-          + "\nExpected subset = " + expectedSubset + "\nArguments = " + arguments)
-          .that(argumentsSet).contains(x);
     }
   }
 

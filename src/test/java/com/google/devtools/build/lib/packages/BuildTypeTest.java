@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertSameContents;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -92,7 +91,7 @@ public class BuildTypeTest {
         Label.parseAbsolute("//conditions:a"), Label.create("a", "a"),
         Label.parseAbsolute("//conditions:b"), Label.create("b", "b"),
         Label.parseAbsolute(BuildType.Selector.DEFAULT_CONDITION_KEY), Label.create("d", "d"));
-    assertSameContents(expectedMap.entrySet(), selector.getEntries().entrySet());
+    assertThat(selector.getEntries().entrySet()).containsExactlyElementsIn(expectedMap.entrySet());
   }
 
   /**
@@ -153,25 +152,25 @@ public class BuildTypeTest {
         ImmutableList.of(selector1, selector2), null, currentRule, BuildType.LABEL_LIST);
 
     assertEquals(BuildType.LABEL_LIST, selectorList.getOriginalType());
-    assertSameContents(
-        ImmutableSet.of(
-            Label.parseAbsolute("//conditions:a"), Label.parseAbsolute("//conditions:b"),
-            Label.parseAbsolute("//conditions:c"), Label.parseAbsolute("//conditions:d")),
-        selectorList.getKeyLabels());
+    assertThat(selectorList.getKeyLabels())
+        .containsExactlyElementsIn(
+            ImmutableSet.of(
+                Label.parseAbsolute("//conditions:a"), Label.parseAbsolute("//conditions:b"),
+                Label.parseAbsolute("//conditions:c"), Label.parseAbsolute("//conditions:d")));
 
     List<Selector<List<Label>>> selectors = selectorList.getSelectors();
-    assertSameContents(
-        ImmutableMap.of(
-                Label.parseAbsolute("//conditions:a"), ImmutableList.of(Label.create("a", "a")),
-                Label.parseAbsolute("//conditions:b"), ImmutableList.of(Label.create("b", "b")))
-            .entrySet(),
-        selectors.get(0).getEntries().entrySet());
-    assertSameContents(
-        ImmutableMap.of(
-            Label.parseAbsolute("//conditions:c"), ImmutableList.of(Label.create("c", "c")),
-            Label.parseAbsolute("//conditions:d"), ImmutableList.of(Label.create("d", "d")))
-            .entrySet(),
-        selectors.get(1).getEntries().entrySet());
+    assertThat(selectors.get(0).getEntries().entrySet())
+        .containsExactlyElementsIn(
+            ImmutableMap.of(
+                    Label.parseAbsolute("//conditions:a"), ImmutableList.of(Label.create("a", "a")),
+                    Label.parseAbsolute("//conditions:b"), ImmutableList.of(Label.create("b", "b")))
+                .entrySet());
+    assertThat(selectors.get(1).getEntries().entrySet())
+        .containsExactlyElementsIn(
+            ImmutableMap.of(
+                    Label.parseAbsolute("//conditions:c"), ImmutableList.of(Label.create("c", "c")),
+                    Label.parseAbsolute("//conditions:d"), ImmutableList.of(Label.create("d", "d")))
+                .entrySet());
   }
 
   @Test
@@ -207,18 +206,20 @@ public class BuildTypeTest {
     Object converted = BuildType
         .selectableConvert(BuildType.LABEL_LIST, nativeInput, null, currentRule);
     assertTrue(converted instanceof List<?>);
-    assertSameContents(expectedLabels, (List<Label>) converted);
+    assertThat((List<Label>) converted).containsExactlyElementsIn(expectedLabels);
 
     // Conversion to selectable type:
     converted = BuildType
         .selectableConvert(BuildType.LABEL_LIST, selectableInput, null, currentRule);
     BuildType.SelectorList<?> selectorList = (BuildType.SelectorList<?>) converted;
-    assertSameContents(
-        ImmutableMap.of(
-            Label.parseAbsolute("//conditions:a"), expectedLabels,
-            Label.parseAbsolute(BuildType.Selector.DEFAULT_CONDITION_KEY),
-            expectedLabels).entrySet(),
-        ((Selector<Label>) selectorList.getSelectors().get(0)).getEntries().entrySet());
+    assertThat(((Selector<Label>) selectorList.getSelectors().get(0)).getEntries().entrySet())
+        .containsExactlyElementsIn(
+            ImmutableMap.of(
+                    Label.parseAbsolute("//conditions:a"),
+                    expectedLabels,
+                    Label.parseAbsolute(BuildType.Selector.DEFAULT_CONDITION_KEY),
+                    expectedLabels)
+                .entrySet());
   }
 
   /**

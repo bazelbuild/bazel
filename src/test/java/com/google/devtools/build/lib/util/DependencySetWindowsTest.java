@@ -13,8 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.util;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -49,8 +50,7 @@ public class DependencySetWindowsTest {
         new PathFragment("C:/mingw/include/_mingw.h"),
         new PathFragment("C:/mingw/lib/gcc/mingw32/4.8.1/include/stdarg.h"));
 
-    MoreAsserts.assertSameContents(expected,
-        newDependencySet().read(dotd).getDependencies());
+    assertThat(newDependencySet().read(dotd).getDependencies()).containsExactlyElementsIn(expected);
   }
 
   @Test
@@ -58,9 +58,9 @@ public class DependencySetWindowsTest {
     Path dotd = scratch.file("/tmp/foo.d",
         "bazel-out/hello-lib/cpp/hello-lib.o: \\",
         "C:\\Program\\ Files\\ (x86)\\LLVM\\stddef.h");
-    MoreAsserts.assertSameContents(
-        Sets.newHashSet(new PathFragment("C:/Program Files (x86)/LLVM/stddef.h")),
-        newDependencySet().read(dotd).getDependencies());
+    assertThat(newDependencySet().read(dotd).getDependencies())
+        .containsExactlyElementsIn(
+            Sets.newHashSet(new PathFragment("C:/Program Files (x86)/LLVM/stddef.h")));
   }
 
   @Test
@@ -83,7 +83,6 @@ public class DependencySetWindowsTest {
         new PathFragment("C:/Program Files (x86)/LLVM/lib/clang/3.5.0/include/stddef.h"),
         new PathFragment("C:/Program Files (x86)/LLVM/lib/clang/3.5.0/include/stdarg.h"));
 
-    MoreAsserts.assertSameContents(expected,
-        newDependencySet().read(dotd).getDependencies());
+    assertThat(newDependencySet().read(dotd).getDependencies()).containsExactlyElementsIn(expected);
   }
 }

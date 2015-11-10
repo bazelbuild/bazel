@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -319,10 +318,10 @@ public abstract class GlobFunctionTest {
 
   private void assertGlobMatches(boolean excludeDirs, String pattern, String... expecteds)
       throws Exception {
-    MoreAsserts.assertSameContents(
-        ImmutableList.copyOf(expecteds),
-        Iterables.transform(
-            runGlob(excludeDirs, pattern).getMatches(), Functions.toStringFunction()));
+    assertThat(
+            Iterables.transform(
+                runGlob(excludeDirs, pattern).getMatches(), Functions.toStringFunction()))
+        .containsExactlyElementsIn(ImmutableList.copyOf(expecteds));
   }
 
   private void assertGlobsEqual(String pattern1, String pattern2) throws Exception {

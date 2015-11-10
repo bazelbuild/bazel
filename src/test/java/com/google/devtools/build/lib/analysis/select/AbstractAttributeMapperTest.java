@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -133,8 +132,8 @@ public class AbstractAttributeMapperTest extends FoundationTestCase {
   public void testVisitation() throws Exception {
     VisitationRecorder recorder = new VisitationRecorder();
     mapper.visitLabels(recorder);
-    MoreAsserts.assertSameContents(
-        ImmutableList.of("//x:a", "//x:b", "//x:c"), recorder.labelsVisited);
+    assertThat(recorder.labelsVisited)
+        .containsExactlyElementsIn(ImmutableList.of("//x:a", "//x:b", "//x:c"));
   }
 
   public void testComputedDefault() throws Exception {
