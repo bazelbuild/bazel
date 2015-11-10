@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <errno.h>
+#include <errno.h>  // errno, ENAMETOOLONG
 #include <limits.h>
 #include <string.h>  // strerror
+#include <sys/cygwin.h>
 #include <sys/socket.h>
 #include <sys/statfs.h>
-#include <sys/cygwin.h>
 #include <unistd.h>
 
 #include <windows.h>
