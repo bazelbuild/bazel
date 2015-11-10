@@ -14,7 +14,7 @@
 #include "src/main/cpp/util/numbers.h"
 
 #include <stdint.h>
-#include <errno.h>
+#include <errno.h>  // errno, ERANGE
 #include <limits.h>
 #include <cassert>
 #include <cstdlib>
