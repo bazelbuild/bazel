@@ -187,7 +187,7 @@ function test_gen_image() {
 }
 
 function test_dummy_repository() {
-  local layer="eae4fa9baf743667fbe3f8d76fd598cf9ea5052261bbfaa552780dd2744c47a4"
+  local layer="0279f3ce8b08d10506abcf452393b3e48439f5eca41b836fae59a0d509fbafea"
   local test_data="${TEST_DATA_DIR}/dummy_repository.tar"
   check_layers_aux "dummy_repository" "$layer"
 
@@ -202,13 +202,13 @@ function test_dummy_repository() {
 
 function test_files_base() {
   check_layers "files_base" \
-    "240dd12c02aee796394ce18eee3108475f7d544294b17fc90ec54e983601fe1b"
+    "82ca3945f7d07df82f274d7fafe83fd664c2154e5c64c988916ccd5b217bb710"
 }
 
 function test_files_with_files_base() {
   check_layers "files_with_files_base" \
-    "240dd12c02aee796394ce18eee3108475f7d544294b17fc90ec54e983601fe1b" \
-    "a9fd8cab2b9831ca2a13f371c04667a7698ef3baa90f3e820c4568d774cc69ab"
+    "82ca3945f7d07df82f274d7fafe83fd664c2154e5c64c988916ccd5b217bb710" \
+    "84c0d09919ae8b06cb6b064d8cd5eab63341a46f11ccc7ecbe270ad3e1f52744"
 }
 
 function test_tar_base() {
@@ -230,7 +230,7 @@ function test_tar_with_tar_base() {
 function test_files_with_tar_base() {
   check_layers "files_with_tar_base" \
     "8b9e4db9dd4b990ee6d8adc2843ad64702ad9063ae6c22e8ca5f94aa54e71277" \
-    "b0fe5685bf89a2c875a93495a4e2b7a3f1fb6f27a9ac5dc2b174e7d74cb6fe27"
+    "f099727fa58f9b688e77b511b3cc728b86ae0e84d197b9330bd51082ad5589f2"
 }
 
 function test_workdir_with_tar_base() {
@@ -241,70 +241,70 @@ function test_workdir_with_tar_base() {
 
 function test_tar_with_files_base() {
   check_layers "tar_with_files_base" \
-    "240dd12c02aee796394ce18eee3108475f7d544294b17fc90ec54e983601fe1b" \
-    "c1ec3719c075f54f65045f127a6cfd77675c547446cdda7193de81b9b59afb51"
+    "82ca3945f7d07df82f274d7fafe83fd664c2154e5c64c988916ccd5b217bb710" \
+    "bee1a325e4b51a1dcfd7e447987b4e130590815865ab22e8744878053d525f20"
 }
 
 function test_base_with_entrypoint() {
   check_layers "base_with_entrypoint" \
-    "b5f7dbb1097fa15ac31e86a149b8de2efeaedd5b8f008ba88cf2ae51adf1bd00"
+    "4acbeb0495918726c0107e372b421e1d2a6fd4825d58fc3f0b0b2a719fb3ce1b"
 
   check_entrypoint "base_with_entrypoint" \
-    "b5f7dbb1097fa15ac31e86a149b8de2efeaedd5b8f008ba88cf2ae51adf1bd00" \
+    "4acbeb0495918726c0107e372b421e1d2a6fd4825d58fc3f0b0b2a719fb3ce1b" \
     '["/bar"]'
 
   # Check that the base layer has a port exposed.
   check_ports "base_with_entrypoint" \
-    "b5f7dbb1097fa15ac31e86a149b8de2efeaedd5b8f008ba88cf2ae51adf1bd00" \
+    "4acbeb0495918726c0107e372b421e1d2a6fd4825d58fc3f0b0b2a719fb3ce1b" \
     '{"8080/tcp": {}}'
 }
 
 function test_derivative_with_shadowed_cmd() {
   check_layers "derivative_with_shadowed_cmd" \
-    "b5f7dbb1097fa15ac31e86a149b8de2efeaedd5b8f008ba88cf2ae51adf1bd00" \
-    "f1303868df182b4bdbf3abeba580e4fe9fe9b976615dcaa67ea167d954f364d3"
+    "4acbeb0495918726c0107e372b421e1d2a6fd4825d58fc3f0b0b2a719fb3ce1b" \
+    "e35f57dc6c1e84ae67dcaaf3479a3a3c0f52ac4d194073bd6214e04c05beab42"
 }
 
 function test_derivative_with_cmd() {
   check_layers "derivative_with_cmd" \
-    "b5f7dbb1097fa15ac31e86a149b8de2efeaedd5b8f008ba88cf2ae51adf1bd00" \
-    "f1303868df182b4bdbf3abeba580e4fe9fe9b976615dcaa67ea167d954f364d3" \
-    "e050a01061b34d8703a672e0c6e573911ba1925fadfbcaf76999ace937108cee"
+    "4acbeb0495918726c0107e372b421e1d2a6fd4825d58fc3f0b0b2a719fb3ce1b" \
+    "e35f57dc6c1e84ae67dcaaf3479a3a3c0f52ac4d194073bd6214e04c05beab42" \
+    "186289545131e34510006ac79498078dcf41736a5eb9a36920a6b30d3f45bc01"
 
   check_entrypoint "derivative_with_cmd" \
-    "e050a01061b34d8703a672e0c6e573911ba1925fadfbcaf76999ace937108cee" \
+    "186289545131e34510006ac79498078dcf41736a5eb9a36920a6b30d3f45bc01" \
     '["/bar"]'
 
   # Check that the middle layer has our shadowed arg.
   check_cmd "derivative_with_cmd" \
-    "f1303868df182b4bdbf3abeba580e4fe9fe9b976615dcaa67ea167d954f364d3" \
+    "e35f57dc6c1e84ae67dcaaf3479a3a3c0f52ac4d194073bd6214e04c05beab42" \
     '["shadowed-arg"]'
 
   # Check that our topmost layer excludes the shadowed arg.
   check_cmd "derivative_with_cmd" \
-    "e050a01061b34d8703a672e0c6e573911ba1925fadfbcaf76999ace937108cee" \
+    "186289545131e34510006ac79498078dcf41736a5eb9a36920a6b30d3f45bc01" \
     '["arg1", "arg2"]'
 
   # Check that the topmost layer has the ports exposed by the bottom
   # layer, and itself.
   check_ports "derivative_with_cmd" \
-    "e050a01061b34d8703a672e0c6e573911ba1925fadfbcaf76999ace937108cee" \
+    "186289545131e34510006ac79498078dcf41736a5eb9a36920a6b30d3f45bc01" \
     '{"80/tcp": {}, "8080/tcp": {}}'
 }
 
 function test_derivative_with_volume() {
   check_layers "derivative_with_volume" \
-    "f86da639a9346bec6d3a821ad1f716a177a8ff8f71d66f8b70238ce7e7ba51b8" \
-    "839bbd055b732c784847b3ec112d88c94f3bb752147987daef916bc956f9adf0"
+    "125e7cfb9d4a6d803a57b88bcdb05d9a6a47ac0d6312a8b4cff52a2685c5c858" \
+    "08424283ad3a7e020e210bec22b166d7ebba57f7ba2d0713c2fd7bd1e2038f88"
 
   # Check that the topmost layer has the ports exposed by the bottom
   # layer, and itself.
   check_volumes "derivative_with_volume" \
-    "f86da639a9346bec6d3a821ad1f716a177a8ff8f71d66f8b70238ce7e7ba51b8" \
+    "125e7cfb9d4a6d803a57b88bcdb05d9a6a47ac0d6312a8b4cff52a2685c5c858" \
     '{"/logs": {}}'
 
   check_volumes "derivative_with_volume" \
-    "839bbd055b732c784847b3ec112d88c94f3bb752147987daef916bc956f9adf0" \
+    "08424283ad3a7e020e210bec22b166d7ebba57f7ba2d0713c2fd7bd1e2038f88" \
     '{"/asdf": {}, "/blah": {}, "/logs": {}}'
 }
 
@@ -315,35 +315,23 @@ function test_generated_tarball() {
 
 function test_with_env() {
   check_layers "with_env" \
-    "f86da639a9346bec6d3a821ad1f716a177a8ff8f71d66f8b70238ce7e7ba51b8" \
-    "80b94376a90de45256c3e94c82bc3812bc5cbd05b7d01947f29e6805e8cd7018"
+    "125e7cfb9d4a6d803a57b88bcdb05d9a6a47ac0d6312a8b4cff52a2685c5c858" \
+    "42a1bd0f449f61a23b8a7776875ffb6707b34ee99c87d6428a7394f5e55e8624"
 
   check_env "with_env" \
-    "80b94376a90de45256c3e94c82bc3812bc5cbd05b7d01947f29e6805e8cd7018" \
+    "42a1bd0f449f61a23b8a7776875ffb6707b34ee99c87d6428a7394f5e55e8624" \
     '["bar=blah blah blah", "foo=/asdf"]'
 }
 
 function test_with_double_env() {
   check_layers "with_double_env" \
-    "f86da639a9346bec6d3a821ad1f716a177a8ff8f71d66f8b70238ce7e7ba51b8" \
-    "80b94376a90de45256c3e94c82bc3812bc5cbd05b7d01947f29e6805e8cd7018" \
-    "548e1d847a1d051e3cb3af383b0ebe40d341c01c97e735ae5a78ee3e10353b93"
+    "125e7cfb9d4a6d803a57b88bcdb05d9a6a47ac0d6312a8b4cff52a2685c5c858" \
+    "42a1bd0f449f61a23b8a7776875ffb6707b34ee99c87d6428a7394f5e55e8624" \
+    "576a9fd9c690be04dc7aacbb9dbd1f14816e32dbbcc510f4d42325bbff7163dd"
 
   # Check both the aggregation and the expansion of embedded variables.
   check_env "with_double_env" \
-    "548e1d847a1d051e3cb3af383b0ebe40d341c01c97e735ae5a78ee3e10353b93" \
-    '["bar=blah blah blah", "baz=/asdf blah blah blah", "foo=/asdf"]'
-}
-
-function test_with_double_env() {
-  check_layers "with_double_env" \
-    "f86da639a9346bec6d3a821ad1f716a177a8ff8f71d66f8b70238ce7e7ba51b8" \
-    "80b94376a90de45256c3e94c82bc3812bc5cbd05b7d01947f29e6805e8cd7018" \
-    "548e1d847a1d051e3cb3af383b0ebe40d341c01c97e735ae5a78ee3e10353b93"
-
-  # Check both the aggregation and the expansion of embedded variables.
-  check_env "with_double_env" \
-    "548e1d847a1d051e3cb3af383b0ebe40d341c01c97e735ae5a78ee3e10353b93" \
+    "576a9fd9c690be04dc7aacbb9dbd1f14816e32dbbcc510f4d42325bbff7163dd" \
     '["bar=blah blah blah", "baz=/asdf blah blah blah", "foo=/asdf"]'
 }
 
@@ -356,8 +344,8 @@ function get_layer_listing() {
 }
 
 function test_data_path() {
-  local no_data_path_sha="29bab1d66ea34ebbb9604704322458e0f06a3a9a7b0ac08df8b95a6c9c3d9320"
-  local data_path_sha="9a5c6b96227af212d1300964aaeb0723e78e78de019de1ba2382603f3050558a"
+  local no_data_path_sha="451d182e5c71840f00ba9726dc0239db73a21b7e89e79c77f677e3f7c5c23d44"
+  local data_path_sha="9a41c9e1709558f7ef06f28f66e9056feafa7e0f83990801e1b27c987278d8e8"
 
   check_layers_aux "no_data_path_image" "${no_data_path_sha}"
   check_layers_aux "data_path_image" "${data_path_sha}"
@@ -366,10 +354,13 @@ function test_data_path() {
   # (since it is the path in the package) and with data_path = "."
   # the file will be inserted relatively to the testdata package
   # (so `./test/test`).
-  check_eq $(get_layer_listing "no_data_path_image" "${no_data_path_sha}") \
-    ./test
-  check_eq $(get_layer_listing "data_path_image" "${data_path_sha}") \
-    ./test/test
+  check_eq "$(get_layer_listing "no_data_path_image" "${no_data_path_sha}")" \
+    './
+./test'
+  check_eq "$(get_layer_listing "data_path_image" "${data_path_sha}")" \
+    './
+./test/
+./test/test'
 }
 
 function test_extras_with_deb() {
