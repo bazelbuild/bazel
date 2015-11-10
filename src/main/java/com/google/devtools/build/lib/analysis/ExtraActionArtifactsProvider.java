@@ -77,9 +77,8 @@ public final class ExtraActionArtifactsProvider implements TransitiveInfoProvide
   }
 
   /** The outputs of the extra actions associated with this target. */
-  private ImmutableList<Artifact> extraActionArtifacts = ImmutableList.of();
-  private NestedSet<ExtraArtifactSet> transitiveExtraActionArtifacts =
-      NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+  private final ImmutableList<Artifact> extraActionArtifacts;
+  private final NestedSet<ExtraArtifactSet> transitiveExtraActionArtifacts;;
 
   public ExtraActionArtifactsProvider(ImmutableList<Artifact> extraActionArtifacts,
       NestedSet<ExtraArtifactSet> transitiveExtraActionArtifacts) {
