@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsRegex;
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeIsoLatin1;
 
 import com.google.devtools.build.lib.events.Event;
@@ -89,17 +89,17 @@ public class SubincludePreprocessorTest extends PackageLoadingTestCase {
     scratch.file("foo/baz", "genrule('turtle2')");
 
     String out = assertPreprocessingSucceeds(in);
-    assertContainsRegex("turtle1", out);
-    assertContainsRegex("turtle2", out);
-    assertContainsRegex("mocksubinclude\\('//foo:bar', *'/workspace/foo/bar'\\)", out);
-    assertContainsRegex("mocksubinclude\\('//foo:baz', *'/workspace/foo/baz'\\)", out);
+    assertThat(out).containsMatch("turtle1");
+    assertThat(out).containsMatch("turtle2");
+    assertThat(out).containsMatch("mocksubinclude\\('//foo:bar', *'/workspace/foo/bar'\\)");
+    assertThat(out).containsMatch("mocksubinclude\\('//foo:baz', *'/workspace/foo/baz'\\)");
   }
 
   public void testSubincludeNotFound() throws Exception {
     ParserInputSource in = createInputSource("subinclude('//nonexistent:bar')");
     scratch.file("foo/BUILD");
     String out = assertPreprocessingSucceeds(in);
-    assertContainsRegex("mocksubinclude\\('//nonexistent:bar', *''\\)", out);
+    assertThat(out).containsMatch("mocksubinclude\\('//nonexistent:bar', *''\\)");
     assertContainsEvent("Cannot find subincluded file");
   }
 

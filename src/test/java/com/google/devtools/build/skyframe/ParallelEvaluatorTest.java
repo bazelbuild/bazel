@@ -18,8 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertGreaterThan;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertLessThan;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static org.junit.Assert.assertEquals;
@@ -1069,8 +1067,8 @@ public class ParallelEvaluatorTest {
    * topKey, if {@code selfEdge} is true.
    */
   private static void assertManyCycles(ErrorInfo errorInfo, SkyKey topKey, boolean selfEdge) {
-    assertGreaterThan(1, Iterables.size(errorInfo.getCycleInfo()));
-    assertLessThan(50, Iterables.size(errorInfo.getCycleInfo()));
+    assertThat(Iterables.size(errorInfo.getCycleInfo())).isGreaterThan(1);
+    assertThat(Iterables.size(errorInfo.getCycleInfo())).isLessThan(50);
     boolean foundSelfEdge = false;
     for (CycleInfo cycle : errorInfo.getCycleInfo()) {
       assertEquals(1, cycle.getCycle().size()); // Self-edge.

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.cmdline;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsRegex;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
@@ -185,7 +184,7 @@ public class LabelTest {
       Label.parseAbsolute(label);
       fail("Label '" + label + "' did not contain a syntax error");
     } catch (LabelSyntaxException e) {
-      assertContainsRegex(Pattern.quote(expectedError), e.getMessage());
+      assertThat(e.getMessage()).containsMatch(Pattern.quote(expectedError));
     }
   }
 

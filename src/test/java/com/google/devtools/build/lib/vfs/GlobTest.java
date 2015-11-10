@@ -364,7 +364,7 @@ public class GlobTest {
           .globInterruptible();
       fail();
     } catch (IllegalArgumentException e) {
-      MoreAsserts.assertContainsRegex("in glob pattern", e.getMessage());
+      assertThat(e.getMessage()).containsMatch("in glob pattern");
     }
   }
 

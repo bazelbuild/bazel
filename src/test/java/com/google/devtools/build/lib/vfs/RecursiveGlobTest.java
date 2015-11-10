@@ -20,7 +20,6 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
@@ -219,7 +218,7 @@ public class RecursiveGlobTest {
           .globInterruptible();
       fail();
     } catch (IllegalArgumentException e) {
-      MoreAsserts.assertContainsRegex("recursive wildcard must be its own segment", e.getMessage());
+      assertThat(e.getMessage()).containsMatch("recursive wildcard must be its own segment");
     }
   }
 

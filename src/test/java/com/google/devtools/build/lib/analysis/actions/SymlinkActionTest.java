@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.actions;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 
 import com.google.common.collect.Sets;
@@ -22,7 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
-import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -83,7 +83,7 @@ public class SymlinkActionTest extends BuildViewTestCase {
       action.execute(actionExecutionContext);
       fail("Expected ActionExecutionException");
     } catch (ActionExecutionException e) {
-      MoreAsserts.assertContainsRegex("'input.txt' is not executable", e.getMessage());
+      assertThat(e.getMessage()).containsMatch("'input.txt' is not executable");
     }
     input.setExecutable(true);
     action.execute(actionExecutionContext);
