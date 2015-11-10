@@ -43,6 +43,9 @@ java_library(
     srcs = [
         "Constants.java",
     ],
+    exports = [
+        "//third_party:guava",
+    ],
     deps = [
         "//third_party:guava",
         "//third_party:jsr305",
@@ -100,6 +103,11 @@ java_library(
 
 java_library(
     name = "packages",
+    exports = [":packages-internal"],
+)
+
+java_library(
+    name = "packages-internal",
     srcs = glob([
         "packages/*.java",
         "pkgcache/*.java",
@@ -236,6 +244,12 @@ java_library(
             "util/VarInt.java",
         ],
     ),
+    exports = [
+        ":base-util",
+        ":clock",
+        ":collect",
+        ":os_util",
+    ],
     deps = [
         ":base-util",
         ":clock",
