@@ -303,10 +303,10 @@ public class BazelCppRuleClasses {
           <i>(Dictionary mapping strings to lists of
              <a href="build-ref.html#labels">labels</a>; optional)</i>
           <p><i><a href="#configurable-attributes">Configurable attributes</a> is a generalization
-            of the same concept that works for most rules and attributes. It mostly deprecates
-            <code>abi_deps</code>, which we expect to remove it as soon as possible. Use
-            configurable attributes over <code>abi_deps</code> whenever possible. If the former is
-            insufficient for you, please let us know why.</i>
+            of the same concept that works for most rules and attributes. It deprecates
+            <code>abi_deps</code>, which we intend to ultimately remove. Use configurable
+            attributes over <code>abi_deps</code> whenever possible. When not possible, let
+            us know why.</i>
           </p>
           <p>Each entry in this dictionary follows the form of
              <code>'pattern' : ['label1', 'label2', ...]</code>.  If the library's
