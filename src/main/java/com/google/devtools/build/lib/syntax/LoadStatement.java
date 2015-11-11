@@ -74,7 +74,7 @@ public final class LoadStatement extends Statement {
 
         if (current.isPrivate()) {
           throw new EvalException(
-              getLocation(), "symbol '" + current + "' is private and cannot be imported");
+              getLocation(), "symbol '" + current + "' is private and cannot be imported.");
         }
         // The key is the original name that was used to define the symbol
         // in the loaded bzl file
@@ -114,11 +114,11 @@ public final class LoadStatement extends Statement {
     String error = null;
 
     if (pathString.getValue().isEmpty()) {
-      error = "Path argument to load() must not be empty";
+      error = "Path argument to load() must not be empty.";
     } else if (pathString.getValue().startsWith("//")) {
       error =
           "First argument of load() is a path, not a label. "
-          + "It should start with a single slash if it is an absolute path";
+          + "It should start with a single slash if it is an absolute path.";
     }
 
     if (error != null) {
