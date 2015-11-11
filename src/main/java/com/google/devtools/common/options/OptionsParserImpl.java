@@ -587,16 +587,6 @@ class OptionsParserImpl {
             value = "0";
           }
         }
-
-        // Add a deprecation warning if the old name for the flag is used.
-        if (field != null) {
-          Option option = field.getAnnotation(Option.class);
-          String oldName = option.oldName();
-          if (name.equals(oldName)) {
-            addDeprecationWarning(oldName, "Use --" + option.name() + " instead");
-          }
-        }
-
       } else {
         throw new OptionsParsingException("Invalid options syntax: " + arg, arg);
       }
