@@ -867,13 +867,13 @@ public class PackageFunction implements SkyFunction {
     if (pkgBuilder == null) {
       profiler.startTask(ProfilerTask.CREATE_PACKAGE, packageId.toString());
       try {
-        Globber globber = packageFactory.createLegacyGlobber(buildFilePath.getParentDirectory(),
-            packageId, packageLocator);
         AstAfterPreprocessing astAfterPreprocessing = astCache.getIfPresent(packageId);
         if (astAfterPreprocessing == null) {
           if (showLoadingProgress.get()) {
             env.getListener().handle(Event.progress("Loading package: " + packageId));
           }
+          Globber globber = packageFactory.createLegacyGlobber(buildFilePath.getParentDirectory(),
+              packageId, packageLocator);
           Preprocessor.Result preprocessingResult;
           if (replacementContents == null) {
             Preconditions.checkNotNull(buildFileValue, packageId);
@@ -909,8 +909,12 @@ public class PackageFunction implements SkyFunction {
           StoredEventHandler astParsingEventHandler = new StoredEventHandler();
           BuildFileAST ast = PackageFactory.parseBuildFile(packageId, preprocessingResult.result,
               preludeStatements, astParsingEventHandler);
+          // If no globs were fetched during preprocessing, then there's no need to reuse *this
+          // globber instance* during BUILD file evaluation; the correctness and performance
+          // arguments below do not apply.
+          Globber globberToStore = globber.getGlobPatterns().isEmpty() ? null : globber;
           astAfterPreprocessing = new AstAfterPreprocessing(preprocessingResult, ast,
-              astParsingEventHandler);
+              astParsingEventHandler, globberToStore);
           astCache.put(packageId, astAfterPreprocessing);
         }
         SkylarkImportResult importResult;
@@ -929,6 +933,14 @@ public class PackageFunction implements SkyFunction {
           return null;
         }
         astCache.invalidate(packageId);
+        // If the globber was used to evaluate globs during preprocessing, it's important that we
+        // reuse that globber during BUILD file evaluation for two reasons: (i) correctness, since
+        // Skyframe deps are added after the fact (ii) performance, in the case that globs were
+        // fetched lazily during preprocessing.
+        Globber globber = astAfterPreprocessing.globber != null
+            ? astAfterPreprocessing.globber
+            : packageFactory.createLegacyGlobber(buildFilePath.getParentDirectory(),
+                packageId, packageLocator);
         pkgBuilder = packageFactory.createPackageFromPreprocessingAst(externalPkg, packageId,
             buildFilePath, astAfterPreprocessing, importResult.importMap,
             importResult.fileDependencies, defaultVisibility, globber);

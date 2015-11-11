@@ -1006,8 +1006,8 @@ public final class PackageFactory {
     // show up below.
     BuildFileAST buildFileAST = parseBuildFile(packageId, preprocessingResult.result,
         preludeStatements, localReporterForParsing);
-    AstAfterPreprocessing astAfterPreprocessing =
-        new AstAfterPreprocessing(preprocessingResult, buildFileAST, localReporterForParsing);
+    AstAfterPreprocessing astAfterPreprocessing = new AstAfterPreprocessing(preprocessingResult,
+        buildFileAST, localReporterForParsing, /*globber=*/null);
     return createPackageFromPreprocessingAst(
         externalPkg,
         packageId,

@@ -181,15 +181,18 @@ public interface Preprocessor {
     public final BuildFileAST ast;
     public final boolean containsAstParsingErrors;
     public final Iterable<Event> allEvents;
+    @Nullable
+    public final Globber globber;
 
     public AstAfterPreprocessing(Result preprocessingResult, BuildFileAST ast,
-        StoredEventHandler astParsingEventHandler) {
+        StoredEventHandler astParsingEventHandler, @Nullable Globber globber) {
       this.ast = ast;
       this.preprocessed = preprocessingResult.preprocessed;
       this.containsPreprocessingErrors = preprocessingResult.containsErrors;
       this.containsAstParsingErrors = astParsingEventHandler.hasErrors();
       this.allEvents = Iterables.concat(
           preprocessingResult.events, astParsingEventHandler.getEvents());
+      this.globber = globber;
     }
   }
 }
