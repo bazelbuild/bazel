@@ -73,15 +73,8 @@ int main(int argc, char** argv) {
 EOF
 }
 
-function tear_down() {
-  rm -rf examples/cpp
-}
-
 # Tests for #473: Sandboxing for C++ compilation was accidentally disabled.
 function test_sandboxed_cpp_build_rebuilds_on_change() {
-  bazel --batch clean &> $TEST_log \
-    || fail "bazel clean failed"
-
   bazel build --spawn_strategy=sandboxed //examples/cpp:hello-world &> $TEST_log \
     || fail "Building hello-world failed"
 
@@ -102,9 +95,6 @@ function test_sandboxed_cpp_build_rebuilds_on_change() {
 }
 
 function test_sandboxed_cpp_build_catches_missing_header_via_sandbox() {
-  bazel --batch clean &> $TEST_log \
-    || fail "bazel clean failed"
-
   cat << 'EOF' > examples/cpp/BUILD
 cc_library(
     name = "hello-lib",
@@ -124,9 +114,6 @@ EOF
 # header files from libraries that are specified in "hdrs" and not "srcs", but we never check that,
 # so the test fails. :(
 function DISABLED_test_sandboxed_cpp_build_catches_header_only_in_srcs() {
-  bazel --batch clean &> $TEST_log \
-    || fail "bazel clean failed"
-
   cat << 'EOF' > examples/cpp/BUILD
 cc_library(
     name = "hello-lib",
@@ -151,9 +138,6 @@ EOF
 }
 
 function test_standalone_cpp_build_rebuilds_on_change() {
-  bazel --batch clean &> $TEST_log \
-    || fail "bazel clean failed"
-
   bazel build --spawn_strategy=standalone //examples/cpp:hello-world &> $TEST_log \
     || fail "Building hello-world failed"
 
@@ -174,9 +158,6 @@ function test_standalone_cpp_build_rebuilds_on_change() {
 }
 
 function test_standalone_cpp_build_catches_missing_header() {
-  bazel --batch clean &> $TEST_log \
-    || fail "bazel clean failed"
-
   cat << 'EOF' > examples/cpp/BUILD
 cc_library(
     name = "hello-lib",
@@ -194,9 +175,6 @@ EOF
 # TODO(philwo) disabled for the same reason as test_sandboxed_cpp_build_catches_header_only_in_srcs
 # above.
 function DISABLED_test_standalone_cpp_build_catches_header_only_in_srcs() {
-  bazel --batch clean &> $TEST_log \
-    || fail "bazel clean failed"
-
   cat << 'EOF' > examples/cpp/BUILD
 cc_library(
     name = "hello-lib",

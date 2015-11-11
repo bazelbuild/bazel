@@ -82,7 +82,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
     this.blazeDirs = blazeDirs;
     this.execRoot = blazeDirs.getExecRoot();
-    this.backgroundWorkers = backgroundWorkers;
+    this.backgroundWorkers = Preconditions.checkNotNull(backgroundWorkers);
     this.verboseFailures = verboseFailures;
     this.sandboxDebug = sandboxDebug;
     this.standaloneStrategy = new StandaloneSpawnStrategy(blazeDirs.getExecRoot(), verboseFailures);

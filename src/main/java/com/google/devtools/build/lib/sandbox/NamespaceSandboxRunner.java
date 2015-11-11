@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.TerminationStatus;
-import com.google.devtools.build.lib.unix.FilesystemUtils;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -221,7 +220,7 @@ public class NamespaceSandboxRunner {
 
   public void cleanup() throws IOException {
     if (sandboxPath.exists()) {
-      FilesystemUtils.rmTree(sandboxPath.getPathString());
+      FileSystemUtils.deleteTree(sandboxPath);
     }
   }
 }
