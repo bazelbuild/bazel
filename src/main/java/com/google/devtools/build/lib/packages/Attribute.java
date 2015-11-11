@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.StringUtil;
 
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -251,6 +252,10 @@ public final class Attribute implements Comparable<Attribute> {
   public static class AllowedValueSet implements PredicateWithMessage<Object> {
 
     private final Set<Object> allowedValues;
+
+    public <T> AllowedValueSet(T... values) {
+      this(Arrays.asList(values));
+    }
 
     public AllowedValueSet(Iterable<?> values) {
       Preconditions.checkNotNull(values);
