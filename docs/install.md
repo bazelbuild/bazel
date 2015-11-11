@@ -8,7 +8,7 @@ layout: documentation
 
 Supported platforms:
 
-*   Ubuntu Linux (Utopic 14.10 and Trusty 14.04 LTS)
+*   Ubuntu Linux (Wily 15.10 and Trusty 14.04 LTS)
 *   Mac OS X
 
 Java:
@@ -31,7 +31,7 @@ $ sudo apt-get update
 $ sudo apt-get install oracle-java8-installer
 ```
 
-**Ubuntu Utopic (14.10).** To install OpenJDK 8:
+**Ubuntu Wily (15.10).** To install OpenJDK 8:
 
 ```
 $ sudo apt-get install openjdk-8-jdk openjdk-8-source

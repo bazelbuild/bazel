@@ -10,9 +10,9 @@ free to give it a try.
 
 <img src="/assets/dash.png" class="img-responsive" style="width: 800px; border: 1px solid black;"/>
 
-First, you'll need to update your bazel (`git pull` and rerun `./compile.sh`).
+First, you'll need to download or clone [the dashboard project](https://github.com/bazelbuild/dash).
 
-Run `bazel build //src/tools/dash && bazel-bin/src/tools/dash/dash` and add
+Run `bazel build :dash && bazel-bin/dash` and add
 this line to your `~/.bazelrc`:
 
 ```
@@ -28,7 +28,7 @@ http://localhost:8080/ (each build will print a unique URL to visit).
 
 <img src="/assets/dash-shell.png"/>
 
-See [the README](https://github.com/bazelbuild/bazel/blob/master/src/tools/dash/README.md)
+See [the README](https://github.com/bazelbuild/dash/blob/master/README.md)
 for documentation.
 
 This is very much a work in progress. Please let us know if you have any
