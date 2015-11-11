@@ -403,15 +403,15 @@ final class ConfiguredTargetFunction implements SkyFunction {
         Verify.verify(transition == Attribute.ConfigurationTransition.NONE
             || transition instanceof PatchTransition);
         BuildOptions fromOptions = ctgOptions;
-        if (!sameFragments) {
-          // TODO(bazel-team): pre-compute getOptionsClasses in the constructor.
-          fromOptions = fromOptions.trim(BuildConfiguration.getOptionsClasses(
-              transitiveDepInfo.getTransitiveConfigFragments(), ruleClassProvider));
-        }
         // TODO(bazel-team): safety-check that the below call never mutates fromOptions.
         toOptions = transition == Attribute.ConfigurationTransition.NONE
             ? fromOptions
             : ((PatchTransition) transition).apply(fromOptions);
+        if (!sameFragments) {
+          // TODO(bazel-team): pre-compute getOptionsClasses in the constructor.
+          toOptions = toOptions.trim(BuildConfiguration.getOptionsClasses(
+              transitiveDepInfo.getTransitiveConfigFragments(), ruleClassProvider));
+        }
         transitionsMap.put(transitionKey, toOptions);
       }
 
