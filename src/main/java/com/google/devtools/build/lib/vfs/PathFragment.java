@@ -379,6 +379,9 @@ public final class PathFragment implements Comparable<PathFragment>, Serializabl
    * with no path normalization or I/O performed.
    */
   public PathFragment getRelative(PathFragment otherFragment) {
+    if (otherFragment == EMPTY_FRAGMENT) {
+      return this;
+    }
     return otherFragment.isAbsolute()
         ? otherFragment
         : new PathFragment(this, otherFragment);

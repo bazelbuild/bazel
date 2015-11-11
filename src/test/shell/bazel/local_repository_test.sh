@@ -924,4 +924,51 @@ EOF
   expect_log "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'"
 }
 
+function test_remote_includes() {
+  local remote=$TEST_TMPDIR/r
+  rm -fr $remote
+  mkdir -p $remote/inc
+
+  touch $remote/WORKSPACE
+  cat > $remote/BUILD <<EOF
+cc_library(
+    name = "bar",
+    srcs = ["bar.cc"],
+    hdrs = ["inc/bar.h"],
+    visibility = ["//visibility:public"],
+)
+EOF
+  cat > $remote/bar.cc <<EOF
+#include "inc/bar.h"
+int getNum() {
+  return 42;
+}
+EOF
+  cat > $remote/inc/bar.h <<EOF
+int getNum();
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r",
+    path = "$remote",
+)
+EOF
+cat > BUILD <<EOF
+cc_binary(
+    name = "foo",
+    srcs = ["foo.cc"],
+    deps = ["@r//:bar"],
+)
+EOF
+  cat > foo.cc <<EOF
+#include <stdio.h>
+#include "inc/bar.h"
+int main() { printf("%d\n", getNum()); return 0; };
+EOF
+
+  bazel run :foo &> $TEST_log || fail "build failed"
+  expect_log "42"
+}
+
 run_suite "local repository tests"

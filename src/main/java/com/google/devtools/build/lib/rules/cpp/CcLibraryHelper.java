@@ -743,8 +743,11 @@ public final class CcLibraryHelper {
     // generated files. It is important that the execRoot (EMPTY_FRAGMENT) comes
     // before the genfilesFragment to preferably pick up source files. Otherwise
     // we might pick up stale generated files.
-    contextBuilder.addQuoteIncludeDir(PathFragment.EMPTY_FRAGMENT);
-    contextBuilder.addQuoteIncludeDir(ruleContext.getConfiguration().getGenfilesFragment());
+    PathFragment repositoryPath =
+        ruleContext.getLabel().getPackageIdentifier().getRepository().getPathFragment();
+    contextBuilder.addQuoteIncludeDir(repositoryPath);
+    contextBuilder.addQuoteIncludeDir(
+        ruleContext.getConfiguration().getGenfilesFragment().getRelative(repositoryPath));
 
     for (PathFragment systemIncludeDir : systemIncludeDirs) {
       contextBuilder.addSystemIncludeDir(systemIncludeDir);
