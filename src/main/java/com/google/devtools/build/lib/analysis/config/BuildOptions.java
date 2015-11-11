@@ -32,6 +32,7 @@ import com.google.devtools.common.options.OptionsParsingException;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -219,7 +220,7 @@ public final class BuildOptions implements Cloneable, Serializable {
   /**
    * Returns the options contained in this collection.
    */
-  public Iterable<FragmentOptions> getOptions() {
+  public Collection<FragmentOptions> getOptions() {
     return fragmentOptionsMap.values();
   }
 

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.common.options.Options;
 
 import java.util.Map;
@@ -276,5 +277,17 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     checkError(
         "--nodistinct_host_configuration does not currently work with dynamic configurations",
         "--nodistinct_host_configuration", "--experimental_dynamic_configs");
+  }
+
+  public void testEqualsOrIsSupersetOf() throws Exception {
+    BuildConfiguration config = create();
+    BuildConfiguration trimmedConfig = config.clone(
+        ImmutableSet.<Class<? extends Fragment>>of(CppConfiguration.class),
+        TestRuleClassProvider.getRuleClassProvider());
+    BuildConfiguration hostConfig = createHost();
+
+    assertTrue(config.equalsOrIsSupersetOf(trimmedConfig));
+    assertFalse(config.equalsOrIsSupersetOf(hostConfig));
+    assertFalse(trimmedConfig.equalsOrIsSupersetOf(config));
   }
 }
