@@ -90,6 +90,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     skyFunctions.put(
         SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL, new RecursiveFilesystemTraversalFunction());
     skyFunctions.put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(deletedPackages));
+    skyFunctions.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
+        new BlacklistedPackagePrefixesFunction());
 
     progressReceiver = new RecordingEvaluationProgressReceiver();
     differencer = new RecordingDifferencer();
@@ -97,7 +99,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
-    PrecomputedValue.BLACKLISTED_PKG_PREFIXES.set(differencer, ImmutableSet.<PathFragment>of());
+    PrecomputedValue.BLACKLISTED_PACKAGE_PREFIXES_FILE.set(
+        differencer, PathFragment.EMPTY_FRAGMENT);
   }
 
   private Artifact sourceArtifact(String path) {

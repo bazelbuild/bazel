@@ -51,6 +51,8 @@ public final class SkyFunctions {
       SkyFunctionName.create("PREPARE_DEPS_OF_PATTERN");
   public static final SkyFunctionName PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY =
       SkyFunctionName.create("PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY");
+  public static final SkyFunctionName BLACKLISTED_PACKAGE_PREFIXES =
+      SkyFunctionName.create("BLACKLISTED_PACKAGE_PREFIXES");
   public static final SkyFunctionName TEST_SUITE_EXPANSION =
       SkyFunctionName.create("TEST_SUITE_EXPANSION");
   public static final SkyFunctionName TESTS_IN_SUITE = SkyFunctionName.create("TESTS_IN_SUITE");

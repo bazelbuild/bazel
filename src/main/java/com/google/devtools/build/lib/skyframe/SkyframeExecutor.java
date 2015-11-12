@@ -344,6 +344,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERN, new PrepareDepsOfPatternFunction(pkgLocator));
     map.put(SkyFunctions.PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY,
         new PrepareDepsOfTargetsUnderDirectoryFunction());
+    map.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES, new BlacklistedPackagePrefixesFunction());
     map.put(SkyFunctions.TESTS_IN_SUITE, new TestsInSuiteFunction());
     map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestSuiteExpansionFunction());
     map.put(SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternPhaseFunction());
@@ -499,8 +500,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     }
   }
 
-  protected ImmutableSet<PathFragment> getBlacklistedPkgPrefixes() {
-    return ImmutableSet.of();
+  protected PathFragment getBlacklistedPackagePrefixesFile() {
+    return PathFragment.EMPTY_FRAGMENT;
   }
 
   class BuildViewProvider {
@@ -861,8 +862,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public abstract void setDeletedPackages(Iterable<PackageIdentifier> pkgs);
 
   @VisibleForTesting
-  public final void setBlacklistedPkgPrefixes(ImmutableSet<PathFragment> blacklist) {
-    PrecomputedValue.BLACKLISTED_PKG_PREFIXES.set(injectable(), blacklist);
+  public final void setBlacklistedPackagePrefixesFile(PathFragment blacklistedPkgFile) {
+    PrecomputedValue.BLACKLISTED_PACKAGE_PREFIXES_FILE.set(injectable(), blacklistedPkgFile);
   }
 
   /**
@@ -879,7 +880,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
     maybeInjectPrecomputedValuesForAnalysis();
     setCommandId(commandId);
-    setBlacklistedPkgPrefixes(getBlacklistedPkgPrefixes());
+    setBlacklistedPackagePrefixesFile(getBlacklistedPackagePrefixesFile());
     setShowLoadingProgress(showLoadingProgress);
     setDefaultVisibility(defaultVisibility);
     setupDefaultPackage(defaultsPackageContents);
