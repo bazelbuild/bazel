@@ -135,6 +135,9 @@ public abstract class RepositoryFunction implements SkyFunction {
   protected RepositoryValue symlinkBuildFile(
       Rule rule, Path workspaceDirectory, FileValue directoryValue, Environment env)
       throws RepositoryFunctionException {
+    Preconditions.checkState(
+        directoryValue.realRootedPath().getRelativePath().equals(PathFragment.EMPTY_FRAGMENT));
+
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     PathFragment buildFile = new PathFragment(mapper.get("build_file", Type.STRING));
     Path buildFileTarget = workspaceDirectory.getRelative(buildFile);
@@ -167,7 +170,8 @@ public abstract class RepositoryFunction implements SkyFunction {
           Transience.TRANSIENT);
     }
 
-    Path buildFilePath = directoryValue.realRootedPath().asPath().getRelative("BUILD");
+    RootedPath buildFilePath = RootedPath.toRootedPath(
+        directoryValue.realRootedPath().getRoot(), new PathFragment("BUILD"));
     if (createSymbolicLink(buildFilePath, buildFileTarget, env) == null) {
       return null;
     }
@@ -207,8 +211,8 @@ public abstract class RepositoryFunction implements SkyFunction {
       throws RepositoryFunctionException {
     try {
       for (Path target : targetDirectory.getDirectoryEntries()) {
-        Path symlinkPath =
-            repositoryDirectory.getRelative(target.getBaseName());
+        RootedPath symlinkPath = RootedPath.toRootedPath(
+            repositoryDirectory, new PathFragment(target.getBaseName()));
         if (createSymbolicLink(symlinkPath, target, env) == null) {
           return false;
         }
@@ -220,24 +224,23 @@ public abstract class RepositoryFunction implements SkyFunction {
     return true;
   }
 
-  private static FileValue createSymbolicLink(Path from, Path to, Environment env)
+  private static FileValue createSymbolicLink(RootedPath from, Path to, Environment env)
       throws RepositoryFunctionException {
+    Path fromPath = from.asPath();
     try {
       // Remove not-symlinks that are already there.
-      if (from.exists()) {
-        from.delete();
+      if (fromPath.exists()) {
+        fromPath.delete();
       }
-      FileSystemUtils.ensureSymbolicLink(from, to);
+      FileSystemUtils.ensureSymbolicLink(fromPath, to);
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(String.format("Error creating symbolic link from %s to %s: %s",
               from, to, e.getMessage())), Transience.TRANSIENT);
     }
 
-    SkyKey outputDirectoryKey = FileValue.key(RootedPath.toRootedPath(
-        from, PathFragment.EMPTY_FRAGMENT));
     try {
-      return (FileValue) env.getValueOrThrow(outputDirectoryKey, IOException.class,
+      return (FileValue) env.getValueOrThrow(FileValue.key(from), IOException.class,
           FileSymlinkException.class, InconsistentFilesystemException.class);
     } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
       throw new RepositoryFunctionException(
