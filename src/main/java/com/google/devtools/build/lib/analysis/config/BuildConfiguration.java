@@ -1094,7 +1094,8 @@ public final class BuildConfiguration {
    */
   public boolean equalsOrIsSupersetOf(BuildConfiguration other) {
     return this.equals(other)
-        || (outputRoots.equals(other.outputRoots)
+        || (other != null
+                && outputRoots.equals(other.outputRoots)
                 && actionsEnabled == other.actionsEnabled
                 && fragments.values().containsAll(other.fragments.values())
                 && buildOptions.getOptions().containsAll(other.buildOptions.getOptions()));
