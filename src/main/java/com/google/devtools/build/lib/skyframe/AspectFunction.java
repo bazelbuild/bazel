@@ -224,13 +224,14 @@ public final class AspectFunction implements SkyFunction {
     }
 
     ConfiguredAspect configuredAspect =
-        view.createAspect(
+        view.getConfiguredTargetFactory().createAspect(
             analysisEnvironment,
             associatedTarget,
             aspectFactory,
+            key.getAspect(),
             directDeps,
             configConditions,
-            key.getAspect());
+            view.getHostConfiguration(associatedTarget.getConfiguration()));
 
     events.replayOn(env.getListener());
     if (events.hasErrors()) {
