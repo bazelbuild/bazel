@@ -155,7 +155,7 @@ def groovy_binary(name, main_class, srcs=[], deps=[], **kwargs):
   """Rule analagous to java_binary that accepts .groovy sources instead of .java
   sources.
   """
-  all_deps = deps
+  all_deps = deps + ["//external:groovy"]
   if srcs:
     groovy_library(
         name = name + "-lib",

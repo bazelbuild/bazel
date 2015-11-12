@@ -24,6 +24,7 @@ targets:
 
   * `//external:groovy-sdk`, pointing at the
     [Groovy SDK binaries](http://www.groovy-lang.org/download.html)
+  * `//external:groovy`, pointing at the Groovy core language jar
   * `//external:junit`, pointing at JUnit (only required if using `groovy_test`)
   * `//external:spock`, pointing at Spock (only required if using `spock_test`)
 

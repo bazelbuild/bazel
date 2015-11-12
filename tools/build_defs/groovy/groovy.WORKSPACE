@@ -8,6 +8,10 @@ bind(
   name = "groovy-sdk",
   actual = "@groovy-sdk-artifact//:sdk",
 )
+bind(
+  name = "groovy",
+  actual = "@groovy-sdk-artifact//:groovy",
+)
 
 maven_jar(
   name = "junit-artifact",
