@@ -52,11 +52,27 @@ import java.util.Objects;
 public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
   public static final PrepareDepsOfTargetsUnderDirectoryValue EMPTY =
       new PrepareDepsOfTargetsUnderDirectoryValue(false, ImmutableMap.<RootedPath, Boolean>of());
+  public static final PrepareDepsOfTargetsUnderDirectoryValue EMPTY_DIRECTORY_PACKAGE =
+      new PrepareDepsOfTargetsUnderDirectoryValue(true, ImmutableMap.<RootedPath, Boolean>of());
+
+  public static final PrepareDepsOfTargetsUnderDirectoryValue of(boolean isDirectoryPackage,
+      ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackages) {
+    if (subdirectoryTransitivelyContainsPackages.isEmpty()) {
+      if (isDirectoryPackage) {
+        return EMPTY_DIRECTORY_PACKAGE;
+      } else {
+        return EMPTY;
+      }
+    } else {
+      return new PrepareDepsOfTargetsUnderDirectoryValue(
+          isDirectoryPackage, subdirectoryTransitivelyContainsPackages);
+    }
+  }
 
   private final boolean isDirectoryPackage;
   private final ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackages;
 
-  public PrepareDepsOfTargetsUnderDirectoryValue(boolean isDirectoryPackage,
+  private PrepareDepsOfTargetsUnderDirectoryValue(boolean isDirectoryPackage,
       ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackages) {
     this.isDirectoryPackage = isDirectoryPackage;
     this.subdirectoryTransitivelyContainsPackages = Preconditions.checkNotNull(

@@ -110,7 +110,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
         }
         builder.put(prepDepsKey.getRecursivePkgKey().getRootedPath(), packagesInSubdirectory);
       }
-      return new PrepareDepsOfTargetsUnderDirectoryValue(visitor.isDirectoryPackage(),
+      return PrepareDepsOfTargetsUnderDirectoryValue.of(visitor.isDirectoryPackage(),
           builder.build());
     }
   }
