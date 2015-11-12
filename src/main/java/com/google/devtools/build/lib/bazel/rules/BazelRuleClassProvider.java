@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.bazel.rules.java.BazelJavaLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaPluginRule;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses;
 import com.google.devtools.build.lib.bazel.rules.java.BazelJavaTestRule;
-import com.google.devtools.build.lib.bazel.rules.objc.BazelIosTestRule;
 import com.google.devtools.build.lib.bazel.rules.objc.BazelJ2ObjcLibraryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyLibraryRule;
@@ -100,6 +99,7 @@ import com.google.devtools.build.lib.rules.objc.IosExtensionBinaryRule;
 import com.google.devtools.build.lib.rules.objc.IosExtensionRule;
 import com.google.devtools.build.lib.rules.objc.IosFrameworkBinaryRule;
 import com.google.devtools.build.lib.rules.objc.IosFrameworkRule;
+import com.google.devtools.build.lib.rules.objc.IosTestRule;
 import com.google.devtools.build.lib.rules.objc.J2ObjcLibraryBaseRule;
 import com.google.devtools.build.lib.rules.objc.ObjcBinaryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcBuildInfoFactory;
@@ -316,7 +316,8 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new BazelAndroidLibraryRule());
     builder.addRuleDefinition(new BazelAndroidBinaryRule());
 
-    builder.addRuleDefinition(new BazelIosTestRule());
+    builder.addRuleDefinition(new IosTestRule());
+    // TODO(bazel-team): Remove this line after experimental_ios_test is completely removed.
     builder.addRuleDefinition(new ExperimentalIosTestRule());
     builder.addRuleDefinition(new IosDeviceRule());
     builder.addRuleDefinition(new ObjcBinaryRule());

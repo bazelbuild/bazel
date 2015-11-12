@@ -19,15 +19,13 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 
 /**
- * Rule definition for {@code experimental_ios_test} rule in Bazel.
- *
- * <p>experimental_ios_test is equivalent to ios_test.
+ * Rule definition for {@code ios_test} rule in Bazel.
  */
-public final class ExperimentalIosTestRule extends AbstractIosTestRule {
+public class IosTestRule extends AbstractIosTestRule {
   @Override
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
-        .name("experimental_ios_test")
+        .name("ios_test")
         .type(RuleClassType.TEST)
         .ancestors(
             BaseRuleClasses.BaseRule.class,
@@ -38,16 +36,3 @@ public final class ExperimentalIosTestRule extends AbstractIosTestRule {
         .build();
   }
 }
-
-/*<!-- #BLAZE_RULE (NAME = experimental_ios_test, TYPE = TEST, FAMILY = Objective-C) -->
-${ATTRIBUTE_SIGNATURE}
-
-<p>Deprecated. Use ios_test instead.</p>
-
-<p>This rule provides a way to build iOS unit tests written in GTM and XCTest test frameworks
-on both iOS simulator and real devices.
-</p>
-
-${ATTRIBUTE_DEFINITION}
-
-<!-- #END_BLAZE_RULE -->*/
