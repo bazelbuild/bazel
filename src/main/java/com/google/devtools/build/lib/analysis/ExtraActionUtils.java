@@ -44,8 +44,7 @@ class ExtraActionUtils {
    * bookkeeping.
    */
   static ExtraActionArtifactsProvider createExtraActionProvider(
-      Set<Action> actionsWithoutExtraAction, List<Artifact> mandatoryStampFiles,
-      RuleContext ruleContext) {
+      Set<Action> actionsWithoutExtraAction, RuleContext ruleContext) {
     BuildConfiguration configuration = ruleContext.getConfiguration();
     if (configuration.isHostConfiguration()) {
       return ExtraActionArtifactsProvider.EMPTY;
@@ -76,22 +75,12 @@ class ExtraActionUtils {
     }
 
     // Add extra action artifacts from dependencies
-    for (TransitiveInfoCollection dep : ruleContext.getConfiguredTargetMap().values()) {
-      ExtraActionArtifactsProvider provider =
-          dep.getProvider(ExtraActionArtifactsProvider.class);
-      if (provider != null) {
-        builder.addTransitive(provider.getTransitiveExtraActionArtifacts());
-      }
+    for (ExtraActionArtifactsProvider provider : AnalysisUtils.getProviders(
+        ruleContext.getConfiguredTargetMap().values(), ExtraActionArtifactsProvider.class)) {
+      builder.addTransitive(provider.getTransitiveExtraActionArtifacts());
     }
 
-    if (mandatoryStampFiles != null && !mandatoryStampFiles.isEmpty()) {
-      builder.add(ExtraArtifactSet.of(ruleContext.getLabel(), mandatoryStampFiles));
-    }
-
-    if (extraActionArtifacts.isEmpty() && builder.isEmpty()) {
-      return ExtraActionArtifactsProvider.EMPTY;
-    }
-    return new ExtraActionArtifactsProvider(extraActionArtifacts, builder.build());
+    return ExtraActionArtifactsProvider.create(extraActionArtifacts, builder.build());
   }
 
   /**

@@ -250,4 +250,8 @@ public final class NestedSetBuilder<E> {
   public static <E> NestedSetBuilder<E> naiveLinkOrder() {
     return new NestedSetBuilder<>(Order.NAIVE_LINK_ORDER);
   }
+
+  public static <E> NestedSetBuilder<E> fromNestedSet(NestedSet<E> set) {
+    return new NestedSetBuilder<E>(set.getOrder()).addTransitive(set);
+  }
 }

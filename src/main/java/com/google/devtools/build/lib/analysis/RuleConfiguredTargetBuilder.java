@@ -13,12 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.ExtraActionUtils.createExtraActionProvider;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider.ExtraArtifactSet;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
@@ -109,9 +112,17 @@ public final class RuleConfiguredTargetBuilder {
       Preconditions.checkState(runfilesSupport != null);
       add(TestProvider.class, initializeTestProvider(filesToRunProvider));
     }
-    add(ExtraActionArtifactsProvider.class, ExtraActionUtils.createExtraActionProvider(
-        actionsWithoutExtraAction,
-        mandatoryStampFiles, ruleContext));
+
+    ExtraActionArtifactsProvider extraActionsProvider =
+        createExtraActionProvider(actionsWithoutExtraAction, ruleContext);
+    if (mandatoryStampFiles != null && !mandatoryStampFiles.isEmpty()) {
+      extraActionsProvider = ExtraActionArtifactsProvider.create(
+          extraActionsProvider.getExtraActionArtifacts(),
+          NestedSetBuilder.fromNestedSet(extraActionsProvider.getTransitiveExtraActionArtifacts())
+              .add(ExtraArtifactSet.of(ruleContext.getLabel(), mandatoryStampFiles)).build());
+    }
+    add(ExtraActionArtifactsProvider.class, extraActionsProvider);
+
     if (!outputGroupBuilders.isEmpty()) {
       ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
       for (Map.Entry<String, NestedSetBuilder<Artifact>> entry : outputGroupBuilders.entrySet()) {

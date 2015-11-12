@@ -76,11 +76,22 @@ public final class ExtraActionArtifactsProvider implements TransitiveInfoProvide
     }
   }
 
+  public static ExtraActionArtifactsProvider create(ImmutableList<Artifact> extraActionArtifacts,
+      NestedSet<ExtraArtifactSet> transitiveExtraActionArtifacts) {
+    if (extraActionArtifacts.isEmpty() && transitiveExtraActionArtifacts.isEmpty()) {
+      return EMPTY;
+    }
+    return new ExtraActionArtifactsProvider(extraActionArtifacts, transitiveExtraActionArtifacts);
+  }
+
   /** The outputs of the extra actions associated with this target. */
   private final ImmutableList<Artifact> extraActionArtifacts;
   private final NestedSet<ExtraArtifactSet> transitiveExtraActionArtifacts;;
 
-  public ExtraActionArtifactsProvider(ImmutableList<Artifact> extraActionArtifacts,
+  /**
+   * Use {@link #create} instead.
+   */
+  private ExtraActionArtifactsProvider(ImmutableList<Artifact> extraActionArtifacts,
       NestedSet<ExtraArtifactSet> transitiveExtraActionArtifacts) {
     this.extraActionArtifacts = extraActionArtifacts;
     this.transitiveExtraActionArtifacts = transitiveExtraActionArtifacts;
