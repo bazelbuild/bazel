@@ -1836,7 +1836,9 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       Root sysrootRoot;
       try {
         sysrootRoot = Iterables.getOnlyElement(
-          resolver.findPackageRoots(ImmutableList.of(getSysroot())).entrySet()).getValue();
+          resolver.findPackageRootsForFiles(
+              // See doc of findPackageRootsForFiles for why we need a getChild here.
+              ImmutableList.of(getSysroot().getChild("dummy_child"))).entrySet()).getValue();
       } catch (PackageRootResolutionException prre) {
         throw new ViewCreationFailedException("Failed to determine sysroot", prre);
       }

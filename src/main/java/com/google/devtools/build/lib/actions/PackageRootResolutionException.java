@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.actions;
 
 /**
  * Exception signaling an error occurred determining package roots. See
- * {@link PackageRootResolver#findPackageRoots(Iterable)} for further details.
+ * {@link PackageRootResolver#findPackageRootsForFiles(Iterable)} for further details.
  */
 public class PackageRootResolutionException extends Exception {
 

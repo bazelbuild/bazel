@@ -235,7 +235,7 @@ public class ArtifactFactoryTest {
     }
 
     @Override
-    public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths) {
+    public Map<PathFragment, Root> findPackageRootsForFiles(Iterable<PathFragment> execPaths) {
       Map<PathFragment, Root> result = new HashMap<>();
       for (PathFragment execPath : execPaths) {
         for (PathFragment dir = execPath.getParentDirectory(); dir != null;

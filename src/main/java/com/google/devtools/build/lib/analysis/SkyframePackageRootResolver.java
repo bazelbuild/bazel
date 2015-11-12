@@ -38,7 +38,7 @@ public final class SkyframePackageRootResolver implements PackageRootResolver {
   }
 
   @Override
-  public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths)
+  public Map<PathFragment, Root> findPackageRootsForFiles(Iterable<PathFragment> execPaths)
       throws PackageRootResolutionException {
     return executor.getArtifactRoots(eventHandler, execPaths);
   }

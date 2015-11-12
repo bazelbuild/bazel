@@ -699,9 +699,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       Iterable<PathFragment> execPaths) throws PackageRootResolutionException {
     final List<SkyKey> packageKeys = new ArrayList<>();
     for (PathFragment execPath : execPaths) {
-      Preconditions.checkArgument(!execPath.isAbsolute(), execPath);
+      PathFragment parent = Preconditions.checkNotNull(
+          execPath.getParentDirectory(), "Must pass in files, not root directory");
+      Preconditions.checkArgument(!parent.isAbsolute(), execPath);
       packageKeys.add(ContainingPackageLookupValue.key(
-          PackageIdentifier.createInDefaultRepo(execPath)));
+          PackageIdentifier.createInDefaultRepo(parent)));
     }
 
     EvaluationResult<ContainingPackageLookupValue> result;
@@ -727,7 +729,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     Map<PathFragment, Root> roots = new HashMap<>();
     for (PathFragment execPath : execPaths) {
       ContainingPackageLookupValue value = result.get(ContainingPackageLookupValue.key(
-          PackageIdentifier.createInDefaultRepo(execPath)));
+          PackageIdentifier.createInDefaultRepo(execPath.getParentDirectory())));
       if (value.hasContainingPackage()) {
         roots.put(execPath, Root.asSourceRoot(value.getContainingPackageRoot()));
       } else {

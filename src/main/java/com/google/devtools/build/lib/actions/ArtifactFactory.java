@@ -382,7 +382,7 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
         unresolvedPaths.add(execPath);
       }
     }
-    Map<PathFragment, Root> sourceRoots = resolver.findPackageRoots(unresolvedPaths);
+    Map<PathFragment, Root> sourceRoots = resolver.findPackageRootsForFiles(unresolvedPaths);
     // We are missing some dependencies. We need to rerun this method later.
     if (sourceRoots == null) {
       return null;
@@ -470,7 +470,8 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
       }
       return result;
     } else {
-      Map<PathFragment, Root> sourceRoots = resolver.findPackageRoots(Lists.newArrayList(execPath));
+      Map<PathFragment, Root> sourceRoots = resolver.findPackageRootsForFiles(
+          Lists.newArrayList(execPath));
       if (sourceRoots == null || sourceRoots.get(execPath) == null) {
         return null;
       }

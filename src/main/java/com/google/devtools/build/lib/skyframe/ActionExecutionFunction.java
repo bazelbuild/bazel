@@ -259,15 +259,18 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     }
 
     @Override
-    public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths)
+    public Map<PathFragment, Root> findPackageRootsForFiles(Iterable<PathFragment> execPaths)
         throws PackageRootResolutionException {
       Preconditions.checkState(keysRequested.isEmpty(),
           "resolver should only be called once: %s %s", keysRequested, execPaths);
       // Create SkyKeys list based on execPaths.
       Map<PathFragment, SkyKey> depKeys = new HashMap<>();
       for (PathFragment path : execPaths) {
+        PathFragment parent = Preconditions.checkNotNull(
+            path.getParentDirectory(), "Must pass in files, not root directory");
+        Preconditions.checkArgument(!parent.isAbsolute(), path);
         SkyKey depKey =
-            ContainingPackageLookupValue.key(PackageIdentifier.createInDefaultRepo(path));
+            ContainingPackageLookupValue.key(PackageIdentifier.createInDefaultRepo(parent));
         depKeys.put(path, depKey);
         keysRequested.add(depKey);
       }
