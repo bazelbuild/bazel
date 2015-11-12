@@ -15,20 +15,15 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
@@ -36,10 +31,6 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgs.ClasspathType;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
 
 /**
  * Implementation for the java_library rule.
@@ -145,28 +136,14 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     // If sources are empty, treat this library as a forwarding node for dependencies.
     JavaCompilationArgs javaCompilationArgs = common.collectJavaCompilationArgs(
-        false, neverLink, common.compilationArgsFromSources());
+        false, neverLink, common.compilationArgsFromSources(), false);
     JavaCompilationArgs recursiveJavaCompilationArgs = common.collectJavaCompilationArgs(
-        true, neverLink, common.compilationArgsFromSources());
+        true, neverLink, common.compilationArgsFromSources(), false);
     NestedSet<Artifact> compileTimeJavaDepArtifacts = common.collectCompileTimeDependencyArtifacts(
         common.getJavaCompilationArtifacts().getCompileTimeDependencyArtifact());
     NestedSet<Artifact> runTimeJavaDepArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     NestedSet<LinkerInput> transitiveJavaNativeLibraries =
         common.collectTransitiveJavaNativeLibraries();
-
-    ImmutableList<String> exportedProcessorClasses = ImmutableList.of();
-    NestedSet<Artifact> exportedProcessorClasspath =
-        NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
-    ImmutableList.Builder<String> processorClasses = ImmutableList.builder();
-    NestedSetBuilder<Artifact> processorClasspath = NestedSetBuilder.naiveLinkOrder();
-    for (JavaPluginInfoProvider provider : Iterables.concat(
-        common.getPluginInfoProvidersForAttribute("exported_plugins", Mode.HOST),
-        common.getPluginInfoProvidersForAttribute("exports", Mode.TARGET))) {
-      processorClasses.addAll(provider.getProcessorClasses());
-      processorClasspath.addTransitive(provider.getProcessorClasspath());
-    }
-    exportedProcessorClasses = processorClasses.build();
-    exportedProcessorClasspath = processorClasspath.build();
 
     CcLinkParamsStore ccLinkParamsStore = new CcLinkParamsStore() {
       @Override
@@ -176,35 +153,6 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             JavaCcLinkParamsProvider.TO_LINK_PARAMS, CcLinkParamsProvider.TO_LINK_PARAMS);
       }
     };
-
-    // The "neverlink" attribute is transitive, so we don't add any
-    // runfiles from this target or its dependencies.
-    Runfiles runfiles = Runfiles.EMPTY;
-    if (!neverLink) {
-      Runfiles.Builder runfilesBuilder = new Runfiles.Builder(ruleContext.getWorkspaceName())
-          .addArtifacts(common.getJavaCompilationArtifacts().getRuntimeJars());
-      runfilesBuilder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
-      runfilesBuilder.add(ruleContext, JavaRunfilesProvider.TO_RUNFILES);
-
-      List<TransitiveInfoCollection> depsForRunfiles = new ArrayList<>();
-      if (ruleContext.getRule().isAttrDefined("runtime_deps", BuildType.LABEL_LIST)) {
-        depsForRunfiles.addAll(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET));
-      }
-      if (ruleContext.getRule().isAttrDefined("exports", BuildType.LABEL_LIST)) {
-        depsForRunfiles.addAll(ruleContext.getPrerequisites("exports", Mode.TARGET));
-      }
-
-      runfilesBuilder.addTargets(depsForRunfiles, RunfilesProvider.DEFAULT_RUNFILES);
-      runfilesBuilder.addTargets(depsForRunfiles, JavaRunfilesProvider.TO_RUNFILES);
-
-      TransitiveInfoCollection launcher = JavaHelper.launcherForTarget(semantics, ruleContext);
-      if (launcher != null) {
-        runfilesBuilder.addTarget(launcher, RunfilesProvider.DATA_RUNFILES);
-      }
-
-      semantics.addRunfilesForLibrary(ruleContext, runfilesBuilder);
-      runfiles = runfilesBuilder.build();
-    }
 
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext);
@@ -225,7 +173,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             .addOutputJar(classJar, iJar, srcJar).build())
         .add(JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(common.getJavaCompilationArtifacts().getRuntimeJars()))
-        .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
+        .add(RunfilesProvider.class, RunfilesProvider.simple(common.getRunfiles(neverLink)))
         .setFilesToBuild(filesToBuild)
         .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, new JavaSkylarkApiProvider())
         .add(JavaNeverlinkInfoProvider.class, new JavaNeverlinkInfoProvider(neverLink))
@@ -241,8 +189,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         .add(JavaSourceJarsProvider.class, new JavaSourceJarsProvider(
             transitiveSourceJars, ImmutableList.of(srcJar)))
         // TODO(bazel-team): this should only happen for java_plugin
-        .add(JavaPluginInfoProvider.class, new JavaPluginInfoProvider(
-            exportedProcessorClasses, exportedProcessorClasspath))
+        .add(JavaPluginInfoProvider.class, common.getTransitivePlugins())
         .add(ProguardSpecProvider.class, new ProguardSpecProvider(proguardSpecs))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, proguardSpecs);

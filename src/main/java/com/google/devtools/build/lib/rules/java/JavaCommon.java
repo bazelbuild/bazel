@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.Util;
@@ -228,14 +230,18 @@ public class JavaCommon {
    *
    * @param recursive Whether to scan dependencies recursively.
    * @param isNeverLink Whether the target has the 'neverlink' attr.
+   * @param srcLessDepsExport If srcs is omitted, deps are exported
+   * (deprecated behaviour for android_library only)
    */
-  JavaCompilationArgs collectJavaCompilationArgs(boolean recursive, boolean isNeverLink,
-      Iterable<SourcesJavaCompilationArgsProvider> compilationArgsFromSources) {
+  public JavaCompilationArgs collectJavaCompilationArgs(boolean recursive, boolean isNeverLink,
+      Iterable<SourcesJavaCompilationArgsProvider> compilationArgsFromSources,
+      boolean srcLessDepsExport) {
     ClasspathType type = isNeverLink ? ClasspathType.COMPILE_ONLY : ClasspathType.BOTH;
     JavaCompilationArgs.Builder builder = JavaCompilationArgs.builder()
         .merge(getJavaCompilationArtifacts(), isNeverLink)
         .addTransitiveTargets(getExports(ruleContext), recursive, type);
-    if (recursive) {
+    // TODO(bazel-team): remove srcs-less behaviour after android_library users are refactored
+    if (recursive || srcLessDepsExport) {
       builder
           .addTransitiveTargets(targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY), recursive, type)
           .addTransitiveTargets(getRuntimeDeps(ruleContext), recursive, ClasspathType.RUNTIME_ONLY)
@@ -249,7 +255,7 @@ public class JavaCommon {
    *
    * @param outDeps output (compile-time) dependency artifact of this target
    */
-  NestedSet<Artifact> collectCompileTimeDependencyArtifacts(Artifact outDeps) {
+  public NestedSet<Artifact> collectCompileTimeDependencyArtifacts(@Nullable Artifact outDeps) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     if (outDeps != null) {
       builder.add(outDeps);
@@ -646,6 +652,43 @@ public class JavaCommon {
       return ruleContext.getPrerequisites(attribute, mode, JavaPluginInfoProvider.class);
     }
     return ImmutableList.of();
+  }
+  
+  public JavaPluginInfoProvider getTransitivePlugins() {
+    return JavaPluginInfoProvider.merge(Iterables.concat(
+        getPluginInfoProvidersForAttribute("exported_plugins", Mode.HOST),
+        getPluginInfoProvidersForAttribute("exports", Mode.TARGET)));
+  }
+  
+  public Runfiles getRunfiles(boolean neverLink) {
+    // The "neverlink" attribute is transitive, so we don't add any
+    // runfiles from this target or its dependencies.
+    if (neverLink) {
+      return Runfiles.EMPTY;
+    }
+    Runfiles.Builder runfilesBuilder = new Runfiles.Builder(ruleContext.getWorkspaceName())
+        .addArtifacts(getJavaCompilationArtifacts().getRuntimeJars());
+    runfilesBuilder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
+    runfilesBuilder.add(ruleContext, JavaRunfilesProvider.TO_RUNFILES);
+
+    List<TransitiveInfoCollection> depsForRunfiles = new ArrayList<>();
+    if (ruleContext.getRule().isAttrDefined("runtime_deps", BuildType.LABEL_LIST)) {
+      depsForRunfiles.addAll(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET));
+    }
+    if (ruleContext.getRule().isAttrDefined("exports", BuildType.LABEL_LIST)) {
+      depsForRunfiles.addAll(ruleContext.getPrerequisites("exports", Mode.TARGET));
+    }
+
+    runfilesBuilder.addTargets(depsForRunfiles, RunfilesProvider.DEFAULT_RUNFILES);
+    runfilesBuilder.addTargets(depsForRunfiles, JavaRunfilesProvider.TO_RUNFILES);
+
+    TransitiveInfoCollection launcher = JavaHelper.launcherForTarget(semantics, ruleContext);
+    if (launcher != null) {
+      runfilesBuilder.addTarget(launcher, RunfilesProvider.DATA_RUNFILES);
+    }
+
+    semantics.addRunfilesForLibrary(ruleContext, runfilesBuilder);
+    return runfilesBuilder.build();
   }
 
   /**

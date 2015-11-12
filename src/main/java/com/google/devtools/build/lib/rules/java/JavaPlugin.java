@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -48,10 +48,10 @@ public class JavaPlugin implements RuleConfiguredTargetFactory {
    * Returns the class that should be passed to javac in order
    * to run the annotation processor this class represents.
    */
-  private ImmutableList<String> getProcessorClasses(RuleContext ruleContext) {
+  private ImmutableSet<String> getProcessorClasses(RuleContext ruleContext) {
     if (ruleContext.getRule().isAttributeValueExplicitlySpecified("processor_class")) {
-      return ImmutableList.of(ruleContext.attributes().get("processor_class", Type.STRING));
+      return ImmutableSet.of(ruleContext.attributes().get("processor_class", Type.STRING));
     }
-    return ImmutableList.of();
+    return ImmutableSet.of();
   }
 }

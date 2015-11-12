@@ -79,9 +79,9 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         common.collectTransitiveJavaNativeLibraries();
     boolean neverLink = JavaCommon.isNeverLink(ruleContext);
     JavaCompilationArgs javaCompilationArgs = common.collectJavaCompilationArgs(
-        false, neverLink, compilationArgsFromSources());
+        false, neverLink, compilationArgsFromSources(), false);
     JavaCompilationArgs recursiveJavaCompilationArgs = common.collectJavaCompilationArgs(
-        true, neverLink, compilationArgsFromSources());
+        true, neverLink, compilationArgsFromSources(), false);
     NestedSet<Artifact> transitiveJavaSourceJars =
         collectTransitiveJavaSourceJars(ruleContext, srcJar);
     if (srcJar != null) {

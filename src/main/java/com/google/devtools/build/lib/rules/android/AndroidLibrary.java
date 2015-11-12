@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.Reso
 import com.google.devtools.build.lib.rules.cpp.LinkerInput;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaNeverlinkInfoProvider;
+import com.google.devtools.build.lib.rules.java.JavaPluginInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
@@ -188,6 +189,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       .add(JavaSourceJarsProvider.class, androidCommon.getJavaSourceJarsProvider())
       .add(AndroidCcLinkParamsProvider.class,
           new AndroidCcLinkParamsProvider(androidCommon.getCcLinkParamsStore()))
+      .add(JavaPluginInfoProvider.class, javaCommon.getTransitivePlugins())
       .add(ProguardSpecProvider.class, new ProguardSpecProvider(transitiveProguardConfigs))
       .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, transitiveProguardConfigs)
       .add(AndroidLibraryAarProvider.class, new AndroidLibraryAarProvider(
