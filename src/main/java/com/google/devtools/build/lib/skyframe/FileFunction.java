@@ -303,9 +303,5 @@ public class FileFunction implements SkyFunction {
     public FileFunctionException(FileSymlinkException e) {
       super(e, Transience.PERSISTENT);
     }
-
-    public FileFunctionException(IOException e, Transience transience) {
-      super(e, transience);
-    }
   }
 }
