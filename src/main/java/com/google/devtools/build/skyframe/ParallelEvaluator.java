@@ -599,7 +599,9 @@ public final class ParallelEvaluator implements Evaluator {
         // by the Preconditions check above, and was not actually changed this run -- when it was
         // written above, its version stayed below this update's version, so its value remains the
         // same as before.
-        progressReceiver.evaluated(skyKey, Suppliers.ofInstance(value),
+        // We use a SkyValueSupplier here because it keeps a reference to the entry, allowing for
+        // the receiver to be confident that the entry is readily accessible in memory.
+        progressReceiver.evaluated(skyKey, new SkyValueSupplier(primaryEntry),
             valueVersion.equals(graphVersion) ? EvaluationState.BUILT : EvaluationState.CLEAN);
       }
       signalValuesAndEnqueueIfReady(enqueueParents ? visitor : null, reverseDeps, valueVersion);
