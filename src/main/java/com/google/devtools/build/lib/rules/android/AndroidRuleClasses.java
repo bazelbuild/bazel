@@ -72,6 +72,10 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}.aar");
   public static final SafeImplicitOutputsFunction ANDROID_LIBRARY_AAR_CLASSES_JAR =
       fromTemplates("%{name}_aar/classes.jar");
+  public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_SOURCE_JAR =
+      fromTemplates("%{name}_resources-src.jar");
+  public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_CLASS_JAR =
+      fromTemplates("%{name}_resources.jar");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_APK =
       fromTemplates("%{name}.ap_");
   public static final SafeImplicitOutputsFunction ANDROID_INCREMENTAL_RESOURCES_APK =

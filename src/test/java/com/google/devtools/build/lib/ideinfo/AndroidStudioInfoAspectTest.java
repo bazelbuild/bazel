@@ -452,8 +452,11 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(ruleInfo.getKind()).isEqualTo(Kind.ANDROID_LIBRARY);
     assertThat(relativePathsForSourcesOf(ruleInfo)).containsExactly("com/google/example/Main.java");
     assertThat(transform(ruleInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
-        .containsExactly(jarString("com/google/example",
-            "libl.jar", "libl-ijar.jar", "libl-src.jar"));
+        .containsExactly(
+            jarString("com/google/example",
+                "libl.jar", "libl-ijar.jar", "libl-src.jar"),
+            jarString("com/google/example",
+                "l_resources.jar", "l_resources-ijar.jar", "l_resources-src.jar"));
     assertThat(
             transform(
                 ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
@@ -467,9 +470,14 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "com/google/example/libl.jar",
         "com/google/example/libl-ijar.jar",
         "com/google/example/libl-src.jar",
+        "com/google/example/l_resources.jar",
+        "com/google/example/l_resources-ijar.jar",
+        "com/google/example/l_resources-src.jar",
         "com/google/example/libl1.jar",
-        "com/google/example/libl1-ijar.jar",
-        "com/google/example/libl1-src.jar"
+        "com/google/example/libl1-src.jar",
+        "com/google/example/l1_resources.jar",
+        "com/google/example/l1_resources-ijar.jar",
+        "com/google/example/l1_resources-src.jar"
     );
   }
 
@@ -495,8 +503,11 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(ruleInfo.getKind()).isEqualTo(Kind.ANDROID_BINARY);
     assertThat(relativePathsForSourcesOf(ruleInfo)).containsExactly("com/google/example/Main.java");
     assertThat(transform(ruleInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
-        .containsExactly(jarString("com/google/example",
-            "libb.jar", "libb-ijar.jar", "libb-src.jar"));
+        .containsExactly(
+            jarString("com/google/example",
+                "libb.jar", "libb-ijar.jar", "libb-src.jar"),
+            jarString("com/google/example",
+                "b_resources.jar", "b_resources-ijar.jar", "b_resources-src.jar"));
     assertThat(
             transform(
                 ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
@@ -513,9 +524,14 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "com/google/example/libb.jar",
         "com/google/example/libb-ijar.jar",
         "com/google/example/libb-src.jar",
+        "com/google/example/b_resources.jar",
+        "com/google/example/b_resources-ijar.jar",
+        "com/google/example/b_resources-src.jar",
         "com/google/example/libl1.jar",
-        "com/google/example/libl1-ijar.jar",
-        "com/google/example/libl1-src.jar"
+        "com/google/example/libl1-src.jar",
+        "com/google/example/l1_resources.jar",
+        "com/google/example/l1_resources-ijar.jar",
+        "com/google/example/l1_resources-src.jar"
     );
   }
 
@@ -598,8 +614,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     buildTarget("//com/google/example:lib");
     assertThat(getIdeResolveFiles()).containsExactly(
         "com/google/example/liblib.jar",
-        "com/google/example/liblib-ijar.jar",
         "com/google/example/liblib-src.jar",
+        "com/google/example/lib_resources.jar",
+        "com/google/example/lib_resources-ijar.jar",
+        "com/google/example/lib_resources-src.jar",
         "com/google/example/AndroidManifest.xml"
     );
   }
