@@ -971,4 +971,38 @@ EOF
   expect_log "42"
 }
 
+# Currently disabled due to a bug in Bazel. Stay tuned.
+function DISABLED_test_change_new_repository_build_file() {
+  local r=$TEST_TMPDIR/r
+  rm -fr $r
+  mkdir -p $r
+  cat > $r/a.cc <<EOF
+int a() { return 42; }
+EOF
+
+  cat > $r/b.cc <<EOF
+int b() { return 42; }
+EOF
+
+  cat > WORKSPACE <<EOF
+new_local_repository(
+    name="r",
+    path="$r",
+    build_file="BUILD.r"
+)
+EOF
+
+  cat > BUILD.r <<EOF
+cc_library(name = "a", srcs = ["a.cc"])
+EOF
+
+  bazel build @r//:a || fail "build failed"
+
+  cat > BUILD.r <<EOF
+cc_library(name = "a", srcs = ["a.cc", "b.cc"])
+EOF
+
+  bazel build @r//:a || fail "build failed"
+}
+
 run_suite "local repository tests"
