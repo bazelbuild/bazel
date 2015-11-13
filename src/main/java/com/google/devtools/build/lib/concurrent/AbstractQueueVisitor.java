@@ -17,10 +17,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Throwables;
-import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.AtomicLongMap;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -107,7 +106,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   private boolean jobsMustBeStopped = false;
 
   /** Map from thread to number of jobs executing in the thread. Used for interrupt handling. */
-  private final Map<Thread, Long> jobs = Maps.newConcurrentMap();
+  private final AtomicLongMap<Thread> jobs = AtomicLongMap.create();
 
   /** The {@link ExecutorService}. If !{@code concurrent}, this may be {@code null}. */
   @Nullable private final ExecutorService executorService;
@@ -516,20 +515,12 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   }
 
   private void addJob(Thread thread) {
-    // Note: this looks like a check-then-act race but it isn't, because each
-    // key implies thread-locality.
-    long count = jobs.containsKey(thread) ? jobs.get(thread) + 1 : 1;
-    jobs.put(thread, count);
+    jobs.incrementAndGet(thread);
   }
 
   private void removeJob(Thread thread) {
-    Long boxedCount = Preconditions.checkNotNull(jobs.get(thread),
-        "Can't retrieve job after successfully adding it");
-    long count = boxedCount - 1;
-    if (count == 0) {
+    if (jobs.decrementAndGet(thread) == 0) {
       jobs.remove(thread);
-    } else {
-      jobs.put(thread, count);
     }
   }
 
@@ -661,7 +652,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
 
   private void interruptInFlightTasks() {
     Thread thisThread = Thread.currentThread();
-    for (Thread thread : jobs.keySet()) {
+    for (Thread thread : jobs.asMap().keySet()) {
       if (thisThread != thread) {
         thread.interrupt();
       }
