@@ -14,13 +14,16 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.SkylarkAspect;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.SkylarkAspectClass;
-import com.google.devtools.build.lib.skyframe.ASTFileLookupValue.ASTLookupInputException;
 import com.google.devtools.build.lib.skyframe.AspectValue.SkylarkAspectLoadingKey;
+import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -33,7 +36,7 @@ import javax.annotation.Nullable;
  *
  * Used for loading top-level aspects. At top level, in
  * {@link com.google.devtools.build.lib.analysis.BuildView}, we cannot invoke two SkyFunctions
- * one aftre another, so BuildView call this function to do the work.
+ * one after another, so BuildView calls this function to do the work.
  */
 public class ToplevelSkylarkAspectFunction implements SkyFunction {
 
@@ -43,11 +46,25 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
       throws LoadSkylarkAspectFunctionException, InterruptedException {
     SkylarkAspectLoadingKey aspectLoadingKey = (SkylarkAspectLoadingKey) skyKey.argument();
     String skylarkValueName = aspectLoadingKey.getSkylarkValueName();
-    PackageIdentifier extensionFile = aspectLoadingKey.getExtensionFile();
+    PathFragment extensionFile = aspectLoadingKey.getExtensionFile();
+    
+    // Find label corresponding to skylark file, if one exists.
+    ImmutableMap<PathFragment, Label> labelLookupMap;
+    try {
+      labelLookupMap =
+          SkylarkImportLookupFunction.labelsForAbsoluteImports(ImmutableSet.of(extensionFile), env);
+    } catch (SkylarkImportFailedException e) {
+      throw new LoadSkylarkAspectFunctionException(e, skyKey);
+    }
+    if (labelLookupMap == null) {
+      return null;
+    }
+
     SkylarkAspect skylarkAspect = null;
     try {
-      skylarkAspect = AspectFunction.loadSkylarkAspect(env, extensionFile, skylarkValueName);
-    } catch (ASTLookupInputException | ConversionException e) {
+      skylarkAspect = AspectFunction.loadSkylarkAspect(
+          env, labelLookupMap.get(extensionFile), skylarkValueName);
+    } catch (ConversionException e) {
       throw new LoadSkylarkAspectFunctionException(e, skyKey);
     }
     if (skylarkAspect == null) {

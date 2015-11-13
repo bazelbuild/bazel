@@ -14,16 +14,16 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /**
  * Emits an error message exactly once when a Skylark import cycle is found when running inlined
  * {@link SkylarkImportLookupFunction}s.
  */
-class SkylarkImportUniqueCycleFunction extends AbstractChainUniquenessFunction<PackageIdentifier> {
+class SkylarkImportUniqueCycleFunction extends AbstractChainUniquenessFunction<Label> {
 
-  static SkyKey key(ImmutableList<PackageIdentifier> cycle) {
+  static SkyKey key(ImmutableList<Label> cycle) {
     return ChainUniquenessUtils.key(SkyFunctions.SKYLARK_IMPORT_CYCLE, cycle);
   }
 
@@ -43,7 +43,7 @@ class SkylarkImportUniqueCycleFunction extends AbstractChainUniquenessFunction<P
   }
 
   @Override
-  protected String elementToString(PackageIdentifier pkgId) {
-    return pkgId.getPathFragment().getPathString();
+  protected String elementToString(Label importLabel) {
+    return importLabel.toString();
   }
 }

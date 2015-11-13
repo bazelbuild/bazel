@@ -75,7 +75,7 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
                         aspectValue.getLabel().toString());
                   }
                 }))
-        .containsExactly("test/aspect.bzl%MyAspect(//test:xxx)");
+        .containsExactly("//test:aspect.bzl%MyAspect(//test:xxx)");
   }
 
   public void testAspectPropagating() throws Exception {
@@ -166,7 +166,7 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
         "ERROR /workspace/test/BUILD:1:1: in java_library rule //test:xxx: \n"
             + "Traceback (most recent call last):\n"
             + "\tFile \"/workspace/test/BUILD\", line 1\n"
-            + "\t\ttest/aspect.bzl%MyAspect(...)\n"
+            + "\t\t//test:aspect.bzl%MyAspect(...)\n"
             + "\tFile \"/workspace/test/aspect.bzl\", line 2, in _impl\n"
             + "\t\t1 / 0\n"
             + "integer division by zero");

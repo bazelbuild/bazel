@@ -13,20 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
-import com.google.devtools.build.lib.skyframe.ASTFileLookupValue.ASTLookupInputException;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
-import com.google.devtools.build.lib.syntax.LoadStatement;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /**
  * A value that represents a Skylark import lookup result. The lookup value corresponds to
- * exactly one Skylark file, identified by the PathFragment SkyKey argument.
+ * exactly one Skylark file, identified by an absolute {@link Label} {@link SkyKey} argument. The
+ * Label should not reference the special {@code external} package.
  */
 public class SkylarkImportLookupValue implements SkyValue {
 
@@ -58,44 +54,11 @@ public class SkylarkImportLookupValue implements SkyValue {
     return dependency;
   }
 
-  private static void checkInputArgument(PathFragment astFilePathFragment)
-      throws ASTLookupInputException {
-    if (astFilePathFragment.isAbsolute()) {
-      throw new ASTLookupInputException(String.format(
-          "Input file '%s' cannot be an absolute path.", astFilePathFragment));
-    }
-  }
-
-  @VisibleForTesting
-  public static SkyKey key(PackageIdentifier pkgIdentifier) throws ASTLookupInputException {
-    return key(pkgIdentifier.getRepository(), pkgIdentifier.getPackageFragment());
-  }
-
   /**
-   * Returns a SkyKey to get a SkylarkImportLookupValue. Note that SkylarkImportLookupValue
-   * computations may be inlined to avoid having them in the graph. Callers should confirm whether
-   * inlining is desired and either do the computation directly themselves (if inlined) or request
-   * this key's value from the environment (if not).
+   * Returns a SkyKey to look up {@link Label} {@code importLabel}, which must be an absolute
+   * label.
    */
-  static SkyKey key(RepositoryName repo, PathFragment fromFile, PathFragment fileToImport)
-      throws ASTLookupInputException {
-    PathFragment computedPath;
-    if (fileToImport.isAbsolute()) {
-      computedPath = fileToImport.toRelative();
-    } else if (fileToImport.segmentCount() == 1) {
-      computedPath = fromFile.getParentDirectory().getRelative(fileToImport);
-    } else {
-      throw new ASTLookupInputException(String.format(LoadStatement.PATH_ERROR_MSG, fileToImport));
-    }
-    return key(repo, computedPath);
-  }
-
-  private static SkyKey key(RepositoryName repo, PathFragment fileToImport)
-      throws ASTLookupInputException {
-    // Skylark import lookup keys need to be valid AST file lookup keys.
-    checkInputArgument(fileToImport);
-    return new SkyKey(
-        SkyFunctions.SKYLARK_IMPORTS_LOOKUP,
-        PackageIdentifier.create(repo, fileToImport));
+  static SkyKey key(Label importLabel) {
+    return new SkyKey(SkyFunctions.SKYLARK_IMPORTS_LOOKUP, importLabel);  
   }
 }

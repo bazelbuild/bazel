@@ -42,7 +42,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -456,15 +455,10 @@ public class BuildView {
       // Syntax: label%aspect
       int delimiterPosition = aspect.indexOf('%');
       if (delimiterPosition >= 0) {
-        PackageIdentifier bzlFile;
-        try {
-          bzlFile =
-              PackageIdentifier.create(
-                  PackageIdentifier.DEFAULT_REPOSITORY,
-                  new PathFragment(aspect.substring(0, delimiterPosition)));
-        } catch (LabelSyntaxException e) {
-          throw new ViewCreationFailedException("Error", e);
-        }
+        // TODO(jfield): For consistency with Skylark loads, the aspect should be specified
+        // as an absolute path. Also, we probably need to do at least basic validation of
+        // path well-formedness here.
+        PathFragment bzlFile = new PathFragment("/" + aspect.substring(0, delimiterPosition));
 
         String skylarkFunctionName = aspect.substring(delimiterPosition + 1);
         for (ConfiguredTargetKey targetSpec : targetSpecs) {

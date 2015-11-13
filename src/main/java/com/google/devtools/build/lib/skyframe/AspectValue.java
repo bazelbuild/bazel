@@ -19,13 +19,13 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -86,6 +86,7 @@ public final class AspectValue extends ActionLookupValue {
       return aspect;
     }
 
+    @Override
     public String getDescription() {
       return String.format("%s of %s", aspect.getAspectClass().getName(), getLabel());
     }
@@ -134,13 +135,13 @@ public final class AspectValue extends ActionLookupValue {
 
     private final Label targetLabel;
     private final BuildConfiguration targetConfiguration;
-    private final PackageIdentifier extensionFile;
+    private final PathFragment extensionFile;
     private final String skylarkValueName;
 
     private SkylarkAspectLoadingKey(
         Label targetLabel,
         BuildConfiguration targetConfiguration,
-        PackageIdentifier extensionFile,
+        PathFragment extensionFile,
         String skylarkFunctionName) {
       this.targetLabel = targetLabel;
       this.targetConfiguration = targetConfiguration;
@@ -154,7 +155,7 @@ public final class AspectValue extends ActionLookupValue {
       return SkyFunctions.LOAD_SKYLARK_ASPECT;
     }
 
-    public PackageIdentifier getExtensionFile() {
+    public PathFragment getExtensionFile() {
       return extensionFile;
     }
 
@@ -170,6 +171,7 @@ public final class AspectValue extends ActionLookupValue {
       return targetConfiguration;
     }
 
+    @Override
     public String getDescription() {
       // Skylark aspects are referred to on command line with <file>%<value ame>
       return String.format("%s%%%s of %s", extensionFile.toString(), skylarkValueName, targetLabel);
@@ -240,7 +242,7 @@ public final class AspectValue extends ActionLookupValue {
   public static SkylarkAspectLoadingKey createSkylarkAspectKey(
       Label targetLabel,
       BuildConfiguration targetConfiguration,
-      PackageIdentifier skylarkFile,
+      PathFragment skylarkFile,
       String skylarkExportName) {
     return new SkylarkAspectLoadingKey(
         targetLabel, targetConfiguration, skylarkFile, skylarkExportName);

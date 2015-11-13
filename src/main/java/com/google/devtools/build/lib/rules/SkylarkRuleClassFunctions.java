@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectClass;
@@ -85,7 +84,6 @@ import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -373,7 +371,7 @@ public class SkylarkRuleClassFunctions {
     // This is fine since we don't modify the builder from here.
     private final RuleClass.Builder builder;
     private final RuleClassType type;
-    private PathFragment skylarkFile;
+    private Label skylarkLabel;
     private String ruleClassName;
 
     public RuleFunction(Builder builder, RuleClassType type) {
@@ -389,7 +387,7 @@ public class SkylarkRuleClassFunctions {
         throws EvalException, InterruptedException, ConversionException {
       env.checkLoadingPhase(getName(), ast.getLocation());
       try {
-        if (ruleClassName == null || skylarkFile == null) {
+        if (ruleClassName == null || skylarkLabel == null) {
           throw new EvalException(ast.getLocation(),
               "Invalid rule class hasn't been exported by a Skylark file");
         }
@@ -409,8 +407,8 @@ public class SkylarkRuleClassFunctions {
     /**
      * Export a RuleFunction from a Skylark file with a given name.
      */
-    void export(PathFragment skylarkFile, String ruleClassName) {
-      this.skylarkFile = skylarkFile;
+    void export(Label skylarkLabel, String ruleClassName) {
+      this.skylarkLabel = skylarkLabel;
       this.ruleClassName = ruleClassName;
     }
 
@@ -420,20 +418,20 @@ public class SkylarkRuleClassFunctions {
     }
   }
 
-  public static void exportRuleFunctionsAndAspects(Environment env, PackageIdentifier skylarkFile) {
+  public static void exportRuleFunctionsAndAspects(Environment env, Label skylarkLabel) {
     for (String name : env.getGlobals().getDirectVariableNames()) {
       try {
         Object value = env.lookup(name);
         if (value instanceof RuleFunction) {
           RuleFunction function = (RuleFunction) value;
-          if (function.skylarkFile == null) {
-            function.export(skylarkFile.getPackageFragment(), name);
+          if (function.skylarkLabel == null) {
+            function.export(skylarkLabel, name);
           }
         }
         if (value instanceof SkylarkAspect) {
           SkylarkAspect skylarkAspect = (SkylarkAspect) value;
           if (!skylarkAspect.isExported()) {
-            skylarkAspect.export(skylarkFile, name);
+            skylarkAspect.export(skylarkLabel, name);
           }
         }
       } catch (NoSuchVariableException e) {
@@ -606,17 +604,17 @@ public class SkylarkRuleClassFunctions {
       return exported != null ? exported.toString() : "<skylark aspect>";
     }
 
-    void export(PackageIdentifier extensionFile, String name) {
-      this.exported = new Exported(extensionFile, name);
+    void export(Label extensionLabel, String name) {
+      this.exported = new Exported(extensionLabel, name);
     }
 
     public boolean isExported() {
       return exported != null;
     }
 
-    private PackageIdentifier getExtensionFile() {
+    private Label getExtensionLabel() {
       Preconditions.checkArgument(isExported());
-      return exported.extensionFile;
+      return exported.extensionLabel;
     }
 
     private String getExportedName() {
@@ -626,16 +624,17 @@ public class SkylarkRuleClassFunctions {
 
     @Immutable
     private static class Exported {
-      private final PackageIdentifier extensionFile;
+      private final Label extensionLabel;
       private final String name;
 
-      public Exported(PackageIdentifier extensionFile, String name) {
-        this.extensionFile = extensionFile;
+      public Exported(Label extensionLabel, String name) {
+        this.extensionLabel = extensionLabel;
         this.name = name;
       }
 
+      @Override
       public String toString() {
-        return extensionFile.toString() + "%" + name;
+        return extensionLabel.toString() + "%" + name;
       }
     }
   }
@@ -646,7 +645,7 @@ public class SkylarkRuleClassFunctions {
   @Immutable
   public static final class SkylarkAspectClass implements AspectClass {
     private final AspectDefinition aspectDefinition;
-    private final PackageIdentifier extensionFile;
+    private final Label extensionLabel;
     private final String exportedName;
 
     public SkylarkAspectClass(SkylarkAspect skylarkAspect) {
@@ -657,7 +656,7 @@ public class SkylarkRuleClassFunctions {
       }
       this.aspectDefinition = builder.build();
 
-      this.extensionFile = skylarkAspect.getExtensionFile();
+      this.extensionLabel = skylarkAspect.getExtensionLabel();
       this.exportedName = skylarkAspect.getExportedName();
     }
 
@@ -671,18 +670,20 @@ public class SkylarkRuleClassFunctions {
       return aspectDefinition;
     }
 
-    public PackageIdentifier getExtensionFile() {
-      return extensionFile;
+    public Label getExtensionLabel() {
+      return extensionLabel;
     }
 
     public String getExportedName() {
       return exportedName;
     }
 
+    @Override
     public int hashCode() {
-      return Objects.hash(extensionFile, exportedName);
+      return Objects.hash(extensionLabel, exportedName);
     }
 
+    @Override
     public boolean equals(Object other) {
       if (this == other) {
         return true;
@@ -692,7 +693,7 @@ public class SkylarkRuleClassFunctions {
       }
 
       SkylarkAspectClass that = (SkylarkAspectClass) other;
-      return Objects.equals(this.extensionFile, that.extensionFile)
+      return Objects.equals(this.extensionLabel, that.extensionLabel)
           && Objects.equals(this.exportedName, that.exportedName);
     }
 

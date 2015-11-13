@@ -22,7 +22,7 @@ import javax.annotation.Nullable;
  * Base class of exceptions thrown by {@link SkyFunction#compute} on failure.
  *
  * SkyFunctions should declare a subclass {@code C} of {@link SkyFunctionException} whose
- * constructors forward fine-grained exception types (e.g. {@link IOException}) to
+ * constructors forward fine-grained exception types (e.g. {@code IOException}) to
  * {@link SkyFunctionException}'s constructor, and they should also declare
  * {@link SkyFunction#compute} to throw {@code C}. This way the type system checks that no
  * unexpected exceptions are thrown by the {@link SkyFunction}.
@@ -90,7 +90,7 @@ public abstract class SkyFunctionException extends Exception {
   }
 
   @Override
-  public Exception getCause() {
+  public synchronized Exception getCause() {
     return (Exception) super.getCause();
   }
 

@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 /** Indicates some sort of IO error while dealing with a Skylark extension. */
 public class ErrorReadingSkylarkExtensionException extends Exception {
-  public ErrorReadingSkylarkExtensionException(String message) {
-    super(message);
+  public ErrorReadingSkylarkExtensionException(Exception e) {
+    super(e.getMessage(), e);
   }
 }
