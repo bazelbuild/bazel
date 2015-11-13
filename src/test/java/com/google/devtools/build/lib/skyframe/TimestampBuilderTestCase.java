@@ -187,7 +187,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             executor,
             keepGoing, /*explain=*/
             false,
-            new ActionCacheChecker(actionCache, null, ALWAYS_EXECUTE_FILTER, false));
+            new ActionCacheChecker(actionCache, null, ALWAYS_EXECUTE_FILTER, false), null);
 
         List<SkyKey> keys = new ArrayList<>();
         for (Artifact artifact : artifacts) {

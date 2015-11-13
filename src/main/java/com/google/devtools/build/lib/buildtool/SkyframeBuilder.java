@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.skyframe.TargetCompletionValue;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.LoggingUtil;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
@@ -79,20 +80,23 @@ public class SkyframeBuilder implements Builder {
   private final SkyframeExecutor skyframeExecutor;
   private final boolean keepGoing;
   private final int numJobs;
-  private final boolean checkOutputFiles;
+  private final boolean finalizeActionsToOutputService;
+  private final ModifiedFileSet modifiedOutputFiles;
   private final ActionInputFileCache fileCache;
   private final ActionCacheChecker actionCacheChecker;
   private final int progressReportInterval;
 
   @VisibleForTesting
   public SkyframeBuilder(SkyframeExecutor skyframeExecutor, ActionCacheChecker actionCacheChecker,
-      boolean keepGoing, int numJobs, boolean checkOutputFiles,
-      ActionInputFileCache fileCache, int progressReportInterval) {
+      boolean keepGoing, int numJobs, ModifiedFileSet modifiedOutputFiles,
+      boolean finalizeActionsToOutputService, ActionInputFileCache fileCache,
+      int progressReportInterval) {
     this.skyframeExecutor = skyframeExecutor;
     this.actionCacheChecker = actionCacheChecker;
     this.keepGoing = keepGoing;
     this.numJobs = numJobs;
-    this.checkOutputFiles = checkOutputFiles;
+    this.finalizeActionsToOutputService = finalizeActionsToOutputService;
+    this.modifiedOutputFiles = modifiedOutputFiles;
     this.fileCache = fileCache;
     this.progressReportInterval = progressReportInterval;
   }
@@ -110,7 +114,7 @@ public class SkyframeBuilder implements Builder {
       boolean explain,
       @Nullable Range<Long> lastExecutionTimeRange)
       throws BuildFailedException, AbruptExitException, TestExecException, InterruptedException {
-    skyframeExecutor.prepareExecution(checkOutputFiles, lastExecutionTimeRange);
+    skyframeExecutor.prepareExecution(modifiedOutputFiles, lastExecutionTimeRange);
     skyframeExecutor.setFileCache(fileCache);
     // Note that executionProgressReceiver accesses builtTargets concurrently (after wrapping in a
     // synchronized collection), so unsynchronized access to this variable is unsafe while it runs.
@@ -147,6 +151,7 @@ public class SkyframeBuilder implements Builder {
               /*exclusiveTesting=*/ false,
               keepGoing,
               explain,
+              finalizeActionsToOutputService,
               numJobs,
               actionCacheChecker,
               executionProgressReceiver);
@@ -181,6 +186,7 @@ public class SkyframeBuilder implements Builder {
                 true,
                 keepGoing,
                 explain,
+                finalizeActionsToOutputService,
                 numJobs,
                 actionCacheChecker,
                 null);

@@ -268,6 +268,14 @@ public class BuildRequest implements OptionsClassProvider {
                 + "this flag to false to see the effect on incremental build times.")
     public boolean checkOutputFiles;
 
+    @Option(name = "experimental_output_tree_tracking",
+            defaultValue = "false",
+            category = "undocumented",
+            help = "If set, communicate with objsfd to track when files in the output tree have "
+                + "been modified externally (not by Blaze). This should improve incremental build "
+                + "speed.")
+    public boolean finalizeActions;
+
     @Option(
       name = "aspects",
       converter = Converters.CommaSeparatedOptionListConverter.class,

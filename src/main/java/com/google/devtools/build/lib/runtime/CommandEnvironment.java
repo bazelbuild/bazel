@@ -353,9 +353,7 @@ public final class CommandEnvironment {
     }
 
     SkyframeExecutor skyframeExecutor = getSkyframeExecutor();
-    skyframeExecutor.setBatchStatter(outputService == null
-        ? null
-        : outputService.getBatchStatter());
+    skyframeExecutor.setOutputService(outputService);
 
     this.outputFileSystem = determineOutputFileSystem();
 
