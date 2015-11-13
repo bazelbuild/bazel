@@ -33,6 +33,15 @@ MANIFEST_WITH_APPLICATION = """
 </manifest>
 """
 
+MANIFEST_WITH_HASCODE = """
+<manifest
+  xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.google.package">
+  <application android:name="old.application" android:hasCode="false">
+  </application>
+</manifest>
+"""
+
 MANIFEST_WITHOUT_APPLICATION = """
 <manifest
   xmlns:android="http://schemas.android.com/apk/res/android"
@@ -83,6 +92,11 @@ class StubifyTest(unittest.TestCase):
     self.assertEqual("com.google.package", app_pkg)
     self.assertEqual("android.app.Application", old_application)
     self.assertEqual(STUB_APPLICATION, self.GetApplication(new_manifest))
+
+  def testRemovesHasCode(self):
+    new_manifest, _, _ = Stubify(MANIFEST_WITH_HASCODE)
+    application = ElementTree.fromstring(new_manifest).find("application")
+    self.assertFalse(("{%s}hasCode" % ANDROID) in application.attrib)
 
   def assertHasPermission(self, manifest_string, permission):
     manifest = ElementTree.fromstring(manifest_string)

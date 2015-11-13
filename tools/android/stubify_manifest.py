@@ -83,7 +83,7 @@ def Stubify(manifest_string):
     old_application = "android.app.Application"
 
   application.set("{%s}name" % ANDROID, STUB_APPLICATION)
-
+  application.attrib.pop("{%s}hasCode" % ANDROID, None)
   read_permission = manifest.findall(
       './uses-permission[@android:name="%s"]' % READ_EXTERNAL_STORAGE,
       namespaces={"android": ANDROID})
