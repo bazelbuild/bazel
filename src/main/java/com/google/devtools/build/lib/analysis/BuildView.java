@@ -949,6 +949,7 @@ public class BuildView {
                 Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
             .setPrerequisites(getPrerequisiteMapForTesting(eventHandler, target, configurations))
             .setConfigConditions(ImmutableSet.<ConfigMatchingProvider>of())
+            .setUniversalFragment(ruleClassProvider.getUniversalFragment())
             .build();
   }
 

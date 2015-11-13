@@ -139,6 +139,7 @@ public final class RuleContext extends TargetContext
   private final Map<String, Attribute> aspectAttributes;
   private final BuildConfiguration hostConfiguration;
   private final ConfigurationFragmentPolicy configurationFragmentPolicy;
+  private final Class<? extends BuildConfiguration.Fragment> universalFragment;
   private final ErrorReporter reporter;
 
   private ActionOwner actionOwner;
@@ -148,11 +149,14 @@ public final class RuleContext extends TargetContext
 
   private RuleContext(Builder builder, ListMultimap<String, ConfiguredTarget> targetMap,
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap,
-      Set<ConfigMatchingProvider> configConditions, Map<String, Attribute> aspectAttributes) {
+      Set<ConfigMatchingProvider> configConditions,
+      Class<? extends BuildConfiguration.Fragment> universalFragment,
+      Map<String, Attribute> aspectAttributes) {
     super(builder.env, builder.rule, builder.configuration, builder.prerequisiteMap.get(null),
         builder.visibility);
     this.rule = builder.rule;
     this.configurationFragmentPolicy = builder.configurationFragmentPolicy;
+    this.universalFragment = universalFragment;
     this.targetMap = targetMap;
     this.filesetEntryMap = filesetEntryMap;
     this.configConditions = configConditions;
@@ -312,13 +316,10 @@ public final class RuleContext extends TargetContext
     return getConfiguration(config).getSkylarkFragmentNames();
   }
 
-  public ConfigurationFragmentPolicy getConfigurationFragment() {
-    return configurationFragmentPolicy;
-  }
-
   public <T extends Fragment> boolean isLegalFragment(
       Class<T> fragment, ConfigurationTransition config) {
-    return configurationFragmentPolicy.isLegalConfigurationFragment(fragment, config);
+    return fragment == universalFragment
+        || configurationFragmentPolicy.isLegalConfigurationFragment(fragment, config);
   }
 
   public <T extends Fragment> boolean isLegalFragment(Class<T> fragment) {
@@ -1227,6 +1228,7 @@ public final class RuleContext extends TargetContext
     private final AnalysisEnvironment env;
     private final Rule rule;
     private final ConfigurationFragmentPolicy configurationFragmentPolicy;
+    private Class<? extends BuildConfiguration.Fragment> universalFragment;
     private final BuildConfiguration configuration;
     private final BuildConfiguration hostConfiguration;
     private final PrerequisiteValidator prerequisiteValidator;
@@ -1255,7 +1257,7 @@ public final class RuleContext extends TargetContext
       ListMultimap<String, ConfiguredTarget> targetMap = createTargetMap();
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap =
           createFilesetEntryMap(rule, configConditions);
-      return new RuleContext(this, targetMap, filesetEntryMap, configConditions,
+      return new RuleContext(this, targetMap, filesetEntryMap, configConditions, universalFragment,
           aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of());
     }
 
@@ -1287,6 +1289,18 @@ public final class RuleContext extends TargetContext
      */
     Builder setConfigConditions(Set<ConfigMatchingProvider> configConditions) {
       this.configConditions = Preconditions.checkNotNull(configConditions);
+      return this;
+    }
+
+    /**
+     * Sets the fragment that can be legally accessed even when not explicitly declared.
+     */
+    Builder setUniversalFragment(Class<? extends BuildConfiguration.Fragment> fragment) {
+      // TODO(bazel-team): Add this directly to ConfigurationFragmentPolicy, so we
+      // don't need separate logic specifically for checking this fragment. The challenge is
+      // that we need RuleClassProvider to figure out what this fragment is, and not every
+      // call state that creates ConfigurationFragmentPolicy has access to that.
+      this.universalFragment = fragment;
       return this;
     }
 

@@ -145,6 +145,8 @@ public class TransitiveTargetFunction
               fragment.asSubclass(BuildConfiguration.Fragment.class));
         }
       }
+      builder.getTransitiveConfigFragments().add(
+          ruleClassProvider.getUniversalFragment().asSubclass(BuildConfiguration.Fragment.class));
     }
 
     return builder.build(errorLoadingTarget);

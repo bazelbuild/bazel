@@ -226,6 +226,7 @@ public final class ConfiguredTargetFactory {
         .setVisibility(convertVisibility(prerequisiteMap, env.getEventHandler(), rule, null))
         .setPrerequisites(prerequisiteMap)
         .setConfigConditions(configConditions)
+        .setUniversalFragment(ruleClassProvider.getUniversalFragment())
         .build();
     if (ruleContext.hasErrors()) {
       return null;
@@ -307,6 +308,7 @@ public final class ConfiguredTargetFactory {
             .setPrerequisites(prerequisiteMap)
             .setAspectAttributes(aspect.getDefinition().getAttributes())
             .setConfigConditions(configConditions)
+            .setUniversalFragment(ruleClassProvider.getUniversalFragment())
             .build();
     if (ruleContext.hasErrors()) {
       return null;
