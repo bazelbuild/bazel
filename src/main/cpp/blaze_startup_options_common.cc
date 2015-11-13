@@ -41,6 +41,8 @@ void BlazeStartupOptions::Init() {
   block_for_lock = true;
   host_jvm_debug = false;
   host_javabase = "";
+  // TODO(janakr): change this to true when ready, then delete it.
+  preserve_spaces_in_host_jvm_args = false;
   batch = false;
   batch_cpu_scheduling = false;
   blaze_cpu = false;
@@ -73,6 +75,7 @@ void BlazeStartupOptions::Copy(
   lhs->host_jvm_debug = rhs.host_jvm_debug;
   lhs->host_jvm_profile = rhs.host_jvm_profile;
   lhs->host_javabase = rhs.host_javabase;
+  lhs->preserve_spaces_in_host_jvm_args = rhs.preserve_spaces_in_host_jvm_args;
   lhs->host_jvm_args = rhs.host_jvm_args;
   lhs->batch = rhs.batch;
   lhs->batch_cpu_scheduling = rhs.batch_cpu_scheduling;
@@ -126,13 +129,13 @@ blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
     // and re-execing.
     host_javabase = MakeAbsolute(value);
     option_sources["host_javabase"] = rcfile;
+  } else if (GetNullaryOption(
+                 arg, "--experimental_preserve_spaces_in_host_jvm_args")) {
+    preserve_spaces_in_host_jvm_args = true;
+    option_sources["preserve_spaces_in_host_jvm_args"] = rcfile;
   } else if ((value = GetUnaryOption(arg, next_arg,
                                      "--host_jvm_args")) != NULL) {
-    if (host_jvm_args.empty()) {
-      host_jvm_args = value;
-    } else {
-      host_jvm_args = host_jvm_args + " " + value;
-    }
+    host_jvm_args.push_back(value);
     option_sources["host_jvm_args"] = rcfile;  // NB: This is incorrect
   } else if ((value = GetUnaryOption(arg, next_arg, "--blaze_cpu")) != NULL) {
     blaze_cpu = true;

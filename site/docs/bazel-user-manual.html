@@ -3282,16 +3282,17 @@ adb -s deadbeef install ...
 
 <h4 id='flag--host_jvm_args'><code class='flag'>--host_jvm_args=<var>string</var></code></h4>
 <p>
-  Specifies a space-separated list of startup options to be passed to
-  the Java virtual machine in which <i>Bazel itself</i> runs.  This
-  can be used to set the stack size, for example:
+  Specifies a startup option to be passed to the Java virtual machine in which <i>Bazel itself</i>
+  runs.  This can be used to set the stack size, for example:
 </p>
 <pre>
   % bazel --host_jvm_args="-Xss256K" build //foo
 </pre>
 <p>
   This option can be used multiple times with individual arguments. Note that
-  setting this flag should rarely be needed.
+  setting this flag should rarely be needed. You can also pass a space-separated list of strings,
+  each of which will be interpreted as a separate JVM argument, but this feature will soon be
+  deprecated.
 
 </p>
 <p>

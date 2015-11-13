@@ -126,7 +126,9 @@ class BlazeStartupOptions {
 
   string host_jvm_profile;
 
-  string host_jvm_args;
+  bool preserve_spaces_in_host_jvm_args;
+
+  std::vector<string> host_jvm_args;
 
   bool batch;
 

@@ -261,8 +261,25 @@ static vector<string> GetArgumentArray() {
 
   vector<string> user_options;
 
-  blaze_util::SplitQuotedStringUsing(globals->options.host_jvm_args, ' ',
-                                     &user_options);
+  if (globals->options.preserve_spaces_in_host_jvm_args) {
+    user_options.insert(user_options.begin(),
+                        globals->options.host_jvm_args.begin(),
+                        globals->options.host_jvm_args.end());
+  } else {
+    for (const auto &arg : globals->options.host_jvm_args) {
+      // int num_segments =
+      blaze_util::SplitQuotedStringUsing(arg, ' ', &user_options);
+      // TODO(janakr): Enable this warning when users have been migrated.
+      //       if (num_segments > 1) {
+      //         fprintf(stderr, "WARNING: You are passing multiple jvm options"
+      //             " under a single --host_jvm_args option: %s. This will stop
+      //             working "
+      //             "soon. Instead, pass each option under its own
+      //             --host_jvm_args "
+      //             "option.\n", arg);
+      //
+    }
+  }
 
   // Add JVM arguments particular to building blaze64 and particular JVM
   // versions.
@@ -350,8 +367,13 @@ static vector<string> GetArgumentArray() {
   if (!globals->options.host_jvm_profile.empty()) {
     result.push_back("--host_jvm_profile=" + globals->options.host_jvm_profile);
   }
+  if (globals->options.preserve_spaces_in_host_jvm_args) {
+    result.push_back("--experimental_preserve_spaces_in_host_jvm_args");
+  }
   if (!globals->options.host_jvm_args.empty()) {
-    result.push_back("--host_jvm_args=" + globals->options.host_jvm_args);
+    for (const auto &arg : globals->options.host_jvm_args) {
+      result.push_back("--host_jvm_args=" + arg);
+    }
   }
 
   if (globals->options.invocation_policy != NULL &&

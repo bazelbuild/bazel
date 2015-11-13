@@ -128,11 +128,12 @@ void SplitStringUsing(
   }
 }
 
-void SplitQuotedStringUsing(const string &contents, const char delimeter,
-                            std::vector<string> *output) {
+size_t SplitQuotedStringUsing(const string &contents, const char delimeter,
+                              std::vector<string> *output) {
   size_t len = contents.length();
   size_t start = 0;
   size_t quote = string::npos;  // quote position
+  size_t num_segments = 0;
 
   for (size_t pos = 0; pos < len; ++pos) {
     if (start == pos && contents[start] == delimeter) {
@@ -147,13 +148,16 @@ void SplitQuotedStringUsing(const string &contents, const char delimeter,
     } else if (quote == string::npos && contents[pos] == delimeter) {
       output->push_back(string(contents, start, pos - start));
       start = pos + 1;
+      num_segments++;
     }
   }
 
   // A trailing element
   if (start < len) {
     output->push_back(string(contents, start));
+    num_segments++;
   }
+  return num_segments;
 }
 
 void Replace(const string &oldsub, const string &newsub, string *str) {
