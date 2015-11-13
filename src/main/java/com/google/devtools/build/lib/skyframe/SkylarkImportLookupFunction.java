@@ -318,30 +318,37 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   static ImmutableMap<PathFragment, Label> findLabelsForLoadStatements(
       Iterable<LoadStatement> loadStmts, Label containingFileLabel, Environment env)
           throws SkylarkImportFailedException {
-    ImmutableSet.Builder<PathFragment> absolutePathsToLookup = new ImmutableSet.Builder<>();
-
     ImmutableMap.Builder<PathFragment, Label> outputMap = new ImmutableMap.Builder<>();
+
+    // Filter relative vs. absolute paths.
+    ImmutableSet.Builder<PathFragment> absolutePathsToLookup = new ImmutableSet.Builder<>();
+    ImmutableSet.Builder<PathFragment> relativePathsToConvert = new ImmutableSet.Builder<>();
     for (LoadStatement loadStmt : loadStmts) {
       PathFragment importPath = loadStmt.getImportPath();
       if (loadStmt.isAbsolute()) {
         absolutePathsToLookup.add(importPath);
       } else {
-        // Relative paths don't require package lookups since they can only refer to files in the
-        // same directory as the file containing the load statement; i.e., they can't refer to
-        // subdirectories. We can therefore compute the corresponding label directly from the label
-        // of the containing file (whose package has already been validated).
-        outputMap.put(importPath, labelForRelativeImport(importPath, containingFileLabel));
+        relativePathsToConvert.add(importPath);
       }
     }
 
-    // Compute labels for absolute paths 
+    // Compute labels for absolute paths.
     ImmutableMap<PathFragment, Label> absoluteLabels =
         labelsForAbsoluteImports(absolutePathsToLookup.build(), env);
     if (absoluteLabels == null) {
       return null;
     }
     outputMap.putAll(absoluteLabels);
-    
+
+    // Compute labels for relative paths.
+    for (PathFragment importPath : relativePathsToConvert.build()) {
+      // Relative paths don't require package lookups since they can only refer to files in the
+      // same directory as the file containing the load statement; i.e., they can't refer to
+      // subdirectories. We can therefore compute the corresponding label directly from the label
+      // of the containing file (whose package has already been validated).
+      outputMap.put(importPath, labelForRelativeImport(importPath, containingFileLabel));
+    }
+
     return outputMap.build();
   }
 
