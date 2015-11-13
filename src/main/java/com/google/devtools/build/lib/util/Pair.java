@@ -81,7 +81,9 @@ public final class Pair<A, B> {
 
   @Override
   public int hashCode() {
-    return Objects.hash(first, second);
+    int hash1 = first == null ? 0 : first.hashCode();
+    int hash2 = second == null ? 0 : second.hashCode();
+    return 31 * hash1 + hash2;
   }
 
   /**

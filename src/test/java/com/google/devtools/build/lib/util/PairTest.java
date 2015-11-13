@@ -21,8 +21,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Objects;
-
 /**
  * Tests for {@link Pair}.
  */
@@ -37,7 +35,7 @@ public class PairTest {
     assertSame(a, p.first);
     assertSame(b, p.second);
     assertEquals(Pair.of(a, b), p);
-    assertEquals(Objects.hash(a, b), p.hashCode());
+    assertEquals(31 * a.hashCode() + b.hashCode(), p.hashCode());
   }
 
   @Test
