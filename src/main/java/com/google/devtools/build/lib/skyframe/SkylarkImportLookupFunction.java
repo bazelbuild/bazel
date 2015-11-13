@@ -107,7 +107,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           SkylarkImportFailedException,
           InterruptedException {
     PathFragment filePath = fileLabel.toPathFragment();
-    
+
     // Load the AST corresponding to this file.
     ASTFileLookupValue astLookupValue;
     try {
@@ -134,7 +134,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     Map<PathFragment, Extension> importMap = Maps.newHashMapWithExpectedSize(loadStmts.size());
     ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
     ImmutableMap<PathFragment, Label> importPathMap;
-    
+
     // Find the labels corresponding to the load statements.
     importPathMap = findLabelsForLoadStatements(loadStmts, fileLabel, env);
     if (importPathMap == null) {
@@ -240,7 +240,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
 
     // Import PathFragments are absolute, so there is a 1-1 mapping from corresponding Labels.
     ImmutableMap.Builder<PathFragment, Label> outputMap = new ImmutableMap.Builder<>();
- 
+
     // The SkyKey here represents the directory containing an import PathFragment, hence there
     // can in general be multiple imports per lookup.
     Multimap<SkyKey, PathFragment> lookupMap = LinkedHashMultimap.create();
@@ -250,7 +250,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           PackageIdentifier.createInDefaultRepo(relativeImportPath.getParentDirectory());
       lookupMap.put(ContainingPackageLookupValue.key(pkgToLookUp), importPath);
     }
- 
+
     // Attempt to find a package for every directory containing an import.
     Map<SkyKey,
         ValueOrException2<BuildFileNotFoundException,
@@ -269,7 +269,6 @@ public class SkylarkImportLookupFunction implements SkyFunction {
                    InconsistentFilesystemException>> entry : lookupResults.entrySet()) {
         ContainingPackageLookupValue lookupValue =
             (ContainingPackageLookupValue) entry.getValue().get();
-        PackageIdentifier pkgIdForImport = lookupValue.getContainingPackageName();
         if (!lookupValue.hasContainingPackage()) {
           // Although multiple imports may be in the same package-less directory, we only
           // report an error for the first one.
@@ -277,6 +276,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
           PathFragment importFile = lookupKey.getPackageFragment();
           throw SkylarkImportFailedException.noBuildFile(importFile);
         }
+        PackageIdentifier pkgIdForImport = lookupValue.getContainingPackageName();
         PathFragment containingPkgPath = pkgIdForImport.getPackageFragment();
         for (PathFragment importPath : lookupMap.get(entry.getKey())) {
          PathFragment relativeImportPath = importPath.toRelative();
@@ -290,7 +290,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
            // the error message to refer to a Label even though the filename was specified via a
            // simple path.
            throw new SkylarkImportFailedException(e);
-         }         
+         }
         }
       }
     } catch (BuildFileNotFoundException e) {

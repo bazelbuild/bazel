@@ -138,6 +138,22 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
         + "BUILD file not found on package path", errorMessage);
   }
 
+  public void testSkylarkImportLookupNoBuildFileForLoad() throws Exception {
+    scratch.file("pkg2/BUILD");
+    scratch.file("pkg1/ext.bzl", "a = 1");
+    scratch.file("pkg2/ext.bzl", "load('/pkg1/ext', 'a')");
+    SkyKey skylarkImportLookupKey =
+        SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked("//pkg:ext.bzl"));
+    EvaluationResult<SkylarkImportLookupValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+    assertTrue(result.hasError());
+    ErrorInfo errorInfo = result.getError(skylarkImportLookupKey);
+    String errorMessage = errorInfo.getException().getMessage();
+    assertEquals("Extension file not found. Unable to load package for '//pkg:ext.bzl': "
+        + "BUILD file not found on package path", errorMessage);
+  }
+
   public void testSkylarkAbsoluteImportFilenameWithControlChars() throws Exception {
     scratch.file("pkg/BUILD", "");
     scratch.file("pkg/ext.bzl", "load('/pkg/oops\u0000', 'a')");
