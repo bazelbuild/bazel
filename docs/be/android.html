@@ -491,7 +491,7 @@ com/google/common/base/Objects.class
     android_library
   </h2>
 
-  <pre class="rule-signature">android_library(<a href="#android_library.name">name</a>, <a href="#android_library.deps">deps</a>, <a href="#android_library.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#android_library.assets">assets</a>, <a href="#android_library.assets_dir">assets_dir</a>, <a href="#android_library.custom_package">custom_package</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#android_library.exports_manifest">exports_manifest</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#android_library.idl_import_root">idl_import_root</a>, <a href="#android_library.idl_parcelables">idl_parcelables</a>, <a href="#android_library.idl_srcs">idl_srcs</a>, <a href="#android_library.inline_constants">inline_constants</a>, <a href="#android_library.javacopts">javacopts</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#android_library.manifest">manifest</a>, <a href="#android_library.neverlink">neverlink</a>, <a href="#android_library.plugins">plugins</a>, <a href="#android_library.proguard_specs">proguard_specs</a>, <a href="#android_library.resource_files">resource_files</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">android_library(<a href="#android_library.name">name</a>, <a href="#android_library.deps">deps</a>, <a href="#android_library.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#android_library.assets">assets</a>, <a href="#android_library.assets_dir">assets_dir</a>, <a href="#android_library.custom_package">custom_package</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#android_library.exports">exports</a>, <a href="#android_library.exports_manifest">exports_manifest</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#android_library.idl_import_root">idl_import_root</a>, <a href="#android_library.idl_parcelables">idl_parcelables</a>, <a href="#android_library.idl_srcs">idl_srcs</a>, <a href="#android_library.inline_constants">inline_constants</a>, <a href="#android_library.javacopts">javacopts</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#android_library.manifest">manifest</a>, <a href="#android_library.neverlink">neverlink</a>, <a href="#android_library.plugins">plugins</a>, <a href="#android_library.proguard_specs">proguard_specs</a>, <a href="#android_library.resource_files">resource_files</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 
@@ -637,6 +637,20 @@ Bazel source tree.
         </td>
       </tr>
                                           <tr>
+        <td id="android_library.exports">
+          <code>exports</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                            The transitive closure of all rules reached via <code>exports</code> attributes
+        are considered direct dependencies of any rule that directly depends on the
+        target with <code>exports</code>.
+
+        <p>The <code>exports</code> are not direct deps of the rule they belong to.</p>
+
+        </td>
+      </tr>
+                      <tr>
         <td id="android_library.exports_manifest">
           <code>exports_manifest</code>
         </td>

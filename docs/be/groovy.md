@@ -28,6 +28,7 @@ targets:
 
   * `//external:groovy-sdk`, pointing at the
     [Groovy SDK binaries](http://www.groovy-lang.org/download.html)
+  * `//external:groovy`, pointing at the Groovy core language jar
   * `//external:junit`, pointing at JUnit (only required if using `groovy_test`)
   * `//external:spock`, pointing at Spock (only required if using `spock_test`)
 
@@ -61,7 +62,7 @@ Then, to build the code under src/main/groovy/lib/, your
 `src/main/groovy/lib/BUILD` can look like this:
 
 ```python
-load("/tools/build_rules/groovy/groovy", "groovy_library")
+load("/tools/build_defs/groovy/groovy", "groovy_library")
 
 groovy_library(
     name = "groovylib",
@@ -83,7 +84,7 @@ reference the Java code, but not vice-versa. Your `src/main/groovy/lib/BUILD`
 file would then look like this:
 
 ```python
-load("/tools/build_rules/groovy/groovy", "groovy_and_java_library")
+load("/tools/build_defs/groovy/groovy", "groovy_and_java_library")
 
 groovy_and_java_library(
     name = "lib",
@@ -95,7 +96,7 @@ To build the application under src/main/groovy/app, you can define a binary usin
 `groovy_binary` as follows:
 
 ```python
-load("/tools/build_rules/groovy/groovy", "groovy_binary")
+load("/tools/build_defs/groovy/groovy", "groovy_binary")
 
 groovy_binary(
     name = "GroovyApp",
@@ -393,7 +394,7 @@ groovy_test(name, deps, srcs, data, resources, jvm_flags, size, tags)
 </table>
 
 <a name="spock_test"></a>
-### spock_test
+## spock_test
 
 ```python
 spock_test(name, specs, deps, groovy_srcs, java_srcs, data, resources, jvm_flags, size, tags)
