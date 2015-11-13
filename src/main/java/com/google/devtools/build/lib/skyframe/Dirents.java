@@ -21,7 +21,10 @@ import javax.annotation.Nullable;
  * Interface for both iterating over the entries in a directory and getting the entry, if any, for a
  * given basename.
  */
-interface Dirents extends Iterable<Dirent> {
+public interface Dirents extends Iterable<Dirent> {
+
+  int size();
+
   @Nullable
   Dirent maybeGetDirent(String baseName);
 }

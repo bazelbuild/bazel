@@ -605,7 +605,7 @@ public abstract class GlobFunctionTest {
     fs.stubStat(fooBarDir.getRelative("wiz"), null);
     RootedPath fooBarDirRootedPath = RootedPath.toRootedPath(root, fooBarDir);
     SkyValue fooBarDirListingValue =
-        DirectoryListingStateValue.createForTesting(
+        DirectoryListingStateValue.create(
             ImmutableList.of(new Dirent("wiz", Dirent.Type.DIRECTORY)));
     differencer.inject(
         ImmutableMap.of(
@@ -677,7 +677,7 @@ public abstract class GlobFunctionTest {
         });
     // But the dir listing say foo/bar/wiz/file is a symlink.
     SkyValue wizDirListingValue =
-        DirectoryListingStateValue.createForTesting(
+        DirectoryListingStateValue.create(
             ImmutableList.of(new Dirent("file", Dirent.Type.SYMLINK)));
     differencer.inject(
         ImmutableMap.of(DirectoryListingStateValue.key(wizRootedPath), wizDirListingValue));

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -47,14 +46,13 @@ public final class DirectoryListingStateValue implements SkyValue {
     this.compactSortedDirents = CompactSortedDirents.create(dirents);
   }
 
-  @VisibleForTesting
-  public static DirectoryListingStateValue createForTesting(Collection<Dirent> dirents) {
+  public static DirectoryListingStateValue create(Collection<Dirent> dirents) {
     return new DirectoryListingStateValue(dirents);
   }
 
   public static DirectoryListingStateValue create(RootedPath dirRootedPath) throws IOException {
     Collection<Dirent> dirents = dirRootedPath.asPath().readdir(Symlinks.NOFOLLOW);
-    return new DirectoryListingStateValue(dirents);
+    return create(dirents);
   }
 
   @ThreadSafe
@@ -169,7 +167,8 @@ public final class DirectoryListingStateValue implements SkyValue {
       };
     }
 
-    private int size() {
+    @Override
+    public int size() {
       return names.length;
     }
 
