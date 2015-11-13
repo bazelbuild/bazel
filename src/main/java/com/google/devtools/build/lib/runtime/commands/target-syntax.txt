@@ -25,6 +25,14 @@ Specifying all rules recursively beneath a package:
   //foo/...:all     Matches all rules in all packages beneath directory 'foo'.
   //foo/...           (ditto)
 
+  By default, directory symlinks are followed when performing this recursive
+  traversal. But we understand that your workspace may intentionally contain
+  directories with weird symlink structures that you don't want consumed. As
+  such, if a directory has a file named
+  'DONT_FOLLOW_SYMLINKS_WHEN_TRAVERSING_THIS_DIRECTORY_VIA_A_RECURSIVE_TARGET_PATTERN'
+  then symlinks in that directory won't be followed when evaluating recursive
+  target patterns.
+
 Working-directory relative forms:  (assume cwd = 'workspace/foo')
 
   Target patterns which do not begin with '//' are taken relative to
