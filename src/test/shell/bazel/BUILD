@@ -251,6 +251,7 @@ sh_test(
         ":test-deps",
         "//src/test/java/com/google/devtools/build/lib:worker-example_deploy.jar",
     ],
+    tags = ["manual"],
 )
 
 sh_test(
