@@ -3690,6 +3690,47 @@ public class MemoizingEvaluatorTest {
     assertThat(tester.evalAndGet(/*keepGoing=*/ true, top)).isEqualTo(new StringValue("leaf"));
   }
 
+  // Tests that a removed and then reinstated node doesn't have a reverse dep on a former parent.
+  @Test
+  public void removedInvalidatedNodeComesBackAndOtherInvalidates() throws Exception {
+    SkyKey top = GraphTester.skyKey("top");
+    SkyKey leaf = GraphTester.skyKey("leaf");
+    // When top depends on leaf,
+    tester.getOrCreate(top).addDependency(leaf).setComputedValue(CONCATENATE);
+    StringValue leafValue = new StringValue("leaf");
+    tester.set(leaf, leafValue);
+    // Then when top is evaluated, its value is as expected.
+    assertThat(tester.evalAndGet(/*keepGoing=*/ true, top)).isEqualTo(leafValue);
+    // When top is changed to no longer depend on leaf,
+    StringValue topValue = new StringValue("top");
+    tester
+        .getOrCreate(top, /*markAsModified=*/ true)
+        .removeDependency(leaf)
+        .setComputedValue(null)
+        .setConstantValue(topValue);
+    // And leaf is invalidated,
+    tester.getOrCreate(leaf, /*markAsModified=*/ true);
+    // Then when top is evaluated, its value is as expected,
+    tester.invalidate();
+    assertThat(tester.evalAndGet(/*keepGoing=*/ true, top)).isEqualTo(topValue);
+    // And there is no value for leaf in the graph.
+    assertThat(tester.driver.getExistingValueForTesting(leaf)).isNull();
+    assertThat(tester.driver.getExistingErrorForTesting(leaf)).isNull();
+
+    // When leaf is evaluated, so that it is present in the graph again,
+    assertThat(tester.evalAndGet(/*keepGoing=*/ true, leaf)).isEqualTo(leafValue);
+    // And top is changed to depend on leaf again,
+    tester
+        .getOrCreate(top, /*markAsModified=*/ true)
+        .addDependency(leaf)
+        .setConstantValue(null)
+        .setComputedValue(CONCATENATE);
+    // Then when top is evaluated, its value is as expected.
+    tester.invalidate();
+    assertThat(tester.evalAndGet(/*keepGoing=*/ true, top)).isEqualTo(leafValue);
+  }
+
+
   @Test
   public void cleanReverseDepFromDirtyNodeNotInBuild() throws Exception {
     final SkyKey topKey = GraphTester.skyKey("top");
