@@ -15,7 +15,7 @@
 
 # Filetype to restrict inputs
 tar_filetype = FileType([".tar", ".tar.gz", ".tgz", ".tar.xz"])
-deb_filetype = FileType([".deb"])
+deb_filetype = FileType([".deb", ".udeb"])
 
 # Docker files are tarballs, should we allow other extensions than tar?
 docker_filetype = tar_filetype

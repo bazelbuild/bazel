@@ -15,7 +15,7 @@
 
 # Filetype to restrict inputs
 tar_filetype = FileType([".tar", ".tar.gz", ".tgz", ".tar.xz"])
-deb_filetype = FileType([".deb"])
+deb_filetype = FileType([".deb", ".udeb"])
 
 def _short_path_dirname(path):
   """Returns the directory's name of the short path of an artifact."""
