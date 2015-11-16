@@ -28,12 +28,19 @@ import java.util.List;
 @Immutable
 public final class JavaToolchainProvider implements TransitiveInfoProvider {
 
+  private final String sourceVersion;
+  private final String targetVersion;
+  private final String encoding;
   private final ImmutableList<String> javacOptions;
   private final ImmutableList<String> javacJvmOptions;
 
   public JavaToolchainProvider(JavaToolchainData data, List<String> defaultJavacFlags,
       List<String> defaultJavacJvmOpts) {
-    super();
+
+    this.sourceVersion = data.getSourceVersion();
+    this.targetVersion = data.getTargetVersion();
+    this.encoding = data.getEncoding();
+    
     // merges the defaultJavacFlags from
     // {@link JavaConfiguration} with the flags from the {@code java_toolchain} rule.
     this.javacOptions = ImmutableList.<String>builder()
@@ -99,5 +106,17 @@ public final class JavaToolchainProvider implements TransitiveInfoProvider {
       return ImmutableList.of();
     }
     return javaToolchain.getJavacJvmOptions();
+  }
+
+  public String getSourceVersion() {
+    return sourceVersion;
+  }
+
+  public String getTargetVersion() {
+    return targetVersion;
+  }
+
+  public String getEncoding() {
+    return encoding;
   }
 }
