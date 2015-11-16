@@ -458,6 +458,27 @@ java_test(
     ],
 )
 
+java_test(
+    name = "graph_test",
+    srcs = glob([
+        "graph/*.java",
+    ]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    deps = [
+        ":foundations_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:cmdline",
+        "//src/main/java/com/google/devtools/build/lib:collect",
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:graph",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
 java_library(
     name = "packages_testutil",
     srcs = glob([
