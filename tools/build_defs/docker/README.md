@@ -30,6 +30,8 @@ The docker_build rule constructs a tarball that is compatible with
 Consider the following BUILD file in `//third_party/debian`:
 
 ```python
+load("/tools/build_defs/docker/docker", "docker_build")
+
 filegroup(
     name = "ca_certificates",
     srcs = ["ca_certificates.deb"],
