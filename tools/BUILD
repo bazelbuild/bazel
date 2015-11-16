@@ -30,6 +30,7 @@ filegroup(
         "//tools/build_defs/sass:srcs",
         "//tools/build_rules/appengine:srcs",
         "//tools/build_rules/closure:srcs",
+        "//tools/build_rules/go:srcs",
         "//tools/build_rules/rust:srcs",
         "//tools/buildstamp:srcs",
         "//tools/jdk:package-srcs",

@@ -36,7 +36,5 @@ filegroup(
         "BUILD",
         "BUILD.go-toolchain",
         "WORKSPACE.go-toolchain",
-        ":go_tool",
-        ":toolchain",
     ],
 )
