@@ -153,7 +153,7 @@ def _impl(ctx):
   output = ctx.outputs.out
 
   # Generate the "@"-file containing the command-line args for the unit of work.
-  argfile = ctx.new_file(ctx.configuration.bin_dir, "worker_input")
+  argfile = ctx.new_file(ctx.configuration.bin_dir, "%s_worker_input" % ctx.label.name)
   argfile_contents = "\n".join(["--output_file=" + output.path] + ctx.attr.args)
   ctx.file_action(output=argfile, content=argfile_contents)
 
