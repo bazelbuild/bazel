@@ -42,7 +42,7 @@ import java.util.List;
 /**
  * Strategy that uses subprocessing to execute a process.
  */
-@ExecutionStrategy(name = { "standalone" }, contextType = SpawnActionContext.class)
+@ExecutionStrategy(name = { "standalone", "local" }, contextType = SpawnActionContext.class)
 public class StandaloneSpawnStrategy implements SpawnActionContext {
   private final boolean verboseFailures;
   private final Path processWrapper;
