@@ -28,8 +28,10 @@ import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
@@ -188,7 +190,11 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
    * interrupt comes in.
    */
   static class InvalidationState {
-    private final Set<Pair<SkyKey, InvalidationType>> pendingValues = Sets.newConcurrentHashSet();
+
+    private final Set<Pair<SkyKey, InvalidationType>> pendingValues =
+        Collections.newSetFromMap(
+            new ConcurrentHashMap<Pair<SkyKey, InvalidationType>, Boolean>(
+                DEFAULT_THREAD_COUNT, .75f, DEFAULT_THREAD_COUNT));
     private final InvalidationType defaultUpdateType;
 
     private InvalidationState(InvalidationType defaultUpdateType) {
@@ -322,7 +328,10 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
    */
   static class DirtyingNodeVisitor extends InvalidatingNodeVisitor<ThinNodeQueryableGraph> {
 
-    private final Set<Pair<SkyKey, InvalidationType>> visited = Sets.newConcurrentHashSet();
+    private final Set<Pair<SkyKey, InvalidationType>> visited =
+        Collections.newSetFromMap(
+            new ConcurrentHashMap<Pair<SkyKey, InvalidationType>, Boolean>(
+                DEFAULT_THREAD_COUNT, .75f, DEFAULT_THREAD_COUNT));
 
     protected DirtyingNodeVisitor(
         ThinNodeQueryableGraph graph,
