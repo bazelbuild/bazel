@@ -275,7 +275,8 @@ class TarFileWriter(object):
               rootuid=None,
               rootgid=None,
               numeric=False,
-              name_filter=None):
+              name_filter=None,
+              root=None):
     """Merge a tar content into the current tar, stripping timestamp.
 
     Args:
@@ -287,6 +288,8 @@ class TarFileWriter(object):
       name_filter: filter out file by names. If not none, this method will be
           called for each file to add, given the name and should return true if
           the file is to be added to the final tar and false otherwise.
+      root: place all non-absolute content under given root direcory, if not
+          None.
     """
     compression = os.path.splitext(tar)[-1][1:]
     if compression == 'tgz':
@@ -321,9 +324,28 @@ class TarFileWriter(object):
         if numeric:
           tarinfo.uname = ''
           tarinfo.gname = ''
+
         name = tarinfo.name
         if not name.startswith('/') and not name.startswith('.'):
-          tarinfo.name = './' + name
+          name = './' + name
+        if root is not None:
+          if name.startswith('.'):
+            name = '.' + root + name.lstrip('.')
+            # Add root dir with same permissions if missing. Note that
+            # add_file deduplicates directories and is safe to call here.
+            self.add_file('.' + root,
+                          tarfile.DIRTYPE,
+                          uid=tarinfo.uid,
+                          gid=tarinfo.gid,
+                          uname=tarinfo.uname,
+                          gname=tarinfo.gname,
+                          mtime=tarinfo.mtime,
+                          mode=0755)
+          # Relocate internal hardlinks as well to avoid breaking them.
+          link = tarinfo.linkname
+          if link.startswith('.') and tarinfo.type == tarfile.LNKTYPE:
+            tarinfo.linkname = '.' + root + link.lstrip('.')
+        tarinfo.name = name
 
         if tarinfo.isfile():
           self._addfile(tarinfo, intar.extractfile(tarinfo.name))

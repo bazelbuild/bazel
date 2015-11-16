@@ -227,6 +227,12 @@ function test_tar_with_tar_base() {
     "1cc81a2aaec2e3727d98d48bf9ba09d3ac96ef48adf5edae861d15dd0191dc40"
 }
 
+function test_directory_with_tar_base() {
+  check_layers "directory_with_tar_base" \
+    "8b9e4db9dd4b990ee6d8adc2843ad64702ad9063ae6c22e8ca5f94aa54e71277" \
+    "e56ddeb8279698484f50d480f71cb5380223ad0f451766b7b9a9348129d02542"
+}
+
 function test_files_with_tar_base() {
   check_layers "files_with_tar_base" \
     "8b9e4db9dd4b990ee6d8adc2843ad64702ad9063ae6c22e8ca5f94aa54e71277" \

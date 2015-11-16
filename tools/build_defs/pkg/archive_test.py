@@ -200,6 +200,18 @@ class TarFileWriterTest(unittest.TestCase):
                   name_filter=lambda n: n != "./b")
       self.assertTarFileContent(self.tempfile, content)
 
+  def testMergeTarRelocated(self):
+    content = [
+        {"name": ".", "mode": 0755},
+        {"name": "./foo", "mode": 0755},
+        {"name": "./foo/a", "data": "a"},
+        {"name": "./foo/ab", "data": "ab"},
+        ]
+    with archive.TarFileWriter(self.tempfile) as f:
+      f.add_tar(os.path.join(testenv.TESTDATA_PATH, "tar_test.tar"),
+                name_filter=lambda n: n != "./b", root="/foo")
+    self.assertTarFileContent(self.tempfile, content)
+
   def testAddingDirectoriesForFile(self):
     with archive.TarFileWriter(self.tempfile) as f:
       f.add_file("d/f")

@@ -12,6 +12,7 @@ TEST_TARGETS = [
     "derivative_with_cmd",
     "derivative_with_shadowed_cmd",
     "derivative_with_volume",
+    "directory_with_tar_base",
     "files_base",
     "files_with_files_base",
     "files_with_tar_base",

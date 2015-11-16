@@ -85,8 +85,6 @@ class TarFile(object):
     `f` will be copied to `self.directory/destfile` in the layer.
     """
     dest = destfile.lstrip('/')  # Remove leading slashes
-    # TODO(mattmoor): Consider applying the working directory to all four
-    # options, not just files...
     if self.directory and self.directory != '/':
       dest = self.directory.lstrip('/') + '/' + dest
     # If mode is unspecified, derive the mode from the file's mode.
@@ -98,13 +96,16 @@ class TarFile(object):
     """Merge a tar file into the destination tar file.
 
     All files presents in that tar will be added to the output file
-    under the same paths. No user name nor group name will be added to
-    the output.
+    under self.directory/path. No user name nor group name will be
+    added to the output.
 
     Args:
       tar: the tar file to add
     """
-    self.tarfile.add_tar(tar, numeric=True)
+    root = None
+    if self.directory and self.directory != '/':
+      root = self.directory
+    self.tarfile.add_tar(tar, numeric=True, root=root)
 
   def add_link(self, symlink, destination):
     """Add a symbolic link pointing to `destination`.

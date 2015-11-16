@@ -69,6 +69,13 @@ docker_build(
 )
 
 docker_build(
+    name = "directory_with_tar_base",
+    base = ":tar_base",
+    directory = "/foo",
+    tars = ["two.tar"],
+)
+
+docker_build(
     name = "workdir_with_tar_base",
     base = ":tar_base",
     workdir = "/tmp",
@@ -212,6 +219,13 @@ docker_build(
 docker_build(
     name = "notop_tar_with_tar_base",
     base = ":notop_tar_base",
+    tars = ["two.tar"],
+)
+
+docker_build(
+    name = "notop_directory_with_tar_base",
+    base = ":notop_tar_base",
+    directory = "/foo",
     tars = ["two.tar"],
 )
 
