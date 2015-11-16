@@ -122,10 +122,10 @@ class InputZipFile : public ZipExtractor {
   // not enough, we bail out. We only decompress class files, so they should
   // be smaller than 64K anyway, but we give a little leeway.
   // MAX_BUFFER_SIZE must be bigger than the size of the biggest file in the
-  // ZIP. It is set to 128M here so we can uncompress the Bazel server with
+  // ZIP. It is set to 256M here so we can uncompress the Bazel server with
   // this library.
   static const size_t INITIAL_BUFFER_SIZE = 256 * 1024;  // 256K
-  static const size_t MAX_BUFFER_SIZE = 128 * 1024 * 1024;
+  static const size_t MAX_BUFFER_SIZE = 256 * 1024 * 1024;
   static const size_t MAX_MAPPED_REGION = 32 * 1024 * 1024;
 
   // These metadata fields are the fields of the ZIP header of the file being
