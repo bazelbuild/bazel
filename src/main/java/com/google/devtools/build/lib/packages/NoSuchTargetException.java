@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 
 import java.util.Objects;
 
@@ -37,14 +38,15 @@ public class NoSuchTargetException extends NoSuchThingException {
     this((label != null ? "no such target '" + label + "': " : "") + message, label, null, null);
   }
 
-  public NoSuchTargetException(Target targetInError, NoSuchPackageException nspe) {
+  public NoSuchTargetException(Target targetInError, PackageIdentifier packageInError) {
     this(String.format("Target '%s' contains an error and its package is in error",
-        targetInError.getLabel()), targetInError.getLabel(), targetInError, nspe);
+        targetInError.getLabel()), targetInError.getLabel(), targetInError, packageInError);
   }
 
   private NoSuchTargetException(String message, @Nullable Label label, @Nullable Target target,
-      @Nullable NoSuchPackageException nspe) {
-    super(message, nspe);
+      @Nullable PackageIdentifier packageInError) {
+    super(message,
+        packageInError == null ? null : new BuildFileContainsErrorsException(packageInError));
     this.label = label;
     this.hasTarget = (target != null);
   }

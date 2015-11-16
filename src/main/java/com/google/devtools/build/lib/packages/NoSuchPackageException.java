@@ -22,14 +22,14 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
  */
 public abstract class NoSuchPackageException extends NoSuchThingException {
 
-  private final com.google.devtools.build.lib.cmdline.PackageIdentifier packageId;
+  private final PackageIdentifier packageId;
 
   public NoSuchPackageException(PackageIdentifier packageId, String message) {
     this(packageId, "no such package", message);
   }
 
   public NoSuchPackageException(PackageIdentifier packageId, String message,
-      Throwable cause) {
+      Exception cause) {
     this(packageId, "no such package", message, cause);
   }
 
@@ -40,7 +40,7 @@ public abstract class NoSuchPackageException extends NoSuchThingException {
   }
 
   protected NoSuchPackageException(PackageIdentifier packageId, String messagePrefix,
-      String message, Throwable cause) {
+      String message, Exception cause) {
     super(messagePrefix + " '" + packageId + "': " + message, cause);
     this.packageId = packageId;
   }

@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 
+import java.io.IOException;
+
 /**
  * Exception indicating a failed attempt to access a package that could not
  * be read or had syntax errors.
@@ -32,7 +34,7 @@ public class BuildFileContainsErrorsException extends NoSuchPackageException {
   }
 
   public BuildFileContainsErrorsException(PackageIdentifier packageIdentifier, String message,
-      Throwable cause) {
+      IOException cause) {
     super(packageIdentifier, "error loading package", message, cause);
   }
 }
