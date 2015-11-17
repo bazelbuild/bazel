@@ -80,7 +80,9 @@ class ExtraActionUtils {
       builder.addTransitive(provider.getTransitiveExtraActionArtifacts());
     }
 
-    return ExtraActionArtifactsProvider.create(extraActionArtifacts, builder.build());
+    return ExtraActionArtifactsProvider.create(
+        NestedSetBuilder.<Artifact>stableOrder().addAll(extraActionArtifacts).build(),
+        builder.build());
   }
 
   /**

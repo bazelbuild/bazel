@@ -1209,7 +1209,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         : provider.getOutputGroup(outputGroup);
   }
 
-  protected ImmutableList<Artifact> getExtraActionArtifacts(ConfiguredTarget target) {
+  protected NestedSet<Artifact> getExtraActionArtifacts(ConfiguredTarget target) {
     return target.getProvider(ExtraActionArtifactsProvider.class).getExtraActionArtifacts();
   }
 
