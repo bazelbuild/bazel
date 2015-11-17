@@ -45,9 +45,9 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.Rule.Builder;
 import com.google.devtools.build.lib.syntax.GlobCriteria;
 import com.google.devtools.build.lib.syntax.GlobList;
+import com.google.protobuf.CodedOutputStream;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -131,15 +131,10 @@ public class PackageSerializer {
    * encoding the targets.
    *
    * @param pkg the {@link Package} to be serialized
-   * @param out the stream to pkg's serialized representation to
+   * @param codedOut the stream to pkg's serialized representation to
    * @throws IOException on failure writing to {@code out}
    */
-  public void serialize(Package pkg, OutputStream out) throws IOException {
-    serializePackageInternal(pkg, out);
-  }
-
-  /** Serializes pkg to out as a series of protocol buffers */
-  private void serializePackageInternal(Package pkg, OutputStream out) throws IOException {
+  public void serialize(Package pkg, CodedOutputStream codedOut) throws IOException {
     Build.Package.Builder builder = Build.Package.newBuilder();
     builder.setName(pkg.getName());
     builder.setRepository(pkg.getPackageIdentifier().getRepository().toString());
@@ -197,11 +192,11 @@ public class PackageSerializer {
 
     builder.setWorkspaceName(pkg.getWorkspaceName());
 
-    builder.build().writeDelimitedTo(out);
+    codedOut.writeMessageNoTag(builder.build());
 
     // Targets are emitted separately as individual protocol buffers as to prevent overwhelming
     // protocol buffer deserialization size limits.
-    emitTargets(pkg.getTargets(), out);
+    emitTargets(pkg.getTargets(), codedOut);
   }
 
   /**
@@ -541,31 +536,31 @@ public class PackageSerializer {
   }
 
   /** Writes targets as a series of separate TargetOrTerminator messages to out. */
-  private void emitTargets(Collection<Target> targets, OutputStream out) throws IOException {
+  private void emitTargets(Collection<Target> targets, CodedOutputStream codedOut)
+      throws IOException {
     for (Target target : targets) {
       if (target instanceof InputFile) {
-        emitTarget(serializeInputFile((InputFile) target), out);
+        emitTarget(serializeInputFile((InputFile) target), codedOut);
       } else if (target instanceof OutputFile) {
         // Output files are not serialized; they are recreated by the RuleClass on deserialization.
       } else if (target instanceof PackageGroup) {
-        emitTarget(serializePackageGroup((PackageGroup) target), out);
+        emitTarget(serializePackageGroup((PackageGroup) target), codedOut);
       } else if (target instanceof Rule) {
-        emitTarget(serializeRule((Rule) target), out);
+        emitTarget(serializeRule((Rule) target), codedOut);
       }
     }
 
     // Terminate stream with isTerminator = true.
-    Build.TargetOrTerminator.newBuilder()
+    codedOut.writeMessageNoTag(Build.TargetOrTerminator.newBuilder()
         .setIsTerminator(true)
-        .build()
-        .writeDelimitedTo(out);
+        .build());
   }
 
-  private static void emitTarget(Build.Target target, OutputStream out) throws IOException {
-    Build.TargetOrTerminator.newBuilder()
+  private static void emitTarget(Build.Target target, CodedOutputStream codedOut)
+      throws IOException {
+    codedOut.writeMessageNoTag(Build.TargetOrTerminator.newBuilder()
         .setTarget(target)
-        .build()
-        .writeDelimitedTo(out);
+        .build());
   }
 
   // This is needed because I do not want to use the SymlinkBehavior from the

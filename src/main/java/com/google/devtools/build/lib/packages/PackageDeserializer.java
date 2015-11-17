@@ -44,9 +44,10 @@ import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.ExtensionRegistryLite;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -371,7 +372,7 @@ public class PackageDeserializer {
    * @throws InterruptedException
    */
   private void deserializeInternal(Build.Package packagePb, StoredEventHandler eventHandler,
-      Package.Builder builder, InputStream in)
+      Package.Builder builder, CodedInputStream codedIn)
       throws PackageDeserializationException, IOException, InterruptedException {
     Path buildFile = packageDeserializationEnvironment.getPath(packagePb.getBuildFilePath());
     Preconditions.checkNotNull(buildFile);
@@ -433,13 +434,13 @@ public class PackageDeserializer {
 
     builder.setWorkspaceName(packagePb.getWorkspaceName());
 
-    deserializeTargets(in, context);
+    deserializeTargets(codedIn, context);
   }
 
-  private void deserializeTargets(InputStream in, DeserializationContext context)
+  private void deserializeTargets(CodedInputStream codedIn, DeserializationContext context)
       throws IOException, PackageDeserializationException, InterruptedException {
     Build.TargetOrTerminator tot;
-    while (!(tot = Build.TargetOrTerminator.parseDelimitedFrom(in)).getIsTerminator()) {
+    while (!(tot = readTargetOrTerminator(codedIn)).getIsTerminator()) {
       Build.Target target = tot.getTarget();
       switch (target.getType()) {
         case SOURCE_FILE:
@@ -457,37 +458,44 @@ public class PackageDeserializer {
     }
   }
 
+  private static Build.TargetOrTerminator readTargetOrTerminator(CodedInputStream codedIn)
+      throws IOException {
+    Build.TargetOrTerminator.Builder builder = Build.TargetOrTerminator.newBuilder();
+    codedIn.readMessage(builder, ExtensionRegistryLite.getEmptyRegistry());
+    return builder.build();
+  }
+
   /**
    * Deserializes a {@link Package} from {@code in}. The inverse of
    * {@link PackageSerializer#serialize}.
    *
-   * <p>Expects {@code in} to contain a single
+   * <p>Expects {@code codedIn} to contain a single
    * {@link com.google.devtools.build.lib.query2.proto.proto2api.Build.Package} message followed
    * by a series of
    * {@link com.google.devtools.build.lib.query2.proto.proto2api.Build.TargetOrTerminator}
    * messages encoding the associated targets.
    *
-   * @param in stream to read from
+   * @param codedIn stream to read from
    * @return a new {@link Package} as read from {@code in}
    * @throws PackageDeserializationException on failures deserializing the input
    * @throws IOException on failures reading from {@code in}
    * @throws InterruptedException
    */
-  public Package deserialize(InputStream in)
+  public Package deserialize(CodedInputStream codedIn)
       throws PackageDeserializationException, IOException, InterruptedException {
     try {
-      return deserializeInternal(in);
+      return deserializeInternal(codedIn);
     } catch (PackageDeserializationException | RuntimeException e) {
       LOG.log(Level.WARNING, "Failed to deserialize Package object", e);
       throw e;
     }
   }
 
-  private Package deserializeInternal(InputStream in)
+  private Package deserializeInternal(CodedInputStream codedIn)
       throws PackageDeserializationException, IOException, InterruptedException {
     // Read the initial Package message so we have the data to initialize the builder. We will read
     // the Targets in individually later.
-    Build.Package packagePb = Build.Package.parseDelimitedFrom(in);
+    Build.Package packagePb = readPackageProto(codedIn);
     Package.Builder builder;
     try {
       builder = new Package.Builder(
@@ -498,8 +506,14 @@ public class PackageDeserializer {
       throw new PackageDeserializationException(e);
     }
     StoredEventHandler eventHandler = new StoredEventHandler();
-    deserializeInternal(packagePb, eventHandler, builder, in);
+    deserializeInternal(packagePb, eventHandler, builder, codedIn);
     builder.addEvents(eventHandler.getEvents());
+    return builder.build();
+  }
+
+  private static Build.Package readPackageProto(CodedInputStream codedIn) throws IOException {
+    Build.Package.Builder builder = Build.Package.newBuilder();
+    codedIn.readMessage(builder, ExtensionRegistryLite.getEmptyRegistry());
     return builder.build();
   }
 

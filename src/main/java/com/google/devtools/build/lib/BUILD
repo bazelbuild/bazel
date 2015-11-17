@@ -354,6 +354,7 @@ java_library(
         "//src/main/protobuf:build_proto",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party:protobuf",
     ],
 )
 
