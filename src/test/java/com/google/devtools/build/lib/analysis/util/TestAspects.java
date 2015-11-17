@@ -154,7 +154,7 @@ public class TestAspects {
       String information = parameters.isEmpty()
           ? ""
           : " data " + Iterables.getFirst(parameters.getAttribute("baz"), null);
-      return new ConfiguredAspect.Builder(getClass().getName())
+      return new ConfiguredAspect.Builder(getClass().getName(), ruleContext)
           .addProvider(
               AspectInfo.class,
               new AspectInfo(
@@ -264,7 +264,7 @@ public class TestAspects {
         information.append(dep.getLabel());
       }
       information.append("]");
-      return new ConfiguredAspect.Builder(getClass().getName())
+      return new ConfiguredAspect.Builder(getClass().getName(), ruleContext)
           .addProvider(
               AspectInfo.class,
               new AspectInfo(collectAspectData(information.toString(), ruleContext)))

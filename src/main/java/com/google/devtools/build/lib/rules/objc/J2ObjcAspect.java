@@ -92,7 +92,7 @@ public class J2ObjcAspect implements ConfiguredNativeAspectFactory {
   @Override
   public ConfiguredAspect create(
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
-    ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(NAME);
+    ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(NAME, ruleContext);
 
     JavaCompilationArgsProvider compilationArgsProvider =
         base.getProvider(JavaCompilationArgsProvider.class);

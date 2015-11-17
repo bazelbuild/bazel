@@ -78,6 +78,20 @@ public final class ExtraActionArtifactsProvider implements TransitiveInfoProvide
     return new ExtraActionArtifactsProvider(extraActionArtifacts, transitiveExtraActionArtifacts);
   }
 
+  public static ExtraActionArtifactsProvider merge(
+      Iterable<ExtraActionArtifactsProvider> providers) {
+    NestedSetBuilder<Artifact> artifacts = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<ExtraArtifactSet> transitiveExtraActionArtifacts =
+        NestedSetBuilder.stableOrder();
+
+    for (ExtraActionArtifactsProvider provider : providers) {
+      artifacts.addTransitive(provider.getExtraActionArtifacts());
+      transitiveExtraActionArtifacts.addTransitive(provider.getTransitiveExtraActionArtifacts());
+    }
+    return ExtraActionArtifactsProvider.create(
+        artifacts.build(), transitiveExtraActionArtifacts.build());
+  }
+
   /** The outputs of the extra actions associated with this target. */
   private final NestedSet<Artifact> extraActionArtifacts;
   private final NestedSet<ExtraArtifactSet> transitiveExtraActionArtifacts;

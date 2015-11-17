@@ -80,7 +80,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
           return null;
         }
 
-        ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(name);
+        ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(name, ruleContext);
 
         SkylarkClassObject struct = (SkylarkClassObject) aspectSkylarkObject;
         Location loc = struct.getCreationLoc();

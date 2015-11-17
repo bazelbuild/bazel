@@ -121,7 +121,7 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
   @Override
   public ConfiguredAspect create(
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
-    ConfiguredAspect.Builder builder = new Builder(NAME);
+    ConfiguredAspect.Builder builder = new Builder(NAME, ruleContext);
 
     AndroidStudioInfoFilesProvider.Builder providerBuilder =
         new AndroidStudioInfoFilesProvider.Builder();

@@ -49,7 +49,7 @@ public class AndroidNeverlinkAspect implements ConfiguredNativeAspectFactory {
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
     if (!JavaCommon.getConstraints(ruleContext).contains("android")
         && !ruleContext.getRule().getRuleClass().startsWith("android_")) {
-      return new ConfiguredAspect.Builder(NAME).build();
+      return new ConfiguredAspect.Builder(NAME, ruleContext).build();
     }
 
     List<TransitiveInfoCollection> deps = new ArrayList<>();
@@ -65,7 +65,7 @@ public class AndroidNeverlinkAspect implements ConfiguredNativeAspectFactory {
       deps.addAll(ruleContext.getPrerequisites(attribute, Mode.TARGET));
     }
 
-    return new ConfiguredAspect.Builder(NAME)
+    return new ConfiguredAspect.Builder(NAME, ruleContext)
         .addProvider(
             AndroidNeverLinkLibrariesProvider.class,
             new AndroidNeverLinkLibrariesProvider(

@@ -27,6 +27,7 @@ import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -77,7 +78,8 @@ public class BaseRuleClasses {
   /**
    * Implementation for the :action_listener attribute.
    */
-  private static final LateBoundLabelList<BuildConfiguration> ACTION_LISTENER =
+  @VisibleForTesting
+  static final LateBoundLabelList<BuildConfiguration> ACTION_LISTENER =
       new LateBoundLabelList<BuildConfiguration>() {
     @Override
     public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {

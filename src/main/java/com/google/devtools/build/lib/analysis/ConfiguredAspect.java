@@ -14,10 +14,14 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.devtools.build.lib.analysis.ExtraActionUtils.createExtraActionProvider;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.UnmodifiableIterator;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -93,9 +97,11 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
     private final ImmutableMap.Builder<String, Object> skylarkProviderBuilder =
         ImmutableMap.builder();
     private final String name;
+    private final RuleContext ruleContext;
 
-    public Builder(String name) {
+    public Builder(String name, RuleContext ruleContext) {
       this.name = name;
+      this.ruleContext = ruleContext;
     }
 
     /**
@@ -158,6 +164,10 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
       if (!skylarkProvidersMap.isEmpty()) {
         providers.put(SkylarkProviders.class, new SkylarkProviders(skylarkProvidersMap));
       }
+
+      addProvider(createExtraActionProvider(
+          ImmutableSet.<Action>of() /* actionsWithoutExtraAction */,
+          ruleContext));
 
       return new ConfiguredAspect(name, ImmutableMap.copyOf(providers));
     }

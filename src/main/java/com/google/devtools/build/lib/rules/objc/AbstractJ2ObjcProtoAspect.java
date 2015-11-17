@@ -78,7 +78,7 @@ public abstract class AbstractJ2ObjcProtoAspect implements ConfiguredNativeAspec
   public ConfiguredAspect create(
       ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
     if (!checkShouldCreateAspect(ruleContext)) {
-      return new ConfiguredAspect.Builder(NAME).build();
+      return new ConfiguredAspect.Builder(NAME, ruleContext).build();
     }
 
     ProtoSourcesProvider protoSourcesProvider = base.getProvider(ProtoSourcesProvider.class);
@@ -110,7 +110,7 @@ public abstract class AbstractJ2ObjcProtoAspect implements ConfiguredNativeAspec
     NestedSet<Artifact> j2ObjcTransitiveClassMappingFiles = j2ObjcTransitiveClassMappingFiles(
         ruleContext, classMappingFiles);
 
-    return new ConfiguredAspect.Builder(NAME)
+    return new ConfiguredAspect.Builder(NAME, ruleContext)
         .addProvider(J2ObjcSrcsProvider.class, j2objcSrcsProvider)
         .addProvider(
             J2ObjcMappingFileProvider.class,

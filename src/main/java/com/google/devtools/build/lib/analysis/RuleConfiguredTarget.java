@@ -137,6 +137,10 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     SkylarkProviders mergedSkylarkProviders =
         SkylarkProviders.merge(getAllProviders(base, aspects, SkylarkProviders.class));
 
+    // Merge extra-actions provider.
+    ExtraActionArtifactsProvider mergedExtraActionProviders = ExtraActionArtifactsProvider.merge(
+        getAllProviders(base, aspects, ExtraActionArtifactsProvider.class));
+
     // Validate that all other providers are only provided once.
     for (ConfiguredAspect configuredAspect : aspects) {
       for (TransitiveInfoProvider aspectProvider : configuredAspect) {
@@ -147,6 +151,9 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         if (SkylarkProviders.class.equals(aClass)) {
           continue;
         }
+        if (ExtraActionArtifactsProvider.class.equals(aClass)) {
+          continue;
+        }
         if (!providers.add(aClass)) {
           throw new IllegalStateException("Provider " + aClass + " provided twice");
         }
@@ -154,7 +161,8 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     }
 
     if (base.getProvider(OutputGroupProvider.class) == mergedOutputGroupProvider
-        && base.getProvider(SkylarkProviders.class) == mergedSkylarkProviders) {
+        && base.getProvider(SkylarkProviders.class) == mergedSkylarkProviders
+        && base.getProvider(ExtraActionArtifactsProvider.class) == mergedExtraActionProviders) {
       this.providers = base.providers;
     } else {
       ImmutableMap.Builder<Class<? extends TransitiveInfoProvider>, Object> builder =
@@ -166,6 +174,9 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         if (SkylarkProviders.class.equals(aClass)) {
           continue;
         }
+        if (ExtraActionArtifactsProvider.class.equals(aClass)) {
+          continue;
+        }
         builder.put(aClass, base.providers.get(aClass));
       }
       if (mergedOutputGroupProvider != null) {
@@ -173,6 +184,9 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       }
       if (mergedSkylarkProviders != null) {
         builder.put(SkylarkProviders.class, mergedSkylarkProviders);
+      }
+      if (mergedExtraActionProviders != null) {
+        builder.put(ExtraActionArtifactsProvider.class, mergedExtraActionProviders);
       }
       this.providers = builder.build();
     }
