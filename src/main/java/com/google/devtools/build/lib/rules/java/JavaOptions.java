@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizationMode;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.StringSetConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -159,6 +160,15 @@ public class JavaOptions extends FragmentOptions {
   public static class JavaClasspathModeConverter extends EnumConverter<JavaClasspathMode> {
     public JavaClasspathModeConverter() {
       super(JavaClasspathMode.class, "Java classpath reduction strategy");
+    }
+  }
+
+  /**
+   * Converter for the --java_optimization_mode option.
+   */
+  public static class JavaOptimizationModeConverter extends EnumConverter<JavaOptimizationMode> {
+    public JavaOptimizationModeConverter() {
+      super(JavaOptimizationMode.class, "Java optimization strategy");
     }
   }
 
@@ -368,6 +378,13 @@ public class JavaOptions extends FragmentOptions {
       category = "undocumented",
       help = "No-op. Kept here for backwards compatibility.")
   public boolean allowPrecompiledJarsInSrcs;
+
+  @Option(name = "java_optimization_mode",
+      defaultValue = "legacy",
+      converter = JavaOptimizationModeConverter.class,
+      category = "undocumented",
+      help = "Applies desired link-time optimizations to Java binaries and tests.")
+  public JavaOptimizationMode javaOptimizationMode;
 
   @Override
   public FragmentOptions getHost(boolean fallback) {
