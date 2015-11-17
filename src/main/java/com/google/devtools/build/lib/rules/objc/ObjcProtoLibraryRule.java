@@ -76,7 +76,6 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         .add(attr(PER_PROTO_INCLUDES, BOOLEAN).value(false))
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(per_proto_includes) -->
         If true, always add all directories to objc_library includes,
-        overriding --noobjc_per_proto_includes.
         ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(COMPILE_PROTOS_ATTR, LABEL)

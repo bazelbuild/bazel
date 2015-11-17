@@ -53,7 +53,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final List<String> copts;
   private final CompilationMode compilationMode;
   private final String iosSplitCpu;
-  private final boolean perProtoIncludes;
   private final List<String> fastbuildOptions;
   private final boolean enableBinaryStripping;
   private final boolean moduleMapsEnabled;
@@ -88,7 +87,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.experimentalGcovLabel = options.experimentalObjcGcovBinary;
     this.dumpSymsLabel = objcOptions.dumpSyms;
     this.iosSplitCpu = Preconditions.checkNotNull(objcOptions.iosSplitCpu, "iosSplitCpu");
-    this.perProtoIncludes = objcOptions.perProtoIncludes;
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
     this.enableBinaryStripping = objcOptions.enableBinaryStripping;
     this.moduleMapsEnabled = objcOptions.enableModuleMaps;
@@ -214,13 +212,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       return null;
     }
     return Joiner.on('-').join(components);
-  }
-
-  /**
-   * @return whether to add include path entries for every proto file's containing directory.
-   */
-  public boolean perProtoIncludes() {
-    return this.perProtoIncludes;
   }
 
   /**

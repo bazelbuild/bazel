@@ -95,12 +95,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       converter = DumpSymsConverter.class)
   public Label dumpSyms;
 
-  @Option(name = "objc_per_proto_includes",
-      defaultValue = "false",
-      category = "undocumented",
-      help = "Whether to add include path entries for every individual proto file.")
-  public boolean perProtoIncludes;
-
   @Option(name = "experimental_enable_objc_cc_deps",
       defaultValue = "false",
       category = "undocumented",
