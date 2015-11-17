@@ -23,6 +23,7 @@
   <li class="sidebar-nav-heading">Skylark Rules</li>
   <li><a href="${path}/appengine.html">Java AppEngine</a></li>
   <li><a href="${path}/closure.html">Closure Tools</a></li>
+  <li><a href="${path}/dotnet.html">C#</a></li>
   <li><a href="${path}/d.html">D</a></li>
   <li><a href="${path}/docker.html">Docker</a></li>
   <li><a href="${path}/groovy.html">Groovy</a></li>
