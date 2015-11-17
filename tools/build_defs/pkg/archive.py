@@ -15,6 +15,7 @@
 
 import os
 from StringIO import StringIO
+import subprocess
 import tarfile
 
 
@@ -290,6 +291,9 @@ class TarFileWriter(object):
           the file is to be added to the final tar and false otherwise.
       root: place all non-absolute content under given root direcory, if not
           None.
+
+    Raises:
+      TarFileWriter.Error: if an error happens when uncompressing the tar file.
     """
     compression = os.path.splitext(tar)[-1][1:]
     if compression == 'tgz':
@@ -308,7 +312,14 @@ class TarFileWriter(object):
       # large files.
       # TODO(dmarting): once our py3 support gets better, compile this tools
       # with py3 for proper lzma support.
-      f = StringIO(os.popen('cat %s | xzcat' % tar).read())
+      if subprocess.call('which xzcat', shell=True):
+        raise self.Error('Cannot handle .xz and .lzma compression: '
+                         'xzcat not found.')
+      p = subprocess.Popen('cat %s | xzcat' % tar,
+                           shell=True,
+                           stdout=subprocess.PIPE)
+      p.wait()
+      f = StringIO(p.stdout.read())
       intar = tarfile.open(fileobj=f, mode='r:')
     else:
       intar = tarfile.open(name=tar, mode='r:' + compression)
