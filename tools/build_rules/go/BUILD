@@ -8,5 +8,8 @@ filegroup(
         "//tools/build_rules/go/tools:srcs",
         "//tools/build_rules/go/toolchain:srcs",
     ],
-    visibility = ["//tools:__pkg__"],
+    visibility = [
+        "//src:__subpackages__",
+        "//tools:__pkg__",
+    ],
 )
