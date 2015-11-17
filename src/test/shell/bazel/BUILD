@@ -87,6 +87,8 @@ sh_test(
     data = [
         ":test-deps",
         "//tools/build_rules/go:srcs",
+        "//tools/build_rules/go/toolchain",
+        "//tools/build_rules/go/toolchain:go_tool",
         "//tools/build_rules/go/toolchain:srcs",
         "//tools/build_rules/go/tools:srcs",
     ],
