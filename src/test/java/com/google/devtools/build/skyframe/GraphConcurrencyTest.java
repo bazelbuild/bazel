@@ -135,14 +135,7 @@ public abstract class GraphConcurrencyTest {
             @Override
             public void run() {
               try {
-                // Add and remove the rdep a bunch of times to test interleaving.
                 waitForStart.await(TestUtils.WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-                for (int k = 1; k < chunkSize; k++) {
-                  assertThat(entry.addReverseDepAndCheckIfDone(key("rdep" + j)))
-                      .isNotEqualTo(DependencyState.DONE);
-                  entry.removeInProgressReverseDep(key("rdep" + j));
-                  assertThat(entry.getInProgressReverseDeps()).doesNotContain(key("rdep" + j));
-                }
                 assertThat(entry.addReverseDepAndCheckIfDone(key("rdep" + j)))
                     .isNotEqualTo(DependencyState.DONE);
                 waitForAddedRdep.countDown();
