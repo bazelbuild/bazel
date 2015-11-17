@@ -120,7 +120,9 @@ public class DensitySpecificResourceFilter {
           .put("hdpi", 240)
           .put("xhdpi", 320)
           .put("400dpi", 400)
+          .put("420dpi", 420)
           .put("xxhdpi", 480)
+          .put("560dpi", 560)
           .put("xxxhdpi", 640)
           .build();
 

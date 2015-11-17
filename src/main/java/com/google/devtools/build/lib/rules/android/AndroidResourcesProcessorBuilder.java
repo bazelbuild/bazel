@@ -286,7 +286,7 @@ public class AndroidResourcesProcessorBuilder {
       builder.addJoinStrings("--resourceConfigs", ",", resourceConfigs);
     }
     if (!densities.isEmpty()) {
-      builder.addJoinStrings("--densities", "'", densities);
+      builder.addJoinStrings("--densities", ",", densities);
     }
     if (!uncompressedExtensions.isEmpty()) {
       builder.addJoinStrings("--uncompressedExtensions", ",", uncompressedExtensions);
