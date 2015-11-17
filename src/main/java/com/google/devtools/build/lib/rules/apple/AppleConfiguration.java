@@ -92,7 +92,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
       builder.put(XCODE_VERSION_ENV_NAME, xcodeVersionOverride.get());
     }
     builder.put(APPLE_SDK_VERSION_ENV_NAME, iosSdkVersion);
-    builder.put(APPLE_SDK_PLATFORM_ENV_NAME, Platform.forArch(getIosCpu()).getNameInPlist());
+    builder.put(APPLE_SDK_PLATFORM_ENV_NAME, Platform.forIosArch(getIosCpu()).getNameInPlist());
     return builder.build();
   }
   
@@ -114,11 +114,11 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   // (in particular actool, bundlemerge, momc) have been upgraded to support multiple values.
   public Platform getBundlingPlatform() {
     for (String architecture : getIosMultiCpus()) {
-      if (Platform.forArch(architecture) == Platform.IOS_DEVICE) {
+      if (Platform.forIosArch(architecture) == Platform.IOS_DEVICE) {
         return Platform.IOS_DEVICE;
       }
     }
-    return Platform.forArch(getIosCpu());
+    return Platform.forIosArch(getIosCpu());
   }
   
   /**

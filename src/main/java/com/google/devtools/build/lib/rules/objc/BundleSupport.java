@@ -134,8 +134,8 @@ final class BundleSupport {
     Platform platform = null;
     for (String architecture : appleConfiguration.getIosMultiCpus()) {
       if (platform == null) {
-        platform = Platform.forArch(architecture);
-      } else if (platform != Platform.forArch(architecture)) {
+        platform = Platform.forIosArch(architecture);
+      } else if (platform != Platform.forIosArch(architecture)) {
         ruleContext.ruleError(
             String.format("In builds which require bundling, --ios_multi_cpus does not currently "
                 + "allow values for both simulator and device builds. Flag was %s",

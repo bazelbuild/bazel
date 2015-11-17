@@ -61,7 +61,7 @@ public class AppleToolchain {
    */
   // TODO(bazel-team): Support non-ios platforms.
   public static String getPlatformPlistName(AppleConfiguration configuration) {
-    return Platform.forArch(configuration.getIosCpu()).getNameInPlist();
+    return Platform.forIosArch(configuration.getIosCpu()).getNameInPlist();
   }
 
   /**

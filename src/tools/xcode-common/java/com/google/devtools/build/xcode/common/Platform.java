@@ -52,19 +52,22 @@ public enum Platform {
   }
 
   /**
-   * Returns the platform for the architecture.
+   * Returns the iOS platform for the given iOS architecture.
+   *
+   * <p>If this method is used in non-iOS contexts, results are undefined. If the input happens
+   * to share an architecture with some iOS platform, this will return that platform even if it is
+   * incorrect (for example, IOS_SIMULATOR for the x86_64 of darwin_x86_64).
    * 
-   * @throws IllegalArgumentException if there is no valid apple platform for the given
-   *     architecture.
+   * @throws IllegalArgumentException if there is no valid ios platform for the given architecture
    */
-  public static Platform forArch(String arch) {
+  public static Platform forIosArch(String arch) {
     if (IOS_SIMULATOR_ARCHS.contains(arch)) {
       return IOS_SIMULATOR;
     } else if (IOS_DEVICE_ARCHS.contains(arch)) {
       return IOS_DEVICE;
     } else {
       throw new IllegalArgumentException(
-          "No supported apple platform registered for architecture " + arch);
+          "No supported ios platform registered for architecture " + arch);
     }
   }
 }
