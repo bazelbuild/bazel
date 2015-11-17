@@ -24,7 +24,7 @@ public final class BuildCompleteEvent {
   private final BuildResult result;
 
   /**
-   * Construct the BuildStartingEvent.
+   * Construct the BuildCompleteEvent.
    * @param request the build request.
    */
   public BuildCompleteEvent(BuildRequest request, BuildResult result) {
