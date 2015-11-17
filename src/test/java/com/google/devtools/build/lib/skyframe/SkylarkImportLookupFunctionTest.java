@@ -92,14 +92,21 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     scratch.file("pkg2/BUILD");
     scratch.file("pkg1/ext.bzl", "a = 1", "b = 2");
     scratch.file("pkg2/ext.bzl", "load('/pkg1/ext', 'a')", "load('/pkg1/ext', 'b')");
-    get(key("//pkg1:ext.bzl"));
+    get(key("//pkg2:ext.bzl"));
   }
 
   public void testLoadFromSameRelativePathTwice() throws Exception {
     scratch.file("pkg/BUILD");
     scratch.file("pkg/ext1.bzl", "a = 1", "b = 2");
     scratch.file("pkg/ext2.bzl", "load('ext1', 'a')", "load('ext1', 'b')");
-    get(key("//pkg:ext1.bzl"));
+    get(key("//pkg:ext2.bzl"));
+  }
+
+  public void testLoadFromRelativePathInSubdir() throws Exception {
+    scratch.file("pkg/BUILD");
+    scratch.file("pkg/subdir/ext1.bzl", "a = 1");
+    scratch.file("pkg/subdir/ext2.bzl", "load('ext1', 'a')");
+    get(key("//pkg:subdir/ext2.bzl"));
   }
 
   private EvaluationResult<SkylarkImportLookupValue> get(SkyKey skylarkImportLookupKey)
