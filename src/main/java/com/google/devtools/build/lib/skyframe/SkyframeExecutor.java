@@ -1646,16 +1646,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       InterruptedException {
     maybeInjectEmbeddedArtifacts();
 
-    if (modifiedOutputFiles != ModifiedFileSet.NOTHING_MODIFIED) {
-      // Detect external modifications in the output tree.
-      FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, lastExecutionTimeRange);
-      BatchStat batchStatter = outputService == null ? null : outputService.getBatchStatter();
-      invalidateDirtyActions(fsvc.getDirtyActionValues(memoizingEvaluator.getValues(),
-          batchStatter));
-      modifiedFiles += fsvc.getNumberOfModifiedOutputFiles();
-      outputDirtyFiles += fsvc.getNumberOfModifiedOutputFiles();
-      modifiedFilesDuringPreviousBuild += fsvc.getNumberOfModifiedOutputFilesDuringPreviousBuild();
-    }
+    // Detect external modifications in the output tree.
+    FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, lastExecutionTimeRange);
+    BatchStat batchStatter = outputService == null ? null : outputService.getBatchStatter();
+    invalidateDirtyActions(fsvc.getDirtyActionValues(memoizingEvaluator.getValues(),
+        batchStatter, modifiedOutputFiles));
+    modifiedFiles += fsvc.getNumberOfModifiedOutputFiles();
+    outputDirtyFiles += fsvc.getNumberOfModifiedOutputFiles();
+    modifiedFilesDuringPreviousBuild += fsvc.getNumberOfModifiedOutputFilesDuringPreviousBuild();
     informAboutNumberOfModifiedFiles();
   }
 

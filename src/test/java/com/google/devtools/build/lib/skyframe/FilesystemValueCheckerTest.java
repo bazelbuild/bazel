@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigestAdapter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -337,14 +338,28 @@ public class FilesystemValueCheckerTest {
             .evaluate(ImmutableList.<SkyKey>of(), false, 1, NullEventHandler.INSTANCE)
             .hasError());
     assertThat(new FilesystemValueChecker(tsgm, null).getDirtyActionValues(evaluator.getValues(),
-        batchStatter)).isEmpty();
+        batchStatter, ModifiedFileSet.EVERYTHING_MODIFIED)).isEmpty();
 
     FileSystemUtils.writeContentAsLatin1(out1.getPath(), "goodbye");
     assertEquals(
         ActionExecutionValue.key(action1),
         Iterables.getOnlyElement(
             new FilesystemValueChecker(tsgm, null).getDirtyActionValues(evaluator.getValues(),
-                batchStatter)));
+                batchStatter, ModifiedFileSet.EVERYTHING_MODIFIED)));
+    assertEquals(
+        ActionExecutionValue.key(action1),
+        Iterables.getOnlyElement(
+            new FilesystemValueChecker(tsgm, null).getDirtyActionValues(evaluator.getValues(),
+                batchStatter,
+                new ModifiedFileSet.Builder().modify(out1.getExecPath()).build())));
+    assertThat(
+            new FilesystemValueChecker(tsgm, null).getDirtyActionValues(evaluator.getValues(),
+                batchStatter,
+                new ModifiedFileSet.Builder().modify(
+                    out1.getExecPath().getParentDirectory()).build())).isEmpty();
+    assertThat(
+        new FilesystemValueChecker(tsgm, null).getDirtyActionValues(evaluator.getValues(),
+            batchStatter, ModifiedFileSet.NOTHING_MODIFIED)).isEmpty();
   }
 
   private Artifact createDerivedArtifact(String relPath) throws IOException {
