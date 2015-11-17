@@ -38,8 +38,7 @@ def _make_csc_deps(deps, extra_files=[]):
     return struct(
         dlls = dlls + set(extra_files),
         refs = refs,
-        transitive_dlls = transitive_dlls,
-        )
+        transitive_dlls = transitive_dlls)
 
 def _get_libdirs(dlls, libdirs=[]):
     return [dep.dirname for dep in dlls] + libdirs
@@ -97,13 +96,11 @@ done
 
     content = content.format(
         nunit_exe=ctx.files._nunit_exe[0].path,
-        libs=" ".join(libs),
-        )
+        libs=" ".join(libs))
 
     ctx.file_action(
         output=ctx.outputs.executable,
-        content=content,
-        )
+        content=content)
 
 def _make_launcher(ctx, depinfo, output):
     content = """#!/bin/bash
@@ -121,13 +118,11 @@ done
 
     content = content.format(
         exe=output.short_path,
-        libs=" ".join(libs),
-        )
+        libs=" ".join(libs))
 
     ctx.file_action(
         output=ctx.outputs.executable,
-        content=content,
-        )
+        content=content)
 
 def _csc_get_output(ctx):
     output = None
@@ -146,8 +141,7 @@ def _csc_collect_inputs(ctx, extra_files=[]):
     return struct(
         depinfo=depinfo,
         inputs=inputs,
-        srcs=srcs,
-        )
+        srcs=srcs)
 
 def _csc_compile_action(ctx, assembly, all_outputs, collected_inputs, extra_refs=[]):
     csc_args = _make_csc_arglist(ctx, assembly, collected_inputs.depinfo, extra_refs=extra_refs)
@@ -161,13 +155,11 @@ def _csc_compile_action(ctx, assembly, all_outputs, collected_inputs, extra_refs
         progress_message = ("Compiling " +
                             ctx.label.package + ":" +
                             ctx.label.name))
-    return
 
 def _cs_runfiles(ctx, outputs, depinfo):
     return ctx.runfiles(
         files = outputs,
-        transitive_files = set(depinfo.dlls + depinfo.transitive_dlls) or None,
-        )
+        transitive_files = set(depinfo.dlls + depinfo.transitive_dlls) or None)
 
 
 def _csc_compile_impl(ctx):
@@ -226,32 +218,32 @@ def _cs_nunit_run_impl(ctx):
                   transitive_dlls = depinfo.dlls,
                   runfiles=runfiles)
 
-_COMMON_ATTRS={
-        # configuration fragment that specifies
-        "_flag_start": attr.string(default="-"),
-        # where the csharp compiler is.
-        "csc": attr.string(default=_MONO_UNIX_CSC),
-        # code dependencies for this rule.
-        # all dependencies must provide an out field.
-        "deps": attr.label_list(providers=["out", "target_type"]),
-        # source files for this target.
-        "srcs": attr.label_list(allow_files = FileType([".cs", ".resx"])),
-        # resources to use as dependencies.
-        # TODO(jeremy): "resources_deps": attr.label_list(allow_files=True),
-        #TODO(jeremy): # name of the module if you are creating a module.
-        #TODO(jeremy): "modulename": attri.string(),
-        # warn level to use
-        "warn": attr.int(default=4),
-        # define preprocessor symbols.
-        #TODO(jeremy): "define": attr.string_list(),
-    }
+_COMMON_ATTRS = {
+    # configuration fragment that specifies
+    "_flag_start": attr.string(default="-"),
+    # where the csharp compiler is.
+    "csc": attr.string(default=_MONO_UNIX_CSC),
+    # code dependencies for this rule.
+    # all dependencies must provide an out field.
+    "deps": attr.label_list(providers=["out", "target_type"]),
+    # source files for this target.
+    "srcs": attr.label_list(allow_files = FileType([".cs", ".resx"])),
+    # resources to use as dependencies.
+    # TODO(jeremy): "resources_deps": attr.label_list(allow_files=True),
+    #TODO(jeremy): # name of the module if you are creating a module.
+    #TODO(jeremy): "modulename": attri.string(),
+    # warn level to use
+    "warn": attr.int(default=4),
+    # define preprocessor symbols.
+    #TODO(jeremy): "define": attr.string_list(),
+}
 
 _LIB_ATTRS={"_target_type": attr.string(default="library")}
 
 _EXE_ATTRS={
-        "_target_type": attr.string(default="exe"),
-        # main class to use as entry point.
-        "main_class": attr.string(),
+    "_target_type": attr.string(default="exe"),
+    # main class to use as entry point.
+    "main_class": attr.string(),
 }
 
 _NUNIT_ATTRS={
