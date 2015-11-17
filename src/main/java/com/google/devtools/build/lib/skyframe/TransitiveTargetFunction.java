@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
+import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -139,14 +140,21 @@ public class TransitiveTargetFunction
     if (target instanceof Rule) {
       ConfigurationFragmentPolicy configurationFragmentPolicy =
           target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy();
-      for (Class<?> fragment : configurationFragmentPolicy.getRequiredConfigurationFragments()) {
-        if (!builder.getConfigFragmentsFromDeps().contains(fragment)) {
+      for (ConfigurationFragmentFactory factory : ruleClassProvider.getConfigurationFragments()) {
+        Class<? extends Fragment> fragment = factory.creates();
+        // isLegalConfigurationFragment considers both natively declared fragments and Skylark
+        // (named) fragments.
+        if (configurationFragmentPolicy.isLegalConfigurationFragment(fragment)
+            && !builder.getConfigFragmentsFromDeps().contains(fragment)) {
           builder.getTransitiveConfigFragments().add(
               fragment.asSubclass(BuildConfiguration.Fragment.class));
         }
       }
-      builder.getTransitiveConfigFragments().add(
-          ruleClassProvider.getUniversalFragment().asSubclass(BuildConfiguration.Fragment.class));
+      Class<? extends Fragment> universalFragment =
+          ruleClassProvider.getUniversalFragment().asSubclass(BuildConfiguration.Fragment.class);
+      if (!builder.getConfigFragmentsFromDeps().contains(universalFragment)) {
+        builder.getTransitiveConfigFragments().add(universalFragment);
+      }
     }
 
     return builder.build(errorLoadingTarget);

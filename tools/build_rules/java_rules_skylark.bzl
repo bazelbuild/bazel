@@ -199,7 +199,7 @@ java_library = rule(
     outputs = {
         "class_jar": "lib%{name}.jar",
     },
-    fragments = ['java'],
+    fragments = ['java', 'cpp'],
 )
 
 # A copy to avoid conflict with native rule.
@@ -231,7 +231,7 @@ java_binary = rule(java_binary_impl,
    executable = True,
    attrs = java_binary_attrs,
    outputs = java_binary_outputs,
-   fragments = ['java'],
+   fragments = ['java', 'cpp'],
 )
 
 # A copy to avoid conflict with native rule
@@ -252,7 +252,7 @@ java_test = rule(java_binary_impl,
    },
    outputs = java_binary_outputs,
    test = True,
-   fragments = ['java'],
+   fragments = ['java', 'cpp'],
 )
 
 java_import = rule(
