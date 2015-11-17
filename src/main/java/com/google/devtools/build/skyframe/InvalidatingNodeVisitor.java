@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.concurrent.ForkJoinQuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.skyframe.ThinNodeEntry.MarkedDirtyResult;
 
 import java.util.Collections;
 import java.util.Map;
@@ -418,14 +419,15 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
               // It is not safe to interrupt the logic from this point until the end of the method.
               // Any exception thrown should be unrecoverable.
               // This entry remains in the graph in this dirty state until it is re-evaluated.
-              if (!entry.markDirty(isChanged)) {
+              MarkedDirtyResult markedDirtyResult = entry.markDirty(isChanged);
+              if (markedDirtyResult == null) {
                 // Another thread has already dirtied this node. Don't do anything in this thread.
                 pendingVisitations.remove(invalidationPair);
                 return;
               }
               // Propagate dirtiness upwards and mark this node dirty/changed. Reverse deps should
               // only be marked dirty (because only a dependency of theirs has changed).
-              for (SkyKey reverseDep : entry.getReverseDeps()) {
+              for (SkyKey reverseDep : markedDirtyResult.getReverseDepsUnsafe()) {
                 visit(reverseDep, InvalidationType.DIRTIED, MUST_EXIST);
               }
 

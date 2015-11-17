@@ -330,13 +330,13 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
-  public synchronized boolean markDirty(boolean isChanged) {
+  public synchronized MarkedDirtyResult markDirty(boolean isChanged) {
     assertKeepEdges();
     if (isDone()) {
       buildingState =
           BuildingState.newDirtyState(isChanged, GroupedList.<SkyKey>create(directDeps), value);
       value = null;
-      return true;
+      return new MarkedDirtyResult(REVERSE_DEPS_UTIL.getReverseDeps(this));
     }
     // The caller may be simultaneously trying to mark this node dirty and changed, and the dirty
     // thread may have lost the race, but it is the caller's responsibility not to try to mark
@@ -350,7 +350,7 @@ public class InMemoryNodeEntry implements NodeEntry {
       // other work was done by the dirty marker.
       buildingState.markChanged();
     }
-    return false;
+    return null;
   }
 
   @Override
