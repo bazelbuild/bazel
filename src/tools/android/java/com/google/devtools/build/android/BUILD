@@ -39,6 +39,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:android_common",
         "//third_party:apache_commons_compress",
+        "//third_party:asm",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
