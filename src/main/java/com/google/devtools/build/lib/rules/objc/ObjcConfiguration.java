@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -45,8 +46,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
       ImmutableList.of(
           "-Os", "-DNDEBUG=1", "-Wno-unused-variable", "-Winit-self", "-Wno-extra");
 
-  private final String iosMinimumOs;
-  private final String iosSimulatorVersion;
+  private final DottedVersion iosMinimumOs;
+  private final DottedVersion iosSimulatorVersion;
   private final String iosSimulatorDevice;
   private final boolean generateDebugSymbols;
   private final boolean runMemleaks;
@@ -102,7 +103,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    * iOS version features or libraries will become weak dependencies which are only loaded if the
    * runtime OS supports them.
    */
-  public String getMinimumOs() {
+  public DottedVersion getMinimumOs() {
     return iosMinimumOs;
   }
 
@@ -113,7 +114,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     return iosSimulatorDevice;
   }
 
-  public String getIosSimulatorVersion() {
+  public DottedVersion getIosSimulatorVersion() {
     return iosSimulatorVersion;
   }
 

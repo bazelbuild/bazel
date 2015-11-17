@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
@@ -111,7 +112,7 @@ public abstract class ReleaseBundlingTargetFactory implements RuleConfiguredTarg
    * (<b>not</b> the minimum OS version its binary is compiled with, that needs to be set in the
    * configuration).
    */
-  protected String bundleMinimumOsVersion(RuleContext ruleContext) {
+  protected DottedVersion bundleMinimumOsVersion(RuleContext ruleContext) {
     return ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs();
   }
 

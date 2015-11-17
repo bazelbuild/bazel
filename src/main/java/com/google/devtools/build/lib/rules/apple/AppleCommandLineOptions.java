@@ -30,23 +30,26 @@ import java.util.List;
  */
 public class AppleCommandLineOptions extends FragmentOptions {
 
-  // TODO(bazel-team): Validate version flag value.
-  @Option(name = "xcode_version",
-      defaultValue = "",
-      category = "undocumented",
-      help = "If specified, uses xcode of the given version for relevant build actions. "
-          + "If unspecified, uses the executor default version of xcode."
-      )
-  public String xcodeVersion;
+  @Option(
+    name = "xcode_version",
+    defaultValue = "null",
+    category = "undocumented",
+    converter = DottedVersionConverter.class,
+    help =
+        "If specified, uses xcode of the given version for relevant build actions. "
+            + "If unspecified, uses the executor default version of xcode."
+  )
+  public DottedVersion xcodeVersion;
 
-  // TODO(bazel-team): Validate version flag value.
-  @Option(name = "ios_sdk_version",
-      // TODO(bazel-team): Make this flag optional, and infer SDKROOT based on executor default.
-      defaultValue = DEFAULT_IOS_SDK_VERSION,
-      category = "build",
-      help = "Specifies the version of the iOS SDK to use to build iOS applications."
-      )
-  public String iosSdkVersion;
+  @Option(
+    name = "ios_sdk_version",
+    // TODO(bazel-team): Make this flag optional, and infer SDKROOT based on executor default.
+    defaultValue = DEFAULT_IOS_SDK_VERSION,
+    converter = DottedVersionConverter.class,
+    category = "build",
+    help = "Specifies the version of the iOS SDK to use to build iOS applications."
+  )
+  public DottedVersion iosSdkVersion;
 
   @VisibleForTesting public static final String DEFAULT_IOS_SDK_VERSION = "8.4";
   

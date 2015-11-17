@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Substitution;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.rules.apple.DottedVersion;
 
 /**
  * Provider that describes a simulator device.
@@ -28,7 +29,7 @@ public final class IosDeviceProvider implements TransitiveInfoProvider {
   /** A builder of {@link IosDeviceProvider}s. */
   public static final class Builder {
     private String type;
-    private String iosVersion;
+    private DottedVersion iosVersion;
     private String locale;
 
     public Builder setType(String type) {
@@ -36,7 +37,7 @@ public final class IosDeviceProvider implements TransitiveInfoProvider {
       return this;
     }
 
-    public Builder setIosVersion(String iosVersion) {
+    public Builder setIosVersion(DottedVersion iosVersion) {
       this.iosVersion = iosVersion;
       return this;
     }
@@ -52,7 +53,7 @@ public final class IosDeviceProvider implements TransitiveInfoProvider {
   }
 
   private final String type;
-  private final String iosVersion;
+  private final DottedVersion iosVersion;
   private final String locale;
 
   private IosDeviceProvider(Builder builder) {
@@ -65,7 +66,7 @@ public final class IosDeviceProvider implements TransitiveInfoProvider {
     return type;
   }
 
-  public String getIosVersion() {
+  public DottedVersion getIosVersion() {
     return iosVersion;
   }
 
@@ -78,10 +79,10 @@ public final class IosDeviceProvider implements TransitiveInfoProvider {
    * test in this particular iOS simulator configuration.
    */
   public IosTestSubstitutionProvider iosTestSubstitutionProvider() {
-    return new IosTestSubstitutionProvider(ImmutableList.of(
-        Substitution.of("%(device_type)s", getType()),
-        Substitution.of("%(simulator_sdk)s", getIosVersion()),
-        Substitution.of("%(locale)s", getLocale())
-    ));
+    return new IosTestSubstitutionProvider(
+        ImmutableList.of(
+            Substitution.of("%(device_type)s", getType()),
+            Substitution.of("%(simulator_sdk)s", getIosVersion().toString()),
+            Substitution.of("%(locale)s", getLocale())));
   }
 }

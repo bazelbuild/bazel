@@ -252,7 +252,7 @@ public final class XcodeSupport {
             .addBuildSetting(
                 XcodeGenProtos.XcodeprojBuildSetting.newBuilder()
                     .setName("IPHONEOS_DEPLOYMENT_TARGET")
-                    .setValue(objcConfiguration.getMinimumOs())
+                    .setValue(objcConfiguration.getMinimumOs().toString())
                     .build())
             .addBuildSetting(
                 XcodeGenProtos.XcodeprojBuildSetting.newBuilder()

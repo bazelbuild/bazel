@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.build.lib.rules.apple.DottedVersion;
+import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
@@ -41,13 +43,17 @@ public class ObjcCommandLineOptions extends FragmentOptions {
     }
   }
 
-  @Option(name = "ios_simulator_version",
-      defaultValue = "8.4",
-      category = "run",
-      deprecationWarning = "Use target_device instead to drive the simulator to use.",
-      help = "The version of iOS to run on the simulator when running or testing. This is ignored "
-          + "for ios_test rules if a target device is specified in the rule.")
-  public String iosSimulatorVersion;
+  @Option(
+    name = "ios_simulator_version",
+    defaultValue = "8.4",
+    category = "run",
+    converter = DottedVersionConverter.class,
+    deprecationWarning = "Use target_device instead to drive the simulator to use.",
+    help =
+        "The version of iOS to run on the simulator when running or testing. This is ignored "
+            + "for ios_test rules if a target device is specified in the rule."
+  )
+  public DottedVersion iosSimulatorVersion;
 
   @Option(name = "ios_simulator_device",
       defaultValue = "iPhone 5s",
@@ -70,11 +76,14 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       help = "Additional options to pass to Objective C compilation.")
   public List<String> copts;
 
-  @Option(name = "ios_minimum_os",
-      defaultValue = DEFAULT_MINIMUM_IOS,
-      category = "flags",
-      help = "Minimum compatible iOS version for target simulators and devices.")
-  public String iosMinimumOs;
+  @Option(
+    name = "ios_minimum_os",
+    defaultValue = DEFAULT_MINIMUM_IOS,
+    category = "flags",
+    converter = DottedVersionConverter.class,
+    help = "Minimum compatible iOS version for target simulators and devices."
+  )
+  public DottedVersion iosMinimumOs;
 
   @Option(name = "ios_memleaks",
       defaultValue =  "false",

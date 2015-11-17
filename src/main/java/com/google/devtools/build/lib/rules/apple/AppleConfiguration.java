@@ -47,17 +47,15 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    **/
   public static final String APPLE_SDK_PLATFORM_ENV_NAME = "APPLE_SDK_PLATFORM";
 
-  private final String iosSdkVersion;
+  private final DottedVersion iosSdkVersion;
   private final String iosCpu;
-  private final Optional<String> xcodeVersionOverride;
+  private final Optional<DottedVersion> xcodeVersionOverride;
   private final List<String> iosMultiCpus;
   @Nullable private final Label defaultProvisioningProfileLabel;
 
   AppleConfiguration(AppleCommandLineOptions appleOptions) {
     this.iosSdkVersion = Preconditions.checkNotNull(appleOptions.iosSdkVersion, "iosSdkVersion");
-    String xcodeVersionFlag = Preconditions.checkNotNull(appleOptions.xcodeVersion, "xcodeVersion");
-    this.xcodeVersionOverride =
-        xcodeVersionFlag.isEmpty() ? Optional.<String>absent() : Optional.of(xcodeVersionFlag);
+    this.xcodeVersionOverride = Optional.fromNullable(appleOptions.xcodeVersion);
     this.iosCpu = Preconditions.checkNotNull(appleOptions.iosCpu, "iosCpu");
     this.iosMultiCpus = Preconditions.checkNotNull(appleOptions.iosMultiCpus, "iosMultiCpus");
     this.defaultProvisioningProfileLabel = appleOptions.defaultProvisioningProfile;
@@ -67,7 +65,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * Returns the SDK version for ios SDKs (whether they be for simulator or device). This is
    * directly derived from --ios_sdk_version. Format "x.y" (for example, "6.4").
    */
-  public String getIosSdkVersion() {
+  public DottedVersion getIosSdkVersion() {
     return iosSdkVersion;
   }
 
@@ -76,7 +74,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * derived from --xcode_version_override. Format "x(.y)(.z)" (for example, "7", or "6.4",
    * or "7.0.1").
    */
-  public Optional<String> getXcodeVersionOverride() {
+  public Optional<DottedVersion> getXcodeVersionOverride() {
     return xcodeVersionOverride;
   }
 
@@ -89,9 +87,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   public Map<String, String> getEnvironmentForIosAction() {
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
     if (xcodeVersionOverride.isPresent()) {
-      builder.put(XCODE_VERSION_ENV_NAME, xcodeVersionOverride.get());
+      builder.put(XCODE_VERSION_ENV_NAME, xcodeVersionOverride.get().toString());
     }
-    builder.put(APPLE_SDK_VERSION_ENV_NAME, iosSdkVersion);
+    builder.put(APPLE_SDK_VERSION_ENV_NAME, iosSdkVersion.toString());
     builder.put(APPLE_SDK_PLATFORM_ENV_NAME, Platform.forIosArch(getIosCpu()).getNameInPlist());
     return builder.build();
   }

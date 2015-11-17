@@ -59,18 +59,19 @@ final class BundleMergeControlBytes extends ByteSource {
   private Control control(String mergeZipPrefix, Bundling bundling) {
     mergeZipPrefix += bundling.getBundleDir() + "/";
 
-    BundleMergeProtos.Control.Builder control = BundleMergeProtos.Control.newBuilder()
-        .addAllBundleFile(BundleableFile.toBundleFiles(bundling.getBundleFiles()))
-        // TODO(bazel-team): This should really be bundling.getBundleInfoplistInputs since (most of)
-        // those are editable, whereas this is usually the programatically merged plist. If we pass
-        // the sources here though, any synthetic data (generated plists with blaze-derived values)
-        // should be passed as well.
-        .addAllSourcePlistFile(Artifact.toExecPaths(bundling.getBundleInfoplist().asSet()))
-        // TODO(bazel-team): Add rule attribute for specifying targeted device family
-        .setMinimumOsVersion(bundling.getMinimumOsVersion())
-        .setSdkVersion(appleConfiguration.getIosSdkVersion())
-        .setPlatform(appleConfiguration.getBundlingPlatform().name())
-        .setBundleRoot(bundling.getBundleDir());
+    BundleMergeProtos.Control.Builder control =
+        BundleMergeProtos.Control.newBuilder()
+            .addAllBundleFile(BundleableFile.toBundleFiles(bundling.getBundleFiles()))
+            // TODO(bazel-team): This should really be bundling.getBundleInfoplistInputs since
+            // (most of) those are editable, whereas this is usually the programatically merged
+            // plist. If we pass the sources here though, any synthetic data (generated plists with
+            // blaze-derived values) should be passed as well.
+            .addAllSourcePlistFile(Artifact.toExecPaths(bundling.getBundleInfoplist().asSet()))
+            // TODO(bazel-team): Add rule attribute for specifying targeted device family
+            .setMinimumOsVersion(bundling.getMinimumOsVersion().toString())
+            .setSdkVersion(appleConfiguration.getIosSdkVersion().toString())
+            .setPlatform(appleConfiguration.getBundlingPlatform().name())
+            .setBundleRoot(bundling.getBundleDir());
 
     for (Artifact mergeZip : bundling.getMergeZips()) {
       control.addMergeZip(MergeZip.newBuilder()

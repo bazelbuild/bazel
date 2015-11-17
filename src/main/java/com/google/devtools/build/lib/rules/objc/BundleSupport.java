@@ -242,12 +242,15 @@ final class BundleSupport {
 
   private CommandLine ibActionsCommandLine(String archiveRoot, Artifact zipOutput,
       Artifact storyboardInput) {
-    CustomCommandLine.Builder commandLine = CustomCommandLine.builder()
-        // The next three arguments are positional, i.e. they don't have flags before them.
-        .addPath(zipOutput.getExecPath())
-        .add(archiveRoot)
-        .add("--minimum-deployment-target").add(bundling.getMinimumOsVersion())
-        .add("--module").add(ruleContext.getLabel().getName());
+    CustomCommandLine.Builder commandLine =
+        CustomCommandLine.builder()
+            // The next three arguments are positional, i.e. they don't have flags before them.
+            .addPath(zipOutput.getExecPath())
+            .add(archiveRoot)
+            .add("--minimum-deployment-target")
+            .add(bundling.getMinimumOsVersion().toString())
+            .add("--module")
+            .add(ruleContext.getLabel().getName());
 
     for (TargetDeviceFamily targetDeviceFamily : attributes.families()) {
       commandLine.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
@@ -404,12 +407,15 @@ final class BundleSupport {
   private CommandLine actoolzipCommandLine(ObjcProvider provider, Artifact zipOutput,
       Artifact partialInfoPlist) {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-    CustomCommandLine.Builder commandLine = CustomCommandLine.builder()
-        // The next three arguments are positional, i.e. they don't have flags before them.
-        .addPath(zipOutput.getExecPath())
-        .add("--platform").add(appleConfiguration.getBundlingPlatform().getLowerCaseNameInPlist())
-        .addExecPath("--output-partial-info-plist", partialInfoPlist)
-        .add("--minimum-deployment-target").add(bundling.getMinimumOsVersion());
+    CustomCommandLine.Builder commandLine =
+        CustomCommandLine.builder()
+            // The next three arguments are positional, i.e. they don't have flags before them.
+            .addPath(zipOutput.getExecPath())
+            .add("--platform")
+            .add(appleConfiguration.getBundlingPlatform().getLowerCaseNameInPlist())
+            .addExecPath("--output-partial-info-plist", partialInfoPlist)
+            .add("--minimum-deployment-target")
+            .add(bundling.getMinimumOsVersion().toString());
 
     for (TargetDeviceFamily targetDeviceFamily : attributes.families()) {
       commandLine.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
