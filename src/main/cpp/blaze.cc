@@ -267,17 +267,17 @@ static vector<string> GetArgumentArray() {
                         globals->options.host_jvm_args.end());
   } else {
     for (const auto &arg : globals->options.host_jvm_args) {
-      // int num_segments =
-      blaze_util::SplitQuotedStringUsing(arg, ' ', &user_options);
-      // TODO(janakr): Enable this warning when users have been migrated.
-      //       if (num_segments > 1) {
-      //         fprintf(stderr, "WARNING: You are passing multiple jvm options"
-      //             " under a single --host_jvm_args option: %s. This will stop
-      //             working "
-      //             "soon. Instead, pass each option under its own
-      //             --host_jvm_args "
-      //             "option.\n", arg);
-      //
+      int num_segments =
+          blaze_util::SplitQuotedStringUsing(arg, ' ', &user_options);
+      if (num_segments > 1) {
+        fprintf(
+            stderr,
+            "WARNING: You are passing multiple jvm options"
+            " under a single --host_jvm_args option: %s. This will stop working"
+            "soon. Instead, pass each option under its own -host_jvm_args "
+            "option.\n",
+            arg.c_str());
+      }
     }
   }
 
