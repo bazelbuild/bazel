@@ -20,6 +20,7 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Action;
@@ -332,7 +333,12 @@ final class ConfiguredTargetFunction implements SkyFunction {
     // Maps each Skyframe-evaluated BuildConfiguration to the dependencies that need that
     // configuration. For cases where Skyframe isn't needed to get the configuration (e.g. when
     // we just re-used the original rule's configuration), we should skip this outright.
-    Multimap<SkyKey, Map.Entry<Attribute, Dependency>> keysToEntries = ArrayListMultimap.create();
+    //
+    // It's important that we use a LinkedListMultimap: key order needs to be preserved. Otherwise
+    // we might switch the ordering of an attribute's deps from its original insertion order
+    // (e.g. given deps = ["a", "b"], output Dependency("deps", ["b", "a"]). That would violate
+    // the invariant that rule implementations can iterate through deps in original order.
+    Multimap<SkyKey, Map.Entry<Attribute, Dependency>> keysToEntries = LinkedListMultimap.create();
 
     // Stores the result of applying a dynamic transition to the current configuration using a
     // particular subset of fragments. By caching this, we save from redundantly computing the
