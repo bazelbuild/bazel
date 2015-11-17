@@ -31,6 +31,7 @@ filegroup(
     cmd = select({
         ":darwin": md5_cmd % "/sbin/md5",
         ":darwin_x86_64": md5_cmd % "/sbin/md5",
+        ":freebsd": md5_cmd % "/sbin/md5",
         "//conditions:default": md5_cmd % "md5sum",
     }),
 ) for suffix, embedded_tools in {

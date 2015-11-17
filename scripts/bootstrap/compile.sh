@@ -109,7 +109,7 @@ linux)
 freebsd)
   LDFLAGS="-lprocstat -lz -lrt $LDFLAGS"
   JNILIB="libunix.so"
-  MD5SUM="md5sum"
+  MD5SUM="md5"
   # JAVA_HOME must point to a Java installation.
   JAVA_HOME="${JAVA_HOME:-/usr/local/openjdk8}"
   # Note: the linux protoc binary works on freebsd using linux emulation.

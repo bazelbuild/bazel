@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include <errno.h>  // errno, ENAMETOOLONG
-#include <libprocstat.h>
 #include <limits.h>
 #include <pwd.h>
 #include <signal.h>
@@ -26,6 +25,7 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <unistd.h>
+#include <libprocstat.h>  // must be included after <sys/...> headers
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
