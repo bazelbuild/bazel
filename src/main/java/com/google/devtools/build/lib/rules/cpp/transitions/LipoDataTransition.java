@@ -37,6 +37,12 @@ public final class LipoDataTransition implements PatchTransition {
       return options;
     }
 
+    // If this target and its transitive closure don't have C++ options, there's no
+    // LIPO context to change.
+    if (!options.contains(CppOptions.class)) {
+      return options;
+    }
+
     CppOptions cppOptions = options.get(CppOptions.class);
     if (cppOptions.lipoMode == CrosstoolConfig.LipoMode.OFF) {
       return options;
