@@ -490,8 +490,10 @@ java_library(
     deps = [
         ":foundations_testutil",
         ":testutil",
+        "//src/main/java/com/google/devtools/build/docgen",
         "//src/main/java/com/google/devtools/build/lib:analysis-exec-rules-skyframe",
         "//src/main/java/com/google/devtools/build/lib:bazel-core",
+        "//src/main/java/com/google/devtools/build/lib:buildtool-runtime",
         "//src/main/java/com/google/devtools/build/lib:clock",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:io",
@@ -512,9 +514,14 @@ java_library(
 
 java_test(
     name = "packages_test",
-    srcs = glob([
-        "packages/*.java",
-    ]),
+    srcs = glob(
+        [
+            "packages/*.java",
+        ],
+        exclude = [
+            "packages/BazelDocumentationTest.java",
+        ],
+    ),
     args = ["com.google.devtools.build.lib.AllTests"],
     deps = [
         ":actions_testutil",
@@ -658,6 +665,26 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
+    name = "BazelDocumentationTests",
+    size = "medium",
+    srcs = ["packages/BazelDocumentationTest.java"],
+    data = [
+        "//site:docs/bazel-user-manual.html",
+    ],
+    deps = [
+        ":foundations_testutil",
+        ":packages_testutil",
+        "//src/main/java/com/google/devtools/build/lib:bazel-core",
+        "//src/main/java/com/google/devtools/build/lib:packages",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",

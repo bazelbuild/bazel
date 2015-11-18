@@ -669,7 +669,8 @@ $ bazel fetch //...
   </li>
   <li>
     Use the value of <code class="flag">--host_cpu</code> for
-    <code class='flag'>--cpu</code> and <code class='flag'>--java_cpu</code>
+    <code class='flag'>--cpu</code>
+
     (default: <code>k8</code>).
   </li>
   <li>Use the same values of these options as specified in the request
@@ -1491,8 +1492,6 @@ the compilation of binaries during the build.
 </p>
 <p>
 
-  This option does not apply to Java binaries or to any C/C++ code linked into them; there are
-  <code class='flag'>--java_cpu</code> flag is used to specify that.
 </p>
 
 <p>
@@ -1505,14 +1504,6 @@ the compilation of binaries during the build.
 <p>
   This option specifies the name of the CPU architecture that should be
   used to build host tools.
-</p>
-
-<h4 id='flag--java_cpu'><code class='flag'>--java_cpu <var>cpu</var></code></h4>
-<p>
-  This option specifies the name of the CPU architecture (piii, k8, etc) that
-  should be used to build libraries dynamically loaded by the JVM.
-  By default it is set to k8, ensuring that all such libraries will be 64-bit
-  x86 code.
 </p>
 
 <h4 id='flag--experimental_skip_static_outputs'><code class='flag'>--experimental_skip_static_outputs</code></h4>
@@ -1685,14 +1676,6 @@ the compilation of binaries during the build.
   the CROSSTOOL file and the following options where appropriate:
   <ul>
     <li><a href="#flag--cpu"><code class='flag'>--cpu</code></a></li>
-    <li><a href="#flag--java_cpu"><code class='flag'>--java_cpu</code></a></li>
-
-  </ul>
-</p>
-<p>
-  Note that only certain combinations of crosstool version, compiler version,
-  glibc version, and target CPU are allowed.
-</p>
 
 <h4 id='flag--javabuilder_top'><code class='flag'>--javabuilder_top <var>label</var></code></h4>
 <p>
@@ -1993,20 +1976,6 @@ cores directly from system configuration and will assume 1.0 I/O resource.
   breakages in the <code>foo</code> tree.
 </p>
 
-<h4 id="flag--compile_only"><code class='flag'>--[no]compile_only</code></h4>
-<p>
-  This option forces Bazel to execute only "lightweight" compilation steps
-  related to the specified targets. At this time such steps only include
-  compilation of sources for <code>cc_*</code> and <code>java_*</code> rules
-  without building dependencies or performing linking.
-</p>
-<p>
-  This option can be useful to quickly validate a given C++ or Java target for
-  compilation errors. In particular, it might be especially useful when
-  specified together with the <a href="#flag--compile_one_dependency">
-  <code class='flag'>--compile_one_dependency</code></a> option.
-</p>
-
 <h4 id="flag--compilation_prerequisites_only"><code class='flag'>--[no]compilation_prerequisites_only</code></h4>
 <p>
   Given this option, Bazel will only build files that are prerequisites for
@@ -2073,13 +2042,6 @@ cores directly from system configuration and will assume 1.0 I/O resource.
   To ensure that Bazel prints the location of the additional output files, check that
   your <a href='#flag--show_result'><code class='flag'>--show_result <var>n</var></code></a>
   setting is high enough.
-</p>
-
-<h4 id='flag--source_jars'><code class='flag'>--[no]source_jars</code></h4>
-<p>
-  By default, this option is disabled. If enabled, Bazel will also build all
-  source jars in the transitive closure of the targets specified on the command
-  line.
 </p>
 
 <h4 id='flag--test_size_filters'><code class='flag'>--test_size_filters <var>size[,size]*</var></code></h4>
