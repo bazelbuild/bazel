@@ -21,10 +21,6 @@
 /base_workspace/src
 /bazel.iml
 /tools/jdk/jdk
-/tools/jdk/ijar
-/tools/jdk/JavaBuilder_deploy.jar
-/tools/jdk/GenClass_deploy.jar
-/tools/jdk/SingleJar_deploy.jar
 /tools/objc/*.jar
 /tools/objc/actoolwrapper.sh
 /tools/objc/ibtoolwrapper.sh

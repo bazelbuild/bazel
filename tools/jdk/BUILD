@@ -94,13 +94,6 @@ java_toolchain(
     target_version = "8",
 )
 
-exports_files([
-    "JavaBuilder_deploy.jar",
-    "ijar",
-    "SingleJar_deploy.jar",
-    "GenClass_deploy.jar",
-])
-
 filegroup(
     name = "srcs",
     srcs = [

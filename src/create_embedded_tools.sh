@@ -27,7 +27,14 @@ mkdir -p "${PACKAGE_DIR}"
 trap "rm -fr \"${PACKAGE_DIR}\"" EXIT
 
 for i in $*; do
-  OUTPUT_PATH=$(echo $i | sed 's_^.*bazel-out/[^/]*/bin/__')
+  case "$i" in
+    *JavaBuilder_deploy.jar) OUTPUT_PATH=tools/jdk/JavaBuilder_deploy.jar ;;
+    *SingleJar_deploy.jar) OUTPUT_PATH=tools/jdk/SingleJar_deploy.jar ;;
+    *GenClass_deploy.jar) OUTPUT_PATH=tools/jdk/GenClass_deploy.jar ;;
+    *ijar) OUTPUT_PATH=tools/jdk/ijar ;;
+    *) OUTPUT_PATH=$(echo $i | sed 's_^.*bazel-out/[^/]*/bin/__') ;;
+  esac
+
   mkdir -p "${PACKAGE_DIR}/$(dirname "${OUTPUT_PATH}")"
   cp "$i" "${PACKAGE_DIR}/${OUTPUT_PATH}"
 done
