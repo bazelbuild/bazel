@@ -82,4 +82,76 @@ EOF
   grep "F 42" out || fail "binary output suspect"
 }
 
+function test_runfiles() {
+  mkdir -p ex/
+
+# Note this binary is also a test (for the correct handling of runfiles by
+# Bazel's go_binary rule).
+  cat <<EOF > ex/rf.go
+package main
+import (
+  "fmt"
+  "log"
+  "io/ioutil"
+)
+
+func main() {
+  rfcontent, err := ioutil.ReadFile("ex/runfile")
+  if err != nil {
+    log.Fatalf("Runfiles test binary: Error reading from runfile: %v", err)
+  }
+
+  fmt.Printf("Runfile: %s\n", rfcontent)
+}
+
+EOF
+
+  cat <<EOF > ex/rf_test.go
+package main
+import (
+  "fmt"
+  "io/ioutil"
+  "testing"
+)
+
+func TestRunfiles(t *testing.T) {
+  rfcontent, err := ioutil.ReadFile("ex/runfile")
+  if err != nil {
+    t.Errorf("TestRunfiles: Error reading from runfile: %v", err)
+  }
+
+  if string(rfcontent) != "12345\n" {
+    t.Errorf("TestRunfiles: Read incorrect value from runfile: %s", rfcontent)
+  }
+
+  fmt.Printf("Runfile: %s\n", rfcontent)
+}
+EOF
+
+  cat <<EOF > ex/runfile
+12345
+EOF
+
+  cat <<EOF > ex/BUILD
+load("/tools/build_rules/go/def", "go_binary", "go_test")
+go_binary(name = "runfiles_bin",
+  srcs = [ "rf.go" ],
+  data = [ "runfile" ])
+go_test(name = "runfiles_test",
+  srcs = [ "rf_test.go" ],
+  data = [ "runfile" ])
+EOF
+
+  assert_build //ex:runfiles_bin
+  test -x ./bazel-bin/ex/runfiles_bin || fail "binary not found"
+  (./bazel-bin/ex/runfiles_bin > out) || fail "binary does not execute"
+  grep "Runfile: 12345" out || fail "binary output suspect"
+
+  assert_build //ex:runfiles_test
+  test -x ./bazel-bin/ex/runfiles_test || fail "binary not found"
+  (./bazel-bin/ex/runfiles_test > out) || fail "binary does not execute"
+  grep "Runfile: 12345" out || fail "binary output suspect"
+
+}
+
 run_suite "go_examples"

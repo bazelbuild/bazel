@@ -232,7 +232,11 @@ def go_binary_impl(ctx):
 
   emit_go_link_action(
     ctx, lib_result.transitive_go_library_object, lib_out, executable)
-  return struct(files = set([executable]) + lib_result.files)
+
+  runfiles = ctx.runfiles(collect_data = True,
+                          files = ctx.files.data)
+  return struct(files = set([executable]) + lib_result.files,
+                runfiles = runfiles)
 
 
 def go_test_impl(ctx):
@@ -268,7 +272,8 @@ def go_test_impl(ctx):
   # TODO(bazel-team): the Go tests should do a chdir to the directory
   # holding the data files, so open-source go tests continue to work
   # without code changes.
-  runfiles = ctx.runfiles(collect_data = True, files = [ctx.outputs.executable])
+  runfiles = ctx.runfiles(collect_data = True,
+                          files = ctx.files.data + [ctx.outputs.executable])
   return struct(runfiles=runfiles)
 
 go_library_attrs = {
