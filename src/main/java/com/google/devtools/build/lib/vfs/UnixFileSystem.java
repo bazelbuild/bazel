@@ -35,7 +35,7 @@ import java.util.List;
  */
 // Not final only for testing.
 @ThreadSafe
-public class UnixFileSystem extends AbstractFileSystem {
+public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   public static final UnixFileSystem INSTANCE = new UnixFileSystem();
   /**

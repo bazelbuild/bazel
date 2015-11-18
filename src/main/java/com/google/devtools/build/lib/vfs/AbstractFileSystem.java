@@ -144,28 +144,4 @@ abstract class AbstractFileSystem extends FileSystem {
       }
     }
   }
-
-  @Override
-  protected boolean isFile(Path path, boolean followSymlinks) {
-    FileStatus stat = statNullable(path, followSymlinks);
-    return stat != null ? stat.isFile() : false;
-  }
-
-  @Override
-  protected boolean isSpecialFile(Path path, boolean followSymlinks) {
-    FileStatus stat = statNullable(path, followSymlinks);
-    return stat != null ? stat.isSpecialFile() : false;
-  }
-
-  @Override
-  protected boolean isSymbolicLink(Path path) {
-    FileStatus stat = statNullable(path, false);
-    return stat != null ? stat.isSymbolicLink() : false;
-  }
-
-  @Override
-  protected boolean isDirectory(Path path, boolean followSymlinks) {
-    FileStatus stat = statNullable(path, followSymlinks);
-    return stat != null ? stat.isDirectory() : false;
-  }
 }
