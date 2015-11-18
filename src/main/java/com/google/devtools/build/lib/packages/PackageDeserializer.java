@@ -154,7 +154,7 @@ public class PackageDeserializer {
     InputFile inputFile;
     try {
       inputFile = context.packageBuilder.createInputFile(
-          deserializeLabel(sourceFile.getName()).getName(), EmptyLocation.INSTANCE);
+          sourceFile.getName(), EmptyLocation.INSTANCE);
     } catch (GeneratedLabelConflict e) {
       throw new PackageDeserializationException(e);
     }
@@ -175,7 +175,7 @@ public class PackageDeserializer {
 
     try {
       context.packageBuilder.addPackageGroup(
-          deserializeLabel(packageGroupPb.getName()).getName(),
+          packageGroupPb.getName(),
           specifications,
           deserializeLabels(packageGroupPb.getIncludedPackageGroupList()),
           NullEventHandler.INSTANCE,  // TODO(bazel-team): Handle errors properly
@@ -185,8 +185,9 @@ public class PackageDeserializer {
     }
   }
 
-  private void deserializeRule(DeserializationContext context, Build.Rule rulePb)
-      throws PackageDeserializationException, InterruptedException {
+  private void deserializeRule(
+      PackageIdentifier packageId, DeserializationContext context, Build.Rule rulePb)
+          throws PackageDeserializationException, InterruptedException {
     Location ruleLocation = EmptyLocation.INSTANCE;
     RuleClass ruleClass = packageDeserializationEnvironment.getRuleClass(rulePb, ruleLocation);
     Map<String, ParsedAttributeValue> attributeValues = new HashMap<>();
@@ -205,8 +206,8 @@ public class PackageDeserializer {
     AttributeContainerWithoutLocation attributeContainer =
         new AttributeContainerWithoutLocation(ruleClass, hasher.hash().asBytes());
 
-    Label ruleLabel = deserializeLabel(rulePb.getName());
     try {
+      Label ruleLabel = LABEL_INTERNER.intern(Label.create(packageId, rulePb.getName()));
       Rule rule = createRuleWithParsedAttributeValues(ruleClass,
           ruleLabel, context.packageBuilder, ruleLocation, attributeValues,
           NullEventHandler.INSTANCE, attributeContainer);
@@ -371,9 +372,9 @@ public class PackageDeserializer {
    * @throws IOException
    * @throws InterruptedException
    */
-  private void deserializeInternal(Build.Package packagePb, StoredEventHandler eventHandler,
-      Package.Builder builder, CodedInputStream codedIn)
-      throws PackageDeserializationException, IOException, InterruptedException {
+  private void deserializeInternal(PackageIdentifier packageId, Build.Package packagePb,
+      StoredEventHandler eventHandler, Package.Builder builder, CodedInputStream codedIn)
+          throws PackageDeserializationException, IOException, InterruptedException {
     Path buildFile = packageDeserializationEnvironment.getPath(packagePb.getBuildFilePath());
     Preconditions.checkNotNull(buildFile);
     DeserializationContext context = new DeserializationContext(builder);
@@ -434,11 +435,12 @@ public class PackageDeserializer {
 
     builder.setWorkspaceName(packagePb.getWorkspaceName());
 
-    deserializeTargets(codedIn, context);
+    deserializeTargets(packageId, codedIn, context);
   }
 
-  private void deserializeTargets(CodedInputStream codedIn, DeserializationContext context)
-      throws IOException, PackageDeserializationException, InterruptedException {
+  private void deserializeTargets(
+      PackageIdentifier packageId, CodedInputStream codedIn, DeserializationContext context)
+          throws IOException, PackageDeserializationException, InterruptedException {
     Build.TargetOrTerminator tot;
     while (!(tot = readTargetOrTerminator(codedIn)).getIsTerminator()) {
       Build.Target target = tot.getTarget();
@@ -450,7 +452,7 @@ public class PackageDeserializer {
           deserializePackageGroup(context, target.getPackageGroup());
           break;
         case RULE:
-          deserializeRule(context, target.getRule());
+          deserializeRule(packageId, context, target.getRule());
           break;
         default:
           throw new IllegalStateException("Unexpected Target type: " + target.getType());
@@ -496,17 +498,17 @@ public class PackageDeserializer {
     // Read the initial Package message so we have the data to initialize the builder. We will read
     // the Targets in individually later.
     Build.Package packagePb = readPackageProto(codedIn);
-    Package.Builder builder;
+    PackageIdentifier packageId;
     try {
-      builder = new Package.Builder(
-          PackageIdentifier
-              .create(packagePb.getRepository(), new PathFragment(packagePb.getName())),
-          null);
+      packageId = PackageIdentifier.create(
+          packagePb.getRepository(), new PathFragment(packagePb.getName()));
     } catch (LabelSyntaxException e) {
       throw new PackageDeserializationException(e);
     }
+
+    Package.Builder builder = new Package.Builder(packageId, null);
     StoredEventHandler eventHandler = new StoredEventHandler();
-    deserializeInternal(packagePb, eventHandler, builder, codedIn);
+    deserializeInternal(packageId, packagePb, eventHandler, builder, codedIn);
     builder.addEvents(eventHandler.getEvents());
     return builder.build();
   }

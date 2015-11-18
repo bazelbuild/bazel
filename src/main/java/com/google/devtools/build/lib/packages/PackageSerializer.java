@@ -425,7 +425,7 @@ public class PackageSerializer {
 
   private Build.Target serializeInputFile(InputFile inputFile) {
     Build.SourceFile.Builder builder = Build.SourceFile.newBuilder();
-    builder.setName(inputFile.getLabel().toString());
+    builder.setName(inputFile.getLabel().getName());
     if (inputFile.isVisibilitySpecified()) {
       for (Label visibilityLabel : inputFile.getVisibility().getDeclaredLabels()) {
         builder.addVisibilityLabel(visibilityLabel.toString());
@@ -444,7 +444,7 @@ public class PackageSerializer {
   private Build.Target serializePackageGroup(PackageGroup packageGroup) {
     Build.PackageGroup.Builder builder = Build.PackageGroup.newBuilder();
 
-    builder.setName(packageGroup.getLabel().toString());
+    builder.setName(packageGroup.getLabel().getName());
 
     for (PackageSpecification packageSpecification : packageGroup.getPackageSpecifications()) {
       builder.addContainedPackage(packageSpecification.toString());
@@ -462,7 +462,7 @@ public class PackageSerializer {
 
   private Build.Target serializeRule(Rule rule) {
     Build.Rule.Builder builder = Build.Rule.newBuilder();
-    builder.setName(rule.getLabel().toString());
+    builder.setName(rule.getLabel().getName());
     builder.setRuleClass(rule.getRuleClass());
     builder.setPublicByDefault(rule.getRuleClassObject().isPublicByDefault());
     for (Attribute attribute : rule.getAttributes()) {
