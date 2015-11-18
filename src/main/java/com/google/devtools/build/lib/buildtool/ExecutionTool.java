@@ -360,7 +360,8 @@ public class ExecutionTool {
     OutputService outputService = env.getOutputService();
     ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
     if (outputService != null) {
-      modifiedOutputFiles = outputService.startBuild(buildId);
+      modifiedOutputFiles = outputService.startBuild(buildId,
+              request.getBuildOptions().finalizeActions);
     } else {
       startLocalOutputBuild(); // TODO(bazel-team): this could be just another OutputService
     }

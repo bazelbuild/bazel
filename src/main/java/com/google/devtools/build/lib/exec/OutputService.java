@@ -57,11 +57,13 @@ public interface OutputService {
    * Start the build.
    *
    * @param buildId the UUID build identifier
+   * @param finalizeActions whether this build is finalizing actions so that the output service
+   *                        can track output tree modifications
    * @return a ModifiedFileSet of changed output files.
    * @throws BuildFailedException if build preparation failed
    * @throws InterruptedException
    */
-  ModifiedFileSet startBuild(UUID buildId)
+  ModifiedFileSet startBuild(UUID buildId, boolean finalizeActions)
       throws BuildFailedException, AbruptExitException, InterruptedException;
 
   /**
