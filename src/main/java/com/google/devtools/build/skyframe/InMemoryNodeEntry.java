@@ -59,7 +59,17 @@ public class InMemoryNodeEntry implements NodeEntry {
    * the already-stored data. In that case, the version will remain the same. The version can be
    * thought of as the latest timestamp at which this entry was changed.
    */
-  protected Version version = MinimalVersion.INSTANCE;
+  protected Version lastChangedVersion = MinimalVersion.INSTANCE;
+
+  /**
+   * Returns the last version this entry was evaluated at, even if it re-evaluated to the same
+   * value. When a child signals this entry with the last version it was changed at in
+   * {@link #signalDep}, this entry need not re-evaluate if the child's version is at most this
+   * version, even if the {@link #lastChangedVersion} is less than this one.
+   *
+   * @see #signalDep(Version)
+   */
+  protected Version lastEvaluatedVersion = MinimalVersion.INSTANCE;
 
   /**
    * This object represents a {@link GroupedList}<SkyKey> in a memory-efficient way. It stores the
@@ -227,8 +237,11 @@ public class InMemoryNodeEntry implements NodeEntry {
   public synchronized Set<SkyKey> setValue(SkyValue value, Version version) {
     Preconditions.checkState(isReady(), "%s %s", this, value);
     // This check may need to be removed when we move to a non-linear versioning sequence.
-    Preconditions.checkState(this.version.atMost(version),
-        "%s %s %s", this, version, value);
+    Preconditions.checkState(
+        this.lastChangedVersion.atMost(version), "%s %s %s", this, version, value);
+    Preconditions.checkState(
+        this.lastEvaluatedVersion.atMost(version), "%s %s %s", this, version, value);
+    this.lastEvaluatedVersion = version;
 
     if (isDirty() && buildingState.unchangedFromLastBuild(value)) {
       // If the value is the same as before, just use the old value. Note that we don't use the new
@@ -237,7 +250,7 @@ public class InMemoryNodeEntry implements NodeEntry {
     } else {
       // If this is a new value, or it has changed since the last build, set the version to the
       // current graph version.
-      this.version = version;
+      this.lastChangedVersion = version;
       this.value = value;
     }
 
@@ -311,7 +324,7 @@ public class InMemoryNodeEntry implements NodeEntry {
   @Override
   public synchronized boolean signalDep(Version childVersion) {
     Preconditions.checkState(!isDone(), "Value must not be done in signalDep %s", this);
-    return buildingState.signalDep(/*childChanged=*/!childVersion.atMost(getVersion()));
+    return buildingState.signalDep(/*childChanged=*/ !childVersion.atMost(lastEvaluatedVersion));
   }
 
   @Override
@@ -371,7 +384,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized Version getVersion() {
-    return version;
+    return lastChangedVersion;
   }
 
   /**  @see BuildingState#getDirtyState() */
@@ -436,7 +449,8 @@ public class InMemoryNodeEntry implements NodeEntry {
     return MoreObjects.toStringHelper(this)
         .add("identity", System.identityHashCode(this))
         .add("value", value)
-        .add("version", version)
+        .add("lastChangedVersion", lastChangedVersion)
+        .add("lastEvaluatedVersion", lastEvaluatedVersion)
         .add("directDeps", directDeps == null ? null : GroupedList.create(directDeps))
         .add("reverseDeps", REVERSE_DEPS_UTIL.toString(this))
         .add("buildingState", buildingState)
@@ -453,7 +467,8 @@ public class InMemoryNodeEntry implements NodeEntry {
     Preconditions.checkState(isDone(), "Only done nodes can be copied: %s", this);
     InMemoryNodeEntry nodeEntry = new InMemoryNodeEntry();
     nodeEntry.value = value;
-    nodeEntry.version = this.version;
+    nodeEntry.lastChangedVersion = this.lastChangedVersion;
+    nodeEntry.lastEvaluatedVersion = this.lastEvaluatedVersion;
     REVERSE_DEPS_UTIL.addReverseDeps(nodeEntry, REVERSE_DEPS_UTIL.getReverseDeps(this));
     nodeEntry.directDeps = directDeps;
     nodeEntry.buildingState = null;

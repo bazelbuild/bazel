@@ -2334,6 +2334,117 @@ public class MemoizingEvaluatorTest {
   }
 
   @Test
+  public void changePruningAfterParentPrunes() throws Exception {
+    initializeTester();
+    final SkyKey leaf = GraphTester.toSkyKey("leaf");
+    SkyKey top = GraphTester.toSkyKey("top");
+    tester.set(leaf, new StringValue("leafy"));
+    // When top depends on leaf, but always returns the same value,
+    final StringValue fixedTopValue = new StringValue("top");
+    final AtomicBoolean topEvaluated = new AtomicBoolean(false);
+    tester
+        .getOrCreate(top)
+        .setBuilder(
+            new SkyFunction() {
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) {
+                topEvaluated.set(true);
+                return env.getValue(leaf) == null ? null : fixedTopValue;
+              }
+
+              @Nullable
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    // And top is evaluated,
+    StringValue topValue = (StringValue) tester.evalAndGet("top");
+    // Then top's value is as expected,
+    assertEquals(fixedTopValue, topValue);
+    // And top was actually evaluated.
+    assertThat(topEvaluated.get()).isTrue();
+    // When leaf is changed,
+    tester.set(leaf, new StringValue("crunchy"));
+    tester.invalidate();
+    topEvaluated.set(false);
+    // And top is evaluated,
+    StringValue topValue2 = (StringValue) tester.evalAndGet("top");
+    // Then top's value is as expected,
+    assertEquals(fixedTopValue, topValue2);
+    // And top was actually evaluated.
+    assertThat(topEvaluated.get()).isTrue();
+    // When leaf is invalidated but not actually changed,
+    tester.getOrCreate(leaf, /*markAsModified=*/ true);
+    tester.invalidate();
+    topEvaluated.set(false);
+    // And top is evaluated,
+    StringValue topValue3 = (StringValue) tester.evalAndGet("top");
+    // Then top's value is as expected,
+    assertEquals(fixedTopValue, topValue3);
+    // And top was *not* actually evaluated, because change pruning cut off evaluation.
+    assertThat(topEvaluated.get()).isFalse();
+  }
+
+  @Test
+  public void changePruningFromOtherNodeAfterParentPrunes() throws Exception {
+    initializeTester();
+    final SkyKey leaf = GraphTester.toSkyKey("leaf");
+    final SkyKey other = GraphTester.toSkyKey("other");
+    SkyKey top = GraphTester.toSkyKey("top");
+    tester.set(leaf, new StringValue("leafy"));
+    tester.set(other, new StringValue("other"));
+    // When top depends on leaf and other, but always returns the same value,
+    final StringValue fixedTopValue = new StringValue("top");
+    final AtomicBoolean topEvaluated = new AtomicBoolean(false);
+    tester
+        .getOrCreate(top)
+        .setBuilder(
+            new SkyFunction() {
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) {
+                topEvaluated.set(true);
+
+                return env.getValue(other) == null || env.getValue(leaf) == null
+                    ? null
+                    : fixedTopValue;
+              }
+
+              @Nullable
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    // And top is evaluated,
+    StringValue topValue = (StringValue) tester.evalAndGet("top");
+    // Then top's value is as expected,
+    assertEquals(fixedTopValue, topValue);
+    // And top was actually evaluated.
+    assertThat(topEvaluated.get()).isTrue();
+    // When leaf is changed,
+    tester.set(leaf, new StringValue("crunchy"));
+    tester.invalidate();
+    topEvaluated.set(false);
+    // And top is evaluated,
+    StringValue topValue2 = (StringValue) tester.evalAndGet("top");
+    // Then top's value is as expected,
+    assertEquals(fixedTopValue, topValue2);
+    // And top was actually evaluated.
+    assertThat(topEvaluated.get()).isTrue();
+    // When other is invalidated but not actually changed,
+    tester.getOrCreate(other, /*markAsModified=*/ true);
+    tester.invalidate();
+    topEvaluated.set(false);
+    // And top is evaluated,
+    StringValue topValue3 = (StringValue) tester.evalAndGet("top");
+    // Then top's value is as expected,
+    assertEquals(fixedTopValue, topValue3);
+    // And top was *not* actually evaluated, because change pruning cut off evaluation.
+    assertThat(topEvaluated.get()).isFalse();
+  }
+
+  @Test
   public void changedChildChangesDepOfParent() throws Exception {
     initializeTester();
     final SkyKey buildFile = GraphTester.toSkyKey("buildFile");

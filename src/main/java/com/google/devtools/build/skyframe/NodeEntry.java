@@ -168,7 +168,7 @@ public interface NodeEntry extends ThinNodeEntry {
   /**
    * Tell this node that one of its dependencies is now done. Callers must check the return value,
    * and if true, they must re-schedule this node for evaluation. Equivalent to
-   * {@code #signalDep(Long.MAX_VALUE)}. Since this entry's version is less than
+   * {@code #signalDep(Long.MAX_VALUE)}. Since this entry was last evaluated at a version less than
    * {@link Long#MAX_VALUE}, informing this entry that a child of it has version
    * {@link Long#MAX_VALUE} will force it to re-evaluate.
    */
@@ -179,11 +179,20 @@ public interface NodeEntry extends ThinNodeEntry {
    * Tell this entry that one of its dependencies is now done. Callers must check the return value,
    * and if true, they must re-schedule this node for evaluation.
    *
-   * @param childVersion If this entry {@link #isDirty()} and {@code childVersion} is not at most
-   * {@link #getVersion()}, then this entry records that one of its children has changed since it
-   * was last evaluated (namely, it was last evaluated at version {@link #getVersion()} and the
-   * child was last evaluated at {@code childVersion}. Thus, the next call to
-   * {@link #getDirtyState()} will return {@link DirtyState#NEEDS_REBUILDING}.
+   * <p>Even if {@code childVersion} is not at most {@link #getVersion}, this entry may not rebuild,
+   * in the case that the entry already rebuilt at {@code childVersion} and discovered that it had
+   * the same value as at an earlier version. For instance, after evaluating at version v1, at
+   * version v2, child has a new value, but parent re-evaluates and finds it has the same value,
+   * child.getVersion() will return v2 and parent.getVersion() will return v1. At v3 parent is
+   * dirtied and checks its dep on child. child signals parent with version v2. That should not in
+   * and of itself trigger a rebuild, since parent has already rebuilt with child at v2.
+   *
+   *
+   * @param childVersion If this entry {@link #isDirty()} and the last version at which this entry
+   * was evaluated did not include the changes at version {@code childVersion} (for instance, if
+   * {@code childVersion} is after the last version at which this entry was evaluated), then this
+   * entry records that one of its children has changed since it was last evaluated. Thus, the next
+   * call to {@link #getDirtyState()} will return {@link DirtyState#NEEDS_REBUILDING}.
    */
   @ThreadSafe
   boolean signalDep(Version childVersion);
