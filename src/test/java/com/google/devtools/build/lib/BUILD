@@ -599,6 +599,33 @@ java_test(
     ],
 )
 
+java_test(
+    name = "server_test",
+    srcs = glob([
+        "server/*.java",
+    ]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    tags = ["server"],
+    deps = [
+        ":foundations_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:bazel-core",
+        "//src/main/java/com/google/devtools/build/lib:collect",
+        "//src/main/java/com/google/devtools/build/lib:io",
+        "//src/main/java/com/google/devtools/build/lib:server",
+        "//src/main/java/com/google/devtools/build/lib:unix",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:mockito",
+        "//third_party:truth",
+    ],
+)
+
 java_binary(
     name = "skylarkshell",
     srcs = ["syntax/SkylarkShell.java"],
@@ -888,6 +915,7 @@ TEST_SUITES = [
     "analysis",
     "foundations",
     "shell",
+    "server",
     "skyframe",
     "ideinfo",
 ]
