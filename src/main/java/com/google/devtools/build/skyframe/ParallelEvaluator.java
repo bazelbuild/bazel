@@ -1092,17 +1092,19 @@ public final class ParallelEvaluator implements Evaluator {
    * the main build aborted, then skip any parents that are already done (that can happen with
    * cycles).
    */
-  private void signalValuesAndEnqueueIfReady(@Nullable ValueVisitor visitor, Iterable<SkyKey> keys,
-      Version version) {
+  private void signalValuesAndEnqueueIfReady(
+      @Nullable ValueVisitor visitor, Iterable<SkyKey> keys, Version version) {
+    Map<SkyKey, NodeEntry> batch = graph.getBatch(keys);
     if (visitor != null) {
       for (SkyKey key : keys) {
-        if (graph.get(key).signalDep(version)) {
+        NodeEntry entry = Preconditions.checkNotNull(batch.get(key), key);
+        if (entry.signalDep(version)) {
           visitor.enqueueEvaluation(key);
         }
       }
     } else {
       for (SkyKey key : keys) {
-        NodeEntry entry = Preconditions.checkNotNull(graph.get(key), key);
+        NodeEntry entry = Preconditions.checkNotNull(batch.get(key), key);
         if (!entry.isDone()) {
           // In cycles, we can have parents that are already done.
           entry.signalDep(version);
@@ -1132,15 +1134,16 @@ public final class ParallelEvaluator implements Evaluator {
    * throw that same error if all of its requested deps were done. Unfortunately, there is no way to
    * enforce that condition.
    */
-  private void registerNewlyDiscoveredDepsForDoneEntry(SkyKey skyKey, NodeEntry entry,
-      SkyFunctionEnvironment env) {
+  private void registerNewlyDiscoveredDepsForDoneEntry(
+      SkyKey skyKey, NodeEntry entry, SkyFunctionEnvironment env) {
     Set<SkyKey> unfinishedDeps = new HashSet<>();
     Iterables.addAll(unfinishedDeps,
         Iterables.filter(env.newlyRequestedDeps, Predicates.not(nodeEntryIsDone)));
     env.newlyRequestedDeps.remove(unfinishedDeps);
     entry.addTemporaryDirectDeps(env.newlyRequestedDeps);
+    Map<SkyKey, NodeEntry> batch = graph.getBatch(env.newlyRequestedDeps);
     for (SkyKey newDep : env.newlyRequestedDeps) {
-      NodeEntry depEntry = graph.get(newDep);
+      NodeEntry depEntry = Preconditions.checkNotNull(batch.get(newDep), newDep);
       DependencyState triState = depEntry.addReverseDepAndCheckIfDone(skyKey);
       Preconditions.checkState(DependencyState.DONE == triState,
           "new dep %s was not already done for %s. ValueEntry: %s. DepValueEntry: %s",
