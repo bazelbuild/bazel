@@ -18,7 +18,6 @@ import static com.google.devtools.build.skyframe.SkyKeyInterner.SKY_KEY_INTERNER
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
@@ -111,13 +110,6 @@ public final class ParallelEvaluator implements Evaluator {
 
   private final ProcessableGraph graph;
   private final Version graphVersion;
-
-  private final Predicate<SkyKey> nodeEntryIsDone = new Predicate<SkyKey>() {
-    @Override
-    public boolean apply(SkyKey skyKey) {
-      return isDoneForBuild(graph.get(skyKey));
-    }
-  };
 
   private static class SkyValueSupplier implements Supplier<SkyValue> {
 
@@ -1137,12 +1129,18 @@ public final class ParallelEvaluator implements Evaluator {
   private void registerNewlyDiscoveredDepsForDoneEntry(
       SkyKey skyKey, NodeEntry entry, SkyFunctionEnvironment env) {
     Set<SkyKey> unfinishedDeps = new HashSet<>();
-    Iterables.addAll(unfinishedDeps,
-        Iterables.filter(env.newlyRequestedDeps, Predicates.not(nodeEntryIsDone)));
+    Map<SkyKey, NodeEntry> batch = graph.getBatch(env.newlyRequestedDeps);
+    for (SkyKey dep : env.newlyRequestedDeps) {
+      if (!isDoneForBuild(batch.get(dep))) {
+        unfinishedDeps.add(dep);
+      }
+    }
     env.newlyRequestedDeps.remove(unfinishedDeps);
     entry.addTemporaryDirectDeps(env.newlyRequestedDeps);
-    Map<SkyKey, NodeEntry> batch = graph.getBatch(env.newlyRequestedDeps);
     for (SkyKey newDep : env.newlyRequestedDeps) {
+      // Note that this depEntry can't be null. If env.newlyRequestedDeps contained a key with a
+      // null entry, then it would have been added to unfinishedDeps and then removed from
+      // env.newlyRequestedDeps just above this loop.
       NodeEntry depEntry = Preconditions.checkNotNull(batch.get(newDep), newDep);
       DependencyState triState = depEntry.addReverseDepAndCheckIfDone(skyKey);
       Preconditions.checkState(DependencyState.DONE == triState,
@@ -1180,7 +1178,15 @@ public final class ParallelEvaluator implements Evaluator {
     // Optimization: if all required node values are already present in the cache, return them
     // directly without launching the heavy machinery, spawning threads, etc.
     // Inform progressReceiver that these nodes are done to be consistent with the main code path.
-    if (Iterables.all(skyKeySet, nodeEntryIsDone)) {
+    boolean allAreDone = true;
+    Map<SkyKey, NodeEntry> batch = graph.getBatch(skyKeySet);
+    for (SkyKey key : skyKeySet) {
+      if (!isDoneForBuild(batch.get(key))) {
+        allAreDone = false;
+        break;
+      }
+    }
+    if (allAreDone) {
       for (SkyKey skyKey : skyKeySet) {
         informProgressReceiverThatValueIsDone(skyKey);
       }
