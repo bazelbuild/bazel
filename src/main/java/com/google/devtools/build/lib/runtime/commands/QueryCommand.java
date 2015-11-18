@@ -16,17 +16,21 @@ package com.google.devtools.build.lib.runtime.commands;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.Constants;
+import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
+import com.google.devtools.build.lib.query2.output.OutputFormatter.StreamedFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions;
 import com.google.devtools.build.lib.query2.output.QueryOutputUtils;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -107,10 +111,11 @@ public final class QueryCommand implements BlazeCommand {
     String query = Joiner.on(' ').join(options.getResidue());
 
     Set<Setting> settings = queryOptions.toSettings();
+    boolean streamResults = QueryOutputUtils.shouldStreamResults(queryOptions, formatter);
     AbstractBlazeQueryEnvironment<Target> queryEnv = newQueryEnvironment(
         env,
         queryOptions.keepGoing,
-        QueryOutputUtils.orderResults(queryOptions, formatter),
+        !streamResults,
         queryOptions.universeScope, queryOptions.loadingPhaseThreads,
         settings);
 
@@ -124,36 +129,70 @@ public final class QueryCommand implements BlazeCommand {
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
-    // 2. Evaluate expression:
-    QueryEvalResult<Target> result;
+    QueryEvalResult result;
+    PrintStream output = new PrintStream(env.getReporter().getOutErr().getOutputStream());
+    OutputFormatterCallback<Target> callback;
+    if (streamResults) {
+      // 2. Evaluate expression:
+      callback = ((StreamedFormatter) formatter)
+          .createStreamCallback(queryOptions, output, queryOptions.aspectDeps.createResolver(
+              env.getPackageManager(), env.getReporter()));
+    } else {
+      callback = new AggregateAllOutputFormatterCallback<>();
+    }
     try {
-      result = queryEnv.evaluateQuery(expr);
-    } catch (QueryException | InterruptedException e) {
+      callback.start();
+      result = queryEnv.evaluateQuery(expr, callback);
+    } catch (QueryException e) {
       // Keep consistent with reportBuildFileError()
       env.getReporter()
-          // TODO(bazel-team): this is a kludge to fix a bug observed in the wild. We should make
-          // sure no null error messages ever get in.
-          .handle(Event.error(e.getMessage() == null ? e.toString() : e.getMessage()));
+         // TODO(bazel-team): this is a kludge to fix a bug observed in the wild. We should make
+         // sure no null error messages ever get in.
+         .handle(Event.error(e.getMessage() == null ? e.toString() : e.getMessage()));
       return ExitCode.ANALYSIS_FAILURE;
-    }
-
-    env.getReporter().switchToAnsiAllowingHandler();
-    // 3. Output results:
-    PrintStream output = new PrintStream(env.getReporter().getOutErr().getOutputStream());
-    try {
-      QueryOutputUtils.output(queryOptions, result, formatter, output,
-          queryOptions.aspectDeps.createResolver(
-              env.getPackageManager(), env.getReporter()));
-    } catch (ClosedByInterruptException | InterruptedException e) {
-      env.getReporter().handle(Event.error("query interrupted"));
-      return ExitCode.INTERRUPTED;
+    } catch (InterruptedException e) {
+      IOException ioException = callback.getIoException();
+      if (ioException == null || ioException instanceof ClosedByInterruptException) {
+        env.getReporter().handle(Event.error("query interrupted"));
+        return ExitCode.INTERRUPTED;
+      } else {
+        env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
+        return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
+      }
     } catch (IOException e) {
       env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
       return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
     } finally {
       output.flush();
+      try {
+        callback.close();
+      } catch (IOException e) {
+        env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
+        return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
+      }
     }
-    if (result.getResultSet().isEmpty()) {
+    if (!streamResults) {
+      // 3. Output results:
+      try {
+        Set<Target> targets = ((AggregateAllOutputFormatterCallback<Target>) callback).getOutput();
+        QueryOutputUtils.output(queryOptions, result,
+            targets, formatter, output,
+            queryOptions.aspectDeps.createResolver(
+                env.getPackageManager(), env.getReporter()));
+      } catch (ClosedByInterruptException | InterruptedException e) {
+        env.getReporter().handle(Event.error("query interrupted"));
+        return ExitCode.INTERRUPTED;
+      } catch (IOException e) {
+        env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
+        return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
+      } finally {
+        output.flush();
+      }
+
+    }
+    env.getReporter().switchToAnsiAllowingHandler();
+
+    if (result.isEmpty()) {
       env.getReporter().handle(Event.info("Empty results"));
     }
 
@@ -184,5 +223,20 @@ public final class QueryCommand implements BlazeCommand {
         settings,
         functions.build(),
         env.getPackageManager().getPackagePath());
+  }
+
+  private static class AggregateAllOutputFormatterCallback<T> extends OutputFormatterCallback<T> {
+
+    private Set<T> output = CompactHashSet.create();
+
+    @Override
+    protected final void processOutput(Iterable<T> partialResult)
+        throws IOException, InterruptedException {
+      Iterables.addAll(output, partialResult);
+    }
+
+    public Set<T> getOutput() {
+      return output;
+    }
   }
 }
