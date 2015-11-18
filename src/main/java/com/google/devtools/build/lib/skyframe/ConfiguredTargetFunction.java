@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -278,6 +280,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
    * a dynamic transition. This can be used to determine the exact build options needed to
    * set a dynamic configuration.
    */
+  @Immutable
   private static final class FragmentsAndTransition {
     // Treat this as immutable. The only reason this isn't an ImmutableSet is because it
     // gets bound to a NestedSet.toSet() reference, which returns a Set interface.
@@ -311,6 +314,45 @@ final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   /**
+   * Helper class for {@link #trimConfigurations} - encapsulates an <attribute, label> pair that
+   * can be used to map from an input dependency to a trimmed dependency.
+   */
+  @Immutable
+  private static final class AttributeAndLabel {
+    final Attribute attribute;
+    final Label label;
+    final int hashCode;
+
+    AttributeAndLabel(Attribute attribute, Label label) {
+      this.attribute = attribute;
+      this.label = label;
+      this.hashCode = Objects.hash(this.attribute, this.label);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (!(o instanceof AttributeAndLabel)) {
+        return false;
+      }
+      AttributeAndLabel other = (AttributeAndLabel) o;
+      return Objects.equals(other.attribute, attribute) && other.label.equals(label);
+    }
+
+    @Override
+    public int hashCode() {
+      return hashCode;
+    }
+  }
+
+  /**
+   * Variation of {@link Map#put} that triggers an exception if another value already exists.
+   */
+  private static <K, V> void putOnlyEntry(Map<K, V> map, K key, V value) {
+    Verify.verify(map.put(key, value) == null,
+        "couldn't insert %s: map already has key %s", value.toString(), key.toString());
+  }
+
+  /**
    * Creates a dynamic configuration for each dep that's custom-fitted specifically for that dep.
    *
    * <p>More specifically: given a set of {@link Dependency} instances holding dynamic config
@@ -333,11 +375,6 @@ final class ConfiguredTargetFunction implements SkyFunction {
     // Maps each Skyframe-evaluated BuildConfiguration to the dependencies that need that
     // configuration. For cases where Skyframe isn't needed to get the configuration (e.g. when
     // we just re-used the original rule's configuration), we should skip this outright.
-    //
-    // It's important that we use a LinkedListMultimap: key order needs to be preserved. Otherwise
-    // we might switch the ordering of an attribute's deps from its original insertion order
-    // (e.g. given deps = ["a", "b"], output Dependency("deps", ["b", "a"]). That would violate
-    // the invariant that rule implementations can iterate through deps in original order.
     Multimap<SkyKey, Map.Entry<Attribute, Dependency>> keysToEntries = LinkedListMultimap.create();
 
     // Stores the result of applying a dynamic transition to the current configuration using a
@@ -351,20 +388,27 @@ final class ConfiguredTargetFunction implements SkyFunction {
         ctgValue.getConfiguration().fragmentClasses();
     BuildOptions ctgOptions = ctgValue.getConfiguration().getOptions();
 
-    // Our output map.
-    ListMultimap<Attribute, Dependency> trimmedDeps = ArrayListMultimap.create();
+    // Stores the trimmed versions of each dependency. This method must preserve the original label
+    // ordering of each attribute. For example, if originalDeps.get("data") is [":a", ":b"], the
+    // trimmed variant must also be [":a", ":b"] in the same order. Because we may not actualize
+    // the results in order (some results need Skyframe-evaluated configurations while others can
+    // be computed trivially), we dump them all into this map, then as a final step iterate through
+    // the original list and pluck out values from here for the final value.
+    Map<AttributeAndLabel, Dependency> trimmedDeps = new HashMap<>();
 
     for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
       Dependency dep = depsEntry.getValue();
+      AttributeAndLabel attributeAndLabel =
+          new AttributeAndLabel(depsEntry.getKey(), dep.getLabel());
 
       if (dep.hasStaticConfiguration()) {
         // Certain targets (like output files) trivially pass their configurations to their deps.
         // So no need to transform them in any way.
-        trimmedDeps.put(depsEntry.getKey(),
+        putOnlyEntry(trimmedDeps, attributeAndLabel,
             new Dependency(dep.getLabel(), dep.getConfiguration(), dep.getAspects()));
         continue;
       } else if (dep.getTransition() == Attribute.ConfigurationTransition.NULL) {
-        trimmedDeps.put(depsEntry.getKey(),
+        putOnlyEntry(trimmedDeps, attributeAndLabel,
             new Dependency(dep.getLabel(), (BuildConfiguration) null, dep.getAspects()));
         continue;
       }
@@ -387,7 +431,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       if (sameFragments) {
         if (transition == Attribute.ConfigurationTransition.NONE) {
           // The dep uses the same exact configuration.
-          trimmedDeps.put(depsEntry.getKey(),
+          putOnlyEntry(trimmedDeps, attributeAndLabel,
               new Dependency(dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
           continue;
         } else if (transition == HostTransition.INSTANCE) {
@@ -396,7 +440,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
           // uniquely frequent. It's possible, e.g., for every node in the configured target graph
           // to incur multiple host transitions. So we aggressively optimize to avoid hurting
           // analysis time.
-          trimmedDeps.put(depsEntry.getKey(),
+          putOnlyEntry(trimmedDeps, attributeAndLabel,
               new Dependency(dep.getLabel(), hostConfiguration, dep.getAspects()));
           continue;
         }
@@ -424,7 +468,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       // If the transition doesn't change the configuration, trivially re-use the original
       // configuration.
       if (sameFragments && toOptions.equals(ctgOptions)) {
-        trimmedDeps.put(depsEntry.getKey(),
+        putOnlyEntry(trimmedDeps, attributeAndLabel,
             new Dependency(dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
         continue;
       }
@@ -447,9 +491,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
         SkyKey key = entry.getKey();
         BuildConfigurationValue trimmedConfig = (BuildConfigurationValue) entry.getValue().get();
         for (Map.Entry<Attribute, Dependency> info : keysToEntries.get(key)) {
-          Attribute attribute = info.getKey();
           Dependency originalDep = info.getValue();
-          trimmedDeps.put(attribute,
+          putOnlyEntry(trimmedDeps, new AttributeAndLabel(info.getKey(), originalDep.getLabel()),
               new Dependency(originalDep.getLabel(), trimmedConfig.getConfiguration(),
                   originalDep.getAspects()));
         }
@@ -458,7 +501,16 @@ final class ConfiguredTargetFunction implements SkyFunction {
       throw new DependencyEvaluationException(e);
     }
 
-    return trimmedDeps;
+    // Re-assemble the output map with the same value ordering (e.g. each attribute's dep labels
+    // appear in the same order) as the input.
+    ListMultimap<Attribute, Dependency> result = ArrayListMultimap.create();
+    for (Map.Entry<Attribute, Dependency> depsEntry : originalDeps.entries()) {
+      Dependency trimmedDep = Verify.verifyNotNull(
+          trimmedDeps.get(
+              new AttributeAndLabel(depsEntry.getKey(), depsEntry.getValue().getLabel())));
+      result.put(depsEntry.getKey(), trimmedDep);
+    }
+    return result;
   }
 
   /**
