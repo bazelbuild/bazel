@@ -89,7 +89,7 @@ layout: documentation
     ios_application
   </h2>
 
-  <pre class="rule-signature">ios_application(<a href="#ios_application.name">name</a>, <a href="#ios_application.app_icon">app_icon</a>, <a href="#ios_application.binary">binary</a>, <a href="#ios_application.bundle_id">bundle_id</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_application.entitlements">entitlements</a>, <a href="#ios_application.extensions">extensions</a>, <a href="#ios_application.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_application.infoplist">infoplist</a>, <a href="#ios_application.launch_image">launch_image</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_application.provisioning_profile">provisioning_profile</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">ios_application(<a href="#ios_application.name">name</a>, <a href="#ios_application.app_icon">app_icon</a>, <a href="#ios_application.binary">binary</a>, <a href="#ios_application.bundle_id">bundle_id</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_application.entitlements">entitlements</a>, <a href="#ios_application.extensions">extensions</a>, <a href="#ios_application.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_application.infoplist">infoplist</a>, <a href="#ios_application.launch_image">launch_image</a>, <a href="#ios_application.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_application.provisioning_profile">provisioning_profile</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 
@@ -262,6 +262,37 @@ passed to the application.</p>
           If the launch image is not in an asset catalog, do not use this
           attribute. Instead, add an appropriately-named image resource to the
           bundle.
+          <p>
+          Note that this attribute will be ignored if both compiling with
+          <code>--ios_minimum_os</code> >= 8.0 and
+          <code>launch_storyboard</code> is also specified (whose value will be
+          used for the launch screen instead).
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_application.launch_storyboard">
+          <code>launch_storyboard</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                              The location of the launch storyboard (.xib or .storyboard).
+
+
+          The provided storyboard will be compiled to the appropriate format
+          (.nib or .storyboardc respectively) and placed in the root of the
+          final package. If the storyboard's immediate containing directory is
+          named *.lproj (e.g. en.lproj, Base.lproj), it will be placed under a
+          directory of that name in the final bundle. This allows for
+          localizable UI.
+          <p>
+          The generated storyboard is registered in the final bundle's
+          <code>Info.plist</code> under the key
+          <code>UILaunchStoryboardName</code>.
+          <p>
+          Note that this attribute will be ignored if compiling with
+          <code>--ios_minimum_os</code> set to < 8.0 (generating a warning)
+          and that (if set) <code>launch_image</code> will be used instead.
 
         </td>
       </tr>
@@ -347,7 +378,7 @@ which to run tests.</p>
     ios_extension
   </h2>
 
-  <pre class="rule-signature">ios_extension(<a href="#ios_extension.name">name</a>, <a href="#ios_extension.app_icon">app_icon</a>, <a href="#ios_extension.binary">binary</a>, <a href="#ios_extension.bundle_id">bundle_id</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_extension.entitlements">entitlements</a>, <a href="#ios_extension.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_extension.infoplist">infoplist</a>, <a href="#ios_extension.launch_image">launch_image</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_extension.provisioning_profile">provisioning_profile</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">ios_extension(<a href="#ios_extension.name">name</a>, <a href="#ios_extension.app_icon">app_icon</a>, <a href="#ios_extension.binary">binary</a>, <a href="#ios_extension.bundle_id">bundle_id</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_extension.entitlements">entitlements</a>, <a href="#ios_extension.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_extension.infoplist">infoplist</a>, <a href="#ios_extension.launch_image">launch_image</a>, <a href="#ios_extension.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_extension.provisioning_profile">provisioning_profile</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 
@@ -533,6 +564,37 @@ between how each thing is processed:
           If the launch image is not in an asset catalog, do not use this
           attribute. Instead, add an appropriately-named image resource to the
           bundle.
+          <p>
+          Note that this attribute will be ignored if both compiling with
+          <code>--ios_minimum_os</code> >= 8.0 and
+          <code>launch_storyboard</code> is also specified (whose value will be
+          used for the launch screen instead).
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_extension.launch_storyboard">
+          <code>launch_storyboard</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                              The location of the launch storyboard (.xib or .storyboard).
+
+
+          The provided storyboard will be compiled to the appropriate format
+          (.nib or .storyboardc respectively) and placed in the root of the
+          final package. If the storyboard's immediate containing directory is
+          named *.lproj (e.g. en.lproj, Base.lproj), it will be placed under a
+          directory of that name in the final bundle. This allows for
+          localizable UI.
+          <p>
+          The generated storyboard is registered in the final bundle's
+          <code>Info.plist</code> under the key
+          <code>UILaunchStoryboardName</code>.
+          <p>
+          Note that this attribute will be ignored if compiling with
+          <code>--ios_minimum_os</code> set to < 8.0 (generating a warning)
+          and that (if set) <code>launch_image</code> will be used instead.
 
         </td>
       </tr>
@@ -984,7 +1046,7 @@ Objective-C libraries.</p>
     ios_framework
   </h2>
 
-  <pre class="rule-signature">ios_framework(<a href="#ios_framework.name">name</a>, <a href="#ios_framework.hdrs">hdrs</a>, <a href="#ios_framework.app_icon">app_icon</a>, <a href="#ios_framework.binary">binary</a>, <a href="#ios_framework.bundle_id">bundle_id</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_framework.entitlements">entitlements</a>, <a href="#ios_framework.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_framework.infoplist">infoplist</a>, <a href="#ios_framework.launch_image">launch_image</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_framework.provisioning_profile">provisioning_profile</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">ios_framework(<a href="#ios_framework.name">name</a>, <a href="#ios_framework.hdrs">hdrs</a>, <a href="#ios_framework.app_icon">app_icon</a>, <a href="#ios_framework.binary">binary</a>, <a href="#ios_framework.bundle_id">bundle_id</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_framework.entitlements">entitlements</a>, <a href="#ios_framework.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_framework.infoplist">infoplist</a>, <a href="#ios_framework.launch_image">launch_image</a>, <a href="#ios_framework.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_framework.provisioning_profile">provisioning_profile</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 
@@ -1152,6 +1214,37 @@ final app bundle and only used during compilation stage.
           If the launch image is not in an asset catalog, do not use this
           attribute. Instead, add an appropriately-named image resource to the
           bundle.
+          <p>
+          Note that this attribute will be ignored if both compiling with
+          <code>--ios_minimum_os</code> >= 8.0 and
+          <code>launch_storyboard</code> is also specified (whose value will be
+          used for the launch screen instead).
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_framework.launch_storyboard">
+          <code>launch_storyboard</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                              The location of the launch storyboard (.xib or .storyboard).
+
+
+          The provided storyboard will be compiled to the appropriate format
+          (.nib or .storyboardc respectively) and placed in the root of the
+          final package. If the storyboard's immediate containing directory is
+          named *.lproj (e.g. en.lproj, Base.lproj), it will be placed under a
+          directory of that name in the final bundle. This allows for
+          localizable UI.
+          <p>
+          The generated storyboard is registered in the final bundle's
+          <code>Info.plist</code> under the key
+          <code>UILaunchStoryboardName</code>.
+          <p>
+          Note that this attribute will be ignored if compiling with
+          <code>--ios_minimum_os</code> set to < 8.0 (generating a warning)
+          and that (if set) <code>launch_image</code> will be used instead.
 
         </td>
       </tr>
@@ -1603,7 +1696,7 @@ libraries.</p>
     objc_binary
   </h2>
 
-  <pre class="rule-signature">objc_binary(<a href="#objc_binary.name">name</a>, <a href="#objc_binary.deps">deps</a>, <a href="#objc_binary.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#objc_binary.resources">resources</a>, <a href="#objc_binary.hdrs">hdrs</a>, <a href="#objc_binary.app_icon">app_icon</a>, <a href="#objc_binary.asset_catalogs">asset_catalogs</a>, <a href="#objc_binary.bridging_header">bridging_header</a>, <a href="#objc_binary.bundle_id">bundle_id</a>, <a href="#objc_binary.bundles">bundles</a>, <a href="#objc_binary.copts">copts</a>, <a href="#objc_binary.datamodels">datamodels</a>, <a href="#objc_binary.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#objc_binary.enable_modules">enable_modules</a>, <a href="#objc_binary.entitlements">entitlements</a>, <a href="#objc_binary.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#objc_binary.includes">includes</a>, <a href="#objc_binary.infoplist">infoplist</a>, <a href="#objc_binary.launch_image">launch_image</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#objc_binary.non_arc_srcs">non_arc_srcs</a>, <a href="#objc_binary.non_propagated_deps">non_propagated_deps</a>, <a href="#objc_binary.pch">pch</a>, <a href="#objc_binary.provisioning_profile">provisioning_profile</a>, <a href="#objc_binary.sdk_dylibs">sdk_dylibs</a>, <a href="#objc_binary.sdk_frameworks">sdk_frameworks</a>, <a href="#objc_binary.sdk_includes">sdk_includes</a>, <a href="#objc_binary.storyboards">storyboards</a>, <a href="#objc_binary.strings">strings</a>, <a href="#objc_binary.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#objc_binary.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#objc_binary.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#objc_binary.xibs">xibs</a>)</pre>
+  <pre class="rule-signature">objc_binary(<a href="#objc_binary.name">name</a>, <a href="#objc_binary.deps">deps</a>, <a href="#objc_binary.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#objc_binary.resources">resources</a>, <a href="#objc_binary.hdrs">hdrs</a>, <a href="#objc_binary.app_icon">app_icon</a>, <a href="#objc_binary.asset_catalogs">asset_catalogs</a>, <a href="#objc_binary.bridging_header">bridging_header</a>, <a href="#objc_binary.bundle_id">bundle_id</a>, <a href="#objc_binary.bundles">bundles</a>, <a href="#objc_binary.copts">copts</a>, <a href="#objc_binary.datamodels">datamodels</a>, <a href="#objc_binary.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#objc_binary.enable_modules">enable_modules</a>, <a href="#objc_binary.entitlements">entitlements</a>, <a href="#objc_binary.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#objc_binary.includes">includes</a>, <a href="#objc_binary.infoplist">infoplist</a>, <a href="#objc_binary.launch_image">launch_image</a>, <a href="#objc_binary.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#objc_binary.non_arc_srcs">non_arc_srcs</a>, <a href="#objc_binary.non_propagated_deps">non_propagated_deps</a>, <a href="#objc_binary.pch">pch</a>, <a href="#objc_binary.provisioning_profile">provisioning_profile</a>, <a href="#objc_binary.sdk_dylibs">sdk_dylibs</a>, <a href="#objc_binary.sdk_frameworks">sdk_frameworks</a>, <a href="#objc_binary.sdk_includes">sdk_includes</a>, <a href="#objc_binary.storyboards">storyboards</a>, <a href="#objc_binary.strings">strings</a>, <a href="#objc_binary.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#objc_binary.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#objc_binary.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#objc_binary.xibs">xibs</a>)</pre>
 
 
 
@@ -1947,6 +2040,37 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           If the launch image is not in an asset catalog, do not use this
           attribute. Instead, add an appropriately-named image resource to the
           bundle.
+          <p>
+          Note that this attribute will be ignored if both compiling with
+          <code>--ios_minimum_os</code> >= 8.0 and
+          <code>launch_storyboard</code> is also specified (whose value will be
+          used for the launch screen instead).
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="objc_binary.launch_storyboard">
+          <code>launch_storyboard</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                              The location of the launch storyboard (.xib or .storyboard).
+
+
+          The provided storyboard will be compiled to the appropriate format
+          (.nib or .storyboardc respectively) and placed in the root of the
+          final package. If the storyboard's immediate containing directory is
+          named *.lproj (e.g. en.lproj, Base.lproj), it will be placed under a
+          directory of that name in the final bundle. This allows for
+          localizable UI.
+          <p>
+          The generated storyboard is registered in the final bundle's
+          <code>Info.plist</code> under the key
+          <code>UILaunchStoryboardName</code>.
+          <p>
+          Note that this attribute will be ignored if compiling with
+          <code>--ios_minimum_os</code> set to < 8.0 (generating a warning)
+          and that (if set) <code>launch_image</code> will be used instead.
 
         </td>
       </tr>
@@ -3479,7 +3603,6 @@ options file.</p>
         <td>
                     <p><code>Boolean; optional; default is 0</code></p>
                             If true, always add all directories to objc_library includes,
-        overriding --noobjc_per_proto_includes.
 
 
         </td>
@@ -3501,7 +3624,7 @@ options file.</p>
     experimental_ios_test
   </h2>
 
-  <pre class="rule-signature">experimental_ios_test(<a href="#experimental_ios_test.name">name</a>, <a href="#experimental_ios_test.deps">deps</a>, <a href="#experimental_ios_test.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#experimental_ios_test.resources">resources</a>, <a href="#experimental_ios_test.hdrs">hdrs</a>, <a href="#experimental_ios_test.app_icon">app_icon</a>, <a href="common-definitions.html#test.args">args</a>, <a href="#experimental_ios_test.asset_catalogs">asset_catalogs</a>, <a href="#experimental_ios_test.bridging_header">bridging_header</a>, <a href="#experimental_ios_test.bundle_id">bundle_id</a>, <a href="#experimental_ios_test.bundles">bundles</a>, <a href="#experimental_ios_test.copts">copts</a>, <a href="#experimental_ios_test.datamodels">datamodels</a>, <a href="#experimental_ios_test.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#experimental_ios_test.enable_modules">enable_modules</a>, <a href="#experimental_ios_test.entitlements">entitlements</a>, <a href="#experimental_ios_test.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="#experimental_ios_test.includes">includes</a>, <a href="#experimental_ios_test.infoplist">infoplist</a>, <a href="#experimental_ios_test.launch_image">launch_image</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="#experimental_ios_test.non_arc_srcs">non_arc_srcs</a>, <a href="#experimental_ios_test.non_propagated_deps">non_propagated_deps</a>, <a href="#experimental_ios_test.pch">pch</a>, <a href="#experimental_ios_test.provisioning_profile">provisioning_profile</a>, <a href="#experimental_ios_test.sdk_dylibs">sdk_dylibs</a>, <a href="#experimental_ios_test.sdk_frameworks">sdk_frameworks</a>, <a href="#experimental_ios_test.sdk_includes">sdk_includes</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="#experimental_ios_test.storyboards">storyboards</a>, <a href="#experimental_ios_test.strings">strings</a>, <a href="#experimental_ios_test.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="#experimental_ios_test.target_device">target_device</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#experimental_ios_test.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#experimental_ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#experimental_ios_test.xctest">xctest</a>, <a href="#experimental_ios_test.xctest_app">xctest_app</a>, <a href="#experimental_ios_test.xibs">xibs</a>)</pre>
+  <pre class="rule-signature">experimental_ios_test(<a href="#experimental_ios_test.name">name</a>, <a href="#experimental_ios_test.deps">deps</a>, <a href="#experimental_ios_test.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#experimental_ios_test.resources">resources</a>, <a href="#experimental_ios_test.hdrs">hdrs</a>, <a href="#experimental_ios_test.app_icon">app_icon</a>, <a href="common-definitions.html#test.args">args</a>, <a href="#experimental_ios_test.asset_catalogs">asset_catalogs</a>, <a href="#experimental_ios_test.bridging_header">bridging_header</a>, <a href="#experimental_ios_test.bundle_id">bundle_id</a>, <a href="#experimental_ios_test.bundles">bundles</a>, <a href="#experimental_ios_test.copts">copts</a>, <a href="#experimental_ios_test.datamodels">datamodels</a>, <a href="#experimental_ios_test.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#experimental_ios_test.enable_modules">enable_modules</a>, <a href="#experimental_ios_test.entitlements">entitlements</a>, <a href="#experimental_ios_test.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="#experimental_ios_test.includes">includes</a>, <a href="#experimental_ios_test.infoplist">infoplist</a>, <a href="#experimental_ios_test.launch_image">launch_image</a>, <a href="#experimental_ios_test.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="#experimental_ios_test.non_arc_srcs">non_arc_srcs</a>, <a href="#experimental_ios_test.non_propagated_deps">non_propagated_deps</a>, <a href="#experimental_ios_test.pch">pch</a>, <a href="#experimental_ios_test.provisioning_profile">provisioning_profile</a>, <a href="#experimental_ios_test.sdk_dylibs">sdk_dylibs</a>, <a href="#experimental_ios_test.sdk_frameworks">sdk_frameworks</a>, <a href="#experimental_ios_test.sdk_includes">sdk_includes</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="#experimental_ios_test.storyboards">storyboards</a>, <a href="#experimental_ios_test.strings">strings</a>, <a href="#experimental_ios_test.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="#experimental_ios_test.target_device">target_device</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#experimental_ios_test.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#experimental_ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#experimental_ios_test.xctest">xctest</a>, <a href="#experimental_ios_test.xctest_app">xctest_app</a>, <a href="#experimental_ios_test.xibs">xibs</a>)</pre>
 
 
 
@@ -3831,6 +3954,37 @@ on both iOS simulator and real devices.
           If the launch image is not in an asset catalog, do not use this
           attribute. Instead, add an appropriately-named image resource to the
           bundle.
+          <p>
+          Note that this attribute will be ignored if both compiling with
+          <code>--ios_minimum_os</code> >= 8.0 and
+          <code>launch_storyboard</code> is also specified (whose value will be
+          used for the launch screen instead).
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="experimental_ios_test.launch_storyboard">
+          <code>launch_storyboard</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                              The location of the launch storyboard (.xib or .storyboard).
+
+
+          The provided storyboard will be compiled to the appropriate format
+          (.nib or .storyboardc respectively) and placed in the root of the
+          final package. If the storyboard's immediate containing directory is
+          named *.lproj (e.g. en.lproj, Base.lproj), it will be placed under a
+          directory of that name in the final bundle. This allows for
+          localizable UI.
+          <p>
+          The generated storyboard is registered in the final bundle's
+          <code>Info.plist</code> under the key
+          <code>UILaunchStoryboardName</code>.
+          <p>
+          Note that this attribute will be ignored if compiling with
+          <code>--ios_minimum_os</code> set to < 8.0 (generating a warning)
+          and that (if set) <code>launch_image</code> will be used instead.
 
         </td>
       </tr>
@@ -4083,7 +4237,7 @@ on both iOS simulator and real devices.
     ios_test
   </h2>
 
-  <pre class="rule-signature">ios_test(<a href="#ios_test.name">name</a>, <a href="#ios_test.deps">deps</a>, <a href="#ios_test.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#ios_test.resources">resources</a>, <a href="#ios_test.hdrs">hdrs</a>, <a href="#ios_test.app_icon">app_icon</a>, <a href="common-definitions.html#test.args">args</a>, <a href="#ios_test.asset_catalogs">asset_catalogs</a>, <a href="#ios_test.bridging_header">bridging_header</a>, <a href="#ios_test.bundle_id">bundle_id</a>, <a href="#ios_test.bundles">bundles</a>, <a href="#ios_test.copts">copts</a>, <a href="#ios_test.datamodels">datamodels</a>, <a href="#ios_test.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_test.enable_modules">enable_modules</a>, <a href="#ios_test.entitlements">entitlements</a>, <a href="#ios_test.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="#ios_test.includes">includes</a>, <a href="#ios_test.infoplist">infoplist</a>, <a href="#ios_test.ios_device_arg">ios_device_arg</a>, <a href="#ios_test.ios_test_target_device">ios_test_target_device</a>, <a href="#ios_test.launch_image">launch_image</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="#ios_test.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_test.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_test.pch">pch</a>, <a href="#ios_test.plugins">plugins</a>, <a href="#ios_test.provisioning_profile">provisioning_profile</a>, <a href="#ios_test.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_test.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_test.sdk_includes">sdk_includes</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="#ios_test.storyboards">storyboards</a>, <a href="#ios_test.strings">strings</a>, <a href="#ios_test.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="#ios_test.target_device">target_device</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#ios_test.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_test.xctest">xctest</a>, <a href="#ios_test.xctest_app">xctest_app</a>, <a href="#ios_test.xibs">xibs</a>)</pre>
+  <pre class="rule-signature">ios_test(<a href="#ios_test.name">name</a>, <a href="#ios_test.deps">deps</a>, <a href="#ios_test.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#ios_test.resources">resources</a>, <a href="#ios_test.hdrs">hdrs</a>, <a href="#ios_test.app_icon">app_icon</a>, <a href="common-definitions.html#test.args">args</a>, <a href="#ios_test.asset_catalogs">asset_catalogs</a>, <a href="#ios_test.bridging_header">bridging_header</a>, <a href="#ios_test.bundle_id">bundle_id</a>, <a href="#ios_test.bundles">bundles</a>, <a href="#ios_test.copts">copts</a>, <a href="#ios_test.datamodels">datamodels</a>, <a href="#ios_test.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_test.enable_modules">enable_modules</a>, <a href="#ios_test.entitlements">entitlements</a>, <a href="#ios_test.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="#ios_test.includes">includes</a>, <a href="#ios_test.infoplist">infoplist</a>, <a href="#ios_test.ios_device_arg">ios_device_arg</a>, <a href="#ios_test.ios_test_target_device">ios_test_target_device</a>, <a href="#ios_test.launch_image">launch_image</a>, <a href="#ios_test.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="#ios_test.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_test.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_test.pch">pch</a>, <a href="#ios_test.plugins">plugins</a>, <a href="#ios_test.provisioning_profile">provisioning_profile</a>, <a href="#ios_test.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_test.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_test.sdk_includes">sdk_includes</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="#ios_test.storyboards">storyboards</a>, <a href="#ios_test.strings">strings</a>, <a href="#ios_test.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="#ios_test.target_device">target_device</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#ios_test.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_test.xctest">xctest</a>, <a href="#ios_test.xctest_app">xctest_app</a>, <a href="#ios_test.xibs">xibs</a>)</pre>
 
 
 
@@ -4437,6 +4591,37 @@ on both iOS simulator and real devices.
           If the launch image is not in an asset catalog, do not use this
           attribute. Instead, add an appropriately-named image resource to the
           bundle.
+          <p>
+          Note that this attribute will be ignored if both compiling with
+          <code>--ios_minimum_os</code> >= 8.0 and
+          <code>launch_storyboard</code> is also specified (whose value will be
+          used for the launch screen instead).
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_test.launch_storyboard">
+          <code>launch_storyboard</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                              The location of the launch storyboard (.xib or .storyboard).
+
+
+          The provided storyboard will be compiled to the appropriate format
+          (.nib or .storyboardc respectively) and placed in the root of the
+          final package. If the storyboard's immediate containing directory is
+          named *.lproj (e.g. en.lproj, Base.lproj), it will be placed under a
+          directory of that name in the final bundle. This allows for
+          localizable UI.
+          <p>
+          The generated storyboard is registered in the final bundle's
+          <code>Info.plist</code> under the key
+          <code>UILaunchStoryboardName</code>.
+          <p>
+          Note that this attribute will be ignored if compiling with
+          <code>--ios_minimum_os</code> set to < 8.0 (generating a warning)
+          and that (if set) <code>launch_image</code> will be used instead.
 
         </td>
       </tr>
