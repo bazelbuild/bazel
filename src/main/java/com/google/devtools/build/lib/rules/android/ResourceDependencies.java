@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.Reso
  * Represents a container for the {@link ResourceContainer}s for a given library. This is
  * abstraction simplifies the process of managing and exporting the direct and transitive resource
  * dependencies of an android rule, as well as providing type safety.
- * 
+ *
  * <p>The transitive and direct dependencies are not guaranteed to be disjoint. If a 
  * library is included in both the transitive and direct dependencies, it will appear twice. This
  * requires consumers to manage duplicated resources gracefully.
@@ -44,8 +44,12 @@ public class ResourceDependencies {
    * properly maintain ordering and ease of merging.
    */
   private final NestedSet<ResourceContainer> directResources;
+  /**
+   * Whether the resources of the current rule should be treated as neverlink.
+   */
+  private final boolean neverlink;
 
-  public static ResourceDependencies fromRuleResources(RuleContext ruleContext) { 
+  public static ResourceDependencies fromRuleResources(RuleContext ruleContext, boolean neverlink) {
     if (!hasResourceAttribute(ruleContext)) {
       return empty();
     }
@@ -53,33 +57,37 @@ public class ResourceDependencies {
     NestedSetBuilder<ResourceContainer> transitiveDependencies = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<ResourceContainer> directDependencies = NestedSetBuilder.naiveLinkOrder();
     extractFromAttribute("resources", ruleContext, transitiveDependencies, directDependencies);
-    return new ResourceDependencies(transitiveDependencies.build(), directDependencies.build());
+    return new ResourceDependencies(neverlink,
+        transitiveDependencies.build(), directDependencies.build());
   }
 
-  public static ResourceDependencies fromRuleDeps(RuleContext ruleContext) {
+  public static ResourceDependencies fromRuleDeps(RuleContext ruleContext, boolean neverlink) {
     NestedSetBuilder<ResourceContainer> transitiveDependencies = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<ResourceContainer> directDependencies = NestedSetBuilder.naiveLinkOrder();
     extractFromAttribute("deps", ruleContext, transitiveDependencies, directDependencies);
-    return new ResourceDependencies(transitiveDependencies.build(), directDependencies.build());
+    return new ResourceDependencies(neverlink,
+        transitiveDependencies.build(), directDependencies.build());
   }
 
-  public static ResourceDependencies fromRuleResourceAndDeps(RuleContext ruleContext) {
+  public static ResourceDependencies fromRuleResourceAndDeps(RuleContext ruleContext,
+      boolean neverlink) {
     NestedSetBuilder<ResourceContainer> transitiveDependencies = NestedSetBuilder.naiveLinkOrder();
     NestedSetBuilder<ResourceContainer> directDependencies = NestedSetBuilder.naiveLinkOrder();
     if (hasResourceAttribute(ruleContext)) {
-        extractFromAttribute("resources",ruleContext, transitiveDependencies, directDependencies);
+      extractFromAttribute("resources",ruleContext, transitiveDependencies, directDependencies);
     }
     if (directDependencies.isEmpty()) {
       // There are no resources, so this library will forward the direct and transitive dependencies
       // without changes.
       extractFromAttribute("deps", ruleContext, transitiveDependencies, directDependencies);
     } else {
-      // There are resources, so the direct dependencies and the transitive will be merged into 
+      // There are resources, so the direct dependencies and the transitive will be merged into
       // the transitive dependencies. This maintains the relationship of the resources being
       // directly on the rule.
       extractFromAttribute("deps", ruleContext, transitiveDependencies, transitiveDependencies);
     }
-    return new ResourceDependencies(transitiveDependencies.build(), directDependencies.build());
+    return new ResourceDependencies(neverlink,
+        transitiveDependencies.build(), directDependencies.build());
   }
 
   private static void extractFromAttribute(String attribute,
@@ -94,10 +102,10 @@ public class ResourceDependencies {
 
   /**
    * Check for the existence of a "resources" attribute.
-   * 
+   *
    * <p>The existence of the resources attribute is not guaranteed on for all android rules, so it
    * is necessary to check for it.
-   * 
+   *
    * @param ruleContext The context to check.
    * @return True if the ruleContext has resources, otherwise, false.
    */
@@ -116,14 +124,16 @@ public class ResourceDependencies {
    * is the only resource dependency. The most common case is the AndroidTest rule.
    */
   public static ResourceDependencies empty() {
-    return new ResourceDependencies(
+    return new ResourceDependencies(false,
         NestedSetBuilder.<ResourceContainer>emptySet(Order.NAIVE_LINK_ORDER),
         NestedSetBuilder.<ResourceContainer>emptySet(Order.NAIVE_LINK_ORDER));
   }
 
-  public ResourceDependencies(
+  private ResourceDependencies(
+      boolean neverlink,
       NestedSet<ResourceContainer> transitiveResources,
       NestedSet<ResourceContainer> directResources) {
+    this.neverlink = neverlink;
     this.transitiveResources = transitiveResources;
     this.directResources = directResources;
   }
@@ -141,6 +151,9 @@ public class ResourceDependencies {
    * @return A provider with the current resources and label.
    */
   public AndroidResourcesProvider toProvider(Label label, ResourceContainer newDirectResource) {
+    if (neverlink) {
+      return ResourceDependencies.empty().toProvider(label);
+    }
     return new AndroidResourcesProvider(
         label,
         NestedSetBuilder.<ResourceContainer>naiveLinkOrder()
@@ -161,6 +174,9 @@ public class ResourceDependencies {
    * @return A provider with the current resources and label.
    */
   public AndroidResourcesProvider toProvider(Label label) {
+    if (neverlink) {
+      return ResourceDependencies.empty().toProvider(label);
+    }
     return new AndroidResourcesProvider(label, transitiveResources, directResources);
   }
 

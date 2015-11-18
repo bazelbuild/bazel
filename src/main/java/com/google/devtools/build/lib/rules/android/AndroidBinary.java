@@ -100,8 +100,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     try {
       ResourceDependencies resourceDeps = LocalResourceContainer.definesAndroidResources(
           ruleContext.attributes())
-          ? ResourceDependencies.fromRuleDeps(ruleContext)
-          : ResourceDependencies.fromRuleResourceAndDeps(ruleContext);
+          ? ResourceDependencies.fromRuleDeps(ruleContext, false /* neverlink */)
+          : ResourceDependencies.fromRuleResourceAndDeps(ruleContext, false /* neverlink */);
       RuleConfiguredTargetBuilder builder = init(
           ruleContext,
           filesBuilder,
