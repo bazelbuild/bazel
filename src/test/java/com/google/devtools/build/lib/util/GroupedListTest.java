@@ -125,8 +125,8 @@ public class GroupedListTest {
     assertFalse(groupedList.isEmpty());
     Object compressed = groupedList.compress();
     assertElementsEqual(compressed, allElts);
-    assertThat(GroupedList.create(compressed)).containsExactlyElementsIn(elements).inOrder();
-    assertThat(groupedList).containsExactlyElementsIn(elements).inOrder();
+    assertElementsEqualInGroups(GroupedList.create(compressed), elements);
+    assertElementsEqualInGroups(groupedList, elements);
   }
 
   @Test
@@ -157,8 +157,8 @@ public class GroupedListTest {
     assertElementsEqual(compressed, allElts);
     // Get rid of empty list -- it was not stored in groupedList.
     elements.remove(1);
-    assertThat(GroupedList.create(compressed)).containsExactlyElementsIn(elements).inOrder();
-    assertThat(groupedList).containsExactlyElementsIn(elements).inOrder();
+    assertElementsEqualInGroups(GroupedList.create(compressed), elements);
+    assertElementsEqualInGroups(groupedList, elements);
   }
 
   @Test
@@ -194,8 +194,8 @@ public class GroupedListTest {
     elements.remove(ImmutableList.of("3"));
     elements.remove(ImmutableList.of());
     elements.remove(ImmutableList.of("removedGroup1", "removedGroup2"));
-    assertThat(GroupedList.create(compressed)).containsExactlyElementsIn(elements).inOrder();
-    assertThat(groupedList).containsExactlyElementsIn(elements).inOrder();
+    assertElementsEqualInGroups(GroupedList.create(compressed), elements);
+    assertElementsEqualInGroups(groupedList, elements);
   }
 
   @Test
@@ -220,8 +220,8 @@ public class GroupedListTest {
     allElts.removeAll(removed);
     assertElementsEqual(compressed, allElts);
     elements.get(0).removeAll(removed);
-    assertThat(GroupedList.create(compressed)).containsExactlyElementsIn(elements).inOrder();
-    assertThat(groupedList).containsExactlyElementsIn(elements).inOrder();
+    assertElementsEqualInGroups(GroupedList.create(compressed), elements);
+    assertElementsEqualInGroups(groupedList, elements);
   }
 
   private static Object createAndCompress(Collection<String> list) {
@@ -238,9 +238,17 @@ public class GroupedListTest {
     return Iterables.elementsEqual(GroupedList.<String>create(compressed).toSet(), expected);
   }
 
+  private static void assertElementsEqualInGroups(
+      GroupedList<String> groupedList, List<? extends List<String>> elements) {
+    int i = 0;
+    for (Iterable<String> group : groupedList) {
+      assertThat(group).containsExactlyElementsIn(elements.get(i));
+      i++;
+    }
+    assertThat(elements).hasSize(i);
+  }
+
   private static void assertElementsEqual(Object compressed, Iterable<String> expected) {
-    assertThat(GroupedList.<String>create(compressed).toSet())
-        .containsExactlyElementsIn(expected)
-        .inOrder();
+    assertThat(GroupedList.<String>create(compressed).toSet()).containsExactlyElementsIn(expected);
   }
 }

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.collect.CompactHashSet;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -132,6 +133,21 @@ public class GroupedList<T> implements Iterable<Iterable<T>> {
   }
 
   @Override
+  public int hashCode() {
+    // Hashing requires getting an order-independent hash for each element of this.elements. That
+    // is too expensive for a hash code.
+    throw new UnsupportedOperationException("Should not need to get hash for " + this);
+  }
+
+  /**
+   * Checks that two lists, neither of which may contain duplicates, have the same elements,
+   * regardless of order.
+   */
+  private static boolean checkUnorderedEqualityWithoutDuplicates(List<?> first, List<?> second) {
+    return first.size() == second.size() && new HashSet<>(first).containsAll(second);
+  }
+
+  @Override
   public boolean equals(Object other) {
     if (other == null) {
       return false;
@@ -140,7 +156,26 @@ public class GroupedList<T> implements Iterable<Iterable<T>> {
       return false;
     }
     GroupedList<?> that = (GroupedList<?>) other;
-    return elements.equals(that.elements);
+    // We must check the deps, ignoring the ordering of deps in the same group.
+    if (this.elements.size() != that.elements.size()) {
+      return false;
+    }
+    for (int i = 0; i < this.elements.size(); i++) {
+      Object thisElt = this.elements.get(i);
+      Object thatElt = that.elements.get(i);
+      if (thisElt instanceof List) {
+        // Recall that each inner item is either a List or a singleton element.
+        if (!(thatElt instanceof List)) {
+          return false;
+        }
+        if (!checkUnorderedEqualityWithoutDuplicates((List<?>) thisElt, (List<?>) thatElt)) {
+          return false;
+        }
+      } else if (!thisElt.equals(thatElt)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Override
@@ -240,7 +275,7 @@ public class GroupedList<T> implements Iterable<Iterable<T>> {
   public static class GroupedListHelper<E> implements Iterable<E> {
     // Non-final only for removal.
     private List<Object> groupedList;
-    private List<E> currentGroup = null;
+    private Set<E> currentGroup = null;
     private final Set<E> elements = CompactHashSet.create();
 
     public GroupedListHelper() {
@@ -276,11 +311,12 @@ public class GroupedList<T> implements Iterable<Iterable<T>> {
 
     /**
      * Starts a group. All elements added until {@link #endGroup} will be in the same group. Each
-     * call of {@link #startGroup} must be paired with a following {@link #endGroup} call.
+     * call of startGroup must be paired with a following {@link #endGroup} call. Any duplicate
+     * elements added to this group will be silently deduplicated.
      */
     public void startGroup() {
       Preconditions.checkState(currentGroup == null, this);
-      currentGroup = new ArrayList<>();
+      currentGroup = new HashSet<>();
     }
 
     private void addList(Collection<E> group) {
