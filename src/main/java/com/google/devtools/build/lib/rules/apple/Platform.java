@@ -20,15 +20,26 @@ import com.google.common.collect.ImmutableSet;
 import java.util.Locale;
 import java.util.Set;
 
+import javax.annotation.Nullable;
+
 /**
  * An enum that can be used to distinguish between various apple platforms.
  */
 public enum Platform {
-  IOS_DEVICE("iPhoneOS"), IOS_SIMULATOR("iPhoneSimulator");
+  IOS_DEVICE("iPhoneOS"),
+  IOS_SIMULATOR("iPhoneSimulator"),
+  MACOSX("MacOSX");
 
   private static final Set<String> IOS_SIMULATOR_ARCHS = ImmutableSet.of("i386", "x86_64");
   private static final Set<String> IOS_DEVICE_ARCHS =
       ImmutableSet.of("armv6", "armv7", "armv7s", "arm64");
+  
+  private static final Set<String> IOS_SIMULATOR_TARGET_CPUS =
+      ImmutableSet.of("ios_x86_64", "ios_i386");
+  private static final Set<String> IOS_DEVICE_TARGET_CPUS =
+      ImmutableSet.of("ios_armv7", "ios_arm64");
+  private static final Set<String> MACOSX_TARGET_CPUS =
+      ImmutableSet.of("darwin_x86_64");
 
   private final String nameInPlist;
 
@@ -69,5 +80,40 @@ public enum Platform {
       throw new IllegalArgumentException(
           "No supported ios platform registered for architecture " + arch);
     }
+  }
+  
+  @Nullable
+  private static Platform forTargetCpuNullable(String targetCpu) {
+    if (IOS_SIMULATOR_TARGET_CPUS.contains(targetCpu)) {
+      return IOS_SIMULATOR;
+    } else if (IOS_DEVICE_TARGET_CPUS.contains(targetCpu)) {
+      return IOS_DEVICE;
+    } else if (MACOSX_TARGET_CPUS.contains(targetCpu)) {
+      return MACOSX;
+    } else {
+      return null;
+    }
+  }
+
+  /**
+   * Returns the platform for the given target cpu.
+   * 
+   * @throws IllegalArgumentException if there is no valid apple platform for the given target cpu
+   */
+  public static Platform forTargetCpu(String targetCpu) {
+    Platform platform = forTargetCpuNullable(targetCpu);
+    if (platform != null) {
+      return platform; 
+    } else {
+      throw new IllegalArgumentException(
+          "No supported apple platform registered for target cpu " + targetCpu);
+    }
+  }
+  
+  /**
+   * Returns true if the given target cpu is an apple platform.
+   */
+  public static boolean isApplePlatform(String targetCpu) {
+    return forTargetCpuNullable(targetCpu) != null;
   }
 }

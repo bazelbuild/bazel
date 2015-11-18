@@ -50,6 +50,8 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext.Reply;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
@@ -596,6 +598,20 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     if (configuration.isCodeCoverageEnabled()) {
       environment.put("PWD", "/proc/self/cwd");
     }
+
+    // TODO(bazel-team): Handle at the level of crosstool (feature) templates instead of in this
+    // compile action. This will also prevent the need for apple host system and target platform
+    // evaluation here.
+    AppleConfiguration appleConfiguration = configuration.getFragment(AppleConfiguration.class);
+    if (CppConfiguration.MAC_SYSTEM_NAME.equals(getHostSystemName())) {
+      environment.putAll(appleConfiguration.appleHostSystemEnv());
+    }
+    if (Platform.isApplePlatform(cppConfiguration.getTargetCpu())) {
+      environment.putAll(appleConfiguration.appleTargetPlatformEnv(
+          Platform.forTargetCpu(cppConfiguration.getTargetCpu())));
+    }
+
+    // TODO(bazel-team): Check (crosstool) host system name instead of using OS.getCurrent.
     if (OS.getCurrent() == OS.WINDOWS) {
       // TODO(bazel-team): Both GCC and clang rely on their execution directories being on
       // PATH, otherwise they fail to find dependent DLLs (and they fail silently...). On

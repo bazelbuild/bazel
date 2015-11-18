@@ -83,17 +83,45 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * for actions pertaining to building ios applications. Keys are variable names and values are
    * their corresponding values.
    */
-  // TODO(bazel-team): Repurpose for non-ios platforms.
+  // TODO(bazel-team): Separate host system and target platform environment
   public Map<String, String> getEnvironmentForIosAction() {
+    ImmutableMap.Builder<String, String> mapBuilder = ImmutableMap.builder();
+    mapBuilder.putAll(appleTargetPlatformEnv(Platform.forIosArch(getIosCpu())));
+    mapBuilder.putAll(appleHostSystemEnv());
+    return mapBuilder.build();
+  }
+
+  /**
+   * Returns a map of environment variables (derived from configuration) that should be propagated
+   * for actions that build on an apple host system. These environment variables are needed to
+   * by apple toolchain. Keys are variable names and values are their corresponding values.
+   */
+  public Map<String, String> appleHostSystemEnv() {
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-    if (xcodeVersionOverride.isPresent()) {
-      builder.put(XCODE_VERSION_ENV_NAME, xcodeVersionOverride.get().toString());
+    if (getXcodeVersionOverride().isPresent()) {
+      builder.put(AppleConfiguration.XCODE_VERSION_ENV_NAME,
+          getXcodeVersionOverride().get().toString());
     }
-    builder.put(APPLE_SDK_VERSION_ENV_NAME, iosSdkVersion.toString());
-    builder.put(APPLE_SDK_PLATFORM_ENV_NAME, Platform.forIosArch(getIosCpu()).getNameInPlist());
     return builder.build();
   }
   
+  /**
+   * Returns a map of environment variables (derived from configuration) that should be propagated
+   * for actions pertaining to building applications for apple platforms. These environment
+   * variables are needed to use apple toolkits. Keys are variable names and values are their
+   * corresponding values.
+   */
+  public Map<String, String> appleTargetPlatformEnv(Platform platform) {
+    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+
+    // TODO(bazel-team): Handle non-ios platforms.
+    if (platform == Platform.IOS_DEVICE || platform == Platform.IOS_SIMULATOR) {
+      builder.put(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, getIosSdkVersion().toString())
+          .put(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, platform.getNameInPlist());
+    }
+    return builder.build();
+  }
+
   public String getIosCpu() {
     return iosCpu;
   }

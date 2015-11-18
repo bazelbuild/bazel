@@ -24,7 +24,9 @@ import java.util.Set;
  * An enum that can be used to distinguish between various apple platforms.
  */
 public enum Platform {
-  IOS_DEVICE("iPhoneOS"), IOS_SIMULATOR("iPhoneSimulator");
+  IOS_DEVICE("iPhoneOS"),
+  IOS_SIMULATOR("iPhoneSimulator"),
+  MACOSX("MacOSX");
 
   private static final Set<String> IOS_SIMULATOR_ARCHS = ImmutableSet.of("i386", "x86_64");
   private static final Set<String> IOS_DEVICE_ARCHS =
