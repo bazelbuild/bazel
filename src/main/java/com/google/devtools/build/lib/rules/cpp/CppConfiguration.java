@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -857,38 +858,82 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return LinkingMode.valueOf(mode.name());
   }
 
-  private static final PathFragment SYSROOT_FRAGMENT = new PathFragment("%sysroot%");
-  private static final PathFragment WORKSPACE_FRAGMENT = new PathFragment("%workspace%");
-  private static final PathFragment CROSSTOOL_FRAGMENT = new PathFragment("%crosstool_top%");
+  private static final String SYSROOT_START = "%sysroot%/";
+  private static final String WORKSPACE_START = "%workspace%/";
+  private static final String CROSSTOOL_START = "%crosstool_top%/";
+  private static final String PACKAGE_START = "%package(", PACKAGE_END = ")%";
 
   /**
-   * Resolve the given include directory. If it starts with %sysroot%/,
-   * that part is replaced with the actual sysroot. If it starts with %workspace%/,
-   * that part is replaced with the empty string (essentially making it
-   * relative to the build directory), and if it starts with %crosstool_top%/
-   * or is any relative path, it is interpreted relative to the crosstool top.
-   * Absolute paths remain unchanged. The use of assumed-crosstool-relative
+   * Resolve the given include directory.
+   *
+   * <p>If it starts with %sysroot%/, that part is replaced with the actual sysroot.
+   *
+   * <p>If it starts with %workspace%/, that part is replaced with the empty string
+   * (essentially making it relative to the build directory).
+   *
+   * <p>If it starts with %crosstool_top%/ or is any relative path, it is
+   * interpreted relative to the crosstool top. The use of assumed-crosstool-relative
    * specifications is considered deprecated, and all such uses should eventually
    * be replaced by "%crosstool_top%/".
+   *
+   * <p>If it is of the form %package(@repository//my/package)%/folder, then it is
+   * interpreted as the named folder in the appropriate package. All of the normal
+   * package syntax is supported. The /folder part is optional.
+   *
+   * <p>It is illegal if it starts with a % and does not match any of the above
+   * forms to avoid accidentally silently ignoring misspelled prefixes.
+   *
+   * <p>If it is absolute, it remains unchanged.
    */
   static PathFragment resolveIncludeDir(String s, PathFragment sysroot,
-      PathFragment crosstoolTopPathFragment) {
-    PathFragment path = new PathFragment(s);
-    if (!path.isNormalized()) {
-      throw new IllegalArgumentException("The include path '" + s + "' is not normalized.");
-    }
-    if (path.startsWith(SYSROOT_FRAGMENT)) {
+      PathFragment crosstoolTopPathFragment) throws InvalidConfigurationException {
+    PathFragment pathPrefix;
+    String pathString;
+    int packageEndIndex = s.indexOf(PACKAGE_END);
+    if (packageEndIndex != -1 && s.startsWith(PACKAGE_START)) {
+      String packageString = s.substring(PACKAGE_START.length(), packageEndIndex);
+      try {
+        pathPrefix = PackageIdentifier.parse(packageString).getPathFragment();
+      } catch (LabelSyntaxException e) {
+        throw new InvalidConfigurationException("The package '" + packageString + "' is not valid");
+      }
+      int pathStartIndex = packageEndIndex + PACKAGE_END.length();
+      if (pathStartIndex + 1 < s.length()) {
+        if (s.charAt(pathStartIndex) != '/') {
+          throw new InvalidConfigurationException(
+              "The path in the package for '" + s + "' is not valid");
+        }
+        pathString = s.substring(pathStartIndex + 1, s.length());
+      } else {
+        pathString = "";
+      }
+    } else if (s.startsWith(SYSROOT_START)) {
       if (sysroot == null) {
-        throw new IllegalArgumentException("A %sysroot% prefix is only allowed if the "
+        throw new InvalidConfigurationException("A %sysroot% prefix is only allowed if the "
             + "default_sysroot option is set");
       }
-      return sysroot.getRelative(path.relativeTo(SYSROOT_FRAGMENT));
-    } else if (path.startsWith(WORKSPACE_FRAGMENT)) {
-      return path.subFragment(1, path.segmentCount());
+      pathPrefix = sysroot;
+      pathString = s.substring(SYSROOT_START.length(), s.length());
+    } else if (s.startsWith(WORKSPACE_START)) {
+      pathPrefix = PathFragment.EMPTY_FRAGMENT;
+      pathString = s.substring(WORKSPACE_START.length(), s.length());
     } else {
-      return crosstoolTopPathFragment.getRelative(path.startsWith(CROSSTOOL_FRAGMENT)
-          ? path.subFragment(1, path.segmentCount()) : path);
+      pathPrefix = crosstoolTopPathFragment;
+      if (s.startsWith(CROSSTOOL_START)) {
+        pathString = s.substring(CROSSTOOL_START.length(), s.length());
+      } else if (s.startsWith("%")) {
+        throw new InvalidConfigurationException(
+            "The include path '" + s + "' has an " + "unrecognized %prefix%");
+      } else {
+        pathString = s;
+      }
     }
+
+    PathFragment path = new PathFragment(pathString);
+    if (!path.isNormalized()) {
+      throw new InvalidConfigurationException("The include path '" + s + "' is not normalized.");
+    }
+    return pathPrefix.getRelative(path);
   }
 
   /**
