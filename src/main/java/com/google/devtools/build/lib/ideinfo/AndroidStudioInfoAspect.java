@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.SourceDirectory;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
+import com.google.devtools.build.lib.rules.android.LocalResourceContainer;
 import com.google.devtools.build.lib.rules.java.JavaExportsProvider;
 import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -350,6 +351,9 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
         builder.setIdlJar(jarBuilder.build());
       }
     }
+
+    builder.setGenerateResourceClass(
+        LocalResourceContainer.definesAndroidResources(ruleContext.attributes()));
 
     return builder.build();
   }

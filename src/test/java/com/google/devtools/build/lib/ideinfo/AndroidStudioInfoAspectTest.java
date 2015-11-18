@@ -775,4 +775,35 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     RuleIdeInfo libInfo = getRuleInfoAndVerifyLabel("//com/google/example:foobar", ruleIdeInfos);
     assertThat(libInfo.getDependenciesList()).isEmpty();
   }
+
+  public void testAndroidLibraryGeneratesResourceClass() throws Exception {
+    scratch.file(
+        "java/com/google/example/BUILD",
+        "android_library(",
+        "   name = 'resource_files',",
+        "   resource_files = ['res/drawable/a.png'],",
+        "   manifest = 'AndroidManifest.xml',",
+        ")",
+        "android_library(",
+        "   name = 'manifest',",
+        "   manifest = 'AndroidManifest.xml',",
+        ")",
+        "android_library(",
+        "   name = 'neither',",
+        "   srcs = ['FooBar.java'],",
+        "   deps = [':resource_files', ':manifest']",
+        ")");
+
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//java/com/google/example:neither");
+    RuleIdeInfo neither = getRuleInfoAndVerifyLabel(
+        "//java/com/google/example:neither", ruleIdeInfos);
+    RuleIdeInfo resourceFiles = getRuleInfoAndVerifyLabel(
+        "//java/com/google/example:resource_files", ruleIdeInfos);
+    RuleIdeInfo manifest = getRuleInfoAndVerifyLabel(
+        "//java/com/google/example:manifest", ruleIdeInfos);
+
+    assertThat(neither.getAndroidRuleIdeInfo().getGenerateResourceClass()).isFalse();
+    assertThat(resourceFiles.getAndroidRuleIdeInfo().getGenerateResourceClass()).isTrue();
+    assertThat(manifest.getAndroidRuleIdeInfo().getGenerateResourceClass()).isTrue();
+  }
 }
