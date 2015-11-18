@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 
 import java.util.Objects;
 
@@ -31,24 +30,32 @@ public class NoSuchTargetException extends NoSuchThingException {
   private final boolean hasTarget;
 
   public NoSuchTargetException(String message) {
-    this(null, message);
+    this(
+        message,
+        /*label=*/ null,
+        /*hasTarget=*/ false);
   }
 
-  public NoSuchTargetException(@Nullable Label label, String message) {
-    this((label != null ? "no such target '" + label + "': " : "") + message, label, null, null);
+  public NoSuchTargetException(Label label, String message) {
+    this(
+        "no such target '" + label + "': " + message,
+        label,
+        /*hasTarget=*/ false);
   }
 
-  public NoSuchTargetException(Target targetInError, PackageIdentifier packageInError) {
-    this(String.format("Target '%s' contains an error and its package is in error",
-        targetInError.getLabel()), targetInError.getLabel(), targetInError, packageInError);
+  public NoSuchTargetException(Target targetInError) {
+    this(
+        "Target '" + targetInError.getLabel() + "' contains an error and its package is in error",
+        targetInError.getLabel(),
+        /*hasTarget=*/ true);
   }
 
-  private NoSuchTargetException(String message, @Nullable Label label, @Nullable Target target,
-      @Nullable PackageIdentifier packageInError) {
+  public NoSuchTargetException(String message, @Nullable Label label, boolean hasTarget) {
+    // TODO(bazel-team): Does the exception matter?
     super(message,
-        packageInError == null ? null : new BuildFileContainsErrorsException(packageInError));
+        hasTarget ? new BuildFileContainsErrorsException(label.getPackageIdentifier()) : null);
     this.label = label;
-    this.hasTarget = (target != null);
+    this.hasTarget = hasTarget;
   }
 
   @Nullable
@@ -56,9 +63,7 @@ public class NoSuchTargetException extends NoSuchThingException {
     return label;
   }
 
-  /**
-   * Return whether parsing completed enough to construct the target.
-   */
+  /** Return whether parsing completed enough to construct the target. */
   public boolean hasTarget() {
     return hasTarget;
   }
@@ -72,7 +77,8 @@ public class NoSuchTargetException extends NoSuchThingException {
       return false;
     }
     NoSuchTargetException that = (NoSuchTargetException) o;
-    return Objects.equals(this.label, that.label) && Objects.equals(this.hasTarget, that.hasTarget);
+    return Objects.equals(this.label, that.label)
+        && Objects.equals(this.hasTarget, that.hasTarget);
   }
 
   @Override

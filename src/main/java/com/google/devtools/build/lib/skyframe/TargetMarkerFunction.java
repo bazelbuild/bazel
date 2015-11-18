@@ -104,7 +104,7 @@ public final class TargetMarkerFunction implements SkyFunction {
       // target, not the package. Note that targets are only in error when their package is
       // "in error" (because a package is in error if there was an error evaluating the package, or
       // if one of its targets was in error).
-      throw new NoSuchTargetException(target, label.getPackageIdentifier());
+      throw new NoSuchTargetException(target);
     }
     return TargetMarkerValue.TARGET_MARKER_INSTANCE;
   }
