@@ -162,6 +162,9 @@ public class Resolver {
       if (!dependency.getScope().equals(COMPILE_SCOPE)) {
         continue;
       }
+      if (dependency.isOptional()) {
+        continue;
+      }
       try {
         Rule artifactRule = new Rule(dependency);
         boolean isNewDependency = addArtifact(artifactRule, model.toString());
