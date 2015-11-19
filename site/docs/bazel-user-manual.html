@@ -665,7 +665,8 @@ $ bazel fetch //...
 <ul>
   <li>Use the same version of Crosstool
     (<code class='flag'>--crosstool_top</code>) as specified in the request
-    configuration.
+    configuration, unless <code class='flag'>--host_crosstool_top</code> is
+    specified.
   </li>
   <li>
     Use the value of <code class="flag">--host_cpu</code> for
@@ -680,6 +681,10 @@ $ bazel fetch //...
     <code class='flag'>--use_ijars</code>,
     <code class='flag'>--java_langtools</code>,
     <code class='flag'>--javabuilder_top</code>.
+    If <code class='flag'>--host_crosstool_top</code> is used, then the value of
+    <code class='flag'>--host_cpu</code> is used to look up a
+    <code>default_toolchain</code> in the Crosstool
+    (ignoring <code class='flag'>--compiler</code>) for the host configuration.
   </li>
   <li>Use optimized builds for C++ code (<code>-c opt</code>).
   </li>
