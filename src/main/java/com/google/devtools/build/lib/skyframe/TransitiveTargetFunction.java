@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.analysis.config.ConfigRuleClasses.ConfigSettingRule;
+
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -39,9 +42,14 @@ import com.google.devtools.build.lib.skyframe.TransitiveTargetFunction.Transitiv
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException2;
+import com.google.devtools.common.options.Option;
 
+import java.lang.reflect.Field;
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -56,8 +64,44 @@ public class TransitiveTargetFunction
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
+  /**
+   * Maps build option names to matching config fragments. This is used to determine correct
+   * fragment requirements for config_setting rules, which are unique in that their dependencies
+   * are triggered by string representations of option names.
+   */
+  private final Map<String, Class<? extends Fragment>> optionsToFragmentMap;
+
   TransitiveTargetFunction(RuleClassProvider ruleClassProvider) {
     this.ruleClassProvider = (ConfiguredRuleClassProvider) ruleClassProvider;
+    this.optionsToFragmentMap = computeOptionsToFragmentMap(this.ruleClassProvider);
+  }
+
+  /**
+   * Computes the option name --> config fragments map. Note that this mapping is technically
+   * one-to-many: a single option may be required by multiple fragments (e.g. Java options are
+   * used by both JavaConfiguration and Jvm). In such cases, we arbitrarily choose one fragment
+   * since that's all that's needed to satisfy the config_setting.
+   */
+  private static Map<String, Class<? extends Fragment>> computeOptionsToFragmentMap(
+      ConfiguredRuleClassProvider ruleClassProvider) {
+    Map<String, Class<? extends Fragment>> result = new LinkedHashMap<>();
+    Set<Class<? extends FragmentOptions>> visitedOptionsClasses = new HashSet<>();
+    for (ConfigurationFragmentFactory factory : ruleClassProvider.getConfigurationFragments()) {
+      for (Class<? extends FragmentOptions> optionsClass : factory.requiredOptions()) {
+        if (visitedOptionsClasses.contains(optionsClass)) {
+          // Multiple config fragments may require the same options class, but we only need one of
+          // them to guarantee that class makes it into the configuration.
+          continue;
+        }
+        visitedOptionsClasses.add(optionsClass);
+        for (Field field : optionsClass.getFields()) {
+          if (field.isAnnotationPresent(Option.class)) {
+            result.put(field.getAnnotation(Option.class).name(), factory.creates());
+          }
+        }
+      }
+    }
+    return result;
   }
 
   @Override
@@ -150,6 +194,15 @@ public class TransitiveTargetFunction
               fragment.asSubclass(BuildConfiguration.Fragment.class));
         }
       }
+
+      // config_setting rules have values like {"some_flag": "some_value"} that need the
+      // corresponding fragments in their configurations to properly resolve.
+      Rule rule = (Rule) target;
+      if (rule.getRuleClass().equals(ConfigSettingRule.RULE_NAME)) {
+        builder.getTransitiveConfigFragments().addAll(
+            ConfigSettingRule.requiresConfigurationFragments(rule, optionsToFragmentMap));
+      }
+
       Class<? extends Fragment> universalFragment =
           ruleClassProvider.getUniversalFragment().asSubclass(BuildConfiguration.Fragment.class);
       if (!builder.getConfigFragmentsFromDeps().contains(universalFragment)) {

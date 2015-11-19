@@ -21,8 +21,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.syntax.Type;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * Definitions for rule classes that specify or manipulate configuration settings.
@@ -92,6 +98,11 @@ public class ConfigRuleClasses {
    */
   public static final class ConfigSettingRule implements RuleDefinition {
     /**
+     * The name of this rule.
+     */
+    public static final String RULE_NAME = "config_setting";
+
+    /**
      * The name of the attribute that declares flag bindings.
      */
     public static final String SETTINGS_ATTRIBUTE = "values";
@@ -142,11 +153,31 @@ public class ConfigRuleClasses {
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
-          .name("config_setting")
+          .name(RULE_NAME)
           .type(RuleClass.Builder.RuleClassType.NORMAL)
           .ancestors(ConfigBaseRule.class)
           .factoryClass(ConfigSetting.class)
           .build();
+    }
+
+    /**
+     * config_setting can't use {@link RuleClass.Builder#requiresConfigurationFragments} because
+     * its fragment dependencies are a function of string representations of option names. This
+     * special override computes that properly.
+     */
+    public static List<Class<? extends BuildConfiguration.Fragment>> requiresConfigurationFragments(
+        Rule rule, Map<String, Class<? extends BuildConfiguration.Fragment>> optionsToFragmentMap) {
+      ImmutableList.Builder<Class<? extends BuildConfiguration.Fragment>> builder =
+          ImmutableList.builder();
+      AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
+      for (String optionName : attributes.get(SETTINGS_ATTRIBUTE, Type.STRING_DICT).keySet()) {
+        Class<? extends BuildConfiguration.Fragment> value = optionsToFragmentMap.get(optionName);
+        // Null values come directly from BuildConfiguration.Options, so are implicitly included.
+        if (value != null) {
+          builder.add(value);
+        }
+      }
+      return builder.build();
     }
   }
 
