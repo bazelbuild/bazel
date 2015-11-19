@@ -1816,7 +1816,7 @@ public final class BuildConfiguration {
     // declares a host configuration transition). We want to explicitly exclude configuration labels
     // from these transitions, since their *purpose* is to do computation on the owning
     // rule's configuration.
-    // TODO(bazel-team): dont' require special casing here. This is far too hackish.
+    // TODO(bazel-team): don't require special casing here. This is far too hackish.
     if (toTarget instanceof Rule
         && ((Rule) toTarget).getRuleClass().equals(ConfigRuleClasses.ConfigSettingRule.RULE_NAME)) {
       transitionApplier.applyTransition(Attribute.ConfigurationTransition.NONE); // Unnecessary.

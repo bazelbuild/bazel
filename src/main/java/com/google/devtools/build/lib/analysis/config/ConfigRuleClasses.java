@@ -162,8 +162,8 @@ public class ConfigRuleClasses {
 
     /**
      * config_setting can't use {@link RuleClass.Builder#requiresConfigurationFragments} because
-     * its fragment dependencies are a function of string representations of option names. This
-     * special override computes that properly.
+     * config_setting's dependencies come from option names as strings. This special override
+     * computes that properly.
      */
     public static List<Class<? extends BuildConfiguration.Fragment>> requiresConfigurationFragments(
         Rule rule, Map<String, Class<? extends BuildConfiguration.Fragment>> optionsToFragmentMap) {
@@ -172,7 +172,7 @@ public class ConfigRuleClasses {
       AttributeMap attributes = NonconfigurableAttributeMapper.of(rule);
       for (String optionName : attributes.get(SETTINGS_ATTRIBUTE, Type.STRING_DICT).keySet()) {
         Class<? extends BuildConfiguration.Fragment> value = optionsToFragmentMap.get(optionName);
-        // Null values come directly from BuildConfiguration.Options, so are implicitly included.
+        // Null values come directly from BuildConfiguration.Options, which is implicitly included.
         if (value != null) {
           builder.add(value);
         }
