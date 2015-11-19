@@ -16,7 +16,11 @@ package com.google.devtools.build.lib.profiler;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.TASK_COUNT;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.profiler.PredicateBasedStatRecorder.RecorderAndPredicate;
+import com.google.devtools.build.lib.profiler.StatRecorder.VfsHeuristics;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.VarInt;
 
@@ -29,11 +33,13 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.Deflater;
 import java.util.zip.DeflaterOutputStream;
@@ -130,7 +136,10 @@ public final class Profiler {
    */
   private static final Profiler instance = new Profiler();
 
+  private static final int HISTOGRAM_BUCKETS = 20;
+
   /**
+   *
    * A task that was very slow.
    */
   public final class SlowTask implements Comparable<SlowTask> {
@@ -452,12 +461,36 @@ public final class Profiler {
   private final SlowestTaskAggregator[] slowestTasks =
   new SlowestTaskAggregator[ProfilerTask.values().length];
 
+  private final StatRecorder[] tasksHistograms = new StatRecorder[ProfilerTask.values().length];
+
   private Profiler() {
+    initHistograms();
     for (ProfilerTask task : ProfilerTask.values()) {
       if (task.slowestInstancesCount != 0) {
         slowestTasks[task.ordinal()] = new SlowestTaskAggregator(task.slowestInstancesCount);
       }
     }
+  }
+
+  private void initHistograms() {
+    for (ProfilerTask task : ProfilerTask.values()) {
+      if (task.isVfs()) {
+        Map<String, ? extends Predicate<? super String>> vfsHeuristics =
+            VfsHeuristics.vfsTypeHeuristics;
+        List<RecorderAndPredicate> recorders = new ArrayList<>(vfsHeuristics.size());
+        for (Entry<String, ? extends Predicate<? super String>> e : vfsHeuristics.entrySet()) {
+          recorders.add(new RecorderAndPredicate(
+              new SingleStatRecorder(task + " " + e.getKey(), HISTOGRAM_BUCKETS), e.getValue()));
+        }
+        tasksHistograms[task.ordinal()] = new PredicateBasedStatRecorder(recorders);
+      } else {
+        tasksHistograms[task.ordinal()] = new SingleStatRecorder(task, HISTOGRAM_BUCKETS);
+      }
+    }
+  }
+
+  public ImmutableList<StatRecorder> getTasksHistograms() {
+    return ImmutableList.copyOf(tasksHistograms);
   }
 
   public static Profiler instance() {
@@ -659,6 +692,7 @@ public final class Profiler {
   }
 
   private synchronized void clear() {
+    initHistograms();
     profileStartTime = 0L;
     if (timer != null) {
       timer.cancel();
@@ -698,6 +732,7 @@ public final class Profiler {
       duration = 0;
     }
 
+    tasksHistograms[type.ordinal()].addStat((int) TimeUnit.NANOSECONDS.toMillis(duration), object);
     TaskData parent = taskStack.peek();
     if (parent != null) {
       parent.aggregateChild(type, duration);

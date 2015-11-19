@@ -54,19 +54,19 @@ public enum ProfilerTask {
   REMOTE_QUEUE("Remote execution queuing time", 50000000, 0xCC6600, 0),
   REMOTE_SETUP("Remote execution setup", 50000000, 0xA999CC, 0),
   FETCH("Remote execution file fetching", 50000000, 0xBB99CC, 0),
-  VFS_STAT("VFS stat", 10000000, 0x9999FF, 30),
-  VFS_DIR("VFS readdir", 10000000, 0x0066CC, 30),
-  VFS_READLINK("VFS readlink", 10000000, 0x99CCCC, 30),
-  VFS_MD5("VFS md5", 10000000, 0x999999, 30),
-  VFS_XATTR("VFS xattr", 10000000, 0x9999DD, 30),
-  VFS_DELETE("VFS delete", 10000000, 0xFFCC00, 0),
-  VFS_OPEN("VFS open", 10000000, 0x009999, 30),
-  VFS_READ("VFS read", 10000000, 0x99CC33, 30),
-  VFS_WRITE("VFS write", 10000000, 0xFF9900, 30),
-  VFS_GLOB("globbing", -1, 0x999966, 30),
-  VFS_VMFS_STAT("VMFS stat", 10000000, 0x9999FF, 0),
-  VFS_VMFS_DIR("VMFS readdir", 10000000, 0x0066CC, 0),
-  VFS_VMFS_READ("VMFS read", 10000000, 0x99CC33, 0),
+  VFS_STAT("VFS stat", 10000000, 0x9999FF, 30, true),
+  VFS_DIR("VFS readdir", 10000000, 0x0066CC, 30, true),
+  VFS_READLINK("VFS readlink", 10000000, 0x99CCCC, 30, true),
+  VFS_MD5("VFS md5", 10000000, 0x999999, 30, true),
+  VFS_XATTR("VFS xattr", 10000000, 0x9999DD, 30, true),
+  VFS_DELETE("VFS delete", 10000000, 0xFFCC00, 0, true),
+  VFS_OPEN("VFS open", 10000000, 0x009999, 30, true),
+  VFS_READ("VFS read", 10000000, 0x99CC33, 30, true),
+  VFS_WRITE("VFS write", 10000000, 0xFF9900, 30, true),
+  VFS_GLOB("globbing", -1, 0x999966, 30, true),
+  VFS_VMFS_STAT("VMFS stat", 10000000, 0x9999FF, 0, true),
+  VFS_VMFS_DIR("VMFS readdir", 10000000, 0x0066CC, 0, true),
+  VFS_VMFS_READ("VMFS read", 10000000, 0x99CC33, 0, true),
   WAIT("thread wait", 5000000, 0x66CCCC, 0),
   CONFIGURED_TARGET("configured target creation", -1, 0x663300, 0),
   TRANSITIVE_CLOSURE("transitive closure creation", -1, 0x996600, 0),
@@ -104,12 +104,20 @@ public enum ProfilerTask {
   public final int color;
   /** How many of the slowest instances to keep. If 0, no slowest instance calculation is done. */
   public final int slowestInstancesCount;
+  /** True if the metric records VFS operations */
+  private boolean vfs;
 
   ProfilerTask(String description, long minDuration, int color, int slowestInstanceCount) {
+    this(description, minDuration, color, slowestInstanceCount, /*vfs=*/ false);
+  }
+
+  ProfilerTask(String description, long minDuration, int color, int slowestInstanceCount,
+      boolean vfs) {
     this.description = description;
     this.minDuration = minDuration;
     this.color = color;
     this.slowestInstancesCount = slowestInstanceCount;
+    this.vfs = vfs;
   }
 
   ProfilerTask(String description) {
@@ -132,5 +140,9 @@ public enum ProfilerTask {
       }
     }
     return set;
+  }
+
+  public boolean isVfs() {
+    return vfs;
   }
 }
