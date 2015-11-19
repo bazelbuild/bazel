@@ -781,7 +781,8 @@ public final class CppLinkAction extends AbstractAction {
               .setUseTestOnlyFlags(useTestOnlyFlags)
               .setNeedWholeArchive(needWholeArchive)
               .setParamFile(paramFile)
-              .setAllLTOArtifacts(isLTOIndexing ? null : allLTOArtifacts);
+              .setAllLTOArtifacts(isLTOIndexing ? null : allLTOArtifacts)
+              .setToolchain(toolchain);
 
       if (!isLTOIndexing) {
         linkCommandLineBuilder

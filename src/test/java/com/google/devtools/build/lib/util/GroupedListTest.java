@@ -125,7 +125,7 @@ public class GroupedListTest {
     assertFalse(groupedList.isEmpty());
     Object compressed = groupedList.compress();
     assertElementsEqual(compressed, allElts);
-    assertElementsEqualInGroups(GroupedList.create(compressed), elements);
+    assertElementsEqualInGroups(GroupedList.<String>create(compressed), elements);
     assertElementsEqualInGroups(groupedList, elements);
   }
 
@@ -157,7 +157,7 @@ public class GroupedListTest {
     assertElementsEqual(compressed, allElts);
     // Get rid of empty list -- it was not stored in groupedList.
     elements.remove(1);
-    assertElementsEqualInGroups(GroupedList.create(compressed), elements);
+    assertElementsEqualInGroups(GroupedList.<String>create(compressed), elements);
     assertElementsEqualInGroups(groupedList, elements);
   }
 

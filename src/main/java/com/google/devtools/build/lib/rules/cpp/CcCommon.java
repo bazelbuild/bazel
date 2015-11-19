@@ -474,17 +474,18 @@ public final class CcCommon {
 
   /**
    * Creates the feature configuration for a given rule.
-   * 
-   * @param ruleContext the context of the rule we want the feature configuration for. 
+   *
+   * @param ruleContext the context of the rule we want the feature configuration for.
    * @param ruleSpecificRequestedFeatures features that will be requested, and thus be always
    * enabled if the toolchain supports them.
    * @param ruleSpecificUnsupportedFeatures features that are not supported in the current context.
    * @return the feature configuration for the given {@code ruleContext}.
    */
-  public static FeatureConfiguration configureFeatures(RuleContext ruleContext,
+  public static FeatureConfiguration configureFeatures(
+      RuleContext ruleContext,
       Set<String> ruleSpecificRequestedFeatures,
-      Set<String> ruleSpecificUnsupportedFeatures) {
-    CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);    
+      Set<String> ruleSpecificUnsupportedFeatures,
+      CcToolchainProvider toolchain) {
     ImmutableSet.Builder<String> unsupportedFeaturesBuilder = ImmutableSet.builder();
     unsupportedFeaturesBuilder.addAll(ruleSpecificUnsupportedFeatures);
     if (!toolchain.supportsHeaderParsing()) {
@@ -523,11 +524,24 @@ public final class CcCommon {
   
   /**
    * Creates a feature configuration for a given rule.
-   * 
-   * @param ruleContext the context of the rule we want the feature configuration for. 
+   *
+   * @param ruleContext the context of the rule we want the feature configuration for.
+   * @param toolchain the toolchain we want the feature configuration for.
+   * @return the feature configuration for the given {@code ruleContext}.
+   */
+  public static FeatureConfiguration configureFeatures(
+      RuleContext ruleContext, CcToolchainProvider toolchain) {
+    return configureFeatures(
+        ruleContext, ImmutableSet.<String>of(), ImmutableSet.<String>of(), toolchain);
+  }
+
+  /**
+   * Creates a feature configuration for a given rule.
+   *
+   * @param ruleContext the context of the rule we want the feature configuration for.
    * @return the feature configuration for the given {@code ruleContext}.
    */
   public static FeatureConfiguration configureFeatures(RuleContext ruleContext) {
-    return configureFeatures(ruleContext, ImmutableSet.<String>of(), ImmutableSet.<String>of());
+    return configureFeatures(ruleContext, CppHelper.getToolchain(ruleContext));
   }
 }
