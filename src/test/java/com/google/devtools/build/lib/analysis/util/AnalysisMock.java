@@ -25,11 +25,13 @@ import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -37,6 +39,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Create a mock client for the analysis phase, as well as a configuration factory.
  */
 public abstract class AnalysisMock {
+
+  public static AnalysisMock get() {
+    try {
+      Class<?> providerClass = Class.forName(TestConstants.TEST_ANALYSIS_MOCK);
+      Field instanceField = providerClass.getField("INSTANCE");
+      return (AnalysisMock) instanceField.get(null);
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
+  }
 
   /**
    * This is called from test setup to create the mock directory layout needed to create the
