@@ -31,7 +31,8 @@ public class ExecutionStartingEvent {
    * @param targets Remaining active targets.
    */
   public ExecutionStartingEvent(Collection<? extends TransitiveInfoCollection> targets) {
-    this.targets = ImmutableList.copyOf(targets);
+    // Do not remove <TransitiveInfoCollection>: workaround for Java 7 type inference.
+    this.targets = ImmutableList.<TransitiveInfoCollection>copyOf(targets);
   }
 
   /**

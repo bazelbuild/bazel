@@ -622,7 +622,8 @@ public abstract class Type<T> {
       } else if (x instanceof List) {
         return (List<Object>) x;
       } else if (x instanceof Iterable) {
-        return ImmutableList.copyOf((Iterable<?>) x);
+        // Do not remove <Object>: workaround for Java 7 type inference.
+        return ImmutableList.<Object>copyOf((Iterable<?>) x);
       } else {
         throw new ConversionException(this, x, what);
       }

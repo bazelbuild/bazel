@@ -1193,62 +1193,74 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkSignature(name = "dict", returnType = Map.class,
-      doc =
-      "Creates a <a href=\"#modules.dict\">dictionary</a> from an optional positional "
-      + "argument and an optional set of keyword arguments. Values from the keyword argument "
-      + "will overwrite values from the positional argument if a key appears multiple times. "
-      + "Dictionaries are always sorted by their keys",
-      optionalPositionals = {
-          @Param(name = "args", type = Object.class, defaultValue = "[]",
-              doc =
-              "Either a dictionary or a list of entries. Entries must be tuples or lists with "
-              + "exactly two elements: key, value"),
-      },
-      extraKeywords = {@Param(name = "kwargs", doc = "Dictionary of additional entries.")},
-      useLocation = true)
-  private static final BuiltinFunction dict = new BuiltinFunction("dict") {
-    @SuppressWarnings("unused")
-    public Map<Object, Object> invoke(Object args, Map<Object, Object> kwargs, Location loc)
-        throws EvalException {
-      Map<Object, Object> result =
-          (args instanceof Map<?, ?>)
-              ? new LinkedHashMap<>((Map<?, ?>) args) : getMapFromArgs(args, loc);
-      result.putAll(kwargs);
-      return result;
-    }
-
-    private Map<Object, Object> getMapFromArgs(Object args, Location loc) throws EvalException {
-      Map<Object, Object> result = new LinkedHashMap<>();
-      int pos = 0;
-      for (Object element : Type.OBJECT_LIST.convert(args, "parameter args in dict()")) {
-        List<Object> pair = convertToPair(element, pos, loc);
-        result.put(pair.get(0), pair.get(1));
-        ++pos;
-      }
-      return result;
-    }
-
-    private List<Object> convertToPair(Object element, int pos, Location loc)
-        throws EvalException {
-      try {
-        List<Object> tuple = Type.OBJECT_LIST.convert(element, "");
-        int numElements = tuple.size();
-        if (numElements != 2) {
-          throw new EvalException(
-              location,
-              String.format("Sequence #%d has length %d, but exactly two elements are required",
-                  pos, numElements));
+  @SkylarkSignature(
+    name = "dict",
+    returnType = Map.class,
+    doc =
+        "Creates a <a href=\"#modules.dict\">dictionary</a> from an optional positional "
+            + "argument and an optional set of keyword arguments. Values from the keyword argument "
+            + "will overwrite values from the positional argument if a key appears multiple times. "
+            + "Dictionaries are always sorted by their keys",
+    optionalPositionals = {
+      @Param(
+        name = "args",
+        type = Object.class,
+        defaultValue = "[]",
+        doc =
+            "Either a dictionary or a list of entries. Entries must be tuples or lists with "
+                + "exactly two elements: key, value"
+      ),
+    },
+    extraKeywords = {@Param(name = "kwargs", doc = "Dictionary of additional entries.")},
+    useLocation = true
+  )
+  private static final BuiltinFunction dict =
+      new BuiltinFunction("dict") {
+        @SuppressWarnings("unused")
+        public Map<Object, Object> invoke(Object args, Map<Object, Object> kwargs, Location loc)
+            throws EvalException {
+          Map<Object, Object> result =
+              (args instanceof Map<?, ?>)
+                  // Do not remove <Object, Object>: workaround for Java 7 type inference.
+                  ? new LinkedHashMap<Object, Object>((Map<?, ?>) args)
+                  : getMapFromArgs(args, loc);
+          result.putAll(kwargs);
+          return result;
         }
-        return tuple;
-      } catch (ConversionException e) {
-        throw new EvalException(
-            loc,
-            String.format(
-                "Cannot convert dictionary update sequence element #%d to a sequence", pos));
-      }
-    }
-  };
+
+        private Map<Object, Object> getMapFromArgs(Object args, Location loc) throws EvalException {
+          Map<Object, Object> result = new LinkedHashMap<>();
+          int pos = 0;
+          for (Object element : Type.OBJECT_LIST.convert(args, "parameter args in dict()")) {
+            List<Object> pair = convertToPair(element, pos, loc);
+            result.put(pair.get(0), pair.get(1));
+            ++pos;
+          }
+          return result;
+        }
+
+        private List<Object> convertToPair(Object element, int pos, Location loc)
+            throws EvalException {
+          try {
+            List<Object> tuple = Type.OBJECT_LIST.convert(element, "");
+            int numElements = tuple.size();
+            if (numElements != 2) {
+              throw new EvalException(
+                  location,
+                  String.format(
+                      "Sequence #%d has length %d, but exactly two elements are required",
+                      pos,
+                      numElements));
+            }
+            return tuple;
+          } catch (ConversionException e) {
+            throw new EvalException(
+                loc,
+                String.format(
+                    "Cannot convert dictionary update sequence element #%d to a sequence", pos));
+          }
+        }
+      };
 
   @SkylarkSignature(name = "union", objectType = SkylarkNestedSet.class,
       returnType = SkylarkNestedSet.class,

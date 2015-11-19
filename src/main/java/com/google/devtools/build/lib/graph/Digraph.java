@@ -1060,7 +1060,9 @@ public final class Digraph<T> implements Cloneable {
       return unordered;
     }
     List<Node<T>> result = new ArrayList<>(unordered);
-    Collections.sort(result, makeNodeComparator(comparator));
+    // Do not inline this variable: a workaround for Java 7 type inference.
+    Comparator<Node<T>> nodeComparator = makeNodeComparator(comparator);
+    Collections.sort(result, nodeComparator);
     return result;
   }
 

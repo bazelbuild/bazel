@@ -260,7 +260,8 @@ public final class Attribute implements Comparable<Attribute> {
     public AllowedValueSet(Iterable<?> values) {
       Preconditions.checkNotNull(values);
       Preconditions.checkArgument(!Iterables.isEmpty(values));
-      allowedValues = ImmutableSet.copyOf(values);
+      // Do not remove <Object>: workaround for Java 7 type inference.
+      allowedValues = ImmutableSet.<Object>copyOf(values);
     }
 
     @Override

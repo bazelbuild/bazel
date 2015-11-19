@@ -128,12 +128,13 @@ public class DigraphTest extends TestCase {
     };
 
     // Unwrap the Label from the Node<Target>, to make the final assert prettier.
-    Function<? super Node<Target>, ? extends Label> unwrap = new Function<Node<Target>, Label>() {
-      @Override
-      public Label apply(Node<Target> node) {
-        return node.getLabel().getLabel();
-      }
-    };
+    Function<? super Node<Target>, Label> unwrap =
+        new Function<Node<Target>, Label>() {
+          @Override
+          public Label apply(Node<Target> node) {
+            return node.getLabel().getLabel();
+          }
+        };
     List<Label> nodes = Lists.transform(digraph.getTopologicalOrder(comparator), unwrap);
     assertThat(nodes)
         .containsExactlyElementsIn(

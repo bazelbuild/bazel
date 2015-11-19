@@ -167,7 +167,11 @@ public final class BuildConfigurationCollection {
         ListMultimap<? extends SplitTransition<?>, BuildConfiguration> splitTransitionTable) {
       this.configuration = configuration;
       this.transitionTable = ImmutableMap.copyOf(transitionTable);
-      this.splitTransitionTable = ImmutableListMultimap.copyOf(splitTransitionTable);
+      // Do not remove <SplitTransition<?>, BuildConfiguration>:
+      // workaround for Java 7 type inference.
+      this.splitTransitionTable =
+          ImmutableListMultimap.<SplitTransition<?>, BuildConfiguration>copyOf(
+              splitTransitionTable);
     }
 
     public Map<? extends Transition, ConfigurationHolder> getTransitionTable() {

@@ -272,7 +272,10 @@ public class JavaCommon {
     // We need to check here because there are classes inheriting from this class that implement
     // rules that don't have this attribute.
     if (ruleContext.attributes().has("exports", BuildType.LABEL_LIST)) {
-      return ImmutableList.copyOf(ruleContext.getPrerequisites("exports", Mode.TARGET));
+      // Do not remove <SplitTransition<?>, BuildConfiguration>:
+      // workaround for Java 7 type inference.
+      return ImmutableList.<TransitiveInfoCollection>copyOf(
+          ruleContext.getPrerequisites("exports", Mode.TARGET));
     } else {
       return ImmutableList.of();
     }
@@ -468,7 +471,9 @@ public class JavaCommon {
     // We need to check here because there are classes inheriting from this class that implement
     // rules that don't have this attribute.
     if (ruleContext.attributes().has("runtime_deps", BuildType.LABEL_LIST)) {
-      return ImmutableList.copyOf(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET));
+      // Do not remove <TransitiveInfoCollection>: workaround for Java 7 type inference.
+      return ImmutableList.<TransitiveInfoCollection>copyOf(
+          ruleContext.getPrerequisites("runtime_deps", Mode.TARGET));
     } else {
       return ImmutableList.of();
     }
