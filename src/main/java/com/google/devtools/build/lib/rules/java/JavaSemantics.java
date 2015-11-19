@@ -103,12 +103,6 @@ public interface JavaSemantics {
       OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "gen_jars";
 
   /**
-   * Label of a pseudo-filegroup that contains all jdk files for all
-   * configurations, as specified on the command-line.
-   */
-  public static final String JDK_LABEL = "//tools/defaults:jdk";
-
-  /**
    * Label of a pseudo-filegroup that contains the boot-classpath entries.
    */
   public static final String JAVAC_BOOTCLASSPATH_LABEL = "//tools/defaults:javac_bootclasspath";
@@ -145,7 +139,7 @@ public interface JavaSemantics {
    * Implementation for the :jvm attribute.
    */
   public static final LateBoundLabel<BuildConfiguration> JVM =
-      new LateBoundLabel<BuildConfiguration>(JDK_LABEL, Jvm.class) {
+      new LateBoundLabel<BuildConfiguration>(JavaImplicitAttributes.JDK_LABEL, Jvm.class) {
         @Override
         public Label getDefault(Rule rule, BuildConfiguration configuration) {
           return configuration.getFragment(Jvm.class).getJvmLabel();
@@ -156,7 +150,7 @@ public interface JavaSemantics {
    * Implementation for the :host_jdk attribute.
    */
   public static final LateBoundLabel<BuildConfiguration> HOST_JDK =
-      new LateBoundLabel<BuildConfiguration>(JDK_LABEL, Jvm.class) {
+      new LateBoundLabel<BuildConfiguration>(JavaImplicitAttributes.JDK_LABEL, Jvm.class) {
         @Override
         public boolean useHostConfiguration() {
           return true;
