@@ -1976,19 +1976,6 @@ cores directly from system configuration and will assume 1.0 I/O resource.
   breakages in the <code>foo</code> tree.
 </p>
 
-<h4 id="flag--compilation_prerequisites_only"><code class='flag'>--[no]compilation_prerequisites_only</code></h4>
-<p>
-  Given this option, Bazel will only build files that are prerequisites for
-  compilation of the given target (for example, generated headers and source
-  files), but will not build the target itself.
-</p>
-<p>
-  This option can be useful to quickly validate a given C++ or Java target for
-  compilation errors. In particular, it might be especially useful when
-  specified together with the <a href="#flag--compile_one_dependency">
-  <code class='flag'>--compile_one_dependency</code></a> option.
-</p>
-
 <h4 id='flag--check_up_to_date'><code class='flag'>--[no]check_up_to_date</code></h4>
 <p>
   This option causes Bazel not to perform a build, but merely check
