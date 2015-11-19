@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.events.Event;
@@ -95,10 +94,7 @@ public class MobileInstallCommand implements BlazeCommand {
 
       optionsParser.parse(OptionPriority.COMMAND_LINE,
           "Options required by the mobile-install command",
-          ImmutableList.of(
-              "--output_groups=-" + OutputGroupProvider.DEFAULT,
-              "--output_groups=-" + OutputGroupProvider.HIDDEN_TOP_LEVEL,
-              "--output_groups=" + outputGroup));
+          ImmutableList.of("--output_groups=" + outputGroup));
     } catch (OptionsParsingException e) {
       throw new IllegalStateException(e);
     }
