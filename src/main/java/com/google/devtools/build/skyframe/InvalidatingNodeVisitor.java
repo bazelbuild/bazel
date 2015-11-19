@@ -68,6 +68,8 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
   // that level of hardware parallelism, since invalidation should be CPU-bound.
   // We may consider increasing this in the future.
   private static final int DEFAULT_THREAD_COUNT = Runtime.getRuntime().availableProcessors();
+  private static final int EXPECTED_PENDING_SET_SIZE = DEFAULT_THREAD_COUNT * 8;
+  private static final int EXPECTED_VISITED_SET_SIZE = 1024;
 
   private static final boolean MUST_EXIST = true;
 
@@ -188,7 +190,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
     private final Set<Pair<SkyKey, InvalidationType>> pendingValues =
         Collections.newSetFromMap(
             new ConcurrentHashMap<Pair<SkyKey, InvalidationType>, Boolean>(
-                DEFAULT_THREAD_COUNT, .75f, DEFAULT_THREAD_COUNT));
+                EXPECTED_PENDING_SET_SIZE, .75f, DEFAULT_THREAD_COUNT));
     private final InvalidationType defaultUpdateType;
 
     private InvalidationState(InvalidationType defaultUpdateType) {
@@ -331,7 +333,7 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
     private final Set<Pair<SkyKey, InvalidationType>> visited =
         Collections.newSetFromMap(
             new ConcurrentHashMap<Pair<SkyKey, InvalidationType>, Boolean>(
-                DEFAULT_THREAD_COUNT, .75f, DEFAULT_THREAD_COUNT));
+                EXPECTED_VISITED_SET_SIZE, .75f, DEFAULT_THREAD_COUNT));
 
     protected DirtyingNodeVisitor(
         ThinNodeQueryableGraph graph,
