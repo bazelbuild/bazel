@@ -291,6 +291,9 @@ class TarFileWriter(object):
       root: place all non-absolute content under given root direcory, if not
           None.
     """
+    if root and root[0] not in ['/', '.']:
+      # Root prefix should start with a '/', adds it if missing
+      root = '/' + root
     compression = os.path.splitext(tar)[-1][1:]
     if compression == 'tgz':
       compression = 'gz'
