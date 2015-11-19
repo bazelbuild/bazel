@@ -67,7 +67,9 @@ public class BazelAnalysisMock extends AnalysisMock {
                 "  name = 'objc_proto_cpp_lib',",
                 "  actual = '//objcproto:ProtocolBuffersCPP_lib',",
                 ")",
-                "bind(name = 'android/sdk', actual='//tools/android:sdk')"));
+                "bind(name = 'android/sdk', actual='//tools/android:sdk')",
+                "bind(name = 'tools/cpp', actual='//tools/cpp')"
+            ));
 
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[workspaceContents.size()]));
     config.create("tools/jdk/BUILD",
@@ -86,6 +88,7 @@ public class BazelAnalysisMock extends AnalysisMock {
         "               'JavaBuilderCanary_deploy.jar', 'ijar', 'GenClass_deploy.jar'])");
     config.create("tools/cpp/BUILD",
         "cc_library(name = 'stl')",
+        "cc_library(name = 'malloc')",
         "filegroup(name = 'toolchain', ",
         "    srcs = [':cc-compiler-local', ':cc-compiler-darwin', ':cc-compiler-piii',",
         "            ':cc-compiler-armeabi-v7a', ':empty'],",
