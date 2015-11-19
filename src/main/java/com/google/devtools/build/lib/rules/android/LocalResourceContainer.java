@@ -170,7 +170,8 @@ public final class LocalResourceContainer {
         PathFragment assetsDir, Iterable<FileProvider> targets) {
       for (FileProvider target : targets) {
         for (Artifact file : target.getFilesToBuild()) {
-          PathFragment packageFragment = file.getArtifactOwner().getLabel().getPackageFragment();
+          PathFragment packageFragment = file.getArtifactOwner().getLabel()
+              .getPackageIdentifier().getPathFragment();
           PathFragment packageRelativePath =
               file.getRootRelativePath().relativeTo(packageFragment);
           if (packageRelativePath.startsWith(assetsDir)) {
@@ -198,7 +199,8 @@ public final class LocalResourceContainer {
       Artifact lastFile = null;
       for (FileProvider target : targets) {
         for (Artifact file : target.getFilesToBuild()) {
-          PathFragment packageFragment = file.getArtifactOwner().getLabel().getPackageFragment();
+          PathFragment packageFragment = file.getArtifactOwner().getLabel()
+              .getPackageIdentifier().getPathFragment();
           PathFragment packageRelativePath =
               file.getRootRelativePath().relativeTo(packageFragment);
           PathFragment resourceDir = findResourceDir(file);
