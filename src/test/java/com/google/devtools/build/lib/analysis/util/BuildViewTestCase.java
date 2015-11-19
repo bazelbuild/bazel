@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
+import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider.ExtraArtifactSet;
 import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -1188,6 +1189,23 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       result.add(getGeneratingAction(artifact));
     }
     return ImmutableList.copyOf(result);
+  }
+
+  /**
+   * Returns all extra actions for that target (including transitive actions).
+   */
+  protected ImmutableList<ExtraAction> getTransitiveExtraActionActions(ConfiguredTarget target) {
+    ImmutableList.Builder<ExtraAction> result = new ImmutableList.Builder<>();
+    for (ExtraArtifactSet set : target.getProvider(ExtraActionArtifactsProvider.class)
+        .getTransitiveExtraActionArtifacts()) {
+      for (Artifact artifact : set.getArtifacts()) {
+        Action action = getGeneratingAction(artifact);
+        if (action instanceof ExtraAction) {
+          result.add((ExtraAction) action);
+        }
+      }
+    }
+    return result.build();
   }
 
   protected ImmutableList<Action> getFilesToBuildActions(ConfiguredTarget target) {
