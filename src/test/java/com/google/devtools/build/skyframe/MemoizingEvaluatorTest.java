@@ -45,12 +45,14 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.testutil.TestThread;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.skyframe.GraphTester.NotComparableStringValue;
 import com.google.devtools.build.skyframe.GraphTester.StringValue;
 import com.google.devtools.build.skyframe.GraphTester.TestFunction;
 import com.google.devtools.build.skyframe.GraphTester.ValueComputer;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.EventType;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Listener;
 import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Order;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
 import org.junit.After;
@@ -3110,6 +3112,63 @@ public class MemoizingEvaluatorTest {
     EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/false, newParent);
     ErrorInfo error = result.getError(newParent);
     assertThat(error.getRootCauses()).containsExactly(errorKey);
+  }
+
+  @Test
+  public void notComparableNotPrunedNoEvent() throws Exception {
+    checkNotComparableNotPruned(false);
+  }
+
+  @Test
+  public void notComparableNotPrunedEvent() throws Exception {
+    checkNotComparableNotPruned(true);
+  }
+
+  private void checkNotComparableNotPruned(boolean hasEvent) throws Exception {
+    initializeTester();
+    SkyKey parent = GraphTester.toSkyKey("parent");
+    SkyKey child = GraphTester.toSkyKey("child");
+    NotComparableStringValue notComparableString = new NotComparableStringValue("not comparable");
+    if (hasEvent) {
+      tester.getOrCreate(child).setConstantValue(notComparableString).setWarning("shmoop");
+    } else {
+      tester.getOrCreate(child).setConstantValue(notComparableString);
+    }
+    final AtomicInteger parentEvaluated = new AtomicInteger();
+    final String val = "some val";
+    tester
+        .getOrCreate(parent)
+        .addDependency(child)
+        .setComputedValue(new ValueComputer() {
+          @Override
+          public SkyValue compute(Map<SkyKey, SkyValue> deps, Environment env)
+              throws InterruptedException {
+            parentEvaluated.incrementAndGet();
+            return new StringValue(val);
+          }
+        });
+    assertStringValue(val, tester.evalAndGet( /*keepGoing=*/false, parent));
+    assertThat(parentEvaluated.get()).isEqualTo(1);
+    if (hasEvent) {
+      assertContainsEvent(eventCollector, "shmoop");
+    } else {
+      assertEventCount(0, eventCollector);
+    }
+
+    tester.resetPlayedEvents();
+    tester.getOrCreate(child, /*markAsModified=*/true);
+    tester.invalidate();
+    assertStringValue(val, tester.evalAndGet( /*keepGoing=*/false, parent));
+    assertThat(parentEvaluated.get()).isEqualTo(2);
+    if (hasEvent) {
+      assertContainsEvent(eventCollector, "shmoop");
+    } else {
+      assertEventCount(0, eventCollector);
+    }
+  }
+
+  private static void assertStringValue(String expected, SkyValue val) {
+    assertThat(((StringValue) val).getValue()).isEqualTo(expected);
   }
 
   @Test

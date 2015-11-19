@@ -492,7 +492,7 @@ public class InMemoryNodeEntryTest {
   }
 
   @Test
-  public void pruneErrorValue() {
+  public void errorInfoCannotBePruned() {
     NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
@@ -514,7 +514,8 @@ public class InMemoryNodeEntryTest {
     assertThat(entry.markRebuildingAndGetAllRemainingDirtyDirectDeps()).isEmpty();
     setValue(entry, /*value=*/null, errorInfo, /*graphVersion=*/1L);
     assertTrue(entry.isDone());
-    assertEquals(new IntVersion(0L), entry.getVersion());
+    // ErrorInfo is treated as a NotComparableSkyValue, so it is not pruned.
+    assertEquals(new IntVersion(1L), entry.getVersion());
   }
 
   @Test

@@ -291,7 +291,7 @@ public class GraphTester {
    * Simple value class that stores strings.
    */
   public static class StringValue implements SkyValue {
-    private final String value;
+    protected final String value;
 
     public StringValue(String value) {
       this.value = value;
@@ -326,6 +326,24 @@ public class GraphTester {
     public static StringValue from(SkyValue skyValue) {
       assertThat(skyValue).isInstanceOf(StringValue.class);
       return (StringValue) skyValue;
+    }
+  }
+
+  /** A StringValue that is also a NotComparableSkyValue. */
+  public static class NotComparableStringValue extends StringValue
+          implements NotComparableSkyValue {
+    public NotComparableStringValue(String value) {
+      super(value);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      throw new UnsupportedOperationException(value + " is incomparable - what are you doing?");
+    }
+
+    @Override
+    public int hashCode() {
+      throw new UnsupportedOperationException(value + " is incomparable - what are you doing?");
     }
   }
 
