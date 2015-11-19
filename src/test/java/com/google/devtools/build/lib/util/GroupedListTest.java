@@ -194,7 +194,7 @@ public class GroupedListTest {
     elements.remove(ImmutableList.of("3"));
     elements.remove(ImmutableList.of());
     elements.remove(ImmutableList.of("removedGroup1", "removedGroup2"));
-    assertElementsEqualInGroups(GroupedList.create(compressed), elements);
+    assertElementsEqualInGroups(GroupedList.<String>create(compressed), elements);
     assertElementsEqualInGroups(groupedList, elements);
   }
 
@@ -220,7 +220,7 @@ public class GroupedListTest {
     allElts.removeAll(removed);
     assertElementsEqual(compressed, allElts);
     elements.get(0).removeAll(removed);
-    assertElementsEqualInGroups(GroupedList.create(compressed), elements);
+    assertElementsEqualInGroups(GroupedList.<String>create(compressed), elements);
     assertElementsEqualInGroups(groupedList, elements);
   }
 
