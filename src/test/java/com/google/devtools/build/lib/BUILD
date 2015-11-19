@@ -912,6 +912,28 @@ java_test(
     ],
 )
 
+java_test(
+    name = "exec-tests",
+    srcs = glob(["exec/*.java"]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    tags = ["exec"],
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
+        ":foundations_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:analysis-exec-rules-skyframe",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:protobuf",
+        "//third_party:truth",
+    ],
+)
+
 java_library(
     name = "worker-example-lib",
     srcs = glob(["worker/ExampleWorker*.java"]),
@@ -945,6 +967,7 @@ TEST_SUITES = [
     "server",
     "skyframe",
     "ideinfo",
+    "exec",
 ]
 
 [
