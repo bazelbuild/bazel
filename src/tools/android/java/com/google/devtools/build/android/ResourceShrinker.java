@@ -122,7 +122,6 @@ public class ResourceShrinker {
 
   public static final int TYPICAL_RESOURCE_COUNT = 200;
   private final Path rTxt;
-  private final Path proguardMapping;
   private final Path classesJar;
   private final Path mergedManifest;
   private final Path mergedResourceDir;
@@ -157,11 +156,9 @@ public class ResourceShrinker {
       @NonNull Path rTxt,
       @NonNull Path classesJar,
       @NonNull Path manifest,
-      @Nullable Path mapping,
       @NonNull Path resources,
       @NonNull String rPackageName) {
     this.rTxt = rTxt;
-    proguardMapping = mapping;
     this.classesJar = classesJar;
     mergedManifest = manifest;
     mergedResourceDir = resources;
@@ -171,7 +168,6 @@ public class ResourceShrinker {
   public void shrink(Path destinationDir) throws IOException,
       ParserConfigurationException, SAXException {
     parseResourceTxtFile(rTxt);
-    recordMapping(proguardMapping);
     recordUsages(classesJar);
     recordManifestUsages(mergedManifest);
     recordResources(mergedResourceDir);
@@ -627,39 +623,6 @@ public class ResourceShrinker {
           recordResourcesUsages(file, isDefaultFolder, from);
         }
       }
-    }
-  }
-
-  private void recordMapping(@Nullable Path mapping) throws IOException {
-    if (mapping == null || !mapping.toFile().exists()) {
-      return;
-    }
-    final String arrowIndicator = " -> ";
-    final String resourceIndicator = ".R$";
-    for (String line : Files.readLines(mapping.toFile(), UTF_8)) {
-      if (line.startsWith(" ") || line.startsWith("\t")) {
-        continue;
-      }
-      int index = line.indexOf(resourceIndicator);
-      if (index == -1) {
-        continue;
-      }
-      int arrow = line.indexOf(arrowIndicator, index + 3);
-      if (arrow == -1) {
-        continue;
-      }
-      String typeName = line.substring(index + resourceIndicator.length(), arrow);
-      ResourceType type = ResourceType.getEnum(typeName);
-      if (type == null) {
-        continue;
-      }
-      int end = line.indexOf(':', arrow + arrowIndicator.length());
-      if (end == -1) {
-        end = line.length();
-      }
-      String target = line.substring(arrow + arrowIndicator.length(), end).trim();
-      String ownerName = target.replace('.', '/');
-      resourceClassOwners.put(ownerName, type);
     }
   }
 
