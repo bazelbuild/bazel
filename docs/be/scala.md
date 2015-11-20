@@ -54,7 +54,7 @@ The current implementation assumes that the files `/usr/bin/scalac` and
       <td><code>srcs</code></td>
       <td>
         <p><code>List of labels, required</code></p>
-        <p>List of Go <code>.go</code> source files used to build the
+        <p>List of Scala <code>.scala</code> source files used to build the
         library</p>
       </td>
     </tr>
@@ -154,7 +154,7 @@ A `scala_binary` requires a `main_class` attribute.
       <td><code>srcs</code></td>
       <td>
         <p><code>List of labels, required</code></p>
-        <p>List of Go <code>.go</code> source files used to build the
+        <p>List of Scala <code>.scala</code> source files used to build the
         binary</p>
       </td>
     </tr>
