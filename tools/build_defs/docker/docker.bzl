@@ -157,6 +157,7 @@ def _metadata_action(ctx, layer, name, output):
       arguments = args,
       inputs = inputs,
       outputs = [output],
+      use_default_shell_env=True,
       mnemonic = "RewriteJSON")
 
 def _compute_layer_name(ctx, layer):

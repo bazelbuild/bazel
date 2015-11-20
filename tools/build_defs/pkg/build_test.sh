@@ -60,10 +60,14 @@ function test_tar() {
 ./usr/titi
 ./usr/bin/
 ./usr/bin/java -> /path/to/bin/java"
-  for i in "" ".gz" ".bz2"; do
+  for i in "" ".gz" ".bz2" ".xz"; do
     check_eq "$listing" "$(get_tar_listing test-tar-${i:1}.tar$i)"
     check_eq "-rwxr-xr-x" "$(get_tar_permission test-tar-${i:1}.tar$i ./usr/titi)"
     check_eq "-rw-r--r--" "$(get_tar_permission test-tar-${i:1}.tar$i ./etc/nsswitch.conf)"
+    # Test merging tar files
+    check_eq "$listing" "$(get_tar_listing test-tar-inclusion-${i:1}.tar)"
+    check_eq "-rwxr-xr-x" "$(get_tar_permission test-tar-inclusion-${i:1}.tar ./usr/titi)"
+    check_eq "-rw-r--r--" "$(get_tar_permission test-tar-inclusion-${i:1}.tar ./etc/nsswitch.conf)"
   done;
 
   check_eq "./

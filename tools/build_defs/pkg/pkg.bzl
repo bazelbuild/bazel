@@ -14,7 +14,7 @@
 """Rules for manipulation of various packaging."""
 
 # Filetype to restrict inputs
-tar_filetype = FileType([".tar", ".tar.gz", ".tgz", ".tar.xz"])
+tar_filetype = FileType([".tar", ".tar.gz", ".tgz", ".tar.xz", ".tar.bz2"])
 deb_filetype = FileType([".deb", ".udeb"])
 
 def _short_path_dirname(path):

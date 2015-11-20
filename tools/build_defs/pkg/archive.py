@@ -15,6 +15,7 @@
 
 import os
 from StringIO import StringIO
+import subprocess
 import tarfile
 
 
@@ -106,6 +107,9 @@ class TarFileWriter(object):
       mode = 'w:bz2'
     else:
       mode = 'w:'
+    # Support xz compression through xz... until we can use Py3
+    self.xz = compression in ['xz', 'lzma']
+    self.name = name
     self.tar = tarfile.open(name=name, mode=mode)
     self.members = set([])
     self.directories = set([])
@@ -290,6 +294,9 @@ class TarFileWriter(object):
           the file is to be added to the final tar and false otherwise.
       root: place all non-absolute content under given root direcory, if not
           None.
+
+    Raises:
+      TarFileWriter.Error: if an error happens when uncompressing the tar file.
     """
     if root and root[0] not in ['/', '.']:
       # Root prefix should start with a '/', adds it if missing
@@ -311,7 +318,14 @@ class TarFileWriter(object):
       # large files.
       # TODO(dmarting): once our py3 support gets better, compile this tools
       # with py3 for proper lzma support.
-      f = StringIO(os.popen('cat %s | xzcat' % tar).read())
+      if subprocess.call('which xzcat', shell=True, stdout=subprocess.PIPE):
+        raise self.Error('Cannot handle .xz and .lzma compression: '
+                         'xzcat not found.')
+      p = subprocess.Popen('cat %s | xzcat' % tar,
+                           shell=True,
+                           stdout=subprocess.PIPE)
+      f = StringIO(p.stdout.read())
+      p.wait()
       intar = tarfile.open(fileobj=f, mode='r:')
     else:
       intar = tarfile.open(name=tar, mode='r:' + compression)
@@ -360,5 +374,17 @@ class TarFileWriter(object):
     """Close the output tar file.
 
     This class should not be used anymore after calling that method.
+
+    Raises:
+      TarFileWriter.Error: if an error happens when compressing the output file.
     """
     self.tar.close()
+    if self.xz:
+      # Support xz compression through xz... until we can use Py3
+      if subprocess.call('which xz', shell=True, stdout=subprocess.PIPE):
+        raise self.Error('Cannot handle .xz and .lzma compression: '
+                         'xz not found.')
+      subprocess.call(
+          'mv {0} {0}.d && xz -z {0}.d && mv {0}.d.xz {0}'.format(self.name),
+          shell=True,
+          stdout=subprocess.PIPE)

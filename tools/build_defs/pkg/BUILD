@@ -78,6 +78,17 @@ genrule(
     "",
     ".gz",
     ".bz2",
+    ".xz",  # This will breaks if xzcat is not installed
+]]
+
+[pkg_tar(
+    name = "test-tar-inclusion-%s" % ext,
+    deps = [":test-tar-%s" % ext],
+) for ext in [
+    "",
+    "gz",
+    "bz2",
+    "xz",
 ]]
 
 pkg_tar(
@@ -136,10 +147,15 @@ sh_test(
         ":test-tar-.tar",
         ":test-tar-bz2.tar.bz2",
         ":test-tar-gz.tar.gz",
+        ":test-tar-inclusion-.tar",
+        ":test-tar-inclusion-bz2.tar",
+        ":test-tar-inclusion-gz.tar",
+        ":test-tar-inclusion-xz.tar",
         ":test-tar-strip_prefix-dot.tar",
         ":test-tar-strip_prefix-empty.tar",
         ":test-tar-strip_prefix-etc.tar",
         ":test-tar-strip_prefix-none.tar",
+        ":test-tar-xz.tar.xz",
     ],
     deps = [
         "//src/test/shell:bashunit",
