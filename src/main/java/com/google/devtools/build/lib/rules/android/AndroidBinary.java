@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction.Builder;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -749,8 +750,24 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisites("deps", Mode.TARGET, ProguardSpecProvider.class)) {
       builder.addAll(dep.getTransitiveProguardSpecs());
     }
+
+    // Include proguard spec generated from rule's resources
     Artifact output = resourceApk.getResourceProguardConfig();
     builder.add(output);
+
+    // Generate and include implicit Proguard spec for requested mode.
+    if (!optMode.getImplicitProguardDirectives().isEmpty()) {
+      Artifact implicitDirectives =
+          getProguardConfigArtifact(ruleContext, optMode.name().toLowerCase());
+      ruleContext.registerAction(
+          new FileWriteAction(
+              ruleContext.getActionOwner(),
+              implicitDirectives,
+              optMode.getImplicitProguardDirectives(),
+              /*executable*/ false));
+      builder.add(implicitDirectives);
+    }
+
     return builder.build().asList();
   }
 
@@ -1381,7 +1398,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   /**
-   * Returns an intermediate artifact used to support dex generation.
+   * Returns an intermediate artifact used to run Proguard.
    */
   public static Artifact getProguardConfigArtifact(RuleContext ruleContext, String prefix) {
     // TODO(bazel-team): Remove the redundant inclusion of the rule name, as getUniqueDirectory
