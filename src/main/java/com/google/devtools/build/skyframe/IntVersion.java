@@ -34,6 +34,10 @@ public final class IntVersion implements Version, Serializable {
     return new IntVersion(val + 1);
   }
 
+  public IntVersion previous() {
+    return new IntVersion(val - 1);
+  }
+
   @Override
   public boolean atMost(Version other) {
     if (!(other instanceof IntVersion)) {
