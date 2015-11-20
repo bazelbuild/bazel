@@ -365,7 +365,7 @@ Test rules
 ----------
 
 To create a test rule, set `test=True` in the
-[rule function](lib/Globals.html#rule). The name of the rule must
+[rule function](lib/globals.html#rule). The name of the rule must
 also end with `_test`. Test rules are implicitly executable, which means they
 must generate the output file `ctx.outputs.executable`.
 
