@@ -25,11 +25,11 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeSerializer;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
-import com.google.devtools.build.lib.packages.PackageSerializer;
 import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
@@ -140,9 +140,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
             || !includeAttribute(attr)) {
           continue;
         }
-        rulePb.addAttribute(PackageSerializer.getAttributeProto(attr,
-            PackageSerializer.getAttributeValues(rule, attr),
-            rule.isAttributeValueExplicitlySpecified(attr)));
+        rulePb.addAttribute(AttributeSerializer.getAttributeProto(
+            attr,
+            AttributeSerializer.getAttributeValues(rule, attr),
+            rule.isAttributeValueExplicitlySpecified(attr),
+            /*includeGlobs=*/ false));
       }
 
       postProcess(rule, rulePb);
@@ -163,9 +165,11 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           aspectResolver.computeAspectDependencies(target);
       // Add information about additional attributes from aspects.
       for (Entry<Attribute, Collection<Label>> entry : aspectsDependencies.asMap().entrySet()) {
-        rulePb.addAttribute(PackageSerializer.getAttributeProto(entry.getKey(),
+        rulePb.addAttribute(AttributeSerializer.getAttributeProto(
+            entry.getKey(),
             Lists.<Object>newArrayList(entry.getValue()),
-            /*explicitlySpecified=*/ false));
+            /*explicitlySpecified=*/ false,
+            /*includeGlobs=*/ false));
       }
       // Add all deps from aspects as rule inputs of current target.
       for (Label label : aspectsDependencies.values()) {

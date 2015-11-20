@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.PackageSerializer;
+import com.google.devtools.build.lib.packages.AttributeSerializer;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
@@ -564,7 +564,7 @@ public abstract class OutputFormatter implements Serializable {
           ? AttributeValueSource.RULE : AttributeValueSource.DEFAULT;
     }
 
-    return Pair.of(PackageSerializer.getAttributeValues(rule, attr), source);
+    return Pair.of(AttributeSerializer.getAttributeValues(rule, attr), source);
   }
 
   /**
@@ -577,7 +577,7 @@ public abstract class OutputFormatter implements Serializable {
    */
   protected static String getLocation(Target target, boolean relative) {
     Location location = target.getLocation();
-    return relative 
+    return relative
         ? location.print(target.getPackage().getPackageDirectory().asFragment(),
             target.getPackage().getNameFragment())
         : location.print();
