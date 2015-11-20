@@ -145,17 +145,21 @@ fi
   expect_log $what_does_the_fox_say
 
   if [[ $do_symlink = 1 ]]; then
-    if [[ -x ${realpath_path} ]]; then
-      realpath=${realpath_path}
-    else
-      realpath=realpath
-    fi
     base_external_path=bazel-out/../external/endangered/fox
-    assert_equals $(${realpath} ${base_external_path}/male) \
-      $(${realpath} ${base_external_path}/male_relative)
-    assert_equals $(${realpath} ${base_external_path}/male) \
-      $(${realpath} ${base_external_path}/male_absolute)
+    assert_files_same ${base_external_path}/male ${base_external_path}/male_relative
+    assert_files_same ${base_external_path}/male ${base_external_path}/male_absolute
   fi
+}
+
+function assert_files_same() {
+  assert_contains "$(cat $1)" $2 && return 0
+  echo "Expected these to be the same:"
+  echo "---------------------------"
+  cat $1
+  echo "==========================="
+  cat $2
+  echo "---------------------------"
+  return 1
 }
 
 function test_http_archive_zip() {
