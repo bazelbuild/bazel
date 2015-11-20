@@ -159,10 +159,9 @@ Yes. For a simple example, see:
 
   <https://github.com/bazelbuild/bazel/blob/master/examples/cpp/BUILD>
 
-The Bazel source code itself provides more complex examples:
+The Bazel source code itself provides a more complex example:
 
-  <https://github.com/bazelbuild/bazel/blob/master/src/main/java/BUILD>\\
-  <https://github.com/bazelbuild/bazel/blob/master/src/test/java/BUILD>
+  <https://github.com/bazelbuild/bazel/blob/master/src/BUILD>
 
 What is Bazel best at?
 ----------------------
