@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -37,6 +37,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException4;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -50,6 +51,12 @@ abstract class RecursiveDirectoryTraversalFunction
     <TVisitor extends RecursiveDirectoryTraversalFunction.Visitor, TReturn> {
   private static final String SENTINEL_FILE_NAME_FOR_NOT_TRAVERSING_SYMLINKS =
       "DONT_FOLLOW_SYMLINKS_WHEN_TRAVERSING_THIS_DIRECTORY_VIA_A_RECURSIVE_TARGET_PATTERN";
+
+  private final BlazeDirectories directories;
+
+  protected RecursiveDirectoryTraversalFunction(BlazeDirectories directories) {
+    this.directories = directories;
+  }
 
   /**
    * Returned from {@link #visitDirectory} if its {@code recursivePkgKey} is a symlink or not a
@@ -144,6 +151,18 @@ abstract class RecursiveDirectoryTraversalFunction
 
     PackageIdentifier packageId = PackageIdentifier.create(
         recursivePkgKey.getRepository(), rootRelativePath);
+
+    if (packageId.getRepository().isDefault()
+      && fileValue.isSymlink()
+      && fileValue.getUnresolvedLinkTarget().startsWith(directories.getOutputBase().asFragment())) {
+      // Symlinks back to the output base are not traversed so that we avoid convenience symlinks.
+      // Note that it's not enough to just check for the convenience symlinks themselves, because
+      // if the value of --symlink_prefix changes, the old symlinks are left in place. This
+      // algorithm also covers more creative use cases where people create convenience symlinks
+      // somewhere in the directory tree manually.
+      return getEmptyReturn();
+    }
+
     SkyKey pkgLookupKey = PackageLookupValue.key(packageId);
     SkyKey dirListingKey = DirectoryListingValue.key(rootedPath);
     Map<SkyKey,
@@ -233,8 +252,8 @@ abstract class RecursiveDirectoryTraversalFunction
       throw new IllegalStateException(e);
     }
 
-    List<SkyKey> childDeps = Lists.newArrayList();
     boolean followSymlinks = shouldFollowSymlinksWhenTraversing(dirListingValue.getDirents());
+    List<SkyKey> childDeps = new ArrayList<>();
     for (Dirent dirent : dirListingValue.getDirents()) {
       Type type = dirent.getType();
       if (type != Type.DIRECTORY

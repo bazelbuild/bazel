@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -38,14 +39,23 @@ import javax.annotation.Nullable;
  * "foo/subpkg".
  */
 public class RecursivePkgFunction implements SkyFunction {
+  private final BlazeDirectories directories;
+
+  public RecursivePkgFunction(BlazeDirectories directories) {
+    this.directories = directories;
+  }
 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) {
     return new MyTraversalFunction().visitDirectory((RecursivePkgKey) skyKey.argument(), env);
   }
 
-  private static class MyTraversalFunction
+  private class MyTraversalFunction
       extends RecursiveDirectoryTraversalFunction<MyVisitor, RecursivePkgValue> {
+
+    private MyTraversalFunction() {
+      super(directories);
+    }
 
     @Override
     protected RecursivePkgValue getEmptyReturn() {
