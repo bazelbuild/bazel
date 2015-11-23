@@ -123,7 +123,7 @@ public class BuildingState {
   private boolean reverseDepIsSingleObject = false;
 
   private static final ReverseDepsUtil<BuildingState> REVERSE_DEPS_UTIL =
-      new ReverseDepsUtil<BuildingState>() {
+      new ReverseDepsUtilImpl<BuildingState>() {
         @Override
         void setReverseDepsObject(BuildingState container, Object object) {
           container.reverseDepsToSignal = object;

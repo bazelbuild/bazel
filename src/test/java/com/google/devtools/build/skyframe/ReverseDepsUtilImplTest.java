@@ -28,10 +28,10 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Test for {@code ReverseDepsUtil}.
+ * Test for {@code ReverseDepsUtilImpl}.
  */
 @RunWith(Parameterized.class)
-public class ReverseDepsUtilTest {
+public class ReverseDepsUtilImplTest {
 
   private static final SkyFunctionName NODE_TYPE = SkyFunctionName.create("Type");
   private final int numElements;
@@ -40,17 +40,17 @@ public class ReverseDepsUtilTest {
   public static List<Object[]> paramenters() {
     List<Object[]> params = new ArrayList<>();
     for (int i = 0; i < 20; i++) {
-      params.add(new Object[]{i});
+      params.add(new Object[] {i});
     }
     return params;
   }
 
-  public ReverseDepsUtilTest(int numElements) {
+  public ReverseDepsUtilImplTest(int numElements) {
     this.numElements = numElements;
   }
 
   private static final ReverseDepsUtil<Example> REVERSE_DEPS_UTIL =
-      new ReverseDepsUtil<Example>() {
+      new ReverseDepsUtilImpl<Example>() {
         @Override
         void setReverseDepsObject(Example container, Object object) {
           container.reverseDeps = object;
@@ -142,7 +142,8 @@ public class ReverseDepsUtilTest {
     try {
       REVERSE_DEPS_UTIL.getReverseDeps(example);
       assertThat(numElements).isEqualTo(0);
-    } catch (Exception expected) { }
+    } catch (Exception expected) {
+    }
   }
 
   @Test
@@ -199,7 +200,9 @@ public class ReverseDepsUtilTest {
     try {
       REVERSE_DEPS_UTIL.maybeCheckReverseDepNotPresent(example, new SkyKey(NODE_TYPE, 0));
       // Should only fail if empty or above the checking threshold.
-      assertThat(numElements == 0 || numElements >= ReverseDepsUtil.MAYBE_CHECK_THRESHOLD).isTrue();
-    } catch (Exception expected) { }
+      assertThat(numElements == 0 || numElements >= ReverseDepsUtilImpl.MAYBE_CHECK_THRESHOLD)
+          .isTrue();
+    } catch (Exception expected) {
+    }
   }
 }
