@@ -759,7 +759,6 @@ public final class BuildViewTest extends BuildViewTestBase {
    * This is a regression test for a Bazel crash.
    */
   public void testPostProcessedConfigurableAttributes() throws Exception {
-    useConfiguration("--force_pic");
     reporter.removeHandler(failFastHandler); // Expect errors from action conflicts.
     scratch.file("conflict/BUILD",
         "config_setting(name = 'a', values = {'test_arg': 'a'})",

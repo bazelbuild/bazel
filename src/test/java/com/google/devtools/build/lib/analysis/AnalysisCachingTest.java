@@ -115,7 +115,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   // Regression test for:
   // "action conflict detection is incorrect if conflict is in non-top-level configured targets".
   public void testActionConflictInDependencyImpliesTopLevelTargetFailure() throws Exception {
-    useConfiguration("--force_pic");
     scratch.file("conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
         "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])",
@@ -136,7 +135,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
    * rigorously.
    */
   public void testNoActionConflictWithInvalidatedTarget() throws Exception {
-    useConfiguration("--force_pic");
     scratch.file("conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
         "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
@@ -159,7 +157,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
    * Generating the same output from multiple actions is causing an error.
    */
   public void testActionConflictCausesError() throws Exception {
-    useConfiguration("--force_pic");
     scratch.file("conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
         "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
@@ -170,7 +167,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   }
 
   public void testNoActionConflictErrorAfterClearedAnalysis() throws Exception {
-    useConfiguration("--force_pic");
     scratch.file("conflict/BUILD",
                 "cc_library(name='x', srcs=['foo.cc'])",
                 "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
@@ -195,7 +191,6 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
    * error, and with multi-threaded analysis it is not deterministic which one that will be.
    */
   public void testActionConflictMarksTargetInvalid() throws Exception {
-    useConfiguration("--force_pic");
     scratch.file("conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
         "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
