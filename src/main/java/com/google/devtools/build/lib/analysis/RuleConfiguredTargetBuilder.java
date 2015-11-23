@@ -257,6 +257,17 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
+   * Add multiple providers with given values.
+   */
+  public RuleConfiguredTargetBuilder addProviders(
+      Iterable<? extends TransitiveInfoProvider> providers) {
+    for (TransitiveInfoProvider provider : providers) {
+      addProvider(provider);
+    }
+    return this;
+  }
+
+  /**
    * Add a Skylark transitive info. The provider value must be safe (i.e. a String, a Boolean,
    * an Integer, an Artifact, a Label, None, a Java TransitiveInfoProvider or something composed
    * from these in Skylark using lists, sets, structs or dicts). Otherwise an EvalException is

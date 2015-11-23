@@ -126,6 +126,13 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
       return addProvider(value.getClass(), value);
     }
 
+    public Builder addProviders(Iterable<? extends TransitiveInfoProvider> providers) {
+      for (TransitiveInfoProvider provider : providers) {
+        addProvider(provider);
+      }
+      return this;
+    }
+
     /**
      * Adds a set of files to an output group.
      */
