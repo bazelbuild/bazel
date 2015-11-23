@@ -36,14 +36,18 @@ import java.util.Objects;
  */
 @Immutable
 @ThreadSafe
-abstract class DirectoryListingValue implements SkyValue {
+public abstract class DirectoryListingValue implements SkyValue {
 
   /**
    * Returns the directory entries for this directory, in a stable order.
    *
    * <p>Symlinks are not expanded.
    */
-  public abstract Dirents getDirents();
+  public Dirents getDirents() {
+    return getDirectoryListingStateValue().getDirents();
+  }
+
+  public abstract DirectoryListingStateValue getDirectoryListingStateValue();
 
   /**
    * Returns a {@link SkyKey} for getting the directory entries of the given directory. The
@@ -63,18 +67,19 @@ abstract class DirectoryListingValue implements SkyValue {
             realDirectoryListingStateValue);
   }
 
+  /** Normal {@link DirectoryListingValue}. */
   @ThreadSafe
-  private static final class RegularDirectoryListingValue extends DirectoryListingValue {
+  public static final class RegularDirectoryListingValue extends DirectoryListingValue {
 
     private final DirectoryListingStateValue directoryListingStateValue;
 
-    private RegularDirectoryListingValue(DirectoryListingStateValue directoryListingStateValue) {
+    public RegularDirectoryListingValue(DirectoryListingStateValue directoryListingStateValue) {
       this.directoryListingStateValue = directoryListingStateValue;
     }
 
     @Override
-    public Dirents getDirents() {
-      return directoryListingStateValue.getDirents();
+    public DirectoryListingStateValue getDirectoryListingStateValue() {
+      return directoryListingStateValue;
     }
 
     @Override
@@ -95,21 +100,26 @@ abstract class DirectoryListingValue implements SkyValue {
     }
   }
 
+  /** A {@link DirectoryListingValue} with a different root. */
   @ThreadSafe
-  private static final class DifferentRealPathDirectoryListingValue extends DirectoryListingValue {
+  public static final class DifferentRealPathDirectoryListingValue extends DirectoryListingValue {
 
     private final RootedPath realDirRootedPath;
     private final DirectoryListingStateValue directoryListingStateValue;
 
-    private DifferentRealPathDirectoryListingValue(RootedPath realDirRootedPath,
+    public DifferentRealPathDirectoryListingValue(RootedPath realDirRootedPath,
         DirectoryListingStateValue directoryListingStateValue) {
       this.realDirRootedPath = realDirRootedPath;
       this.directoryListingStateValue = directoryListingStateValue;
     }
 
+    public RootedPath getRealDirRootedPath() {
+      return realDirRootedPath;
+    }
+
     @Override
-    public Dirents getDirents() {
-      return directoryListingStateValue.getDirents();
+    public DirectoryListingStateValue getDirectoryListingStateValue() {
+      return directoryListingStateValue;
     }
 
     @Override
