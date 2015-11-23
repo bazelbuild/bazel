@@ -1433,6 +1433,26 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
+   * Utility method for tests that result in errors early during
+   * package loading. Given the name of the package for the test,
+   * and the rules for the build file, create a scratch file, load
+   * the build file, and produce the package.
+   * @param packageName the name of the package for the build file
+   * @param lines the rules for the build file as an array of strings
+   * @return the loaded package from the populated package cache
+   * @throws Exception if there is an error creating the temporary files
+   *    for the test.
+   */
+  protected com.google.devtools.build.lib.packages.Package createScratchPackageForImplicitCycle(
+      String packageName, String... lines) throws Exception {
+    eventCollector.clear();
+    reporter.removeHandler(failFastHandler);
+    scratch.file("" + packageName + "/BUILD", lines);
+    return getPackageManager()
+        .getPackage(reporter, PackageIdentifier.createInDefaultRepo(packageName));
+  }
+
+  /**
    * A stub analysis environment.
    */
   protected class StubAnalysisEnvironment implements AnalysisEnvironment {
