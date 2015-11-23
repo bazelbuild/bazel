@@ -71,8 +71,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
                 "  actual = '//objcproto:ProtocolBuffersCPP_lib',",
                 ")",
                 "bind(name = 'android/sdk', actual='//tools/android:sdk')",
-                "bind(name = 'tools/cpp', actual='//tools/cpp')"
-            ));
+                "bind(name = 'tools/cpp', actual='//tools/cpp')",
+                "bind(name = 'tools/python', actual='//tools/python')"));
 
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[workspaceContents.size()]));
     config.create("tools/jdk/BUILD",
@@ -140,6 +140,12 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "            jars = [ 'jarjar.jar' ])");
 
     config.create("tools/test/BUILD", "filegroup(name = 'runtime')");
+
+    config.create(
+        "tools/python/BUILD",
+        "package(default_visibility=['//visibility:public'])",
+        "exports_files(['precompile.py'])",
+        "sh_binary(name='2to3', srcs=['2to3.sh'])");
   }
 
   private ImmutableList<String> createAndroidBuildContents() {
