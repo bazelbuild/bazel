@@ -77,6 +77,7 @@ function get_outputs_sum() {
 function bootstrap_test() {
   local BAZEL_BIN=$1
   local BAZEL_SUM=$2
+  local BAZEL_TARGET=${3:-//src:bazel}
   [ -x "${BAZEL_BIN}" ] || fail "syntax: bootstrap bazel-binary"
   run_silent ${BAZEL_BIN} --nomaster_bazelrc --bazelrc=${BAZELRC} clean \
       --expunge || return $?
@@ -84,7 +85,7 @@ function bootstrap_test() {
       ${BAZEL_ARGS} \
       --fetch --nostamp \
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
-      //src:bazel || return $?
+      ${BAZEL_TARGET} || return $?
   if [ -n "${BAZEL_SUM}" ]; then
     cat bazel-genfiles/src/java.version >${BAZEL_SUM}
     get_outputs_sum >> ${BAZEL_SUM} || return $?
@@ -92,7 +93,8 @@ function bootstrap_test() {
   if [ -z "${BOOTSTRAP:-}" ]; then
     tempdir
     BOOTSTRAP=${NEW_TMPDIR}/bazel
-    cp -f bazel-bin/src/bazel $BOOTSTRAP
+    local FILE=bazel-bin/${BAZEL_TARGET##//}
+    cp -f ${FILE/:/\/} $BOOTSTRAP
     chmod +x $BOOTSTRAP
   fi
 }
