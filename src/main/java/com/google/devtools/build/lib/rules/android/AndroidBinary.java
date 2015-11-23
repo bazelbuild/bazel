@@ -197,10 +197,14 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     if (LocalResourceContainer.definesAndroidResources(ruleContext.attributes())) {
       // Retrieve and compile the resources defined on the android_binary rule.
       if (!LocalResourceContainer.validateRuleContext(ruleContext)) {
-        throw new RuleConfigurationException();
+        return null;
       }
-      applicationManifest = androidSemantics.getManifestForRule(ruleContext)
-          .mergeWith(ruleContext, resourceDeps);
+      ApplicationManifest ruleManifest = androidSemantics.getManifestForRule(ruleContext);
+      if (ruleManifest == null) {
+        return null;
+      }
+
+      applicationManifest = ruleManifest.mergeWith(ruleContext, resourceDeps);
       resourceApk = applicationManifest.packWithDataAndResources(
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
           ruleContext,
@@ -352,6 +356,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
                 jarToDex,
                 androidCommon,
                 resourceClasses);
+    if (dexingOutput == null) {
+      return null;
+    }
 
     Artifact unsignedApk =
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
@@ -914,21 +921,21 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   /** Dexes the ProguardedJar to generate ClassesDex that has a reference classes.dex. */
-  static DexingOutput dex(RuleContext ruleContext, MultidexMode multidexMode, List<String> dexopts,
-      Artifact deployJar,  Artifact proguardedJar, AndroidCommon common,
+  private static DexingOutput dex(RuleContext ruleContext, MultidexMode multidexMode,
+      List<String> dexopts, Artifact deployJar,  Artifact proguardedJar, AndroidCommon common,
       JavaTargetAttributes attributes) throws InterruptedException {
     String classesDexFileName = getMultidexMode(ruleContext).getOutputDexFilename();
     Artifact classesDex = AndroidBinary.getDxArtifact(ruleContext, classesDexFileName);
     if (!AndroidBinary.supportsMultidexMode(ruleContext, multidexMode)) {
       ruleContext.ruleError("Multidex mode \"" + multidexMode.getAttributeValue()
           + "\" not supported by this version of the Android SDK");
-      throw new RuleConfigurationException();
+      return null;
     }
 
     int dexShards = ruleContext.attributes().get("dex_shards", Type.INTEGER);
     if (dexShards > 1 && multidexMode == MultidexMode.OFF) {
       ruleContext.ruleError(".dex sharding is only available in multidex mode");
-      throw new RuleConfigurationException();
+      return null;
     }
 
     Artifact mainDexList = ruleContext.getPrerequisiteArtifact("main_dex_list", Mode.TARGET);
@@ -936,7 +943,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         || (mainDexList == null && multidexMode == MultidexMode.MANUAL_MAIN_DEX)) {
       ruleContext.ruleError(
           "Both \"main_dex_list\" and \"multidex='manual_main_dex'\" must be specified.");
-      throw new RuleConfigurationException();
+      return null;
     }
 
     if (multidexMode == MultidexMode.OFF) {

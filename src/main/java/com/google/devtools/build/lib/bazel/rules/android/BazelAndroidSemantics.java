@@ -55,7 +55,13 @@ public class BazelAndroidSemantics implements AndroidSemantics {
 
   @Override
   public ApplicationManifest getManifestForRule(RuleContext ruleContext) {
-    return ApplicationManifest.fromRule(ruleContext);
+    ApplicationManifest result = ApplicationManifest.fromRule(ruleContext);
+    if (!result.getManifest().getExecPath().getBaseName().equals("AndroidManifest.xml")) {
+      ruleContext.attributeError("manifest", "The manifest must be called 'AndroidManifest.xml'");
+      return null;
+    }
+
+    return result;
   }
 
   @Override

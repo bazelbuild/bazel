@@ -435,7 +435,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "com/google/example/BUILD",
         "android_library(",
         "  name = 'l1',",
-        "  manifest = 'Manifesto.xml',",
+        "  manifest = 'AndroidManifest.xml',",
         "  custom_package = 'com.google.example',",
         "  resource_files = ['r1/values/a.xml'],",
         ")",
@@ -443,7 +443,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "  name = 'l',",
         "  srcs = ['Main.java'],",
         "  deps = [':l1'],",
-        "  manifest = 'Abracadabra.xml',",
+        "  manifest = 'AndroidManifest.xml',",
         "  custom_package = 'com.google.example',",
         "  resource_files = ['res/drawable/a.png', 'res/drawable/b.png'],",
         ")");
@@ -462,7 +462,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
                 ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
         .containsExactly("com/google/example/res");
     assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
-        .isEqualTo("com/google/example/Abracadabra.xml");
+        .isEqualTo("com/google/example/AndroidManifest.xml");
     assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
 
     assertThat(ruleInfo.getDependenciesList()).containsExactly("//com/google/example:l1");
@@ -486,7 +486,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "com/google/example/BUILD",
         "android_library(",
         "  name = 'l1',",
-        "  manifest = 'Manifesto.xml',",
+        "  manifest = 'AndroidManifest.xml',",
         "  custom_package = 'com.google.example',",
         "  resource_files = ['r1/values/a.xml'],",
         ")",
@@ -494,7 +494,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "  name = 'b',",
         "  srcs = ['Main.java'],",
         "  deps = [':l1'],",
-        "  manifest = 'Abracadabra.xml',",
+        "  manifest = 'AndroidManifest.xml',",
         "  custom_package = 'com.google.example',",
         "  resource_files = ['res/drawable/a.png', 'res/drawable/b.png'],",
         ")");
@@ -513,7 +513,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
                 ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
         .containsExactly("com/google/example/res");
     assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
-        .isEqualTo("com/google/example/Abracadabra.xml");
+        .isEqualTo("com/google/example/AndroidManifest.xml");
     assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
     assertThat(ruleInfo.getAndroidRuleIdeInfo().getApk().getRelativePath())
         .isEqualTo("com/google/example/b.apk");
@@ -540,13 +540,13 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "java/com/google/example/BUILD",
         "android_library(",
         "  name = 'l',",
-        "  manifest = 'Manifesto.xml',",
+        "  manifest = 'AndroidManifest.xml',",
         ")",
         "android_binary(",
         "  name = 'b',",
         "  srcs = ['Main.java'],",
         "  deps = [':l'],",
-        "  manifest = 'Abracadabra.xml',",
+        "  manifest = 'AndroidManifest.xml',",
         ")");
     Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//java/com/google/example:b");
     RuleIdeInfo lRuleInfo = getRuleInfoAndVerifyLabel("//java/com/google/example:l", ruleIdeInfos);
