@@ -917,6 +917,64 @@ public class MemoizingEvaluatorTest {
     changeCycle(true);
   }
 
+  /** @see ParallelEvaluatorTest#cycleAboveIndependentCycle() */
+  @Test
+  public void cycleAboveIndependentCycle() throws Exception {
+    SkyKey aKey = GraphTester.toSkyKey("a");
+    final SkyKey bKey = GraphTester.toSkyKey("b");
+    SkyKey cKey = GraphTester.toSkyKey("c");
+    final SkyKey leafKey = GraphTester.toSkyKey("leaf");
+    // When aKey depends on leafKey and bKey,
+    tester
+        .getOrCreate(aKey)
+        .setBuilder(
+            new SkyFunction() {
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) {
+                env.getValues(ImmutableList.of(leafKey, bKey));
+                return null;
+              }
+
+              @Nullable
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
+    // And bKey depends on cKey,
+    tester.getOrCreate(bKey).addDependency(cKey);
+    // And cKey depends on aKey and bKey in that order,
+    tester.getOrCreate(cKey).addDependency(aKey).addDependency(bKey);
+    // And leafKey is a leaf node,
+    tester.set(leafKey, new StringValue("leafy"));
+    // Then when we evaluate,
+    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ true, aKey);
+    // aKey has an error,
+    assertEquals(null, result.get(aKey));
+    // And both cycles were found underneath aKey: the (aKey->bKey->cKey) cycle, and the
+    // aKey->(bKey->cKey) cycle. This is because cKey depended on aKey and then bKey, so it pushed
+    // them down on the stack in that order, so bKey was processed first. It found its cycle, then
+    // popped off the stack, and then aKey was processed and found its cycle.
+    assertThat(result.getError(aKey).getCycleInfo())
+        .containsExactly(
+            new CycleInfo(ImmutableList.of(aKey, bKey, cKey)),
+            new CycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
+    // When leafKey is changed, so that aKey will be marked as NEEDS_REBUILDING,
+    tester.set(leafKey, new StringValue("crunchy"));
+    // And cKey is invalidated, so that cycle checking will have to explore the full graph,
+    tester.getOrCreate(cKey, /*markAsModified=*/ true);
+    tester.invalidate();
+    // Then when we evaluate,
+    EvaluationResult<StringValue> result2 = tester.eval(/*keepGoing=*/ true, aKey);
+    // Things are just as before.
+    assertEquals(null, result2.get(aKey));
+    assertThat(result2.getError(aKey).getCycleInfo())
+        .containsExactly(
+            new CycleInfo(ImmutableList.of(aKey, bKey, cKey)),
+            new CycleInfo(ImmutableList.of(aKey), ImmutableList.of(bKey, cKey)));
+  }
+
   /** Regression test: "crash in cycle checker with dirty values". */
   @Test
   public void cycleAndSelfEdgeWithDirtyValue() throws Exception {

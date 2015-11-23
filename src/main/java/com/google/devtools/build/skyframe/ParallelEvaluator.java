@@ -1801,8 +1801,8 @@ public final class ParallelEvaluator implements Evaluator {
       // that the entry can conceivably be ready if its cycleChild already found a different cycle
       // and was built.
       entry.signalDep();
-      maybeMarkRebuildingAndRemoveRemainingDirtyDirectDeps(key, entry);
     }
+    maybeMarkRebuildingAndRemoveRemainingDirtyDirectDeps(key, entry);
     Preconditions.checkState(entry.isReady(), "%s %s %s", key, cycleChild, entry);
     Iterator<SkyKey> it = toVisit.iterator();
     while (it.hasNext()) {
