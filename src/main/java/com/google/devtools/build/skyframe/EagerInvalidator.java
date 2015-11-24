@@ -88,12 +88,18 @@ public final class EagerInvalidator {
       EvaluationProgressReceiver invalidationReceiver,
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
-      ForkJoinPool forkJoinPool) {
+      ForkJoinPool forkJoinPool,
+      boolean supportInterruptions) {
     state.update(diff);
     return state.isEmpty()
         ? null
         : new DirtyingNodeVisitor(
-            graph, invalidationReceiver, state, dirtyKeyTracker, forkJoinPool);
+            graph,
+            invalidationReceiver,
+            state,
+            dirtyKeyTracker,
+            forkJoinPool,
+            supportInterruptions);
   }
 
   /**
@@ -126,11 +132,18 @@ public final class EagerInvalidator {
       EvaluationProgressReceiver invalidationReceiver,
       InvalidationState state,
       DirtyKeyTracker dirtyKeyTracker,
-      ForkJoinPool forkJoinPool)
+      ForkJoinPool forkJoinPool,
+      boolean supportInterruptions)
       throws InterruptedException {
     DirtyingNodeVisitor visitor =
         createInvalidatingVisitorIfNeeded(
-            graph, diff, invalidationReceiver, state, dirtyKeyTracker, forkJoinPool);
+            graph,
+            diff,
+            invalidationReceiver,
+            state,
+            dirtyKeyTracker,
+            forkJoinPool,
+            supportInterruptions);
     if (visitor != null) {
       visitor.run();
     }
