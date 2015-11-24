@@ -419,8 +419,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         long tasks = remainingTasks.incrementAndGet();
         Preconditions.checkState(
             tasks > 0,
-            "Incrementing remaining tasks counter resulted in impossible non-positive number %s",
-            tasks);
+            "Incrementing remaining tasks counter resulted in impossible non-positive number.");
         executeRunnable(wrapRunnable(runnable, ranTask));
       } catch (Throwable e) {
         if (!ranTask.get()) {
@@ -534,9 +533,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     // and the zeroRemainingTasks condition object notified if that condition is obtained.
     long tasks = remainingTasks.decrementAndGet();
     Preconditions.checkState(
-        tasks >= 0,
-        "Decrementing remaining tasks counter resulted in impossible negative number %s",
-        tasks);
+        tasks >= 0, "Decrementing remaining tasks counter resulted in impossible negative number.");
     if (tasks == 0) {
       synchronized (zeroRemainingTasks) {
         zeroRemainingTasks.notify();
