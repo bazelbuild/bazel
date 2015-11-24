@@ -283,6 +283,11 @@ public abstract class ReverseDepsUtilImpl<T> implements ReverseDepsUtil<T> {
     }
   }
 
+  @Override
+  public void consolidateReverseDeps(T container) {
+    consolidateData(container);
+  }
+
   private void consolidateData(T container) {
     List<Object> dataToConsolidate = getDataToConsolidate(container);
     if (dataToConsolidate == null) {
