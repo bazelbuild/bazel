@@ -25,10 +25,25 @@ CSS_FILETYPE = FileType([".css"])
 
 ZIP_PATH = "/usr/bin/zip"
 
+def _path_parts(path):
+  """Takes a path and returns a list of its parts with all "." elements removed.
+
+  The main use case of this function is if one of the inputs to _relative()
+  is a relative path, such as "./foo".
+
+  Args:
+    path_parts: A list containing parts of a path.
+
+  Returns:
+    Returns a list containing the path parts with all "." elements removed.
+  """
+  path_parts = path.split("/")
+  return [part for part in path_parts if part != "."]
+
 def _relative(src_path, dest_path):
   """Returns the relative path from src_path to dest_path."""
-  src_parts = src_path.split("/")
-  dest_parts = dest_path.split("/")
+  src_parts = _path_parts(src_path)
+  dest_parts = _path_parts(dest_path)
   n = 0
   done = False
   for src_part, dest_part in zip(src_parts, dest_parts):
@@ -43,17 +58,18 @@ def _relative(src_path, dest_path):
 
   return relative_path
 
-def _create_setup_cmd(lib, deps_dir):
+def _create_setup_cmd(lib, deps_dir, in_runfiles):
   """
   Helper function to construct a command for symlinking a library into the
   deps directory.
   """
+  lib_path = lib.short_path if in_runfiles else lib.path
   return (
-      "ln -sf " + _relative(deps_dir, lib.path) + " " +
+      "ln -sf " + _relative(deps_dir, lib_path) + " " +
       deps_dir + "/" + lib.basename + "\n"
   )
 
-def _setup_deps(deps, name, working_dir, is_library=False):
+def _setup_deps(deps, name, working_dir, is_library=False, in_runfiles=False):
   """
   Walks through dependencies and constructs the necessary commands for linking
   to all the necessary dependencies.
@@ -62,8 +78,11 @@ def _setup_deps(deps, name, working_dir, is_library=False):
     deps: List of Labels containing deps from ctx.attr.deps.
     name: Name of the current target.
     working_dir: The output directory for the current target's outputs.
-    is_library: True the current target is a rust_library target, False
+    is_library: True if the current target is a rust_library target, False
         otherwise.
+    in_runfiles: True if the setup commands will be run in a .runfiles
+        directory. In this case, the working dir should be '.', and the deps
+        will be symlinked into the .deps dir from the runfiles tree.
 
   Returns:
     Returns a struct containing the following fields:
@@ -113,7 +132,7 @@ def _setup_deps(deps, name, working_dir, is_library=False):
            ("or cc_library " if is_library else "") + "targets")
 
   for symlinked_lib in symlinked_libs:
-    setup_cmd += [_create_setup_cmd(symlinked_lib, deps_dir)]
+    setup_cmd += [_create_setup_cmd(symlinked_lib, deps_dir, in_runfiles)]
 
   search_flags = []
   if has_rlib:
@@ -322,7 +341,7 @@ def _rust_binary_impl(ctx):
   ctx.action(
       inputs = compile_inputs,
       outputs = [rust_binary],
-      mnemonic = 'Rustc',
+      mnemonic = "Rustc",
       command = cmd,
       use_default_shell_env = True,
       progress_message = ("Compiling Rust binary %s (%d files)"
@@ -346,7 +365,7 @@ def _rust_test_common(ctx, test_binary):
     # the dependency's srcs.
     dep = ctx.attr.deps[0]
     crate_type = dep.crate_type if hasattr(dep, "crate_type") else "bin"
-    target = struct(name = dep.label.name,
+    target = struct(name = ctx.label.name,
                     srcs = dep.rust_srcs,
                     deps = dep.rust_deps,
                     crate_root = dep.crate_root,
@@ -432,7 +451,7 @@ def _rust_doc_impl(ctx):
   rust_doc_zip = ctx.outputs.rust_doc_zip
 
   # Gather attributes about the rust_library target to generated rustdocs for.
-  target = struct(name = ctx.attr.dep.label.name,
+  target = struct(name = ctx.label.name,
                   srcs = ctx.attr.dep.rust_srcs,
                   deps = ctx.attr.dep.rust_deps,
                   crate_root = ctx.attr.dep.crate_root)
@@ -455,7 +474,7 @@ def _rust_doc_impl(ctx):
   toolchain = _rust_toolchain(ctx)
   docs_dir = rust_doc_zip.dirname + "/_rust_docs"
   doc_cmd = " ".join(
-      ["set -e"] +
+      ["set -e;"] +
       depinfo.setup_cmd + [
           "rm -rf %s;" % docs_dir,
           "mkdir %s;" % docs_dir,
@@ -491,7 +510,7 @@ def _rust_doc_impl(ctx):
   ctx.action(
       inputs = rustdoc_inputs,
       outputs = [rust_doc_zip],
-      mnemonic = 'Rustdoc',
+      mnemonic = "Rustdoc",
       command = doc_cmd,
       use_default_shell_env = True,
       progress_message = ("Generating rustdoc for %s (%d files)"
@@ -502,7 +521,7 @@ def _rust_doc_test_impl(ctx):
   rust_doc_test = ctx.outputs.executable
 
   # Gather attributes about the rust_library target to generated rustdocs for.
-  target = struct(name = ctx.attr.dep.label.name,
+  target = struct(name = ctx.label.name,
                   srcs = ctx.attr.dep.rust_srcs,
                   deps = ctx.attr.dep.rust_deps,
                   crate_root = ctx.attr.dep.crate_root)
@@ -512,10 +531,12 @@ def _rust_doc_test_impl(ctx):
             if target.crate_root == None else target.crate_root)
 
   # Get information about dependencies
+  output_dir = rust_doc_test.dirname
   depinfo = _setup_deps(target.deps,
                         target.name,
                         working_dir=".",
-                        is_library=False)
+                        is_library=False,
+                        in_runfiles=True)
 
   # Construct rustdoc test command, which will be written to a shell script
   # to be executed to run the test.
