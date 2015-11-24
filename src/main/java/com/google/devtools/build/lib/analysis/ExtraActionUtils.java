@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.rules.extra.ExtraActionMapProvider;
 import com.google.devtools.build.lib.rules.extra.ExtraActionSpec;
 
 import java.util.List;
-import java.util.Set;
 
 /**
  * A collection of static methods related to ExtraActions.
@@ -43,8 +42,7 @@ class ExtraActionUtils {
    * extra_action are reported to the {@link AnalysisEnvironment} for
    * bookkeeping.
    */
-  static ExtraActionArtifactsProvider createExtraActionProvider(
-      Set<Action> actionsWithoutExtraAction, RuleContext ruleContext) {
+  static ExtraActionArtifactsProvider createExtraActionProvider(RuleContext ruleContext) {
     BuildConfiguration configuration = ruleContext.getConfiguration();
     if (configuration.isHostConfiguration()) {
       return ExtraActionArtifactsProvider.EMPTY;
@@ -63,9 +61,7 @@ class ExtraActionUtils {
       // thus the copy
       for (Action action : ImmutableList.copyOf(
           ruleContext.getAnalysisEnvironment().getRegisteredActions())) {
-        if (!actionsWithoutExtraAction.contains(action)) {
-          visitor.addExtraAction(action);
-        }
+        visitor.addExtraAction(action);
       }
 
       extraActionArtifacts = visitor.getAndResetExtraArtifacts();
