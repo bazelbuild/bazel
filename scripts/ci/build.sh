@@ -276,7 +276,7 @@ function create_index_html() {
   # Second line is to trick hoedown to behave as Github
   create_index_md "${@}" \
       | sed -E 's/^(Baseline.*)$/\1\
-/' | sed 's/^   + / - /' \
+/' | sed 's/^   + / - /' | sed 's/_/\\_/g' \
       | "${hoedown}"
 }
 
