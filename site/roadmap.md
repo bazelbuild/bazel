@@ -95,7 +95,7 @@ be refined if appropriate.
     <tr>
       <td rowspan="2"><b>0.3</b></td>
       <td rowspan="2"><b>2016&#8209;02</b></td>
-      <td>P0. Bazel can bootstrap itself on Windows without requiring admin priviledge</td></tr>
+      <td>P0. Bazel can bootstrap itself on Windows without requiring admin privileges</td></tr>
     </tr>
     <tr><td>P1. Interface for IDE support</td></tr>
     <tr>
