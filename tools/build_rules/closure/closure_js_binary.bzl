@@ -70,7 +70,7 @@ def _impl(ctx):
          (ctx.attr.compilation_level, _COMPILATION_LEVELS.keys()))
 
   ctx.action(
-      inputs=list(srcs),
+      inputs=list(srcs) + list(externs),
       outputs=[ctx.outputs.out],
       arguments=args,
       executable=ctx.executable._closure_compiler)
