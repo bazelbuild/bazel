@@ -346,6 +346,15 @@ public class JavaOptions extends FragmentOptions {
           + "The \"launcher\" attribute overrides this flag. ")
   public Label javaLauncher;
 
+  @Option(name = "extra_proguard_specs",
+      allowMultiple = true,
+      defaultValue = "", // Ignored
+      converter = LabelConverter.class,
+      category = "undocumented",
+      help = "Additional Proguard specs that will be used for all Proguard invocations.  Note that "
+          + "using this option only has an effect when Proguard is used anyway.")
+  public List<Label> extraProguardSpecs;
+
   @Option(name = "translations",
       defaultValue = "auto",
       category = "semantics",

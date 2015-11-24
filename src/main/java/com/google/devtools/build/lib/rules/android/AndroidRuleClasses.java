@@ -712,6 +712,7 @@ com/google/common/base/Objects.class
             </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("legacy_native_support", TRISTATE).value(TriState.AUTO))
+          .add(attr(":extra_proguard_specs", LABEL_LIST).value(JavaSemantics.EXTRA_PROGUARD_SPECS))
           .advertiseProvider(JavaCompilationArgsProvider.class)
           .build();
       }

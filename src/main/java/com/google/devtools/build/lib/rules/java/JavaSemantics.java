@@ -99,7 +99,7 @@ public interface JavaSemantics {
    * Name of the output group used for gen jars (the jars containing the class files for sources
    * generated from annotation processors).
    */
-  public static final String GENERATED_JARS_OUTPUT_GROUP = 
+  public static final String GENERATED_JARS_OUTPUT_GROUP =
       OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "gen_jars";
 
   /**
@@ -179,6 +179,15 @@ public interface JavaSemantics {
         @Override
         public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
           return ImmutableList.copyOf(configuration.getPlugins());
+        }
+      };
+
+  public static final LateBoundLabelList<BuildConfiguration> EXTRA_PROGUARD_SPECS =
+      new LateBoundLabelList<BuildConfiguration>() {
+        @Override
+        public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
+          return ImmutableList.copyOf(
+              configuration.getFragment(JavaConfiguration.class).getExtraProguardSpecs());
         }
       };
 
@@ -278,7 +287,7 @@ public interface JavaSemantics {
 
   /**
    * Adds extra providers to a Java target.
-   * @throws InterruptedException 
+   * @throws InterruptedException
    */
   void addProviders(RuleContext ruleContext,
       JavaCommon javaCommon,
@@ -309,7 +318,7 @@ public interface JavaSemantics {
    * @param attributesBuilder the builder to construct the list of attributes of this target
    *        (mutable).
    * @return the launcher as an artifact
-   * @throws InterruptedException 
+   * @throws InterruptedException
    */
   Artifact getLauncher(final RuleContext ruleContext, final JavaCommon common,
       DeployArchiveBuilder deployArchiveBuilder, Runfiles.Builder runfilesBuilder,
