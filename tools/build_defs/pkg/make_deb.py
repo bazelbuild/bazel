@@ -13,11 +13,13 @@
 # limitations under the License.
 """A simple cross-platform helper to create a debian package."""
 
+import hashlib
 import os.path
 from StringIO import StringIO
 import sys
 import tarfile
 import textwrap
+import time
 
 from third_party.py import gflags
 
@@ -41,10 +43,11 @@ DEBIAN_FIELDS = [
     ('Built-Using', False, False, 'Bazel')
     ]
 
-gflags.DEFINE_string(
-    'output', None,
-    'The output file, mandatory')
+gflags.DEFINE_string('output', None, 'The output file, mandatory')
 gflags.MarkFlagAsRequired('output')
+
+gflags.DEFINE_string('changes', None, 'The changes output file, mandatory.')
+gflags.MarkFlagAsRequired('changes')
 
 gflags.DEFINE_string('data', None,
                      'Path to the data tarball, mandatory')
@@ -148,7 +151,7 @@ def CreateDeb(output, data,
     f.write('!<arch>\n')  # Magic AR header
     AddArFileEntry(f, 'debian-binary', '2.0\n')
     AddArFileEntry(f, 'control.tar.gz', control)
-    # Tries to presever the extension name
+    # Tries to preserve the extension name
     ext = os.path.basename(data).split('.')[-2:]
     if len(ext) < 2:
       ext = 'tar'
@@ -163,6 +166,78 @@ def CreateDeb(output, data,
     with open(data, 'r') as datafile:
       data = datafile.read()
     AddArFileEntry(f, 'data.' + ext, data)
+
+
+def GetChecksumsFromFile(filename, hash_fns=None):
+  """Computes MD5 and/or other checksums of a file.
+
+  Args:
+    filename: Name of the file.
+    hash_fns: Mapping of hash functions.
+              Default is {'md5': hashlib.md5}
+
+  Returns:
+    Mapping of hash names to hexdigest strings.
+    { <hashname>: <hexdigest>, ... }
+  """
+  hash_fns = hash_fns or {'md5': hashlib.md5}
+  checksums = {k: fn() for (k, fn) in hash_fns.items()}
+
+  with open(filename) as file_handle:
+    while True:
+      buf = file_handle.read(1048576)  # 1 MiB
+      if not buf:
+        break
+      for hashfn in checksums.values():
+        hashfn.update(buf)
+
+  return {k: fn.hexdigest() for (k, fn) in checksums.items()}
+
+
+def CreateChanges(output,
+                  deb_file,
+                  architecture,
+                  short_description,
+                  maintainer,
+                  package,
+                  version,
+                  section,
+                  priority,
+                  timestamp=0,
+                  distro='unstable',
+                  urgency='medium'):
+  """Create the changes file."""
+  checksums = GetChecksumsFromFile(deb_file, {'md5': hashlib.md5,
+                                              'sha1': hashlib.sha1,
+                                              'sha256': hashlib.sha256})
+  debsize = str(os.path.getsize(deb_file))
+  deb_basename = os.path.basename(deb_file)
+
+  changesdata = ''.join(MakeDebianControlField(*x) for x in [
+      ('Format', '1.8'),
+      ('Date', time.ctime(timestamp)),
+      ('Source', package),
+      ('Binary', package),
+      ('Architecture', architecture),
+      ('Version', version),
+      ('Distribution', distro),
+      ('Urgency', urgency),
+      ('Maintainer', maintainer),
+      ('Changed-By', maintainer),
+      ('Description', '\n%s - %s' % (package, short_description)),
+      ('Changes',
+       ('\n%s (%s) %s; urgency=%s'
+        '\nChanges are tracked in revision control.') % (
+            package, version, distro, urgency)),
+      ('Files', '\n' + ' '.join(
+          [checksums['md5'], debsize, section, priority, deb_basename])),
+      ('Checksums-Sha1', '\n' + ' '.join(
+          [checksums['sha1'], debsize, deb_basename])),
+      ('Checksums-Sha256', '\n' + ' '.join(
+          [checksums['sha256'], debsize, deb_basename]))
+      ])
+  with open(output, 'w') as changes_fh:
+    changes_fh.write(changesdata)
 
 
 def GetFlagValue(flagvalue, strip=True):
@@ -191,6 +266,16 @@ def main(unused_argv):
             builtUsing=GetFlagValue(FLAGS.built_using),
             priority=FLAGS.priority,
             installedSize=GetFlagValue(FLAGS.installed_size))
+  CreateChanges(
+      FLAGS.changes,
+      FLAGS.output,
+      architecture=FLAGS.architecture,
+      short_description=GetFlagValue(FLAGS.description).split('\n')[0],
+      maintainer=FLAGS.maintainer,
+      package=FLAGS.package,
+      version=GetFlagValue(FLAGS.version),
+      section=FLAGS.section,
+      priority=FLAGS.priority)
 
 if __name__ == '__main__':
   MakeGflags()

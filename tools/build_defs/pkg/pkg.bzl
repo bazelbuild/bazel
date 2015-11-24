@@ -90,6 +90,7 @@ def _pkg_deb_impl(ctx):
   files = [ctx.file.data]
   args = [
       "--output=" + ctx.outputs.deb.path,
+      "--changes=" + ctx.outputs.changes.path,
       "--data=" + ctx.file.data.path,
       "--package=" + ctx.attr.package,
       "--architecture=" + ctx.attr.architecture,
@@ -155,7 +156,7 @@ def _pkg_deb_impl(ctx):
       executable = ctx.executable._make_deb,
       arguments = args,
       inputs = files,
-      outputs = [ctx.outputs.deb],
+      outputs = [ctx.outputs.deb, ctx.outputs.changes],
       mnemonic="MakeDeb"
       )
   ctx.action(
@@ -224,5 +225,6 @@ pkg_deb = rule(
     outputs = {
         "out": "%{name}.deb",
         "deb": "%{package}_%{version}_%{architecture}.deb",
+        "changes": "%{package}_%{version}_%{architecture}.changes"
     },
     executable = False)
