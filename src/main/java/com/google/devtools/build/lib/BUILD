@@ -113,7 +113,7 @@ java_library(
         ":unix",
         ":util",
         ":vfs",
-        "//src/java_tools/singlejar:zip",
+        "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bazel/dash",
         "//src/main/java/com/google/devtools/build/lib/query2",

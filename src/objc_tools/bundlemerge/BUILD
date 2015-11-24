@@ -18,7 +18,7 @@ java_library(
     srcs = glob(["java/**/BundleMerging.java"]),
     deps = [
         "//src/java_tools/singlejar:libSingleJar",
-        "//src/java_tools/singlejar:zip",
+        "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/protobuf:bundlemerge_proto",
         "//src/objc_tools/plmerge:plmerge_lib",
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/common",
