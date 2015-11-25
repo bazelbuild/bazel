@@ -921,6 +921,32 @@ java_test(
 )
 
 java_test(
+    name = "standalone-tests",
+    srcs = glob(["standalone/*.java"]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    data = [":embedded_scripts"],
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
+        ":foundations_testutil",
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:analysis-exec-rules-skyframe",
+        "//src/main/java/com/google/devtools/build/lib:clock",
+        "//src/main/java/com/google/devtools/build/lib:events",
+        "//src/main/java/com/google/devtools/build/lib:os_util",
+        "//src/main/java/com/google/devtools/build/lib:shell",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/standalone",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "exec-tests",
     srcs = glob(["exec/*.java"]),
     args = ["com.google.devtools.build.lib.AllTests"],
