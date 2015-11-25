@@ -77,6 +77,8 @@ import com.google.devtools.build.lib.rules.android.AndroidLibraryBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
+import com.google.devtools.build.lib.rules.apple.XcodeVersionRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainSuiteRule;
 import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
@@ -349,6 +351,8 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new IosExtensionRule());
     builder.addRuleDefinition(new IosFrameworkBinaryRule());
     builder.addRuleDefinition(new IosFrameworkRule());
+    builder.addRuleDefinition(new XcodeVersionRule());
+    builder.addRuleDefinition(new XcodeConfigRule());
     builder.addRuleDefinition(new J2ObjcLibraryBaseRule());
     builder.addRuleDefinition(new BazelJ2ObjcLibraryRule());
 

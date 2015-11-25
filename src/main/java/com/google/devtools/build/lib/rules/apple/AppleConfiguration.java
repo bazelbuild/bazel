@@ -70,11 +70,13 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the value of the xcode version override build flag, if specified. This is directly
-   * derived from --xcode_version_override. Format "x(.y)(.z)" (for example, "7", or "6.4",
-   * or "7.0.1").
+   * Returns the value of the xcode version build flag if available. This is obtained directly from
+   * the {@code --xcode_version} build flag.
+   * 
+   * <p>Most rules should avoid using this flag value, and instead obtain the appropriate xcode
+   * version from {@link XcodeConfigProvider#getXcodeVersion}.
    */
-  public Optional<DottedVersion> getXcodeVersionOverride() {
+  public Optional<DottedVersion> getXcodeVersionOverrideFlag() {
     return xcodeVersionOverride;
   }
 
@@ -83,6 +85,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * for actions pertaining to building ios applications. Keys are variable names and values are
    * their corresponding values.
    */
+  // TODO(bazel-team): Repurpose for non-ios platforms.
   // TODO(bazel-team): Separate host system and target platform environment
   public Map<String, String> getEnvironmentForIosAction() {
     ImmutableMap.Builder<String, String> mapBuilder = ImmutableMap.builder();
@@ -98,9 +101,10 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    */
   public Map<String, String> appleHostSystemEnv() {
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-    if (getXcodeVersionOverride().isPresent()) {
+    // TODO(bazel-team): Use the xcode version from transitive target info instead of the flag.
+    if (getXcodeVersionOverrideFlag().isPresent()) {
       builder.put(AppleConfiguration.XCODE_VERSION_ENV_NAME,
-          getXcodeVersionOverride().get().toString());
+          getXcodeVersionOverrideFlag().get().toString());
     }
     return builder.build();
   }
