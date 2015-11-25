@@ -294,6 +294,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     MountMap mounts = new MountMap();
     FileSystem fs = blazeDirs.getFileSystem();
     mounts.put(fs.getPath("/bin"), fs.getPath("/bin"));
+    mounts.put(fs.getPath("/sbin"), fs.getPath("/sbin"));
     mounts.put(fs.getPath("/etc"), fs.getPath("/etc"));
     for (String entry : FilesystemUtils.readdir("/")) {
       if (entry.startsWith("lib")) {
