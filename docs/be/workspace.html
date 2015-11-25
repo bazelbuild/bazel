@@ -58,6 +58,14 @@ layout: documentation
       <a href="#new_local_repository">
         new_local_repository      </a>
     </li>
+    <li>
+      <a href="#xcode_config">
+        xcode_config      </a>
+    </li>
+    <li>
+      <a href="#xcode_version">
+        xcode_version      </a>
+    </li>
   </ul>
 </div>
 
@@ -1300,6 +1308,83 @@ Then targets can depend on <code>@piano//:play-music</code> to use piano.jar.
         </td>
       </tr>
               </tbody>
+  </table>
+    <h2 id="xcode_config">
+    xcode_config
+  </h2>
+
+  <pre class="rule-signature">xcode_config(<a href="#xcode_config.name">name</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+
+
+
+
+<p>A single target of this rule can be referenced by the <code>--xcode_config</code> build flag to
+translate the <code>--xcode_version</code> flag into an accepted official xcode version. This
+allows selection of a an official xcode version from a number of registered aliases.</p>
+
+
+
+
+
+  <h3 id="xcode_config_args">Arguments</h3>
+  <table class="table table-condensed table-bordered table-params">
+    <colgroup>
+      <col class="col-param" />
+      <col class="param-description" />
+    </colgroup>
+    <thead>
+      <tr>
+        <th colspan="2">Attributes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td id="xcode_config.name"><code>name</code></td>
+        <td>
+          <p><code><a href="../build-ref.html#name">Name</a>; required</code></p>
+          <p>A unique name for this rule.</p>
+
+        </td>
+      </tr>
+                                                                              </tbody>
+  </table>
+    <h2 id="xcode_version">
+    xcode_version
+  </h2>
+
+  <pre class="rule-signature">xcode_version(<a href="#xcode_version.name">name</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+
+
+
+
+<p>Represents a single official xcode version with acceptable aliases for that xcode version.
+See the <code>xcode_config</code> rule.</p>
+
+
+
+
+
+  <h3 id="xcode_version_args">Arguments</h3>
+  <table class="table table-condensed table-bordered table-params">
+    <colgroup>
+      <col class="col-param" />
+      <col class="param-description" />
+    </colgroup>
+    <thead>
+      <tr>
+        <th colspan="2">Attributes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td id="xcode_version.name"><code>name</code></td>
+        <td>
+          <p><code><a href="../build-ref.html#name">Name</a>; required</code></p>
+          <p>A unique name for this rule.</p>
+
+        </td>
+      </tr>
+                                                                              </tbody>
   </table>
 
 <!-- Generated footer -->
