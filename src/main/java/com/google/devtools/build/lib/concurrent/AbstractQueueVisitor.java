@@ -25,7 +25,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -411,7 +410,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   @Override
   public final void execute(Runnable runnable) {
     if (concurrent) {
-      AtomicBoolean ranTask = new AtomicBoolean(false);
+      WrappedRunnable wrappedRunnable = new WrappedRunnable(runnable);
       try {
         // It's impossible for this increment to result in remainingTasks.get <= 0 because
         // remainingTasks is never negative. Therefore it isn't necessary to check its value for
@@ -420,9 +419,9 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
         Preconditions.checkState(
             tasks > 0,
             "Incrementing remaining tasks counter resulted in impossible non-positive number.");
-        executeRunnable(wrapRunnable(runnable, ranTask));
+        executeRunnable(wrappedRunnable);
       } catch (Throwable e) {
-        if (!ranTask.get()) {
+        if (!wrappedRunnable.ran) {
           // Note that keeping track of ranTask is necessary to disambiguate the case where
           // execute() itself failed, vs. a caller-runs policy on pool exhaustion, where the
           // runnable threw. To be extra cautious, we decrement the task count in a finally
@@ -460,9 +459,9 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   }
 
   /**
-   * Wraps {@param runnable} in a newly constructed {@link Runnable} {@code r} that:
+   * A wrapped {@link Runnable} that:
    * <ul>
-   *   <li>Sets {@param ranTask} to {@code true} as soon as {@code r} starts to be evaluated,
+   *   <li>Sets {@link #run} to {@code true} when {@code WrappedRunnable} is run,
    *   <li>Records the thread evaluating {@code r} in {@link #jobs} while {@code r} is evaluated,
    *   <li>Prevents {@param runnable} from being invoked if {@link #blockNewActions} returns
    *   {@code true},
@@ -474,43 +473,48 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
    *   <li>And, lastly, calls {@link #decrementRemainingTasks}.
    * </ul>
    */
-  private Runnable wrapRunnable(final Runnable runnable, final AtomicBoolean ranTask) {
-    return new Runnable() {
-      @Override
-      public void run() {
-        Thread thread = null;
-        boolean addedJob = false;
-        try {
-          ranTask.set(true);
-          thread = Thread.currentThread();
-          addJob(thread);
-          addedJob = true;
-          if (blockNewActions()) {
-            // Make any newly enqueued tasks quickly die. We check after adding to the jobs map so
-            // that if another thread is racing to kill this thread and didn't make it before this
-            // conditional, it will be able to find and kill this thread anyway.
-            return;
+  private final class WrappedRunnable implements Runnable {
+    private final Runnable originalRunnable;
+    private volatile boolean ran;
+
+    private WrappedRunnable(Runnable originalRunnable) {
+      this.originalRunnable = originalRunnable;
+    }
+
+    @Override
+    public void run() {
+      ran = true;
+      Thread thread = null;
+      boolean addedJob = false;
+      try {
+        thread = Thread.currentThread();
+        addJob(thread);
+        addedJob = true;
+        if (blockNewActions()) {
+          // Make any newly enqueued tasks quickly die. We check after adding to the jobs map so
+          // that if another thread is racing to kill this thread and didn't make it before this
+          // conditional, it will be able to find and kill this thread anyway.
+          return;
+        }
+        originalRunnable.run();
+      } catch (Throwable e) {
+        synchronized (AbstractQueueVisitor.this) {
+          if (unhandled == null) { // save only the first one.
+            unhandled = e;
+            exceptionLatch.countDown();
           }
-          runnable.run();
-        } catch (Throwable e) {
-          synchronized (AbstractQueueVisitor.this) {
-            if (unhandled == null) { // save only the first one.
-              unhandled = e;
-              exceptionLatch.countDown();
-            }
-            markToStopAllJobsIfNeeded(e);
+          markToStopAllJobsIfNeeded(e);
+        }
+      } finally {
+        try {
+          if (thread != null && addedJob) {
+            removeJob(thread);
           }
         } finally {
-          try {
-            if (thread != null && addedJob) {
-              removeJob(thread);
-            }
-          } finally {
-            decrementRemainingTasks();
-          }
+          decrementRemainingTasks();
         }
       }
-    };
+    }
   }
 
   private void addJob(Thread thread) {
