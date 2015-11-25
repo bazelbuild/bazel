@@ -69,8 +69,13 @@ public class $groupId {
   }
 }
 EOF
+  local jar_path=$pkg_dir/$artifactId-$version.jar
   ${bazel_javabase}/bin/javac $TEST_TMPDIR/$groupId.java
-  ${bazel_javabase}/bin/jar cf $pkg_dir/$artifactId-$version.jar $TEST_TMPDIR/$groupId.class
+  ${bazel_javabase}/bin/jar cf $jar_path $TEST_TMPDIR/$groupId.class
+
+  local sha1=$(shasum $jar_path | awk '{print $1}')
+  echo -n $sha1 > $jar_path.sha1
+  echo $sha1
 }
 
 function get_workspace_file() {
@@ -83,7 +88,7 @@ function get_build_file() {
 
 function test_pom() {
   # Create a maven repo
-  make_artifact blorp glorp 1.2.3
+  local sha1=$(make_artifact blorp glorp 1.2.3)
 
   # Create a pom that references the artifacts.
   cat > $TEST_TMPDIR/pom.xml <<EOF
@@ -118,6 +123,7 @@ EOF
 
   assert_contains "artifact = \"blorp:glorp:1.2.3\"," ws
   assert_contains "repository = \"http://localhost:$fileserver_port/\"," ws
+  assert_contains "sha1 = \"$sha1\"," ws
   assert_contains "\"@blorp_glorp//jar\"," build
 }
 

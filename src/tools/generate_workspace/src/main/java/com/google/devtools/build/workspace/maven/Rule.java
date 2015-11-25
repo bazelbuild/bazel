@@ -15,6 +15,7 @@
 package com.google.devtools.build.workspace.maven;
 
 import com.google.common.collect.Sets;
+import com.google.common.io.CharStreams;
 
 import com.google.devtools.build.lib.bazel.repository.MavenConnector;
 import com.google.devtools.build.lib.events.Event;
@@ -23,6 +24,10 @@ import org.apache.maven.model.Dependency;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Set;
 
 /**
@@ -32,6 +37,7 @@ public final class Rule {
   private final Artifact artifact;
   private final Set<String> parents;
   private String repository;
+  private String sha1;
 
   public Rule(String artifactStr) throws InvalidRuleException {
     try {
@@ -99,6 +105,16 @@ public final class Rule {
           + " attribute manually"));
     } else {
       this.repository = url.substring(0, uriStart);
+      String jarSha1Url = url.replaceAll("pom$", "jar.sha1");
+      try {
+        // Download the sha1 of the jar file from the repository.
+        HttpURLConnection connection = (HttpURLConnection) new URL(jarSha1Url).openConnection();
+        connection.setInstanceFollowRedirects(true);
+        connection.connect();
+        this.sha1 = CharStreams.toString(new InputStreamReader(connection.getInputStream()));
+      } catch (IOException e) {
+        handler.handle(Event.warn("Failed to download the sha1 at " + jarSha1Url));
+      }
     }
   }
 
@@ -120,6 +136,7 @@ public final class Rule {
         + "    name = \"" + name() + "\",\n"
         + "    artifact = \"" + toMavenArtifactString() + "\",\n"
         + (hasCustomRepository() ? "    repository = \"" + repository + "\",\n" : "")
+        + (sha1 != null ? "    sha1 = \"" + sha1 + "\",\n" : "")
         + ")");
     return builder.toString();
   }
