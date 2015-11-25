@@ -106,7 +106,7 @@ public final class CleanCommand implements BlazeCommand {
     env.getReporter().handle(Event.info(null/*location*/, cleanBanner));
     try {
       String symlinkPrefix =
-          options.getOptions(BuildRequest.BuildRequestOptions.class).symlinkPrefix;
+          options.getOptions(BuildRequest.BuildRequestOptions.class).getSymlinkPrefix();
       actuallyClean(env, runtime.getOutputBase(), cleanOptions, symlinkPrefix);
       return ExitCode.SUCCESS;
     } catch (IOException e) {

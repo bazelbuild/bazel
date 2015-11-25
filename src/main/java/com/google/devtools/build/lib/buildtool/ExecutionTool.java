@@ -353,7 +353,7 @@ public class ExecutionTool {
         OutputDirectoryLinksUtils.createOutputDirectoryLinks(
             runtime.getWorkspaceName(), getWorkspace(), getExecRoot(),
             runtime.getOutputPath(), getReporter(), targetConfigurations.get(0),
-            request.getSymlinkPrefix());
+            request.getBuildOptions().getSymlinkPrefix());
       }
     }
 

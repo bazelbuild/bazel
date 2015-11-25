@@ -33,13 +33,11 @@ import com.google.devtools.build.lib.runtime.BlazeCommandEventHandler;
 import com.google.devtools.build.lib.util.OptionsUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.RangeConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
-import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.OptionsProvider;
 
 import java.util.ArrayList;
@@ -56,24 +54,6 @@ import java.util.regex.Pattern;
  * as --keep_going, --jobs, etc.
  */
 public class BuildRequest implements OptionsClassProvider {
-  /**
-   * A converter for symlink prefixes that defaults to {@code Constants.PRODUCT_NAME} and a
-   * minus sign if the option is not given.
-   *
-   * <p>Required because you cannot specify a non-constant value in annotation attributes.
-   */
-  public static class SymlinkPrefixConverter implements Converter<String> {
-    @Override
-    public String convert(String input) throws OptionsParsingException {
-      return input.isEmpty() ? Constants.PRODUCT_NAME + "-" : input;
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a string";
-    }
-  }
-
   /**
    * Options interface--can be used to parse command-line arguments.
    *
@@ -248,12 +228,11 @@ public class BuildRequest implements OptionsClassProvider {
     public boolean announce;
 
     @Option(name = "symlink_prefix",
-        defaultValue = "",
-        converter = SymlinkPrefixConverter.class,
+        defaultValue = "null",
         category = "misc",
         help = "The prefix that is prepended to any of the convenience symlinks that are created "
             + "after a build. If '/' is passed, then no symlinks are created and no warning is "
-            + "emitted. If omitted or is empty, the default value is the name of the build tool."
+            + "emitted. If omitted, the default value is the name of the build tool."
         )
     public String symlinkPrefix;
 
@@ -289,6 +268,10 @@ public class BuildRequest implements OptionsClassProvider {
       help = "List of top-level aspects"
     )
     public List<String> aspects;
+
+    public String getSymlinkPrefix() {
+      return symlinkPrefix == null ? Constants.PRODUCT_NAME + "-" : symlinkPrefix;
+    }
   }
 
   /**
@@ -550,10 +533,6 @@ public class BuildRequest implements OptionsClassProvider {
     }
 
     return ImmutableSortedSet.copyOf(current);
-  }
-
-  public String getSymlinkPrefix() {
-    return getBuildOptions().symlinkPrefix;
   }
 
   public ImmutableSortedSet<String> getMultiCpus() {

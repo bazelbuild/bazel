@@ -243,7 +243,7 @@ public class RunCommand implements BlazeCommand  {
     PathFragment prettyExecutablePath =
         OutputDirectoryLinksUtils.getPrettyPath(executablePath,
             runtime.getWorkspaceName(), runtime.getWorkspace(),
-            options.getOptions(BuildRequestOptions.class).symlinkPrefix);
+            options.getOptions(BuildRequestOptions.class).getSymlinkPrefix());
     List<String> cmdLine = new ArrayList<>();
     if (runOptions.scriptPath == null) {
       cmdLine.add(runtime.getDirectories().getExecRoot()

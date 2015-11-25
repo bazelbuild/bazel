@@ -140,7 +140,7 @@ class BuildResultPrinter {
                 + OutputDirectoryLinksUtils.getPrettyPath(temp.getPath(),
                 runtime.getWorkspaceName(),
                 runtime.getWorkspace(),
-                request.getSymlinkPrefix()));
+                request.getBuildOptions().getSymlinkPrefix()));
           }
         }
       }
@@ -156,7 +156,8 @@ class BuildResultPrinter {
 
   private String formatArtifactForShowResults(Artifact artifact, BuildRequest request) {
     return "  " + OutputDirectoryLinksUtils.getPrettyPath(artifact.getPath(),
-        runtime.getWorkspaceName(), runtime.getWorkspace(), request.getSymlinkPrefix());
+        runtime.getWorkspaceName(), runtime.getWorkspace(),
+        request.getBuildOptions().getSymlinkPrefix());
   }
 
   /**
