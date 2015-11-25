@@ -18,6 +18,8 @@ import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.skyframe.FileValue;
+import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -52,6 +54,15 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
       return null;
     }
     Path outputDirectory = getExternalRepositoryDirectory().getRelative(rule.getName());
+    if (isFilesystemUpToDate(rule, NO_RULE_SPECIFIC_DATA)) {
+      FileValue buildFileValue = getBuildFileValue(rule, env);
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      return RepositoryValue.createNew(outputDirectory, buildFileValue);
+    }
+
     try {
       FileSystemUtils.createDirectoryAndParents(outputDirectory);
     } catch (IOException e) {
@@ -98,6 +109,11 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
 
     // Add WORKSPACE and BUILD files.
     createWorkspaceFile(decompressed.getDirectory(), rule);
-    return symlinkBuildFile(rule, getWorkspace(), outputDirectory, env);
+    SkyValue result = symlinkBuildFile(rule, outputDirectory, env);
+    if (!env.valuesMissing()) {
+      writeMarkerFile(rule, NO_RULE_SPECIFIC_DATA);
+    }
+
+    return result;
   }
 }

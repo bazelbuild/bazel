@@ -43,7 +43,16 @@ public class HttpArchiveFunction extends RepositoryFunction {
       return null;
     }
 
-    return compute(env, rule);
+    if (isFilesystemUpToDate(rule, NO_RULE_SPECIFIC_DATA)) {
+      return RepositoryValue.create(getExternalRepositoryDirectory().getRelative(rule.getName()));
+    }
+
+    SkyValue result = compute(env, rule);
+    if (result != null) {
+      writeMarkerFile(rule, NO_RULE_SPECIFIC_DATA);
+    }
+
+    return result;
   }
 
   protected void createDirectory(Path path)

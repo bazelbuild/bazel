@@ -43,6 +43,10 @@ public class GitRepositoryFunction extends RepositoryFunction {
     }
 
     Path outputDirectory = getExternalRepositoryDirectory().getRelative(rule.getName());
+    if (isFilesystemUpToDate(rule, NO_RULE_SPECIFIC_DATA)) {
+      return RepositoryValue.create(outputDirectory);
+    }
+
     createDirectory(outputDirectory, rule);
 
     try {
@@ -55,6 +59,7 @@ public class GitRepositoryFunction extends RepositoryFunction {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 
+    writeMarkerFile(rule, NO_RULE_SPECIFIC_DATA);
     return RepositoryValue.create(outputDirectory);
   }
 

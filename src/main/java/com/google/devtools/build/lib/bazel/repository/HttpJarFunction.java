@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.bazel.rules.workspace.HttpJarRule;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -39,7 +40,17 @@ public class HttpJarFunction extends HttpArchiveFunction {
     if (rule == null) {
       return null;
     }
-    return compute(env, rule);
+
+    if (isFilesystemUpToDate(rule, NO_RULE_SPECIFIC_DATA)) {
+      return RepositoryValue.create(getExternalRepositoryDirectory().getRelative(rule.getName()));
+    }
+
+    SkyValue result = compute(env, rule);
+    if (!env.valuesMissing()) {
+      writeMarkerFile(rule, NO_RULE_SPECIFIC_DATA);
+    }
+
+    return result;
   }
 
   @Override

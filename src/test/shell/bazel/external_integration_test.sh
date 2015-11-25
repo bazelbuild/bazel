@@ -278,7 +278,8 @@ EOF
   expect_log $what_does_the_fox_say
 }
 
-function test_changed_zip() {
+# Pending proper external file handling
+function DISABLED_test_changed_zip() {
   nc_port=$(pick_random_unused_tcp_port) || fail "Couldn't get TCP port"
   http_archive_helper zip_up
   http_archive_helper zip_up "nowrite"

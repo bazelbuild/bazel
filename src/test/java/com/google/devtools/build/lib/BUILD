@@ -510,12 +510,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:build_proto",
         "//src/main/protobuf:extra_actions_base_proto",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:mockito",
+        "//third_party:protobuf",
         "//third_party:truth",
     ],
 )
@@ -550,6 +552,7 @@ java_test(
         "//third_party:guava-testlib",
         "//third_party:jsr305",
         "//third_party:junit4",
+        "//third_party:protobuf",
         "//third_party:truth",
     ],
 )

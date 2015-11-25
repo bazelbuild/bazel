@@ -34,9 +34,11 @@ function set_up() {
   mkdir -p $repos_dir
   cp $testdata_path/pluto-repo.tar.gz $repos_dir
   cp $testdata_path/outer-planets-repo.tar.gz $repos_dir
+  cp $testdata_path/refetch-repo.tar.gz $repos_dir
   cd $repos_dir
-  tar zxvf pluto-repo.tar.gz
-  tar zxvf outer-planets-repo.tar.gz
+  tar zxf pluto-repo.tar.gz
+  tar zxf outer-planets-repo.tar.gz
+  tar zxf refetch-repo.tar.gz
 }
 
 # Test cloning a Git repository using the git_repository rule.
@@ -229,6 +231,30 @@ EOF
   expect_log "Neptune is a planet"
   expect_log "Pluto is a planet"
 }
+
+function test_git_repository_not_refetched_on_server_restart() {
+  local repo_dir=$TEST_TMPDIR/repos/refetch
+
+  cd $WORKSPACE_DIR
+  cat > WORKSPACE <<EOF
+git_repository(name='g', remote='$repo_dir', commit='f0b79ff0')
+EOF
+
+  bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
+  expect_log "Cloning"
+  assert_contains "GIT 1" bazel-genfiles/external/g/go
+  bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
+  expect_not_log "Cloning"
+  assert_contains "GIT 1" bazel-genfiles/external/g/go
+  cat > WORKSPACE <<EOF
+git_repository(name='g', remote='$repo_dir', commit='62777acc')
+EOF
+
+  bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
+  expect_log "Cloning"
+  assert_contains "GIT 2" bazel-genfiles/external/g/go
+}
+
 
 # Helper function for setting up the workspace as follows
 #

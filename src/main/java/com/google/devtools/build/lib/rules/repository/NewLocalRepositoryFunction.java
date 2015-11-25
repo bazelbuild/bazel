@@ -49,7 +49,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     }
 
     // Link x/BUILD to <build_root>/x.BUILD.
-    return symlinkBuildFile(rule, getWorkspace(), outputDirectory, env);
+    return symlinkBuildFile(rule, outputDirectory, env);
   }
 
   /**

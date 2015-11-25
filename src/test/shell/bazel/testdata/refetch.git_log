@@ -1,0 +1,30 @@
+commit 62777acc140a240a3ec8fa1adecaa6bc9e25ccdd (HEAD -> master)
+Author: John Doe <john@foo.com>
+Date:   Wed Nov 25 13:20:07 2015 +0100
+
+    Change 1 to 2
+
+diff --git a/BUILD b/BUILD
+index 335b1cf..07034a3 100644
+--- a/BUILD
++++ b/BUILD
+@@ -1 +1 @@
+-genrule(name="g", srcs=[], outs=["go"], cmd="echo GIT 1 > $@")
++genrule(name="g", srcs=[], outs=["go"], cmd="echo GIT 2 > $@")
+
+commit f0b79ff07baddf85b73ed84459487f78042760ff
+Author: John Doe <john@foo.com>
+Date:   Wed Nov 25 13:19:52 2015 +0100
+
+    Initial checkin.
+
+diff --git a/BUILD b/BUILD
+new file mode 100644
+index 0000000..335b1cf
+--- /dev/null
++++ b/BUILD
+@@ -0,0 +1 @@
++genrule(name="g", srcs=[], outs=["go"], cmd="echo GIT 1 > $@")
+diff --git a/WORKSPACE b/WORKSPACE
+new file mode 100644
+index 0000000..e69de29

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -86,7 +87,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
       serverValue = MavenServerValue.createFromUrl(mapper.get("repository", Type.STRING));
     } else {
       String serverName = DEFAULT_SERVER;
-      if (mapper.has("server", Type.STRING) && !mapper.get("server", Type.STRING).isEmpty()) {
+      if (hasServer) {
         serverName = mapper.get("server", Type.STRING);
       }
 
@@ -96,8 +97,22 @@ public class MavenJarFunction extends HttpArchiveFunction {
       }
     }
 
+    byte[] serverData = new Fingerprint()
+        .addString(serverValue.getUrl())
+        .addBytes(serverValue.getSettingsFingerprint())
+        .digestAndReset();
+
+    if (isFilesystemUpToDate(rule, serverData)) {
+      return RepositoryValue.create(getExternalRepositoryDirectory().getRelative(rule.getName()));
+    }
+
     MavenDownloader downloader = createMavenDownloader(mapper, serverValue);
-    return createOutputTree(downloader, env);
+    SkyValue result = createOutputTree(downloader, env);
+    if (!env.valuesMissing()) {
+      writeMarkerFile(rule, serverData);
+    }
+
+    return result;
   }
 
   @VisibleForTesting

@@ -16,9 +16,13 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+
 import org.apache.maven.settings.Server;
+
+import java.util.Arrays;
 
 /**
  * A Maven repository's identifier.
@@ -29,6 +33,7 @@ public class MavenServerValue implements SkyValue {
   private final String id;
   private final String url;
   private final Server server;
+  private final byte[] settingsFingerprint;
 
   public static SkyKey key(String serverName) {
     Preconditions.checkNotNull(serverName);
@@ -36,22 +41,18 @@ public class MavenServerValue implements SkyValue {
   }
 
   public static MavenServerValue createFromUrl(String url) {
-    return new MavenServerValue(DEFAULT_ID, url, new Server());
+    return new MavenServerValue(DEFAULT_ID, url, new Server(),
+        new Fingerprint().digestAndReset());
   }
 
-  public MavenServerValue() {
-    id = DEFAULT_ID;
-    url = MavenConnector.getMavenCentralRemote().getUrl();
-    server = new Server();
-  }
-
-  public MavenServerValue(String id, String url, Server server) {
+  public MavenServerValue(String id, String url, Server server, byte[] settingsFingerprint) {
     Preconditions.checkNotNull(id);
     Preconditions.checkNotNull(url);
     Preconditions.checkNotNull(server);
     this.id = id;
     this.url = url;
     this.server = server;
+    this.settingsFingerprint = settingsFingerprint;
   }
 
   @Override
@@ -64,7 +65,8 @@ public class MavenServerValue implements SkyValue {
     }
 
     MavenServerValue other = (MavenServerValue) object;
-    return id.equals(other.id) && url.equals(other.url);
+    return id.equals(other.id) && url.equals(other.url)
+        && Arrays.equals(settingsFingerprint, other.settingsFingerprint);
   }
 
   @Override
@@ -78,5 +80,9 @@ public class MavenServerValue implements SkyValue {
 
   public Server getServer() {
     return server;
+  }
+
+  public byte[] getSettingsFingerprint() {
+    return settingsFingerprint;
   }
 }
