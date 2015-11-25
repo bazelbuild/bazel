@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.bazel.rules.workspace.NewGitRepositoryRule;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -46,11 +45,7 @@ public class NewGitRepositoryFunction extends GitRepositoryFunction {
     }
 
     Path outputDirectory = getExternalRepositoryDirectory().getRelative(rule.getName());
-    FileValue directoryValue = createDirectory(outputDirectory, env, rule);
-    if (directoryValue == null) {
-      return null;
-    }
-
+    createDirectory(outputDirectory, rule);
     try {
       HttpDownloadValue value = (HttpDownloadValue) env.getValueOrThrow(
           GitCloneFunction.key(rule, outputDirectory), IOException.class);
@@ -62,6 +57,6 @@ public class NewGitRepositoryFunction extends GitRepositoryFunction {
     }
 
     createWorkspaceFile(outputDirectory, rule);
-    return symlinkBuildFile(rule, getWorkspace(), directoryValue, env);
+    return symlinkBuildFile(rule, getWorkspace(), outputDirectory, env);
   }
 }

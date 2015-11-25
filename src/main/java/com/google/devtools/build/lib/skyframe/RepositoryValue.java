@@ -28,14 +28,6 @@ public class RepositoryValue implements SkyValue {
   private final Path path;
 
   /**
-   * This is the FileValue for the [output_base]/external/repo-name directory.
-   *
-   * <p>If path is a symlink, this will keep track of what the symlink actually points to (for
-   * checking equality).</p>
-   */
-  private final FileValue details;
-
-  /**
    * If this repository is using a user-created BUILD file (any of the new_* functions) then that
    * FileValue needs to be propagated up to the PackageLookup so it doesn't get pruned. The BUILD
    * file symlink will be under external/, thus assumed to be immutable, thus Skyframe will prune
@@ -43,41 +35,23 @@ public class RepositoryValue implements SkyValue {
    */
   private final Optional<FileValue> overlaidBuildFile;
 
-  private RepositoryValue(
-      Path path, FileValue repositoryDirectory, Optional<FileValue> overlaidBuildFile) {
+  private RepositoryValue(Path path, Optional<FileValue> overlaidBuildFile) {
     this.path = path;
-    this.details = repositoryDirectory;
     this.overlaidBuildFile = overlaidBuildFile;
   }
 
   /**
    * Creates an immutable external repository.
    */
-  public static RepositoryValue create(FileValue repositoryDirectory) {
-    return new RepositoryValue(
-        repositoryDirectory.realRootedPath().asPath(), repositoryDirectory,
-        Optional.<FileValue>absent());
-  }
-
-  /**
-   * Creates an immutable external repository that's a symlink to elsewhere on the system.
-   *
-   * <p>For local repositories, the repository path is something like [output root]/external/repo
-   * and the repository value resolves that to the actual symlink it points to. We don't want to
-   * lose the repository path, so this constructor is used.</p>
-   */
-  public static RepositoryValue create(Path repositoryDirectory, FileValue details) {
-    return new RepositoryValue(repositoryDirectory, details, Optional.<FileValue>absent());
+  public static RepositoryValue create(Path repositoryDirectory) {
+    return new RepositoryValue(repositoryDirectory, Optional.<FileValue>absent());
   }
 
   /**
    * Creates an immutable external repository with a mutable BUILD file.
    */
-  public static RepositoryValue createNew(
-      FileValue repositoryDirectory, FileValue overlaidBuildFile) {
-    return new RepositoryValue(
-        repositoryDirectory.realRootedPath().asPath(), repositoryDirectory,
-        Optional.of(overlaidBuildFile));
+  public static RepositoryValue createNew(Path repositoryDirectory, FileValue overlaidBuildFile) {
+    return new RepositoryValue(repositoryDirectory, Optional.of(overlaidBuildFile));
   }
 
   /**
@@ -88,10 +62,6 @@ public class RepositoryValue implements SkyValue {
    */
   public Path getPath() {
     return path;
-  }
-
-  public FileValue getRepositoryDirectory() {
-    return details;
   }
 
   public Optional<FileValue> getOverlaidBuildFile() {
@@ -106,20 +76,19 @@ public class RepositoryValue implements SkyValue {
 
     if (other instanceof RepositoryValue) {
       RepositoryValue otherValue = (RepositoryValue) other;
-      return details.equals(otherValue.details)
-          && overlaidBuildFile.equals(otherValue.overlaidBuildFile);
+      return overlaidBuildFile.equals(otherValue.overlaidBuildFile);
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(details, overlaidBuildFile);
+    return Objects.hashCode(overlaidBuildFile);
   }
 
   @Override
   public String toString() {
-    return details + (overlaidBuildFile.isPresent()
+    return path.getPathString() + (overlaidBuildFile.isPresent()
         ? " (BUILD file: " + overlaidBuildFile.get() + ")" : "");
   }
 

@@ -82,7 +82,7 @@ public class RepositoryDelegatorFunction implements SkyFunction {
                 + " not found"),
             Transience.TRANSIENT);
       }
-      return RepositoryValue.create(repoRoot);
+      return RepositoryValue.create(repoPath);
     }
 
     RepositoryFunction handler = handlers.get(rule.getRuleClass());

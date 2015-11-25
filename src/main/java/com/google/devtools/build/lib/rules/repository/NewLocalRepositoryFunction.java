@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.rules.repository;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.FileValue;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -37,23 +37,19 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    FileValue directoryValue = prepareLocalRepositorySymlinkTree(rule, env);
-    if (directoryValue == null) {
-      return null;
-    }
-
+    Path outputDirectory = prepareLocalRepositorySymlinkTree(rule, env);
     PathFragment pathFragment = getTargetPath(rule);
     
     // Link x/y/z to /some/path/to/y/z.
     if (!symlinkLocalRepositoryContents(
-        directoryValue.realRootedPath().asPath(),
+        outputDirectory,
         getOutputBase().getFileSystem().getPath(pathFragment),
         env)) {
       return null;
     }
 
     // Link x/BUILD to <build_root>/x.BUILD.
-    return symlinkBuildFile(rule, getWorkspace(), directoryValue, env);
+    return symlinkBuildFile(rule, getWorkspace(), outputDirectory, env);
   }
 
   /**

@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.bazel.rules.workspace.HttpArchiveRule;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -47,14 +46,13 @@ public class HttpArchiveFunction extends RepositoryFunction {
     return compute(env, rule);
   }
 
-  protected FileValue createDirectory(Path path, Environment env)
+  protected void createDirectory(Path path)
       throws RepositoryFunctionException {
     try {
       FileSystemUtils.createDirectoryAndParents(path);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
-    return getRepositoryDirectory(path, env);
   }
 
   protected SkyValue compute(Environment env, Rule rule)
@@ -67,11 +65,7 @@ public class HttpArchiveFunction extends RepositoryFunction {
     //
     // This would download png.tar.gz to .external-repository/png/png.tar.gz.
     Path outputDirectory = getExternalRepositoryDirectory().getRelative(rule.getName());
-    FileValue directoryValue = createDirectory(outputDirectory, env);
-    if (directoryValue == null) {
-      return null;
-    }
-
+    createDirectory(outputDirectory);
     try {
       HttpDownloadValue downloadValue = (HttpDownloadValue) env.getValueOrThrow(
           HttpDownloadFunction.key(rule, outputDirectory), IOException.class);
@@ -88,7 +82,7 @@ public class HttpArchiveFunction extends RepositoryFunction {
       // Assumes all IO errors transient.
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
-    return RepositoryValue.create(directoryValue);
+    return RepositoryValue.create(outputDirectory);
   }
 
   protected SkyKey decompressorValueKey(Rule rule, Path downloadPath, Path outputDirectory)

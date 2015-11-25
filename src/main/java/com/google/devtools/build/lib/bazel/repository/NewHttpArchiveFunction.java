@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -58,10 +57,6 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
     } catch (IOException e) {
       throw new RepositoryFunctionException(new IOException("Could not create directory for "
           + rule.getName() + ": " + e.getMessage()), Transience.TRANSIENT);
-    }
-    FileValue repositoryDirectory = getRepositoryDirectory(outputDirectory, env);
-    if (repositoryDirectory == null) {
-      return null;
     }
 
     // Download.
@@ -103,6 +98,6 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
 
     // Add WORKSPACE and BUILD files.
     createWorkspaceFile(decompressed.getDirectory(), rule);
-    return symlinkBuildFile(rule, getWorkspace(), repositoryDirectory, env);
+    return symlinkBuildFile(rule, getWorkspace(), outputDirectory, env);
   }
 }

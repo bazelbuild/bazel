@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.bazel.rules.workspace.GitRepositoryRule;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -44,10 +43,7 @@ public class GitRepositoryFunction extends RepositoryFunction {
     }
 
     Path outputDirectory = getExternalRepositoryDirectory().getRelative(rule.getName());
-    FileValue directoryValue = createDirectory(outputDirectory, env, rule);
-    if (directoryValue == null) {
-      return null;
-    }
+    createDirectory(outputDirectory, rule);
 
     try {
       HttpDownloadValue value = (HttpDownloadValue) env.getValueOrThrow(
@@ -59,10 +55,10 @@ public class GitRepositoryFunction extends RepositoryFunction {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 
-    return RepositoryValue.create(directoryValue);
+    return RepositoryValue.create(outputDirectory);
   }
 
-  protected FileValue createDirectory(Path path, Environment env, Rule rule)
+  protected void createDirectory(Path path, Rule rule)
       throws RepositoryFunctionException {
     try {
       FileSystemUtils.createDirectoryAndParents(path);
@@ -70,7 +66,6 @@ public class GitRepositoryFunction extends RepositoryFunction {
       throw new RepositoryFunctionException(new IOException("Could not create directory for "
           + rule.getName() + ": " + e.getMessage()), Transience.TRANSIENT);
     }
-    return getRepositoryDirectory(path, env);
   }
 
   @Override

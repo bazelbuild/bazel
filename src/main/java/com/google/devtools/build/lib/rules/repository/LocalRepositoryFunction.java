@@ -81,7 +81,7 @@ public class LocalRepositoryFunction extends RepositoryFunction {
           new IOException(rule + " must specify an existing directory"), Transience.TRANSIENT);
     }
 
-    return RepositoryValue.create(repositoryPath, repositoryValue);
+    return RepositoryValue.create(repositoryPath);
   }
 
   @Override
