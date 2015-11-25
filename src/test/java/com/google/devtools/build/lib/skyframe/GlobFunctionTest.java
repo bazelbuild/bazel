@@ -90,6 +90,7 @@ public abstract class GlobFunctionTest {
   private SequentialBuildDriver driver;
   private RecordingDifferencer differencer;
   private Path root;
+  private Path writableRoot;
   private Path outputBase;
   private Path pkgPath;
   private AtomicReference<PathPackageLocator> pkgLocator;
@@ -102,10 +103,13 @@ public abstract class GlobFunctionTest {
     
     fs = new CustomInMemoryFs(new ManualClock());
     root = fs.getRootDirectory().getRelative("root/workspace");
+    writableRoot = fs.getRootDirectory().getRelative("writableRoot/workspace");
     outputBase = fs.getRootDirectory().getRelative("output_base");
     pkgPath = root.getRelative(PKG_PATH_ID.getPackageFragment());
 
-    pkgLocator = new AtomicReference<>(new PathPackageLocator(outputBase, ImmutableList.of(root)));
+    pkgLocator =
+        new AtomicReference<>(
+            new PathPackageLocator(outputBase, ImmutableList.of(writableRoot, root)));
     tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
 
     differencer = new RecordingDifferencer();
@@ -308,6 +312,15 @@ public abstract class GlobFunctionTest {
   public void testStarStarDoesNotCrossPackageBoundary() throws Exception {
     FileSystemUtils.createEmptyFile(pkgPath.getRelative("foo/bar/BUILD"));
     // "foo/bar" should not be in the results because foo/bar is a separate package.
+    assertGlobMatches("foo/**", /* => */ "foo", "foo/barnacle", "foo/barnacle/wiz");
+  }
+
+  @Test
+  public void testGlobDoesNotCrossPackageBoundaryUnderOtherPackagePath() throws Exception {
+    FileSystemUtils.createDirectoryAndParents(writableRoot.getRelative("pkg/foo/bar"));
+    FileSystemUtils.createEmptyFile(writableRoot.getRelative("pkg/foo/bar/BUILD"));
+    // "foo/bar" should not be in the results because foo/bar is detected as a separate package,
+    // even though it is under a different package path.
     assertGlobMatches("foo/**", /* => */ "foo", "foo/barnacle", "foo/barnacle/wiz");
   }
 
