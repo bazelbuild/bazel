@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -376,7 +377,11 @@ public class SkylarkImportLookupFunction implements SkyFunction {
               mutability, eventHandler, ast.getContentHashCode(), importMap)
           .setupOverride("native", packageFactory.getNativeModule());
       ast.exec(extensionEnv, eventHandler);
-      SkylarkRuleClassFunctions.exportRuleFunctionsAndAspects(extensionEnv, extensionLabel);
+      try {
+        SkylarkRuleClassFunctions.exportRuleFunctionsAndAspects(extensionEnv, extensionLabel);
+      } catch (EvalException e) {
+        eventHandler.handle(Event.error(e.getLocation(), e.getMessage()));
+      }
 
       Event.replayEventsOn(env.getListener(), eventHandler.getEvents());
       if (eventHandler.hasErrors()) {

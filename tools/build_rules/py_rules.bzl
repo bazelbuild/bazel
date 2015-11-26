@@ -115,6 +115,7 @@ py_binary = rule(
 
 py_test = rule(
   py_binary_impl,
+  test = True,
   executable = True,
   attrs = py_attrs,
   outputs = py_binary_outputs)

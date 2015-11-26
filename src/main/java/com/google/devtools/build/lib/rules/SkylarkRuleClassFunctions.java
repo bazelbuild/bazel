@@ -84,6 +84,7 @@ import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
+import com.google.devtools.build.lib.util.Pair;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -264,18 +265,22 @@ public class SkylarkRuleClassFunctions {
 
       // We'll set the name later, pass the empty string for now.
       RuleClass.Builder builder = new RuleClass.Builder("", type, true, parent);
+      ImmutableList.Builder<Pair<String, SkylarkAttr.Descriptor>> attributes =
+          ImmutableList.builder();
 
       if (attrs != Runtime.NONE) {
-        for (Map.Entry<String, Attribute.Builder> attr :
-            castMap(attrs, String.class, Attribute.Builder.class, "attrs").entrySet()) {
-          Attribute.Builder<?> attrBuilder = (Attribute.Builder<?>) attr.getValue();
+        for (Map.Entry<String, SkylarkAttr.Descriptor> attr :
+            castMap(attrs, String.class, SkylarkAttr.Descriptor.class, "attrs").entrySet()) {
+          SkylarkAttr.Descriptor attrDescriptor = attr.getValue();
           String attrName =
-              attributeToNative(attr.getKey(), ast.getLocation(), attrBuilder.hasLateBoundValue());
-          addAttribute(builder, attrBuilder.build(attrName));
+              attributeToNative(attr.getKey(), ast.getLocation(),
+                  attrDescriptor.getAttributeBuilder().hasLateBoundValue());
+          attributes.add(Pair.of(attrName, attrDescriptor));
         }
       }
       if (executable || test) {
         addAttribute(
+            ast.getLocation(),
             builder,
             attr("$is_executable", BOOLEAN)
                 .value(true)
@@ -307,16 +312,9 @@ public class SkylarkRuleClassFunctions {
       registerRequiredFragments(fragments, hostFragments, builder);
       builder.setConfiguredTargetFunction(implementation);
       builder.setRuleDefinitionEnvironment(funcallEnv);
-      return new RuleFunction(builder, type);
+      return new RuleFunction(builder, type, attributes.build(), ast.getLocation());
     }
 
-    private void addAttribute(RuleClass.Builder builder, Attribute attribute) throws EvalException {
-      try {
-        builder.addOrOverrideAttribute(attribute);
-      } catch (IllegalArgumentException ex) {
-        throw new EvalException(location, ex);
-      }
-    }
 
     private void registerRequiredFragments(
         SkylarkList fragments, SkylarkList hostFragments, RuleClass.Builder builder)
@@ -335,6 +333,16 @@ public class SkylarkRuleClassFunctions {
       }
     }
   };
+
+  private static void addAttribute(
+      Location location, RuleClass.Builder builder, Attribute attribute) throws EvalException {
+    try {
+      builder.addOrOverrideAttribute(attribute);
+    } catch (IllegalArgumentException ex) {
+      throw new EvalException(location, ex);
+    }
+  }
+
 
   @SkylarkSignature(
     name = "aspect",
@@ -367,17 +375,22 @@ public class SkylarkRuleClassFunctions {
 
   /** The implementation for the magic function "rule" that creates Skylark rule classes */
   public static final class RuleFunction extends BaseFunction {
-    // Note that this means that we can reuse the same builder.
-    // This is fine since we don't modify the builder from here.
-    private final RuleClass.Builder builder;
-    private final RuleClassType type;
-    private Label skylarkLabel;
-    private String ruleClassName;
+    private RuleClass.Builder builder;
 
-    public RuleFunction(Builder builder, RuleClassType type) {
+    private RuleClass ruleClass;
+    private final RuleClassType type;
+    private ImmutableList<Pair<String, SkylarkAttr.Descriptor>> attributes;
+    private final Location definitionLocation;
+    private Label skylarkLabel;
+
+    public RuleFunction(Builder builder, RuleClassType type,
+        ImmutableList<Pair<String, SkylarkAttr.Descriptor>> attributes,
+        Location definitionLocation) {
       super("rule", FunctionSignature.KWARGS);
       this.builder = builder;
       this.type = type;
+      this.attributes = attributes;
+      this.definitionLocation = definitionLocation;
     }
 
     @Override
@@ -387,15 +400,10 @@ public class SkylarkRuleClassFunctions {
         throws EvalException, InterruptedException, ConversionException {
       env.checkLoadingPhase(getName(), ast.getLocation());
       try {
-        if (ruleClassName == null || skylarkLabel == null) {
+        if (ruleClass == null) {
           throw new EvalException(ast.getLocation(),
               "Invalid rule class hasn't been exported by a Skylark file");
         }
-        if (type == RuleClassType.TEST != TargetUtils.isTestRuleName(ruleClassName)) {
-          throw new EvalException(ast.getLocation(), "Invalid rule class name '" + ruleClassName
-              + "', test rule class names must end with '_test' and other rule classes must not");
-        }
-        RuleClass ruleClass = builder.build(ruleClassName);
         PackageContext pkgContext = (PackageContext) env.lookup(PackageFactory.PKG_CONTEXT);
         return RuleFactory.createAndAddRule(
             pkgContext, ruleClass, (Map<String, Object>) args[0], ast, env);
@@ -407,18 +415,32 @@ public class SkylarkRuleClassFunctions {
     /**
      * Export a RuleFunction from a Skylark file with a given name.
      */
-    void export(Label skylarkLabel, String ruleClassName) {
+    void export(Label skylarkLabel, String ruleClassName) throws EvalException {
+      Preconditions.checkState(ruleClass == null && builder != null);
       this.skylarkLabel = skylarkLabel;
-      this.ruleClassName = ruleClassName;
+      if (type == RuleClassType.TEST != TargetUtils.isTestRuleName(ruleClassName)) {
+        throw new EvalException(definitionLocation, "Invalid rule class name '" + ruleClassName
+            + "', test rule class names must end with '_test' and other rule classes must not");
+      }
+      for (Pair<String, SkylarkAttr.Descriptor> attribute : attributes) {
+        addAttribute(definitionLocation, builder,
+            attribute.getSecond().getAttributeBuilder().build(attribute.getFirst()));
+      }
+      this.ruleClass = builder.build(ruleClassName);
+
+      this.builder = null;
+      this.attributes = null;
     }
 
     @VisibleForTesting
-    public RuleClass.Builder getBuilder() {
-      return builder;
+    public RuleClass getRuleClass() {
+      Preconditions.checkState(ruleClass != null && builder == null);
+      return ruleClass;
     }
   }
 
-  public static void exportRuleFunctionsAndAspects(Environment env, Label skylarkLabel) {
+  public static void exportRuleFunctionsAndAspects(Environment env, Label skylarkLabel)
+      throws EvalException {
     for (String name : env.getGlobals().getDirectVariableNames()) {
       try {
         Object value = env.lookup(name);

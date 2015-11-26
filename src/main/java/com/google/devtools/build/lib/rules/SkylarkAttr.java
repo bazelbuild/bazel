@@ -184,11 +184,11 @@ public final class SkylarkAttr {
     return builder;
   }
 
-  private static Attribute.Builder<?> createAttribute(
+  private static Descriptor createAttribute(
       Map<String, Object> kwargs, Type<?> type, FuncallExpression ast, Environment env)
       throws EvalException {
     try {
-      return createAttribute(type, kwargs, ast, env);
+      return new Descriptor(createAttribute(type, kwargs, ast, env));
     } catch (ConversionException e) {
       throw new EvalException(ast.getLocation(), e.getMessage());
     }
@@ -198,7 +198,7 @@ public final class SkylarkAttr {
     name = "int",
     doc = "Creates an attribute of type int.",
     objectType = SkylarkAttr.class,
-    returnType = Attribute.Builder.class,
+    returnType = Descriptor.class,
     optionalNamedOnly = {
       @Param(
         name = DEFAULT_ARG,
@@ -221,7 +221,7 @@ public final class SkylarkAttr {
   )
   private static BuiltinFunction integer =
       new BuiltinFunction("int") {
-        public Attribute.Builder<?> invoke(
+        public Descriptor invoke(
             Integer defaultInt,
             Boolean mandatory,
             SkylarkList values,
@@ -243,7 +243,7 @@ public final class SkylarkAttr {
     name = "string",
     doc = "Creates an attribute of type string.",
     objectType = SkylarkAttr.class,
-    returnType = Attribute.Builder.class,
+    returnType = Descriptor.class,
     optionalNamedOnly = {
       @Param(
         name = DEFAULT_ARG,
@@ -266,7 +266,7 @@ public final class SkylarkAttr {
   )
   private static BuiltinFunction string =
       new BuiltinFunction("string") {
-        public Attribute.Builder<?> invoke(
+        public Descriptor invoke(
             String defaultString,
             Boolean mandatory,
             SkylarkList values,
@@ -291,7 +291,7 @@ public final class SkylarkAttr {
             + "If you need a dependency that the user cannot overwrite, make the attribute "
             + "private (starts with <code>_</code>).",
     objectType = SkylarkAttr.class,
-    returnType = Attribute.Builder.class,
+    returnType = Descriptor.class,
     optionalNamedOnly = {
       @Param(
         name = DEFAULT_ARG,
@@ -349,7 +349,7 @@ public final class SkylarkAttr {
   )
   private static BuiltinFunction label =
       new BuiltinFunction("label") {
-        public Attribute.Builder<?> invoke(
+        public Descriptor invoke(
             Object defaultO,
             Boolean executable,
             Object allowFiles,
@@ -390,7 +390,7 @@ public final class SkylarkAttr {
     name = "string_list",
     doc = "Creates an attribute of type list of strings",
     objectType = SkylarkAttr.class,
-    returnType = Attribute.Builder.class,
+    returnType = Descriptor.class,
     optionalPositionals = {
       @Param(
         name = DEFAULT_ARG,
@@ -409,7 +409,7 @@ public final class SkylarkAttr {
   )
   private static BuiltinFunction stringList =
       new BuiltinFunction("string_list") {
-        public Attribute.Builder<?> invoke(
+        public Descriptor invoke(
             SkylarkList defaultList,
             Boolean mandatory,
             Boolean nonEmpty,
@@ -430,7 +430,7 @@ public final class SkylarkAttr {
     name = "int_list",
     doc = "Creates an attribute of type list of ints",
     objectType = SkylarkAttr.class,
-    returnType = Attribute.Builder.class,
+    returnType = Descriptor.class,
     optionalPositionals = {
       @Param(
         name = DEFAULT_ARG,
@@ -449,7 +449,7 @@ public final class SkylarkAttr {
   )
   private static BuiltinFunction intList =
       new BuiltinFunction("int_list") {
-        public Attribute.Builder<?> invoke(
+        public Descriptor invoke(
             SkylarkList defaultList,
             Boolean mandatory,
             Boolean nonEmpty,
@@ -472,7 +472,7 @@ public final class SkylarkAttr {
         "Creates an attribute of type list of labels. "
             + "See <a href=\"attr.html#label\">label</a> for more information.",
     objectType = SkylarkAttr.class,
-    returnType = Attribute.Builder.class,
+    returnType = Descriptor.class,
     optionalNamedOnly = {
       @Param(
         name = DEFAULT_ARG,
@@ -529,7 +529,7 @@ public final class SkylarkAttr {
   )
   private static BuiltinFunction labelList =
       new BuiltinFunction("label_list") {
-        public Attribute.Builder<?> invoke(
+        public Descriptor invoke(
             Object defaultList,
             Object allowFiles,
             Object allowRules,
@@ -570,7 +570,7 @@ public final class SkylarkAttr {
     name = "bool",
     doc = "Creates an attribute of type bool. Its default value is False.",
     objectType = SkylarkAttr.class,
-    returnType = Attribute.Builder.class,
+    returnType = Descriptor.class,
     optionalNamedOnly = {
       @Param(name = DEFAULT_ARG, type = Boolean.class, defaultValue = "False", doc = DEFAULT_DOC),
       @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
@@ -581,7 +581,7 @@ public final class SkylarkAttr {
   )
   private static BuiltinFunction bool =
       new BuiltinFunction("bool") {
-        public Attribute.Builder<?> invoke(
+        public Descriptor invoke(
             Boolean defaultO, Boolean mandatory, FuncallExpression ast, Environment env)
             throws EvalException {
           env.checkLoadingPhase("attr.bool", ast.getLocation());
@@ -600,7 +600,7 @@ public final class SkylarkAttr {
             + "The user provides a file name (string) and the rule must create an action that "
             + "generates the file.",
     objectType = SkylarkAttr.class,
-    returnType = Attribute.Builder.class,
+    returnType = Descriptor.class,
     optionalNamedOnly = {
       @Param(
         name = DEFAULT_ARG,
@@ -617,7 +617,7 @@ public final class SkylarkAttr {
   )
   private static BuiltinFunction output =
       new BuiltinFunction("output") {
-        public Attribute.Builder<?> invoke(
+        public Descriptor invoke(
             Object defaultO, Boolean mandatory, FuncallExpression ast, Environment env)
             throws EvalException {
           env.checkLoadingPhase("attr.output", ast.getLocation());
@@ -635,7 +635,7 @@ public final class SkylarkAttr {
         "Creates an attribute of type list of outputs. Its default value is <code>[]</code>. "
             + "See <a href=\"attr.html#output\">output</a> above for more information.",
     objectType = SkylarkAttr.class,
-    returnType = Attribute.Builder.class,
+    returnType = Descriptor.class,
     optionalNamedOnly = {
       @Param(
         name = DEFAULT_ARG,
@@ -654,7 +654,7 @@ public final class SkylarkAttr {
   )
   private static BuiltinFunction outputList =
       new BuiltinFunction("output_list") {
-        public Attribute.Builder<?> invoke(
+        public Descriptor invoke(
             SkylarkList defaultList,
             Boolean mandatory,
             Boolean nonEmpty,
@@ -677,7 +677,7 @@ public final class SkylarkAttr {
         "Creates an attribute of type dictionary, mapping from string to string. "
             + "Its default value is dict().",
     objectType = SkylarkAttr.class,
-    returnType = Attribute.Builder.class,
+    returnType = Descriptor.class,
     optionalNamedOnly = {
       @Param(name = DEFAULT_ARG, type = Map.class, defaultValue = "{}", doc = DEFAULT_DOC),
       @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
@@ -690,7 +690,7 @@ public final class SkylarkAttr {
   )
   private static BuiltinFunction stringDict =
       new BuiltinFunction("string_dict") {
-        public Attribute.Builder<?> invoke(
+        public Descriptor invoke(
             Map<?, ?> defaultO,
             Boolean mandatory,
             Boolean nonEmpty,
@@ -713,7 +713,7 @@ public final class SkylarkAttr {
         "Creates an attribute of type dictionary, mapping from string to list of string. "
             + "Its default value is dict().",
     objectType = SkylarkAttr.class,
-    returnType = Attribute.Builder.class,
+    returnType = Descriptor.class,
     optionalNamedOnly = {
       @Param(name = DEFAULT_ARG, type = Map.class, defaultValue = "{}", doc = DEFAULT_DOC),
       @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
@@ -726,7 +726,7 @@ public final class SkylarkAttr {
   )
   private static BuiltinFunction stringListDict =
       new BuiltinFunction("string_list_dict") {
-        public Attribute.Builder<?> invoke(
+        public Descriptor invoke(
             Map<?, ?> defaultO,
             Boolean mandatory,
             Boolean nonEmpty,
@@ -748,7 +748,7 @@ public final class SkylarkAttr {
     doc = "Creates an attribute of type license. Its default value is NO_LICENSE.",
     // TODO(bazel-team): Implement proper license support for Skylark.
     objectType = SkylarkAttr.class,
-    returnType = Attribute.Builder.class,
+    returnType = Descriptor.class,
     optionalNamedOnly = {
       // TODO(bazel-team): ensure this is the correct default value
       @Param(name = DEFAULT_ARG, defaultValue = "None", noneable = true, doc = DEFAULT_DOC),
@@ -760,7 +760,7 @@ public final class SkylarkAttr {
   )
   private static BuiltinFunction license =
       new BuiltinFunction("license") {
-        public Attribute.Builder<?> invoke(
+        public Descriptor invoke(
             Object defaultO, Boolean mandatory, FuncallExpression ast, Environment env)
             throws EvalException {
           env.checkLoadingPhase("attr.license", ast.getLocation());
@@ -771,6 +771,21 @@ public final class SkylarkAttr {
               env);
         }
       };
+
+  /**
+   * A descriptor of an attribute defined in Skylark.
+   */
+  public static final class Descriptor {
+    private final Attribute.Builder<?> attributeBuilder;
+
+    public Descriptor(Attribute.Builder<?> attributeBuilder) {
+      this.attributeBuilder = attributeBuilder;
+    }
+
+    public Attribute.Builder<?> getAttributeBuilder() {
+      return attributeBuilder;
+    }
+  }
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkAttr.class);
