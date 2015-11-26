@@ -829,6 +829,28 @@ java_test(
 )
 
 java_test(
+    name = "cpp-rules-tests",
+    srcs = glob(["rules/cpp/*.java"]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    tags = ["rules"],
+    deps = [
+        ":actions_testutil",
+        ":analysis_testutil",
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:analysis-exec-rules-skyframe",
+        "//src/main/java/com/google/devtools/build/lib:bazel-core",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/protobuf:crosstool_config_proto",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:protobuf",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "bazel-rules-tests",
     srcs = glob([
         "bazel/rules/**/*.java",
