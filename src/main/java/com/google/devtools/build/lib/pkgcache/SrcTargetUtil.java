@@ -20,7 +20,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -121,15 +120,16 @@ public final class SrcTargetUtil {
       TargetProvider targetProvider)
       throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
     List<Label> srcLabels = Lists.newArrayList();
-    AttributeMap attributeMap = RawAttributeMapper.of(rule);
+    RawAttributeMapper attributeMapper = RawAttributeMapper.of(rule);
     for (String attrName : attributes) {
-      if (rule.isConfigurableAttribute(attrName)) {
-        // We don't know which path to follow for configurable attributes. So skip them.
-        continue;
-      } else if (rule.isAttrDefined(attrName, BuildType.LABEL_LIST)) {
-        srcLabels.addAll(attributeMap.get(attrName, BuildType.LABEL_LIST));
-      } else if (rule.isAttrDefined(attrName, BuildType.LABEL)) {
-        Label srcLabel = attributeMap.get(attrName, BuildType.LABEL);
+      if (rule.isAttrDefined(attrName, BuildType.LABEL_LIST)) {
+        // Note that we simply flatten configurable attributes here, which is not the correct
+        // behavior. However, it seems to be a good approximation of what is needed in most use
+        // cases.
+        srcLabels.addAll(attributeMapper.getMergedValues(attrName, BuildType.LABEL_LIST));
+      } else if (rule.isAttrDefined(attrName, BuildType.LABEL)
+          && !rule.isConfigurableAttribute(attrName)) {
+        Label srcLabel = attributeMapper.get(attrName, BuildType.LABEL);
         if (srcLabel != null) {
           srcLabels.add(srcLabel);
         }
