@@ -132,6 +132,7 @@ public abstract class AnalysisTestCaseForJunit4 extends FoundationTestCaseForJun
   @Before
   public final void createMocks() throws Exception {
     analysisMock = AnalysisMock.get();
+    pkgLocator = new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory));
     directories = new BlazeDirectories(outputBase, outputBase, rootDirectory);
     workspaceStatusActionFactory =
         new AnalysisTestUtil.DummyWorkspaceStatusActionFactory(directories);
@@ -140,15 +141,7 @@ public abstract class AnalysisTestCaseForJunit4 extends FoundationTestCaseForJun
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
     configurationFactory = analysisMock.createConfigurationFactory();
-  }
 
-  @Before
-  public final void createPkgLocator() throws Exception {
-    pkgLocator = new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory));
-  }
-
-  @Before
-  public final void useCorrectRuleClassProvider() throws Exception {
     useRuleClassProvider(TestRuleClassProvider.getRuleClassProvider());
   }
 
