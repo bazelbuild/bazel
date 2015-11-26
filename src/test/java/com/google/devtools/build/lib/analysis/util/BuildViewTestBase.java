@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis.util;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -47,7 +48,7 @@ import java.util.regex.Pattern;
 /**
  * Base class for BuildView test cases.
  */
-public abstract class BuildViewTestBase extends AnalysisTestCase {
+public abstract class BuildViewTestBase extends AnalysisTestCaseForJunit4 {
 
   protected static int getFrequencyOfErrorsWithLocation(
       PathFragment path, EventCollector eventCollector) {

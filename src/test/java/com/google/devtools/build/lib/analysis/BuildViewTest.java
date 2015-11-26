@@ -16,6 +16,13 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -54,6 +61,10 @@ import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Order;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.TrackingAwaiter;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.concurrent.CountDownLatch;
@@ -64,8 +75,10 @@ import java.util.regex.Pattern;
  * Tests for the {@link BuildView}.
  */
 @TestSpec(size = Suite.SMALL_TESTS)
+@RunWith(JUnit4.class)
 public final class BuildViewTest extends BuildViewTestBase {
 
+  @Test
   public void testRuleConfiguredTarget() throws Exception {
     scratch.file("pkg/BUILD",
         "genrule(name='foo', ",
@@ -81,6 +94,7 @@ public final class BuildViewTest extends BuildViewTestBase {
     assertSame(ruleTarget, ruleCT.getTarget());
   }
 
+  @Test
   public void testFilterByTargets() throws Exception {
     scratch.file("tests/BUILD",
         "sh_test(name = 'small_test_1',",
@@ -114,6 +128,7 @@ public final class BuildViewTest extends BuildViewTestBase {
     assertThat(targets).containsExactlyElementsIn(Sets.newHashSet(test1, suite));
   }
 
+  @Test
   public void testSourceArtifact() throws Exception {
     setupDummyRule();
     update("//pkg:a.src");
@@ -123,6 +138,7 @@ public final class BuildViewTest extends BuildViewTestBase {
     assertEquals("pkg/a.src", inputArtifact.getExecPathString());
   }
 
+  @Test
   public void testGeneratedArtifact() throws Exception {
     setupDummyRule();
     update("//pkg:a.out");
@@ -162,6 +178,7 @@ public final class BuildViewTest extends BuildViewTestBase {
     assertEquals("//pkg:bar", event.getFailedTarget().getLabel().toString());
   }
 
+  @Test
   public void testReportsLoadingRootCauses() throws Exception {
     scratch.file("pkg/BUILD",
         "genrule(name='foo',",
@@ -186,6 +203,7 @@ public final class BuildViewTest extends BuildViewTestBase {
         .contains(Pair.of(Label.parseAbsolute("//pkg:foo"), Label.parseAbsolute("//pkg:foo")));
   }
 
+  @Test
   public void testConvolutedLoadRootCauseAnalysis() throws Exception {
     // You need license declarations in third_party. We use this constraint to
     // create targets that are loadable, but are in error.
@@ -216,6 +234,7 @@ public final class BuildViewTest extends BuildViewTestBase {
             Label.parseAbsolute("//third_party/fourth")));
   }
 
+  @Test
   public void testMultipleRootCauseReporting() throws Exception {
     scratch.file("gp/BUILD",
         "sh_library(name = 'gp', deps = ['//p:p'])");
@@ -239,6 +258,7 @@ public final class BuildViewTest extends BuildViewTestBase {
   /**
    * Regression test for: "Package group includes are broken"
    */
+  @Test
   public void testTopLevelPackageGroup() throws Exception {
     scratch.file("tropical/BUILD",
         "package_group(name='guava', includes=[':mango'])",
@@ -251,6 +271,7 @@ public final class BuildViewTest extends BuildViewTestBase {
     assertNotNull(getConfiguredTarget("//tropical:mango", null));
   }
 
+  @Test
   public void testTopLevelInputFile() throws Exception {
     scratch.file("tropical/BUILD",
         "exports_files(['file.txt'])");
@@ -258,6 +279,7 @@ public final class BuildViewTest extends BuildViewTestBase {
     assertNotNull(getConfiguredTarget("//tropical:file.txt", null));
   }
 
+  @Test
   public void testGetDirectPrerequisites() throws Exception {
     scratch.file(
         "package/BUILD",
@@ -281,6 +303,7 @@ public final class BuildViewTest extends BuildViewTestBase {
             Label.parseAbsolute("//package:inner"), Label.parseAbsolute("//package:file"));
   }
 
+  @Test
   public void testGetDirectPrerequisiteDependencies() throws Exception {
     scratch.file(
         "package/BUILD",
@@ -324,6 +347,7 @@ public final class BuildViewTest extends BuildViewTestBase {
    * Tests that the {@code --configuration short name} option cannot be used on
    * the command line.
    */
+  @Test
   public void testConfigurationShortName() throws Exception {
     useConfiguration("--output directory name=foo");
     reporter.removeHandler(failFastHandler);
@@ -337,6 +361,7 @@ public final class BuildViewTest extends BuildViewTestBase {
     }
   }
 
+  @Test
   public void testFileTranslations() throws Exception {
     scratch.file("foo/file");
     scratch.file("foo/BUILD",
@@ -348,17 +373,20 @@ public final class BuildViewTest extends BuildViewTestBase {
   }
 
   // Regression test: "output_filter broken (but in a different way)"
+  @Test
   public void testOutputFilterSeeWarning() throws Exception {
     runAnalysisWithOutputFilter(Pattern.compile(".*"));
     assertContainsEvent("please do not import '//java/a:A.java'");
   }
 
   // Regression test: "output_filter broken (but in a different way)"
+  @Test
   public void testOutputFilter() throws Exception {
     runAnalysisWithOutputFilter(Pattern.compile("^//java/c"));
     assertNoEvents();
   }
 
+  @Test
   public void testAnalysisErrorMessageWithKeepGoing() throws Exception {
     scratch.file("a/BUILD", "sh_binary(name='a', srcs=['a1.sh', 'a2.sh'])");
     reporter.removeHandler(failFastHandler);
@@ -370,6 +398,7 @@ public final class BuildViewTest extends BuildViewTestBase {
    * Regression test: Exception in ConfiguredTargetGraph.checkForCycles()
    * when multiple top-level targets depend on the same cycle.
    */
+  @Test
   public void testCircularDependencyBelowTwoTargets() throws Exception {
     scratch.file("foo/BUILD",
         "sh_library(name = 'top1', srcs = ['top1.sh'], deps = [':rec1'])",
@@ -386,6 +415,7 @@ public final class BuildViewTest extends BuildViewTestBase {
   // Regression test: cycle node depends on error.
   // Note that this test can have nondeterministic behavior in Skyframe, depending on if the cycle
   // is detected during the bubbling-up phase.
+  @Test
   public void testErrorBelowCycle() throws Exception {
     scratch.file("foo/BUILD",
         "sh_library(name = 'top', deps = ['mid'])",
@@ -411,6 +441,7 @@ public final class BuildViewTest extends BuildViewTestBase {
     }
   }
 
+  @Test
   public void testAnalysisEntryHasActionsEvenWithError() throws Exception {
     scratch.file("foo/BUILD",
         "cc_binary(name = 'foo', linkshared = 1, srcs = ['foo.cc'])");
@@ -423,6 +454,7 @@ public final class BuildViewTest extends BuildViewTestBase {
     }
   }
 
+  @Test
   public void testHelpfulErrorForWrongPackageLabels() throws Exception {
     reporter.removeHandler(failFastHandler);
 
@@ -437,6 +469,7 @@ public final class BuildViewTest extends BuildViewTestBase {
         + "defined by /workspace/x/BUILD and referenced by '//y:y'");
   }
 
+  @Test
   public void testNewActionsAreDifferentAndDontConflict() throws Exception {
     scratch.file("pkg/BUILD",
         "genrule(name='a', ",
@@ -471,6 +504,7 @@ public final class BuildViewTest extends BuildViewTestBase {
    * and A configured target gets revalidated too. At the end of the analysis A java action should
    * be in the action graph.
    */
+  @Test
   public void testMultiBuildInvalidationRevalidation() throws Exception {
     scratch.file("java/a/A.java", "bla1");
     scratch.file("java/a/C.java", "bla2");
@@ -491,6 +525,7 @@ public final class BuildViewTest extends BuildViewTestBase {
   /**
    * Regression test: ClassCastException in SkyframeLabelVisitor.updateRootCauses.
    */
+  @Test
   public void testDepOnGoodTargetInBadPkgAndTransitivelyBadTarget() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("parent/BUILD",
@@ -512,10 +547,12 @@ public final class BuildViewTest extends BuildViewTestBase {
         badpkg2BuildFile.asFragment(), eventCollector));
   }
 
+  @Test
   public void testDepOnGoodTargetInBadPkgAndTransitiveCycle_NotIncremental() throws Exception {
     runTestDepOnGoodTargetInBadPkgAndTransitiveCycle(/*incremental=*/false);
   }
 
+  @Test
   public void testDepOnGoodTargetInBadPkgAndTransitiveCycle_Incremental() throws Exception {
     runTestDepOnGoodTargetInBadPkgAndTransitiveCycle(/*incremental=*/true);
   }
@@ -524,6 +561,7 @@ public final class BuildViewTest extends BuildViewTestBase {
    * Regression test: in keep_going mode, cycles in target graph aren't reported
    * if package is in error.
    */
+  @Test
   public void testCycleReporting_TargetCycleWhenPackageInError() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("cycles/BUILD",
@@ -535,6 +573,7 @@ public final class BuildViewTest extends BuildViewTestBase {
     assertContainsEvent("cycle in dependency graph");
   }
 
+  @Test
   public void testTransitiveLoadingDoesntShortCircuitInKeepGoing() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("parent/BUILD",
@@ -552,6 +591,7 @@ public final class BuildViewTest extends BuildViewTestBase {
   /**
    * Smoke test for the Skyframe code path.
    */
+  @Test
   public void testSkyframe() throws Exception {
     setupDummyRule();
     String aoutLabel = "//pkg:a.out";
@@ -572,6 +612,7 @@ public final class BuildViewTest extends BuildViewTestBase {
    * ConfiguredTargetFunction should not register actions in legacy Blaze ActionGraph unless
    * the creation of the node is successful.
    */
+  @Test
   public void testActionsNotRegisteredInLegacyWhenError() throws Exception {
     // First find the artifact we want to make sure is not generated by an action with an error.
     // Then update the BUILD file and re-analyze.
@@ -601,6 +642,7 @@ public final class BuildViewTest extends BuildViewTestBase {
    * Regression test:
    * "skyframe: ArtifactFactory and ConfiguredTargets out of sync".
    */
+  @Test
   public void testSkyframeAnalyzeRuleThenItsOutputFile() throws Exception {
     scratch.file("pkg/BUILD",
         "testing_dummy_rule(name='foo', ",
@@ -637,6 +679,7 @@ public final class BuildViewTest extends BuildViewTestBase {
    * Tests that skyframe reports the root cause as being the target that depended on the symlink
    * cycle.
    */
+  @Test
   public void testRootCauseReportingFileSymlinks() throws Exception {
     scratch.file("gp/BUILD",
         "sh_library(name = 'gp', deps = ['//p'])");
@@ -674,6 +717,7 @@ public final class BuildViewTest extends BuildViewTestBase {
    * invalid target pattern error up, we ensure that it bubbles into //foo:query, which must cope
    * with the combination of an error and a missing dep.
    */
+  @Test
   public void testGenQueryWithBadTargetAndUnfinishedTarget() throws Exception {
     // The target //foo:zquery is used to force evaluation of //foo:nosuchtarget before the target
     // patterns in //foo:query are enqueued for evaluation. That way, //foo:query will depend on one
@@ -758,6 +802,7 @@ public final class BuildViewTest extends BuildViewTestBase {
    * com.google.devtools.build.lib.skyframe.PostConfiguredTargetFunction}.
    * This is a regression test for a Bazel crash.
    */
+  @Test
   public void testPostProcessedConfigurableAttributes() throws Exception {
     reporter.removeHandler(failFastHandler); // Expect errors from action conflicts.
     scratch.file("conflict/BUILD",
@@ -771,6 +816,7 @@ public final class BuildViewTest extends BuildViewTestBase {
         "file 'conflict/_objs/x/conflict/foo.pic.o' is generated by these conflicting actions");
   }
 
+  @Test
   public void testCycleDueToJavaLauncherConfiguration() throws Exception {
     scratch.file("foo/BUILD",
         "java_binary(name = 'java', srcs = ['DoesntMatter.java'])",
