@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
-
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -23,9 +25,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,15 +41,15 @@ import java.util.Arrays;
  * A test for {@link MiddlemanAction}.
  */
 @TestSpec(size = Suite.SMALL_TESTS)
-public class MiddlemanActionTest extends BuildViewTestCase {
+@RunWith(JUnit4.class)
+public class MiddlemanActionTest extends BuildViewTestCaseForJunit4 {
 
   private AnalysisTestUtil.CollectingAnalysisEnvironment analysisEnvironment;
   private MiddlemanFactory middlemanFactory;
   private Artifact a, b, middle;
 
-  @Override
-  public void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void initializeMiddleman() throws Exception  {
     scratch.file("a/BUILD",
                 "testing_dummy_rule(name='a', outs=['a.out'])");
     scratch.file("b/BUILD",
@@ -60,27 +67,32 @@ public class MiddlemanActionTest extends BuildViewTestCase {
     analysisEnvironment.registerWith(getMutableActionGraph());
   }
 
+  @Test
   public void testActionIsAMiddleman() {
     Action middleman = getGeneratingAction(middle);
     assertTrue("Encountered instance of " + middleman.getClass(),
         middleman.getActionType().isMiddleman());
   }
 
+  @Test
   public void testAAndBAreInputsToMiddleman() {
     MiddlemanAction middleman = (MiddlemanAction) getGeneratingAction(middle);
     assertThat(middleman.getInputs()).containsExactly(a, b);
   }
 
+  @Test
   public void testMiddleIsOutputOfMiddleman() {
     MiddlemanAction middleman = (MiddlemanAction) getGeneratingAction(middle);
     assertThat(middleman.getOutputs()).containsExactly(middle);
   }
 
+  @Test
   public void testMiddlemanIsNullForEmptyInputs() throws Exception {
     assertNull(middlemanFactory.createAggregatingMiddleman(NULL_ACTION_OWNER,
         "middleman_test", new ArrayList<Artifact>(), targetConfig.getMiddlemanDirectory()));
   }
 
+  @Test
   public void testMiddlemanIsIdentityForLonelyInput() throws Exception {
     assertEquals(a,
         middlemanFactory.createAggregatingMiddleman(
@@ -89,6 +101,7 @@ public class MiddlemanActionTest extends BuildViewTestCase {
             targetConfig.getMiddlemanDirectory()));
   }
 
+  @Test
   public void testDifferentExecutablesForRunfilesMiddleman() throws Exception {
     scratch.file("c/BUILD",
                 "testing_dummy_rule(name='c', outs=['c.out', 'd.out', 'common.out'])");
