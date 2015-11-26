@@ -143,10 +143,7 @@ sh_test(
     name = "bazel_docgen_test",
     size = "large",
     srcs = ["bazel_docgen_test.sh"],
-    data = [
-        ":doc-srcs",
-        ":test-deps",
-    ],
+    data = ["//src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia"],
 )
 
 sh_test(
