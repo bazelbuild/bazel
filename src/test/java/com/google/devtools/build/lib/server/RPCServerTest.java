@@ -13,8 +13,10 @@
 // limitations under the License.
 
 package com.google.devtools.build.lib.server;
-
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -25,7 +27,11 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FsApparatus;
 
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.File;
 import java.util.List;
@@ -35,7 +41,8 @@ import java.util.List;
  * client.
  */
 @TestSpec(size = Suite.MEDIUM_TESTS)
-public class RPCServerTest extends TestCase {
+@RunWith(JUnit4.class)
+public class RPCServerTest {
 
   private static final long MAX_IDLE_MILLIS = 10000;
   private static final long HEALTH_CHECK_MILLIS = 1000 * 3;
@@ -68,10 +75,8 @@ public class RPCServerTest extends TestCase {
     }
   };
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
-
+  @Before
+  public final void startServer() throws Exception  {
     // Do not use `createUnixTempDir()` here since the file name that results is longer
     // than 108 characters, so cannot be used as local socket address.
     File file = File.createTempFile("scratch", ".tmp", new File("/tmp"));
@@ -89,33 +94,35 @@ public class RPCServerTest extends TestCase {
     serverThread.start();
   }
 
-  @Override
-  protected void tearDown() throws Exception {
+  @After
+  public final void stopServer() throws Exception {
     serverThread.interrupt();
     serverThread.join();
 
     FileSystemUtils.deleteTree(serverDir);
-    super.tearDown();
   }
 
-  protected void testRequest(String request, int ret, String out, String err,
+  private void runTestRequest(String request, int ret, String out, String err,
                              String control) throws Exception {
     assertEquals(new ServerResponse(control, ret), client.sendRequest(request));
     assertEquals(out, outErr.outAsLatin1());
     assertThat(outErr.errAsLatin1()).contains(err);
   }
 
+  @Test
   public void testUnknownCommand() throws Exception {
-    testRequest("unknown", 2, "", "SERVER ERROR: Unknown command: unknown\n", "");
+    runTestRequest("unknown", 2, "", "SERVER ERROR: Unknown command: unknown\n", "");
   }
 
+  @Test
   public void testEmptyBlazeCommand() throws Exception {
-    testRequest("unknown", 2, "", "SERVER ERROR: Unknown command: unknown\n", "");
+    runTestRequest("unknown", 2, "", "SERVER ERROR: Unknown command: unknown\n", "");
   }
 
+  @Test
   public void testWorkspaceDies() throws Exception {
     assertTrue(serverThread.isAlive());
-    testRequest("blaze", 42, COMMAND_STDOUT, COMMAND_STDERR, "");
+    runTestRequest("blaze", 42, COMMAND_STDOUT, COMMAND_STDERR, "");
     Thread.sleep(HEALTH_CHECK_MILLIS * 2);
     assertTrue(serverThread.isAlive());
 

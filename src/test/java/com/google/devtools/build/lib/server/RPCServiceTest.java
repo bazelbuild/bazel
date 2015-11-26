@@ -15,12 +15,18 @@
 package com.google.devtools.build.lib.server;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.server.RPCService.UnknownCommandException;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -29,7 +35,8 @@ import java.util.List;
 /**
  * Just makes sure the RPC service understands commands.
  */
-public class RPCServiceTest extends TestCase {
+@RunWith(JUnit4.class)
+public class RPCServiceTest {
 
   private ServerCommand helloWorldCommand = new ServerCommand() {
     @Override
@@ -47,6 +54,7 @@ public class RPCServiceTest extends TestCase {
   private RPCService service =
       new RPCService(helloWorldCommand);
 
+  @Test
   public void testUnknownCommandException() {
     try {
       service.executeRequest(Arrays.asList("unknown"), new RecordingOutErr(), 0);
@@ -58,6 +66,7 @@ public class RPCServiceTest extends TestCase {
     }
   }
 
+  @Test
   public void testCommandGetsExecuted() throws Exception {
     RecordingOutErr outErr = new RecordingOutErr();
     int exitStatus = service.executeRequest(Arrays.asList("blaze"), outErr, 0);
@@ -67,6 +76,7 @@ public class RPCServiceTest extends TestCase {
     assertEquals("...world!", outErr.errAsLatin1());
   }
 
+  @Test
   public void testDelimitation() throws Exception {
     final List<String> savedArgs = new ArrayList<>();
 
@@ -90,6 +100,7 @@ public class RPCServiceTest extends TestCase {
                  savedArgs);
   }
 
+  @Test
   public void testShutdownState() throws Exception {
     assertFalse(service.isShutdown());
     service.shutdown();
@@ -98,6 +109,7 @@ public class RPCServiceTest extends TestCase {
     assertTrue(service.isShutdown());
   }
 
+  @Test
   public void testCommandFailsAfterShutdown() throws Exception {
     RecordingOutErr outErr = new RecordingOutErr();
     service.shutdown();
