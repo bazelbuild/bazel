@@ -216,7 +216,7 @@ __show_stack() {
 
     # Skip over active calls within this module:
     while (( i < ${#FUNCNAME[@]} )) && [[ ${BASH_SOURCE[i]:-} == ${BASH_SOURCE[0]} ]]; do
-       (( i++ ))
+       (( ++i ))
     done
 
     # Show all calls until the next one within this module (typically run_suite):
@@ -224,7 +224,7 @@ __show_stack() {
         # Read online docs for BASH_LINENO to understand the strange offset.
         # Undefined can occur in the BASH_SOURCE stack apparently when one exits from a subshell
         echo "${BASH_SOURCE[i]:-"Unknown"}:${BASH_LINENO[i - 1]:-"Unknown"}: in call to ${FUNCNAME[i]:-"Unknown"}" >&2
-        (( i++ ))
+        (( ++i ))
         trace_found=1
     done
 
