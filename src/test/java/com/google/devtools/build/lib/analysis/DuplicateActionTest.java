@@ -14,12 +14,21 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import static org.junit.Assert.assertFalse;
+
+import com.google.devtools.build.lib.analysis.util.AnalysisTestCaseForJunit4;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for duplicate action detection and handling when incremental analysis is enabled.
  */
-public class DuplicateActionTest extends AnalysisTestCase {
+@RunWith(JUnit4.class)
+public class DuplicateActionTest extends AnalysisTestCaseForJunit4 {
+
+  @Test
   public void testDuplicateBuildInfoHeaderAction() throws Exception {
     scratch.file("a/stamp.cc",
         "// Empty."
@@ -36,11 +45,12 @@ public class DuplicateActionTest extends AnalysisTestCase {
   /**
    *  Same test with loading phase disabled.
    */
+  @RunWith(JUnit4.class)
   public static class DuplicateActionTestWithoutLoading extends DuplicateActionTest {
+
     @Override
-    public void setUp() throws Exception {
-      disableLoading();
-      super.setUp();
+    protected boolean isLoadingEnabled() {
+      return false;
     }
   }
 }
