@@ -64,4 +64,8 @@ public class TestConstants {
   public static final ImmutableList<String> IGNORED_MESSAGE_PREFIXES = ImmutableList.<String>of();
 
   public static final boolean THIS_IS_BAZEL = true;
+
+  public static final String GCC_INCLUDE_PATH = "external/bazel_tools/tools/cpp/gcc3";
+
+  public static final String TOOLS_REPOSITORY = "@bazel_tools";
 }
