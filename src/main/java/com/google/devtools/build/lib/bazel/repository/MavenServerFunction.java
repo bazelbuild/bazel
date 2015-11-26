@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -119,7 +120,13 @@ public class MavenServerFunction extends RepositoryFunction {
     try {
       for (Map.Entry<String, FileValue> entry : settingsFiles.entrySet()) {
         fingerprint.addString(entry.getKey());
-        fingerprint.addBytes(entry.getValue().realRootedPath().asPath().getMD5Digest());
+        Path path = entry.getValue().realRootedPath().asPath();
+        if (path.exists()) {
+          fingerprint.addBoolean(true);
+          fingerprint.addBytes(path.getMD5Digest());
+        } else {
+          fingerprint.addBoolean(false);
+        }
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
