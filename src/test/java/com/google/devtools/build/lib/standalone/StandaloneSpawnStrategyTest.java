@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestFileOutErr;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -120,7 +121,7 @@ public class StandaloneSpawnStrategyTest extends TestCase {
   }
 
   public void testBinTrueExecutesFine() throws Exception {
-    Spawn spawn = createSpawn("/bin/true");
+    Spawn spawn = createSpawn(getTrueCommand());
     executor.getSpawnActionContext(spawn.getMnemonic()).exec(spawn, createContext());
 
     assertThat(out()).isEmpty();
@@ -142,13 +143,22 @@ public class StandaloneSpawnStrategyTest extends TestCase {
 
   public void testBinFalseYieldsException() throws Exception {
     try {
-      run(createSpawn("/bin/false"));
+      run(createSpawn(getFalseCommand()));
       fail();
     } catch (ExecException e) {
       assertTrue("got: " + e.getMessage(), e
           .getMessage().startsWith("false failed: error executing command"));
     }
   }
+
+  private static String getFalseCommand() {
+    return OS.getCurrent() == OS.DARWIN ? "/usr/bin/false" : "/bin/false";
+  }
+
+  private static String getTrueCommand() {
+    return OS.getCurrent() == OS.DARWIN ? "/usr/bin/true" : "/bin/true";
+  }
+
 
   public void testBinEchoPrintsArguments() throws Exception {
     Spawn spawn = createSpawn("/bin/echo", "Hello,", "world.");
@@ -189,9 +199,16 @@ public class StandaloneSpawnStrategyTest extends TestCase {
 
     try {
       run(spawn);
-      fail("action should fail due to being unable to resolve SDKROOT");
+      if (OS.getCurrent() != OS.DARWIN) {
+        fail("action should fail due to being unable to resolve SDKROOT");
+      }
+
     } catch (ExecException e) {
-      assertThat(e.getMessage()).contains("Cannot locate iOS SDK on non-darwin operating system");
+      if (OS.getCurrent() != OS.DARWIN) {
+        assertThat(e.getMessage()).contains("Cannot locate iOS SDK on non-darwin operating system");
+      } else {
+        fail("This test should pass on OSX.");
+      }
     }
   }
 }
