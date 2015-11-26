@@ -14,21 +14,29 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 /**
  * Tests that check that dependency cycles are reported correctly.
  */
-public class CircularDependencyTest extends BuildViewTestCase {
-  @Override
-  public void setUp() throws Exception {
-    super.setUp();
-  }
+@RunWith(JUnit4.class)
+public class CircularDependencyTest extends BuildViewTestCaseForJunit4 {
 
+  @Test
   public void testOneRuleCycle() throws Exception {
     checkError(
         "cycle",
@@ -42,6 +50,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
         "        cmd = 'cat $(SRCS) > $<' )");
   }
 
+  @Test
   public void testDirectPackageGroupCycle() throws Exception {
     checkError(
         "cycle",
@@ -51,6 +60,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
         "sh_library(name='melon', visibility=[':moebius'])");
   }
 
+  @Test
   public void testThreeLongPackageGroupCycle() throws Exception {
     String expectedEvent =
         "cycle in dependency graph:\n"
@@ -85,6 +95,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
   /**
    * Test to detect implicit input/output file overlap in rules.
    */
+  @Test
   public void testOneRuleImplicitCycleJava() throws Exception {
     Package pkg =
         createScratchPackageForImplicitCycle(
@@ -103,6 +114,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
    * Test not to detect implicit input/output file overlap in rules,
    * when coming from a different package.
    */
+  @Test
   public void testInputOutputConflictDifferentPackage() throws Exception {
     Package pkg =
         createScratchPackageForImplicitCycle(
@@ -114,6 +126,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
     assertFalse(pkg.containsErrors());
   }
 
+  @Test
   public void testTwoRuleCycle() throws Exception {
     scratchRule("b", "rule2", "cc_library(name='rule2',", "           deps=['//a:rule1'])");
 
@@ -127,6 +140,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
         "           deps=['//b:rule2'])");
   }
 
+  @Test
   public void testTwoRuleCycle2() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
     scratch.file(
@@ -135,6 +149,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
     assertContainsEvent("in java_library rule //x:x: cycle in dependency graph");
   }
 
+  @Test
   public void testIndirectOneRuleCycle() throws Exception {
     scratchRule(
         "cycle",
@@ -163,6 +178,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
   // AbstractConfiguredTarget.initialize()".
   // Failure to mark all cycle-forming nodes when there are *two* cycles led to
   // an attempt to initialise a node we'd already visited.
+  @Test
   public void testTwoCycles() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
     scratch.file(
