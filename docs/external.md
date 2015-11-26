@@ -17,6 +17,16 @@ rules. See the full list of rules that are allowed in the
 [Workspace](/docs/be/workspace.html) list of rules in the Build
 Encyclopedia.
 
+External dependencies are all downloaded and symlinked under a directory named
+`external`. You can see this directory by running:
+
+```
+ls $(bazel info output_base)/external
+```
+
+Note that running `bazel clean` will not actually delete the external
+directory: to remove all external artifacts, use `bazel clean --expunge`.
+
 ## Fetching dependencies
 
 By default, external dependencies are fetched as needed during `bazel build`. If
@@ -34,7 +44,9 @@ file size, but hopefully limits the chances of having one library include `C`
 at version 1.0 and another include `C` at 2.0.
 
 Bazel provides a tool to help generate these expansive `WORKSPACE` files, called
-`generate_workspace`. Run the following to build the tool and see usage:
+`generate_workspace`. This is not included with the binary installer, so you'll
+need to clone the [GitHub repo](https://github.com/bazelbuild/bazel) to use it.
+`cd` to the GitHub clone and run the following to build the tool and see usage:
 
 ```
 bazel run //src/tools/generate_workspace

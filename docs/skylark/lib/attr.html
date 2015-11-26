@@ -25,7 +25,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
 </div>
 
       <h2 id="bool">bool</h2>
-        <p><pre>Builder attr.bool(default=False, mandatory=False)
+        <p><pre>Descriptor attr.bool(default=False, mandatory=False)
 </pre></p>
 
     Creates an attribute of type bool. Its default value is False.
@@ -65,7 +65,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
       </table>
 
         <h2 id="int">int</h2>
-        <p><pre>Builder attr.int(default=0, mandatory=False, values=[])
+        <p><pre>Descriptor attr.int(default=0, mandatory=False, values=[])
 </pre></p>
 
     Creates an attribute of type int.
@@ -114,7 +114,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
       </table>
 
         <h2 id="int_list">int_list</h2>
-        <p><pre>Builder attr.int_list(default=[], mandatory=False, non_empty=False)
+        <p><pre>Descriptor attr.int_list(default=[], mandatory=False, non_empty=False)
 </pre></p>
 
     Creates an attribute of type list of ints
@@ -163,7 +163,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
       </table>
 
         <h2 id="label">label</h2>
-        <p><pre>Builder attr.label(default=None, executable=False, allow_files=False, mandatory=False, providers=[], allow_rules=None, single_file=False, cfg=None)
+        <p><pre>Descriptor attr.label(default=None, executable=False, allow_files=False, mandatory=False, providers=[], allow_rules=None, single_file=False, cfg=None)
 </pre></p>
 
     Creates an attribute of type Label. It is the only way to specify a dependency to another target. If you need a dependency that the user cannot overwrite, make the attribute private (starts with <code>_</code>).
@@ -256,7 +256,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
       </table>
 
         <h2 id="label_list">label_list</h2>
-        <p><pre>Builder attr.label_list(default=[], allow_files=False, allow_rules=None, providers=[], flags=[], mandatory=False, non_empty=False, cfg=None)
+        <p><pre>Descriptor attr.label_list(default=[], allow_files=False, allow_rules=None, providers=[], flags=[], mandatory=False, non_empty=False, cfg=None, aspects=[])
 </pre></p>
 
     Creates an attribute of type list of labels. See <a href="attr.html#label">label</a> for more information.
@@ -345,11 +345,20 @@ Module for creating new attributes. They are only for use with the <a href="glob
                           <p>configuration of the attribute. For example, use DATA_CFG or HOST_CFG.</p>
             </td>
           </tr>
+                  <tr>
+            <td id="label_list.aspects">
+              <code>aspects</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">sequence</a> of SkylarkAspects</code></p>
+                          <p>aspects that should be applied to dependencies specified by this attribute</p>
+            </td>
+          </tr>
                 </tbody>
       </table>
 
         <h2 id="license">license</h2>
-        <p><pre>Builder attr.license(default=None, mandatory=False)
+        <p><pre>Descriptor attr.license(default=None, mandatory=False)
 </pre></p>
 
     Creates an attribute of type license. Its default value is NO_LICENSE.
@@ -388,7 +397,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
       </table>
 
         <h2 id="output">output</h2>
-        <p><pre>Builder attr.output(default=None, mandatory=False)
+        <p><pre>Descriptor attr.output(default=None, mandatory=False)
 </pre></p>
 
     Creates an attribute of type output. Its default value is None. The user provides a file name (string) and the rule must create an action that generates the file.
@@ -428,7 +437,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
       </table>
 
         <h2 id="output_list">output_list</h2>
-        <p><pre>Builder attr.output_list(default=[], mandatory=False, non_empty=False)
+        <p><pre>Descriptor attr.output_list(default=[], mandatory=False, non_empty=False)
 </pre></p>
 
     Creates an attribute of type list of outputs. Its default value is <code>[]</code>. See <a href="attr.html#output">output</a> above for more information.
@@ -477,7 +486,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
       </table>
 
         <h2 id="string">string</h2>
-        <p><pre>Builder attr.string(default='', mandatory=False, values=[])
+        <p><pre>Descriptor attr.string(default='', mandatory=False, values=[])
 </pre></p>
 
     Creates an attribute of type string.
@@ -526,7 +535,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
       </table>
 
         <h2 id="string_dict">string_dict</h2>
-        <p><pre>Builder attr.string_dict(default={}, mandatory=False, non_empty=False)
+        <p><pre>Descriptor attr.string_dict(default={}, mandatory=False, non_empty=False)
 </pre></p>
 
     Creates an attribute of type dictionary, mapping from string to string. Its default value is dict().
@@ -575,7 +584,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
       </table>
 
         <h2 id="string_list">string_list</h2>
-        <p><pre>Builder attr.string_list(default=[], mandatory=False, non_empty=False)
+        <p><pre>Descriptor attr.string_list(default=[], mandatory=False, non_empty=False)
 </pre></p>
 
     Creates an attribute of type list of strings
@@ -624,7 +633,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
       </table>
 
         <h2 id="string_list_dict">string_list_dict</h2>
-        <p><pre>Builder attr.string_list_dict(default={}, mandatory=False, non_empty=False)
+        <p><pre>Descriptor attr.string_list_dict(default={}, mandatory=False, non_empty=False)
 </pre></p>
 
     Creates an attribute of type dictionary, mapping from string to list of string. Its default value is dict().
