@@ -15,6 +15,10 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -22,8 +26,13 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.UncheckedActionConflictException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.IOException;
 import java.util.List;
@@ -31,12 +40,12 @@ import java.util.List;
 /**
  * Unit tests for the {@link CompilationHelper} class.
  */
-public class CompilationHelperTest extends BuildViewTestCase {
+@RunWith(JUnit4.class)
+public class CompilationHelperTest extends BuildViewTestCaseForJunit4 {
   private AnalysisTestUtil.CollectingAnalysisEnvironment analysisEnvironment;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void createAnalysisEnvironment() throws Exception  {
     analysisEnvironment =
         new AnalysisTestUtil.CollectingAnalysisEnvironment(getTestAnalysisEnvironment());
   }
@@ -63,6 +72,7 @@ public class CompilationHelperTest extends BuildViewTestCase {
    * {@link com.google.devtools.build.lib.analysis.CompilationHelper#getAggregatingMiddleman}
    * with identical parameters return the same artifact.
    */
+  @Test
   public void testDuplicateCallsReturnSameObject() throws Exception {
     ConfiguredTarget rule =
         scratchConfiguredTarget("package", "a", "cc_binary(name = 'a'," + "    srcs = ['a.cc'])");
@@ -79,6 +89,7 @@ public class CompilationHelperTest extends BuildViewTestCase {
    * returns distinct artifacts even when called with identical rules, depending on
    * whether solib symlink are created.
    */
+  @Test
   public void testMiddlemanAndSolibMiddlemanAreDistinct() throws Exception {
     ConfiguredTarget rule =
         scratchConfiguredTarget("package", "a", "cc_binary(name = 'a'," + "    srcs = ['a.cc'])");
@@ -95,6 +106,7 @@ public class CompilationHelperTest extends BuildViewTestCase {
    * when generating a rule's aggregating middleman, so that otherwise equivalent rules can sustain
    * distinct middlemen.
    */
+  @Test
   public void testPythonCcConfigurations() throws Exception {
     setupJavaPythonCcConfigurationFiles();
 
@@ -127,6 +139,7 @@ public class CompilationHelperTest extends BuildViewTestCase {
    * generating a rule's aggregating middleman, so that otherwise equivalent rules can sustain
    * distinct middlemen.
    */
+  @Test
   public void testJavaCcConfigurations() throws Exception {
     setupJavaPythonCcConfigurationFiles();
 
