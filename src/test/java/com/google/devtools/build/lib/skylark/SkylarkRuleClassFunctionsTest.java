@@ -178,6 +178,30 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testLabelListWithAspects() throws Exception {
+    SkylarkAttr.Descriptor attr =
+        (SkylarkAttr.Descriptor) evalRuleClassCode(
+          "def _impl(target, ctx):",
+          "   pass",
+          "my_aspect = aspect(implementation = _impl)",
+          "attr.label_list(aspects = [my_aspect])");
+    Object aspect = ev.lookup("my_aspect");
+    assertThat(aspect).isNotNull();
+    assertThat(attr.getAspects()).containsExactly(aspect);
+  }
+
+  @Test
+  public void testLabelListWithAspectsError() throws Exception {
+    checkErrorContains(
+        "Expected a list of aspects for 'aspects'",
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(implementation = _impl)",
+        "attr.label_list(aspects = [my_aspect, 123])"
+    );
+  }
+
+  @Test
   public void testNonLabelAttrWithProviders() throws Exception {
     checkErrorContains(
         "unexpected keyword 'providers' in call to string", "attr.string(providers = ['a'])");

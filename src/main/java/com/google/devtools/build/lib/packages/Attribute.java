@@ -725,8 +725,33 @@ public final class Attribute implements Comparable<Attribute> {
      */
     public <T extends NativeAspectFactory> Builder<TYPE> aspect(
         Class<T> aspect, Function<Rule, AspectParameters> evaluator) {
-      this.aspects.add(new RuleAspect(new NativeAspectClass<T>(aspect), evaluator));
+      return this.aspect(new NativeAspectClass<T>(aspect), evaluator);
+    }
+
+    /**
+     * Asserts that a particular parameterized aspect probably needs to be computed for all direct
+     * dependencies through this attribute.
+     *
+     * @param evaluator function that extracts aspect parameters from rule.
+     */
+    public Builder<TYPE> aspect(AspectClass aspect, Function<Rule, AspectParameters> evaluator) {
+      this.aspects.add(new RuleAspect(aspect, evaluator));
       return this;
+    }
+
+    /**
+     * Asserts that a particular parameterized aspect probably needs to be computed for all direct
+     * dependencies through this attribute.
+     */
+    public Builder<TYPE> aspect(AspectClass aspect) {
+      Function<Rule, AspectParameters> noParameters =
+          new Function<Rule, AspectParameters>() {
+            @Override
+            public AspectParameters apply(Rule input) {
+              return AspectParameters.EMPTY;
+            }
+          };
+      return this.aspect(aspect, noParameters);
     }
 
     /**

@@ -89,6 +89,7 @@ import com.google.devtools.build.lib.util.Pair;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 /**
@@ -423,8 +424,17 @@ public class SkylarkRuleClassFunctions {
             + "', test rule class names must end with '_test' and other rule classes must not");
       }
       for (Pair<String, SkylarkAttr.Descriptor> attribute : attributes) {
+        SkylarkAttr.Descriptor descriptor = attribute.getSecond();
+        Attribute.Builder<?> attributeBuilder = descriptor.getAttributeBuilder();
+        for (SkylarkAspect skylarkAspect : descriptor.getAspects()) {
+          if (!skylarkAspect.isExported()) {
+            throw new EvalException(definitionLocation,
+                "All aspects applied to rule dependencies must be top-level values");
+          }
+          attributeBuilder.aspect(new SkylarkAspectClass(skylarkAspect));
+        }
         addAttribute(definitionLocation, builder,
-            attribute.getSecond().getAttributeBuilder().build(attribute.getFirst()));
+            descriptor.getAttributeBuilder().build(attribute.getFirst()));
       }
       this.ruleClass = builder.build(ruleClassName);
 
@@ -441,19 +451,31 @@ public class SkylarkRuleClassFunctions {
 
   public static void exportRuleFunctionsAndAspects(Environment env, Label skylarkLabel)
       throws EvalException {
-    for (String name : env.getGlobals().getDirectVariableNames()) {
+    Set<String> globalNames = env.getGlobals().getDirectVariableNames();
+
+    // Export aspects first since rules can depend on aspects.
+    for (String name : globalNames) {
+      Object value;
+      try {
+        value = env.lookup(name);
+      } catch (NoSuchVariableException e) {
+        throw new AssertionError(e);
+      }
+      if (value instanceof SkylarkAspect) {
+        SkylarkAspect skylarkAspect = (SkylarkAspect) value;
+        if (!skylarkAspect.isExported()) {
+          skylarkAspect.export(skylarkLabel, name);
+        }
+      }
+    }
+
+    for (String name : globalNames) {
       try {
         Object value = env.lookup(name);
         if (value instanceof RuleFunction) {
           RuleFunction function = (RuleFunction) value;
           if (function.skylarkLabel == null) {
             function.export(skylarkLabel, name);
-          }
-        }
-        if (value instanceof SkylarkAspect) {
-          SkylarkAspect skylarkAspect = (SkylarkAspect) value;
-          if (!skylarkAspect.isExported()) {
-            skylarkAspect.export(skylarkLabel, name);
           }
         }
       } catch (NoSuchVariableException e) {

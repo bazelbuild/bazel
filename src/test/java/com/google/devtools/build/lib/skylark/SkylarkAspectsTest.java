@@ -141,6 +141,80 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
         .containsExactly("//test:xxx", "//test:yyy");
   }
 
+
+  public void testAspectsFromSkylarkRules() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   s = set([target.label])",
+        "   for i in ctx.attr.deps:",
+        "       s += i.target_labels",
+        "   return struct(target_labels = s)",
+        "def _rule_impl(ctx):",
+        "   s = set([])",
+        "   for i in ctx.attr.attr:",
+        "       s += i.target_labels",
+        "   return struct(rule_deps = s)",
+        "",
+        "MyAspect = aspect(",
+        "   implementation=_impl,",
+        "   attr_aspects=['deps'],",
+        ")",
+        "my_rule = rule(",
+        "   implementation=_rule_impl,",
+        "   attrs = { 'attr' : ",
+        "             attr.label_list(mandatory=True, allow_files=True, aspects = [MyAspect]) },",
+        ")");
+
+    scratch.file(
+        "test/BUILD",
+        "load('/test/aspect', 'my_rule')",
+        "java_library(",
+        "     name = 'yyy',",
+        ")",
+        "my_rule(",
+        "     name = 'xxx',",
+        "     attr = [':yyy'],",
+        ")");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("//test:xxx"),
+            ImmutableList.<String>of(),
+            false,
+            LOADING_PHASE_THREADS,
+            true,
+            new EventBus());
+    assertThat(
+        transform(
+            analysisResult.getTargetsToBuild(),
+            new Function<ConfiguredTarget, String>() {
+              @Nullable
+              @Override
+              public String apply(ConfiguredTarget configuredTarget) {
+                return configuredTarget.getLabel().toString();
+              }
+            }))
+        .containsExactly("//test:xxx");
+    ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
+    SkylarkProviders skylarkProviders = target.getProvider(SkylarkProviders.class);
+    assertThat(skylarkProviders).isNotNull();
+    Object names = skylarkProviders.getValue("rule_deps");
+    assertThat(names).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(
+        transform(
+            (SkylarkNestedSet) names,
+            new Function<Object, String>() {
+              @Nullable
+              @Override
+              public String apply(Object o) {
+                assertThat(o).isInstanceOf(Label.class);
+                return o.toString();
+              }
+            }))
+        .containsExactly("//test:yyy");
+  }
+
   public void testAspectFailingExecution() throws Exception {
     scratch.file(
         "test/aspect.bzl",
