@@ -92,8 +92,9 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
   public static final PrerequisiteAttr[] PREREQUISITE_ATTRS = {
       new PrerequisiteAttr("deps", BuildType.LABEL_LIST),
       new PrerequisiteAttr("exports", BuildType.LABEL_LIST),
-      new PrerequisiteAttr("$robolectric", BuildType.LABEL_LIST),
-      new PrerequisiteAttr("$junit", BuildType.LABEL)
+      new PrerequisiteAttr("$robolectric", BuildType.LABEL_LIST), // From android_robolectric_test
+      new PrerequisiteAttr("$junit", BuildType.LABEL), // From android_robolectric_test
+      new PrerequisiteAttr("binary_under_test", BuildType.LABEL), // From android_test
   };
 
   // File suffixes.
