@@ -13,8 +13,13 @@
 // limitations under the License.
 
 package com.google.devtools.build.lib.analysis;
-
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
@@ -23,14 +28,20 @@ import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.util.Set;
 
 /**
  * Analysis caching tests.
  */
 @TestSpec(size = Suite.SMALL_TESTS)
+@RunWith(JUnit4.class)
 public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
+  @Test
   public void testSimpleCleanAnalysis() throws Exception {
     scratch.file("java/a/BUILD",
         "java_test(name = 'A',",
@@ -41,6 +52,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertNotNull(javaTest.getProvider(JavaSourceJarsProvider.class));
   }
 
+  @Test
   public void testTickTock() throws Exception {
     scratch.file("java/a/BUILD",
         "java_test(name = 'A',",
@@ -52,6 +64,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//java/a:A");
   }
 
+  @Test
   public void testFullyCached() throws Exception {
     scratch.file("java/a/BUILD",
         "java_test(name = 'A',",
@@ -63,6 +76,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertSame(old, current);
   }
 
+  @Test
   public void testSubsetCached() throws Exception {
     scratch.file("java/a/BUILD",
         "java_test(name = 'A',",
@@ -76,6 +90,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertSame(old, current);
   }
 
+  @Test
   public void testDependencyChanged() throws Exception {
     scratch.file("java/a/BUILD",
         "java_test(name = 'A',",
@@ -94,6 +109,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertNotSame(old, current);
   }
 
+  @Test
   public void testTopLevelChanged() throws Exception {
     scratch.file("java/a/BUILD",
         "java_test(name = 'A',",
@@ -114,6 +130,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
   // Regression test for:
   // "action conflict detection is incorrect if conflict is in non-top-level configured targets".
+  @Test
   public void testActionConflictInDependencyImpliesTopLevelTargetFailure() throws Exception {
     scratch.file("conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
@@ -134,6 +151,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
    * {@code SkyframeExecutorTest#testNoActionConflictWithInvalidatedTarget} tests it more
    * rigorously.
    */
+  @Test
   public void testNoActionConflictWithInvalidatedTarget() throws Exception {
     scratch.file("conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
@@ -156,6 +174,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   /**
    * Generating the same output from multiple actions is causing an error.
    */
+  @Test
   public void testActionConflictCausesError() throws Exception {
     scratch.file("conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
@@ -166,6 +185,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertContainsEvent("file 'conflict/_objs/x/conflict/foo.pic.o' " + CONFLICT_MSG);
   }
 
+  @Test
   public void testNoActionConflictErrorAfterClearedAnalysis() throws Exception {
     scratch.file("conflict/BUILD",
                 "cc_library(name='x', srcs=['foo.cc'])",
@@ -190,6 +210,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
    * The current action conflict detection code will only mark one of the targets as having an
    * error, and with multi-threaded analysis it is not deterministic which one that will be.
    */
+  @Test
   public void testActionConflictMarksTargetInvalid() throws Exception {
     scratch.file("conflict/BUILD",
         "cc_library(name='x', srcs=['foo.cc'])",
@@ -205,6 +226,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   /**
    *  BUILD file involved in BUILD-file cycle is changed
    */
+  @Test
   public void testBuildFileInCycleChanged() throws Exception {
     scratch.file("java/a/BUILD",
         "java_test(name = 'A',",
@@ -238,6 +260,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertEquals(analyzedTargets.toString(), 0, analyzedTargets.size());
   }
 
+  @Test
   public void testSecondRunAllCacheHits() throws Exception {
     scratch.file("java/a/BUILD",
         "java_test(name = 'A',",
@@ -247,6 +270,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertNoTargetsVisited();
   }
 
+  @Test
   public void testDependencyAllCacheHits() throws Exception {
     scratch.file("java/a/BUILD",
         "java_library(name = 'x', srcs = ['A.java'], deps = ['y'])",
@@ -260,6 +284,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertNoTargetsVisited();
   }
 
+  @Test
   public void testSupersetNotAllCacheHits() throws Exception {
     scratch.file("java/a/BUILD",
         // It's important that all targets are of the same rule class, otherwise the second update
@@ -279,6 +304,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertEquals(0, countObjectsPartiallyMatchingRegex(newAnalyzedTargets, "//java/a:y"));
   }
 
+  @Test
   public void testExtraActions() throws Exception {
     scratch.file("java/com/google/a/BUILD", "java_library(name='a', srcs=['A.java'])");
     scratch.file("java/com/google/b/BUILD", "java_library(name='b', srcs=['B.java'])");
@@ -295,6 +321,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update("//java/com/google/b:b");
   }
 
+  @Test
   public void testExtraActionsCaching() throws Exception {
     scratch.file("java/a/BUILD", "java_library(name='a', srcs=['A.java'])");
     scratch.file("extra/BUILD",
@@ -326,6 +353,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     }
   }
 
+  @Test
   public void testConfigurationCachingWithWarningReplay() throws Exception {
     useConfiguration("--test_sharding_strategy=experimental_heuristic");
     update();
@@ -335,6 +363,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertContainsEvent("Heuristic sharding is intended as a one-off experimentation tool");
   }
   
+  @Test
   public void testWorkspaceStatusCommandIsNotCachedForNullBuild() throws Exception {
     update();
     WorkspaceStatusAction actionA = getView().getLastWorkspaceBuildInfoActionForTesting();
@@ -346,6 +375,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertEquals("DummyBuildInfoActionSecond", actionB.getMnemonic());
   }
 
+  @Test
   public void testSkyframeCacheInvalidationBuildFileChange() throws Exception {
     scratch.file("java/a/BUILD",
         "java_test(name = 'A',",
@@ -367,6 +397,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     assertSame(updatedCT, updated2CT);
   }
 
+  @Test
   public void testSkyframeDifferentPackagesInvalidation() throws Exception {
     scratch.file("java/a/BUILD",
         "java_test(name = 'A',",
@@ -408,6 +439,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     return result;
   }
 
+  @Test
   public void testGetSkyframeEvaluatedTargetKeysOmitsCachedTargets() throws Exception {
     scratch.file("java/a/BUILD",
         "java_library(name = 'x', srcs = ['A.java'], deps = ['z', 'w'])",
@@ -436,15 +468,16 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
   /**
    * {link AnalysisCachingTest} without loading phase.
    */
+  @RunWith(JUnit4.class)
   public static class AnalysisCachingTestWithoutLoading extends AnalysisCachingTest {
     @Override
-    public void setUp() throws Exception {
-      disableLoading();
-      super.setUp();
+    protected boolean isLoadingEnabled() {
+      return false;
     }
 
     // Error processing without loading phase is not working properly yet.
     @Override
+    @Test
     public void testBuildFileInCycleChanged() {}
   }
 }
