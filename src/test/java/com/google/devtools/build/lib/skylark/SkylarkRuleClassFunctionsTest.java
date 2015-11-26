@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.rules.SkylarkAttr;
 import com.google.devtools.build.lib.rules.SkylarkFileType;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.RuleFunction;
+import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.SkylarkAspect;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
@@ -199,6 +200,19 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "my_aspect = aspect(implementation = _impl)",
         "attr.label_list(aspects = [my_aspect, 123])"
     );
+  }
+
+  @Test
+  public void testAspectExtraDeps() throws Exception {
+    evalAndExport(
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl,",
+        "   extra_deps=['//foo/bar:baz']",
+        ")"
+    );
+    SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
+    assertThat(aspect.getExtraDeps()).containsExactly(Label.parseAbsolute("//foo/bar:baz"));
   }
 
   @Test
