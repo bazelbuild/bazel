@@ -118,7 +118,7 @@ public abstract class PackageFactoryTestBase {
   }
 
   @Before
-  public void setUp() throws Exception {
+  public final void initializeFileSystem() throws Exception {
     FileSystem fs =
         new InMemoryFileSystem() {
           @Override
