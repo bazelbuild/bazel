@@ -13,13 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.CompileOnlyTestCase;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Unit tests that validate --compile_only behavior.
  */
+@RunWith(JUnit4.class)
 public class CcCompileOnlyTest extends CompileOnlyTestCase {
+
+  @Test
   public void testCcCompileOnly() throws Exception {
     scratch.file("package/BUILD",
         "cc_binary(name='foo', srcs=['foo.cc', ':bar'], deps = [':foolib'])",
