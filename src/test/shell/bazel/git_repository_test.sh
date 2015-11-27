@@ -253,6 +253,17 @@ EOF
   bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
   expect_log "Cloning"
   assert_contains "GIT 2" bazel-genfiles/external/g/go
+
+  cat > WORKSPACE <<EOF
+# This comment line is to change the line numbers, which should not cause Bazel
+# to refetch the repository
+git_repository(name='g', remote='$repo_dir', commit='62777acc')
+EOF
+
+  bazel --batch build @g//:g >& $TEST_log || fail "Build failed"
+  expect_not_log "Cloning"
+  assert_contains "GIT 2" bazel-genfiles/external/g/go
+
 }
 
 
