@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
+import static org.junit.Assert.fail;
+
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -38,7 +40,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.FoundationTestCaseForJunit4;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -51,6 +53,10 @@ import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 
+import org.junit.Before;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.lang.reflect.Field;
 import java.util.Collection;
 import java.util.HashMap;
@@ -61,7 +67,8 @@ import java.util.UUID;
 /**
  * Testing framework for tests which check ConfigurationFactory.
  */
-public abstract class ConfigurationTestCase extends FoundationTestCase {
+@RunWith(JUnit4.class)
+public abstract class ConfigurationTestCase extends FoundationTestCaseForJunit4 {
 
   public static final class TestOptions extends OptionsBase {
     @Option(name = "multi_cpu",
@@ -78,9 +85,8 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
   protected Path workspace;
   protected ImmutableList<Class<? extends FragmentOptions>> buildOptionClasses;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void initializeSkyframeExecutor() throws Exception {
     workspace = rootDirectory;
     ConfiguredRuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
     PathPackageLocator pkgLocator =
