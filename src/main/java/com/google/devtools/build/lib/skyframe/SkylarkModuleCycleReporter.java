@@ -18,7 +18,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -54,13 +53,16 @@ public class SkylarkModuleCycleReporter implements CyclesReporter.SingleCycleRep
               .append(lastPathElement.argument()).append("/BUILD: ")
               .append("cycle in referenced extension files: ");
 
-      AbstractLabelCycleReporter.printCycle(cycleInfo.getCycle(), cycleMessage,
+      AbstractLabelCycleReporter.printCycle(
+          cycleInfo.getCycle(),
+          cycleMessage,
           new Function<SkyKey, String>() {
-        @Override
-        public String apply(SkyKey input) {
-          return ((Label) input.argument()).toString();
-        }
-      });
+            @Override
+            public String apply(SkyKey input) {
+              return ((SkylarkImportLookupValue.SkylarkImportLookupKey) input.argument())
+                  .importLabel.toString();
+            }
+          });
 
       // TODO(bazel-team): it would be nice to pass the Location of the load Statement in the
       // BUILD file.

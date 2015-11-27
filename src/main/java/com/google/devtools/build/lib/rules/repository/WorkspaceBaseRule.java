@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
+
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -28,6 +31,9 @@ public class WorkspaceBaseRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         .exemptFromConstraintChecking("workspace rules aren't built for target environments")
+        .add(attr("generator_name", STRING).undocumented("internal"))
+        .add(attr("generator_function", STRING).undocumented("internal"))
+        .add(attr("generator_location", STRING).undocumented("internal"))
         .build();
   }
 

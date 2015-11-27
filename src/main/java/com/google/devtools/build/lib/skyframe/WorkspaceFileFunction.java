@@ -15,11 +15,12 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.packages.Package.Builder;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
-import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.skyframe.PackageFunction.PackageFunctionException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.vfs.Path;
@@ -54,6 +55,8 @@ public class WorkspaceFileFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws WorkspaceFileFunctionException,
       InterruptedException {
+    final Environment skyEnvironment = env;
+
     RootedPath workspaceRoot = (RootedPath) skyKey.argument();
     FileValue workspaceFileValue = (FileValue) env.getValue(FileValue.key(workspaceRoot));
     if (workspaceFileValue == null) {
@@ -61,7 +64,7 @@ public class WorkspaceFileFunction implements SkyFunction {
     }
 
     Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRelativePath());
-    Builder builder =
+    LegacyBuilder builder =
         com.google.devtools.build.lib.packages.Package.newExternalPackageBuilder(
             repoWorkspace, packageFactory.getRuleClassProvider().getRunfilesPrefix());
     try (Mutability mutability = Mutability.create("workspace %s", repoWorkspace)) {
@@ -73,15 +76,23 @@ public class WorkspaceFileFunction implements SkyFunction {
               mutability,
               directories.getEmbeddedBinariesRoot(),
               directories.getWorkspace());
-      parser.parse(
-          ParserInputSource.create(
-              ruleClassProvider.getDefaultWorkspaceFile(), new PathFragment("DEFAULT.WORKSPACE")));
-      if (!workspaceFileValue.exists()) {
-        return new PackageValue(builder.build());
-      }
-
       try {
-        parser.parse(ParserInputSource.create(repoWorkspace, workspaceFileValue.getSize()));
+        PathFragment pathFragment = new PathFragment("/DEFAULT.WORKSPACE");
+        if (!parse(
+                ParserInputSource.create(ruleClassProvider.getDefaultWorkspaceFile(), pathFragment),
+                repoWorkspace, parser, skyEnvironment)) {
+          return null;
+        }
+        if (!workspaceFileValue.exists()) {
+          return new PackageValue(builder.build());
+        }
+
+        if (!parse(
+                ParserInputSource.create(repoWorkspace), repoWorkspace, parser, skyEnvironment)) {
+          return null;
+        }
+      } catch (PackageFunctionException e) {
+        throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
       } catch (IOException e) {
         throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
       }
@@ -90,17 +101,43 @@ public class WorkspaceFileFunction implements SkyFunction {
     return new PackageValue(builder.build());
   }
 
+  private boolean loadSkylarkImports(Path repoWorkspace, WorkspaceFactory parser,
+      Environment skyEnvironment) throws PackageFunctionException, InterruptedException {
+    // Load skylark imports
+    PackageFunction.SkylarkImportResult importResult;
+    importResult = PackageFunction.fetchImportsFromBuildFile(repoWorkspace,
+            PackageIdentifier.createInDefaultRepo("external"),
+            parser.getBuildFileAST(),
+            skyEnvironment,
+            null);
+    if (importResult == null) {
+      return false;
+    }
+    parser.setImportedExtensions(importResult.importMap);
+    return true;
+  }
+
+  private boolean parse(ParserInputSource source, Path repoWorkspace, WorkspaceFactory parser,
+      Environment skyEnvironment) throws PackageFunctionException, InterruptedException {
+    parser.parseBuildFile(source);
+    if (!loadSkylarkImports(repoWorkspace, parser, skyEnvironment)) {
+      return false;
+    }
+    parser.execute();
+    return true;
+  }
+
   @Override
   public String extractTag(SkyKey skyKey) {
     return null;
   }
 
   private static final class WorkspaceFileFunctionException extends SkyFunctionException {
-    public WorkspaceFileFunctionException(IOException e, Transience transience) {
+    public WorkspaceFileFunctionException(Exception e, Transience transience) {
       super(e, transience);
     }
 
-    public WorkspaceFileFunctionException(EvalException e) {
+    public WorkspaceFileFunctionException(Exception e) {
       super(e, Transience.PERSISTENT);
     }
   }

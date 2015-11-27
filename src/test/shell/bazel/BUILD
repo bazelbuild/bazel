@@ -172,6 +172,13 @@ sh_test(
 )
 
 sh_test(
+    name = "skylark_repository_test",
+    size = "large",
+    srcs = ["skylark_repository_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "runfiles_test",
     size = "medium",
     srcs = ["runfiles_test.sh"],

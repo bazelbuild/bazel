@@ -48,15 +48,12 @@ public class ExternalPackageTest extends BuildViewTestCase {
   public void testMultipleRulesWithSameName() throws Exception {
     Builder builder = Package.newExternalPackageBuilder(workspacePath, "TESTING");
 
-    // The WORKSPACE file allows rules to be overridden, but the TestRuleClassProvider doesn't
-    // provide WORKSPACE rules (new_local_repo et al). So for the test, we create an
-    // ExternalPackage with BUILD rules, even though these rules wouldn't ordinarily be added to
-    // ExternalPackage.
-    Location buildFile = Location.fromFile(getOutputPath().getRelative("BUILD"));
+    // The WORKSPACE file allows rules to be overridden.
+    Location buildFile = Location.fromFile(getOutputPath().getRelative("WORKSPACE"));
 
     // Add first rule.
     RuleClass ruleClass =
-        TestRuleClassProvider.getRuleClassProvider().getRuleClassMap().get("cc_library");
+        TestRuleClassProvider.getRuleClassProvider().getRuleClassMap().get("local_repository");
     RuleClass bindRuleClass =
         TestRuleClassProvider.getRuleClassProvider().getRuleClassMap().get("bind");
 
@@ -70,7 +67,8 @@ public class ExternalPackageTest extends BuildViewTestCase {
         .createAndAddRepositoryRule(builder, ruleClass, bindRuleClass, kwargs, ast);
 
     // Add another rule with the same name.
-    ruleClass = TestRuleClassProvider.getRuleClassProvider().getRuleClassMap().get("sh_test");
+    ruleClass =
+        TestRuleClassProvider.getRuleClassProvider().getRuleClassMap().get("new_local_repository");
     ast =
         new FuncallExpression(
             new Identifier(ruleClass.getName()), Lists.<Argument.Passed>newArrayList());
@@ -81,6 +79,6 @@ public class ExternalPackageTest extends BuildViewTestCase {
     Package pkg = builder.build();
 
     // Make sure the second rule "wins."
-    assertEquals("sh_test rule", pkg.getTarget("my-rule").getTargetKind());
+    assertEquals("new_local_repository rule", pkg.getTarget("my-rule").getTargetKind());
   }
 }

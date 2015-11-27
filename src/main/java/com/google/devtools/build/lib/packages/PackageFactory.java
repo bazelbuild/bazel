@@ -390,6 +390,7 @@ public final class PackageFactory {
     this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
     this.packageArguments = createPackageArguments();
     this.nativeModule = newNativeModule();
+    this.workspaceNativeModule = WorkspaceFactory.newNativeModule(ruleClassProvider);
   }
 
   /**
@@ -1223,10 +1224,11 @@ public final class PackageFactory {
   }
 
   private final ClassObject nativeModule;
+  private final ClassObject workspaceNativeModule;
 
   /** @return the Skylark struct to bind to "native" */
-  public ClassObject getNativeModule() {
-    return nativeModule;
+  public ClassObject getNativeModule(boolean workspace) {
+    return workspace ? workspaceNativeModule : nativeModule;
   }
 
   /**

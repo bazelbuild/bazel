@@ -74,7 +74,7 @@ public class Resolver {
    */
   public Package parse(Path workspacePath) {
     resolver.addHeader(workspacePath.getPathString());
-    Package.Builder builder =
+    Package.LegacyBuilder builder =
         Package.newExternalPackageBuilder(workspacePath, ruleClassProvider.getRunfilesPrefix());
     try (Mutability mutability = Mutability.create("External Package %s", workspacePath)) {
       new WorkspaceFactory(builder, ruleClassProvider, environmentExtensions, mutability)

@@ -147,7 +147,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
   public void testBuildRuleFailsInWorkspaceFile() throws Exception {
     Path myPkgPath = scratch.resolve("/foo/workspace/WORKSPACE");
     Package.Builder pkgBuilder =
-        new Package.Builder(PackageIdentifier.createInDefaultRepo("mypkg"), "TESTING")
+        new Package.Builder(Package.EXTERNAL_PACKAGE_IDENTIFIER, "TESTING")
             .setFilename(myPkgPath)
             .setMakeEnv(new MakeEnvironment.Builder());
 

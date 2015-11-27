@@ -73,7 +73,7 @@ public final class AspectFunction implements SkyFunction {
       Environment env, Label extensionLabel, String skylarkValueName)
       throws ConversionException {
     
-    SkyKey importFileKey = SkylarkImportLookupValue.key(extensionLabel);
+    SkyKey importFileKey = SkylarkImportLookupValue.key(extensionLabel, false);
     SkylarkImportLookupValue skylarkImportLookupValue =
         (SkylarkImportLookupValue) env.getValue(importFileKey);
     if (skylarkImportLookupValue == null) {
