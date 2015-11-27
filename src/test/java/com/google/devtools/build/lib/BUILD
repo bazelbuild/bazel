@@ -152,7 +152,7 @@ java_test(
             "collect/*.java",
             "collect/nestedset/*.java",
             "events/*.java",
-            "testutiltests/*.java",
+            "testutil/*Test.java",
             "unix/*.java",
             "util/*.java",
             "util/io/*.java",
