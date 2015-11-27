@@ -23,9 +23,12 @@
 /tools/jdk/jdk
 /tools/objc/*.jar
 /tools/objc/actoolwrapper.sh
+/tools/objc/environment_plist.sh
 /tools/objc/ibtoolwrapper.sh
 /tools/objc/momctoolwrapper.sh
+/tools/objc/momcwrapper.sh
 /tools/objc/realpath
 /tools/objc/StdRedirect.dylib
 /tools/objc/swiftstdlibtoolwrapper.sh
+/tools/objc/swiftstdlibtoolzip.sh
 /tools/objc/xcrunwrapper.sh
