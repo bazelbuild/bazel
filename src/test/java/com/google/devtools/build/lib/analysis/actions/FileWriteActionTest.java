@@ -16,6 +16,11 @@ package com.google.devtools.build.lib.analysis.actions;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+@RunWith(JUnit4.class)
 public class FileWriteActionTest extends FileWriteActionTestCase {
 
   @Override
@@ -24,22 +29,27 @@ public class FileWriteActionTest extends FileWriteActionTestCase {
     return new FileWriteAction(actionOwner, outputArtifact, data, makeExecutable);
   }
 
+  @Test
   public void testNoInputs() {
     checkNoInputsByDefault();
   }
 
+  @Test
   public void testDestinationArtifactIsOutput() {
     checkDestinationArtifactIsOutput();
   }
 
+  @Test
   public void testCanWriteNonExecutableFile() throws Exception {
     checkCanWriteNonExecutableFile();
   }
 
+  @Test
   public void testCanWriteExecutableFile() throws Exception {
     checkCanWriteExecutableFile();
   }
 
+  @Test
   public void testComputesConsistentKeys() throws Exception {
     checkComputesConsistentKeys();
   }

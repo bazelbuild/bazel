@@ -14,15 +14,20 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.syntax.Type;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -36,7 +41,8 @@ import java.util.List;
  * com.google.devtools.build.lib.analysis.select.AbstractAttributeMapperTest} to run tests common to
  * all attribute mappers.
  */
-public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
+@RunWith(JUnit4.class)
+public class ConfiguredAttributeMapperTest extends BuildViewTestCaseForJunit4 {
 
   /**
    * Returns a ConfiguredAttributeMapper bound to the given rule with the target configuration.
@@ -60,6 +66,7 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
    * Tests that {@link ConfiguredAttributeMapper#get} only gets the configuration-appropriate
    * value.
    */
+  @Test
   public void testGetAttribute() throws Exception {
     writeConfigRules();
     scratch.file("a/BUILD",
@@ -86,6 +93,7 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
   /**
    * Tests that label visitation only travels down configuration-appropriate paths.
    */
+  @Test
   public void testLabelVisitation() throws Exception {
     writeConfigRules();
     scratch.file("a/BUILD",
@@ -142,6 +150,7 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
    * Tests that for configurable attributes where the *values* are evaluated in different
    * configurations, the configuration checking still uses the original configuration.
    */
+  @Test
   public void testConfigurationTransitions() throws Exception {
     writeConfigRules();
     scratch.file("a/BUILD",
@@ -177,6 +186,7 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
     assertEquals(CompilationMode.OPT, getHostConfiguration().getCompilationMode());
   }
 
+  @Test
   public void testConcatenatedSelects() throws Exception {
     scratch.file("hello/BUILD",
         "config_setting(name = 'a', values = {'define': 'foo=a'})",

@@ -61,6 +61,7 @@ import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Order;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.TrackingAwaiter;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -156,6 +157,8 @@ public final class BuildViewTest extends BuildViewTestBase {
 
   // TODO(bazel-team): this test is bad, it seems to rely on genrule emitting a warning to make the
   // analysis fail, this needs a proper way to inject errors/warnings
+  @Test
+  @Ignore
   public void disabled_testReportsAnalysisRootCauses() throws Exception {
     scratch.file("pkg/BUILD",
         "genrule(name='foo',",

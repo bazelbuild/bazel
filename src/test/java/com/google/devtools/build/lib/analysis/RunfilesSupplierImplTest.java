@@ -42,7 +42,7 @@ public class RunfilesSupplierImplTest {
   private Root middlemanRoot;
 
   @Before
-  public void setup() throws IOException {
+  public final void setRoot() throws IOException {
     Scratch scratch = new Scratch();
     rootDir = Root.asDerivedRoot(scratch.dir("/fake/root/dont/matter"));
 

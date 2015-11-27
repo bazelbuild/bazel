@@ -37,7 +37,7 @@ public class MakeVariableExpanderTest {
   private Map<String, String> vars = new HashMap<>();
 
   @Before
-  public void setUp() throws Exception {
+  public final void createContext() throws Exception  {
     context = new MakeVariableExpander.Context() {
         @Override
         public String lookupMakeVariable(String name)

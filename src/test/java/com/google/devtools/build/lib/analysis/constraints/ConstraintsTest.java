@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.analysis.constraints;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -30,16 +32,21 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.UnknownRuleConfiguredTarget;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.util.Set;
 
 /**
  * Tests for the constraint enforcement system.
  */
+@RunWith(JUnit4.class)
 public class ConstraintsTest extends AbstractConstraintsTest {
 
-  @Override
-  public void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void createBuildFile() throws Exception {
     // Support files for RuleClassWithImplicitAndLateBoundDefaults:
     scratch.file("helpers/BUILD",
         "sh_library(name = 'implicit', srcs = ['implicit.sh'])",
@@ -197,6 +204,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * By default, a rule *implicitly* supports all defaults, meaning the explicitly known
    * environment set is empty.
    */
+  @Test
   public void testDefaultSupportedEnvironments() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     String ruleDef = getDependencyRule();
@@ -206,6 +214,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   /**
    * "Constraining" a rule's environments explicitly sets them.
    */
+  @Test
   public void testConstrainedSupportedEnvironments() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults("a")
         .make();
@@ -217,6 +226,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   /**
    * Specifying compatibility adds the specified environments to the defaults.
    */
+  @Test
   public void testCompatibleSupportedEnvironments() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults("a")
         .make();
@@ -228,6 +238,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   /**
    * A rule can't support *no* environments.
    */
+  @Test
   public void testSupportedEnvironmentsConstrainedtoNothing() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     reporter.removeHandler(failFastHandler);
@@ -239,6 +250,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   /**
    * Restrict the environments within one group, declare compatibility for another.
    */
+  @Test
   public void testSupportedEnvironmentsInMultipleGroups() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     new EnvironmentGroupMaker("buildenv/bar").setEnvironments("c", "d").setDefaults("c").make();
@@ -252,6 +264,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   /**
    * The same label can't appear in both a constraint and a compatibility declaration.
    */
+  @Test
   public void testSameEnvironmentCompatibleAndRestricted() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     reporter.removeHandler(failFastHandler);
@@ -264,6 +277,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   /**
    * Two labels from the same group can't appear in different attributes.
    */
+  @Test
   public void testSameGroupCompatibleAndRestricted() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     reporter.removeHandler(failFastHandler);
@@ -277,6 +291,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   /**
    * Tests that rule class defaults change a rule's default set of environments.
    */
+  @Test
   public void testSupportedEnvironmentsRuleClassDefaults() throws Exception {
     writeRuleClassDefaultEnvironments();
     String ruleDef = "rule_class_default(name = 'a')";
@@ -288,6 +303,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   /**
    * Tests that explicit declarations override rule class defaults.
    */
+  @Test
   public void testExplicitAttributesOverrideRuleClassDefaults() throws Exception {
     writeRuleClassDefaultEnvironments();
     String ruleDef = "rule_class_default("
@@ -304,6 +320,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * Tests that a rule's "known" supported environments includes those from groups referenced
    * in rule class defaults but not in explicit rule attributes.
    */
+  @Test
   public void testKnownEnvironmentsIncludesThoseFromRuleClassDefaults() throws Exception {
     writeRuleClassDefaultEnvironments();
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
@@ -321,6 +338,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * Tests that environments from the same group can't appear in both restriction and
    * compatibility rule class defaults.
    */
+  @Test
   public void testSameEnvironmentRuleClassCompatibleAndRestricted() throws Exception {
     writeRuleClassDefaultEnvironments();
     reporter.removeHandler(failFastHandler);
@@ -333,6 +351,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   /**
    * Tests that a dependency is valid if both rules implicitly inherit all default environments.
    */
+  @Test
   public void testAllDefaults() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     scratch.file("hello/BUILD",
@@ -345,6 +364,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   /**
    * Tests that a dependency is valid when both rules explicitly declare the same constraints.
    */
+  @Test
   public void testSameConstraintsDeclaredExplicitly() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     scratch.file("hello/BUILD",
@@ -358,6 +378,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * Tests that a dependency is valid when both the depender and dependency explicitly declare
    * their constraints and the depender supports a subset of the dependency's environments
    */
+  @Test
   public void testValidConstraintsDeclaredExplicitly() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     scratch.file("hello/BUILD",
@@ -371,6 +392,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * Tests that a dependency is invalid when both the depender and dependency explicitly declare
    * their constraints and the depender supports an environment the dependency doesn't.
    */
+  @Test
   public void testInvalidConstraintsDeclaredExplicitly() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     scratch.file("hello/BUILD",
@@ -386,6 +408,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * Tests that a dependency is valid when both rules add the same set of environments to their
    * defaults.
    */
+  @Test
   public void testSameCompatibilityConstraints() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults("a")
         .make();
@@ -400,6 +423,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * Tests that a dependency is valid when both rules add environments to their defaults and
    * the depender only adds environments also added by the dependency.
    */
+  @Test
   public void testValidCompatibilityConstraints() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults("a")
         .make();
@@ -414,6 +438,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * Tests that a dependency is invalid when both rules add environments to their defaults and
    * the depender adds environments not added by the dependency.
    */
+  @Test
   public void testInvalidCompatibilityConstraints() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults("a")
         .make();
@@ -429,6 +454,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   /**
    * Tests the error message when the dependency is missing multiple expected environments.
    */
+  @Test
   public void testMultipleMissingEnvironments() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults("a")
         .make();
@@ -444,6 +470,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   /**
    * Tests a valid dependency including environments from different groups.
    */
+  @Test
   public void testValidMultigroupConstraints() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults("a")
         .make();
@@ -460,6 +487,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   /**
    * Tests an invalid dependency including environments from different groups.
    */
+  @Test
   public void testInvalidMultigroupConstraints() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults("a")
         .make();
@@ -479,6 +507,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * Tests a valid dependency where the dependency doesn't "know" about the expected environment's
    * group, but implicitly supports it because that environment is a default.
    */
+  @Test
   public void testValidConstraintsUnknownEnvironmentToDependency() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults("a", "b")
         .make();
@@ -493,6 +522,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * Tests an invalid dependency where the dependency doesn't "know" about the expected
    * environment's group and doesn't support it because it isn't a default.
    */
+  @Test
   public void testInvalidConstraintsUnknownEnvironmentToDependency() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults("a", "b")
         .make();
@@ -510,6 +540,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * groups, the depender implicitly supports that group's defaults, and all of those defaults
    * are accounted for in the dependency.
    */
+  @Test
   public void testValidConstraintsUnknownEnvironmentToDependender() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults("a")
         .make();
@@ -525,6 +556,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * groups, the depender implicitly supports that group's defaults, and one of those defaults
    * isn't accounted for in the dependency.
    */
+  @Test
   public void testInvalidConstraintsUnknownEnvironmentToDependender() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults("a")
         .make();
@@ -540,6 +572,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   /**
    * Tests the case where one dependency is valid and another one isn't.
    */
+  @Test
   public void testOneDependencyIsInvalid() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     scratch.file("hello/BUILD",
@@ -554,6 +587,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertDoesNotContainEvent("//hello:good_dep");
   }
 
+  @Test
   public void testConstraintEnforcementDisabled() throws Exception {
     useConfiguration("--experimental_enforce_constraints=0");
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults("a")
@@ -569,6 +603,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * Tests that package defaults compatibility produces a valid dependency that would otherwise
    * be invalid.
    */
+  @Test
   public void testCompatibilityPackageDefaults() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     scratch.file("hello/BUILD",
@@ -582,6 +617,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   /**
    * Tests that a rule's compatibility declaration overrides its package defaults compatibility.
    */
+  @Test
   public void testPackageDefaultsCompatibilityOverride() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
     // We intentionally create an invalid dependency structure vs. a valid one. If we tested on
@@ -601,6 +637,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * Tests that package defaults restriction produces an valid dependency that would otherwise
    * be invalid.
    */
+  @Test
   public void testRestrictionPackageDefaults() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a", "b")
         .make();
@@ -615,6 +652,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   /**
    * Tests that a rule's restriction declaration overrides its package defaults restriction.
    */
+  @Test
   public void testPackageDefaultsRestrictionOverride() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
     // We intentionally create an invalid dependency structure vs. a valid one. If we tested on
@@ -636,6 +674,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
    * where the "compatible_with" / "restricted_to" values of rule class defaults are merged together
    * before being supplied to the rule. See comments in DependencyResolver for more discussion.
    */
+  @Test
   public void testPackageDefaultsDirectlyFillRuleAttributes() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
     scratch.file("hello/BUILD",
@@ -647,6 +686,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         + "environment group. They should be declared together either here or in restricted_to");
   }
 
+  @Test
   public void testHostDependenciesAreNotChecked() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     scratch.file("hello/BUILD",
@@ -664,6 +704,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertNoEvents();
   }
 
+  @Test
   public void testHostDependenciesNotCheckedNoDistinctHostConfiguration() throws Exception {
     useConfiguration("--nodistinct_host_configuration");
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
@@ -682,6 +723,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertNoEvents();
   }
 
+  @Test
   public void testImplicitAndLateBoundDependenciesAreNotChecked() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     scratch.file("hello/BUILD",
@@ -696,6 +738,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertDoesNotContainEvent("normal doesn't support expected environment");
   }
 
+  @Test
   public void testImplicitDepsWithWhiteListedAttributeAreChecked() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("a").make();
     scratch.file("hello/BUILD",
@@ -708,6 +751,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "dependency //helpers:implicit doesn't support expected environment: //buildenv/foo:b");
   }
 
+  @Test
   public void testOutputFilesAreChecked() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
     scratch.file("hello/BUILD",
@@ -723,6 +767,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "dependency //hello:gen doesn't support expected environment: //buildenv/foo:a");
   }
 
+  @Test
   public void testConfigSettingRulesAreNotChecked() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
     scratch.file("hello/BUILD",
@@ -737,6 +782,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertNoEvents();
   }
 
+  @Test
   public void testFulfills() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo")
         .setEnvironments("a", "b")
@@ -750,6 +796,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertNoEvents();
   }
 
+  @Test
   public void testFulfillsIsNotSymmetric() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo")
         .setEnvironments("a", "b")
@@ -765,6 +812,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "dependency //hello:dep doesn't support expected environment: //buildenv/foo:a");
   }
 
+  @Test
   public void testFulfillsIsTransitive() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo")
         .setEnvironments("a", "b", "c")
@@ -779,6 +827,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertNoEvents();
   }
 
+  @Test
   public void testDefaultEnvironmentDirectlyFulfills() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo")
         .setEnvironments("a", "b")
@@ -792,6 +841,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertNoEvents();
   }
 
+  @Test
   public void testDefaultEnvironmentIndirectlyFulfills() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo")
         .setEnvironments("a", "b", "c")
@@ -806,6 +856,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertNoEvents();
   }
 
+  @Test
   public void testEnvironmentFulfillsExpectedDefault() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo")
         .setEnvironments("a", "b")
@@ -819,6 +870,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertNoEvents();
   }
 
+  @Test
   public void testConstraintExemptRulesDontHaveConstraintAttributes() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo")
         .setEnvironments("a", "b")
@@ -835,6 +887,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     assertContainsEvent("no such attribute 'restricted_to' in 'totally_free_rule'");
   }
 
+  @Test
   public void testBuildingEnvironmentGroupDirectlyDoesntCrash() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo")
         .setEnvironments("a", "b")

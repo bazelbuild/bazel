@@ -14,6 +14,11 @@
 package com.google.devtools.build.lib.analysis.select;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
@@ -29,16 +34,22 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.FoundationTestCaseForJunit4;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.List;
 
 /**
  * Unit tests for {@link AbstractAttributeMapper}.
  */
-public class AbstractAttributeMapperTest extends FoundationTestCase {
+@RunWith(JUnit4.class)
+public class AbstractAttributeMapperTest extends FoundationTestCaseForJunit4 {
 
   private Package pkg;
   protected Rule rule;
@@ -61,9 +72,8 @@ public class AbstractAttributeMapperTest extends FoundationTestCase {
     return pkg.getRule(ruleName);
   }
 
-  @Override
-  public void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void initializeRuleAndMapper() throws Exception {
     rule = createRule("x", "myrule",
         "cc_binary(name = 'myrule',",
         "          srcs = ['a', 'b', 'c'])");
@@ -71,17 +81,20 @@ public class AbstractAttributeMapperTest extends FoundationTestCase {
     mapper = new TestMapper(pkg, ruleClass, rule.getLabel(), rule.getAttributeContainer());
   }
 
+  @Test
   public void testRuleProperties() throws Exception {
     assertEquals(rule.getName(), mapper.getName());
     assertEquals(rule.getLabel(), mapper.getLabel());
   }
 
+  @Test
   public void testPackageDefaultProperties() throws Exception {
     assertEquals(pkg.getDefaultHdrsCheck(), mapper.getPackageDefaultHdrsCheck());
     assertEquals(pkg.getDefaultTestOnly(), mapper.getPackageDefaultTestOnly());
     assertEquals(pkg.getDefaultDeprecation(), mapper.getPackageDefaultDeprecation());
   }
 
+  @Test
   public void testAttributeTypeChecking() throws Exception {
     // Good typing:
     mapper.get("srcs", BuildType.LABEL_LIST);
@@ -103,16 +116,19 @@ public class AbstractAttributeMapperTest extends FoundationTestCase {
     }
   }
 
+  @Test
   public void testGetAttributeType() throws Exception {
     assertEquals(BuildType.LABEL_LIST, mapper.getAttributeType("srcs"));
     assertNull(mapper.getAttributeType("nonsense"));
   }
 
+  @Test
   public void testGetAttributeDefinition() {
     assertEquals("srcs", mapper.getAttributeDefinition("srcs").getName());
     assertNull(mapper.getAttributeDefinition("nonsense"));
   }
 
+  @Test
   public void testIsAttributeExplicitlySpecified() throws Exception {
     assertTrue(mapper.isAttributeValueExplicitlySpecified("srcs"));
     assertFalse(mapper.isAttributeValueExplicitlySpecified("deps"));
@@ -129,6 +145,7 @@ public class AbstractAttributeMapperTest extends FoundationTestCase {
     }
   }
 
+  @Test
   public void testVisitation() throws Exception {
     VisitationRecorder recorder = new VisitationRecorder();
     mapper.visitLabels(recorder);
@@ -136,6 +153,7 @@ public class AbstractAttributeMapperTest extends FoundationTestCase {
         .containsExactlyElementsIn(ImmutableList.of("//x:a", "//x:b", "//x:c"));
   }
 
+  @Test
   public void testComputedDefault() throws Exception {
     // Should return a valid ComputedDefault instance since this is a computed default:
     assertThat(mapper.getComputedDefault("$stl", BuildType.LABEL))

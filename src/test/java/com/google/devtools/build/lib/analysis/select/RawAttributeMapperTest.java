@@ -14,6 +14,11 @@
 package com.google.devtools.build.lib.analysis.select;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -23,16 +28,21 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.util.List;
 
 /**
  * Unit tests for {@link RawAttributeMapper}.
  */
+@RunWith(JUnit4.class)
 public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
 
-  @Override
-  public void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void createMapper() throws Exception {
     // Run AbstractAttributeMapper tests through a RawAttributeMapper.
     mapper = RawAttributeMapper.of(rule);
   }
@@ -49,6 +59,7 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
         "    data = [ ':data_a', ':data_b' ])");
   }
 
+  @Test
   public void testGetAttribute() throws Exception {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
     List<Label> value = rawMapper.get("data", BuildType.LABEL_LIST);
@@ -67,12 +78,14 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
   }
 
   @Override
+  @Test
   public void testGetAttributeType() throws Exception {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
     assertEquals(BuildType.LABEL_LIST, rawMapper.getAttributeType("data")); // not configurable
     assertEquals(BuildType.LABEL_LIST, rawMapper.getAttributeType("srcs")); // configurable
   }
 
+  @Test
   public void testConfigurabilityCheck() throws Exception {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
     assertFalse(rawMapper.isConfigurable("data", BuildType.LABEL_LIST));
@@ -82,6 +95,7 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
   /**
    * Tests that RawAttributeMapper can't handle label visitation with configurable attributes.
    */
+  @Test
   public void testVisitLabels() throws Exception {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
     try {
@@ -98,6 +112,7 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
     }
   }
 
+  @Test
   public void testGetConfigurabilityKeys() throws Exception {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
     assertThat(rawMapper.getConfigurabilityKeys("srcs", BuildType.LABEL_LIST))
@@ -109,6 +124,7 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
     assertThat(rawMapper.getConfigurabilityKeys("data", BuildType.LABEL_LIST)).isEmpty();
   }
 
+  @Test
   public void testGetMergedValues() throws Exception {
     Rule rule = createRule("x", "myrule",
         "sh_binary(",
@@ -125,6 +141,7 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
         .inOrder();
   }
 
+  @Test
   public void testMergedValuesWithConcatenatedSelects() throws Exception {
     Rule rule = createRule("x", "myrule",
         "sh_binary(",

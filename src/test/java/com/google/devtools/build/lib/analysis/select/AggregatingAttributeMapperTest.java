@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.select;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -25,14 +26,19 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestConstants;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 /**
  * Unit tests for {@link AggregatingAttributeMapper}.
  */
+@RunWith(JUnit4.class)
 public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest {
 
-  @Override
-  public void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void createMapper() throws Exception {
     // Run AbstractAttributeMapper tests through an AggregatingAttributeMapper.
     mapper = AggregatingAttributeMapper.of(rule);
   }
@@ -41,6 +47,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
    * Tests that {@link AggregatingAttributeMapper#visitAttribute} returns an
    * attribute's sole value when declared directly (i.e. not as a configurable dict).
    */
+  @Test
   public void testGetPossibleValuesDirectAttribute() throws Exception {
     Rule rule = createRule("a", "myrule",
         "sh_binary(name = 'myrule',",
@@ -53,6 +60,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
    * Tests that {@link AggregatingAttributeMapper#visitAttribute} returns
    * every possible value that a configurable attribute can resolve to.
    */
+  @Test
   public void testGetPossibleValuesConfigurableAttribute() throws Exception {
     Rule rule = createRule("a", "myrule",
         "sh_binary(name = 'myrule',",
@@ -69,6 +77,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
                 ImmutableList.of(Label.create("a", "default.sh"))));
   }
 
+  @Test
   public void testGetPossibleValuesWithConcatenatedSelects() throws Exception {
     Rule rule = createRule("a", "myrule",
         "sh_binary(name = 'myrule',",
@@ -92,6 +101,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
    * Given a large number of selects, we expect better than the naive
    * exponential performance from evaluating select1 x select2 x select3 x ...
    */
+  @Test
   public void testGetPossibleValuesWithManySelects() throws Exception {
     String pattern = " + select({'//conditions:a1': '%c', '//conditions:a2': '%s'})";
     StringBuilder ruleDef = new StringBuilder();
@@ -110,6 +120,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
    * Tests that, on rule visitation, {@link AggregatingAttributeMapper} visits *every* possible
    * value in a configurable attribute (including configuration key labels).
    */
+  @Test
   public void testVisitationConfigurableAttribute() throws Exception {
     Rule rule = createRule("a", "myrule",
         "sh_binary(name = 'myrule',",
@@ -127,6 +138,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
                 "//a:a.sh", "//a:b.sh", "//a:default.sh", "//conditions:a", "//conditions:b"));
   }
 
+  @Test
   public void testGetReachableLabels() throws Exception {
     Rule rule = createRule("x", "main",
         "cc_binary(",
@@ -156,6 +168,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
     assertThat(mapper.getReachableLabels("srcs", false)).containsExactlyElementsIn(valueLabels);
   }
 
+  @Test
   public void testDuplicateCheckOnNullValues() throws Exception {
     if (TestConstants.THIS_IS_BAZEL) {
       return;

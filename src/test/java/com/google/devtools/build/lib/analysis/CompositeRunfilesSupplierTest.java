@@ -48,7 +48,7 @@ public class CompositeRunfilesSupplierTest {
   private CompositeRunfilesSupplier underTest;
 
   @Before
-  public void setup() throws IOException {
+  public final void createMocks() throws IOException {
     Scratch scratch = new Scratch();
     rootDir = Root.asDerivedRoot(scratch.dir("/fake/root/dont/matter"));
 

@@ -13,15 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.Map;
 
@@ -29,7 +36,8 @@ import java.util.Map;
  * Tests for {@link LabelExpander}.
  */
 @TestSpec(size = Suite.SMALL_TESTS)
-public class LabelExpanderTest extends BuildViewTestCase {
+@RunWith(JUnit4.class)
+public class LabelExpanderTest extends BuildViewTestCaseForJunit4 {
   /**
    * A dummy target that resolves labels and receives errors.
    */
@@ -115,6 +123,7 @@ public class LabelExpanderTest extends BuildViewTestCase {
   /**
    * Tests that if no mapping is specified, then strings expand to themselves.
    */
+  @Test
   public void testStringExpandsToItselfWhenNoMappingSpecified() throws Exception {
     setupDummy();
     assertExpansion("", null);
@@ -127,6 +136,7 @@ public class LabelExpanderTest extends BuildViewTestCase {
    * Tests that in case of a one-to-one label-to-artifact mapping the expansion
    * produces the expected results.
    */
+  @Test
   public void testExpansion() throws Exception {
     setupDummy();
     assertExpansion("foo/x1", "x1", ImmutableMap.<Label, Iterable<Artifact>>of(
@@ -143,6 +153,7 @@ public class LabelExpanderTest extends BuildViewTestCase {
    * Tests that label extraction works as expected - disallowed label characters
    * are resolved to themselves.
    */
+  @Test
   public void testLabelExtraction() throws Exception {
     setupDummy();
     assertExpansion("(foo/" + allowedChars + ")", "(//foo:" + allowedChars + ")",
@@ -159,6 +170,7 @@ public class LabelExpanderTest extends BuildViewTestCase {
   /**
    * Tests that an exception is thrown when the mapping is not one-to-one.
    */
+  @Test
   public void testThrowsWhenMappingIsNotOneToOne() throws Exception {
     setupDummy();
     try {
@@ -184,6 +196,7 @@ public class LabelExpanderTest extends BuildViewTestCase {
   /**
    * Tests expanding labels that result in a SyntaxException.
    */
+  @Test
   public void testIllFormedLabels() throws Exception {
     setupDummy();
     assertExpansion("x1:x2:x3", "x1:x2:x3",
@@ -237,6 +250,7 @@ public class LabelExpanderTest extends BuildViewTestCase {
    * possible label). This means that if a label is a substring of another
    * label, it should not be expanded but be treated as part of the longer one.
    */
+  @Test
   public void testLabelIsSubstringOfValidLabel() throws Exception {
     setupDummy();
     assertExpansion("x3=foo/bar/x3", "x3=bar/x3",

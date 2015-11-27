@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestCaseForJunit4;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AttributeAspect;
 import com.google.devtools.build.lib.analysis.util.TestAspects.ExtraAttributeAspect;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -23,8 +23,6 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 
-import org.junit.After;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,18 +31,7 @@ import org.junit.runners.JUnit4;
  * Tests for {@link com.google.devtools.build.lib.skyframe.AspectValue}.
  */
 @RunWith(JUnit4.class)
-public class AspectValueTest extends AnalysisTestCase {
-  @Override
-  @Before
-  public void setUp() throws Exception {
-    super.setUp();
-  }
-
-  @Override
-  @After
-  public void tearDown() throws Exception {
-    super.tearDown();
-  }
+public class AspectValueTest extends AnalysisTestCaseForJunit4 {
 
   @Test
   public void equality() throws Exception {

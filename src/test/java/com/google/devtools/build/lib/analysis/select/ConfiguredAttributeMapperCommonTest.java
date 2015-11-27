@@ -18,6 +18,10 @@ import com.google.devtools.build.lib.analysis.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 
+import org.junit.Before;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 /**
  * Tests that {@link ConfiguredAttributeMapper} fulfills all behavior expected
  * of {@link AbstractAttributeMapper}.
@@ -27,10 +31,10 @@ import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
  * inherit from {@link com.google.devtools.build.lib.analysis.util.BuildViewTestCase} to run tests
  * with build configurations.
  */
+@RunWith(JUnit4.class)
 public class ConfiguredAttributeMapperCommonTest extends AbstractAttributeMapperTest {
-  @Override
-  public void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void createMapper() throws Exception {
     mapper = ConfiguredAttributeMapper.of(rule, ImmutableSet.<ConfigMatchingProvider>of());
   }
 }

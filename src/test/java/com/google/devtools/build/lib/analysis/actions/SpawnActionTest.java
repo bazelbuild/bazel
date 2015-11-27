@@ -16,6 +16,9 @@ package com.google.devtools.build.lib.analysis.actions;
 import static com.google.common.truth.Truth.assertThat;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.Arrays.asList;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -32,9 +35,14 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.Arrays;
 import java.util.Collection;
@@ -45,7 +53,8 @@ import java.util.Map;
 /**
  * Tests {@link SpawnAction}.
  */
-public class SpawnActionTest extends BuildViewTestCase {
+@RunWith(JUnit4.class)
+public class SpawnActionTest extends BuildViewTestCaseForJunit4 {
   private Artifact welcomeArtifact;
   private Artifact destinationArtifact;
   private Artifact jarArtifact;
@@ -55,10 +64,8 @@ public class SpawnActionTest extends BuildViewTestCase {
     return new SpawnAction.Builder();
   }
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
-
+  @Before
+  public final void createArtifacts() throws Exception {
     collectingAnalysisEnvironment = new AnalysisTestUtil.CollectingAnalysisEnvironment(
         getTestAnalysisEnvironment());
     welcomeArtifact = getSourceArtifact("pkg/welcome.txt");
@@ -84,18 +91,21 @@ public class SpawnActionTest extends BuildViewTestCase {
     return (SpawnAction) actions[0];
   }
 
+  @Test
   public void testWelcomeArtifactIsInput() {
     SpawnAction copyFromWelcomeToDestination = createCopyFromWelcomeToDestination();
     Iterable<Artifact> inputs = copyFromWelcomeToDestination.getInputs();
     assertEquals(Sets.newHashSet(welcomeArtifact), Sets.newHashSet(inputs));
   }
 
+  @Test
   public void testDestinationArtifactIsOutput() {
     SpawnAction copyFromWelcomeToDestination = createCopyFromWelcomeToDestination();
     Collection<Artifact> outputs = copyFromWelcomeToDestination.getOutputs();
     assertEquals(Sets.newHashSet(destinationArtifact), Sets.newHashSet(outputs));
   }
 
+  @Test
   public void testBuilder() throws Exception {
     Artifact input = getSourceArtifact("input");
     Artifact output = getBinArtifactWithNoOwner("output");
@@ -116,6 +126,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     assertEquals("Test", action.getProgressMessage());
   }
 
+  @Test
   public void testBuilderWithExecutable() throws Exception {
     Action[] actions = builder()
         .setExecutable(welcomeArtifact)
@@ -127,6 +138,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         .containsExactlyElementsIn(asList(welcomeArtifact.getExecPath().getPathString()));
   }
 
+  @Test
   public void testBuilderWithJavaExecutable() throws Exception {
     Action[] actions = builder()
         .addOutput(destinationArtifact)
@@ -139,6 +151,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         "pkg/exe.jar", "MyMainClass"), action.getArguments());
   }
 
+  @Test
   public void testBuilderWithJavaExecutableAndParameterFile() throws Exception {
     useConfiguration("--min_param_file_size=0");
     collectingAnalysisEnvironment = new AnalysisTestUtil.CollectingAnalysisEnvironment(
@@ -170,6 +183,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         "pkg/exe.jar");
   }
 
+  @Test
   public void testBuilderWithJavaExecutableAndParameterFileAndParameterFileFlag() throws Exception {
     useConfiguration("--min_param_file_size=0");
     collectingAnalysisEnvironment = new AnalysisTestUtil.CollectingAnalysisEnvironment(
@@ -201,6 +215,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         "pkg/exe.jar");
   }
 
+  @Test
   public void testBuilderWithExtraExecutableArguments() throws Exception {
     Action[] actions = builder()
         .addOutput(destinationArtifact)
@@ -216,6 +231,7 @@ public class SpawnActionTest extends BuildViewTestCase {
         action.getArguments());
   }
 
+  @Test
   public void testBuilderWithExtraExecutableArgumentsAndParameterFile() throws Exception {
     useConfiguration("--min_param_file_size=0");
     collectingAnalysisEnvironment = new AnalysisTestUtil.CollectingAnalysisEnvironment(
@@ -248,6 +264,7 @@ public class SpawnActionTest extends BuildViewTestCase {
             ((ParameterFileWriteAction) getGeneratingAction(paramFile)).getContents()));
   }
 
+  @Test
   public void testParameterFiles() throws Exception {
     Artifact output1 = getBinArtifactWithNoOwner("output1");
     Artifact output2 = getBinArtifactWithNoOwner("output2");
@@ -276,6 +293,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     assertThat(spawnAction.getRemainingArguments()).containsExactly(longOption).inOrder();
   }
 
+  @Test
   public void testExtraActionInfo() throws Exception {
     SpawnAction copyFromWelcomeToDestination = createCopyFromWelcomeToDestination();
     ExtraActionInfo.Builder builder = copyFromWelcomeToDestination.getExtraActionInfo();
@@ -303,6 +321,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     }
   }
 
+  @Test
   public void testInputManifest() throws Exception {
     Artifact manifest = getSourceArtifact("MANIFEST");
     Action[] actions = builder()
@@ -318,6 +337,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     assertThat(inputFiles).isEmpty();
   }
 
+  @Test
   public void testComputeKey() throws Exception {
     final Artifact artifactA = getSourceArtifact("a");
     final Artifact artifactB = getSourceArtifact("b");
@@ -363,6 +383,7 @@ public class SpawnActionTest extends BuildViewTestCase {
     });
   }
 
+  @Test
   public void testMnemonicMustNotContainSpaces() {
     SpawnAction.Builder builder = builder();
     try {

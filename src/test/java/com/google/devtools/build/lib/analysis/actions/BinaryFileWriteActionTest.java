@@ -18,8 +18,13 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.nio.charset.StandardCharsets;
 
+@RunWith(JUnit4.class)
 public class BinaryFileWriteActionTest extends FileWriteActionTestCase {
   @Override
   protected Action createAction(
@@ -28,22 +33,27 @@ public class BinaryFileWriteActionTest extends FileWriteActionTestCase {
         ByteSource.wrap(data.getBytes(StandardCharsets.UTF_8)), makeExecutable);
   }
 
+  @Test
   public void testNoInputs() {
     checkNoInputsByDefault();
   }
 
+  @Test
   public void testDestinationArtifactIsOutput() {
     checkDestinationArtifactIsOutput();
   }
 
+  @Test
   public void testCanWriteNonExecutableFile() throws Exception {
     checkCanWriteNonExecutableFile();
   }
 
+  @Test
   public void testCanWriteExecutableFile() throws Exception {
     checkCanWriteExecutableFile();
   }
 
+  @Test
   public void testComputesConsistentKeys() throws Exception {
     checkComputesConsistentKeys();
   }
