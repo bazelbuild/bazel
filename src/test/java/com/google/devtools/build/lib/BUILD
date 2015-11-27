@@ -997,7 +997,7 @@ java_test(
 )
 
 java_library(
-    name = "worker-example-lib",
+    name = "ExampleWorker-lib",
     srcs = glob(["worker/ExampleWorker*.java"]),
     visibility = [
         "//src/test/shell/bazel:__pkg__",
@@ -1010,13 +1010,13 @@ java_library(
 )
 
 java_binary(
-    name = "worker-example",
+    name = "ExampleWorker",
     main_class = "com.google.devtools.build.lib.worker.ExampleWorker",
     visibility = [
         "//src/test/shell/bazel:__pkg__",
     ],
     runtime_deps = [
-        ":worker-example-lib",
+        ":ExampleWorker-lib",
     ],
 )
 
