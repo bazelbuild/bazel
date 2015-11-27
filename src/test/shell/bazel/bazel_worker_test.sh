@@ -20,7 +20,7 @@
 # TODO(philwo): Change this so the path to the custom worker gets passed in as an argument to the
 # test, once the bug that makes using the "args" attribute with sh_tests in Bazel impossible is
 # fixed.
-example_worker=$(find $PWD -name worker-example_deploy.jar)
+example_worker=$(find $PWD -name ExampleWorker_deploy.jar)
 
 # Load test environment
 source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
