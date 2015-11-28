@@ -389,6 +389,20 @@ java_import(
 )
 
 java_import(
+    name = "scala-xml",
+    jars = [
+        "scala-xml/scala-xml-2.11.0-M4.jar",
+    ]
+)
+
+java_import(
+    name = "scalatest",
+    jars = [
+        "scalatest/scalatest_2.11-2.2.4.jar",
+    ]
+)
+
+java_import(
     name = "mockito",
     jars = ["mockito/mockito-all-1.10.19.jar"],
 )
