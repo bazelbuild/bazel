@@ -38,8 +38,8 @@ scala_test(
     size = "medium",  # Not a macro, can pass test-specific attributes.
     deps = [
         ":HelloLib",
-        "//third_party:scalatest",
-        "//third_party:scala-xml",
+        "@scalatest//jar",
+        "@scala-xml//jar",
     ],
 )
 

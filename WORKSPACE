@@ -52,3 +52,13 @@ new_http_archive(
     url = "http://downloads.typesafe.com/scala/2.11.7/scala-2.11.7.tgz",
     build_file = "tools/build_defs/scala/scala.BUILD",
 )
+
+maven_jar(
+    name = "scala-xml",
+    artifact = "org.scala-lang.modules:scala-xml_2.11:1.0.5",
+)
+
+maven_jar(
+    name = "scalatest",
+    artifact = "org.scalatest:scalatest_2.11:2.2.4",
+)
