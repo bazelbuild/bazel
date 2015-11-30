@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.PackageSerializer;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleSerializer;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
@@ -87,7 +87,7 @@ public abstract class RepositoryFunction implements SkyFunction {
   private byte[] computeRuleKey(Rule rule, byte[] ruleSpecificData) {
 
     return new Fingerprint()
-        .addBytes(new PackageSerializer().serializeRule(rule).toByteArray())
+        .addBytes(RuleSerializer.serializeRule(rule).build().toByteArray())
         .addBytes(ruleSpecificData)
         .digestAndReset();
   }
@@ -135,7 +135,7 @@ public abstract class RepositoryFunction implements SkyFunction {
     }
   }
 
-  
+
   protected Path prepareLocalRepositorySymlinkTree(Rule rule, Environment env)
       throws RepositoryFunctionException {
     Path repositoryDirectory = getExternalRepositoryDirectory().getRelative(rule.getName());
