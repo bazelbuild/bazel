@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -61,6 +60,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
+import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -88,7 +88,6 @@ import com.google.devtools.build.lib.util.Pair;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
@@ -456,7 +455,7 @@ public class SkylarkRuleClassFunctions {
             throw new EvalException(definitionLocation,
                 "All aspects applied to rule dependencies must be top-level values");
           }
-          attributeBuilder.aspect(new SkylarkAspectClass(skylarkAspect));
+          attributeBuilder.aspect(skylarkAspect.getAspectClass());
         }
 
         addAttribute(definitionLocation, builder,
@@ -632,7 +631,7 @@ public class SkylarkRuleClassFunctions {
   /**
    * A Skylark value that is a result of 'aspect(..)' function call.
    */
-  public static class SkylarkAspect implements SkylarkValue {
+  public static final class SkylarkAspect implements SkylarkValue {
     private final BaseFunction implementation;
     private final ImmutableList<String> attributeAspects;
     private final ImmutableList<Label> extraDeps;
@@ -677,7 +676,12 @@ public class SkylarkRuleClassFunctions {
     }
 
     public String getName() {
-      return exported != null ? exported.toString() : "<skylark aspect>";
+      return getAspectClass().getName();
+    }
+
+    public SkylarkAspectClass getAspectClass() {
+      Preconditions.checkState(isExported());
+      return new SkylarkAspectClassImpl(this);
     }
 
     void export(Label extensionLabel, String name) {
@@ -719,27 +723,23 @@ public class SkylarkRuleClassFunctions {
    * Implementation of an aspect class defined in Skylark.
    */
   @Immutable
-  public static final class SkylarkAspectClass implements AspectClass {
+  private static final class SkylarkAspectClassImpl extends SkylarkAspectClass {
     private final AspectDefinition aspectDefinition;
     private final Label extensionLabel;
     private final String exportedName;
 
-    public SkylarkAspectClass(SkylarkAspect skylarkAspect) {
+    public SkylarkAspectClassImpl(SkylarkAspect skylarkAspect) {
       Preconditions.checkArgument(skylarkAspect.isExported(), "Skylark aspects must be exported");
-      AspectDefinition.Builder builder = new AspectDefinition.Builder(skylarkAspect.getName());
+      this.extensionLabel = skylarkAspect.getExtensionLabel();
+      this.exportedName = skylarkAspect.getExportedName();
+
+      AspectDefinition.Builder builder = new AspectDefinition.Builder(getName());
       for (String attributeAspect : skylarkAspect.getAttributeAspects()) {
         builder.attributeAspect(attributeAspect, this);
       }
       builder.add(attr("$extra_deps", LABEL_LIST).value(skylarkAspect.getExtraDeps()));
       this.aspectDefinition = builder.build();
 
-      this.extensionLabel = skylarkAspect.getExtensionLabel();
-      this.exportedName = skylarkAspect.getExportedName();
-    }
-
-    @Override
-    public String getName() {
-      return aspectDefinition.getName();
     }
 
     @Override
@@ -753,25 +753,6 @@ public class SkylarkRuleClassFunctions {
 
     public String getExportedName() {
       return exportedName;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(extensionLabel, exportedName);
-    }
-
-    @Override
-    public boolean equals(Object other) {
-      if (this == other) {
-        return true;
-      }
-      if (!(other instanceof SkylarkAspectClass)) {
-        return false;
-      }
-
-      SkylarkAspectClass that = (SkylarkAspectClass) other;
-      return Objects.equals(this.extensionLabel, that.extensionLabel)
-          && Objects.equals(this.exportedName, that.exportedName);
     }
 
   }

@@ -145,11 +145,12 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
   public void testAspectsFromSkylarkRules() throws Exception {
     scratch.file(
         "test/aspect.bzl",
-        "def _impl(target, ctx):",
+        "def _aspect_impl(target, ctx):",
         "   s = set([target.label])",
         "   for i in ctx.attr.deps:",
         "       s += i.target_labels",
         "   return struct(target_labels = s)",
+        "",
         "def _rule_impl(ctx):",
         "   s = set([])",
         "   for i in ctx.attr.attr:",
@@ -157,7 +158,7 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
         "   return struct(rule_deps = s)",
         "",
         "MyAspect = aspect(",
-        "   implementation=_impl,",
+        "   implementation=_aspect_impl,",
         "   attr_aspects=['deps'],",
         ")",
         "my_rule = rule(",

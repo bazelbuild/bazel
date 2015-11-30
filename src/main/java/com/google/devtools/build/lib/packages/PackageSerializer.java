@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -21,6 +22,8 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.MakeEnvironment.Binding;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build.AttributeAspect;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build.SkylarkAspect;
 import com.google.protobuf.CodedOutputStream;
 
 import java.io.IOException;
@@ -28,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 /** Functionality to serialize loaded packages. */
@@ -171,6 +175,26 @@ public class PackageSerializer {
         .build();
   }
 
+  public Build.SkylarkAspect serializeSkylarkAspect(Rule rule, Aspect aspect) {
+    SkylarkAspectClass aspectClass = (SkylarkAspectClass) aspect.getAspectClass();
+
+    SkylarkAspect.Builder builder = SkylarkAspect.newBuilder()
+        .setExtensionFileLabel(aspectClass.getExtensionLabel().toString())
+        .setExportedName(aspectClass.getExportedName());
+
+    AspectDefinition definition = aspect.getDefinition();
+    for (Entry<String, Attribute> entry : definition.getAttributes().entrySet()) {
+      Attribute attribute = entry.getValue();
+      Object defaultValue = attribute.getDefaultValue(rule);
+      Verify.verify(defaultValue != null, "Aspect attributes must have default values.");
+      Build.Attribute attributePb =
+          AttributeSerializer.getAttributeProto(
+              attribute, ImmutableList.of(defaultValue), true, false);
+      builder.addAttribute(attributePb);
+    }
+    return builder.build();
+  }
+
   private static List<Build.MakeVar> serializeMakeEnvironment(MakeEnvironment makeEnv) {
     List<Build.MakeVar> result = new ArrayList<>();
 
@@ -256,7 +280,7 @@ public class PackageSerializer {
         .build());
   }
 
-  private static void maybeSerializeAdditionalDataForRule(Rule rule, Build.Rule.Builder builder) {
+  private void maybeSerializeAdditionalDataForRule(Rule rule, Build.Rule.Builder builder) {
     if (rule.getRuleClassObject().isSkylark()) {
       builder.setIsSkylark(true);
       // We explicitly serialize the implicit output files for this rule so that we can recreate
@@ -279,6 +303,24 @@ public class PackageSerializer {
           //      Rule#populateImplicitOutputFiles assumes the labels aren't absolute. This is nice
           //      anyways because we don't wastefully serialize the package name.
           builder.addRuleOutput(label.getName());
+        }
+      }
+
+      // Serialize aspects.
+      List<Attribute> attributes = rule.getRuleClassObject().getAttributes();
+      for (Attribute attribute : attributes) {
+        ImmutableList<Aspect> aspects = attribute.getAspects(rule);
+        for (Aspect aspect : aspects) {
+          if (aspect.getAspectClass() instanceof NativeAspectClass<?>) {
+            continue;
+          }
+
+          SkylarkAspect skylarkAspect = serializeSkylarkAspect(rule, aspect);
+          builder.addSkylarkAttributeAspects(
+              AttributeAspect.newBuilder()
+                  .setAttributeName(attribute.getName())
+                  .setAspect(skylarkAspect)
+                  .build());
         }
       }
     }

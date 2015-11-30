@@ -112,9 +112,6 @@ public final class AspectDefinition {
 
   /**
    * Returns the attribute -&gt; set of required aspects map.
-   *
-   * <p>Note that the map actually contains {@link AspectFactory}
-   * instances, except that we cannot reference that class here.
    */
   public ImmutableMultimap<String, AspectClass> getAttributeAspects() {
     return attributeAspects;

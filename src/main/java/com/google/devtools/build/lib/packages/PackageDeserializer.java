@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.StringDictUnar
 import com.google.devtools.build.lib.syntax.GlobCriteria;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.CodedInputStream;
@@ -76,7 +78,8 @@ public class PackageDeserializer {
     Path getPath(String buildFilePath);
 
     /** Returns a {@link RuleClass} object for the serialized rule. */
-    RuleClass getRuleClass(Build.Rule rulePb, Location ruleLocation);
+    RuleClass getRuleClass(Build.Rule rulePb, Location ruleLocation)
+        throws PackageDeserializationException;
 
     /** Description of what rule attributes of each rule should be deserialized. */
     AttributesToDeserialize attributesToDeserialize();
@@ -763,6 +766,61 @@ public class PackageDeserializer {
     Preconditions.checkState(!rule.containsErrors());
     return rule;
   }
+
+  /**
+   * Implemetation of a SkylarkAspectClass deserialized with a package.
+   */
+  public static class DeserializedSkylarkAspectClass extends SkylarkAspectClass {
+
+    private final Label extenesionFileLabel;
+    private final String exportedName;
+    private final AspectDefinition definition;
+
+    private DeserializedSkylarkAspectClass(Build.SkylarkAspect aspect)
+        throws PackageDeserializationException {
+      this.extenesionFileLabel = deserializeLabel(aspect.getExtensionFileLabel());
+      this.exportedName = aspect.getExportedName();
+      AspectDefinition.Builder builder = new AspectDefinition.Builder(getName());
+
+      for (Build.Attribute attributePb : aspect.getAttributeList()) {
+        Type<?> type =
+            ProtoUtils.getTypeFromDiscriminator(
+                attributePb.getType(), Optional.<Boolean>absent(), "", attributePb.getName());
+        ParsedAttributeValue parsedAttributeValue = deserializeAttribute(type, attributePb);
+        Attribute.Builder<?> attribute = Attribute.attr(attributePb.getName(), type);
+        try {
+          attribute.defaultValue(parsedAttributeValue.value);
+        } catch (ConversionException e) {
+          throw new PackageDeserializationException(
+              "Wrong type of a value for attribute " + attributePb.getName(), e);
+        }
+        builder.add(attribute);
+      }
+
+      this.definition = builder.build();
+    }
+
+    @Override
+    public Label getExtensionLabel() {
+      return extenesionFileLabel;
+    }
+
+    @Override
+    public String getExportedName() {
+      return exportedName;
+    }
+
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return definition;
+    }
+  }
+
+  public SkylarkAspectClass createDeserializedSkylarkAspectClass(Build.SkylarkAspect aspect)
+      throws PackageDeserializationException {
+    return new DeserializedSkylarkAspectClass(aspect);
+  }
+
 
   private static class ParsedAttributeValue {
     private final boolean explicitlySpecified;
