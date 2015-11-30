@@ -22,6 +22,11 @@ FILES = [
     src = s + ".proto",
 ) for s in FILES]
 
+proto_java_library(
+    name = "build_proto_v2",
+    src = "build.proto",
+)
+
 filegroup(
     name = "srcs",
     srcs = glob(["**"]),

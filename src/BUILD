@@ -19,7 +19,7 @@ filegroup(
 [genrule(
     name = "install_base_key-file" + suffix,
     srcs = [
-        "//src/main/java/com/google/devtools/build/lib:bazel-main_deploy.jar",
+        "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
         "//src/main/cpp:client",
         ":libunix",
         "//src/main/tools:build-runfiles",
@@ -93,7 +93,7 @@ genrule(
         # The script assumes that the embedded tools zip (if exists) is the
         # first item here, the deploy jar the second and install base key is the
         # third
-        "//src/main/java/com/google/devtools/build/lib:bazel-main_deploy.jar",
+        "//src/main/java/com/google/devtools/build/lib:bazel/BazelServer_deploy.jar",
         "install_base_key" + suffix,
         "//src/main/cpp:client",
         ":libunix",
