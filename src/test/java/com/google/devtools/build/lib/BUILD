@@ -839,6 +839,7 @@ java_test(
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:analysis-exec-rules-skyframe",
         "//src/main/java/com/google/devtools/build/lib:bazel-core",
+        "//src/main/java/com/google/devtools/build/lib:cmdline",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",

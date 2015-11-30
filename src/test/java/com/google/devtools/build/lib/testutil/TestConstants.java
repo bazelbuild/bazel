@@ -68,4 +68,6 @@ public class TestConstants {
   public static final String GCC_INCLUDE_PATH = "external/bazel_tools/tools/cpp/gcc3";
 
   public static final String TOOLS_REPOSITORY = "@bazel_tools";
+
+  public static final String MOCK_CROSSTOOL_PATH = "tools/cpp";
 }
