@@ -42,7 +42,7 @@ pkg_tar(
 pkg_tar(
     name = "debian-data",
     extension = "tar.gz",
-    tars = [
+    deps = [
         ":bazel-bin",
         ":bazel-tools",
     ],
@@ -88,7 +88,7 @@ Here, the Debian package is built from three `pkg_tar` targets:
 ## pkg_tar
 
 ```python
-pkg_tar(name, extension, data_path, directory, files, mode, modes, tars, debs, symlinks)
+pkg_tar(name, extension, data_path, directory, files, mode, modes, deps, symlinks)
 ```
 
 Creates a tar file from a list of inputs.
@@ -194,12 +194,12 @@ Creates a tar file from a list of inputs.
       </td>
     </tr>
     <tr>
-      <td><code>tars</code></td>
+      <td><code>deps</code></td>
       <td>
-        <code>List of files, optional</code>
-        <p>Tar file to extract in the layer.</p>
+        <code>List of labels, optional</code>
+        <p>Tar files to extract and include in this tar package.</p>
         <p>
-          A list of tar files to merge into the output tarball.
+          A list of tarball labels to merge into the output tarball.
         </p>
       </td>
     </tr>
