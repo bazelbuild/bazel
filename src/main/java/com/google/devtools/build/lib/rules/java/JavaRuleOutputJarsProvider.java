@@ -39,7 +39,7 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
     @Nullable private final Artifact iJar;
     @Nullable private final Artifact srcJar;
 
-    private OutputJar(
+    public OutputJar(
         @Nullable Artifact classJar, @Nullable Artifact iJar, @Nullable Artifact srcJar) {
       this.classJar = classJar;
       this.iJar = iJar;
@@ -88,6 +88,11 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
         @Nullable Artifact sourceJar) {
       Preconditions.checkState(classJar != null || iJar != null || sourceJar != null);
       outputJars.add(new OutputJar(classJar, iJar, sourceJar));
+      return this;
+    }
+
+    public Builder addOutputJar(OutputJar outputJar) {
+      outputJars.add(outputJar);
       return this;
     }
 

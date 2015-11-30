@@ -80,6 +80,9 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
   private AnalysisResult analysisResult;
   private ConfiguredAspect configuredAspect;
 
+  /**
+   * Constructs a string that matches OutputJar#toString for comparison testing.
+   */
   protected static String jarString(String base, String jar, String iJar, String sourceJar) {
     StringBuilder sb = new StringBuilder();
     if (jar != null) {
@@ -122,6 +125,10 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
     assertThat(configuredAspect.getName()).isEqualTo(AndroidStudioInfoAspect.NAME);
   }
 
+  /**
+   * Returns a map of (label as string) -> RuleIdeInfo for each rule in the transitive
+   * closure of the passed target.
+   */
   protected Map<String, RuleIdeInfo> buildRuleIdeInfo(String target) throws Exception {
     buildTarget(target);
     AndroidStudioInfoFilesProvider provider =
