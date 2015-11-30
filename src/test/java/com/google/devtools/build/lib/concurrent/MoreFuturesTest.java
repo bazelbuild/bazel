@@ -47,12 +47,12 @@ public class MoreFuturesTest {
   private ExecutorService executorService;
 
   @Before
-  public void setUp() throws Exception {
+  public final void createExecutor() throws Exception  {
     executorService = Executors.newFixedThreadPool(5);
   }
 
   @After
-  public void tearDown() throws Exception {
+  public final void shutdownExecutor() throws Exception  {
     MoreExecutors.shutdownAndAwaitTermination(executorService, TestUtils.WAIT_TIMEOUT_SECONDS,
         TimeUnit.SECONDS);
 
