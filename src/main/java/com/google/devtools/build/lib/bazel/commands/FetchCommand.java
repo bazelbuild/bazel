@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
-import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
@@ -122,13 +121,7 @@ public final class FetchCommand implements BlazeCommand {
 
     // 2. Evaluate expression:
     try {
-      queryEnv.evaluateQuery(expr, new Callback<Target>() {
-        @Override
-        public void process(Iterable<Target> partialResult)
-            throws QueryException, InterruptedException {
-          // Throw away the result.
-        }
-      });
+      queryEnv.evaluateQuery(expr);
     } catch (QueryException | InterruptedException e) {
       // Keep consistent with reportBuildFileError()
       env.getReporter().handle(Event.error(e.getMessage()));

@@ -44,7 +44,6 @@ java_library(
     srcs = glob(["engine/*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib:common",
-        "//src/main/java/com/google/devtools/build/lib:concurrent",
         "//src/main/java/com/google/devtools/build/lib:graph",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//third_party:jsr305",

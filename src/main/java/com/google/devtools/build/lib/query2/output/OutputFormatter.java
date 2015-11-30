@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
@@ -28,7 +27,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeSerializer;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -155,20 +153,17 @@ public abstract class OutputFormatter implements Serializable {
       AspectResolver aspectProvider) throws IOException, InterruptedException;
 
   /**
-   * Unordered streamed output formatter (wrt. dependency ordering).
+   * Unordered output formatter (wrt. dependency ordering).
    *
-   * <p>Formatters that support streamed output may be used when only the set of query results is
+   * <p>Formatters that support unordered output may be used when only the set of query results is
    * requested but their ordering is irrelevant.
    *
-   * <p>The benefit of using a streamed formatter is that we can save the potentially expensive
-   * subgraph extraction step before presenting the query results and that depending on the query
-   * environment used, it can be more memory performant, as it does not aggregate all the data
-   * before writting in the output.
+   * <p>The benefit of using a unordered formatter is that we can save the potentially expensive
+   * subgraph extraction step before presenting the query results.
    */
-  public interface StreamedFormatter {
-
-    OutputFormatterCallback<Target> createStreamCallback(QueryOptions options, PrintStream out,
-        AspectResolver aspectResolver);
+  public interface UnorderedFormatter {
+    void outputUnordered(QueryOptions options, Iterable<Target> result, PrintStream out,
+        AspectResolver aspectResolver) throws IOException, InterruptedException;
   }
 
   /**
@@ -177,8 +172,8 @@ public abstract class OutputFormatter implements Serializable {
   public abstract String getName();
 
   abstract static class AbstractUnorderedFormatter extends OutputFormatter
-      implements StreamedFormatter {
-    protected Iterable<Target> getOrderedTargets(
+      implements UnorderedFormatter {
+    private static Iterable<Target> getOrderedTargets(
         Digraph<Target> result, QueryOptions options) {
       Iterable<Node<Target>> orderedResult =
           options.orderOutput == OrderOutput.DEPS
@@ -188,11 +183,13 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public void output(QueryOptions options, Digraph<Target> result, PrintStream out,
-        AspectResolver aspectResolver) throws IOException, InterruptedException {
-      OutputFormatterCallback.processAllTargets(
-          createStreamCallback(options, out, aspectResolver),
-          getOrderedTargets(result, options));
+    public void output(
+        QueryOptions options,
+        Digraph<Target> result,
+        PrintStream out,
+        AspectResolver aspectResolver)
+        throws IOException, InterruptedException {
+      outputUnordered(options, getOrderedTargets(result, options), out, aspectResolver);
     }
   }
 
@@ -204,7 +201,7 @@ public abstract class OutputFormatter implements Serializable {
 
     private final boolean showKind;
 
-    private LabelOutputFormatter(boolean showKind) {
+    public LabelOutputFormatter(boolean showKind) {
       this.showKind = showKind;
     }
 
@@ -214,22 +211,15 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(QueryOptions options,
-        final PrintStream out, AspectResolver aspectResolver) {
-      return new OutputFormatterCallback<Target>() {
-
-        @Override
-        protected void processOutput(Iterable<Target> partialResult)
-            throws IOException, InterruptedException {
-          for (Target target : partialResult) {
-            if (showKind) {
-              out.print(target.getTargetKind());
-              out.print(' ');
-            }
-            out.println(target.getLabel());
-          }
+    public void outputUnordered(QueryOptions options, Iterable<Target> result, PrintStream out,
+        AspectResolver aspectResolver) {
+      for (Target target : result) {
+        if (showKind) {
+          out.print(target.getTargetKind());
+          out.print(' ');
         }
-      };
+        out.println(target.getLabel());
+      }
     }
   }
 
@@ -255,28 +245,15 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(QueryOptions options,
-        final PrintStream out,
+    public void outputUnordered(QueryOptions options, Iterable<Target> result, PrintStream out,
         AspectResolver aspectResolver) {
-      return new OutputFormatterCallback<Target>() {
-        private final Set<String> packageNames = Sets.newTreeSet();
-
-        @Override
-        protected void processOutput(Iterable<Target> partialResult)
-            throws IOException, InterruptedException {
-
-          for (Target target : partialResult) {
-            packageNames.add(target.getLabel().getPackageName());
-          }
-        }
-
-        @Override
-        public void close() throws IOException {
-          for (String packageName : packageNames) {
-            out.println(packageName);
-          }
-        }
-      };
+      Set<String> packageNames = Sets.newTreeSet();
+      for (Target target : result) {
+        packageNames.add(target.getLabel().getPackageName());
+      }
+      for (String packageName : packageNames) {
+        out.println(packageName);
+      }
     }
   }
 
@@ -293,20 +270,12 @@ public abstract class OutputFormatter implements Serializable {
     }
 
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(QueryOptions options,
-        final PrintStream out,
+    public void outputUnordered(QueryOptions options, Iterable<Target> result, PrintStream out,
         AspectResolver aspectResolver) {
-      return new OutputFormatterCallback<Target>() {
-
-        @Override
-        protected void processOutput(Iterable<Target> partialResult)
-            throws IOException, InterruptedException {
-          for (Target target : partialResult) {
-            Location location = target.getLocation();
-            out.println(location.print() + ": " + target.getTargetKind() + " " + target.getLabel());
-          }
-        }
-      };
+      for (Target target : result) {
+        Location location = target.getLocation();
+        out.println(location.print()  + ": " + target.getTargetKind() + " " + target.getLabel());
+      }
     }
   }
 
@@ -321,57 +290,48 @@ public abstract class OutputFormatter implements Serializable {
       return "build";
     }
 
+    private void outputRule(Rule rule, PrintStream out) {
+      out.printf("# %s%n", rule.getLocation());
+      out.printf("%s(%n", rule.getRuleClass());
+      out.printf("  name = \"%s\",%n", rule.getName());
+
+      for (Attribute attr : rule.getAttributes()) {
+        Pair<Iterable<Object>, AttributeValueSource> values = getAttributeValues(rule, attr);
+        if (Iterables.size(values.first) != 1) {
+          continue;  // TODO(bazel-team): handle configurable attributes.
+        }
+        if (values.second != AttributeValueSource.RULE) {
+          continue;  // Don't print default values.
+        }
+        Object value = Iterables.getOnlyElement(values.first);
+        out.printf("  %s = ", attr.getPublicName());
+        if (value instanceof Label) {
+          value = value.toString();
+        } else if (value instanceof List<?> && EvalUtils.isImmutable(value)) {
+          // Display it as a list (and not as a tuple). Attributes can never be tuples.
+          value = new ArrayList<>((List<?>) value);
+        }
+        // It is *much* faster to write to a StringBuilder compared to the PrintStream object.
+        StringBuilder builder = new StringBuilder();
+        Printer.write(builder, value);
+        out.print(builder);
+        out.println(",");
+      }
+      out.printf(")\n%n");
+    }
+
     @Override
-    public OutputFormatterCallback<Target> createStreamCallback(QueryOptions options,
-        final PrintStream out,
+    public void outputUnordered(QueryOptions options, Iterable<Target> result, PrintStream out,
         AspectResolver aspectResolver) {
-      return new OutputFormatterCallback<Target>() {
-        private final Set<Label> printed = CompactHashSet.create();
-
-        private void outputRule(Rule rule, PrintStream out) {
-          out.printf("# %s%n", rule.getLocation());
-          out.printf("%s(%n", rule.getRuleClass());
-          out.printf("  name = \"%s\",%n", rule.getName());
-
-          for (Attribute attr : rule.getAttributes()) {
-            Pair<Iterable<Object>, AttributeValueSource> values = getAttributeValues(rule, attr);
-            if (Iterables.size(values.first) != 1) {
-              continue;  // TODO(bazel-team): handle configurable attributes.
-            }
-            if (values.second != AttributeValueSource.RULE) {
-              continue;  // Don't print default values.
-            }
-            Object value = Iterables.getOnlyElement(values.first);
-            out.printf("  %s = ", attr.getPublicName());
-            if (value instanceof Label) {
-              value = value.toString();
-            } else if (value instanceof List<?> && EvalUtils.isImmutable(value)) {
-              // Display it as a list (and not as a tuple). Attributes can never be tuples.
-              value = new ArrayList<>((List<?>) value);
-            }
-            // It is *much* faster to write to a StringBuilder compared to the PrintStream object.
-            StringBuilder builder = new StringBuilder();
-            Printer.write(builder, value);
-            out.print(builder);
-            out.println(",");
-          }
-          out.printf(")\n%n");
+      Set<Label> printed = new HashSet<>();
+      for (Target target : result) {
+        Rule rule = target.getAssociatedRule();
+        if (rule == null || printed.contains(rule.getLabel())) {
+          continue;
         }
-
-        @Override
-        protected void processOutput(Iterable<Target> partialResult)
-            throws IOException, InterruptedException {
-
-          for (Target target : partialResult) {
-            Rule rule = target.getAssociatedRule();
-            if (rule == null || printed.contains(rule.getLabel())) {
-              continue;
-            }
-            outputRule(rule, out);
-            printed.add(rule.getLabel());
-          }
-        }
-      };
+        outputRule(rule, out);
+        printed.add(rule.getLabel());
+      }
     }
   }
 
