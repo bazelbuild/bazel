@@ -37,7 +37,7 @@ public class UnixPathEqualityTest {
   private FileSystem unixFs;
 
   @Before
-  public void setUp() throws Exception {
+  public final void initializeFileSystem() throws Exception  {
     unixFs = new UnixFileSystem();
     otherUnixFs = new UnixFileSystem();
     assertTrue(unixFs != otherUnixFs);

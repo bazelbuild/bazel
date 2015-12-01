@@ -14,7 +14,12 @@
 package com.google.devtools.build.lib.vfs;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 
@@ -38,11 +43,8 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
   protected Path xLinkToDirectory;
   protected Path xDanglingLink;
 
-  @Override
   @Before
-  public void setUp() throws Exception {
-    super.setUp();
-
+  public final void createSymbolicLinks() throws Exception  {
     // % ls -lR
     // -rw-rw-r-- xFile
     // drwxrwxr-x xNonEmptyDirectory

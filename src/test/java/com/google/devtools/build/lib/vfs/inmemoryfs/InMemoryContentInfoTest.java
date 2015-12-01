@@ -29,7 +29,7 @@ public class InMemoryContentInfoTest {
   private Clock clock;
 
   @Before
-  public void setUp() throws Exception {
+  public final void createClock() throws Exception  {
     clock = BlazeClock.instance();
   }
 

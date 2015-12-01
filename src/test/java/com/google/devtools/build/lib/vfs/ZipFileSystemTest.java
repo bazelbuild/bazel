@@ -59,7 +59,7 @@ public class ZipFileSystemTest {
   private FileSystem zipFS2;
 
   @Before
-  public void setUp() throws Exception {
+  public final void initializeFileSystems() throws Exception  {
     FileSystem unixFs = FileSystems.initDefaultAsNative();
     Path testdataDir = unixFs.getPath(BlazeTestUtils.runfilesDir()).getRelative(
         TestConstants.JAVATESTS_ROOT + "/com/google/devtools/build/lib/vfs");

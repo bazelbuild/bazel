@@ -56,8 +56,9 @@ public class GlobTest {
   private Path tmpPath;
   private FileSystem fs;
   private Path throwOnReaddir = null;
+
   @Before
-  public void setUp() throws Exception {
+  public final void initializeFileSystem() throws Exception  {
     fs = new InMemoryFileSystem() {
       @Override
       public Collection<Dirent> readdir(Path path, boolean followSymlinks) throws IOException {

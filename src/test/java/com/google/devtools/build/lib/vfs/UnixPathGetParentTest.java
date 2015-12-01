@@ -37,14 +37,14 @@ public class UnixPathGetParentTest {
   private Path testRoot;
 
   @Before
-  public void setUp() throws Exception {
+  public final void createTestRoot() throws Exception  {
     unixFs = FileSystems.initDefaultAsNative();
     testRoot = unixFs.getPath(TestUtils.tmpDir()).getRelative("UnixPathGetParentTest");
     FileSystemUtils.createDirectoryAndParents(testRoot);
   }
 
   @After
-  public void tearDown() throws Exception {
+  public final void deleteTestRoot() throws Exception  {
     FileSystemUtils.deleteTree(testRoot); // (comment out during debugging)
   }
 

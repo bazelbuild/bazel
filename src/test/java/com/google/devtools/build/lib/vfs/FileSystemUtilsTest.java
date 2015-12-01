@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
-
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.appendWithoutExtension;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.commonAncestor;
@@ -68,7 +67,7 @@ public class FileSystemUtilsTest {
   private Path workingDir;
 
   @Before
-  public void setUp() throws Exception {
+  public final void initializeFileSystem() throws Exception  {
     clock = new ManualClock();
     fileSystem = new InMemoryFileSystem(clock);
     workingDir = fileSystem.getPath("/workingDir");

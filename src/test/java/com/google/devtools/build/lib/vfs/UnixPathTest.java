@@ -57,7 +57,7 @@ public class UnixPathTest {
   }
 
   @Before
-  public void setUp() throws Exception {
+  public final void createFiles() throws Exception  {
     unixFs = getUnixFileSystem();
     tmpDir = new File(TestUtils.tmpDir(), "tmpDir");
     tmpDir.mkdirs();

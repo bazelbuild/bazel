@@ -43,7 +43,7 @@ public class RecursiveGlobTest {
   private FileSystem fileSystem;
   
   @Before
-  public void setUp() throws Exception {
+  public final void initializeFileSystem() throws Exception  {
     fileSystem = new InMemoryFileSystem(BlazeClock.instance());
     tmpPath = fileSystem.getPath("/rglobtmp");
     for (String dir : ImmutableList.of("foo/bar/wiz",

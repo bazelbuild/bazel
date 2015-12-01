@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
-import junit.framework.AssertionFailedError;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -64,7 +62,7 @@ public class FsApparatus {
     try {
       FileSystemUtils.deleteTree(wd);
     } catch (IOException e) {
-      throw new AssertionFailedError(e.getMessage());
+      throw new AssertionError(e.getMessage());
     }
 
     return new FsApparatus(fs, wd);

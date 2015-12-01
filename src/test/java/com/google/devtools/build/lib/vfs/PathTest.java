@@ -48,7 +48,7 @@ public class PathTest {
   private Path root;
 
   @Before
-  public void setUp() throws Exception {
+  public final void initializeFileSystem() throws Exception  {
     filesystem = new InMemoryFileSystem(BlazeClock.instance());
     root = filesystem.getRootDirectory();
     Path first = root.getChild("first");
