@@ -385,19 +385,6 @@ message Target {
   optional EnvironmentGroup environment_group = 6;
 }
 
-// Used to represent a series of Targets as a series of messages. Preferred
-// over repeated fields when the number of targets being serialized may result
-// in creating a serialized protocol buffer that is larger than the default
-// protocol buffer deserialization limit.
-message TargetOrTerminator {
-  // Is this the last message in the series?
-  optional bool is_terminator = 1 [default = false];
-
-  // The Target encoded in this element. Should be set iff is_terminator is
-  // false.
-  optional Target target = 2;
-}
-
 // Container for all of the blaze query results.
 message QueryResult {
   // All of the targets returned by the blaze query.
@@ -495,50 +482,3 @@ message Event {
   optional string message = 3;
 }
 
-message Package {
-  enum State {
-    PRESENT = 1;    // The package is present and has changed at this CL
-    TOMBSTONE = 2;  // The package got deleted at this CL
-    UNKNOWN = 3;    // The database does not contain enough information to know
-  }
-
-  required string name = 1;
-  optional string repository = 2;
-  optional string build_file_path = 3;
-
-  // Default values
-  repeated string default_visibility_label = 1001;
-  optional bool default_obsolete = 1002;
-  optional bool default_testonly = 1003;
-  optional string default_deprecation = 1004;
-  optional string default_strict_java_deps = 1005;
-  repeated string default_copt = 1006;
-  optional string default_hdrs_check = 1007;
-  optional License default_license = 1008;
-  repeated string default_distrib = 1009;
-  optional bool default_visibility_set = 1010;
-
-  // Package-level data
-  repeated string default_setting = 2002;
-  repeated string subinclude_label = 2003;
-  repeated MakeVar make_variable = 2004;
-  repeated string file_system_dep = 2005;
-  optional bool depends_on_external_files = 2006;
-  optional bool dependencies_recorded = 2007;
-  optional bool contains_errors = 2008;
-  optional bool contains_temporary_errors = 2009;
-  repeated string skylark_label = 2010;
-  optional string workspace_name = 2011;
-
-  // Targets
-  repeated SourceFile source_file = 3001;
-  repeated PackageGroup package_group = 3002;
-  repeated Rule rule = 3003;
-  repeated EnvironmentGroup environment_group = 3004;
-
-  // Metadata
-  // Reason why the package could not be serialized.
-  optional string failure_reason = 4001;
-  optional State state = 4002;
-  repeated Event event = 4003;
-}
