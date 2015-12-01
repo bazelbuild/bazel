@@ -18,8 +18,6 @@ import static org.junit.Assert.assertEquals;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 
-import junit.framework.TestCase;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,7 +32,7 @@ import java.util.Random;
  * Tests for {@link RecordingUniqueifier}.
  */
 @RunWith(JUnit4.class)
-public class RecordingUniqueifierTest extends TestCase {
+public class RecordingUniqueifierTest {
 
   private static final Random RANDOM = new Random();
   

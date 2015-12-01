@@ -13,15 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect.nestedset;
 
-import static junit.framework.TestCase.assertFalse;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-
-import junit.framework.TestCase;
 
 import org.junit.Test;
 
@@ -36,7 +34,7 @@ import java.util.List;
  * <p>This class provides test cases for representative nested set structures; the expected
  * results must be provided by overriding the corresponding methods.
  */
-public abstract class ExpanderTestBase extends TestCase  {
+public abstract class ExpanderTestBase  {
 
   /**
    * Returns the type of the expander under test.

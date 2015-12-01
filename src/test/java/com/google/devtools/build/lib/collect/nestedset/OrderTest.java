@@ -14,8 +14,7 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.truth.Truth.assertThat;
-
-import junit.framework.TestCase;
+import static org.junit.Assert.fail;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -25,7 +24,7 @@ import org.junit.runners.JUnit4;
  * Tests for {@link com.google.devtools.build.lib.collect.nestedset.Order}.
  */
 @RunWith(JUnit4.class)
-public class OrderTest extends TestCase {
+public class OrderTest {
 
   @Test
   public void testParsing() throws Exception {
