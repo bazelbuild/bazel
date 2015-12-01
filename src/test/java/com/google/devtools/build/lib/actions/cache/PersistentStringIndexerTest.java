@@ -72,7 +72,7 @@ public class PersistentStringIndexerTest {
 
 
   @Before
-  public void setUp() throws Exception {
+  public final void createIndexer() throws Exception  {
     dataPath = scratch.resolve("/cache/test.dat");
     journalPath = scratch.resolve("/cache/test.journal");
     psi = PersistentStringIndexer.newPersistentStringIndexer(dataPath, clock);

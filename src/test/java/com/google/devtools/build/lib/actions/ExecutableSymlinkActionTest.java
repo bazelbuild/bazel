@@ -42,7 +42,7 @@ public class ExecutableSymlinkActionTest {
   private Executor executor;
 
   @Before
-  public void setUp() throws Exception {
+  public final void createExecutor() throws Exception  {
     final Path inputDir = scratch.dir("/in");
     inputRoot = Root.asDerivedRoot(inputDir);
     outputRoot = Root.asDerivedRoot(scratch.dir("/out"));

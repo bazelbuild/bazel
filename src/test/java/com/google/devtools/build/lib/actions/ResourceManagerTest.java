@@ -47,7 +47,7 @@ public class ResourceManagerTest {
   CyclicBarrier sync2;
 
   @Before
-  public void setUp() throws Exception {
+  public final void configureResourceManager() throws Exception  {
     rm.setRamUtilizationPercentage(100);
     rm.setAvailableResources(
         ResourceSet.create(/*memoryMb=*/1000.0, /*cpuUsage=*/1.0, /*ioUsage=*/1.0,

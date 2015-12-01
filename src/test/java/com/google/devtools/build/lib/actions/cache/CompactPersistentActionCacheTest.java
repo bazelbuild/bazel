@@ -62,7 +62,7 @@ public class CompactPersistentActionCacheTest {
   private CompactPersistentActionCache cache;
 
   @Before
-  public void setUp() throws Exception {
+  public final void createFiles() throws Exception  {
     dataRoot = scratch.resolve("/cache/test.dat");
     cache = new CompactPersistentActionCache(dataRoot, clock);
     mapFile = CompactPersistentActionCache.cacheFile(dataRoot);

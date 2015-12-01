@@ -43,7 +43,7 @@ public class FailActionTest {
   protected MutableActionGraph actionGraph = new MapBasedActionGraph();
 
   @Before
-  public void setUp() throws Exception {
+  public final void setUp() throws Exception  {
     errorMessage = "An error just happened.";
     anOutput = new Artifact(scratch.file("/out/foo"),
         Root.asDerivedRoot(scratch.dir("/"), scratch.dir("/out")));

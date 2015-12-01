@@ -83,7 +83,7 @@ public class ActionExecutionStatusReporterTest {
   }
 
   @Before
-  public void setUp() throws Exception {
+  public final void initializeEventBus() throws Exception  {
     events = new EventCollectionApparatus(EventKind.ALL_EVENTS);
     statusReporter = ActionExecutionStatusReporter.create(events.reporter(), clock);
     eventBus = new EventBus();

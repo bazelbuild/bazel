@@ -34,7 +34,7 @@ public class ResourceSetTest {
   private ResourceSetConverter converter;
 
   @Before
-  public void setUp() throws Exception {
+  public final void createConverter() throws Exception  {
     converter = new ResourceSetConverter();
   }
 
