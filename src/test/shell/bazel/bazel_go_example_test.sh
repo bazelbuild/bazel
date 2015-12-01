@@ -151,7 +151,53 @@ EOF
   test -x ./bazel-bin/ex/runfiles_test || fail "binary not found"
   (./bazel-bin/ex/runfiles_test > out) || fail "binary does not execute"
   grep "Runfile: 12345" out || fail "binary output suspect"
+}
 
+function test_runfiles_lib() {
+    mkdir -p ex/
+    cat <<EOF > ex/m.go
+package main
+import (
+  "fmt"
+  "io/ioutil"
+  "log"
+
+  "prefix/ex"
+)
+func main() {
+  rfcontent, err := ioutil.ReadFile(ex.RunfilePath())
+  if err != nil {
+    log.Fatalf("Runfiles test binary: Error reading from runfile: %v", err)
+  }
+
+  fmt.Printf("Runfile: %s\n", rfcontent)
+}
+
+EOF
+
+    cat <<EOF > ex/l.go
+package ex
+func RunfilePath() string { return "ex/runfile" }
+EOF
+
+  cat <<EOF > ex/runfile
+12345
+EOF
+
+    cat <<EOF > ex/BUILD
+load("/tools/build_rules/go/def", "go_library", "go_binary")
+go_library(name = "go_default_library",
+  data = [ "runfile" ],
+  srcs = [ "l.go"])
+go_binary(name = "m",
+  srcs = [ "m.go" ],
+  deps = [ ":go_default_library" ])
+EOF
+
+  assert_build //ex:m
+  test -x ./bazel-bin/ex/m || fail "binary not found"
+  (./bazel-bin/ex/m > out) || fail "binary does not execute"
+  grep "Runfile: 12345" out || fail "binary output suspect"
 }
 
 run_suite "go_examples"

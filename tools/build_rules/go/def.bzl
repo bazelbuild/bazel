@@ -210,10 +210,12 @@ def go_library_impl(ctx):
   for dep in ctx.attr.deps:
      transitive_libs += dep.transitive_go_library_object
 
+  runfiles = ctx.runfiles(collect_data = True)
   return struct(
     label = ctx.label,
     files = set([out_lib]),
     direct_deps = deps,
+    runfiles = runfiles,
     go_sources = sources,
     go_library_object = out_lib,
     transitive_go_library_object = transitive_libs)
