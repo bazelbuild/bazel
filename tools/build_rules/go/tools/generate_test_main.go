@@ -16,6 +16,7 @@ import (
 // Cases holds template data.
 type Cases struct {
 	Package string
+	RunDir  string
 	Names   []string
 }
 
@@ -40,6 +41,7 @@ func main() {
 
 	cases := Cases{
 		Package: *pkg,
+		RunDir:  os.Getenv("RUNDIR"),
 	}
 	testFileSet := token.NewFileSet()
 	for _, f := range flag.Args() {
@@ -66,6 +68,7 @@ func main() {
 	tpl := template.Must(template.New("source").Parse(`
 package main
 import (
+	"os"
 	"testing"
 
         undertest "{{.Package}}"
@@ -82,7 +85,8 @@ var tests = []testing.InternalTest{
 }
 
 func main() {
- testing.Main(everything, tests, nil, nil)
+  os.Chdir("{{.RunDir}}")
+  testing.Main(everything, tests, nil, nil)
 }
 `))
 	if err := tpl.Execute(outFile, &cases); err != nil {

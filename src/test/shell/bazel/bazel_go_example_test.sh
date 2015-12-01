@@ -115,7 +115,7 @@ import (
 )
 
 func TestRunfiles(t *testing.T) {
-  rfcontent, err := ioutil.ReadFile("ex/runfile")
+  rfcontent, err := ioutil.ReadFile("runfile")
   if err != nil {
     t.Errorf("TestRunfiles: Error reading from runfile: %v", err)
   }

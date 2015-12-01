@@ -27,6 +27,7 @@ In order of priority:
 """
 
 _DEFAULT_LIB = "go_default_library"
+
 _VENDOR_PREFIX = "/vendor/"
 
 go_filetype = FileType([".go"])
@@ -53,11 +54,11 @@ def _go_prefix(ctx):
   return prefix
 
 _go_prefix_rule = rule(
-  _go_prefix_impl,
-  attrs = {
-    "prefix": attr.string(mandatory=True),
+    _go_prefix_impl,
+    attrs = {
+        "prefix": attr.string(mandatory = True),
     },
-  )
+)
 
 def go_prefix(prefix):
   """go_prefix sets the Go import name to be used for this workspace."""
@@ -190,7 +191,6 @@ def emit_go_compile_action(ctx, sources, deps, out_lib):
       command =  " && ".join(cmds),
       env = go_environment_vars(ctx))
 
-
 def go_library_impl(ctx):
   """Implements the go_library() rule."""
 
@@ -217,7 +217,6 @@ def go_library_impl(ctx):
     go_sources = sources,
     go_library_object = out_lib,
     transitive_go_library_object = transitive_libs)
-
 
 def emit_go_link_action(ctx, transitive_libs, lib, executable):
   """Sets up a symlink tree to libraries to link together."""
@@ -252,7 +251,6 @@ def emit_go_link_action(ctx, transitive_libs, lib, executable):
       mnemonic = "GoLink",
       env = go_environment_vars(ctx))
 
-
 def go_binary_impl(ctx):
   """go_binary_impl emits actions for compiling and linking a go executable."""
   lib_result = go_library_impl(ctx)
@@ -266,7 +264,6 @@ def go_binary_impl(ctx):
                           files = ctx.files.data)
   return struct(files = set([executable]) + lib_result.files,
                 runfiles = runfiles)
-
 
 def go_test_impl(ctx):
   """go_test_impl implements go testing.
@@ -290,7 +287,8 @@ def go_test_impl(ctx):
       outputs = [main_go],
       mnemonic = "GoTestGenTest",
       arguments = args,
-      env = go_environment_vars(ctx))
+      env = dict(go_environment_vars(ctx), RUNDIR=ctx.label.package)
+      arguments = args)
 
   emit_go_compile_action(
     ctx, set([main_go]), ctx.attr.deps + [lib_result], ctx.outputs.main_lib)
@@ -307,63 +305,76 @@ def go_test_impl(ctx):
   return struct(runfiles=runfiles)
 
 go_library_attrs = {
-    "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
-    "srcs": attr.label_list(allow_files=go_filetype),
+    "data": attr.label_list(
+        allow_files = True,
+        cfg = DATA_CFG,
+    ),
+    "srcs": attr.label_list(allow_files = go_filetype),
     "deps": attr.label_list(
-        providers=[
-          "direct_deps",
-          "go_library_object",
-          "transitive_go_library_object",
-        ]),
+        providers = [
+            "direct_deps",
+            "go_library_object",
+            "transitive_go_library_object",
+        ],
+    ),
     "toolchain": attr.label(
-        default=Label("//tools/build_rules/go/toolchain:toolchain"),
-        allow_files=True,
-        cfg=HOST_CFG),
+        default = Label("//tools/build_rules/go/toolchain:toolchain"),
+        allow_files = True,
+        cfg = HOST_CFG,
+    ),
     "go_tool": attr.label(
-        default=Label("//tools/build_rules/go/toolchain:go_tool"),
+        default = Label("//tools/build_rules/go/toolchain:go_tool"),
         single_file = True,
-        allow_files=True,
-        cfg=HOST_CFG),
+        allow_files = True,
+        cfg = HOST_CFG,
+    ),
     "library": attr.label(
-        providers=["go_sources"]),
+        providers = ["go_sources"],
+    ),
     "go_prefix": attr.label(
-        providers = [ "go_prefix" ],
-        default=Label("//external:go_prefix"),
-        allow_files=False, cfg=HOST_CFG),
-    }
+        providers = ["go_prefix"],
+        default = Label("//external:go_prefix"),
+        allow_files = False,
+        cfg = HOST_CFG,
+    ),
+}
 
 go_library_outputs = {
-  "lib": "%{name}.a",
+    "lib": "%{name}.a",
 }
 
 go_library = rule(
     go_library_impl,
     attrs = go_library_attrs,
     fragments = ["cpp"],
-    outputs = go_library_outputs)
+    outputs = go_library_outputs,
+)
 
 go_binary = rule(
     go_binary_impl,
-    executable = True,
     attrs = go_library_attrs + {
-        "stamp": attr.bool(default=False),
-        },
+        "stamp": attr.bool(default = False),
+    },
+    executable = True,
     fragments = ["cpp"],
-    outputs = go_library_outputs)
+    outputs = go_library_outputs,
+)
 
 go_test = rule(
     go_test_impl,
-    executable = True,
-    test = True,
     attrs = go_library_attrs + {
-      "test_generator": attr.label(
-          executable=True,
-          default=Label("//tools/build_rules/go/tools:generate_test_main"),
-          cfg=HOST_CFG),
-      },
+        "test_generator": attr.label(
+            executable = True,
+            default = Label("//tools/build_rules/go/tools:generate_test_main"),
+            cfg = HOST_CFG,
+        ),
+    },
+    executable = True,
     fragments = ["cpp"],
     outputs = {
-      "lib" : "%{name}.a",
-      "main_lib": "%{name}_main_test.a",
-      "main_go": "%{name}_main_test.go",
-})
+        "lib": "%{name}.a",
+        "main_lib": "%{name}_main_test.a",
+        "main_go": "%{name}_main_test.go",
+    },
+    test = True,
+)
