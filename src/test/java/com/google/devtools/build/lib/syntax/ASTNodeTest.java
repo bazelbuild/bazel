@@ -29,7 +29,7 @@ public class ASTNodeTest {
   private ASTNode node;
 
   @Before
-  public void setUp() throws Exception {
+  public final void createNode() throws Exception  {
     node = new ASTNode() {
       @Override
       public String toString() {
