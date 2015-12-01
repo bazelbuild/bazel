@@ -57,11 +57,11 @@ public interface OptionsProvider extends OptionsClassProvider {
    *
    * <p>The list includes undocumented options.
    */
-  public List<UnparsedOptionValueDescription> asListOfExplicitOptions();
+  List<UnparsedOptionValueDescription> asListOfExplicitOptions();
 
   /**
    * Returns a list of all options, including undocumented ones, and their
    * effective values. There is no guaranteed ordering for the result.
    */
-  public List<OptionValueDescription> asListOfEffectiveOptions();
+  List<OptionValueDescription> asListOfEffectiveOptions();
 }
