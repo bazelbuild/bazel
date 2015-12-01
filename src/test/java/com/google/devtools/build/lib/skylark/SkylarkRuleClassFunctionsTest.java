@@ -15,6 +15,10 @@
 package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -51,8 +55,7 @@ import org.junit.runners.JUnit4;
 public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   @Before
-  public void setUp() throws Exception {
-    super.setUp();
+  public final void createBuildFile() throws Exception  {
     scratch.file(
         "foo/BUILD",
         "genrule(name = 'foo',",

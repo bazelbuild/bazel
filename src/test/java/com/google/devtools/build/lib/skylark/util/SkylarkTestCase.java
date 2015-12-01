@@ -15,12 +15,13 @@
 package com.google.devtools.build.lib.skylark.util;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.rules.SkylarkModules;
@@ -34,37 +35,34 @@ import org.junit.Before;
 /**
  * A class to contain the common functionality for Skylark tests.
  */
-public abstract class SkylarkTestCase extends BuildViewTestCase {
+public abstract class SkylarkTestCase extends BuildViewTestCaseForJunit4 {
 
   // We don't have multiple inheritance, so we fake it.
   protected EvaluationTestCase ev;
 
-  protected void setUpEvaluator() throws Exception {
-    ev =
-        new EvaluationTestCase() {
-          @Override
-          public Environment newEnvironment() throws Exception {
-            return Environment.builder(mutability)
-                .setSkylark()
-                .setEventHandler(getEventHandler())
-                .setGlobals(SkylarkModules.GLOBALS)
-                .setLoadingPhase()
-                .build()
-                .setupDynamic(
-                    PackageFactory.PKG_CONTEXT,
-                    // This dummy pkgContext works because no Skylark unit test attempts to actually
-                    // create rules. Creating actual rules is tested in SkylarkIntegrationTest.
-                    new PackageContext(null, null, getEventHandler()));
-          }
-        };
-    ev.setUp();
+  @Before
+  public final void setUpEvaluator() throws Exception {
+    ev = createEvaluationTestCase();
+    ev.initialize();
   }
 
-  @Before
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
-    setUpEvaluator();
+  protected EvaluationTestCase createEvaluationTestCase() {
+    return new EvaluationTestCase() {
+      @Override
+      public Environment newEnvironment() throws Exception {
+        return Environment.builder(mutability)
+            .setSkylark()
+            .setEventHandler(getEventHandler())
+            .setGlobals(SkylarkModules.GLOBALS)
+            .setLoadingPhase()
+            .build()
+            .setupDynamic(
+                PackageFactory.PKG_CONTEXT,
+                // This dummy pkgContext works because no Skylark unit test attempts to actually
+                // create rules. Creating actual rules is tested in SkylarkIntegrationTest.
+                new PackageContext(null, null, getEventHandler()));
+      }
+    };
   }
 
   protected Object eval(String... input) throws Exception {

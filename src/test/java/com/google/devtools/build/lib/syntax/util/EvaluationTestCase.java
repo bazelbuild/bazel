@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Expression;
@@ -33,7 +32,6 @@ import com.google.devtools.build.lib.syntax.Parser;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.testutil.TestMode;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 
 import org.junit.Before;
 
@@ -46,15 +44,21 @@ import java.util.List;
 public class EvaluationTestCase {
   private EventCollectionApparatus eventCollectionApparatus =
       new EventCollectionApparatus(EventKind.ALL_EVENTS);
-  private PackageFactory factory;
   private TestMode testMode = TestMode.SKYLARK;
   protected Environment env;
   protected Mutability mutability = Mutability.create("test");
 
   @Before
-  public void setUp() throws Exception {
-    factory = new PackageFactory(TestRuleClassProvider.getRuleClassProvider());
+  public final void initialize() throws Exception {
+    beforeInitialization();
     env = newEnvironment();
+  }
+
+  protected void beforeInitialization() throws Exception {
+    // This method exists so that it can be overriden in MakeEnvironmentTest.
+    // The problem is that MakeEnvironmentTest's initialization code (setting up makeEnvBuilder)
+    // needs to run before initialize(), otherwise some tests fail with an NPE.
+    // Consequently, we need this hack to ensure the right order of methods.
   }
 
   /**

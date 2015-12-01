@@ -40,8 +40,9 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public class SkylarkEvaluationTest extends EvaluationTest {
+
   @Before
-  public void setup() throws Exception {
+  public final void setup() throws Exception {
     setMode(TestMode.SKYLARK);
   }
 

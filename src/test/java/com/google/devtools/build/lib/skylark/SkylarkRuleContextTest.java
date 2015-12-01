@@ -15,6 +15,11 @@
 package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -46,10 +51,8 @@ import java.util.List;
 @RunWith(JUnit4.class)
 public class SkylarkRuleContextTest extends SkylarkTestCase {
 
-  @Override
   @Before
-  public void setUp() throws Exception {
-    super.setUp();
+  public final void generateBuildFile() throws Exception {
     scratch.file(
         "foo/BUILD",
         "genrule(name = 'foo',",
@@ -108,7 +111,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testNativeRuleAttributeErrorWithMacro() throws Exception {
+  public void hasCorrectLocationForRuleAttributeError_NativeRuleWithMacro() throws Exception {
     setUpAttributeErrorTest();
     try {
       createRuleContext("//test:m_native");
@@ -128,7 +131,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testSkylarkRuleAttributeErrorWithMacro() throws Exception {
+  public void hasCorrectLocationForRuleAttributeError_SkylarkRuleWithMacro() throws Exception {
     setUpAttributeErrorTest();
     try {
       createRuleContext("//test:m_skylark");
@@ -145,7 +148,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testNativeRuleAttributeErrorWithoutMacro() throws Exception {
+  public void hasCorrectLocationForRuleAttributeError_NativeRule() throws Exception {
     setUpAttributeErrorTest();
     try {
       createRuleContext("//test:cclib");
@@ -163,7 +166,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testSkylarkRuleAttributeErrorWithoutMacro() throws Exception {
+  public void hasCorrectLocationForRuleAttributeError_SkylarkRule() throws Exception {
     setUpAttributeErrorTest();
     try {
       createRuleContext("//test:skyrule");
@@ -296,7 +299,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testGetPrerequisiteArtifacts() throws Exception {
+  public void shouldGetPrerequisiteArtifacts() throws Exception {
+
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.files.srcs");
     assertArtifactList(result, ImmutableList.of("a.txt", "b.img"));
@@ -313,7 +317,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testGetPrerequisites() throws Exception {
+  public void shouldGetPrerequisites() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:bar");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.attr.srcs");
     // Check for a known provider
@@ -324,7 +328,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
-  public void testGetPrerequisite() throws Exception {
+  public void shouldGetPrerequisite() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:asr");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.attr.srcjar");
     TransitiveInfoCollection tic = (TransitiveInfoCollection) result;

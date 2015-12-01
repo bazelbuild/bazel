@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
 
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
@@ -33,8 +34,7 @@ import org.junit.runners.JUnit4;
 public class SkylarkFileHelperTest extends SkylarkTestCase {
 
   @Before
-  public void setUp() throws Exception {
-    super.setUp();
+  public final void createBuildFile() throws Exception  {
     scratch.file(
         "foo/BUILD",
         "genrule(name = 'foo',",

@@ -25,14 +25,13 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests for {@link SkylarkCommandLine}.
+ * Tests for {@link com.google.devtools.build.lib.rules.SkylarkCommandLine}.
  */
 @RunWith(JUnit4.class)
 public class SkylarkCommandLineTest extends SkylarkTestCase {
 
   @Before
-  public void setUp() throws Exception {
-    super.setUp();
+  public final void generateBuildFile() throws Exception {
     scratch.file(
         "foo/BUILD",
         "genrule(name = 'foo',",

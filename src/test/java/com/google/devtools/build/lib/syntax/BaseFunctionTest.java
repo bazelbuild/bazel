@@ -52,7 +52,7 @@ public class BaseFunctionTest extends EvaluationTestCase {
 
   private void checkBaseFunction(BaseFunction func, String callExpression, String expectedOutput)
       throws Exception {
-    setUp();
+    initialize();
     update(func.getName(), func);
 
     if (expectedOutput.charAt(0) == '[') { // a tuple => expected to pass
@@ -132,8 +132,8 @@ public class BaseFunctionTest extends EvaluationTestCase {
         "unexpected keyword 'wiz' in call to mixed(*, foo, bar = ?)");
   }
 
-  @Test
   @SuppressWarnings("unchecked")
+  @Test
   public void testKwParam() throws Exception {
     eval("def foo(a, b, c=3, d=4, *args, e, f, g=7, h=8, **kwargs):\n"
         + "  return (a, b, c, d, e, f, g, h, args, kwargs)\n"

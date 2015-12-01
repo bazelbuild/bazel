@@ -38,8 +38,9 @@ import java.util.Map;
  */
 @RunWith(JUnit4.class)
 public class EvaluationTest extends EvaluationTestCase {
+
   @Before
-  public void setBuildMode() throws Exception {
+  public final void setBuildMode() throws Exception {
     super.setMode(TestMode.BUILD);
   }
 
