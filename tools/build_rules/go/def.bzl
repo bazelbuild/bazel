@@ -95,7 +95,34 @@ def symlink_tree_commands(dest_dir, artifact_dict):
     ]
   return cmds
 
+def go_environment_vars(ctx):
+  """Return a map of environment variables for use with actions, based on
+  the arguments. Uses the ctx.fragments.cpp.cpu attribute, if present,
+  and picks a default of target_os="linux" and target_arch="amd64"
+  otherwise.
 
+  Args:
+    The skylark Context.
+
+  Returns:
+    A dict of environment variables for running Go tool commands that build for
+    the target OS and architecture.
+  """
+  bazel_to_go_toolchain = {"k8": {"GOOS": "linux",
+                                  "GOARCH": "amd64"},
+                           "piii": {"GOOS": "linux",
+                                    "GOARCH": "386"},
+                           "darwin": {"GOOS": "darwin",
+                                      "GOARCH": "amd64"},
+                           "freebsd": {"GOOS": "freebsd",
+                                       "GOARCH": "amd64"},
+                           "armeabi-v7a": {"GOOS": "linux",
+                                           "GOARCH": "arm"},
+                           "arm": {"GOOS": "linux",
+                                   "GOARCH": "arm"}}
+  return bazel_to_go_toolchain.get(ctx.fragments.cpp.cpu,
+                                   {"GOOS": "linux",
+                                    "GOARCH": "amd64"})
 
 def emit_go_compile_action(ctx, sources, deps, out_lib):
   """Construct the command line for compiling Go code.
@@ -160,7 +187,8 @@ def emit_go_compile_action(ctx, sources, deps, out_lib):
       inputs = inputs + ctx.files.toolchain,
       outputs = [out_lib],
       mnemonic = "GoCompile",
-      command =  " && ".join(cmds))
+      command =  " && ".join(cmds),
+      env = go_environment_vars(ctx))
 
 
 def go_library_impl(ctx):
@@ -221,7 +249,8 @@ def emit_go_link_action(ctx, transitive_libs, lib, executable):
       inputs = list(transitive_libs) + [lib] + ctx.files.toolchain,
       outputs = [executable],
       command = ' && '.join(cmds),
-      mnemonic = "GoLink")
+      mnemonic = "GoLink",
+      env = go_environment_vars(ctx))
 
 
 def go_binary_impl(ctx):
@@ -260,7 +289,8 @@ def go_test_impl(ctx):
       executable = ctx.executable.test_generator,
       outputs = [main_go],
       mnemonic = "GoTestGenTest",
-      arguments = args)
+      arguments = args,
+      env = go_environment_vars(ctx))
 
   emit_go_compile_action(
     ctx, set([main_go]), ctx.attr.deps + [lib_result], ctx.outputs.main_lib)
@@ -309,6 +339,7 @@ go_library_outputs = {
 go_library = rule(
     go_library_impl,
     attrs = go_library_attrs,
+    fragments = ["cpp"],
     outputs = go_library_outputs)
 
 go_binary = rule(
@@ -317,6 +348,7 @@ go_binary = rule(
     attrs = go_library_attrs + {
         "stamp": attr.bool(default=False),
         },
+    fragments = ["cpp"],
     outputs = go_library_outputs)
 
 go_test = rule(
@@ -329,6 +361,7 @@ go_test = rule(
           default=Label("//tools/build_rules/go/tools:generate_test_main"),
           cfg=HOST_CFG),
       },
+    fragments = ["cpp"],
     outputs = {
       "lib" : "%{name}.a",
       "main_lib": "%{name}_main_test.a",
