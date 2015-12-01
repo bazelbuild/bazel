@@ -289,7 +289,7 @@ def go_test_impl(ctx):
       outputs = [main_go],
       mnemonic = "GoTestGenTest",
       arguments = args,
-      env = dict(go_environment_vars(ctx), RUNDIR=ctx.label.package)
+      env = dict(go_environment_vars(ctx), RUNDIR=ctx.label.package),
       arguments = args)
 
   emit_go_compile_action(
