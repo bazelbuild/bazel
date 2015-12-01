@@ -15,9 +15,12 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.writeIsoLatin1;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCaseForJunit4;
 import com.google.devtools.build.lib.packages.util.SubincludePreprocessor;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -26,12 +29,19 @@ import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.Path;
 
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.io.IOException;
 import java.nio.CharBuffer;
 import java.nio.charset.StandardCharsets;
 
 @TestSpec(size = Suite.MEDIUM_TESTS)
-public class SubincludePreprocessorTest extends PackageLoadingTestCase {
+@RunWith(JUnit4.class)
+public class SubincludePreprocessorTest extends PackageLoadingTestCaseForJunit4 {
   private Path packageRoot;
   protected SubincludePreprocessor preprocessor;
   protected Environment globalEnv =
@@ -42,19 +52,17 @@ public class SubincludePreprocessorTest extends PackageLoadingTestCase {
 
   public SubincludePreprocessorTest() {}
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void createPreprocessor() throws Exception {
     preprocessor = new SubincludePreprocessor(scratch.getFileSystem(), getPackageManager());
     packageRoot = rootDirectory.getChild("preprocessing");
     assertTrue(packageRoot.createDirectory());
     reporter.removeHandler(failFastHandler);
   }
 
-  @Override
-  protected void tearDown() throws Exception {
+  @After
+  public final void resetPreprocessor() throws Exception {
     preprocessor = null;
-    super.tearDown();
   }
 
   private ParserInputSource createInputSource(String... lines) throws Exception {
@@ -81,6 +89,7 @@ public class SubincludePreprocessorTest extends PackageLoadingTestCase {
     return result;
   }
 
+  @Test
   public void testPreprocessingInclude() throws Exception {
     ParserInputSource in = createInputSource("subinclude('//foo:bar')");
 
@@ -95,6 +104,7 @@ public class SubincludePreprocessorTest extends PackageLoadingTestCase {
     assertThat(out).containsMatch("mocksubinclude\\('//foo:baz', *'/workspace/foo/baz'\\)");
   }
 
+  @Test
   public void testSubincludeNotFound() throws Exception {
     ParserInputSource in = createInputSource("subinclude('//nonexistent:bar')");
     scratch.file("foo/BUILD");
@@ -103,6 +113,7 @@ public class SubincludePreprocessorTest extends PackageLoadingTestCase {
     assertContainsEvent("Cannot find subincluded file");
   }
 
+  @Test
   public void testError() throws Exception {
     ParserInputSource in = createInputSource("subinclude('//foo:bar')");
     scratch.file("foo/BUILD");

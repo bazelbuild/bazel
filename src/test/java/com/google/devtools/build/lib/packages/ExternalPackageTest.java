@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static org.junit.Assert.assertEquals;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.syntax.Argument;
@@ -24,27 +26,34 @@ import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.util.Map;
 
 /**
  * Test for building external packages.
  */
-public class ExternalPackageTest extends BuildViewTestCase {
+@RunWith(JUnit4.class)
+public class ExternalPackageTest extends BuildViewTestCaseForJunit4 {
 
   private Path workspacePath;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void setWorkspacePath() throws Exception {
     workspacePath = getOutputPath().getRelative("WORKSPACE");
   }
 
+  @Test
   public void testWorkspaceName() {
     Builder builder = Package.newExternalPackageBuilder(workspacePath, "TESTING");
     builder.setWorkspaceName("foo");
     assertEquals("foo", builder.build().getWorkspaceName());
   }
 
+  @Test
   public void testMultipleRulesWithSameName() throws Exception {
     Builder builder = Package.newExternalPackageBuilder(workspacePath, "TESTING");
 

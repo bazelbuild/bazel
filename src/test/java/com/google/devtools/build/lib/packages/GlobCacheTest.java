@@ -55,7 +55,7 @@ public class GlobCacheTest {
   private GlobCache cache;
 
   @Before
-  public void setUp() throws Exception {
+  public final void createFiles() throws Exception  {
     buildFile = scratch.file("isolated/BUILD",
         "# contents don't matter in this test");
     scratch.file("isolated/sub/BUILD",
@@ -109,7 +109,7 @@ public class GlobCacheTest {
   }
 
   @After
-  public void tearDown() throws Exception {
+  public final void deleteFiles() throws Exception  {
     FileSystemUtils.deleteTreesBelow(scratch.getFileSystem().getRootDirectory());
   }
 

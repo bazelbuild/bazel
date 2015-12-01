@@ -13,20 +13,29 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
+
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCaseForJunit4;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 
-public class OutputFileTest extends PackageLoadingTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+@RunWith(JUnit4.class)
+public class OutputFileTest extends PackageLoadingTestCaseForJunit4 {
 
   private PackageFactory packageFactory;
   private Package pkg;
   private Rule rule;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void createRule() throws Exception {
     packageFactory = new PackageFactory(TestRuleClassProvider.getRuleClassProvider());
 
     Path buildfile =
@@ -56,10 +65,12 @@ public class OutputFileTest extends PackageLoadingTestCase {
     assertEquals(expectedLabelString, output.getLabel().toString());
   }
 
+  @Test
   public void testGetAssociatedRule() throws Exception {
     assertSame(rule, pkg.getTarget("x").getAssociatedRule());
   }
 
+  @Test
   public void testOutputFileInPackageDir() throws Exception {
     OutputFile outputFileX = (OutputFile) pkg.getTarget("x");
     checkTargetRetainsGeneratingRule(outputFileX);
@@ -68,6 +79,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
     assertEquals("generated file", outputFileX.getTargetKind());
   }
 
+  @Test
   public void testOutputFileInSubdirectory() throws Exception {
     OutputFile outputFileY = (OutputFile) pkg.getTarget("subdir/y");
     checkTargetRetainsGeneratingRule(outputFileY);
@@ -75,6 +87,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
     checkLabel(outputFileY, "//pkg:subdir/y");
   }
 
+  @Test
   public void testEquivalenceRelation() throws Exception {
     OutputFile outputFileX1 = (OutputFile) pkg.getTarget("x");
     OutputFile outputFileX2 = (OutputFile) pkg.getTarget("x");
@@ -92,6 +105,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
     assertEquals(outputFileY1.hashCode(), outputFileY2.hashCode());
   }
 
+  @Test
   public void testDuplicateOutputFilesInDifferentRules() throws Exception {
     Path buildfile =
         scratch.file(
@@ -115,6 +129,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
             + "existing generated file from rule 'a'");
   }
 
+  @Test
   public void testOutputFileNameConflictsWithExistingRule() throws Exception {
     Path buildfile =
         scratch.file(
@@ -136,6 +151,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
     assertContainsEvent("generated file 'a' in rule 'b' conflicts with existing genrule rule");
   }
 
+  @Test
   public void testDuplicateOutputFilesInSameRule() throws Exception {
     Path buildfile =
         scratch.file(
@@ -155,6 +171,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
             + "existing generated file from rule 'a'");
   }
 
+  @Test
   public void testOutputFileWithIllegalName() throws Exception {
     Path buildfile =
         scratch.file(
@@ -172,6 +189,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
     assertContainsEvent("illegal output file name '!@#' in rule //bad_out_name:a");
   }
 
+  @Test
   public void testOutputFileWithCrossPackageLabel() throws Exception {
     Path buildfile =
         scratch.file(
@@ -189,6 +207,7 @@ public class OutputFileTest extends PackageLoadingTestCase {
     assertContainsEvent("label '//foo:bar' is not in the current package");
   }
 
+  @Test
   public void testOutputFileNamedBUILD() throws Exception {
     Path buildfile =
         scratch.file(

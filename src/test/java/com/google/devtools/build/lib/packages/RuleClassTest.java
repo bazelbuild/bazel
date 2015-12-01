@@ -25,6 +25,11 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -46,9 +51,14 @@ import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCaseForJunit4;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -64,7 +74,8 @@ import java.util.Set;
 /**
  * Tests for {@link RuleClass}.
  */
-public class RuleClassTest extends PackageLoadingTestCase {
+@RunWith(JUnit4.class)
+public class RuleClassTest extends PackageLoadingTestCaseForJunit4 {
   private static final RuleClass.ConfiguredTargetFactory<Object, Object>
       DUMMY_CONFIGURED_TARGET_FACTORY = new RuleClass.ConfiguredTargetFactory<Object, Object>() {
         @Override
@@ -107,6 +118,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         MissingFragmentPolicy.FAIL_ANALYSIS, true, attributes.toArray(new Attribute[0]));
   }
 
+  @Test
   public void testRuleClassBasics() throws Exception {
     RuleClass ruleClassA = createRuleClassA();
 
@@ -152,6 +164,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
                  ruleClassA.getAttribute(6).getDefaultValue(null));
   }
 
+  @Test
   public void testRuleClassInheritance() throws Exception {
     RuleClass ruleClassA = createRuleClassA();
     RuleClass ruleClassB = createRuleClassB(ruleClassA);
@@ -197,9 +210,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
   private Path testBuildfilePath;
   private Location testRuleLocation;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void setRuleLocation() throws Exception {
     testBuildfilePath = scratch.resolve("/home/user/workspace/testpackage/BUILD");
     testRuleLocation = Location.fromPathAndStartColumn(
         testBuildfilePath.asFragment(), 0, 0, new LineAndColumn(TEST_RULE_DEFINED_AT_LINE, 0));
@@ -211,6 +223,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         .setMakeEnv(new MakeEnvironment.Builder());
   }
 
+  @Test
   public void testDuplicatedDeps() throws Exception {
     RuleClass depsRuleClass = new RuleClass("ruleDeps", false, false, false, false, false, false,
         ImplicitOutputsFunction.NONE, RuleClass.NO_CHANGE, DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -241,6 +254,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         label, attrName, ruleName));
   }
 
+  @Test
   public void testCreateRuleWithLegacyPublicVisibility() throws Exception {
     RuleClass ruleClass = new RuleClass("ruleVis", false, false, false, false, false, false,
         ImplicitOutputsFunction.NONE, RuleClass.NO_CHANGE, DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -260,6 +274,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     assertContainsEvent("//visibility:legacy_public only allowed in package declaration");
   }
 
+  @Test
   public void testCreateRule() throws Exception {
     RuleClass ruleClassA = createRuleClassA();
 
@@ -324,6 +339,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     }
   }
 
+  @Test
   public void testImplicitOutputs() throws Exception {
     RuleClass ruleClassC = new RuleClass("ruleC", false, false, false, false, false, false,
         ImplicitOutputsFunction.fromTemplates("foo-%{name}.bar",
@@ -348,6 +364,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         "stuff-explicit_out-bar", "explicit_out");
   }
 
+  @Test
   public void testImplicitOutsWithBasenameDirname() throws Exception {
     RuleClass ruleClass = new RuleClass("ruleClass", false, false, false, false, false, false,
         ImplicitOutputsFunction.fromTemplates("%{dirname}lib%{basename}.bar"), RuleClass.NO_CHANGE,
@@ -416,6 +433,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
   /**
    * Tests computed default values are computed as expected.
    */
+  @Test
   public void testComputedDefault() throws Exception {
     Attribute computedDefault =
         attr("$result", BOOLEAN).value(new Attribute.ComputedDefault("condition") {
@@ -435,6 +453,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
    * Tests that computed defaults can only read attribute values for configurable attributes that
    * have been explicitly declared.
    */
+  @Test
   public void testComputedDefaultDeclarations() throws Exception {
     checkValidComputedDefault(
         Boolean.FALSE,
@@ -499,6 +518,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
    * Tests that computed defaults *can* read attribute values for non-configurable attributes
    * without needing to explicitly declare them.
    */
+  @Test
   public void testComputedDefaultWithNonConfigurableAttributes() throws Exception {
     checkValidComputedDefault(
         Boolean.FALSE,
@@ -511,6 +531,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         ImmutableMap.<String, Object>of());
   }
 
+  @Test
   public void testOutputsAreOrdered() throws Exception {
     RuleClass ruleClassC = new RuleClass("ruleC", false, false, false, false, false, false,
         ImplicitOutputsFunction.fromTemplates("first-%{name}", "second-%{name}", "out-%{outs}"),
@@ -535,6 +556,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         "second-myrule", "out-third", "out-fourth", "third", "fourth").inOrder();
   }
 
+  @Test
   public void testSubstitutePlaceholderIntoTemplate() throws Exception {
     RuleClass ruleClass = new RuleClass("ruleA", false, false, false, false, false, false,
         ImplicitOutputsFunction.NONE, RuleClass.NO_CHANGE, DUMMY_CONFIGURED_TARGET_FACTORY,
@@ -568,6 +590,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     assertThat(substitutePlaceholderIntoTemplate("x%{a}y%{empty}", rule)).isEmpty();
   }
 
+  @Test
   public void testOrderIndependentAttribute() throws Exception {
     RuleClass ruleClassA = createRuleClassA();
 
@@ -591,6 +614,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
                  attributes.get("my-sorted-stringlist-attr", Type.STRING_LIST));
   }
 
+  @Test
   public void testNonEmptyGood() throws Exception {
     RuleClass mneRuleClass = setupNonEmpty(
         attr("list1", LABEL_LIST).mandatory().legacyAllowAnyFileType().build(),
@@ -605,6 +629,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     createRule(mneRuleClass, "ruleTestMNE", attributeValues, testRuleLocation);
   }
 
+  @Test
   public void testNonEmptyFail() throws Exception {
     RuleClass mandNonEmptyRuleClass = setupNonEmpty(
         attr("list", LABEL_LIST).nonEmpty().legacyAllowAnyFileType().build());
@@ -630,6 +655,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     return mandNonEmptyRuleClass;
   }
 
+  @Test
   public void testNonEmptyWrongDefVal() throws Exception {
     List<Label> emptyList = ImmutableList.of();
     RuleClass mandNonEmptyRuleClass = new RuleClass(
@@ -663,6 +689,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
          reporter, null, location);
   }
 
+  @Test
   public void testOverrideWithWrongType() {
     try {
       RuleClass parentRuleClass = createParentRuleClass();
@@ -677,6 +704,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     }
   }
 
+  @Test
   public void testOverrideWithRightType() {
     RuleClass parentRuleClass = createParentRuleClass();
 
@@ -685,6 +713,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
       childRuleClassBuilder.override(attr("attr", STRING));
   }
 
+  @Test
   public void testCopyAndOverrideAttribute() throws Exception {
     RuleClass parentRuleClass = createParentRuleClass();
     RuleClass childRuleClass = createChildRuleClass(parentRuleClass);
@@ -696,6 +725,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     createRule(childRuleClass, "child_rule", childValues, testRuleLocation);
   }
 
+  @Test
   public void testCopyAndOverrideAttributeMandatoryMissing() throws Exception {
     RuleClass parentRuleClass = createParentRuleClass();
     RuleClass childRuleClass = createChildRuleClass(parentRuleClass);
@@ -709,6 +739,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
         + "attribute 'attr' in 'child_rule' rule");
   }
 
+  @Test
   public void testRequiredFragmentInheritance() throws Exception {
     RuleClass parentRuleClass = createParentRuleClass();
     RuleClass childRuleClass = createChildRuleClass(parentRuleClass);
@@ -739,6 +770,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
           .build();
   }
 
+  @Test
   public void testValidityChecker() throws Exception {
     RuleClass depClass = new RuleClass.Builder("dep", RuleClassType.NORMAL, false)
         .factory(DUMMY_CONFIGURED_TARGET_FACTORY)
@@ -784,6 +816,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
    * Tests structure for making certain rules "preferential choices" for certain files
    * under --compile_one_dependency.
    */
+  @Test
   public void testPreferredDependencyChecker() throws Exception {
     final String cppFile = "file.cc";
     final String textFile = "file.txt";
@@ -815,6 +848,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
     assertFalse(cppRule.getRuleClassObject().isPreferredDependency(textFile));
   }
 
+  @Test
   public void testBadRuleClassNames() {
     expectError(RuleClassType.NORMAL, "8abc");
     expectError(RuleClassType.NORMAL, "!abc");

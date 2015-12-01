@@ -19,14 +19,23 @@ import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCaseForJunit4;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for the {@link RuleClass.Builder}.
  */
-public class RuleClassBuilderTest extends PackageLoadingTestCase {
+@RunWith(JUnit4.class)
+public class RuleClassBuilderTest extends PackageLoadingTestCaseForJunit4 {
   private static final RuleClass.ConfiguredTargetFactory<Object, Object>
       DUMMY_CONFIGURED_TARGET_FACTORY =
           new RuleClass.ConfiguredTargetFactory<Object, Object>() {
@@ -36,6 +45,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
             }
           };
 
+  @Test
   public void testRuleClassBuilderBasics() throws Exception {
     RuleClass ruleClassA =
         new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false)
@@ -59,6 +69,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     assertEquals(ruleClassA.getAttribute(2), ruleClassA.getAttributeByName("X"));
   }
 
+  @Test
   public void testRuleClassBuilderTestIsBinary() throws Exception {
     RuleClass ruleClassA =
         new RuleClass.Builder("rule_test", RuleClassType.TEST, false)
@@ -73,6 +84,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     assertTrue(ruleClassA.hasBinaryOutput());
   }
 
+  @Test
   public void testRuleClassBuilderGenruleIsNotBinary() throws Exception {
     RuleClass ruleClassA =
         new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false)
@@ -83,6 +95,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     assertFalse(ruleClassA.hasBinaryOutput());
   }
 
+  @Test
   public void testRuleClassTestNameValidity() throws Exception {
     try {
       new RuleClass.Builder("ruleA", RuleClassType.TEST, false).build();
@@ -92,6 +105,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     }
   }
 
+  @Test
   public void testRuleClassNormalNameValidity() throws Exception {
     try {
       new RuleClass.Builder("ruleA_test", RuleClassType.NORMAL, false).build();
@@ -101,6 +115,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     }
   }
 
+  @Test
   public void testDuplicateAttribute() throws Exception {
     RuleClass.Builder builder =
         new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false).add(attr("a", STRING));
@@ -112,6 +127,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     }
   }
 
+  @Test
   public void testPropertiesOfAbstractRuleClass() throws Exception {
     try {
       new RuleClass.Builder("$ruleA", RuleClassType.ABSTRACT, false).setOutputToGenfiles();
@@ -129,6 +145,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     }
   }
 
+  @Test
   public void testDuplicateInheritedAttribute() throws Exception {
     RuleClass a =
         new RuleClass.Builder("ruleA", RuleClassType.NORMAL, false)
@@ -151,6 +168,7 @@ public class RuleClassBuilderTest extends PackageLoadingTestCase {
     }
   }
 
+  @Test
   public void testRemoveAttribute() throws Exception {
     RuleClass a =
         new RuleClass.Builder("rule", RuleClassType.NORMAL, false)

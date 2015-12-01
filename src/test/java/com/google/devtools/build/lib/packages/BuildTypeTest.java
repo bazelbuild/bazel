@@ -49,7 +49,7 @@ public class BuildTypeTest {
   private Label currentRule;
 
   @Before
-  public void setUp() throws Exception {
+  public final void setCurrentRule() throws Exception  {
     this.currentRule = Label.parseAbsolute("//quux:baz");
   }
 

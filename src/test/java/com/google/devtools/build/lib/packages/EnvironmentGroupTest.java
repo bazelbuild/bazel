@@ -14,11 +14,14 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCaseForJunit4;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -32,16 +35,13 @@ import org.junit.runners.JUnit4;
  * {@link PackageFactoryTest}.
  */
 @RunWith(JUnit4.class)
-public class EnvironmentGroupTest extends PackageLoadingTestCase {
+public class EnvironmentGroupTest extends PackageLoadingTestCaseForJunit4 {
 
   private Package pkg;
   private EnvironmentGroup group;
 
   @Before
-  @Override
-  public void setUp() throws Exception {
-    super.setUp();
-
+  public final void createPackage() throws Exception {
     Path buildfile =
         scratch.file(
             "pkg/BUILD",

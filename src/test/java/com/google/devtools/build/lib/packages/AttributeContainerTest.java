@@ -39,7 +39,7 @@ public class AttributeContainerTest {
   private Attribute attribute2;
 
   @Before
-  public void setUp() throws Exception {
+  public final void createAttributeContainer() throws Exception  {
     ruleClass =
         TestRuleClassProvider.getRuleClassProvider().getRuleClassMap().get("testing_dummy_rule");
     attribute1 = ruleClass.getAttributeByName("srcs");

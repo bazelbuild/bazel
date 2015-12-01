@@ -14,6 +14,9 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
@@ -26,25 +29,29 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCaseForJunit4;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.skyframe.TestSuiteExpansionValue;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.util.Collection;
 import java.util.EnumSet;
 
-public class TestTargetUtilsTest extends PackageLoadingTestCase {
+@RunWith(JUnit4.class)
+public class TestTargetUtilsTest extends PackageLoadingTestCaseForJunit4 {
   private Target test1;
   private Target test2;
   private Target test1b;
   private Target suite;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
-
+  @Before
+  public final void createTargets() throws Exception {
     scratch.file(
         "tests/BUILD",
         "py_test(name = 'small_test_1',",
@@ -77,6 +84,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
     suite = getTarget("//tests:smallTests");
   }
 
+  @Test
   public void testFilterBySize() throws Exception {
     Predicate<Target> sizeFilter =
         TestTargetUtils.testSizeFilter(EnumSet.of(TestSize.SMALL, TestSize.LARGE));
@@ -89,6 +97,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
     assertFalse(sizeFilter.apply(test1b));
   }
 
+  @Test
   public void testFilterByTimeout() throws Exception {
     scratch.file(
         "timeouts/BUILD",
@@ -114,6 +123,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
     assertFalse(timeoutFilter.apply(moderateTest));
   }
 
+  @Test
   public void testFilterByTag() throws Exception {
     Predicate<Target> tagFilter = TestTargetUtils.tagFilter(Lists.<String>newArrayList());
     assertTrue(tagFilter.apply(test1));
@@ -144,6 +154,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
     assertFalse(tagFilter.apply(test1b));
   }
 
+  @Test
   public void testExpandTestSuites() throws Exception {
     assertExpandedSuites(Sets.newHashSet(test1, test2), Sets.newHashSet(test1, test2));
     assertExpandedSuites(Sets.newHashSet(test1, test2), Sets.newHashSet(suite));
@@ -155,6 +166,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
         Sets.newHashSet(test1, test2, test1b), ImmutableSet.<Target>of(test1b, suite));
   }
 
+  @Test
   public void testSkyframeExpandTestSuites() throws Exception {
     assertExpandedSuitesSkyframe(
         Sets.newHashSet(test1, test2), ImmutableSet.<Target>of(test1, test2));
@@ -167,6 +179,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
         Sets.newHashSet(test1, test2, test1b), ImmutableSet.<Target>of(test1b, suite));
   }
 
+  @Test
   public void testExpandTestSuitesKeepGoing() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("broken/BUILD", "test_suite(name = 'broken', tests = ['//missing:missing_test'])");
@@ -211,6 +224,7 @@ public class TestTargetUtilsTest extends PackageLoadingTestCase {
     assertThat(actual.getTargets()).containsExactlyElementsIn(expected);
   }
 
+  @Test
   public void testExpandTestSuitesInterrupted() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("broken/BUILD", "test_suite(name = 'broken', tests = ['//missing:missing_test'])");
