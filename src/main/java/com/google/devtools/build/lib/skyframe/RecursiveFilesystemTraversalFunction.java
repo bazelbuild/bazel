@@ -84,7 +84,9 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     public final String unresolvedLink;
 
     public DanglingSymlinkException(String path, String unresolvedLink) {
-      super("Found dangling symlink: " + path + ", unresolved path: ");
+      super(
+          String.format(
+              "Found dangling symlink: %s, unresolved path: \"%s\"", path, unresolvedLink));
       Preconditions.checkArgument(path != null && !path.isEmpty());
       Preconditions.checkArgument(unresolvedLink != null && !unresolvedLink.isEmpty());
       this.path = path;

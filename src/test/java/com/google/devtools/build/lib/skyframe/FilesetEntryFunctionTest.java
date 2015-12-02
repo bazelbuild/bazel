@@ -611,6 +611,33 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     assertSymlinksInOrder(params); // expect empty results
   }
 
+  private void assertExclusionOfDanglingSymlink(SymlinkBehavior symlinkBehavior) throws Exception {
+    Artifact linkName = getSourceArtifact("foo/dangling.sym");
+    Artifact buildFile = getSourceArtifact("foo/BUILD");
+    RootedPath linkTarget = createFile(siblingOf(linkName, "target.file"), "blah");
+    linkName.getPath().createSymbolicLink(new PathFragment("target.file"));
+    createFile(buildFile);
+    linkTarget.asPath().delete();
+
+    FilesetTraversalParams paramsWithSymlinkCopy =
+        FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
+            /* ownerLabel */ label("//foo"),
+            /* buildFile */ buildFile,
+            /* destPath */ new PathFragment("output-name"),
+            /* excludes */ ImmutableSet.of("dangling.sym"),
+            /* symlinkBehaviorMode */ symlinkBehavior,
+            /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS);
+    assertSymlinksInOrder(paramsWithSymlinkCopy, symlink("output-name/BUILD", buildFile));
+  }
+
+  public void testExclusionOfDanglingSymlinkWithSymlinkModeCopy() throws Exception {
+    assertExclusionOfDanglingSymlink(SymlinkBehavior.COPY);
+  }
+
+  public void testExclusionOfDanglingSymlinkWithSymlinkModeDereference() throws Exception {
+    assertExclusionOfDanglingSymlink(SymlinkBehavior.DEREFERENCE);
+  }
+
   public void testFileTraversalForNonExistentFile() throws Exception {
     Artifact path = getSourceArtifact("foo/non-existent");
     FilesetTraversalParams params =
