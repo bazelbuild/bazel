@@ -9,7 +9,7 @@
 <div class="toc">
   <ul>
     <li><a href="#make-var-substitution">"Make" variable subsitution</a></li>
-    <li><a href="#predefined-variables">Predefined variables</a></li>
+    <li><a href="#predefined_variables">Predefined variables</a></li>
     <li><a href="#location">"$(location)" substitution</a></li>
   </ul>
 </div>
@@ -29,7 +29,7 @@
 </p>
 
 <p>Build rules can introduce additional rule specific variables. One example is
-  the <a href="#genrule.cmd"><code>cmd</code> attribute of a genrule</a>.
+  the <a href="general.html#genrule.cmd"><code>cmd</code> attribute of a genrule</a>.
 </p>
 
 <h2 id='make-var-substitution'>"Make" variable substitution</h2>
@@ -141,7 +141,8 @@ in your genrule's cmd attribute.
 
 <p id="predefined_variables.genrule.cmd">
   <strong>
-    Other Variables available to <a href="#genrule.cmd">the cmd attribute of a genrule</a>
+    Other Variables available to <a href="general.html#genrule.cmd">the cmd
+    attribute of a genrule</a>
   </strong>
 </p>
 <ul><!--  keep alphabetically sorted  -->

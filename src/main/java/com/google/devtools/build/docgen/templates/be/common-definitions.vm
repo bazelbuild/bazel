@@ -9,7 +9,7 @@ many functions or build rules below.
 <div class="toc">
   <h1>Contents</h1>
   <ul>
-    <li><a href="#borne-shell-tokenization">Borne shell tokenization</a></li>
+    <li><a href="#sh-tokenization">Borne shell tokenization</a></li>
     <li><a href="#label-expansion">Label Expansion</a></li>
     <li><a href="#common-attributes">Attributes common to all build rules</a></li>
     <li><a href="#common-attributes-tests">Attributes common to all test rules (*_test)</a></li>
@@ -109,9 +109,9 @@ labels attribute.
   depend on the command-line flags passed to Bazel. This can be used,
   for example, to declare platform-dependent <code>srcs</code> or custom
   compiler flags depending on the
-  <a href="bazel-user-manual.html#flag--compilation_mode">compilation
+  <a href="../bazel-user-manual.html#flag--compilation_mode">compilation
   mode</a>. This feature is very close in spirit to
-  <a href="#cc_library.abi_deps">abi_deps</a>, except that it's not
+  <a href="c-cpp.html#cc_library.abi_deps">abi_deps</a>, except that it's not
   limited to <code>cc_*</code> rules and the <code>deps</code> attribute.
 </p>
 
@@ -150,7 +150,7 @@ labels attribute.
 <p>
   An important but somewhat subtle distinction between the
   two namespaces used by the build system:
-  <a href="build-ref.html#labels">labels</a> identify <em>targets</em>,
+  <a href="../build-ref.html#labels">labels</a> identify <em>targets</em>,
   which may be rules or files, and file targets may be divided into
   either source (or input) file targets and derived (or output) file
   targets.  These are the things you can mention in BUILD files,
@@ -163,7 +163,7 @@ labels attribute.
   cannot be referenced from within BUILD files or from the command line.
   In this way, the build tool may hide certain implementation details of
   how it does its job. This is explained more fully in
-  the <a href="build-ref.html">BUILD Concept Reference</a>.
+  the <a href="../build-ref.html">BUILD Concept Reference</a>.
 </p>
 
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")

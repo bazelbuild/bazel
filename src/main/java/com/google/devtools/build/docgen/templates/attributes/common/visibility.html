@@ -1,6 +1,6 @@
-<p><code>List of <a href="build-ref.html#labels">labels</a>; optional;
-default <a href="#package">default_visibility</a> from
-<a href="#package">package</a> if specified, else private</code></p>
+<p><code>List of <a href="../build-ref.html#labels">labels</a>; optional;
+default <a href="functions.html#package.default_visibility">default_visibility</a> from
+<a href="functions.html#package">package</a> if specified, else private</code></p>
 
 <p>
 The <code>visibility</code> attribute on a rule controls whether
@@ -33,7 +33,7 @@ in one of their sub-packages have access to this rule. For example,
 this rule (but not <code>//independent:evil</code>)
 </li>
 <li><code>["//some/package:my_package_group"]</code>:
-A <a href="#package_group">package group</a> is
+A <a href="functions.html#package_group">package group</a> is
 a named set of package names. Package groups can also grant access rights
 to entire subtrees, e.g.<code>//myproj/...</code>.
 </li>
@@ -46,10 +46,10 @@ can not be combined with any other visibility specifications.
 A visibility specification may contain a combination of package labels
 (i.e. <code>//foo:__pkg__</code>) and <code>package_group</code>s.</p>
 <p>If a rule does not specify the visibility attribute,
-the <code><a href="#package">default_visibility</a></code>
-attribute of the <code><a href="#package">package</a></code>
+the <code><a href="functions.html#package.default_visibility">default_visibility</a></code>
+attribute of the <code><a href="functions.html#package">package</a></code>
 statement in the BUILD file containing the rule is used
-(except <a href="#exports_files">exports_files</a>).</p>
+(except <a href="functions.html#exports_files">exports_files</a>).</p>
 <p>If the default visibility for the package is not specified,
 the rule is private.</p>
 <p><b>Example</b>:</p>
