@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 package com.google.devtools.build.lib.util.io;
-
 import static com.google.devtools.build.lib.util.StringUtilities.joinLines;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -41,7 +40,7 @@ public class StreamMultiplexerTest {
   private OutputStream ctl;
 
   @Before
-  public void setUp() throws Exception {
+  public final void createOutputStreams() throws Exception  {
     multiplexed = new ByteArrayOutputStream();
     StreamMultiplexer multiplexer = new StreamMultiplexer(multiplexed);
     out = multiplexer.createStdout();

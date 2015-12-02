@@ -31,7 +31,7 @@ public class LongArrayListTest {
   private LongArrayList list;
 
   @Before
-  public void setUp() {
+  public final void createList() throws Exception  {
     list = new LongArrayList();
   }
 

@@ -36,7 +36,7 @@ public class AnsiTerminalPrinterTest {
   private AnsiTerminalPrinter printer;
 
   @Before
-  public void setUp() throws Exception {
+  public final void createPrinter() throws Exception  {
     stream = new ByteArrayOutputStream(1000);
     printer = new AnsiTerminalPrinter(stream, true);
   }

@@ -46,11 +46,11 @@ public abstract class StringIndexerTest {
 
   private static final int ATTEMPTS = 1000;
   private SortedMap<Integer, String> mappings;
-
   protected StringIndexer indexer;
+  private final Object lock = new Object();
 
   @Before
-  public void setUp() throws Exception {
+  public final void createIndexer() throws Exception  {
     indexer = newIndexer();
     mappings = Maps.newTreeMap();
   }
@@ -87,7 +87,7 @@ public abstract class StringIndexerTest {
     List<String> keys = Lists.newArrayListWithCapacity(ATTEMPTS);
     ThreadPoolExecutor executor = new ThreadPoolExecutor(3, 3, 5, TimeUnit.SECONDS,
         new ArrayBlockingQueue<Runnable>(ATTEMPTS));
-    synchronized(indexer) {
+    synchronized(lock) {
       for (int i = 0; i < ATTEMPTS; i++) {
         final String key = keyGenerator.apply(i);
         keys.add(key);

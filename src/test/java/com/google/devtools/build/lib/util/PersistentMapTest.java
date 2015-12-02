@@ -82,7 +82,7 @@ public class PersistentMapTest {
   private Path journalFile;
 
   @Before
-  public void setUp() throws Exception {
+  public final void createFiles() throws Exception  {
     mapFile = scratch.resolve("/tmp/map.txt");
     journalFile = scratch.resolve("/tmp/journal.txt");
     createMap();

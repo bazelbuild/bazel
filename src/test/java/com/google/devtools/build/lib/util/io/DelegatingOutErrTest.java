@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.util.io;
 import static com.google.devtools.build.lib.util.StringUtilities.joinLines;
 import static org.junit.Assert.assertEquals;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -26,16 +28,26 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class DelegatingOutErrTest {
 
+  private DelegatingOutErr delegate;
+
+  @Before
+  public final void createDelegate() {
+    delegate = new DelegatingOutErr();
+  }
+
+  @After
+  public final void closeDelegate() throws Exception {
+    delegate.close();
+  }
+
   @Test
   public void testNewDelegateIsLikeDevNull() {
-    DelegatingOutErr delegate = new DelegatingOutErr();
     delegate.printOut("Hello, world.\n");
     delegate.printErr("Feel free to ignore me.\n");
   }
 
   @Test
   public void testSubscribeAndUnsubscribeSink() {
-    DelegatingOutErr delegate = new DelegatingOutErr();
     delegate.printOut("Nobody will listen to this.\n");
     RecordingOutErr sink = new RecordingOutErr();
     delegate.addSink(sink);
@@ -49,7 +61,6 @@ public class DelegatingOutErrTest {
 
   @Test
   public void testSubscribeMultipleSinks() {
-    DelegatingOutErr delegate = new DelegatingOutErr();
     RecordingOutErr left = new RecordingOutErr();
     RecordingOutErr right = new RecordingOutErr();
     delegate.addSink(left);
@@ -68,5 +79,4 @@ public class DelegatingOutErrTest {
     assertEquals(joinLines("both", "right only", "left and right", ""),
                  right.outAsLatin1());
   }
-
 }

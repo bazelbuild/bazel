@@ -35,7 +35,7 @@ public class AnsiStrippingOutputStreamTest {
   private static final String ESCAPE = "\u001b[";
 
   @Before
-  public void setUp() throws Exception {
+  public final void createStreams() throws Exception  {
     output = new ByteArrayOutputStream();
     OutputStream inputStream = new AnsiStrippingOutputStream(output);
     input = new PrintStream(inputStream);
