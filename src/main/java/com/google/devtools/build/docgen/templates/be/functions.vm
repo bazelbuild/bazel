@@ -36,7 +36,7 @@ build_test(name = ...)
 
 <p>This will execute the
 
-  Skylark
+  <a href="/docs/skylark/index.html">Skylark</a>
   module <code>tools/build_rules/build_test.bzl</code> and import the symbol
   <code>build_test</code> in the local environment. This is useful for
   using macros or for sharing values between multiple BUILD files. By
@@ -56,13 +56,9 @@ load("build_defs", "COMPILER_FLAGS", "LINKER_FLAGS")
 
 <h2 id="package">package</h2>
 
-<pre>package(default_deprecation,
-
-  default_testonly,
-  default_visibility,
-  features)
+<pre>
+package(default_deprecation, default_testonly, default_visibility, features)
 </pre>
-
 <p>This function declares metadata that applies to every subsequent rule in the
 package. It is used at most once within a package (BUILD file).</p>
 
@@ -86,14 +82,15 @@ file, before any rule.</p>
     <tr>
       <td id="package.default_visibility"><code>default_visibility</code></td>
       <td>
-        <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
+        <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
         <p>The default visibility of the rules in this package.</p>
         <p>Every rule in this package has the visibility specified in this
         attribute, unless otherwise specified in the <code>visibility</code>
         attribute of the rule. For detailed information about the syntax of this
-        attribute, see the documentation of the <a href="#common.visibility">visibility</a>
+        attribute, see the documentation of the
+        <a href="common-definitions.html#common.visibility">visibility</a>
         attribute. The package default visibility does not apply to
-        <a href="#exports_files">exports_files</a>, which is
+        <a href="general.html#exports_files">exports_files</a>, which is
         public by default.</p>
       </td>
     </tr>
@@ -101,16 +98,16 @@ file, before any rule.</p>
       <td id="package.default_deprecation"><code>default_deprecation</code></td>
       <td>
         <p><code>String; optional</code></p>
-        <p>Sets the default <a href="#common.deprecation"><code>deprecation</code></a> message
-        for all rules in this package.</p>
+        <p>Sets the default <a href="common-definitions.html#common.deprecation">
+        <code>deprecation</code></a> message for all rules in this package.</p>
       </td>
     </tr>
     <tr>
       <td id="package.default_testonly"><code>default_testonly</code></td>
       <td>
         <p><code>Boolean; optional; default is 0 except as noted</code></p>
-        <p>Sets the default <a href="#common.testonly"><code>testonly</code></a> property
-        for all rules in this package.</p>
+        <p>Sets the default <a href="common-definitions.html#common.testonly">
+        <code>testonly</code></a> property for all rules in this package.</p>
         <p>In packages under <code>javatests</code> the default value is 1.</p>
       </td>
     </tr>
@@ -155,7 +152,7 @@ group. The label can be referenced in <code>visibility</code> attributes.</p>
 <p>Package groups are used for visibility control.  You can grant access to a rule
 to one or more package groups, every rule in the entire source tree, or only to rules declared
 in the same package. For more detailed description of the visibility system, see
-the <a href="#common.visibility">visibility</a> attribute.
+the <a href="common-definitions.html#common.visibility">visibility</a> attribute.
 
 <h3 id="package_group_args">Arguments</h3>
 
@@ -174,14 +171,14 @@ the <a href="#common.visibility">visibility</a> attribute.
     <tr>
       <td id="package_group.name"><code>name</code></td>
       <td>
-        <p><code><a href="build-ref.html#name">Name</a>; required</code></p>
+        <p><code><a href="../build-ref.html#name">Name</a>; required</code></p>
         <p>A unique name for this rule.</p>
       </td>
     </tr>
     <tr>
       <td id="package_group.packages"><code>packages</code></td>
       <td>
-        <p><code>List of <a href="build-ref.html#s4">Package</a>; optional</code></p>
+        <p><code>List of <a href="../build-ref.html#packages">Package</a>; optional</code></p>
         <p>A complete enumeration of packages in this group.</p>
 
         <p>Packages should be referred to using their full names,
@@ -200,7 +197,7 @@ the <a href="#common.visibility">visibility</a> attribute.
     <tr>
       <td id="package_group.includes"><code>includes</code></td>
       <td>
-        <p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
+        <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
         <p>Other package groups that are included in this one.</p>
 
         <p>The labels in this attribute must refer to other package
@@ -334,8 +331,9 @@ exports_files(["jquery-2.1.1.js"])
   visibility declaration can also be specified; in this case, the files will be
   visible to the targets specified. If no visibility is specified, the files
   will be visible to every package, even if a package default visibility was
-  specified in the <code><a href="#package">package</a></code> function. The
-  <a href="#common.licenses">licenses</a> can also be specified.
+  specified in the <code><a href="functions.html#package">package</a></code>
+  function. The <a href="common-definitions.html#common.licenses">licenses</a>
+  can also be specified.
 </p>
 
 <h3 id="exports_files_example">Example</h3>
@@ -415,7 +413,7 @@ There are several important limitations and caveats:
     existence of BUILD files &mdash; that is, the same glob expression would
     include <code>x/y/z.cc</code> if there was no package called
     <code>x/y</code> or it was marked as deleted using the
-    <a href="bazel-user-manual.html#flag--deleted_packages">--deleted_packages</a>
+    <a href="../bazel-user-manual.html#flag--deleted_packages">--deleted_packages</a>
     flag.
 
   </li>
@@ -549,7 +547,7 @@ $ bazel query '//foo:all' | sort
 
 <p><code>select()</code> is the helper function that makes an
   attribute for a
-  rule <a href="#configurable-attributes">configurable</a>. It can
+  rule <a href="common-definitions.html#configurable-attributes">configurable</a>. It can
   replace the right-hand side of
 
   <i>almost</i>
@@ -578,7 +576,7 @@ sh_binary(
   list assignment with a <code>select</code> call that maps
   configuration conditions to matching values. Each condition is a label
   reference to
-  a <code><a href="#config_setting">config_setting</a></code> instance,
+  a <code><a href="general.html#config_setting">config_setting</a></code> instance,
   which "matches" if the rule's configuration matches an expected set of
   values. The value of <code>myrule#srcs</code> then becomes whichever
   label list matches the current invocation.
