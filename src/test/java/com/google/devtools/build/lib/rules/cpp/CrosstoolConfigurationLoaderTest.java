@@ -15,6 +15,12 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
@@ -24,13 +30,17 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestCaseForJunit4;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -40,13 +50,9 @@ import java.util.Collections;
 /**
  * Tests for {@link CppConfigurationLoader}.
  */
-public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
+@RunWith(JUnit4.class)
+public class CrosstoolConfigurationLoaderTest extends AnalysisTestCaseForJunit4 {
   private static final Collection<String> NO_FEATURES = Collections.emptySet();
-
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
-  }
 
   private CppConfiguration create(CppConfigurationLoader loader, String... args) throws Exception {
     ConfigurationEnvironment env =
@@ -150,6 +156,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
    * ways. Do not modify the configuration file in this test, except if you are
    * absolutely certain that it is backwards-compatible.
    */
+  @Test
   public void testSimpleCompleteConfiguration() throws Exception {
     CppConfigurationLoader loader = loaderWithOptionalTool("");
 
@@ -221,6 +228,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
    * including non-default toolchains, missing sections and repeated entries
    * (and their order in the end result.)
    */
+  @Test
   public void testComprehensiveCompleteConfiguration() throws Exception {
     CppConfigurationLoader loader =
         loader(
@@ -701,6 +709,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
    * --glibc flags, as long as they select a unique result. Also tests the error
    * messages we get when they don't.
    */
+  @Test
   public void testCompilerLibcSearch() throws Exception {
     CppConfigurationLoader loader =
         loader(
@@ -837,6 +846,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     }
   }
 
+  @Test
   public void testIncompleteFile() throws Exception {
     try {
       CrosstoolConfigurationLoader.toReleaseConfiguration("/CROSSTOOL", "major_version: \"12\"");
@@ -886,6 +896,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     return s.toString();
   }
 
+  @Test
   public void testConfigWithMissingToolDefs() throws Exception {
     CppConfigurationLoader loader = loader(getConfigWithMissingToolDef(Tool.STRIP));
     try {
@@ -899,6 +910,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
   /**
    * For a fission-supporting crosstool: check the dwp tool path.
    */
+  @Test
   public void testFissionConfigWithMissingDwp() throws Exception {
     CppConfigurationLoader loader =
         loader(getConfigWithMissingToolDef(Tool.DWP, "supports_fission: true"));
@@ -913,6 +925,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
   /**
    * For a non-fission-supporting crosstool, there's no need to check the dwp tool path.
    */
+  @Test
   public void testNonFissionConfigWithMissingDwp() throws Exception {
     CppConfigurationLoader loader =
         loader(getConfigWithMissingToolDef(Tool.DWP, "supports_fission: false"));
@@ -920,6 +933,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     create(loader, "--cpu=cpu");
   }
 
+  @Test
   public void testInvalidFile() throws Exception {
     try {
       CrosstoolConfigurationLoader.toReleaseConfiguration("/CROSSTOOL", "some xxx : yak \"");
@@ -935,6 +949,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
   /**
    * Tests interpretation of static_runtimes_filegroup / dynamic_runtimes_filegroup.
    */
+  @Test
   public void testCustomRuntimeLibraryPaths() throws Exception {
     CppConfigurationLoader loader =
         loader(
@@ -991,6 +1006,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
    * Crosstools should load fine with or without 'gcov-tool'. Those that define 'gcov-tool'
    * should also add a make variable.
    */
+  @Test
   public void testOptionalGcovTool() throws Exception {
     // Crosstool with gcov-tool
     CppConfigurationLoader loader =

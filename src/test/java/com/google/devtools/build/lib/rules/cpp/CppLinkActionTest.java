@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -28,7 +30,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction.Builder;
@@ -37,10 +39,15 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 /**
  * Tests for {@link CppLinkAction}.
  */
-public class CppLinkActionTest extends BuildViewTestCase {
+@RunWith(JUnit4.class)
+public class CppLinkActionTest extends BuildViewTestCaseForJunit4 {
   private RuleContext createDummyRuleContext() throws Exception {
     return view.getRuleContextForTesting(reporter, scratchConfiguredTarget(
         "dummyRuleContext", "dummyRuleContext",
@@ -64,6 +71,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
    * This mainly checks that non-static links don't have identical keys. Many options are only
    * allowed on non-static links, and we test several of them here.
    */
+  @Test
   public void testComputeKeyNonStatic() throws Exception {
     final RuleContext ruleContext = createDummyRuleContext();
     final PathFragment outputPath = new PathFragment("dummyRuleContext/output/path.xyz");
@@ -103,6 +111,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
    * This mainly checks that static library links don't have identical keys, and it also compares
    * them with simple dynamic library links.
    */
+  @Test
   public void testComputeKeyStatic() throws Exception {
     final RuleContext ruleContext = createDummyRuleContext();
     final PathFragment outputPath = new PathFragment("dummyRuleContext/output/path.xyz");
@@ -132,6 +141,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
         });
   }
 
+  @Test
   public void testCommandLineSplitting() throws Exception {
     RuleContext ruleContext = createDummyRuleContext();
     Artifact output = getDerivedArtifact(
@@ -159,6 +169,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
    * Links a small target.
    * Checks that resource estimates are above the minimum and scale correctly.
    */
+  @Test
   public void testSmallLocalLinkResourceEstimate() throws Exception {
     assertLinkSizeAccuracy(3);
   }
@@ -168,6 +179,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
    * Checks that resource estimates are above the minimum and scale correctly.
    * The actual link action is irrelevant; we are just checking the estimate.
    */
+  @Test
   public void testLargeLocalLinkResourceEstimate() throws Exception {
     assertLinkSizeAccuracy(7000);
   }
@@ -185,7 +197,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
         .build();
 
     // Ensure that minima are enforced.
-    ResourceSet resources = ((CppLinkAction) linkAction).estimateResourceConsumptionLocal();
+    ResourceSet resources = linkAction.estimateResourceConsumptionLocal();
     assertTrue(resources.getMemoryMb() >= CppLinkAction.MIN_STATIC_LINK_RESOURCES.getMemoryMb());
     assertTrue(resources.getCpuUsage() >= CppLinkAction.MIN_STATIC_LINK_RESOURCES.getCpuUsage());
     assertTrue(resources.getIoUsage() >= CppLinkAction.MIN_STATIC_LINK_RESOURCES.getIoUsage());

@@ -17,18 +17,24 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.testutil.TestConstants;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for Skylark providers for cpp rules.
  */
-public class CcSkylarkApiProviderTest extends BuildViewTestCase {
+@RunWith(JUnit4.class)
+public class CcSkylarkApiProviderTest extends BuildViewTestCaseForJunit4 {
   private CcSkylarkApiProvider getApi(String label) throws Exception {
     RuleConfiguredTarget rule = (RuleConfiguredTarget) getConfiguredTarget(label);
     return (CcSkylarkApiProvider) rule.get(CcSkylarkApiProvider.NAME);
   }
 
+  @Test
   public void testTransitiveHeaders() throws Exception {
     scratch.file(
         "pkg/BUILD",
@@ -47,6 +53,7 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
         .contains("lib.h");
   }
 
+  @Test
   public void testLinkFlags() throws Exception {
     scratch.file(
         "pkg/BUILD",
@@ -82,6 +89,7 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
         .isEmpty();
   }
 
+  @Test
   public void testLibraries() throws Exception {
     scratch.file(
         "pkg/BUILD",
@@ -106,6 +114,7 @@ public class CcSkylarkApiProviderTest extends BuildViewTestCase {
         .isEmpty();
   }
 
+  @Test
   public void testCcFlags() throws Exception {
     scratch.file(
         "pkg/BUILD",

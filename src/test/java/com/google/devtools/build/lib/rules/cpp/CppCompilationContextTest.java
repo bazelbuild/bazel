@@ -20,16 +20,21 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link CppCompilationContext}.
  */
-public class CppCompilationContextTest extends BuildViewTestCase {
+@RunWith(JUnit4.class)
+public class CppCompilationContextTest extends BuildViewTestCaseForJunit4 {
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void createBuildFile() throws Exception {
     scratch.file("foo/BUILD",
         "cc_binary(name = 'foo',",
         "          srcs = ['foo.cc'])",
@@ -37,6 +42,7 @@ public class CppCompilationContextTest extends BuildViewTestCase {
         "          srcs = ['bar.cc'])");
   }
 
+  @Test
   public void testEqualsAndHashCode() throws Exception {
     MiddlemanFactory middlemanFactory = getTestAnalysisEnvironment().getMiddlemanFactory();
     ConfiguredTarget fooBin = getConfiguredTarget("//foo:foo");
