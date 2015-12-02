@@ -190,7 +190,8 @@ public class StandaloneTestStrategy extends TestStrategy {
 
         builder.setTestPassed(true)
             .setStatus(BlazeTestStatus.PASSED)
-            .setCachable(true);
+            .setCachable(true)
+            .setPassedLog(testLogPath.getPathString());
       } catch (ExecException e) {
         // Execution failed, which we consider a test failure.
 
@@ -198,7 +199,8 @@ public class StandaloneTestStrategy extends TestStrategy {
         // timeout, etc.)
         builder
             .setTestPassed(false)
-            .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED);
+            .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED)
+            .addFailedLogs(testLogPath.getPathString());
       } finally {
         long duration = executor.getClock().currentTimeMillis() - startTime;
         builder.addTestTimes(duration);
