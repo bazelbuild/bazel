@@ -1,17 +1,17 @@
 new_http_archive(
     name = "rust-linux-x86_64",
+    url = "https://static.rust-lang.org/dist/rust-1.4.0-x86_64-unknown-linux-gnu.tar.gz",
+    strip_prefix = "rust-1.4.0-x86_64-unknown-linux-gnu",
+    sha256 = "2de2424b50ca2ab3a67c495b6af03c720801a2928ad30884438ad0f5436ac51d",
     build_file = "tools/build_rules/rust/rust.BUILD",
-    sha256 = "fa755b6331ff7554e6e8545ee20af7897b0adc65f471dd24ae8a467a944755b4",
-    strip_prefix = "rust-1.3.0-x86_64-unknown-linux-gnu",
-    url = "https://static.rust-lang.org/dist/rust-1.3.0-x86_64-unknown-linux-gnu.tar.gz",
 )
 
 new_http_archive(
     name = "rust-darwin-x86_64",
+    url = "https://static.rust-lang.org/dist/rust-1.4.0-x86_64-apple-darwin.tar.gz",
+    strip_prefix = "rust-1.4.0-x86_64-apple-darwin",
+    sha256 = "7256617aec7c106be2aa3c5df0a2e613b13ec55e6237ab612bb4164719e09e21",
     build_file = "tools/build_rules/rust/rust.BUILD",
-    sha256 = "bfeac876e22cc5fe63a250644ce1a6f3892c13a5461131a881419bd06fcb2011",
-    strip_prefix = "rust-1.3.0-x86_64-apple-darwin",
-    url = "https://static.rust-lang.org/dist/rust-1.3.0-x86_64-apple-darwin.tar.gz",
 )
 
 # In order to run the Android integration tests, uncomment these rules, point
