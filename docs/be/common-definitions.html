@@ -18,7 +18,7 @@ many functions or build rules below.
 <div class="toc">
   <h1>Contents</h1>
   <ul>
-    <li><a href="#borne-shell-tokenization">Borne shell tokenization</a></li>
+    <li><a href="#sh-tokenization">Borne shell tokenization</a></li>
     <li><a href="#label-expansion">Label Expansion</a></li>
     <li><a href="#common-attributes">Attributes common to all build rules</a></li>
     <li><a href="#common-attributes-tests">Attributes common to all test rules (*_test)</a></li>
@@ -89,7 +89,7 @@ labels attribute.
     <tbody>
         <tr>
         <td id="common.data"><code>data</code></td>
-        <td><p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
+        <td><p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
 
 <p>
 The list of files needed by this rule at runtime.
@@ -100,7 +100,7 @@ Targets named in the <code>data</code> attribute will appear in
 the <code>*.runfiles</code> area of this rule, if it has one.  This
 may include data files needed by a binary or library, or other
 programs needed by it.  See the
-<a href="build-ref.html#data">data dependencies</a> section for more
+<a href="../build-ref.html#data">data dependencies</a> section for more
 information about how to depend on and use data files.
 </p>
 
@@ -153,7 +153,7 @@ Once people have stopped using it, the package can be removed or marked as
         <tr>
         <td id="common.deps"><code>deps</code></td>
         <td>
-<p><code>List of <a href="build-ref.html#labels">labels</a>; optional</code></p>
+<p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
 
 <p>
 A list of dependencies of this rule.
@@ -176,7 +176,7 @@ dependencies are also permitted in many cases: for example,
 a <code>java_library</code> rule may depend on C++ code in
 a <code>cc_library</code> rule, by declaring the latter in
 the <code>deps</code> attribute.  See the definition
-of <a href="build-ref.html#deps">dependencies</a> for more
+of <a href="../build-ref.html#deps">dependencies</a> for more
 information.
 </p>
 
@@ -194,7 +194,7 @@ specific rule.
 <p>
 A list of distribution-method strings to be used for this particular build rule.
 Overrides the <code>BUILD</code>-file scope defaults defined by the
-<a href="#distribs"><code>distribs()</code></a> directive.
+<a href="functions.html#distribs"><code>distribs()</code></a> directive.
 </p>
 </td>
       </tr>
@@ -203,7 +203,7 @@ Overrides the <code>BUILD</code>-file scope defaults defined by the
         <td><p><code>List of <i>features</i>. Default is the empty list.</code></p>
 
 <p><i>Features</i> on a rule modify the <i>features</i> currently enabled on
-the <a href="#package">package</a> level via the <i>features</i> attribute.<br/>
+the <a href="functions.html#package">package</a> level via the <i>features</i> attribute.<br/>
 For example, if the features ['a', 'b'] are enabled on the package level,
 and a rule <i>features</i> attribute contains ['-a', 'c'], the features
 enabled for the rule will be 'b' and 'c'.
@@ -218,7 +218,7 @@ enabled for the rule will be 'b' and 'c'.
 <p>
 A list of license-type strings to be used for this particular build rule.
 Overrides the <code>BUILD</code>-file scope defaults defined by the
-<a href="#licenses"><code>licenses()</code></a> directive.
+<a href="functions.html#licenses"><code>licenses()</code></a> directive.
 </p>
 </td>
       </tr>
@@ -234,8 +234,10 @@ Overrides the <code>BUILD</code>-file scope defaults defined by the
   <i>Tags</i> can be used on any rule. <i>Tags</i> on test and
   <code>test_suite</code> rules are useful for categorizing the tests.
   <i>Tags</i> on non-test rules are used to control sandboxed execution of
-  <code>genrule</code>s and [Skylark](/docs/skylark/index.html) actions, and for
-  parsing by humans and/or external tools.
+  <code>genrule</code>s and
+
+<a href="/docs/skylark/index.html">Skylark</a>
+  actions, and for parsing by humans and/or external tools.
 </p>
 
 <p>
@@ -248,8 +250,8 @@ Overrides the <code>BUILD</code>-file scope defaults defined by the
 <ul>
   <li><code>local</code> keyword results in the action or test never being
     run remotely or inside the
-    [sandbox](/docs/bazel-user-manual.html#sandboxing).
-    For genrules and tests, marking the rule with the <code>local=1</code>
+    <a href="../bazel-user-manual.html#sandboxing">sandbox</a>.
+    For genrules and tests, marking the rule with the <code>local = 1</code>
     attribute has the same effect.
   </li>
 
@@ -308,13 +310,13 @@ depend on any rule that is <code>testonly</code>.
 
 <p>
 Tests (<code>*_test</code> rules)
-and test suites (<a href="#test_suite">test_suite</a> rules)
+and test suites (<a href="general.html#test_suite">test_suite</a> rules)
 are <code>testonly</code> by default.
 </p>
 
 <p>
 By virtue of
-<a href="#package.default_testonly"><code>default_testonly</code></a>,
+<a href="functions.html#package.default_testonly"><code>default_testonly</code></a>,
 targets under <code>javatests</code> are <code>testonly</code> by default.
 </p>
 
@@ -337,9 +339,9 @@ override normal behavior, should definitely be marked testonly.
       </tr>
         <tr>
         <td id="common.visibility"><code>visibility</code></td>
-        <td><p><code>List of <a href="build-ref.html#labels">labels</a>; optional;
-default <a href="#package">default_visibility</a> from
-<a href="#package">package</a> if specified, else private</code></p>
+        <td><p><code>List of <a href="../build-ref.html#labels">labels</a>; optional;
+default <a href="functions.html#package.default_visibility">default_visibility</a> from
+<a href="functions.html#package">package</a> if specified, else private</code></p>
 
 <p>
 The <code>visibility</code> attribute on a rule controls whether
@@ -372,7 +374,7 @@ in one of their sub-packages have access to this rule. For example,
 this rule (but not <code>//independent:evil</code>)
 </li>
 <li><code>["//some/package:my_package_group"]</code>:
-A <a href="#package_group">package group</a> is
+A <a href="functions.html#package_group">package group</a> is
 a named set of package names. Package groups can also grant access rights
 to entire subtrees, e.g.<code>//myproj/...</code>.
 </li>
@@ -385,10 +387,10 @@ can not be combined with any other visibility specifications.
 A visibility specification may contain a combination of package labels
 (i.e. <code>//foo:__pkg__</code>) and <code>package_group</code>s.</p>
 <p>If a rule does not specify the visibility attribute,
-the <code><a href="#package">default_visibility</a></code>
-attribute of the <code><a href="#package">package</a></code>
+the <code><a href="functions.html#package.default_visibility">default_visibility</a></code>
+attribute of the <code><a href="functions.html#package">package</a></code>
 statement in the BUILD file containing the rule is used
-(except <a href="#exports_files">exports_files</a>).</p>
+(except <a href="functions.html#exports_files">exports_files</a>).</p>
 <p>If the default visibility for the package is not specified,
 the rule is private.</p>
 <p><b>Example</b>:</p>
@@ -463,8 +465,8 @@ package_group(
         <tr>
         <td id="test.args"><code>args</code></td>
         <td><p><code>List of strings; optional; subject to
-<a href="#location">$(location)</a> and
-<a href="#make_variables">"Make variable"</a> substitution, and
+<a href="make-variables.html#location">$(location)</a> and
+<a href="make-variables.html">"Make variable"</a> substitution, and
 <a href="#sh-tokenization">Bourne shell tokenization</a></code></p>
 
 <p>Add these arguments to the <code>--test_arg</code>
@@ -579,8 +581,8 @@ used. This is equivalent to providing "local" as a tag
         <td id="binary.args"><code>args</code></td>
         <td><p>
 <code>List of strings; optional; subject to
-<a href="#location">$(location)</a> and
-<a href="#make_variables">"Make variable"</a> substitution, and
+<a href="make-variables.html#location">$(location)</a> and
+<a href="make-variables.html">"Make variable"</a> substitution, and
 <a href="#sh-tokenization">Bourne shell tokenization</a></code>
 </p>
 
@@ -621,7 +623,7 @@ regular dependency.
 <p>
 (For more about the distinction between host and target
 configurations,
-see <a href="bazel-user-manual.html#configurations">Build
+see <a href="../bazel-user-manual.html#configurations">Build
 configurations</a> in the Bazel manual.)</p>
 
 <p>
@@ -644,9 +646,9 @@ true.</em>
   depend on the command-line flags passed to Bazel. This can be used,
   for example, to declare platform-dependent <code>srcs</code> or custom
   compiler flags depending on the
-  <a href="bazel-user-manual.html#flag--compilation_mode">compilation
+  <a href="../bazel-user-manual.html#flag--compilation_mode">compilation
   mode</a>. This feature is very close in spirit to
-  <a href="#cc_library.abi_deps">abi_deps</a>, except that it's not
+  <a href="c-cpp.html#cc_library.abi_deps">abi_deps</a>, except that it's not
   limited to <code>cc_*</code> rules and the <code>deps</code> attribute.
 </p>
 
@@ -685,7 +687,7 @@ true.</em>
 <p>
   An important but somewhat subtle distinction between the
   two namespaces used by the build system:
-  <a href="build-ref.html#labels">labels</a> identify <em>targets</em>,
+  <a href="../build-ref.html#labels">labels</a> identify <em>targets</em>,
   which may be rules or files, and file targets may be divided into
   either source (or input) file targets and derived (or output) file
   targets.  These are the things you can mention in BUILD files,
@@ -698,7 +700,7 @@ true.</em>
   cannot be referenced from within BUILD files or from the command line.
   In this way, the build tool may hide certain implementation details of
   how it does its job. This is explained more fully in
-  the <a href="build-ref.html">BUILD Concept Reference</a>.
+  the <a href="../build-ref.html">BUILD Concept Reference</a>.
 </p>
 
 <!-- Generated footer -->
