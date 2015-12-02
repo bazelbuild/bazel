@@ -21,8 +21,14 @@ These build rules are used for building [Rust][rust] projects with Bazel.
 <a name="setup"></a>
 ## Setup
 
-To use the Rust rules, simply copy the contents of `rust.WORKSPACE` to your
-`WORKSPACE` file.
+To use the Rust rules, add the following to your `WORKSPACE` file to add the
+external repositories for the Rust toolchain:
+
+```python
+load("/tools/build_rules/rust/rust", "rust_repositories")
+
+rust_repositories()
+```
 
 <a name="roadmap"></a>
 ## Roadmap
