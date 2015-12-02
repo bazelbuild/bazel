@@ -35,6 +35,16 @@ filegroup(
     srcs = ["bin/javac"],
 )
 
+filegroup(
+    name = "xjc",
+    srcs = ["bin/xjc"],
+)
+
+filegroup(
+    name = "wsimport",
+    srcs = ["bin/wsimport"],
+)
+
 BOOTCLASS_JARS = [
     "rt.jar",
     "resources.jar",
