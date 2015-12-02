@@ -52,8 +52,7 @@ public class CommandTest {
   // Platform-independent tests ----------------------------------------------
 
   @Before
-  public void setUp() throws Exception {
-
+  public final void configureLogger() throws Exception  {
     // enable all log statements to ensure there are no problems with
     // logging code
     Logger.getLogger("com.google.devtools.build.lib.shell.Command").setLevel(Level.FINEST);

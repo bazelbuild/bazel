@@ -21,7 +21,6 @@ import org.junit.runners.JUnit4;
 
 import java.io.File;
 import java.io.FileWriter;
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -39,7 +38,7 @@ public class LoadTest {
   private File tempFile;
 
   @Before
-  public void setUp() throws IOException {
+  public final void createTempFile() throws Exception  {
     // enable all log statements to ensure there are no problems with
     // logging code
     Logger.getLogger("com.google.devtools.build.lib.shell.Command").setLevel(Level.FINEST);
@@ -61,7 +60,7 @@ public class LoadTest {
   }
 
   @After
-  public void tearDown() throws Exception {
+  public final void deleteTempFile() throws Exception  {
     tempFile.delete();
   }
 

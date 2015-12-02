@@ -54,9 +54,9 @@ public class InterruptibleTest {
     };
 
   private Command command;
-  @Before
-  public void setUp() throws Exception {
 
+  @Before
+  public final void startInterrupter() throws Exception  {
     Thread.interrupted(); // side effect: clear interrupted status
     assertFalse("Unexpected interruption!", mainThread.isInterrupted());
 
@@ -68,7 +68,7 @@ public class InterruptibleTest {
   }
 
   @After
-  public void tearDown() throws Exception {
+  public final void waitForInterrupter() throws Exception  {
     interrupter.join();
     Thread.interrupted(); // Clear interrupted status, or else other tests may fail.
   }
