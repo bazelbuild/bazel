@@ -48,7 +48,7 @@ public class SingleBuildFileCacheTest {
   private static final String EMPTY_MD5 = "d41d8cd98f00b204e9800998ecf8427e";
 
   @Before
-  public void setUp() throws Exception {
+  public final void setUp() throws Exception {
     calls = new HashMap<>();
     fs = new InMemoryFileSystem() {
         @Override
