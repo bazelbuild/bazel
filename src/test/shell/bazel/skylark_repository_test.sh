@@ -30,13 +30,13 @@ function test_macro_local_repository() {
   cat > carnivore/BUILD <<'EOF'
 genrule(
     name = "mongoose",
-    cmd = "echo 'Tra-la!' > $@",
+    cmd = "echo 'Tra-la!' | tee $@",
     outs = ["moogoose.txt"],
     visibility = ["//visibility:public"],
 )
 EOF
+
   cd ${WORKSPACE_DIR}
-  pwd
   cat > WORKSPACE <<EOF
 load('/test', 'macro')
 
@@ -72,12 +72,52 @@ EOF
 
   bazel build //zoo:ball-pit1 >& $TEST_log || fail "Failed to build"
   expect_log "bleh."
+  expect_log "Tra-la!"  # Invalidation
   cat bazel-genfiles/zoo/ball-pit1.txt >$TEST_log
   expect_log "Tra-la!"
 
+  bazel build //zoo:ball-pit1 >& $TEST_log || fail "Failed to build"
+  expect_not_log "Tra-la!"  # No invalidation
+
   bazel build //zoo:ball-pit2 >& $TEST_log || fail "Failed to build"
+  expect_not_log "Tra-la!"  # No invalidation
   cat bazel-genfiles/zoo/ball-pit2.txt >$TEST_log
   expect_log "Tra-la!"
+
+  # Test invalidation of the WORKSPACE file
+  create_new_workspace
+  repo2=$new_workspace_dir
+
+  mkdir -p carnivore
+  cat > carnivore/BUILD <<'EOF'
+genrule(
+    name = "mongoose",
+    cmd = "echo 'Tra-la-la!' | tee $@",
+    outs = ["moogoose.txt"],
+    visibility = ["//visibility:public"],
+)
+EOF
+  cd ${WORKSPACE_DIR}
+  cat >test.bzl <<EOF
+def macro(path):
+  print('blah')
+  native.local_repository(name='endangered', path='$repo2')
+  native.bind(name='mongoose', actual='@endangered//carnivore:mongoose')
+EOF
+  bazel build //zoo:ball-pit1 >& $TEST_log || fail "Failed to build"
+  expect_log "blah."
+  expect_log "Tra-la-la!"  # Invalidation
+  cat bazel-genfiles/zoo/ball-pit1.txt >$TEST_log
+  expect_log "Tra-la-la!"
+
+  bazel build //zoo:ball-pit1 >& $TEST_log || fail "Failed to build"
+  expect_not_log "Tra-la-la!"  # No invalidation
+
+  bazel build //zoo:ball-pit2 >& $TEST_log || fail "Failed to build"
+  expect_not_log "Tra-la-la!"  # No invalidation
+  cat bazel-genfiles/zoo/ball-pit2.txt >$TEST_log
+  expect_log "Tra-la-la!"
+
 }
 
 function tear_down() {
