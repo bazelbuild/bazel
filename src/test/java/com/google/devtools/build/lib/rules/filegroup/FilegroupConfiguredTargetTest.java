@@ -14,12 +14,18 @@
 package com.google.devtools.build.lib.rules.filegroup;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.util.FileType;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -27,8 +33,10 @@ import java.util.Arrays;
 /**
  * Tests for {@link Filegroup}.
  */
-public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
+@RunWith(JUnit4.class)
+public class FilegroupConfiguredTargetTest extends BuildViewTestCaseForJunit4 {
 
+  @Test
   public void testGroup() throws Exception {
     scratch.file("nevermore/BUILD",
         "filegroup(name  = 'staticdata',",
@@ -39,6 +47,7 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
         ActionsTestUtil.prettyArtifactNames(getFilesToBuild(groupTarget)));
   }
 
+  @Test
   public void testDependencyGraph() throws Exception {
     scratch.file("java/com/google/test/BUILD",
         "java_binary(name  = 'test_app',",
@@ -52,11 +61,13 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
         appOutput.getArtifact(), FileType.of(".txt")));
   }
 
+  @Test
   public void testEmptyGroupIsAnOk() throws Exception {
     scratchConfiguredTarget("empty", "empty",
         "filegroup(name='empty', srcs=[])");
   }
 
+  @Test
   public void testEmptyGroupInGenruleIsOk() throws Exception {
     scratchConfiguredTarget("empty", "genempty",
         "filegroup(name='empty', srcs=[])",
@@ -78,6 +89,7 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
         "          srcs = ['//another:another.txt'])");
   }
 
+  @Test
   public void testFileCanBeSrcsOfMultipleRules() throws Exception {
     writeTest();
     assertEquals(Arrays.asList("test/a.txt"),
@@ -86,30 +98,35 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
         ActionsTestUtil.prettyArtifactNames(getFilesToBuild(getConfiguredTarget("//test:b"))));
   }
 
+  @Test
   public void testRuleCanBeSrcsOfOtherRule() throws Exception {
     writeTest();
     assertEquals(Arrays.asList("test/a.txt", "test/b.txt"),
         ActionsTestUtil.prettyArtifactNames(getFilesToBuild(getConfiguredTarget("//test:c"))));
   }
 
+  @Test
   public void testOtherPackageCanBeSrcsOfRule() throws Exception {
     writeTest();
     assertEquals(Arrays.asList("another/another.txt"),
         ActionsTestUtil.prettyArtifactNames(getFilesToBuild(getConfiguredTarget("//test:d"))));
   }
 
+  @Test
   public void testIsNotExecutable() throws Exception {
     scratch.file("x/BUILD",
                 "filegroup(name = 'not_exec_two_files', srcs = ['bin', 'bin.sh'])");
     assertNull(getExecutable("//x:not_exec_two_files"));
   }
 
+  @Test
   public void testIsExecutable() throws Exception {
     scratch.file("x/BUILD",
                 "filegroup(name = 'exec', srcs = ['bin'])");
     assertEquals("x/bin", getExecutable("//x:exec").getExecPath().getPathString());
   }
 
+  @Test
   public void testNoDuplicate() throws Exception {
     scratch.file("x/BUILD",
                 "filegroup(name = 'a', srcs = ['file'])",
@@ -119,6 +136,7 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
         ActionsTestUtil.prettyArtifactNames(getFilesToBuild(getConfiguredTarget("//x:c"))));
   }
 
+  @Test
   public void testGlobMatchesRuleOutputsInsteadOfFileWithTheSameName() throws Exception {
     scratch.file("pkg/file_or_rule");
     scratch.file("pkg/a.txt");
