@@ -190,8 +190,19 @@ class BlazeStartupOptions {
   // Returns the path for the system-wide rc file.
   static string SystemWideRcPath();
 
-  // Returns the search paths for the RC file in the workspace.
+  // Returns the candidate pathnames for the RC file in the workspace,
+  // the first readable one of which will be chosen.
+  // It is ok if no usable candidate exists.
   static void WorkspaceRcFileSearchPath(std::vector<string>* candidates);
+
+  // Turn a %workspace%-relative import into its true name in the filesystem.
+  // path_fragment is modified in place.
+  // Unlike WorkspaceRcFileSearchPath, it is an error if no import file exists.
+  static bool WorkspaceRelativizeRcFilePath(const string &workspace,
+                                            string *path_fragment);
+
+  static constexpr char WorkspacePrefix[] = "%workspace%/";
+  static const int WorkspacePrefixLength = sizeof WorkspacePrefix - 1;
 
   // Returns the GetHostJavabase. This should be called after parsing
   // the --host_javabase option.

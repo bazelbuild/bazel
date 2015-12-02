@@ -36,6 +36,8 @@ extern char **environ;
 
 namespace blaze {
 
+constexpr char BlazeStartupOptions::WorkspacePrefix[];
+
 OptionProcessor::RcOption::RcOption(int rcfile_index, const string& option)
     : rcfile_index_(rcfile_index), option_(option) {
 }
@@ -45,16 +47,19 @@ OptionProcessor::RcFile::RcFile(const string& filename, int index)
 }
 
 blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
+    const string& workspace,
     vector<RcFile*>* rcfiles,
     map<string, vector<RcOption> >* rcoptions,
     string* error) {
   list<string> initial_import_stack;
   initial_import_stack.push_back(filename_);
   return Parse(
-      filename_, index_, rcfiles, rcoptions, &initial_import_stack, error);
+      workspace, filename_, index_, rcfiles, rcoptions, &initial_import_stack,
+      error);
 }
 
 blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
+    const string& workspace,
     const string& filename_ref,
     const int index,
     vector<RcFile*>* rcfiles,
@@ -101,13 +106,16 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
     string command = words[0];
 
     if (command == "import") {
-      if (words.size() != 2) {
+      if (words.size() != 2
+          || (words[1].compare(0, BlazeStartupOptions::WorkspacePrefixLength,
+                               BlazeStartupOptions::WorkspacePrefix) == 0
+              && !BlazeStartupOptions::WorkspaceRelativizeRcFilePath(
+                  workspace, &words[1]))) {
         blaze_util::StringPrintf(error,
             "Invalid import declaration in .blazerc file '%s': '%s'",
             filename.c_str(), lines[line].c_str());
         return blaze_exit_code::BAD_ARGV;
       }
-
       if (std::find(import_stack->begin(), import_stack->end(), words[1]) !=
           import_stack->end()) {
         string loop;
@@ -123,8 +131,9 @@ blaze_exit_code::ExitCode OptionProcessor::RcFile::Parse(
       rcfiles->push_back(new RcFile(words[1], rcfiles->size()));
       import_stack->push_back(words[1]);
       blaze_exit_code::ExitCode parse_exit_code =
-        RcFile::Parse(rcfiles->back()->Filename(), rcfiles->back()->Index(),
-          rcfiles, rcoptions, import_stack, error);
+        RcFile::Parse(workspace, rcfiles->back()->Filename(),
+                      rcfiles->back()->Index(),
+                      rcfiles, rcoptions, import_stack, error);
       if (parse_exit_code != blaze_exit_code::SUCCESS) {
         return parse_exit_code;
       }
@@ -276,7 +285,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     if (!depot_blazerc_path.empty()) {
       blazercs_.push_back(new RcFile(depot_blazerc_path, blazercs_.size()));
       blaze_exit_code::ExitCode parse_exit_code =
-          blazercs_.back()->Parse(&blazercs_, &rcoptions_, error);
+          blazercs_.back()->Parse(workspace, &blazercs_, &rcoptions_, error);
       if (parse_exit_code != blaze_exit_code::SUCCESS) {
         return parse_exit_code;
       }
@@ -286,7 +295,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
       blazercs_.push_back(new RcFile(alongside_binary_blazerc,
           blazercs_.size()));
       blaze_exit_code::ExitCode parse_exit_code =
-          blazercs_.back()->Parse(&blazercs_, &rcoptions_, error);
+          blazercs_.back()->Parse(workspace, &blazercs_, &rcoptions_, error);
       if (parse_exit_code != blaze_exit_code::SUCCESS) {
         return parse_exit_code;
       }
@@ -295,7 +304,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
     if (!system_wide_blazerc.empty()) {
       blazercs_.push_back(new RcFile(system_wide_blazerc, blazercs_.size()));
       blaze_exit_code::ExitCode parse_exit_code =
-          blazercs_.back()->Parse(&blazercs_, &rcoptions_, error);
+          blazercs_.back()->Parse(workspace, &blazercs_, &rcoptions_, error);
       if (parse_exit_code != blaze_exit_code::SUCCESS) {
         return parse_exit_code;
       }
@@ -312,7 +321,7 @@ blaze_exit_code::ExitCode OptionProcessor::ParseOptions(
   if (!user_blazerc_path.empty()) {
     blazercs_.push_back(new RcFile(user_blazerc_path, blazercs_.size()));
     blaze_exit_code::ExitCode parse_exit_code =
-        blazercs_.back()->Parse(&blazercs_, &rcoptions_, error);
+        blazercs_.back()->Parse(workspace, &blazercs_, &rcoptions_, error);
     if (parse_exit_code != blaze_exit_code::SUCCESS) {
       return parse_exit_code;
     }

@@ -173,6 +173,16 @@ void BlazeStartupOptions::WorkspaceRcFileSearchPath(
   candidates->push_back("tools/bazel.rc");
 }
 
+bool BlazeStartupOptions::WorkspaceRelativizeRcFilePath(const string &workspace,
+                                                        string *path_fragment) {
+  // Strip off the "%workspace%/" prefix and prepend the true workspace path.
+  // In theory this could use alternate search paths for blazerc files.
+  path_fragment->assign(
+      blaze_util::JoinPath(workspace,
+                           path_fragment->substr(WorkspacePrefixLength)));
+  return true;
+}
+
 string BlazeStartupOptions::SystemWideRcPath() {
   return "/etc/bazel.bazelrc";
 }
