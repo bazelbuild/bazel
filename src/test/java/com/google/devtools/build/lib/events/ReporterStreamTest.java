@@ -32,7 +32,7 @@ public class ReporterStreamTest {
   private EventHandler outAppender;
 
   @Before
-  public void setUp() throws Exception {
+  public final void createOutputAppender() throws Exception  {
     reporter = new Reporter();
     out = new StringBuilder();
     outAppender = new EventHandler() {

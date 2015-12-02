@@ -27,7 +27,7 @@ public abstract class EventTestTemplate {
   protected Location locationNoLineInfo;
 
   @Before
-  public void setUp() throws Exception {
+  public final void createLocations() throws Exception  {
     String message = "This is not an error message.";
     path = new PathFragment("/path/to/workspace/my/sample/path.txt");
 
