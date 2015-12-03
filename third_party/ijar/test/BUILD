@@ -18,6 +18,7 @@ sh_test(
         # We assume unzip and zip to be on the path
         "unzip",
         "zip",
+        "$(location :zip_count)",
     ],
     data = [
         "testenv.sh",
@@ -31,6 +32,10 @@ sh_test(
         ":libtypeannotations2.jar",
         ":libmethodparameters.jar",
         ":source_debug_extension.jar",
+        ":largest_regular.jar",
+        ":smallest_zip64.jar",
+        ":definitely_zip64.jar",
+        ":zip_count",
         "TypeAnnotationTest2.java",
         # invokedynamic/ClassWithLambda.java, compiled with javac8
         ":libinvokedynamic.jar",
@@ -150,4 +155,33 @@ test_suite(
     name = "all_tests",
     testonly = 1,
     visibility = ["//visibility:public"],
+)
+
+java_binary(
+    name = "gen_zip_with_entries",
+    srcs = ["GenZipWithEntries.java"],
+    jvm_flags = ["-Djdk.util.zip.inhibitZip64=false"],
+    main_class = "test.GenZipWithEntries",
+    deps = ["//third_party:asm"],
+)
+
+[
+    genrule(
+        name = name,
+        outs = [name + ".jar"],
+        cmd = "$(location :gen_zip_with_entries) %s $@" % entries,
+        tools = [":gen_zip_with_entries"],
+    )
+    for name, entries in [
+        ("largest_regular", 65535),
+        ("smallest_zip64", 65536),
+        ("definitely_zip64", 70000),
+    ]
+]
+
+java_binary(
+    name = "zip_count",
+    srcs = ["ZipCount.java"],
+    jvm_flags = ["-Djdk.util.zip.inhibitZip64=false"],
+    main_class = "test.ZipCount",
 )

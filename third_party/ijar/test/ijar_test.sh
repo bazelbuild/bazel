@@ -35,6 +35,8 @@ UNZIP=$1
 shift
 ZIP=$1
 shift
+ZIP_COUNT=$1
+shift
 
 ## Test framework
 source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
@@ -48,6 +50,7 @@ source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 [[ "$UNZIP" =~ ^(/|[^/]+$) ]] || UNZIP="$PWD/$UNZIP"
 [[ "$ZIP" =~ ^(/|[^/]+$) ]] || ZIP="$PWD/$ZIP"
 [[ "$JAVAP" =~ ^(/|[^/]+$) ]] || JAVAP="$PWD/$JAVAP"
+[[ "$ZIP_COUNT" =~ ^(/|[^/]+$) ]] || ZIP_COUNT="$PWD/$ZIP_COUNT"
 
 IJAR_SRCDIR=$(dirname ${IJAR})
 A_JAR=$TEST_TMPDIR/A.jar
@@ -70,6 +73,9 @@ METHODPARAM_JAR=$IJAR_SRCDIR/test/libmethodparameters.jar
 METHODPARAM_IJAR=$TEST_TMPDIR/methodparameters_interface.jar
 SOURCEDEBUGEXT_JAR=$IJAR_SRCDIR/test/source_debug_extension.jar
 SOURCEDEBUGEXT_IJAR=$TEST_TMPDIR/source_debug_extension.jar
+CENTRAL_DIR_LARGEST_REGULAR=$IJAR_SRCDIR/test/largest_regular.jar
+CENTRAL_DIR_SMALLEST_ZIP64=$IJAR_SRCDIR/test/smallest_zip64.jar
+CENTRAL_DIR_ZIP64=$IJAR_SRCDIR/test/definitely_zip64.jar
 
 #### Setup
 
@@ -515,6 +521,19 @@ function test_source_debug_extension_attribute() {
   expect_not_log "SourceDebugExtension" "SourceDebugExtension preserved!"
 }
 
-SOURCEDEBUGEXT_JAR=$IJAR_SRCDIR/test/source_debug_extension.jar
+function test_central_dir_largest_regular() {
+  $IJAR $CENTRAL_DIR_LARGEST_REGULAR $TEST_TMPDIR/ijar.jar || fail "ijar failed"
+  $ZIP_COUNT $TEST_TMPDIR/ijar.jar 65535 || fail
+}
+
+function test_central_dir_smallest_zip64() {
+  $IJAR $CENTRAL_DIR_SMALLEST_ZIP64 $TEST_TMPDIR/ijar.jar || fail "ijar failed"
+  $ZIP_COUNT $TEST_TMPDIR/ijar.jar 65536 || fail
+}
+
+function test_central_dir_zip64() {
+  $IJAR $CENTRAL_DIR_ZIP64 $TEST_TMPDIR/ijar.jar || fail "ijar failed"
+  $ZIP_COUNT $TEST_TMPDIR/ijar.jar 70000 || fail
+}
 
 run_suite "ijar tests"

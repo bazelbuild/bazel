@@ -39,10 +39,20 @@
 #include "third_party/ijar/zip.h"
 #include <zlib.h>
 
-#define LOCAL_FILE_HEADER_SIGNATURE           0x04034b50
-#define CENTRAL_FILE_HEADER_SIGNATURE         0x02014b50
-#define END_OF_CENTRAL_DIR_SIGNATURE          0x06054b50
-#define DATA_DESCRIPTOR_SIGNATURE             0x08074b50
+#define LOCAL_FILE_HEADER_SIGNATURE   0x04034b50
+#define CENTRAL_FILE_HEADER_SIGNATURE 0x02014b50
+#define DIGITAL_SIGNATURE             0x05054b50
+#define ZIP64_EOCD_SIGNATURE          0x06064b50
+#define ZIP64_EOCD_LOCATOR_SIGNATURE  0x07064b50
+#define EOCD_SIGNATURE                0x06054b50
+#define DATA_DESCRIPTOR_SIGNATURE     0x08074b50
+
+#define U2_MAX 0xffff
+#define U4_MAX 0xffffffffUL
+
+#define ZIP64_EOCD_LOCATOR_SIZE 20
+// zip64 eocd is fixed size in the absence of a zip64 extensible data sector
+#define ZIP64_EOCD_FIXED_SIZE 56
 
 // version to extract: 1.0 - default value from APPNOTE.TXT.
 // Output JAR files contain no extra ZIP features, so this is enough.
@@ -62,14 +72,6 @@ namespace devtools_ijar {
 // In the absence of ZIP64 support, zip files are limited to 4GB.
 // http://www.info-zip.org/FAQ.html#limits
 static const u8 kMaximumOutputSize = std::numeric_limits<uint32_t>::max();
-
-static bool ProcessCentralDirEntry(const u1 *&p,
-                                   size_t *compressed_size,
-                                   size_t *uncompressed_size,
-                                   char *filename,
-                                   size_t filename_size,
-                                   u4 *attr,
-                                   u4 *offset);
 
 //
 // A class representing a ZipFile for reading. Its public API is exposed
@@ -95,6 +97,11 @@ class InputZipFile : public ZipExtractor {
   }
 
   virtual u8 CalculateOutputLength();
+
+  virtual bool ProcessCentralDirEntry(const u1 *&p, size_t *compressed_size,
+                                      size_t *uncompressed_size, char *filename,
+                                      size_t filename_size, u4 *attr,
+                                      u4 *offset);
 
  private:
   ZipExtractorProcessor *processor;
@@ -551,11 +558,17 @@ int InputZipFile::ProcessFile(const bool compressed) {
 // Of course, in the latter case, the size output variables are not changed.
 // Note that the central directory is always followed by another data structure
 // that has a signature, so parsing it this way is safe.
-static bool ProcessCentralDirEntry(
-    const u1 *&p, size_t *compressed_size, size_t *uncompressed_size,
-    char *filename, size_t filename_size, u4 *attr, u4 *offset) {
+bool InputZipFile::ProcessCentralDirEntry(const u1 *&p, size_t *compressed_size,
+                                          size_t *uncompressed_size,
+                                          char *filename, size_t filename_size,
+                                          u4 *attr, u4 *offset) {
   u4 signature = get_u4le(p);
+
   if (signature != CENTRAL_FILE_HEADER_SIGNATURE) {
+    if (signature != DIGITAL_SIGNATURE && signature != EOCD_SIGNATURE &&
+        signature != ZIP64_EOCD_SIGNATURE) {
+      error("invalid central file header signature: 0x%x\n", signature);
+    }
     return false;
   }
 
@@ -617,10 +630,128 @@ u8 InputZipFile::CalculateOutputLength() {
       + (uncompressed_size - compressed_size);
 }
 
+// An end of central directory record, sized for optional zip64 contents.
+struct EndOfCentralDirectoryRecord {
+  u4 number_of_this_disk;
+  u4 disk_with_central_dir;
+  u8 central_dir_entries_on_this_disk;
+  u8 central_dir_entries;
+  u8 central_dir_size;
+  u8 central_dir_offset;
+};
+
+// Checks for a zip64 end of central directory record. If a valid zip64 EOCD is
+// found, updates the original EOCD record and returns true.
+bool MaybeReadZip64CentralDirectory(const u1 *bytes, size_t in_length,
+                                    const u1 *current,
+                                    const u1 **end_of_central_dir,
+                                    EndOfCentralDirectoryRecord *cd) {
+  if (current < bytes) {
+    return false;
+  }
+  const u1 *candidate = current;
+  u4 zip64_directory_signature = get_u4le(current);
+  if (zip64_directory_signature != ZIP64_EOCD_SIGNATURE) {
+    return false;
+  }
+
+  // size of zip64 end of central directory record
+  // (fixed size unless there's a zip64 extensible data sector, which
+  // we don't need to read)
+  get_u8le(current);
+  get_u2be(current);  // version made by
+  get_u2be(current);  // version needed to extract
+
+  u4 number_of_this_disk = get_u4be(current);
+  u4 disk_with_central_dir = get_u4le(current);
+  u8 central_dir_entries_on_this_disk = get_u8le(current);
+  u8 central_dir_entries = get_u8le(current);
+  u8 central_dir_size = get_u8le(current);
+  u8 central_dir_offset = get_u8le(current);
+
+  // check for a zip64 EOCD that matches the regular EOCD
+  if (number_of_this_disk != cd->number_of_this_disk &&
+      cd->number_of_this_disk != U2_MAX) {
+    return false;
+  }
+  if (disk_with_central_dir != cd->disk_with_central_dir &&
+      cd->disk_with_central_dir != U2_MAX) {
+    return false;
+  }
+  if (central_dir_entries_on_this_disk !=
+          cd->central_dir_entries_on_this_disk &&
+      cd->central_dir_entries_on_this_disk != U2_MAX) {
+    return false;
+  }
+  if (central_dir_entries != cd->central_dir_entries &&
+      cd->central_dir_entries != U2_MAX) {
+    return false;
+  }
+  if (central_dir_size != cd->central_dir_size &&
+      cd->central_dir_size != U4_MAX) {
+    return false;
+  }
+  if (central_dir_offset != cd->central_dir_offset &&
+      cd->central_dir_offset != U4_MAX) {
+    return false;
+  }
+
+  *end_of_central_dir = candidate;
+  cd->number_of_this_disk = number_of_this_disk;
+  cd->disk_with_central_dir = disk_with_central_dir;
+  cd->central_dir_entries_on_this_disk = central_dir_entries_on_this_disk;
+  cd->central_dir_entries = central_dir_entries;
+  cd->central_dir_size = central_dir_size;
+  cd->central_dir_offset = central_dir_offset;
+  return true;
+}
+
+// Starting from the end of central directory record, attempts to locate a zip64
+// end of central directory record. If found, updates the given record and
+// offset with the zip64 data. Returns false on error.
+bool FindZip64CentralDirectory(const u1 *bytes, size_t in_length,
+                               const u1 **end_of_central_dir,
+                               EndOfCentralDirectoryRecord *cd) {
+  // In the absence of a zip64 extensible data sector, the zip64 EOCD is at a
+  // fixed offset from the regular central directory.
+  if (MaybeReadZip64CentralDirectory(
+          bytes, in_length,
+          *end_of_central_dir - ZIP64_EOCD_LOCATOR_SIZE - ZIP64_EOCD_FIXED_SIZE,
+          end_of_central_dir, cd)) {
+    return true;
+  }
+
+  // If we couldn't find a zip64 EOCD at a fixed offset, either it doesn't exist
+  // or there was a zip64 extensible data sector, so try going through the
+  // locator. This approach doesn't work if data was prepended to the archive
+  // without updating the offset in the locator.
+  const u1 *zip64_locator = *end_of_central_dir - ZIP64_EOCD_LOCATOR_SIZE;
+  if (zip64_locator - ZIP64_EOCD_FIXED_SIZE < bytes) {
+    return true;
+  }
+  u4 zip64_locator_signature = get_u4le(zip64_locator);
+  if (zip64_locator_signature != ZIP64_EOCD_LOCATOR_SIGNATURE) {
+    return true;
+  }
+  u4 disk_with_zip64_central_directory = get_u4le(zip64_locator);
+  u8 zip64_end_of_central_dir_offset = get_u8le(zip64_locator);
+  u4 zip64_total_disks = get_u4le(zip64_locator);
+  if (MaybeReadZip64CentralDirectory(bytes, in_length,
+                                     bytes + zip64_end_of_central_dir_offset,
+                                     end_of_central_dir, cd)) {
+    if (disk_with_zip64_central_directory != 0 || zip64_total_disks != 1) {
+      fprintf(stderr, "multi-disk JAR files are not supported\n");
+      return false;
+    }
+    return true;
+  }
+  return true;
+}
+
 // Given the data in the zip file, returns the offset of the central directory
 // and the number of files contained in it.
-bool FindZipCentralDirectory(const u1* bytes, size_t in_length,
-                             u4* offset, const u1** central_dir) {
+bool FindZipCentralDirectory(const u1 *bytes, size_t in_length, u4 *offset,
+                             const u1 **central_dir) {
   static const int MAX_COMMENT_LENGTH = 0xffff;
   static const int CENTRAL_DIR_LOCATOR_SIZE = 22;
   // Maximum distance of start of central dir locator from end of file
@@ -635,7 +766,7 @@ bool FindZipCentralDirectory(const u1* bytes, size_t in_length,
        current >= last_pos_to_check;
        current-- ) {
     const u1* p = current;
-    if (get_u4le(p) != END_OF_CENTRAL_DIR_SIGNATURE) {
+    if (get_u4le(p) != EOCD_SIGNATURE) {
       continue;
     }
 
@@ -659,30 +790,34 @@ bool FindZipCentralDirectory(const u1* bytes, size_t in_length,
     return false;
   }
 
+  EndOfCentralDirectoryRecord cd;
   const u1* end_of_central_dir = current;
   get_u4le(current);  // central directory locator signature, already checked
-  u2 number_of_this_disk = get_u2le(current);
-  u2 disk_with_central_dir = get_u2le(current);
-  u2 central_dir_entries_on_this_disk = get_u2le(current);
-  u2 central_dir_entries = get_u2le(current);
-  u4 central_dir_size = get_u4le(current);
-  u4 central_dir_offset = get_u4le(current);
+  cd.number_of_this_disk = get_u2le(current);
+  cd.disk_with_central_dir = get_u2le(current);
+  cd.central_dir_entries_on_this_disk = get_u2le(current);
+  cd.central_dir_entries = get_u2le(current);
+  cd.central_dir_size = get_u4le(current);
+  cd.central_dir_offset = get_u4le(current);
   u2 file_comment_length = get_u2le(current);
   current += file_comment_length;  // set current to the end of the central dir
 
-  if (number_of_this_disk != 0
-    || disk_with_central_dir != 0
-    || central_dir_entries_on_this_disk != central_dir_entries) {
+  if (!FindZip64CentralDirectory(bytes, in_length, &end_of_central_dir, &cd)) {
+    return false;
+  }
+
+  if (cd.number_of_this_disk != 0 || cd.disk_with_central_dir != 0 ||
+      cd.central_dir_entries_on_this_disk != cd.central_dir_entries) {
     fprintf(stderr, "multi-disk JAR files are not supported\n");
     return false;
   }
 
   // Do not change output values before determining that they are OK.
-  *offset = central_dir_offset;
+  *offset = cd.central_dir_offset;
   // Central directory start can then be used to determine the actual
   // starts of the zip file (which can be different in case of a non-zip
   // header like for auto-extractable binaries).
-  *central_dir = end_of_central_dir - central_dir_size;
+  *central_dir = end_of_central_dir - cd.central_dir_size;
   return true;
 }
 
@@ -821,17 +956,60 @@ void OutputZipFile::WriteCentralDirectory() {
     put_n(q, entry->file_name, entry->file_name_length);
     put_n(q, entry->extra_field, entry->extra_field_length);
   }
-  u4 central_directory_size = q - central_directory_start;
+  u8 central_directory_size = q - central_directory_start;
 
-  put_u4le(q, END_OF_CENTRAL_DIR_SIGNATURE);
-  put_u2le(q, 0);  // number of this disk
-  put_u2le(q, 0);  // number of the disk with the start of the central directory
-  put_u2le(q, entries_.size());  // # central dir entries on this disk
-  put_u2le(q, entries_.size());  // total # entries in the central directory
-  put_u4le(q, central_directory_size);  // size of the central directory
-  put_u4le(q, Offset(central_directory_start));  // offset of start of central
-                                                 // directory wrt starting disk
-  put_u2le(q, 0);  // .ZIP file comment length
+  if (entries_.size() > U2_MAX || central_directory_size > U4_MAX ||
+      Offset(central_directory_start) > U4_MAX) {
+    u1 *zip64_end_of_central_directory_start = q;
+
+    put_u4le(q, ZIP64_EOCD_SIGNATURE);
+    // signature and size field doesn't count towards size
+    put_u8le(q, ZIP64_EOCD_FIXED_SIZE - 12);
+    put_u2le(q, 0);  // version made by
+    put_u2le(q, 0);  // version needed to extract
+    put_u4le(q, 0);  // number of this disk
+    put_u4le(q, 0);  // # of the disk with the start of the central directory
+    put_u8le(q, entries_.size());  // # central dir entries on this disk
+    put_u8le(q, entries_.size());  // total # entries in the central directory
+    put_u8le(q, central_directory_size);  // size of the central directory
+    // offset of start of central directory wrt starting disk
+    put_u8le(q, Offset(central_directory_start));
+
+    put_u4le(q, ZIP64_EOCD_LOCATOR_SIGNATURE);
+    // number of the disk with the start of the zip64 end of central directory
+    put_u4le(q, 0);
+    // relative offset of the zip64 end of central directory record
+    put_u8le(q, Offset(zip64_end_of_central_directory_start));
+    // total number of disks
+    put_u4le(q, 1);
+
+    put_u4le(q, EOCD_SIGNATURE);
+    put_u2le(q, 0);  // number of this disk
+    put_u2le(q, 0);  // # of disk with the start of the central directory
+    // # central dir entries on this disk
+    put_u2le(q, entries_.size() > 0xffff ? 0xffff : entries_.size());
+    // total # entries in the central directory
+    put_u2le(q, entries_.size() > 0xffff ? 0xffff : entries_.size());
+    // size of the central directory
+    put_u4le(q,
+             central_directory_size > U4_MAX ? U4_MAX : central_directory_size);
+    // offset of start of central
+    put_u4le(q, Offset(central_directory_start) > U4_MAX
+                    ? U4_MAX
+                    : Offset(central_directory_start));
+    put_u2le(q, 0);  // .ZIP file comment length
+
+  } else {
+    put_u4le(q, EOCD_SIGNATURE);
+    put_u2le(q, 0);  // number of this disk
+    put_u2le(q, 0);  // # of the disk with the start of the central directory
+    put_u2le(q, entries_.size());  // # central dir entries on this disk
+    put_u2le(q, entries_.size());  // total # entries in the central directory
+    put_u4le(q, central_directory_size);  // size of the central directory
+    // offset of start of central directory wrt starting disk
+    put_u4le(q, Offset(central_directory_start));
+    put_u2le(q, 0);  // .ZIP file comment length
+  }
 }
 
 u1* OutputZipFile::WriteLocalFileHeader(const char* filename, const u4 attr) {
