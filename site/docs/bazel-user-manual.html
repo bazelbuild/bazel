@@ -520,9 +520,9 @@ Subtractive patterns:
   building the former.
 </p>
 <p>
-  Targets with <code>tags=["manual"]</code> will be ignored by all command line
-  wildcards (..., :*, :all, etc). The only way to run such targets is to
-  specify them explicitly on the command line.
+  Targets with <code>tags=["manual"]</code> will not be included in wildcard target patterns (...,
+  :*, :all, etc). You should specify such test targets with explicit target patterns on the command
+  line if you want Bazel to build/test them.
 </p>
 
 <h3 id='fetch'>Fetching external dependencies</h3>

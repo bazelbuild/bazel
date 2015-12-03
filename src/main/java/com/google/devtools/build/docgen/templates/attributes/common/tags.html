@@ -48,18 +48,18 @@
 </p>
 
 <ul>
-  <li><code>exclusive</code> keyword will force test to be run in the
+  <li><code>exclusive</code> keyword will force the test to be run in the
     &quot;exclusive&quot; mode, ensuring that no other tests are running at the
     same time. Such tests will be executed in serial fashion after all build
     activity and non-exclusive tests have been completed. They will also always
     run locally and thus without sandboxing.
   </li>
 
-  <li><code>manual</code> keyword will force test to be ignored by all command
-    line wildcards (<code>...</code>, <code>:*</code>, <code>:all</code>, etc).
-    It will also be ignored by the <code>test_suite</code> rules that do not
-    mention this test explicitly. The only way
-    to run such test is to specify it explicitly on the command line.
+  <li><code>manual</code> keyword will force the test target to not be included in target pattern
+    wildcards (<code>...</code>, <code>:*</code>, <code>:all</code>, etc); the test target will be
+    neither built nor run. It will also be ignored by the <code>test_suite</code> rules that do not
+    mention this test explicitly. The only way to build or run such a test is to specify it via an
+    explicit target pattern on the command line.
   </li>
 
   <li><code>external</code> keyword will force test to be unconditionally
