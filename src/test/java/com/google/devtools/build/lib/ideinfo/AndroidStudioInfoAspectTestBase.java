@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.ideinfo;
 
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
@@ -28,7 +30,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.ArtifactLocation;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.LibraryArtifact;
@@ -44,7 +46,7 @@ import javax.annotation.Nullable;
 /**
  * Provides utils for AndroidStudioInfoAspectTest.
  */
-abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
+abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCaseForJunit4 {
 
   protected static final Function<ArtifactLocation, String> ARTIFACT_TO_RELATIVE_PATH =
       new Function<ArtifactLocation, String>() {
