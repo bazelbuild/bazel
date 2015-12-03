@@ -14,12 +14,15 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -28,6 +31,11 @@ import com.google.devtools.build.skyframe.BuildDriver;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.WalkableGraph;
+
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests for {@link RecursivePkgFunction}. Unfortunately, we can't directly test
@@ -38,13 +46,13 @@ import com.google.devtools.build.skyframe.WalkableGraph;
  * <p>Target parsing tests already cover most of the behavior of RecursivePkgFunction, but there
  * are a couple of corner cases we need to test directly.
  */
-public class RecursivePkgFunctionTest extends BuildViewTestCase {
+@RunWith(JUnit4.class)
+public class RecursivePkgFunctionTest extends BuildViewTestCaseForJunit4 {
 
   private SkyframeExecutor skyframeExecutor;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void createSkyframeExecutor() throws Exception {
     skyframeExecutor = getSkyframeExecutor();
   }
 
@@ -80,6 +88,7 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
     return evaluationResult;
   }
 
+  @Test
   public void testStartingAtBuildFile() throws Exception {
     scratch.file("a/b/c/BUILD");
     RecursivePkgValue value =
@@ -87,6 +96,7 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
     assertTrue(value.getPackages().isEmpty());
   }
 
+  @Test
   public void testPackagesUnderMultipleRoots() throws Exception {
     Path root1 = rootDirectory.getRelative("root1");
     Path root2 = rootDirectory.getRelative("root2");
@@ -105,6 +115,7 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
     assertEquals(root2Pkg, "a/b");
   }
 
+  @Test
   public void testSubdirectoryExclusion() throws Exception {
     // Given a package "a" with two packages below it, "a/b" and "a/c",
     scratch.file("a/BUILD");
@@ -141,6 +152,7 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
                 rootDirectory, new PathFragment("a/c"), ImmutableSet.<PathFragment>of())));
   }
 
+  @Test
   public void testExcludedSubdirectoryGettingPassedDown() throws Exception {
     // Given a package "a" with two packages below a directory below it, "a/b/c" and "a/b/d",
     scratch.file("a/BUILD");

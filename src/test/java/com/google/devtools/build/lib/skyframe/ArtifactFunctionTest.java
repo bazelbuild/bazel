@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
-
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.FileArtifactValue.create;
 import static org.junit.Assert.assertArrayEquals;
@@ -89,8 +88,7 @@ public class ArtifactFunctionTest {
   private TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
 
   @Before
-  public void setUp() throws Exception {
-    
+  public final void setUp() throws Exception  {
     setupRoot(new CustomInMemoryFs());
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(PathPackageLocator.EMPTY);

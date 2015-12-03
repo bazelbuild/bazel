@@ -14,10 +14,14 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -26,10 +30,15 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.io.IOException;
 
 /** Tests for {@link com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction}. */
-public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
+@RunWith(JUnit4.class)
+public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCaseForJunit4 {
 
   private static SkyKey getKeyForLabel(Label label) {
     // Note that these tests used to look for TargetMarker SkyKeys before TargetMarker was
@@ -38,6 +47,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     return TransitiveTraversalValue.key(label);
   }
 
+  @Test
   public void testFunctionLoadsTargetAndNotUnspecifiedTargets() throws Exception {
     // Given a package "//foo" with independent target rules ":foo" and ":foo2",
     createFooAndFoo2(/*dependent=*/ false);
@@ -56,6 +66,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     assertFalse(walkableGraph.exists(getKeyForLabel(Label.create("foo", "foo2"))));
   }
 
+  @Test
   public void testFunctionLoadsTargetDependencies() throws Exception {
     // Given a package "//foo" with target rules ":foo" and ":foo2",
     // And given ":foo" depends on ":foo2",
@@ -72,6 +83,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     assertValidValue(walkableGraph, getKeyForLabel(Label.create("foo", "foo2")));
   }
 
+  @Test
   public void testFunctionExpandsTargetPatterns() throws Exception {
     // Given a package "//foo" with independent target rules ":foo" and ":foo2",
     createFooAndFoo2(/*dependent=*/ false);
@@ -88,6 +100,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     assertValidValue(walkableGraph, getKeyForLabel(Label.create("foo", "foo2")));
   }
 
+  @Test
   public void testTargetParsingException() throws Exception {
     // Given no packages, and a target pattern sequence referring to a non-existent target,
     String nonexistentTarget = "//foo:foo";
@@ -101,6 +114,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     assertFalse(walkableGraph.exists(getKeyForLabel(Label.create("foo", "foo"))));
   }
 
+  @Test
   public void testDependencyTraversalNoSuchPackageException() throws Exception {
     // Given a package "//foo" with a target ":foo" that has a dependency on a non-existent target
     // "//bar:bar" in a non-existent package "//bar",
@@ -124,6 +138,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     assertThat(e).isInstanceOf(NoSuchPackageException.class);
   }
 
+  @Test
   public void testDependencyTraversalNoSuchTargetException() throws Exception {
     // Given a package "//foo" with a target ":foo" that has a dependency on a non-existent target
     // "//bar:bar" in an existing package "//bar",
@@ -147,6 +162,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     assertThat(e).isInstanceOf(NoSuchTargetException.class);
   }
 
+  @Test
   public void testParsingProblemsKeepGoing() throws Exception {
     parsingProblem(/*keepGoing=*/ true);
   }
@@ -157,6 +173,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
    * always used {@code keepGoing=true} during target pattern parsing because it was responsible
    * for ensuring that queries had a complete graph to work on.
    */
+  @Test
   public void testParsingProblemsNoKeepGoing() throws Exception {
     parsingProblem(/*keepGoing=*/ false);
   }

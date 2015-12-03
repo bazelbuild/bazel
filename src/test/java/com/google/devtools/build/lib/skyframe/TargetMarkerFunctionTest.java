@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
@@ -35,6 +37,11 @@ import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.io.IOException;
 import java.util.Map;
 
@@ -43,14 +50,14 @@ import java.util.Map;
  * TargetMarkerFunction as it uses PackageValues, and PackageFunction uses legacy stuff
  * that isn't easily mockable. So our testing strategy is to make hacky calls to SkyframeExecutor.
  */
-public class TargetMarkerFunctionTest extends BuildViewTestCase {
+@RunWith(JUnit4.class)
+public class TargetMarkerFunctionTest extends BuildViewTestCaseForJunit4 {
 
   private SkyframeExecutor skyframeExecutor;
   private CustomInMemoryFs fs = new CustomInMemoryFs();
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void setSkyframExecutor() throws Exception  {
     skyframeExecutor = getSkyframeExecutor();
   }
 
@@ -78,6 +85,7 @@ public class TargetMarkerFunctionTest extends BuildViewTestCase {
   }
 
   /** Regression test for b/12545745 */
+  @Test
   public void testLabelCrossingSubpackageBoundary() throws Exception {
     scratch.file("a/b/c/foo.sh", "echo 'FOO'");
     scratch.file("a/BUILD", "sh_library(name = 'foo', srcs = ['b/c/foo.sh'])");
@@ -96,6 +104,7 @@ public class TargetMarkerFunctionTest extends BuildViewTestCase {
         .contains("Label '//a:b/c/foo.sh' crosses boundary of subpackage 'a/b'");
   }
 
+  @Test
   public void testNoBuildFileForTargetWithSlash() throws Exception {
     String labelName = "//no/such/package:target/withslash";
     BuildFileNotFoundException exn =
@@ -107,6 +116,7 @@ public class TargetMarkerFunctionTest extends BuildViewTestCase {
     assertThat(exn).hasMessage(expectedMessage);
   }
 
+  @Test
   public void testRuleWithError() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
@@ -121,6 +131,7 @@ public class TargetMarkerFunctionTest extends BuildViewTestCase {
     assertTrue(exn.hasTarget());
   }
 
+  @Test
   public void testTargetFunctionRethrowsExceptions() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("a/BUILD", "sh_library(name = 'b/c')");

@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.FilesetEntry.SymlinkBehavior;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.FoundationTestCaseForJunit4;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -53,6 +53,11 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -65,7 +70,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
 /** Tests for {@link FilesetEntryFunction}. */
-public final class FilesetEntryFunctionTest extends FoundationTestCase {
+@RunWith(JUnit4.class)
+public final class FilesetEntryFunctionTest extends FoundationTestCaseForJunit4 {
 
   private TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
   private MemoizingEvaluator evaluator;
@@ -73,10 +79,8 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
   private RecordingDifferencer differencer;
   private AtomicReference<PathPackageLocator> pkgLocator;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
-
+  @Before
+  public final void setUp() throws Exception  {
     pkgLocator = new AtomicReference<>(
         new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)));
     AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
@@ -195,6 +199,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     return Label.parseAbsolute(label);
   }
 
+  @Test
   public void testFileTraversalForFile() throws Exception {
     Artifact file = createSourceArtifact("foo/file.real");
     FilesetTraversalParams params =
@@ -231,14 +236,17 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     }
   }
 
+  @Test
   public void testFileTraversalForFileSymlinkNoFollow() throws Exception {
     assertFileTraversalForFileSymlink(SymlinkBehavior.COPY);
   }
 
+  @Test
   public void testFileTraversalForFileSymlinkFollow() throws Exception {
     assertFileTraversalForFileSymlink(SymlinkBehavior.DEREFERENCE);
   }
 
+  @Test
   public void testFileTraversalForDirectory() throws Exception {
     Artifact dir = getSourceArtifact("foo/dir_real");
     RootedPath fileA = createFile(childOf(dir, "file.a"), "hello");
@@ -281,10 +289,12 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     }
   }
 
+  @Test
   public void testFileTraversalForDirectorySymlinkFollow() throws Exception {
     assertFileTraversalForDirectorySymlink(SymlinkBehavior.COPY);
   }
 
+  @Test
   public void testFileTraversalForDirectorySymlinkNoFollow() throws Exception {
     assertFileTraversalForDirectorySymlink(SymlinkBehavior.DEREFERENCE);
   }
@@ -341,26 +351,32 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     }
   }
 
+  @Test
   public void testRecursiveTraversalForDirectoryCrossNoFollow() throws Exception {
     assertRecursiveTraversalForDirectory(SymlinkBehavior.COPY, CROSS);
   }
 
+  @Test
   public void testRecursiveTraversalForDirectoryDontCrossNoFollow() throws Exception {
     assertRecursiveTraversalForDirectory(SymlinkBehavior.COPY, DONT_CROSS);
   }
 
+  @Test
   public void testRecursiveTraversalForDirectoryReportErrorNoFollow() throws Exception {
     assertRecursiveTraversalForDirectory(SymlinkBehavior.COPY, REPORT_ERROR);
   }
 
+  @Test
   public void testRecursiveTraversalForDirectoryCrossFollow() throws Exception {
     assertRecursiveTraversalForDirectory(SymlinkBehavior.DEREFERENCE, CROSS);
   }
 
+  @Test
   public void testRecursiveTraversalForDirectoryDontCrossFollow() throws Exception {
     assertRecursiveTraversalForDirectory(SymlinkBehavior.DEREFERENCE, DONT_CROSS);
   }
 
+  @Test
   public void testRecursiveTraversalForDirectoryReportErrorFollow() throws Exception {
     assertRecursiveTraversalForDirectory(SymlinkBehavior.DEREFERENCE, REPORT_ERROR);
   }
@@ -422,26 +438,32 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     }
   }
 
+  @Test
   public void testRecursiveTraversalForDirectorySymlinkNoFollowCross() throws Exception {
     assertRecursiveTraversalForDirectorySymlink(SymlinkBehavior.COPY, CROSS);
   }
 
+  @Test
   public void testRecursiveTraversalForDirectorySymlinkNoFollowDontCross() throws Exception {
     assertRecursiveTraversalForDirectorySymlink(SymlinkBehavior.COPY, DONT_CROSS);
   }
 
+  @Test
   public void testRecursiveTraversalForDirectorySymlinkNoFollowReportError() throws Exception {
     assertRecursiveTraversalForDirectorySymlink(SymlinkBehavior.COPY, REPORT_ERROR);
   }
 
+  @Test
   public void testRecursiveTraversalForDirectorySymlinkFollowCross() throws Exception {
     assertRecursiveTraversalForDirectorySymlink(SymlinkBehavior.DEREFERENCE, CROSS);
   }
 
+  @Test
   public void testRecursiveTraversalForDirectorySymlinkFollowDontCross() throws Exception {
     assertRecursiveTraversalForDirectorySymlink(SymlinkBehavior.DEREFERENCE, DONT_CROSS);
   }
 
+  @Test
   public void testRecursiveTraversalForDirectorySymlinkFollowReportError() throws Exception {
     assertRecursiveTraversalForDirectorySymlink(SymlinkBehavior.DEREFERENCE, REPORT_ERROR);
   }
@@ -507,30 +529,37 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     }
   }
 
+  @Test
   public void testRecursiveTraversalForPackageNoFollowCross() throws Exception {
     assertRecursiveTraversalForPackage(SymlinkBehavior.COPY, CROSS);
   }
 
+  @Test
   public void testRecursiveTraversalForPackageNoFollowDontCross() throws Exception {
     assertRecursiveTraversalForPackage(SymlinkBehavior.COPY, DONT_CROSS);
   }
 
+  @Test
   public void testRecursiveTraversalForPackageNoFollowReportError() throws Exception {
     assertRecursiveTraversalForPackage(SymlinkBehavior.COPY, REPORT_ERROR);
   }
 
+  @Test
   public void testRecursiveTraversalForPackageFollowCross() throws Exception {
     assertRecursiveTraversalForPackage(SymlinkBehavior.DEREFERENCE, CROSS);
   }
 
+  @Test
   public void testRecursiveTraversalForPackageFollowDontCross() throws Exception {
     assertRecursiveTraversalForPackage(SymlinkBehavior.DEREFERENCE, DONT_CROSS);
   }
 
+  @Test
   public void testRecursiveTraversalForPackageFollowReportError() throws Exception {
     assertRecursiveTraversalForPackage(SymlinkBehavior.DEREFERENCE, REPORT_ERROR);
   }
 
+  @Test
   public void testNestedFileFilesetTraversal() throws Exception {
     Artifact path = getSourceArtifact("foo/bar.file");
     createFile(path, "blah");
@@ -587,14 +616,17 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     }
   }
 
+  @Test
   public void testNestedRecursiveFilesetTraversalWithInnerDestDir() throws Exception {
     assertNestedRecursiveFilesetTraversal(true);
   }
 
+  @Test
   public void testNestedRecursiveFilesetTraversalWithoutInnerDestDir() throws Exception {
     assertNestedRecursiveFilesetTraversal(false);
   }
 
+  @Test
   public void testFileTraversalForDanglingSymlink() throws Exception {
     Artifact linkName = getSourceArtifact("foo/dangling.sym");
     RootedPath linkTarget = createFile(siblingOf(linkName, "target.file"), "blah");
@@ -630,14 +662,17 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     assertSymlinksInOrder(paramsWithSymlinkCopy, symlink("output-name/BUILD", buildFile));
   }
 
+  @Test
   public void testExclusionOfDanglingSymlinkWithSymlinkModeCopy() throws Exception {
     assertExclusionOfDanglingSymlink(SymlinkBehavior.COPY);
   }
 
+  @Test
   public void testExclusionOfDanglingSymlinkWithSymlinkModeDereference() throws Exception {
     assertExclusionOfDanglingSymlink(SymlinkBehavior.DEREFERENCE);
   }
 
+  @Test
   public void testFileTraversalForNonExistentFile() throws Exception {
     Artifact path = getSourceArtifact("foo/non-existent");
     FilesetTraversalParams params =
@@ -650,6 +685,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     assertSymlinksInOrder(params); // expect empty results
   }
 
+  @Test
   public void testRecursiveTraversalForDanglingSymlink() throws Exception {
     Artifact linkName = getSourceArtifact("foo/dangling.sym");
     RootedPath linkTarget = createFile(siblingOf(linkName, "target.file"), "blah");
@@ -667,6 +703,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     assertSymlinksInOrder(params); // expect empty results
   }
 
+  @Test
   public void testRecursiveTraversalForNonExistentFile() throws Exception {
     Artifact path = getSourceArtifact("foo/non-existent");
 
@@ -770,6 +807,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     return new Domain(false, valueA, valueB);
   }
 
+  @Test
   public void testFingerprintOfFileTraversal() throws Exception {
     new FingerprintTester(
         ImmutableMap.<String, Domain>of(
@@ -791,6 +829,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     }.doTest();
   }
 
+  @Test
   public void testFingerprintOfDirectoryTraversal() throws Exception {
     new FingerprintTester(
         ImmutableMap.<String, Domain>builder()
@@ -819,6 +858,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     }.doTest();
   }
 
+  @Test
   public void testFingerprintOfPackageTraversal() throws Exception {
     new FingerprintTester(
         ImmutableMap.<String, Domain>builder()
@@ -847,6 +887,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
     }.doTest();
   }
 
+  @Test
   public void testFingerprintOfNestedTraversal() throws Exception {
     FilesetTraversalParams n1 =
         FilesetTraversalParamsFactory.fileTraversal(

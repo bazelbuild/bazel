@@ -41,6 +41,11 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -52,16 +57,20 @@ import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /** Tests for {@link SkyframeAwareAction}. */
+@RunWith(JUnit4.class)
 public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
   private Builder builder;
   private Executor executor;
   private TrackingEvaluationProgressReceiver invalidationReceiver;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void createBuilder() throws Exception {
     invalidationReceiver = new TrackingEvaluationProgressReceiver();
     builder = createBuilder(inMemoryCache, 1, /*keepGoing=*/ false, invalidationReceiver);
+  }
+
+  @Before
+  public final void createExecutor() throws Exception {
     executor = new DummyExecutor(rootDirectory);
   }
 
@@ -454,10 +463,12 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     }
   }
 
+  @Test
   public void testCacheCheckingActionWithContentChangingInput() throws Exception {
     assertActionWithContentChangingInput(/* unconditionalExecution */ false);
   }
 
+  @Test
   public void testCacheBypassingActionWithContentChangingInput() throws Exception {
     assertActionWithContentChangingInput(/* unconditionalExecution */ true);
   }
@@ -481,10 +492,12 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         ExpectActionIs.REEXECUTED);
   }
 
+  @Test
   public void testCacheCheckingActionWithMtimeChangingInput() throws Exception {
     assertActionWithMtimeChangingInput(/* unconditionalExecution */ false);
   }
 
+  @Test
   public void testCacheBypassingActionWithMtimeChangingInput() throws Exception {
     assertActionWithMtimeChangingInput(/* unconditionalExecution */ true);
   }
@@ -558,19 +571,23 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
         ExpectActionIs.REEXECUTED);
   }
 
+  @Test
   public void testActionWithNonChangingInputButChangingSkyframeDeps() throws Exception {
     assertActionWithMaybeChangingInputAndChangingSkyframeDeps(ChangeArtifact.DONT_CHANGE);
   }
 
+  @Test
   public void testActionWithChangingInputMtimeAndChangingSkyframeDeps() throws Exception {
     assertActionWithMaybeChangingInputAndChangingSkyframeDeps(ChangeArtifact.CHANGE_MTIME);
   }
 
+  @Test
   public void testActionWithChangingInputAndChangingSkyframeDeps() throws Exception {
     assertActionWithMaybeChangingInputAndChangingSkyframeDeps(
         ChangeArtifact.CHANGE_MTIME_AND_CONTENT);
   }
 
+  @Test
   public void testActionWithNonChangingInputAndNonChangingSkyframeDeps() throws Exception {
     final SkyKey skyframeDep = FileStateValue.key(createSkyframeDepOfAction());
 
@@ -688,6 +705,7 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
    * are missing, request also the skyframe-dependencies. The race is described in this method's
    * body.
    */
+  @Test
   public void testRaceConditionBetweenInputAcquisitionAndSkyframeDeps() throws Exception {
     // Sequence of events on threads A and B, showing SkyFunctions and requested SkyKeys, leading
     // to an InconsistentFilesystemException:

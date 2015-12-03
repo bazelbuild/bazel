@@ -15,13 +15,17 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
@@ -45,6 +49,10 @@ import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
@@ -57,7 +65,8 @@ import javax.annotation.Nullable;
  * Unit tests of specific functionality of PackageFunction. Note that it's already tested
  * indirectly in several other places.
  */
-public class PackageFunctionTest extends BuildViewTestCase {
+@RunWith(JUnit4.class)
+public class PackageFunctionTest extends BuildViewTestCaseForJunit4 {
 
   private CustomInMemoryFs fs = new CustomInMemoryFs(new ManualClock());
 
@@ -82,6 +91,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     return value;
   }
 
+  @Test
   public void testInconsistentNewPackage() throws Exception {
     scratch.file("pkg/BUILD", "subinclude('//foo:sub')");
     scratch.file("foo/sub");
@@ -108,6 +118,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(exception.getMessage()).contains("Unexpected package");
   }
 
+  @Test
   public void testInconsistentMissingPackage() throws Exception {
     reporter.removeHandler(failFastHandler);
     Path root1 = fs.getPath("/root1");
@@ -142,6 +153,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(exception.getMessage()).contains("Inconsistent package location");
   }
 
+  @Test
   public void testPropagatesFilesystemInconsistencies() throws Exception {
     reporter.removeHandler(failFastHandler);
     RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
@@ -208,6 +220,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(errorMessage).contains(expectedMessage);
   }
 
+  @Test
   public void testPropagatesFilesystemInconsistencies_Globbing() throws Exception {
     reporter.removeHandler(failFastHandler);
     RecordingDifferencer differencer = getSkyframeExecutor().getDifferencerForTesting();
@@ -248,6 +261,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   /** Regression test for unexpected exception type from PackageValue. */
+  @Test
   public void testDiscrepancyBetweenLegacyAndSkyframePackageLoadingErrors() throws Exception {
     reporter.removeHandler(failFastHandler);
     Path fooBuildFile = scratch.file("foo/BUILD",
@@ -268,6 +282,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(errorMessage).contains(expectedMessage);
   }
 
+  @Test
   public void testMultipleSubincludesFromSamePackage() throws Exception {
     scratch.file("foo/BUILD",
         "subinclude('//bar:a')",
@@ -286,6 +301,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     validPackage(skyKey);
   }
 
+  @Test
   public void testTransitiveSubincludesStoredInPackage() throws Exception {
     scratch.file("foo/BUILD",
         "subinclude('//bar:a')");
@@ -318,6 +334,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         Label.parseAbsolute("//bar:a"), Label.parseAbsolute("//baz:c"));
   }
 
+  @Test
   public void testTransitiveSkylarkDepsStoredInPackage() throws Exception {
     scratch.file("foo/BUILD",
         "load('/bar/ext', 'a')");
@@ -353,6 +370,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         Label.parseAbsolute("//bar:ext.bzl"), Label.parseAbsolute("//qux:ext.bzl"));
   }
 
+  @Test
   public void testNonExistingSkylarkExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("test/skylark/BUILD",
@@ -373,6 +391,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             + "file doesn't exist or isn't a file");
   }
 
+  @Test
   public void testNonExistingSkylarkExtensionWithPythonPreprocessing() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("foo/BUILD",
@@ -392,6 +411,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         + "file doesn't exist or isn't a file");
   }
 
+  @Test
   public void testNonExistingSkylarkExtensionFromExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("test/skylark/extension.bzl",
@@ -415,6 +435,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             + "file doesn't exist or isn't a file");
   }
 
+  @Test
   public void testSymlinkCycleWithSkylarkExtension() throws Exception {
     reporter.removeHandler(failFastHandler);
     Path extensionFilePath = scratch.resolve("/workspace/test/skylark/extension.bzl");
@@ -438,6 +459,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
             + "file 'test/skylark/extension.bzl': Symlink cycle");
   }
 
+  @Test
   public void testIOErrorLookingForSubpackageForLabelIsHandled() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("foo/BUILD",
@@ -451,12 +473,14 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertContainsEvent("nope");
   }
 
+  @Test
   public void testLoadRelativePath() throws Exception {
     scratch.file("pkg/BUILD", "load('ext', 'a')");
     scratch.file("pkg/ext.bzl", "a = 1");
     validPackage(PackageValue.key(PackageIdentifier.parse("pkg")));
   }
 
+  @Test
   public void testLoadAbsolutePath() throws Exception {
     scratch.file("pkg1/BUILD");
     scratch.file("pkg2/BUILD",
@@ -465,6 +489,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     validPackage(PackageValue.key(PackageIdentifier.parse("pkg2")));
   }
 
+  @Test
   public void testBadWorkspaceFile() throws Exception {
     Path workspacePath = scratch.overwriteFile("WORKSPACE", "junk");
     SkyKey skyKey = PackageValue.key(PackageIdentifier.createInDefaultRepo("external"));

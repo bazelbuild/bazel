@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -31,16 +33,23 @@ import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.UUID;
 
+@RunWith(JUnit4.class)
 public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
 
+  @Override
   public PackageFactory.EnvironmentExtension getPackageEnvironmentExtension() {
     return new PackageFactory.EmptyEnvironmentExtension();
   }
 
+  @Test
   public void testLabelVisitorDetectsMissingPackages() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
 
@@ -56,6 +65,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
    * Tests that Blaze is resilient to changing symlinks between builds. This test is a more
    * "integrated" version of FilesystemValueCheckerTest#testDirtySymlink.
    */
+  @Test
   public void testChangingSymlink() throws Exception {
     Path path = scratch.file("foo/BUILD", "sh_library(name = 'foo')");
     Path sym1 = scratch.resolve(rootDirectory + "/sym1/BUILD");
@@ -84,6 +94,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
         ImmutableSet.of("//bar:bar"), ImmutableSet.of("//bar:bar"), !EXPECT_ERROR, !KEEP_GOING);
   }
 
+  @Test
   public void testFailFastLoading() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
 
@@ -118,6 +129,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
         !KEEP_GOING);
   }
 
+  @Test
   public void testNewFailure() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
 
@@ -140,6 +152,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
         ImmutableSet.of("//pkg:x"), ImmutableSet.of("//pkg:x"), EXPECT_ERROR, !KEEP_GOING);
   }
 
+  @Test
   public void testNewTransitiveFailure() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
 
@@ -172,6 +185,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
         KEEP_GOING);
   }
 
+  @Test
   public void testAddDepInNewPkg() throws Exception {
     Path buildFile =
         scratch.file("pkg/BUILD", "sh_library(name = 'x', deps = ['z'])", "sh_library(name = 'z')");
@@ -203,6 +217,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
 
   // Regression test for: "IllegalArgumentException thrown during build."  This happened if "."
   // occurred in a label name segment.
+  @Test
   public void testDotLabelName() throws Exception {
     scratch.file("pkg/BUILD", "exports_files(srcs = ['.', 'x/.'])");
 
@@ -221,6 +236,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
         !KEEP_GOING);
   }
 
+  @Test
   public void testLabelVisitorPlural() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
 
@@ -237,6 +253,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
   }
 
   // Indirectly tests that there are dependencies between packages and their subpackages.
+  @Test
   public void testSubpackageBoundaryAdd() throws Exception {
     scratch.file(
         "x/BUILD", "sh_library(name = 'x', deps = ['//x:y/z'])", "sh_library(name = 'y/z')");
@@ -257,6 +274,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
   }
 
   // Indirectly tests that there are dependencies between packages and their subpackages.
+  @Test
   public void testSubpackageBoundaryDelete() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
     scratch.file(
@@ -273,6 +291,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
         ImmutableSet.of("//x:x", "//x:y/z"), ImmutableSet.of("//x:x"), !EXPECT_ERROR, !KEEP_GOING);
   }
 
+  @Test
   public void testInterruptPending() throws Exception {
     scratch.file("x/BUILD");
     Thread.currentThread().interrupt();
@@ -286,6 +305,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
   }
 
   // Regression test for "crash when // encountered in package name".
+  @Test
   public void testDoubleSlashInPackageName() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
     scratch.file("x/BUILD", "sh_library(name='x', deps=['//x//y'])");
@@ -297,6 +317,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
   }
 
   // Regression test for "Bazel hangs on input of illegal rule".
+  @Test
   public void testCrashInLoadPackageIsReportedEffectively() throws Exception {
     reporter.removeHandler(failFastHandler);
     // Inject a NullPointerException into loadPackage().  This is triggered by
@@ -337,6 +358,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
 
   // Regression test for: "Need better context for missing build file error due to
   // use in visibility rule".
+  @Test
   public void testErrorMessageContainsTarget() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
 
@@ -352,6 +374,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
             + "such package 'not/a/package'");
   }
 
+  @Test
   public void testKeepGoing() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file(
@@ -370,6 +393,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
    * In the case of Skyframe we print a warning inside SkyframeLabelVisitor because the existing
    * interfaces forces us to do the keep_going + show warning logic there.
    */
+  @Test
   public void testNewBuildFileConflict() throws Exception {
     Collection<Event> warnings = assertNewBuildFileConflict();
     assertThat(warnings).hasSize(1);
@@ -377,6 +401,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
         .contains("errors encountered while analyzing target '//pkg:x': it will not be built");
   }
 
+  @Test
   public void testWithNoSubincludes() throws Exception {
     // This test uses the preprocessor.
     preprocessorFactorySupplier.inject(
@@ -417,6 +442,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
   //
   // Indirectly tests that there are dependencies between a package and other packages that could
   // potentially cutoff its subincludes.
+  @Test
   public void testSubpackageBoundarySubincludes() throws Exception {
     // This test uses the python preprocessor.
     preprocessorFactorySupplier.inject(
@@ -451,6 +477,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
   }
 
   // Regression test for: "ClassCastException in SkyframeLabelVisitor.sync()"
+  @Test
   public void testRootCauseOnInconsistentFilesystem() throws Exception {
     reporter.removeHandler(failFastHandler);
     scratch.file("foo/BUILD", "sh_library(name = 'foo', deps = ['//bar:baz/fizz'])");

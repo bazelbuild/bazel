@@ -15,6 +15,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -51,6 +54,11 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -70,6 +78,7 @@ import java.util.logging.Logger;
  *
  */
 @TestSpec(size = Suite.MEDIUM_TESTS)
+@RunWith(JUnit4.class)
 public class ParallelBuilderTest extends TimestampBuilderTestCase {
 
   private static final Logger LOG =
@@ -79,9 +88,8 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
 
   protected static final int DEFAULT_NUM_JOBS = 100;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void setUp() throws Exception {
     this.cache = new InMemoryActionCache();
     ResourceManager.instance().setAvailableResources(LocalHostCapacity.getLocalHostCapacity());
     ResourceManager.instance().setRamUtilizationPercentage(
@@ -188,6 +196,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     }
   }
 
+  @Test
   public void testReportsActionExecutedEvent() throws Exception {
     Artifact pear = createDerivedArtifact("pear");
     ActionEventRecorder recorder = new ActionEventRecorder();
@@ -202,6 +211,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     assertEquals(action, recorder.actionExecutedEvents.get(0).getAction());
   }
 
+  @Test
   public void testRunsInParallel() throws Exception {
     runsInParallelWithBuilder(createBuilder(DEFAULT_NUM_JOBS, false));
   }
@@ -209,6 +219,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
   /**
    * Test that we can recover properly after a failed build.
    */
+  @Test
   public void testFailureRecovery() throws Exception {
 
     // [action] -> foo
@@ -243,6 +254,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     buildArtifacts(bar);
   }
 
+  @Test
   public void testUpdateCacheError() throws Exception {
     FileSystem fs = new InMemoryFileSystem() {
       @Override
@@ -307,6 +319,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     }
   }
 
+  @Test
   public void testNullBuild() throws Exception {
     // BuildTool.setupLogging(Level.FINEST);
     LOG.fine("Testing null build...");
@@ -316,6 +329,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
   /**
    * Test a randomly-generated complex dependency graph.
    */
+  @Test
   public void testSmallRandomStressTest() throws Exception {
     final int numTrials = 1;
     final int numArtifacts = 30;
@@ -508,6 +522,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
 
   // Regression test for bug fixed in CL 3548332: builder was not waiting for
   // all its subprocesses to terminate.
+  @Test
   public void testWaitsForSubprocesses() throws Exception {
     final Semaphore semaphore = new Semaphore(1);
     final boolean[] finished = { false };
@@ -561,6 +576,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
                finished[0]);
   }
 
+  @Test
   public void testSchedulingOfMemoryResources() throws Exception {
     // The action graph consists of 100 independent actions, but execution is
     // memory limited: only 6 TestActions can run concurrently:
@@ -606,6 +622,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     assertEquals(6, counter.maxConcurrent);
   }
 
+  @Test
   public void testEstimateExceedsAvailableRam() throws Exception {
     // Pretend that the machine has only 1MB of RAM available,
     // then test running an action that we estimate requires 2MB of RAM.
@@ -632,6 +649,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     assertTrue(finished[0]);
   }
 
+  @Test
   public void testCyclicActionGraph() throws Exception {
     // foo -> [action] -> bar
     // bar -> [action] -> baz
@@ -650,6 +668,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     }
   }
 
+  @Test
   public void testSelfCyclicActionGraph() throws Exception {
     // foo -> [action] -> foo
     Artifact foo = createDerivedArtifact("foo");
@@ -662,6 +681,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     }
   }
 
+  @Test
   public void testCycleInActionGraphBelowTwoActions() throws Exception {
     // bar -> [action] -> foo1
     // bar -> [action] -> foo2
@@ -684,6 +704,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
   }
 
 
+  @Test
   public void testCyclicActionGraphWithTail() throws Exception {
     // bar -> [action] -> foo
     // baz -> [action] -> bar
@@ -704,6 +725,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     }
   }
 
+  @Test
   public void testDuplicatedInput() throws Exception {
     // <null> -> [action] -> foo
     // (foo, foo) -> [action] -> bar
@@ -784,10 +806,12 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     }
   }
 
+   @Test
    public void testNoNewJobsAreRunAfterFirstFailure() throws Exception {
      assertNoNewJobsAreRunAfterFirstFailure(false, false);
    }
 
+   @Test
    public void testNoNewJobsAreRunAfterCatastrophe() throws Exception {
      assertNoNewJobsAreRunAfterFirstFailure(true, true);
    }
@@ -800,6 +824,7 @@ public class ParallelBuilderTest extends TimestampBuilderTestCase {
     return artifact;
   }
 
+  @Test
   public void testProgressReporting() throws Exception {
     // Build three artifacts in 3 separate actions (baz depends on bar and bar
     // depends on foo.  Make sure progress is reported at the beginning of all

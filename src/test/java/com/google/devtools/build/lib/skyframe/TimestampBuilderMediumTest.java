@@ -14,6 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -28,6 +31,11 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.io.IOException;
 
 /**
@@ -35,13 +43,13 @@ import java.io.IOException;
  * separate class for now because they are a little slower.
  */
 @TestSpec(size = Suite.MEDIUM_TESTS)
+@RunWith(JUnit4.class)
 public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   private Path cacheRoot;
   private CompactPersistentActionCache cache;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void setCache() throws Exception  {
     // BlazeRuntime.setupLogging(Level.FINEST);  // Uncomment this for debugging.
 
     cacheRoot = scratch.dir("cacheRoot");
@@ -63,6 +71,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
   // - test timestamp monotonicity is not required (i.e. set mtime backwards)
   // - test change of key causes rebuild
 
+  @Test
   public void testUnneededInputs() throws Exception {
     Artifact hello = createSourceArtifact("hello");
     BlazeTestUtils.makeEmptyFile(hello.getPath());
@@ -109,6 +118,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     assertFalse(button.pressed); // not rebuilt
   }
 
+  @Test
   public void testPersistentCache_ModifyingInputCausesActionReexecution() throws Exception {
     // /hello -> [action] -> /goodbye
     Artifact hello = createSourceArtifact("hello");
@@ -140,6 +150,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     assertFalse(button.pressed); // not rebuilt
   }
 
+  @Test
   public void testModifyingInputCausesActionReexecution() throws Exception {
     // /hello -> [action] -> /goodbye
     Artifact hello = createSourceArtifact("hello");
@@ -176,6 +187,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     assertFalse(button.pressed); // not rebuilt
   }
 
+  @Test
   public void testArtifactOrderingDoesNotMatter() throws Exception {
     // (/hello,/there) -> [action] -> /goodbye
 
@@ -209,6 +221,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     assertFalse(button2.pressed); // still not rebuilt
   }
 
+  @Test
   public void testOldCacheKeysAreCleanedUp() throws Exception {
     // [action1] -> (/goodbye), cache key will be /goodbye
     Artifact goodbye = createDerivedArtifact("goodbye");
@@ -241,6 +254,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     assertThat(cache.get(goodbye.getExecPathString())).isNull();
   }
 
+  @Test
   public void testArtifactNamesMatter() throws Exception {
     // /hello -> [action] -> /goodbye
 
@@ -271,6 +285,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     assertTrue(button2.pressed); // name changed. must rebuild.
   }
 
+  @Test
   public void testDuplicateInputs() throws Exception {
     // (/hello,/hello) -> [action] -> /goodbye
 
@@ -310,6 +325,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
    * does not cause action reexecution when metadata cache uses file digests in
    * addition to the timestamp.
    */
+  @Test
   public void testModifyingTimestampOnlyDoesNotCauseActionReexecution() throws Exception {
     // /hello -> [action] -> /goodbye
     Artifact hello = createSourceArtifact("hello");
@@ -334,6 +350,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     assertFalse(button.pressed); // not rebuilt
   }
 
+  @Test
   public void testPersistentCache_ModifyingOutputCausesActionReexecution() throws Exception {
     // [action] -> /hello
     Artifact hello = createDerivedArtifact("hello");
@@ -363,6 +380,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     assertFalse(button.pressed); // not rebuilt
   }
 
+  @Test
   public void testPersistentCache_missingFilenameIndexCausesActionReexecution() throws Exception {
     // [action] -> /hello
     Artifact hello = createDerivedArtifact("hello");
@@ -408,6 +426,7 @@ public class TimestampBuilderMediumTest extends TimestampBuilderTestCase {
     assertTrue(button.pressed); // rebuilt due to the missing filename index
   }
 
+  @Test
   public void testPersistentCache_failedIntegrityCheckCausesActionReexecution() throws Exception {
     // [action] -> /hello
     Artifact hello = createDerivedArtifact("hello");

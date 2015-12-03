@@ -13,13 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Predicates;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertTrue;
+
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -31,32 +32,28 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCaseForJunit4;
 import com.google.devtools.build.lib.packages.util.PreprocessorUtils;
-import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.util.BlazeClock;
-import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
-import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionName;
+
+import org.junit.Before;
 
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 import javax.annotation.Nullable;
 
-abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCase {
+abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCaseForJunit4 {
   // Convenience constants, so test args are readable vs true/false
   protected static final boolean KEEP_GOING = true;
   protected static final boolean EXPECT_ERROR = true;
@@ -239,31 +236,11 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
     return builder.build();
   }
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
-    this.skyframeExecutor =
-        SequencedSkyframeExecutor.create(
-            new PackageFactory(ruleClassProvider, getPackageEnvironmentExtension()),
-            new TimestampGranularityMonitor(BlazeClock.instance()),
-            new BlazeDirectories(outputBase, outputBase, rootDirectory),
-            null, /* BinTools -- not used */
-            null, /* workspaceStatusActionFactory -- not used */
-            ruleClassProvider.getBuildInfoFactories(),
-            ImmutableSet.<Path>of(),
-            ImmutableList.<DiffAwareness.Factory>of(),
-            Predicates.<PathFragment>alwaysFalse(),
-            preprocessorFactorySupplier,
-            ImmutableMap.<SkyFunctionName, SkyFunction>of(),
-            ImmutableList.<PrecomputedValue.Injected>of(),
-            ImmutableList.<SkyValueDirtinessChecker>of());
-    skyframeExecutor.preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
-        ConstantRuleVisibility.PRIVATE,
-        true,
-        7,
-        ruleClassProvider.getDefaultsPackageContent(),
-        UUID.randomUUID());
+  @Before
+  public final void initializeVisitor() throws Exception {
+    skyframeExecutor = super.createSkyframeExecutor(
+        ImmutableList.of(getPackageEnvironmentExtension()), preprocessorFactorySupplier,
+        ConstantRuleVisibility.PRIVATE, ruleClassProvider.getDefaultsPackageContent());
     this.visitor = skyframeExecutor.pkgLoader();
   }
 

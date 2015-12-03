@@ -15,6 +15,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Sets;
@@ -24,6 +27,10 @@ import com.google.devtools.build.lib.actions.util.TestAction;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.util.Collection;
 import java.util.Collections;
 
@@ -31,8 +38,10 @@ import java.util.Collections;
  * Test suite for TimestampBuilder.
  *
  */
+@RunWith(JUnit4.class)
 public class TimestampBuilderTest extends TimestampBuilderTestCase {
 
+  @Test
   public void testAmnesiacBuilderAlwaysRebuilds() throws Exception {
     // [action] -> hello
     Artifact hello = createDerivedArtifact("hello");
@@ -54,6 +63,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
   // That is, Builders conflate traversal and dependency analysis, and don't
   // revisit a node (traversal) even if it needs to be rebuilt (dependency
   // analysis).  We might want to separate these aspects.
+  @Test
   public void testBuilderDoesntRevisitActions() throws Exception {
     // [action] -> hello
     Artifact hello = createDerivedArtifact("hello");
@@ -66,12 +76,14 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     assertEquals(counter.count, 1); // built only once
   }
 
+  @Test
   public void testBuildingExistingSourcefileSuceeds() throws Exception {
     Artifact hello = createSourceArtifact("hello");
     BlazeTestUtils.makeEmptyFile(hello.getPath());
     buildArtifacts(cachingBuilder(), hello);
   }
 
+  @Test
   public void testBuildingNonexistentSourcefileFails() throws Exception {
     reporter.removeHandler(failFastHandler);
     Artifact hello = createSourceArtifact("hello");
@@ -83,6 +95,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     }
   }
 
+  @Test
   public void testCachingBuilderCachesUntilReset() throws Exception {
     // [action] -> hello
     Artifact hello = createDerivedArtifact("hello");
@@ -103,6 +116,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     assertTrue(button.pressed); // rebuilt
   }
 
+  @Test
   public void testUnneededInputs() throws Exception {
     Artifact hello = createSourceArtifact("hello");
     BlazeTestUtils.makeEmptyFile(hello.getPath());
@@ -139,6 +153,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     assertFalse(button.pressed); // not rebuilt
   }
 
+  @Test
   public void testModifyingInputCausesActionReexecution() throws Exception {
     // hello -> [action] -> goodbye
     Artifact hello = createSourceArtifact("hello");
@@ -166,6 +181,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     assertFalse(button.pressed); // not rebuilt
   }
 
+  @Test
   public void testOnlyModifyingInputContentCausesReexecution() throws Exception {
     // hello -> [action] -> goodbye
     Artifact hello = createSourceArtifact("hello");
@@ -201,6 +217,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     assertFalse(button.pressed); // not rebuilt
   }
 
+  @Test
   public void testModifyingOutputCausesActionReexecution() throws Exception {
     // [action] -> hello
     Artifact hello = createDerivedArtifact("hello");
@@ -228,6 +245,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     assertFalse(button.pressed); // not rebuilt
   }
 
+  @Test
   public void testBuildingTransitivePrerequisites() throws Exception {
     // hello -> [action1] -> wazuup -> [action2] -> goodbye
     Artifact hello = createSourceArtifact("hello");
@@ -265,6 +283,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     assertTrue(button2.pressed); // goodbye rebuilt
   }
 
+  @Test
   public void testWillNotRebuildActionsWithEmptyListOfInputsSpuriously()
       throws Exception {
 
@@ -289,6 +308,7 @@ public class TimestampBuilderTest extends TimestampBuilderTestCase {
     assertFalse(anotherButton.pressed);
   }
 
+  @Test
   public void testMissingSourceFileIsAnError() throws Exception {
     // A missing input to an action must be treated as an error because there's
     // a risk that the action that consumes it will succeed, but with a

@@ -14,10 +14,12 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -26,10 +28,15 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.io.IOException;
 
 /** Tests for {@link PrepareDepsOfPatternsFunction}. */
-public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTestCase {
+@RunWith(JUnit4.class)
+public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTestCaseForJunit4 {
 
   private static SkyKey getKeyForLabel(Label label) {
     // Note that these tests used to look for TargetMarker SkyKeys before TargetMarker was
@@ -38,6 +45,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
     return TransitiveTraversalValue.key(label);
   }
 
+  @Test
   public void testRecursiveEvaluationFailsOnBadBuildFile() throws Exception {
     // Given a well-formed package "//foo" and a malformed package "//foo/foo",
     createFooAndFooFoo();
@@ -59,6 +67,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
     assertFalse(walkableGraph.exists(getKeyForLabel(Label.create("foo/foo", "foofoo"))));
   }
 
+  @Test
   public void testNegativePatternBlocksPatternEvaluation() throws Exception {
     // Given a well-formed package "//foo" and a malformed package "//foo/foo",
     createFooAndFooFoo();
@@ -70,6 +79,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
     assertSkipsFoo(patternSequence);
   }
 
+  @Test
   public void testBlacklistPatternBlocksPatternEvaluation() throws Exception {
     // Given a well-formed package "//foo" and a malformed package "//foo/foo",
     createFooAndFooFoo();
@@ -104,6 +114,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
     assertFalse(walkableGraph.exists(getKeyForLabel(label)));
   }
 
+  @Test
   public void testNegativeNonTBDPatternsAreSkippedWithWarnings() throws Exception {
     // Given a target pattern sequence with a negative non-TBD pattern,
     ImmutableList<String> patternSequence = ImmutableList.of("-//foo/bar");

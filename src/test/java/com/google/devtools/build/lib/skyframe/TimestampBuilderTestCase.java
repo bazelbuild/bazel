@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.buildtool.SkyframeBuilder;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.FoundationTestCaseForJunit4;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -63,6 +63,8 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import org.junit.Before;
+
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -80,7 +82,7 @@ import javax.annotation.Nullable;
 /**
  * The common code that's shared between various builder tests.
  */
-public abstract class TimestampBuilderTestCase extends FoundationTestCase {
+public abstract class TimestampBuilderTestCase extends FoundationTestCaseForJunit4 {
 
   private static final SkyKey OWNER_KEY = new SkyKey(SkyFunctions.ACTION_LOOKUP, "OWNER");
   protected static final ActionLookupValue.ActionLookupKey ALL_OWNER =
@@ -95,9 +97,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   protected AtomicReference<EventBus> eventBusRef = new AtomicReference<>();
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void initialize() throws Exception  {
     inMemoryCache = new InMemoryActionCache();
     tsgm = new TimestampGranularityMonitor(clock);
     ResourceManager.instance().setAvailableResources(ResourceSet.createWithRamCpuIo(100, 1, 1));

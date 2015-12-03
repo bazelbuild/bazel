@@ -14,6 +14,11 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.EqualsTester;
@@ -25,7 +30,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
-import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.FoundationTestCaseForJunit4;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -40,6 +45,11 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -48,16 +58,15 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Tests for {@link PackageLookupFunction}.
  */
-public class PackageLookupFunctionTest extends FoundationTestCase {
+@RunWith(JUnit4.class)
+public class PackageLookupFunctionTest extends FoundationTestCaseForJunit4 {
   private AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
   private MemoizingEvaluator evaluator;
   private SequentialBuildDriver driver;
   private RecordingDifferencer differencer;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
-
+  @Before
+  public final void setUp() throws Exception {
     Path emptyPackagePath = rootDirectory.getRelative("somewhere/else");
     scratch.file("parentpackage/BUILD");
 
@@ -107,6 +116,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
         NullEventHandler.INSTANCE).get(key);
   }
 
+  @Test
   public void testNoBuildFile() throws Exception {
     scratch.file("parentpackage/nobuildfile/foo.txt");
     PackageLookupValue packageLookupValue = lookupPackage("parentpackage/nobuildfile");
@@ -115,6 +125,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     assertNotNull(packageLookupValue.getErrorMsg());
   }
 
+  @Test
   public void testNoBuildFileAndNoParentPackage() throws Exception {
     scratch.file("noparentpackage/foo.txt");
     PackageLookupValue packageLookupValue = lookupPackage("noparentpackage");
@@ -123,6 +134,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     assertNotNull(packageLookupValue.getErrorMsg());
   }
 
+  @Test
   public void testDeletedPackage() throws Exception {
     scratch.file("parentpackage/deletedpackage/BUILD");
     deletedPackages.set(ImmutableSet.of(
@@ -134,6 +146,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
   }
 
 
+  @Test
   public void testBlacklistedPackage() throws Exception {
     scratch.file("blacklisted/subdir/BUILD");
     scratch.file("blacklisted/BUILD");
@@ -160,6 +173,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     }
   }
 
+  @Test
   public void testInvalidPackageName() throws Exception {
     scratch.file("parentpackage/invalidpackagename%42/BUILD");
     PackageLookupValue packageLookupValue = lookupPackage("parentpackage/invalidpackagename%42");
@@ -169,6 +183,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     assertNotNull(packageLookupValue.getErrorMsg());
   }
 
+  @Test
   public void testDirectoryNamedBuild() throws Exception {
     scratch.dir("parentpackage/isdirectory/BUILD");
     PackageLookupValue packageLookupValue = lookupPackage("parentpackage/isdirectory");
@@ -178,6 +193,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     assertNotNull(packageLookupValue.getErrorMsg());
   }
 
+  @Test
   public void testEverythingIsGood() throws Exception {
     scratch.file("parentpackage/everythinggood/BUILD");
     PackageLookupValue packageLookupValue = lookupPackage("parentpackage/everythinggood");
@@ -185,6 +201,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     assertEquals(rootDirectory, packageLookupValue.getRoot());
   }
 
+  @Test
   public void testEmptyPackageName() throws Exception {
     scratch.file("BUILD");
     PackageLookupValue packageLookupValue = lookupPackage("");
@@ -192,6 +209,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     assertEquals(rootDirectory, packageLookupValue.getRoot());
   }
 
+  @Test
   public void testWorkspaceLookup() throws Exception {
     scratch.overwriteFile("WORKSPACE");
     PackageLookupValue packageLookupValue = lookupPackage("external");
@@ -200,6 +218,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
   }
 
   // TODO(kchodorow): Clean this up (see TODOs in PackageLookupValue).
+  @Test
   public void testExternalPackageLookupSemantics() {
     PackageLookupValue existing = PackageLookupValue.workspace(rootDirectory);
     assertTrue(existing.isExternalPackage());
@@ -209,6 +228,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     assertFalse(nonExistent.packageExists());
   }
 
+  @Test
   public void testPackageLookupValueHashCodeAndEqualsContract() throws Exception {
     Path root1 = rootDirectory.getRelative("root1");
     Path root2 = rootDirectory.getRelative("root2");

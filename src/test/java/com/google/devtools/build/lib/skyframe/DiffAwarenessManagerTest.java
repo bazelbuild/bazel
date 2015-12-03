@@ -51,10 +51,13 @@ public class DiffAwarenessManagerTest {
   protected EventCollectionApparatus events;
 
   @Before
-  public void setUp() throws Exception {
-    
+  public final void createFileSystem() throws Exception  {
     fs = new InMemoryFileSystem();
     root = fs.getRootDirectory();
+  }
+
+  @Before
+  public final void initializeEventCollectionApparatus() {
     events = new EventCollectionApparatus();
     events.setFailFast(false);
   }

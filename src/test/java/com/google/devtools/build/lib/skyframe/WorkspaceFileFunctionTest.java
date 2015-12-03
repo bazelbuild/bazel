@@ -14,8 +14,12 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
 import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -30,6 +34,10 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.mockito.Matchers;
 import org.mockito.Mockito;
 
@@ -38,7 +46,8 @@ import java.io.IOException;
 /**
  * Test for {@link WorkspaceFileFunction}.
  */
-public class WorkspaceFileFunctionTest extends BuildViewTestCase {
+@RunWith(JUnit4.class)
+public class WorkspaceFileFunctionTest extends BuildViewTestCaseForJunit4 {
 
   private WorkspaceFileFunction skyFunc;
   private FakeFileValue fakeWorkspaceFileValue;
@@ -82,9 +91,8 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     }
   }
 
-  @Override
-  public void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void setUp() throws Exception {
     ConfiguredRuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
     skyFunc =
         new WorkspaceFileFunction(
@@ -113,6 +121,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     return env;
   }
 
+  @Test
   public void testInvalidRepo() throws Exception {
     RootedPath workspacePath = createWorkspaceFile("workspace(name = 'foo$')");
     PackageValue value =
@@ -122,6 +131,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     MoreAsserts.assertContainsEvent(pkg.getEvents(), "target names may not contain '$'");
   }
 
+  @Test
   public void testBindFunction() throws Exception {
     String lines[] = {"bind(name = 'foo/bar',", "actual = '//foo:bar')"};
     RootedPath workspacePath = createWorkspaceFile(lines);
@@ -133,6 +143,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     MoreAsserts.assertNoEvents(pkg.getEvents());
   }
 
+  @Test
   public void testBindArgsReversed() throws Exception {
     String lines[] = {"bind(actual = '//foo:bar', name = 'foo/bar')"};
     RootedPath workspacePath = createWorkspaceFile(lines);
@@ -144,6 +155,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     MoreAsserts.assertNoEvents(pkg.getEvents());
   }
 
+  @Test
   public void testNonExternalBinding() throws Exception {
     // name must be a valid label name.
     String lines[] = {"bind(name = 'foo:bar', actual = '//bar/baz')"};
@@ -156,6 +168,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     MoreAsserts.assertContainsEvent(pkg.getEvents(), "target names may not contain ':'");
   }
 
+  @Test
   public void testWorkspaceFileParsingError() throws Exception {
     // //external:bar:baz is not a legal package.
     String lines[] = {"bind(name = 'foo/bar', actual = '//external:bar:baz')"};
@@ -168,6 +181,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     MoreAsserts.assertContainsEvent(pkg.getEvents(), "target names may not contain ':'");
   }
 
+  @Test
   public void testNoWorkspaceFile() throws Exception {
     // Even though the WORKSPACE exists, Skyframe thinks it doesn't, so it doesn't.
     String lines[] = {"bind(name = 'foo/bar', actual = '//foo:bar')"};
@@ -181,6 +195,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
     MoreAsserts.assertNoEvents(pkg.getEvents());
   }
 
+  @Test
   public void testListBindFunction() throws Exception {
     String lines[] = {
         "L = ['foo', 'bar']", "bind(name = '%s/%s' % (L[0], L[1]),", "actual = '//foo:bar')"};

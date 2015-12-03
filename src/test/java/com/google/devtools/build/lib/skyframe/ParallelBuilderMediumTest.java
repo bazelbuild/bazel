@@ -17,15 +17,21 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 /**
  * Stress tests for the parallel builder.
  */
 @TestSpec(size = Suite.MEDIUM_TESTS)
+@RunWith(JUnit4.class)
 public class ParallelBuilderMediumTest extends ParallelBuilderTest {
 
   /**
    * A larger set of tests using randomly-generated complex dependency graphs.
    */
+  @Test
   public void testRandomStressTest1() throws Exception {
     final int numTrials = 2;
     final int numArtifacts = 100;
@@ -34,6 +40,7 @@ public class ParallelBuilderMediumTest extends ParallelBuilderTest {
     test.runStressTest();
   }
 
+  @Test
   public void testRandomStressTest2() throws Exception {
     final int numTrials = 10;
     final int numArtifacts = 10;

@@ -99,8 +99,7 @@ public abstract class GlobFunctionTest {
   private static final PackageIdentifier PKG_PATH_ID = PackageIdentifier.createInDefaultRepo("pkg");
 
   @Before
-  public void setUp() throws Exception {
-    
+  public final void setUp() throws Exception  {
     fs = new CustomInMemoryFs(new ManualClock());
     root = fs.getRootDirectory().getRelative("root/workspace");
     writableRoot = fs.getRootDirectory().getRelative("writableRoot/workspace");

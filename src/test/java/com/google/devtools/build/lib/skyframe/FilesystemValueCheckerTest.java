@@ -86,7 +86,7 @@ public class FilesystemValueCheckerTest {
   private TimestampGranularityMonitor tsgm;
 
   @Before
-  public void setUp() throws Exception {
+  public final void setUp() throws Exception  {
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> skyFunctions = ImmutableMap.builder();
 
     fs = new MockFileSystem();

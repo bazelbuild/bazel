@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -28,6 +31,10 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Set;
@@ -36,8 +43,10 @@ import java.util.Set;
  * Tests that the data passed from the application to the Builder is passed
  * down to each Action executed.
  */
+@RunWith(JUnit4.class)
 public class ActionDataTest extends TimestampBuilderTestCase {
 
+  @Test
   public void testArgumentToBuildArtifactsIsPassedDownToAction() throws Exception {
 
     class MyAction extends AbstractAction {
@@ -156,6 +165,7 @@ public class ActionDataTest extends TimestampBuilderTestCase {
     }
   }
 
+  @Test
   public void testActionSharabilityAndDiscoveredInputs() throws Exception {
     Artifact output =
         new Artifact(
