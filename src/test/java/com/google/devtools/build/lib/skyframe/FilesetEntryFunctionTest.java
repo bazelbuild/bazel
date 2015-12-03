@@ -644,22 +644,44 @@ public final class FilesetEntryFunctionTest extends FoundationTestCaseForJunit4 
   }
 
   private void assertExclusionOfDanglingSymlink(SymlinkBehavior symlinkBehavior) throws Exception {
-    Artifact linkName = getSourceArtifact("foo/dangling.sym");
     Artifact buildFile = getSourceArtifact("foo/BUILD");
-    RootedPath linkTarget = createFile(siblingOf(linkName, "target.file"), "blah");
-    linkName.getPath().createSymbolicLink(new PathFragment("target.file"));
     createFile(buildFile);
-    linkTarget.asPath().delete();
 
-    FilesetTraversalParams paramsWithSymlinkCopy =
+    Artifact linkName = getSourceArtifact("foo/file.sym");
+    Artifact linkTarget = getSourceArtifact("foo/file.actual");
+    createFile(linkTarget);
+    linkName.getPath().createSymbolicLink(new PathFragment("file.actual"));
+
+    // Ensure the symlink and its target would be included if they weren't explicitly excluded.
+    FilesetTraversalParams params =
         FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
             /* ownerLabel */ label("//foo"),
             /* buildFile */ buildFile,
             /* destPath */ new PathFragment("output-name"),
-            /* excludes */ ImmutableSet.of("dangling.sym"),
+            /* excludes */ ImmutableSet.<String>of(),
             /* symlinkBehaviorMode */ symlinkBehavior,
             /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS);
-    assertSymlinksInOrder(paramsWithSymlinkCopy, symlink("output-name/BUILD", buildFile));
+    assertSymlinksInOrder(
+        params,
+        symlink("output-name/BUILD", buildFile),
+        symlink("output-name/file.actual", linkTarget),
+        symlinkBehavior == SymlinkBehavior.COPY
+            ? symlink("output-name/file.sym", "file.actual")
+            : symlink("output-name/file.sym", linkTarget));
+
+    // Delete the symlink's target to make it dangling.
+    // Exclude the symlink and make sure it's not included.
+    linkTarget.getPath().delete();
+    differencer.invalidate(ImmutableList.of(FileStateValue.key(rootedPath(linkTarget))));
+    params =
+        FilesetTraversalParamsFactory.recursiveTraversalOfPackage(
+            /* ownerLabel */ label("//foo"),
+            /* buildFile */ buildFile,
+            /* destPath */ new PathFragment("output-name"),
+            /* excludes */ ImmutableSet.of("file.sym"),
+            /* symlinkBehaviorMode */ symlinkBehavior,
+            /* pkgBoundaryMode */ PackageBoundaryMode.DONT_CROSS);
+    assertSymlinksInOrder(params, symlink("output-name/BUILD", buildFile));
   }
 
   @Test
