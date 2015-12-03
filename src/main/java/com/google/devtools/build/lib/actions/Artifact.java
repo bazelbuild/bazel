@@ -486,6 +486,14 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
         }
       };
 
+  public static final Function<Artifact, String> ABSOLUTE_PATH_STRING =
+      new Function<Artifact, String>() {
+        @Override
+        public String apply(Artifact artifact) {
+          return artifact.getPath().getPathString();
+        }
+      };
+
   /**
    * Converts a collection of artifacts into execution-time path strings, and
    * adds those to a given collection. Middleman artifacts are ignored by this
@@ -507,6 +515,16 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
         output.add(outputFormatter.apply(artifact));
       }
     }
+  }
+
+  /**
+   * Lazily converts artifacts into absolute path strings. Middleman artifacts are ignored by
+   * this method.
+   */
+  public static Iterable<String> toAbsolutePaths(Iterable<Artifact> artifacts) {
+    return Iterables.transform(
+        Iterables.filter(artifacts, MIDDLEMAN_FILTER),
+        ABSOLUTE_PATH_STRING);
   }
 
   /**

@@ -10,6 +10,7 @@ FILES = [
     "crosstool_config",
     "extra_actions_base",
     "android_studio_ide_info",
+    "package_manifest",
     "test_status",
     "bundlemerge",
     "xcodegen",

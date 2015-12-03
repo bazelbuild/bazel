@@ -181,7 +181,12 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'shuffle_jars', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'strip_resources', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'build_incremental_dexmanifest', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'incremental_install', srcs = ['empty.sh'])");
+        .add("sh_binary(name = 'incremental_install', srcs = ['empty.sh'])")
+        .add("java_binary(name = 'PackageParser',")
+        .add("          runtime_deps = [ ':PackageParser_import'],")
+        .add("          main_class = 'com.google.devtools.build.android.ideinfo.PackageParser')")
+        .add("java_import(name = 'PackageParser_import',")
+        .add("          jars = [ 'package_parser_deploy.jar' ])");
 
     for (Attribute attr : attrs) {
       if (attr.getType() == LABEL && attr.isMandatory() && !attr.getName().startsWith(":")) {

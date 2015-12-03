@@ -21,11 +21,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.ArtifactLocation;
@@ -136,14 +138,24 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
     Iterable<Artifact> artifacts = provider.getIdeInfoFiles();
     ImmutableMap.Builder<String, RuleIdeInfo> builder = ImmutableMap.builder();
     for (Artifact artifact : artifacts) {
-      BinaryFileWriteAction generatingAction =
-          (BinaryFileWriteAction)  getGeneratingAction(artifact);
-      RuleIdeInfo ruleIdeInfo = RuleIdeInfo.parseFrom(generatingAction.getSource().openStream());
-      builder.put(ruleIdeInfo.getLabel(), ruleIdeInfo);
+      Action generatingAction = getGeneratingAction(artifact);
+      if (generatingAction instanceof BinaryFileWriteAction) {
+        BinaryFileWriteAction writeAction = (BinaryFileWriteAction) generatingAction;
+        RuleIdeInfo ruleIdeInfo = RuleIdeInfo.parseFrom(writeAction.getSource().openStream());
+        builder.put(ruleIdeInfo.getLabel(), ruleIdeInfo);
+      } else { 
+        verifyPackageManifestSpawnAction(generatingAction);
+      }
     }
     return builder.build();
   }
-
+  
+  protected final void verifyPackageManifestSpawnAction(Action genAction) {
+    assertEquals(genAction.getMnemonic(), "JavaPackageManifest");
+    SpawnAction action = (SpawnAction) genAction;
+    assertFalse(action.isShellCommand());
+  }
+  
   protected List<String> getOutputGroupResult(String outputGroup) {
     OutputGroupProvider outputGroupProvider =
         this.configuredAspect.getProvider(OutputGroupProvider.class);

@@ -43,7 +43,7 @@ import java.util.Set;
  * with advanced features like \\\\network\\paths and \\\\?\\unc\\paths.
  */
 @Immutable @ThreadSafe
-public final class PathFragment implements Comparable<PathFragment>, Serializable {
+public final class  PathFragment implements Comparable<PathFragment>, Serializable {
 
   public static final int INVALID_SEGMENT = -1;
 

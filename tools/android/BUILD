@@ -42,6 +42,23 @@ sh_binary(
     data = ["//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass"],
 )
 
+filegroup(
+    name = "package_parser",
+    srcs = ["//src/tools/android/java/com/google/devtools/build/android/ideinfo:PackageParser_deploy.jar"],
+)
+
+java_binary(
+    name = "PackageParser",
+    main_class = "com.google.devtools.build.android.ideinfo.PackageParser",
+    visibility = ["//visibility:public"],
+    runtime_deps = [":package_parser_import"],
+)
+
+java_import(
+    name = "package_parser_import",
+    jars = [":package_parser"],
+)
+
 py_binary(
     name = "merge_manifests",
     srcs = [

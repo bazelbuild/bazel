@@ -57,7 +57,24 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "com/google/example/libsimple-src.jar"
     );
   }
-
+  
+  public void testPackageManifestCreated() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "java_library(",
+        "    name = 'simple',",
+        "    srcs = ['simple/Simple.java']",
+        ")");
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:simple");
+    assertThat(ruleIdeInfos.size()).isEqualTo(1);
+    RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(
+        "//com/google/example:simple", ruleIdeInfos);
+    
+    ArtifactLocation packageManifest = ruleIdeInfo.getJavaRuleIdeInfo().getPackageManifest();
+    assertNotNull(packageManifest);
+    assertEquals(packageManifest.getRelativePath(), "com/google/example/simple.manifest");
+  }
+  
   public void testJavaLibraryProtoWithDependencies() throws Exception {
     scratch.file(
         "com/google/example/BUILD",
@@ -83,7 +100,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(complexRuleIdeInfo.getDependenciesList())
         .containsExactly("//com/google/example:simple");
   }
-
+  
   public void testJavaLibraryWithTransitiveDependencies() throws Exception {
     scratch.file(
         "com/google/example/BUILD",
@@ -319,6 +336,33 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(libInfo.getDependenciesList())
         .containsExactly("//com/google/example:foobar", "//com/google/example:imp")
         .inOrder();
+  }
+  
+  public void testNoPackageManifestForExports() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "java_library(",
+        "   name = 'foobar',",
+        "   srcs = ['FooBar.java'],",
+        ")",
+        "java_import(",
+        "   name = 'imp',",
+        "   jars = ['a.jar', 'b.jar'],",
+        "   deps = [':foobar'],",
+        "   exports = [':foobar'],",
+        ")",
+        "java_library(",
+        "   name = 'lib',",
+        "   srcs = ['Lib.java'],",
+        "   deps = [':imp'],",
+        ")");
+    
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:lib");
+    RuleIdeInfo libInfo = getRuleInfoAndVerifyLabel("//com/google/example:lib", ruleIdeInfos);
+    RuleIdeInfo impInfo = getRuleInfoAndVerifyLabel("//com/google/example:imp", ruleIdeInfos);
+   
+    assertThat(!impInfo.getJavaRuleIdeInfo().hasPackageManifest()).isTrue();
+    assertThat(libInfo.getJavaRuleIdeInfo().hasPackageManifest()).isTrue();
   }
 
   public void testGeneratedJavaImportFilesAreAddedToOutputGroup() throws Exception {

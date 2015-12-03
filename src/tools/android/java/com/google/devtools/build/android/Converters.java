@@ -26,6 +26,8 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -154,4 +156,30 @@ public final class Converters {
       super(VariantConfiguration.Type.class, "variant configuration type");
     }
   }
+
+  /**
+   * Validating converter for a list of Paths.
+   * A Path is considered valid if it resolves to a file.
+   */
+  public static class PathListConverter implements Converter<List<Path>> {
+
+    final PathConverter baseConverter = new PathConverter();
+
+    @Override
+    public List<Path> convert(String input) throws OptionsParsingException {
+      List<Path> list = new ArrayList<>();
+      for (String piece : input.split(":")) {
+        if (!piece.isEmpty()) {
+          list.add(baseConverter.convert(piece));
+        }
+      }
+      return Collections.unmodifiableList(list);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a colon-separated list of paths";
+    }
+  }
+
 }

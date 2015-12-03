@@ -709,6 +709,7 @@ java_library(
         ":android-rules",
         ":build-base",
         ":collect",
+        ":common",
         ":concurrent",
         ":java-rules",
         ":packages-internal",
