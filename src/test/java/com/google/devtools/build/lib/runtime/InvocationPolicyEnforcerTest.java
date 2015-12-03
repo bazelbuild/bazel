@@ -118,7 +118,7 @@ public class InvocationPolicyEnforcerTest {
   private OptionsParser parser;
 
   @Before
-  public void setUp() throws Exception {
+  public final void setParser() throws Exception  {
     parser = OptionsParser.newOptionsParser(TestOptions.class);
   }
 

@@ -20,8 +20,8 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.AdditionalMatchers.find;
 import static org.mockito.AdditionalMatchers.not;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Matchers.contains;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.FailedTestCasesStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestCase;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -63,7 +64,7 @@ public class TestSummaryTest {
   private TestSummary.Builder basicBuilder;
 
   @Before
-  public void setUp() throws Exception {
+  public final void createFileSystem() throws Exception  {
     fs = new InMemoryFileSystem(BlazeClock.instance());
     stubTarget = stubTarget();
     basicBuilder = getTemplateBuilder();

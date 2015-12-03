@@ -47,7 +47,7 @@ public class TestResultAnalyzerTest {
   private TestResultAnalyzer underTest;
   
   @Before
-  public void setUp() {
+  public final void createMocks() throws Exception  {
     Path mockPath = mock(Path.class);
     OptionsParser testSpecificOptions = OptionsParser.newOptionsParser(
         TestSummaryOptions.class, ExecutionOptions.class);
