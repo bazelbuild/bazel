@@ -42,7 +42,7 @@ public class FilesystemUtilsTest {
   private Path testFile;
 
   @Before
-  public void setUp() throws Exception {
+  public final void createFileSystem() throws Exception  {
     testFS = new UnixFileSystem();
     workingDir = testFS.getPath(new File(TestUtils.tmpDir()).getCanonicalPath());
     testFile = workingDir.getRelative("test");

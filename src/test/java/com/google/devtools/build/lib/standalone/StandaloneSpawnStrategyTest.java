@@ -14,6 +14,9 @@
 package com.google.devtools.build.lib.standalone;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -46,7 +49,10 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.common.options.OptionsParser;
 
-import junit.framework.TestCase;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -54,7 +60,8 @@ import java.util.Arrays;
 /**
  * Test StandaloneSpawnStrategy.
  */
-public class StandaloneSpawnStrategyTest extends TestCase {
+@RunWith(JUnit4.class)
+public class StandaloneSpawnStrategyTest {
 
   private Reporter reporter = new Reporter(PrintingEventHandler.ERRORS_AND_WARNINGS_TO_STDERR);
   private BlazeExecutor executor;
@@ -72,9 +79,8 @@ public class StandaloneSpawnStrategyTest extends TestCase {
     return testRoot;
   }
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void setUp() throws Exception {
     Path testRoot = createTestRoot();
     Path workspaceDir = testRoot.getRelative(TestConstants.WORKSPACE_NAME);
     workspaceDir.createDirectory();
@@ -120,6 +126,7 @@ public class StandaloneSpawnStrategyTest extends TestCase {
     return outErr.errAsLatin1();
   }
 
+  @Test
   public void testBinTrueExecutesFine() throws Exception {
     Spawn spawn = createSpawn(getTrueCommand());
     executor.getSpawnActionContext(spawn.getMnemonic()).exec(spawn, createContext());
@@ -141,6 +148,7 @@ public class StandaloneSpawnStrategyTest extends TestCase {
         null);
   }
 
+  @Test
   public void testBinFalseYieldsException() throws Exception {
     try {
       run(createSpawn(getFalseCommand()));
@@ -159,7 +167,7 @@ public class StandaloneSpawnStrategyTest extends TestCase {
     return OS.getCurrent() == OS.DARWIN ? "/usr/bin/true" : "/bin/true";
   }
 
-
+  @Test
   public void testBinEchoPrintsArguments() throws Exception {
     Spawn spawn = createSpawn("/bin/echo", "Hello,", "world.");
     run(spawn);
@@ -167,12 +175,14 @@ public class StandaloneSpawnStrategyTest extends TestCase {
     assertThat(err()).isEmpty();
   }
 
+  @Test
   public void testCommandRunsInWorkingDir() throws Exception {
     Spawn spawn = createSpawn("/bin/pwd");
     run(spawn);
     assertEquals(executor.getExecRoot() + "\n", out());
   }
 
+  @Test
   public void testCommandHonorsEnvironment() throws Exception {
     Spawn spawn = new BaseSpawn.Local(Arrays.asList("/usr/bin/env"),
         ImmutableMap.of("foo", "bar", "baz", "boo"),
@@ -181,6 +191,7 @@ public class StandaloneSpawnStrategyTest extends TestCase {
     assertEquals(Sets.newHashSet("foo=bar", "baz=boo"), Sets.newHashSet(out().split("\n")));
   }
 
+  @Test
   public void testStandardError() throws Exception {
     Spawn spawn = createSpawn("/bin/sh", "-c", "echo Oops! >&2");
     run(spawn);
@@ -191,6 +202,7 @@ public class StandaloneSpawnStrategyTest extends TestCase {
   // Test an action with environment variables set indicating an action running on a darwin host 
   // system. Such actions should fail given the fact that these tests run on a non darwin
   // architecture.
+  @Test
   public void testIOSEnvironmentOnNonDarwin() throws Exception {
     if (OS.getCurrent() == OS.DARWIN) {
       return;

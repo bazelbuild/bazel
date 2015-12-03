@@ -14,14 +14,23 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 import com.google.common.base.Optional;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import junit.framework.TestCase;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests {@link StripPrefixedPath}.
  */
-public class StripPrefixedPathTest extends TestCase {
+@RunWith(JUnit4.class)
+public class StripPrefixedPathTest {
+  @Test
   public void testStrip() {
     StripPrefixedPath result = StripPrefixedPath.maybeDeprefix("foo/bar", Optional.of("foo"));
     assertEquals(result.getPathFragment(), new PathFragment("bar"));

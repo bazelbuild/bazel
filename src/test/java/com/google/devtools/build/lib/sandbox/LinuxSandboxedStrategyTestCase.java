@@ -66,7 +66,7 @@ public class LinuxSandboxedStrategyTestCase {
   }
 
   @Before
-  public void setUp() throws Exception {
+  public final void createDirectoriesAndExecutor() throws Exception  {
     Path testRoot = createTestRoot();
 
     workspaceDir = testRoot.getRelative("workspace");
