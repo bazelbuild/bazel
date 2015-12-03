@@ -45,7 +45,8 @@ def py_binary_impl(ctx):
   # of using a nested set. We need to do it this way because Skylark currently
   # does not support actions with non-artifact executables but with an
   # argument list (instead of just a single command)
-  command = ZIP_PATH +" -q " + deploy_zip_nomain.path + " " + " ".join([f.path for f in transitive_sources])
+  command = " ".join([ZIP_PATH, " -q ", deploy_zip_nomain.path,
+                      " ".join([f.path for f in transitive_sources])])
   ctx.action(
       inputs = list(transitive_sources),
       outputs = [ deploy_zip_nomain ],
@@ -77,15 +78,15 @@ def py_binary_impl(ctx):
   ctx.action(
       inputs = [ deploy_zip, ],
       outputs = [ executable, ],
-      command = "echo '#!/usr/bin/env python' | cat - %s > %s && chmod +x %s" % (
-          deploy_zip.path, executable.path, executable.path))
+      command = "echo '#!/usr/bin/env python' | cat - %s > %s" % (
+          deploy_zip.path, executable.path))
 
   runfiles_files = transitive_sources + [executable]
 
   runfiles = ctx.runfiles(transitive_files = runfiles_files,
                           collect_default = True)
 
-  files_to_build = set([deploy_zip, executable])
+  files_to_build = set([executable])
   return struct(files = files_to_build, runfiles = runfiles)
 
 
