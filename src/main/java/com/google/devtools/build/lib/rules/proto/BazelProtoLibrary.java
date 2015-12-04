@@ -44,7 +44,7 @@ public class BazelProtoLibrary implements RuleConfiguredTargetFactory {
         ProtoCommon.createRunfilesProvider(transitiveImports, ruleContext);
     // TODO(bazel-team): this second constructor argument is superfluous and should be removed.
     ProtoSourcesProvider sourcesProvider =
-        new ProtoSourcesProvider(
+        ProtoSourcesProvider.create(
             transitiveImports, transitiveImports, protoSources, checkDepsProtoSources);
 
     return new RuleConfiguredTargetBuilder(ruleContext)

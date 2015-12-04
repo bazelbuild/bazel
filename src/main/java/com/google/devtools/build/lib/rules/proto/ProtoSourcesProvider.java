@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -26,27 +27,20 @@ import com.google.devtools.build.lib.syntax.SkylarkModule;
  * Configured target classes that implement this class can contribute .proto files to the
  * compilation of proto_library rules.
  */
+@AutoValue
 @Immutable
 @SkylarkModule(name = "ProtoSourcesProvider", doc = "")
-public final class ProtoSourcesProvider implements TransitiveInfoProvider {
+public abstract class ProtoSourcesProvider implements TransitiveInfoProvider {
   /** The name of the field in Skylark used to access this class. */
   public static final String SKYLARK_NAME = "proto";
 
-  private final NestedSet<Artifact> transitiveImports;
-  private final NestedSet<Artifact> transitiveProtoSources;
-  // TODO(bazel-team): Both of these should be NestedSets.
-  private final ImmutableList<Artifact> protoSources;
-  private final ImmutableList<Artifact> checkDepsProtoSources;
-
-  public ProtoSourcesProvider(
+  public static ProtoSourcesProvider create(
       NestedSet<Artifact> transitiveImports,
       NestedSet<Artifact> transitiveProtoSources,
       ImmutableList<Artifact> protoSources,
       ImmutableList<Artifact> checkDepsProtoSources) {
-    this.transitiveImports = transitiveImports;
-    this.transitiveProtoSources = transitiveProtoSources;
-    this.protoSources = protoSources;
-    this.checkDepsProtoSources = checkDepsProtoSources;
+    return new AutoValue_ProtoSourcesProvider(
+        transitiveImports, transitiveProtoSources, protoSources, checkDepsProtoSources);
   }
 
   /**
@@ -55,50 +49,51 @@ public final class ProtoSourcesProvider implements TransitiveInfoProvider {
    * that is probably important
    */
   @SkylarkCallable(
-      name = "transitive_imports",
-      doc = "Transitive imports including weak dependencies",
-      structField = true)
-  public NestedSet<Artifact> getTransitiveImports() {
-    return transitiveImports;
-  }
+    name = "transitive_imports",
+    doc = "Transitive imports including weak dependencies",
+    structField = true
+  )
+  public abstract NestedSet<Artifact> getTransitiveImports();
 
   /**
    * Returns the proto sources for this rule and all its dependent protocol
    * buffer rules.
    */
   @SkylarkCallable(
-      name = "transitive_sources",
-      doc = "Proto sources for this rule and all its dependent protocol buffer rules.",
-      structField = true)
+    name = "transitive_sources",
+    doc = "Proto sources for this rule and all its dependent protocol buffer rules.",
+    structField = true
+  )
   // TODO(bazel-team): The difference between transitive imports and transitive proto sources
   // should never be used by Skylark or by an Aspect. One of these two should be removed,
   // preferably soon, before Skylark users start depending on them.
-  public NestedSet<Artifact> getTransitiveProtoSources() {
-    return transitiveProtoSources;
-  }
+  public abstract NestedSet<Artifact> getTransitiveProtoSources();
 
   /**
    * Returns the proto sources from the 'srcs' attribute.
    */
+  // TODO(bazel-team): This should be NestedSets.
   @SkylarkCallable(
-      name = "direct_sources",
-      doc = "Proto sources from the 'srcs' attribute.",
-      structField = true)
-  public ImmutableList<Artifact> getDirectProtoSources() {
-    return protoSources;
-  }
+    name = "direct_sources",
+    doc = "Proto sources from the 'srcs' attribute.",
+    structField = true
+  )
+  public abstract ImmutableList<Artifact> getDirectProtoSources();
 
   /**
    * Returns the proto sources from the 'srcs' attribute. If the library is a proxy library
    * that has no sources, return the sources from the direct deps.
    */
+  // TODO(bazel-team): This should be NestedSets.
   @SkylarkCallable(
-      name = "check_deps_sources",
-      doc = "Proto sources from the 'srcs' attribute. If the library is a proxy library "
-          + "that has no sources, it contains the check_deps_sources"
-          + "from this library's direct deps.",
-      structField = true)
-  public ImmutableList<Artifact> getCheckDepsProtoSources() {
-    return checkDepsProtoSources;
-  }
+    name = "check_deps_sources",
+    doc =
+        "Proto sources from the 'srcs' attribute. If the library is a proxy library "
+            + "that has no sources, it contains the check_deps_sources"
+            + "from this library's direct deps.",
+    structField = true
+  )
+  public abstract ImmutableList<Artifact> getCheckDepsProtoSources();
+
+  ProtoSourcesProvider() {}
 }
