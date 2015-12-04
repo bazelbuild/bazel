@@ -1,3 +1,90 @@
+## Release 0.1.2 (2015-11-20)
+
+```
+Baseline: ee0ade3
+   + 1e66ccd: RELNOTES: Symlink dirents of directories containing a
+              file named
+              "DONT_FOLLOW_SYMLINKS_WHEN_TRAVERSING_THIS_DIRECTORY_VIA
+              _A_RECURSIVE_TARGET_PATTERN" will *not* be traversed
+              for transitive target patterns. The motivation here is
+              to allow directories that intentionally contain wonky
+              symlinks (e.g. foo/bar -> foo) to opt out of being
+              consumed by Blaze. For example, given
+   + f5773fc: Set the ijar MAX_BUFFER_SIZE to 256 MB
+```
+
+New features:
+
+  - java_library now supports the proguard_specs attribute for
+    passing Proguard configuration up to Android (not Java) binaries.
+  - http_file can specify "executable" to make the downloaded file
+    runnable.
+  - Debian and tar packaging is now supported
+    (see tools/build_defs/pkg/README.md).
+  - cpxx_builtin_include_directory specifications allow more
+    flexibility.
+  - accept %crosstool_top% in cxx_builtin_include_directory
+  - android_binary now supports proguard_apply_mapping to re-use a
+    previously generated proguard mapping.
+
+Important changes:
+
+  - remove webstatusserver (--use_webstatusserver).
+  - Add support for objc textual headers, which will not be compiled
+    when modules are enabled.
+  - actoolzip, momczip and swiftstdlibtoolzip have all been made into
+    bash scripts and have been renamed to actoolwrapper, momcwrapper
+    and swiftstdlibtoolwrapper respectively. The old versions will be
+    deleted in a later change.
+  - [rust] Add rust_bench_test and rust_doc_test rules and improve
+    usability of rust_test tule.
+  - Java rules now support a resource_strip_prefix attribute that
+    allows the removal of path prefixes from Java resources.
+  - [docker_build] incremental loading is default now.
+    Specify explicitly //package:target.tar (with the .tar extension)
+    to obtain the full image.
+  - --ios_signing_cert_name allows specifying a cert for iOS app
+    signing
+  - Go rules for Bazel.
+  - [jsonnet] Update to Jsonnet 0.8.1.
+  - [jsonnet] Add vars and code_vars attributes to jsonnet_to_json to
+    allow passing external variables to Jsonnet via --var and
+    --code_var.
+  - Adds --override_workspace_root blaze flag to hand-set
+    workspace_root and mainGroup in xcodeproj.
+  - Allow dots in package names.
+  - When used as a forwarding rule (i.e., has no sources),
+    android_library
+    will also forward any exported_plugins in its dependencies.
+  - Add support for Windows-created zip files with non-posix
+    permissions.
+  - [jsonnet] Add jsonnet_to_json_test rule for testing Jsonnet code.
+  - C++ compile actions run in a sandbox now on systems that support
+    sandboxed execution.
+  - The names of the clang compilers in the Android NDK crosstool no
+    longer reference gcc.
+  - 420 dpi is now a valid density for andoid_binary.densities.
+  - Bazel does strict validation of include files now to ensure
+    correct incremental builds. If you see compilation errors when
+    building C++ code, please make sure that you explicitly declare
+    all header files in the srcs or hdrs attribute of your cc_*
+    targets and that your cc_* targets have correct "deps" on
+    cc_library's that they use.
+  - [jsonnet] Fix jsonnet_to_json rule to read code_vars from
+    code_vars instead of vars.
+  - Tests, genrules, and Skylark actions without the
+    "requires-network" tag will no longer be able to access the
+    network.
+  - C++ libraries no longer need includes = ["."] (or similar copts)
+    to include paths relative to a remote repository's root.
+  - Support exports attribute for android_library
+  - Symlink dirents of directories containing a file named
+    "DONT_FOLLOW_SYMLINKS_WHEN_TRAVERSING_THIS_DIRECTORY_VIA_A_RECURSI
+    VE_TARGET_PATTERN" will *not* be traversed for transitive target
+    patterns. The motivation here is to allow directories that
+    intentionally contain wonky symlinks (e.g. foo/bar -> foo) to opt
+    out of being consumed by Blaze.
+
 ## Release 0.1.1 (2015-10-05)
 
 ```
