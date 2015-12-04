@@ -71,7 +71,10 @@ def _compute_data_path(out, data_path):
     # Strip ./ from the beginning if specified.
     # There is no way to handle .// correctly (no function that would make
     # that possible and Skylark is not turing complete) so just consider it
-    # as an absolute path.
+    # as an absolute path. A data_path of / should preserve the entire
+    # path up to the repository root.
+    if data_path == "/":
+      return data_path
     if len(data_path) >= 2 and data_path[0:2] == "./":
       data_path = data_path[2:]
     if not data_path or data_path == ".":  # Relative to current package

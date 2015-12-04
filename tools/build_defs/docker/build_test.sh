@@ -352,9 +352,13 @@ function get_layer_listing() {
 function test_data_path() {
   local no_data_path_sha="451d182e5c71840f00ba9726dc0239db73a21b7e89e79c77f677e3f7c5c23d44"
   local data_path_sha="9a41c9e1709558f7ef06f28f66e9056feafa7e0f83990801e1b27c987278d8e8"
+  local absolute_data_path_sha="f196c42ab4f3eb850d9655b950b824db2c99c01527703ac486a7b48bb2a34f44"
+  local root_data_path_sha="19d7fd26d67bfaeedd6232dcd441f14ee163bc81c56ed565cc20e73311c418b6"
 
   check_layers_aux "no_data_path_image" "${no_data_path_sha}"
   check_layers_aux "data_path_image" "${data_path_sha}"
+  check_layers_aux "absolute_data_path_image" "${absolute_data_path_sha}"
+  check_layers_aux "root_data_path_image" "${root_data_path_sha}"
 
   # Without data_path = "." the file will be inserted as `./test`
   # (since it is the path in the package) and with data_path = "."
@@ -367,6 +371,29 @@ function test_data_path() {
     './
 ./test/
 ./test/test'
+
+  # With an absolute path for data_path, we should strip that prefix
+  # from the files' paths. Since the testdata images are in
+  # //tools/build_defs/docker/testdata and data_path is set to
+  # "/tools/build_defs", we should have `docker` as the top-level
+  # directory.
+  check_eq "$(get_layer_listing "absolute_data_path_image" "${absolute_data_path_sha}")" \
+    './
+./docker/
+./docker/testdata/
+./docker/testdata/test/
+./docker/testdata/test/test'
+
+  # With data_path = "/", we expect the entire path from the repository
+  # root.
+  check_eq "$(get_layer_listing "root_data_path_image" "${root_data_path_sha}")" \
+    "./
+./tools/
+./tools/build_defs/
+./tools/build_defs/docker/
+./tools/build_defs/docker/testdata/
+./tools/build_defs/docker/testdata/test/
+./tools/build_defs/docker/testdata/test/test"
 }
 
 function test_extras_with_deb() {

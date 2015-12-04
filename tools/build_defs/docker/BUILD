@@ -36,6 +36,8 @@ TEST_DATA = [
     "//tools/build_defs/docker/testdata:gen_image.tar",
     "//tools/build_defs/docker/testdata:data_path_image.tar",
     "//tools/build_defs/docker/testdata:no_data_path_image.tar",
+    "//tools/build_defs/docker/testdata:absolute_data_path_image.tar",
+    "//tools/build_defs/docker/testdata:root_data_path_image.tar",
     "//tools/build_defs/docker/testdata:dummy_repository.tar",
     "//tools/build_defs/docker/testdata:extras_with_deb.tar",
 ]

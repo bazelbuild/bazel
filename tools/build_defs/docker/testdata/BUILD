@@ -39,6 +39,20 @@ docker_build(
 )
 
 docker_build(
+    name = "absolute_data_path_image",
+    data_path = "/tools/build_defs",
+    files = ["//tools/build_defs/docker/testdata/test:test-data"],
+    mode = "0644",
+)
+
+docker_build(
+    name = "root_data_path_image",
+    data_path = "/",
+    files = ["//tools/build_defs/docker/testdata/test:test-data"],
+    mode = "0644",
+)
+
+docker_build(
     name = "gen_image",
     files = [":gen"],
     mode = "0644",
