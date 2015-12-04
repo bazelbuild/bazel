@@ -485,6 +485,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/build/skyframe",
+        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",
