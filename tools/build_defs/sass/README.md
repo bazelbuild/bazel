@@ -15,7 +15,14 @@ These build rules are used for building [Sass][sass] projects with Bazel.
 
 <a name="setup"></a>
 ## Setup
-To  use the Sass rules, simply copy the contents of `sass.WORKSPACE` to your own top level `WORKSPACE` file.
+To  use the Sass rules, add the following to your `WORKSPACE` file to add the
+external repositories for Sass:
+
+```python
+load("/tools/build_defs/sass/sass", "sass_repositories")
+
+sass_repositories()
+```
 
 <a name="basic-example"></a>
 ## Basic Example

@@ -222,3 +222,41 @@ def java_war(name, data=[], data_path=None, **kwargs):
                 jars = ["lib%s" % name],
                 data=data,
                 data_path=data_path)
+
+def appengine_repositories():
+  native.new_http_archive(
+      name = "appengine-java",
+      url = "http://central.maven.org/maven2/com/google/appengine/appengine-java-sdk/1.9.23/appengine-java-sdk-1.9.23.zip",
+      sha256 = "05e667036e9ef4f999b829fc08f8e5395b33a5a3c30afa9919213088db2b2e89",
+      build_file = "tools/build_rules/appengine/appengine.BUILD",
+  )
+
+  native.bind(
+      name = "appengine/java/sdk",
+      actual = "@appengine-java//:sdk",
+  )
+
+  native.bind(
+      name = "appengine/java/api",
+      actual = "@appengine-java//:api",
+  )
+
+  native.bind(
+      name = "appengine/java/jars",
+      actual = "@appengine-java//:jars",
+  )
+
+  native.maven_jar(
+      name = "javax-servlet-api",
+      artifact = "javax.servlet:servlet-api:2.5",
+  )
+
+  native.bind(
+      name = "javax/servlet/api",
+      actual = "//tools/build_rules/appengine:javax.servlet.api",
+  )
+
+  native.maven_jar(
+      name = "commons-lang",
+      artifact = "commons-lang:commons-lang:2.6",
+  )

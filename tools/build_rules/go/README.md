@@ -32,7 +32,14 @@ They currently do not support (in order of importance):
 ## Setup
 
 * Decide on the name of your package, eg. `github.com/joe/project`
-* Copy `tools/build_rules/go/toolchain/WORKSPACE.go-toolchain` to `WORKSPACE`
+* Add the following to your WORKSPACE file:
+
+    ```python
+    load("/tools/build_rules/go/def", "go_repositories")
+
+    go_repositories()
+    ```
+
 * Add a `BUILD` file to the top of your workspace, containing
 
     ```python

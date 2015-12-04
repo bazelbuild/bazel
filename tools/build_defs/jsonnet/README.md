@@ -17,8 +17,14 @@ These are build rules for working with [Jsonnet][jsonnet] files with Bazel.
 
 ## Setup
 
-To use the Jsonnet rules, simply copy the contents of `jsonnet.WORKSPACE` into
-your `WORKSPACE` file.
+To use the Jsonnet rules, add the following to your `WORKSPACE` file to add the
+external repositories for Jsonnet:
+
+```python
+load("/tools/build_defs/jsonnet/jsonnet", "jsonnet_repositories")
+
+jsonnet_repositories()
+```
 
 <a name="#jsonnet_library"></a>
 ## jsonnet_library

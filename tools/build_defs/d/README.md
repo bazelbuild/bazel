@@ -15,8 +15,14 @@
 
 ## Setup
 
-To use the D rules, simply copy the contents of `d.WORKSPACE` into your
-`WORKSPACE` file.
+To use the D rules, add the following to your `WORKSPACE` file to add the
+external repositories for the D toolchain:
+
+```python
+load("/tools/build_defs/d/d", "d_repositories")
+
+d_repositories()
+```
 
 ## Roadmap
 

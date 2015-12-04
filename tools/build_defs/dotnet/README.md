@@ -20,34 +20,46 @@ might become especially valuable.
 
 ## Setup
 
-Copy the contents of the dotnet.WORKSPACE file into your WORKSPACE file.
+Add the following to your `WORKSPACE` file to add the external repositories:
+
+```python
+load("/tools/build_defs/dotnet/csharp", "csharp_repositories")
+
+csharp_repositories()
+```
 
 ## Examples
 
-* `csharp_library`
+### csharp_library
 
-        csharp_library(
-            name="MyLib",
-            srcs=["MyLib.cs"],
-            deps=["//my/dependency:SomeLib"],
-        )
+```python
+csharp_library(
+    name = "MyLib",
+    srcs = ["MyLib.cs"],
+    deps = ["//my/dependency:SomeLib"],
+)
+```
 
-* `csharp_binary`
+### csharp_binary
 
-        csharp_binary(
-            name="MyApp",
-            main="MyApp", # optional name of the main class.
-            srcs=["MyApp.cs"],
-            deps=["//my/dependency:MyLib"],
-        )
+```python
+csharp_binary(
+    name = "MyApp",
+    main = "MyApp", # optional name of the main class.
+    srcs = ["MyApp.cs"],
+    deps = ["//my/dependency:MyLib"],
+)
+```
 
-* `csharp_nunit_test`
+### csharp\_nunit\_test
 
-        csharp_nunit_test(
-            name="MyApp",
-            srcs=["MyApp.cs"],
-            deps=["//my/dependency:MyLib"],
-        )
+```python
+csharp_nunit_test(
+    name = "MyApp",
+    srcs = ["MyApp.cs"],
+    deps = ["//my/dependency:MyLib"],
+)
+```
 
 ## Things still missing:
 

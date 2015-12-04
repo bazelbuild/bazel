@@ -28,8 +28,14 @@ targets:
   * `//external:junit`, pointing at JUnit (only required if using `groovy_test`)
   * `//external:spock`, pointing at Spock (only required if using `spock_test`)
 
-The easiest way to do so is by copying the content of `groovy.WORKSPACE` to your
-workspace file and putting `groovy.BUILD` at the root of your workspace.
+The easiest way to do so is to add the following to your `WORKSPACE` file and
+putting `groovy.BUILD` at the root of your workspace:
+
+```python
+load("/tools/build_defs/groovy/groovy", "groovy_repositories")
+
+groovy_repositories()
+```
 
 <a name="basic-example"></a>
 ## Basic Example

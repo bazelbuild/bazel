@@ -237,3 +237,10 @@ jsonnet_to_json_test = rule(
     executable = True,
     test = True,
 )
+
+def jsonnet_repositories():
+  native.git_repository(
+      name = "jsonnet",
+      remote = "https://github.com/google/jsonnet.git",
+      tag = "v0.8.1",
+  )

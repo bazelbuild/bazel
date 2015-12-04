@@ -19,8 +19,14 @@ support but can be easily modified to handle a standard web application.
 ## Setup
 
 To be able to use the Java App Engine rules, you must make the App Engine SDK
-available to Bazel. The easiest way to do so is by copying the content of
-`appengine.WORKSPACE` to your workspace file.
+available to Bazel. The easiest way to do so is by adding the following to your
+`WORKSPACE` file:
+
+```python
+load("/tools/build_rules/appengine/appengine", "appengine_repositories")
+
+appengine_repositories()
+```
 
 <a name="basic-example"></a>
 ## Basic Example
