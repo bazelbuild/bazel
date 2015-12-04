@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
+import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.Path;
@@ -342,7 +343,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     Preconditions.checkState(info.type.isSymlink() && !info.type.exists(), "{%s} {%s}", linkName,
         info.type);
     return RecursiveFilesystemTraversalValue.of(
-        ResolvedFile.danglingSymlink(linkName, info.unresolvedSymlinkTarget, info.metadata));
+        ResolvedFileFactory.danglingSymlink(linkName, info.unresolvedSymlinkTarget, info.metadata));
   }
 
   /**
@@ -356,10 +357,12 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     Preconditions.checkState(info.type.isFile() && info.type.exists(), "{%s} {%s}", path,
         info.type);
     if (info.type.isSymlink()) {
-      return RecursiveFilesystemTraversalValue.of(ResolvedFile.symlinkToFile(info.realPath, path,
-          info.unresolvedSymlinkTarget, info.metadata));
+      return RecursiveFilesystemTraversalValue.of(
+          ResolvedFileFactory.symlinkToFile(
+              info.realPath, path, info.unresolvedSymlinkTarget, info.metadata));
     } else {
-      return RecursiveFilesystemTraversalValue.of(ResolvedFile.regularFile(path, info.metadata));
+      return RecursiveFilesystemTraversalValue.of(
+          ResolvedFileFactory.regularFile(path, info.metadata));
     }
   }
 
@@ -372,11 +375,15 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     }
     ResolvedFile root;
     if (rootInfo.type.isSymlink()) {
-      root = ResolvedFile.symlinkToDirectory(rootInfo.realPath, traversal.path,
-          rootInfo.unresolvedSymlinkTarget, rootInfo.metadata);
+      root =
+          ResolvedFileFactory.symlinkToDirectory(
+              rootInfo.realPath,
+              traversal.path,
+              rootInfo.unresolvedSymlinkTarget,
+              rootInfo.metadata);
       paths.add(root);
     } else {
-      root = ResolvedFile.directory(rootInfo.realPath);
+      root = ResolvedFileFactory.directory(rootInfo.realPath);
     }
     return RecursiveFilesystemTraversalValue.of(root, paths.build());
   }

@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
+import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
 import com.google.devtools.build.lib.testutil.FoundationTestCaseForJunit4;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -295,26 +296,26 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
   }
 
   private ResolvedFile resolvedFile(RootedPath path) throws Exception {
-    return ResolvedFile.regularFile(path, FileStateValue.create(path, tsgm));
+    return ResolvedFileFactory.regularFile(path, FileStateValue.create(path, tsgm));
   }
 
   private ResolvedFile resolvedDanglingSymlink(RootedPath linkNamePath, PathFragment linkTargetPath)
       throws Exception {
-    return ResolvedFile.danglingSymlink(
+    return ResolvedFileFactory.danglingSymlink(
         linkNamePath, linkTargetPath, FileStateValue.create(linkNamePath, tsgm));
   }
 
   private ResolvedFile resolvedSymlinkToFile(
       RootedPath targetPath, RootedPath linkNamePath, PathFragment linkTargetPath)
       throws Exception {
-    return ResolvedFile.symlinkToFile(
+    return ResolvedFileFactory.symlinkToFile(
         targetPath, linkNamePath, linkTargetPath, FileStateValue.create(linkNamePath, tsgm));
   }
 
   private ResolvedFile resolvedSymlinkToDir(
       RootedPath targetPath, RootedPath linkNamePath, PathFragment linkTargetPath)
       throws Exception {
-    return ResolvedFile.symlinkToDirectory(
+    return ResolvedFileFactory.symlinkToDirectory(
         targetPath, linkNamePath, linkTargetPath, FileStateValue.create(linkNamePath, tsgm));
   }
 
