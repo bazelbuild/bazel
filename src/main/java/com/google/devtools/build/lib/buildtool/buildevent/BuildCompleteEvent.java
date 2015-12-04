@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.buildtool.buildevent;
 
-import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 
 /**
@@ -25,9 +24,8 @@ public final class BuildCompleteEvent {
 
   /**
    * Construct the BuildCompleteEvent.
-   * @param request the build request.
    */
-  public BuildCompleteEvent(BuildRequest request, BuildResult result) {
+  public BuildCompleteEvent(BuildResult result) {
     this.result = result;
   }
 

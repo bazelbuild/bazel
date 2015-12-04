@@ -366,7 +366,7 @@ public final class BuildTool {
       catastrophe = throwable;
       Throwables.propagate(throwable);
     } finally {
-      stopRequest(request, result, catastrophe, exitCode);
+      stopRequest(result, catastrophe, exitCode);
     }
 
     return result;
@@ -482,19 +482,17 @@ public final class BuildTool {
    *
    * <p>This logs the build result, cleans up and stops the clock.
    *
-   * @param request the build request that this build tool is servicing
    * @param crash Any unexpected RuntimeException or Error. May be null
    * @param exitCondition A suggested exit condition from either the build logic or
    *        a thrown exception somewhere along the way.
    */
-  public void stopRequest(BuildRequest request, BuildResult result, Throwable crash,
-      ExitCode exitCondition) {
+  public void stopRequest(BuildResult result, Throwable crash, ExitCode exitCondition) {
     Preconditions.checkState((crash == null) || (exitCondition != ExitCode.SUCCESS));
     result.setUnhandledThrowable(crash);
     result.setExitCondition(exitCondition);
     // The stop time has to be captured before we send the BuildCompleteEvent.
     result.setStopTime(runtime.getClock().currentTimeMillis());
-    env.getEventBus().post(new BuildCompleteEvent(request, result));
+    env.getEventBus().post(new BuildCompleteEvent(result));
   }
 
   private void reportTargets(AnalysisResult analysisResult) {
