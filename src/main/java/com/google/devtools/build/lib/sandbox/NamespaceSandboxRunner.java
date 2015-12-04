@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -104,7 +105,7 @@ public class NamespaceSandboxRunner {
    * @param env - environment to run sandbox in
    * @param cwd - current working directory
    * @param outErr - error output to capture sandbox's and command's stderr
-   * @throws CommandException
+   * @throws ExecException
    */
   public void run(
       List<String> spawnArguments,
@@ -114,7 +115,7 @@ public class NamespaceSandboxRunner {
       Collection<? extends ActionInput> outputs,
       int timeout,
       boolean blockNetwork)
-      throws IOException, UserExecException {
+      throws IOException, ExecException {
     createFileSystem(outputs);
 
     List<String> fileArgs = new ArrayList<>();
