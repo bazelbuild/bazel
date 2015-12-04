@@ -85,23 +85,32 @@ def WriteDepMappingFile(translated_source_files,
         write to.
     file_open: Reference to the builtin open function so it may be
         overridden for testing.
+  Raises:
+    RuntimeError: If spawned threads throw errors during processing.
   Returns:
     None.
   """
   dep_mapping = dict()
   input_file_queue = Queue.Queue()
   output_dep_mapping_queue = Queue.Queue()
+  error_message_queue = Queue.Queue()
   for output_file in translated_source_files.split(','):
     input_file_queue.put(output_file)
 
   for _ in xrange(multiprocessing.cpu_count()):
     t = threading.Thread(target=_ReadDepMapping, args=(input_file_queue,
                                                        output_dep_mapping_queue,
+                                                       error_message_queue,
                                                        objc_file_path,
                                                        file_open))
     t.start()
 
   input_file_queue.join()
+
+  if not error_message_queue.empty():
+    error_messages = [error_message for error_message in
+                      error_message_queue.queue]
+    raise RuntimeError('\n'.join(error_messages))
 
   while not output_dep_mapping_queue.empty():
     entry_file, deps = output_dep_mapping_queue.get()
@@ -114,25 +123,33 @@ def WriteDepMappingFile(translated_source_files,
   f.close()
 
 
-def _ReadDepMapping(input_file_queue, output_dep_mapping_queue, objc_file_path,
-                    file_open=open):
+def _ReadDepMapping(input_file_queue, output_dep_mapping_queue,
+                    error_message_queue, objc_file_path, file_open=open):
   while True:
     try:
       input_file = input_file_queue.get_nowait()
     except Queue.Empty:
+      # No more work left in the queue.
       return
-    deps = []
-    entry = os.path.relpath(os.path.splitext(input_file)[0], objc_file_path)
-    with file_open(input_file, 'r') as f:
-      for line in f:
-        include = INCLUDE_RE.match(line)
-        if include:
-          include_path = include.group(2)
-          dep = os.path.splitext(include_path)[0]
-          if dep != entry:
-            deps.append(dep)
-    output_dep_mapping_queue.put((entry, deps))
-    input_file_queue.task_done()
+
+    try:
+      deps = []
+      entry = os.path.relpath(os.path.splitext(input_file)[0], objc_file_path)
+      with file_open(input_file, 'r') as f:
+        for line in f:
+          include = INCLUDE_RE.match(line)
+          if include:
+            include_path = include.group(2)
+            dep = os.path.splitext(include_path)[0]
+            if dep != entry:
+              deps.append(dep)
+      output_dep_mapping_queue.put((entry, deps))
+    except Exception as e:  # pylint: disable=broad-except
+      error_message_queue.put(str(e))
+    finally:
+      # We need to mark the task done to prevent blocking the main process
+      # indefinitely.
+      input_file_queue.task_done()
 
 
 def _ParseArgs(j2objc_args):
