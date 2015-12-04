@@ -11,15 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-package com.google.devtools.build.lib.exec;
+package com.google.devtools.build.lib.util;
 
 import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
-import com.google.devtools.build.lib.util.UserUtils;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,12 +25,10 @@ import org.junit.runners.JUnit4;
 
 import java.util.Map;
 
-/**
- * Unit tests for AbstractDistributorDriver.
- */
+/** Unit tests for {@link UserUtils}. */
 @RunWith(JUnit4.class)
 @TestSpec(size = Suite.SMALL_TESTS)
-public class AbstractDistributorDriverTest {
+public class UserUtilsTest {
 
   private static final String USER = "real_user";
   private static final Map<String, String> CLIENT_ENV = ImmutableMap
