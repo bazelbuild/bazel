@@ -81,11 +81,13 @@ public final class TestSuiteBuilder {
    */
   public Set<Class<?>> create() {
     Set<Class<?>> result = new LinkedHashSet<>();
-    // We have some cases where the resulting test suite is empty, which some of our test
-    // infrastructure treats as an error.
-    result.add(TautologyTest.class);
     for (Class<?> testClass : Iterables.filter(testClasses, matchClassPredicate)) {
       result.add(testClass);
+    }
+    if (result.isEmpty()) {
+      // We have some cases where the resulting test suite is empty, which some of our test
+      // infrastructure treats as an error.
+      result.add(TautologyTest.class);
     }
     return result;
   }
