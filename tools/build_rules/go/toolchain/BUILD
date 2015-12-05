@@ -35,7 +35,6 @@ filegroup(
     srcs = [
         "BUILD",
         "BUILD.go-toolchain",
-        "WORKSPACE.go-toolchain",
     ],
     visibility = [
         "//src:__subpackages__",
