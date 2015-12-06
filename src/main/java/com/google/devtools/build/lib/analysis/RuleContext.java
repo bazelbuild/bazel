@@ -561,7 +561,12 @@ public final class RuleContext extends TargetContext
     return getDerivedArtifact(getUniqueDirectory(uniqueDirectory).getRelative(relative), root);
   }
 
-  private Attribute getAttribute(String attributeName) {
+  /**
+   * Returns the Attribute associated with this name, if it's a valid attribute for this rule,
+   * or is associated with an attached aspect. Otherwise returns null.
+   */
+  @Nullable
+  public Attribute getAttribute(String attributeName) {
     Attribute result = getRule().getAttributeDefinition(attributeName);
     if (result != null) {
       return result;

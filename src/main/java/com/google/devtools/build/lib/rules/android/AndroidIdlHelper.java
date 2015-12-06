@@ -313,8 +313,8 @@ public class AndroidIdlHelper {
       jarsBuilder.add(idlSourceJar);
     }
 
-    for (AndroidIdlProvider dep : ruleContext.getPrerequisites(
-        "deps", Mode.TARGET, AndroidIdlProvider.class)) {
+    for (AndroidIdlProvider dep : AndroidCommon.getTransitivePrerequisites(
+        ruleContext, Mode.TARGET, AndroidIdlProvider.class)) {
       rootsBuilder.addTransitive(dep.getTransitiveIdlImportRoots());
       importsBuilder.addTransitive(dep.getTransitiveIdlImports());
       jarsBuilder.addTransitive(dep.getTransitiveIdlJars());

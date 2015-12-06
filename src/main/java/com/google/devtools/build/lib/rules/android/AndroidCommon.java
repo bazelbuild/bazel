@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.S
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -30,9 +31,11 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
+import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -69,6 +72,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -82,6 +86,22 @@ public class AndroidCommon {
 
   public static final InstrumentationSpec ANDROID_COLLECTION_SPEC = JavaCommon.JAVA_COLLECTION_SPEC
       .withDependencyAttributes("deps", "data", "exports", "runtime_deps", "binary_under_test");
+
+  public static final Set<String> TRANSITIVE_ATTRIBUTES = ImmutableSet.of(
+      "deps",
+      "exports"
+  );
+
+  public static final <T extends TransitiveInfoProvider> Iterable<T> getTransitivePrerequisites(
+      RuleContext ruleContext, Mode mode, final Class<T> classType) {
+    IterablesChain.Builder<T> builder = IterablesChain.builder();
+    for (String attr : TRANSITIVE_ATTRIBUTES) {
+      if (ruleContext.getAttribute(attr) != null) {
+        builder.add(ruleContext.getPrerequisites(attr, mode, classType));
+      }
+    }
+    return builder.build();
+  }
 
   private final RuleContext ruleContext;
   private final JavaCommon javaCommon;
@@ -642,14 +662,6 @@ public class AndroidCommon {
     return prerequisite.getProvider(AndroidResourcesProvider.class);
   }
 
-  public static NestedSet<Artifact> getApplicationApks(RuleContext ruleContext) {
-    NestedSetBuilder<Artifact> applicationApksBuilder = NestedSetBuilder.stableOrder();
-    for (ApkProvider dep : ruleContext.getPrerequisites("deps", Mode.TARGET, ApkProvider.class)) {
-      applicationApksBuilder.addTransitive(dep.getTransitiveApks());
-    }
-    return applicationApksBuilder.build();
-  }
-
   /**
    * Collects Java compilation arguments for this target.
    *
@@ -728,7 +740,7 @@ public class AndroidCommon {
   private NestedSet<Artifact> collectHiddenTopLevelArtifacts(RuleContext ruleContext) {
     NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
     for (OutputGroupProvider provider :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, OutputGroupProvider.class)) {
+        getTransitivePrerequisites(ruleContext, Mode.TARGET, OutputGroupProvider.class)) {
       builder.addTransitive(provider.getOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL));
     }
     return builder.build();

@@ -219,8 +219,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
 
   private NestedSetBuilder<Aar> collectTransitiveAars(RuleContext ruleContext) {
     NestedSetBuilder<Aar> builder = NestedSetBuilder.naiveLinkOrder();
-    for (AndroidLibraryAarProvider library :
-        ruleContext.getPrerequisites("deps", Mode.TARGET, AndroidLibraryAarProvider.class)) {
+    for (AndroidLibraryAarProvider library : AndroidCommon.getTransitivePrerequisites(
+        ruleContext, Mode.TARGET, AndroidLibraryAarProvider.class)) {
       builder.addTransitive(library.getTransitiveAars());
     }
     return builder;
