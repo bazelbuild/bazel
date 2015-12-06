@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.syntax.SkylarkCallable;
 import com.google.devtools.build.lib.syntax.SkylarkModule;
+import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -35,6 +36,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 public final class Jvm extends BuildConfiguration.Fragment {
   private final PathFragment javaHome;
   private final Label jvmLabel;
+  private final PathFragment javac;
+  private final PathFragment jar;
+  private final PathFragment java;
 
   /**
    * Creates a Jvm instance. Either the {@code javaHome} parameter is absolute,
@@ -45,6 +49,9 @@ public final class Jvm extends BuildConfiguration.Fragment {
     Preconditions.checkArgument(javaHome.isAbsolute() ^ (jvmLabel != null));
     this.javaHome = javaHome;
     this.jvmLabel = jvmLabel;
+    this.javac = getJavaHome().getRelative("bin/javac" + OsUtils.executableExtension());
+    this.jar = getJavaHome().getRelative("bin/jar" + OsUtils.executableExtension());
+    this.java = getJavaHome().getRelative("bin/java" + OsUtils.executableExtension());
   }
 
   @Override
@@ -66,14 +73,14 @@ public final class Jvm extends BuildConfiguration.Fragment {
    * Returns the path to the javac binary.
    */
   public PathFragment getJavacExecutable() {
-    return getJavaHome().getRelative("bin/javac");
+    return javac;
   }
 
   /**
    * Returns the path to the jar binary.
    */
   public PathFragment getJarExecutable() {
-    return getJavaHome().getRelative("bin/jar");
+    return jar;
   }
 
   /**
@@ -82,7 +89,7 @@ public final class Jvm extends BuildConfiguration.Fragment {
   @SkylarkCallable(name = "java_executable", structField = true,
       doc = "The java executable, i.e. bin/java relative to the Java home.")
   public PathFragment getJavaExecutable() {
-    return getJavaHome().getRelative("bin/java");
+    return java;
   }
 
   /**
