@@ -21,6 +21,9 @@ cc_library(
             "blaze_util_freebsd.cc",
             "blaze_util_posix.cc",
         ],
+        "//src:windows": [
+            "blaze_util_mingw.cc",
+        ],
         "//conditions:default": [
             "blaze_util_linux.cc",
             "blaze_util_posix.cc",
