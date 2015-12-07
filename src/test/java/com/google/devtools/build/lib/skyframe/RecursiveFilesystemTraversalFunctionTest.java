@@ -294,6 +294,27 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     }
   }
 
+  private void assertTraversalRootHashesAre(
+      boolean equal, RecursiveFilesystemTraversalValue a, RecursiveFilesystemTraversalValue b)
+          throws Exception {
+    if (equal) {
+      assertThat(a.getResolvedRoot().get().hashCode())
+          .isEqualTo(b.getResolvedRoot().get().hashCode());
+    } else {
+      assertThat(a.getResolvedRoot().get().hashCode())
+          .isNotEqualTo(b.getResolvedRoot().get().hashCode());
+    }
+  }
+
+  private void assertTraversalRootHashesAreEqual(
+      RecursiveFilesystemTraversalValue a, RecursiveFilesystemTraversalValue b) throws Exception {
+    assertTraversalRootHashesAre(true, a, b);
+  }
+
+  private void assertTraversalRootHashesAreNotEqual(
+      RecursiveFilesystemTraversalValue a, RecursiveFilesystemTraversalValue b) throws Exception {
+    assertTraversalRootHashesAre(false, a, b);
+  }
 
   private void assertTraversalOfFile(Artifact rootArtifact) throws Exception {
     TraversalRequest traversalRoot = fileLikeRoot(rootArtifact, DONT_CROSS);
@@ -312,6 +333,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     assertThat(progressReceiver.invalidations).contains(rftvSkyKey(traversalRoot));
     assertThat(progressReceiver.evaluations).contains(v2);
     assertThat(v2).isNotEqualTo(v1);
+    assertTraversalRootHashesAreNotEqual(v1, v2);
+
     progressReceiver.clear();
   }
 
@@ -350,6 +373,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     assertThat(progressReceiver.invalidations).contains(rftvSkyKey(traversalRoot));
     assertThat(progressReceiver.evaluations).contains(v2);
     assertThat(v2).isNotEqualTo(v1);
+    assertTraversalRootHashesAreNotEqual(v1, v2);
   }
 
   @Test
@@ -406,7 +430,10 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         traverseAndAssertFiles(traversalRoot, expected1, expected2, expected3);
     assertThat(progressReceiver.invalidations).contains(rftvSkyKey(traversalRoot));
     assertThat(progressReceiver.evaluations).contains(v2);
+    // Directories always have the same hash code, but that is fine because their contents are also
+    // part of the RecursiveFilesystemTraversalValue, so v1 and v2 are unequal.
     assertThat(v2).isNotEqualTo(v1);
+    assertTraversalRootHashesAreEqual(v1, v2);
     progressReceiver.clear();
 
     // Edit a file in the directory and see that the value is rebuilt.
@@ -416,6 +443,9 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     assertThat(progressReceiver.invalidations).contains(rftvSkyKey(traversalRoot));
     assertThat(progressReceiver.evaluations).contains(v3);
     assertThat(v3).isNotEqualTo(v2);
+    // Directories always have the same hash code, but that is fine because their contents are also
+    // part of the RecursiveFilesystemTraversalValue, so v2 and v3 are unequal.
+    assertTraversalRootHashesAreEqual(v2, v3);
     progressReceiver.clear();
 
     // Add a new file *outside* of the directory and see that the value is *not* rebuilt.
@@ -425,6 +455,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     RecursiveFilesystemTraversalValue v4 =
         traverseAndAssertFiles(traversalRoot, expected1, expected2, expected3);
     assertThat(v4).isEqualTo(v3);
+    assertTraversalRootHashesAreEqual(v3, v4);
     assertThat(progressReceiver.invalidations).doesNotContain(rftvSkyKey(traversalRoot));
   }
 
@@ -512,6 +543,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     assertThat(progressReceiver.invalidations).contains(rftvSkyKey(traversalRoot));
     assertThat(progressReceiver.evaluations).contains(v2);
     assertThat(v2).isNotEqualTo(v1);
+    assertTraversalRootHashesAreNotEqual(v1, v2);
     progressReceiver.clear();
 
     // Edit a file in the directory and see that the value is rebuilt.
@@ -521,6 +553,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     assertThat(progressReceiver.invalidations).contains(rftvSkyKey(traversalRoot));
     assertThat(progressReceiver.evaluations).contains(v3);
     assertThat(v3).isNotEqualTo(v2);
+    assertTraversalRootHashesAreNotEqual(v2, v3);
     progressReceiver.clear();
 
     // Add a new file *outside* of the directory and see that the value is *not* rebuilt.
@@ -530,6 +563,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     RecursiveFilesystemTraversalValue v4 =
         traverseAndAssertFiles(traversalRoot, expected1, expected2, expected3, expected4);
     assertThat(v4).isEqualTo(v3);
+    assertTraversalRootHashesAreEqual(v3, v4);
     assertThat(progressReceiver.invalidations).doesNotContain(rftvSkyKey(traversalRoot));
   }
 
@@ -702,6 +736,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     RecursiveFilesystemTraversalValue v2 = traverseAndAssertFiles(params, expected);
     assertThat(progressReceiver.invalidations).contains(rftvSkyKey(params));
     assertThat(v2).isNotEqualTo(v1);
+    assertTraversalRootHashesAreNotEqual(v1, v2);
   }
 
   @Test
@@ -723,6 +758,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     path.asPath().setLastModifiedTime(mtime);
     RecursiveFilesystemTraversalValue v2 = traverseAndAssertFiles(params, expected);
     assertThat(v2).isEqualTo(v1);
+    assertTraversalRootHashesAreEqual(v1, v2);
   }
 
   @Test

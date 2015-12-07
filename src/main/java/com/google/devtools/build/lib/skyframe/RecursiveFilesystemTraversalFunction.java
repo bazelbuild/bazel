@@ -17,6 +17,7 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.Collections2;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -375,17 +376,35 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     }
     ResolvedFile root;
     if (rootInfo.type.isSymlink()) {
+      NestedSet<ResolvedFile> children = paths.build();
       root =
           ResolvedFileFactory.symlinkToDirectory(
               rootInfo.realPath,
               traversal.path,
               rootInfo.unresolvedSymlinkTarget,
-              Integer.valueOf(rootInfo.metadata.hashCode()));
-      paths.add(root);
+              // Integer boxing uses the Integer cache; no need to use Integer.valueOf,
+              hashDirectorySymlink(children, rootInfo.metadata.hashCode()));
+      paths = NestedSetBuilder.<ResolvedFile>stableOrder().addTransitive(children).add(root);
     } else {
       root = ResolvedFileFactory.directory(rootInfo.realPath);
     }
     return RecursiveFilesystemTraversalValue.of(root, paths.build());
+  }
+
+  private static Integer hashDirectorySymlink(
+      Iterable<ResolvedFile> children, Integer symlinkHash) {
+    // If the root is a directory symlink, the associated FileStateValue does not change when the
+    // linked directory's contents change, so we can't use the FileStateValue as metadata like we
+    // do with other ResolvedFile kinds. Instead we compute a metadata hash from the child
+    // elements and return that as the ResolvedFile's metadata hash.
+
+    // Compute the hash using the method described in Effective Java, 2nd ed., Item 9.
+    int result = 0;
+    for (ResolvedFile c : children) {
+      result = 31 * result + c.getMetadataHash();
+    }
+    // Integer boxing uses the Integer cache; no need to use Integer.valueOf.
+    return 31 * result + symlinkHash;
   }
 
   private static SkyValue getDependentSkyValue(Environment env, SkyKey key)
