@@ -63,7 +63,7 @@ filegroup(
         "//tools:srcs",
     ],
     visibility = [
-        "//src/test/shell/bazel:__subpackages__",
+        "//src/test/shell:__subpackages__",
     ],
 )
 
