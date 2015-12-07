@@ -717,6 +717,28 @@ java_test(
 )
 
 java_test(
+    name = "profiler-tests",
+    srcs = glob([
+        "profiler/*.java",
+    ]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    deps = [
+        ":foundations_testutil",
+        ":syntax_testutil",
+        ":test_runner",
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:clock",
+        "//src/main/java/com/google/devtools/build/lib:profiler-output",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//third_party:guava",
+        "//third_party:guava-testlib",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "BazelDocumentationTests",
     size = "medium",
     srcs = ["packages/BazelDocumentationTest.java"],
