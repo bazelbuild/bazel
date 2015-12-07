@@ -142,14 +142,19 @@ genrule(
     outs = [
         "version.txt",
     ],
-    cmd = "find . -name stable-status.txt -exec cat '{}' ';' | grep EMBED_LABEL | cut -d ' ' -f 2- > $@\n",
+    cmd =
+        "find . -name stable-status.txt -exec cat '{}' ';'" +
+        " | grep EMBED_LABEL | cut -d ' ' -f 2-" +
+        # Debian package manager does not order our rcs correctly, insert a tilde
+        " | sed -E 's/^([0-9\\.]+)(.+)$$/\\1~\\2/'" +
+        " > $@\n",
     stamp = 1,
 )
 
 pkg_deb(
     name = "bazel-debian",
     architecture = "amd64",
-    built_using = "bazel (0.1.1)",
+    built_using = "bazel (HEAD)",
     data = ":debian-data",
     depends = [
         "openjdk-8-jdk",
