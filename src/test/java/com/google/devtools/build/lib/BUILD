@@ -586,6 +586,28 @@ java_test(
 )
 
 java_test(
+    name = "pkgcache_test",
+    srcs = glob(
+        [
+            "pkgcache/*.java",
+        ],
+    ),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    deps = [
+        ":packages_testutil",
+        ":test_runner",
+        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:packages",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "ideinfo_test",
     srcs = glob([
         "ideinfo/*.java",
