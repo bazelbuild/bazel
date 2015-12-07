@@ -182,7 +182,7 @@ public final class FilesetEntryFunction implements SkyFunction {
         }
 
         // Metadata field must be present. It can only be absent when stripped by tests.
-        String metadata = Integer.toHexString(f.getMetadata().hashCode());
+        String metadata = Integer.toHexString(f.getMetadataHash());
         maybeStoreSymlink(linkName, targetName, metadata, t.getDestPath(), outputSymlinks);
       }
     }
