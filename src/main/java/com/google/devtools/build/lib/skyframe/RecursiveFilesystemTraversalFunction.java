@@ -382,7 +382,6 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
               rootInfo.realPath,
               traversal.path,
               rootInfo.unresolvedSymlinkTarget,
-              // Integer boxing uses the Integer cache; no need to use Integer.valueOf,
               hashDirectorySymlink(children, rootInfo.metadata.hashCode()));
       paths = NestedSetBuilder.<ResolvedFile>stableOrder().addTransitive(children).add(root);
     } else {
@@ -391,8 +390,8 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     return RecursiveFilesystemTraversalValue.of(root, paths.build());
   }
 
-  private static Integer hashDirectorySymlink(
-      Iterable<ResolvedFile> children, Integer symlinkHash) {
+  private static int hashDirectorySymlink(
+      Iterable<ResolvedFile> children, int symlinkHash) {
     // If the root is a directory symlink, the associated FileStateValue does not change when the
     // linked directory's contents change, so we can't use the FileStateValue as metadata like we
     // do with other ResolvedFile kinds. Instead we compute a metadata hash from the child
@@ -403,7 +402,6 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     for (ResolvedFile c : children) {
       result = 31 * result + c.getMetadataHash();
     }
-    // Integer boxing uses the Integer cache; no need to use Integer.valueOf.
     return 31 * result + symlinkHash;
   }
 

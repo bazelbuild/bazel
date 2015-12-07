@@ -269,8 +269,8 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
     @Override
     @Nullable
-    public Integer getMetadataHash() {
-      return metadata == null ? null : Integer.valueOf(metadata.hashCode());
+    public int getMetadataHash() {
+      return metadata == null ? 0 : metadata.hashCode();
     }
 
     @Override
@@ -329,8 +329,8 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     }
 
     @Override
-    public Integer getMetadataHash() {
-      return Integer.valueOf(FileStateValue.DIRECTORY_FILE_STATE_NODE.hashCode());
+    public int getMetadataHash() {
+      return FileStateValue.DIRECTORY_FILE_STATE_NODE.hashCode();
     }
 
     @Override
@@ -403,8 +403,8 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
     @Override
     @Nullable
-    public Integer getMetadataHash() {
-      return metadata == null ? null : Integer.valueOf(metadata.hashCode());
+    public int getMetadataHash() {
+      return metadata == null ? 0 : metadata.hashCode();
     }
 
     @Override
@@ -489,8 +489,8 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
     @Override
     @Nullable
-    public Integer getMetadataHash() {
-      return metadata == null ? null : Integer.valueOf(metadata.hashCode());
+    public int getMetadataHash() {
+      return metadata == null ? 0 : metadata.hashCode();
     }
 
     @Override
@@ -534,27 +534,27 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
   private static final class SymlinkToDirectory implements ResolvedFile {
     private final RootedPath path;
-    @Nullable private final Integer metadataHash;
+    @Nullable private final int metadataHash;
     private final Symlink symlink;
 
     /** C'tor for {@link #stripMetadataForTesting()}. */
     private SymlinkToDirectory(RootedPath targetPath, Symlink symlink) {
       this.path = Preconditions.checkNotNull(targetPath);
-      this.metadataHash = null;
+      this.metadataHash = 0;
       this.symlink = symlink;
     }
 
     private SymlinkToDirectory(
         RootedPath targetPath, RootedPath linkNamePath, PathFragment linkValue) {
       this.path = Preconditions.checkNotNull(targetPath);
-      this.metadataHash = null;
+      this.metadataHash = 0;
       this.symlink = new Symlink(linkNamePath, linkValue);
     }
 
     SymlinkToDirectory(RootedPath targetPath, RootedPath linkNamePath,
-        PathFragment linkValue, Integer metadataHash) {
+        PathFragment linkValue, int metadataHash) {
       this.path = Preconditions.checkNotNull(targetPath);
-      this.metadataHash = Preconditions.checkNotNull(metadataHash);
+      this.metadataHash = metadataHash;
       this.symlink = new Symlink(linkNamePath, linkValue);
     }
 
@@ -570,7 +570,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
     @Override
     @Nullable
-    public Integer getMetadataHash() {
+    public int getMetadataHash() {
       return metadataHash;
     }
 
@@ -630,7 +630,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     }
 
     public static ResolvedFile symlinkToDirectory(RootedPath targetPath,
-        RootedPath linkNamePath, PathFragment linkValue, Integer metadataHash) {
+        RootedPath linkNamePath, PathFragment linkValue, int metadataHash) {
       return new SymlinkToDirectory(targetPath, linkNamePath, linkValue, metadataHash);
     }
 
@@ -688,11 +688,10 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
      * <p>This is usually some hash of the {@link FileStateValue} of the underlying filesystem
      * entity.
      *
-     * <p>The method only returns null if tests stripped the metadata, or the {@link ResolvedFile}
-     * was created by the {@link ResolvedFileFactoryForTesting}.
+     * <p>If tests stripped the metadata or the {@link ResolvedFile} was created by the
+     * {@link ResolvedFileFactoryForTesting}, this method returns 0.
      */
-    @Nullable
-    Integer getMetadataHash();
+    int getMetadataHash();
 
     /**
      * Returns the path of the Fileset-output symlink relative to the output directory.
