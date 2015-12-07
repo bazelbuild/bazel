@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Su
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Template;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
-import com.google.devtools.build.lib.testutil.FoundationTestCaseForJunit4;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -48,7 +48,7 @@ import java.util.List;
  * Tests {@link TemplateExpansionAction}.
  */
 @RunWith(JUnit4.class)
-public class TemplateExpansionActionTest extends FoundationTestCaseForJunit4 {
+public class TemplateExpansionActionTest extends FoundationTestCase {
 
   private static final String TEMPLATE = Joiner.on('\n').join("key=%key%", "value=%value%");
   private static final String SPECIAL_CHARS = "Š©±½_strøget";

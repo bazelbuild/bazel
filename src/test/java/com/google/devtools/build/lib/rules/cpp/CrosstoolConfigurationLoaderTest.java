@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.analysis.util.AnalysisTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
@@ -51,7 +51,7 @@ import java.util.Collections;
  * Tests for {@link CppConfigurationLoader}.
  */
 @RunWith(JUnit4.class)
-public class CrosstoolConfigurationLoaderTest extends AnalysisTestCaseForJunit4 {
+public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
   private static final Collection<String> NO_FEATURES = Collections.emptySet();
 
   private CppConfiguration create(CppConfigurationLoader loader, String... args) throws Exception {

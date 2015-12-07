@@ -20,7 +20,7 @@ import static org.junit.Assert.assertNull;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.util.FileType;
 
 import org.junit.Test;
@@ -34,7 +34,7 @@ import java.util.Arrays;
  * Tests for {@link Filegroup}.
  */
 @RunWith(JUnit4.class)
-public class FilegroupConfiguredTargetTest extends BuildViewTestCaseForJunit4 {
+public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testGroup() throws Exception {

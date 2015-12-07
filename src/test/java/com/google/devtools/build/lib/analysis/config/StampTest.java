@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static org.junit.Assert.assertEquals;
 
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleFactory;
@@ -31,7 +31,7 @@ import org.junit.runners.JUnit4;
  * Tests for link stamping.
  */
 @RunWith(JUnit4.class)
-public class StampTest extends BuildViewTestCaseForJunit4 {
+public class StampTest extends BuildViewTestCase {
   /**
    * Tests that link stamping is disabled for all tests that support it.
    */

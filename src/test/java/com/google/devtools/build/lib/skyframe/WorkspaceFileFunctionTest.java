@@ -19,7 +19,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.rules.BazelRulesModule;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -47,7 +47,7 @@ import java.io.IOException;
  * Test for {@link WorkspaceFileFunction}.
  */
 @RunWith(JUnit4.class)
-public class WorkspaceFileFunctionTest extends BuildViewTestCaseForJunit4 {
+public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   private WorkspaceFileFunction skyFunc;
   private FakeFileValue fakeWorkspaceFileValue;

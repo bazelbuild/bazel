@@ -23,7 +23,7 @@ import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.testutil.FoundationTestCaseForJunit4;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -49,7 +49,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * Tests for {@link ContainingPackageLookupFunction}.
  */
 @RunWith(JUnit4.class)
-public class ContainingPackageLookupFunctionTest extends FoundationTestCaseForJunit4 {
+public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
 
   private AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
   private MemoizingEvaluator evaluator;

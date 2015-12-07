@@ -25,7 +25,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
@@ -66,7 +66,7 @@ import javax.annotation.Nullable;
  * indirectly in several other places.
  */
 @RunWith(JUnit4.class)
-public class PackageFunctionTest extends BuildViewTestCaseForJunit4 {
+public class PackageFunctionTest extends BuildViewTestCase {
 
   private CustomInMemoryFs fs = new CustomInMemoryFs(new ManualClock());
 

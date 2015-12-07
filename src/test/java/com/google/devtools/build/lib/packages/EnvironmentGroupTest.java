@@ -21,7 +21,7 @@ import static org.junit.Assert.assertTrue;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCaseForJunit4;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -35,7 +35,7 @@ import org.junit.runners.JUnit4;
  * {@link PackageFactoryTest}.
  */
 @RunWith(JUnit4.class)
-public class EnvironmentGroupTest extends PackageLoadingTestCaseForJunit4 {
+public class EnvironmentGroupTest extends PackageLoadingTestCase {
 
   private Package pkg;
   private EnvironmentGroup group;

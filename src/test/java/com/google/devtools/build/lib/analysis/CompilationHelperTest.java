@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.UncheckedActionConflictException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 
 import org.junit.Before;
@@ -41,7 +41,7 @@ import java.util.List;
  * Unit tests for the {@link CompilationHelper} class.
  */
 @RunWith(JUnit4.class)
-public class CompilationHelperTest extends BuildViewTestCaseForJunit4 {
+public class CompilationHelperTest extends BuildViewTestCase {
   private AnalysisTestUtil.CollectingAnalysisEnvironment analysisEnvironment;
 
   @Before

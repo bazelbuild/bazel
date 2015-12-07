@@ -29,7 +29,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCaseForJunit4;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.skyframe.TestSuiteExpansionValue;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -44,7 +44,7 @@ import java.util.Collection;
 import java.util.EnumSet;
 
 @RunWith(JUnit4.class)
-public class TestTargetUtilsTest extends PackageLoadingTestCaseForJunit4 {
+public class TestTargetUtilsTest extends PackageLoadingTestCase {
   private Target test1;
   private Target test2;
   private Target test1b;

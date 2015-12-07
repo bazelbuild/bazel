@@ -20,7 +20,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCaseForJunit4;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.packages.util.SubincludePreprocessor;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -41,7 +41,7 @@ import java.nio.charset.StandardCharsets;
 
 @TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
-public class SubincludePreprocessorTest extends PackageLoadingTestCaseForJunit4 {
+public class SubincludePreprocessorTest extends PackageLoadingTestCase {
   private Path packageRoot;
   protected SubincludePreprocessor preprocessor;
   protected Environment globalEnv =

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.testutil;
 
+import static org.junit.Assert.fail;
+
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -23,15 +25,15 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 
-import junit.framework.TestCase;
+import org.junit.After;
+import org.junit.Before;
 
 import java.util.Set;
 
 /**
- * This is a specialization of {@link TestCase} that's useful for implementing tests of the
- * "foundation" library.
+ * A helper class for implementing tests of the "foundation" library.
  */
-public abstract class FoundationTestCase extends TestCase {
+public abstract class FoundationTestCase {
 
   protected Path rootDirectory;
 
@@ -62,17 +64,31 @@ public abstract class FoundationTestCase extends TestCase {
       }
     };
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void initializeFileSystemAndDirectories() throws Exception {
     scratch = new Scratch(createFileSystem(), "/workspace");
     outputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/");
     rootDirectory = scratch.dir("/workspace");
     scratch.file(rootDirectory.getRelative("WORKSPACE").getPathString());
     actionOutputBase = scratch.dir("/usr/local/google/_blaze_jrluser/FAKEMD5/action_out/");
+  }
+
+  @Before
+  public final void initializeLogging() throws Exception {
     eventCollector = new EventCollector(EventKind.ERRORS_AND_WARNINGS);
     reporter = new Reporter(eventCollector);
     reporter.addHandler(failFastHandler);
+  }
+
+  @After
+  public final void clearInterrupts() throws Exception {
+    Thread.interrupted(); // Clear any interrupt pending against this thread,
+                          // so that we don't cause later tests to fail.
+  }
+
+  // To be overriden by sub classes if they want to disable loading.
+  protected boolean isLoadingEnabled() {
+    return true;
   }
 
   /**
@@ -80,14 +96,6 @@ public abstract class FoundationTestCase extends TestCase {
    */
   protected FileSystem createFileSystem() {
     return new InMemoryFileSystem(BlazeClock.instance());
-  }
-
-  @Override
-  protected void tearDown() throws Exception {
-    Thread.interrupted(); // Clear any interrupt pending against this thread,
-                          // so that we don't cause later tests to fail.
-
-    super.tearDown();
   }
 
   // Mix-in assertions:

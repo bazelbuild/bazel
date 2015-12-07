@@ -21,7 +21,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -38,7 +38,7 @@ import java.io.IOException;
 
 /** Tests for {@link com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction}. */
 @RunWith(JUnit4.class)
-public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCaseForJunit4 {
+public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
 
   private static SkyKey getKeyForLabel(Label label) {
     // Note that these tests used to look for TargetMarker SkyKeys before TargetMarker was

@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.exec;
 import static org.junit.Assert.assertEquals;
 
 import com.google.devtools.build.lib.actions.ParameterFile;
-import com.google.devtools.build.lib.testutil.FoundationTestCaseForJunit4;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -30,7 +30,7 @@ import org.junit.runners.JUnit4;
  */
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
-public class ParameterFileTest extends FoundationTestCaseForJunit4 {
+public class ParameterFileTest extends FoundationTestCase {
 
   @Test
   public void testDerive() {

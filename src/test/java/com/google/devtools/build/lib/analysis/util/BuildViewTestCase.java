@@ -15,6 +15,12 @@ package com.google.devtools.build.lib.analysis.util;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
@@ -134,6 +140,8 @@ import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 
+import org.junit.Before;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -176,11 +184,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected WorkspaceStatusAction.Factory workspaceStatusActionFactory;
 
   private MutableActionGraph mutableActionGraph;
-  protected boolean enableLoading = true;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
+  @Before
+  public final void initializeSkyframeExecutor() throws Exception {
     AnalysisMock mock = getAnalysisMock();
     directories = new BlazeDirectories(outputBase, outputBase, rootDirectory);
     binTools = BinTools.forUnitTesting(directories, TestConstants.EMBEDDED_TOOLS);
@@ -1324,7 +1330,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         Collections.unmodifiableSet(ruleClassProvider.getRuleClassMap().keySet()));
     LoadingResult loadingResult = runner.execute(reporter, eventBus, targets, loadingOptions,
         getTargetConfiguration().getAllLabels(), viewOptions.keepGoing,
-        enableLoading, /*determineTests=*/false, /*callback=*/null);
+        isLoadingEnabled(), /*determineTests=*/false, /*callback=*/null);
     if (!doAnalysis) {
       // TODO(bazel-team): What's supposed to happen in this case?
       return null;
@@ -1337,7 +1343,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
         reporter,
         eventBus,
-        enableLoading);
+        isLoadingEnabled());
   }
 
   protected static Predicate<Artifact> artifactNamed(final String name) {
@@ -1658,9 +1664,5 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     return result.build();
-  }
-
-  protected void disableLoading() {
-    enableLoading = false;
   }
 }

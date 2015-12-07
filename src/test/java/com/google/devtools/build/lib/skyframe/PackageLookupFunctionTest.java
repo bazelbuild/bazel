@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
-import com.google.devtools.build.lib.testutil.FoundationTestCaseForJunit4;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -59,7 +59,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * Tests for {@link PackageLookupFunction}.
  */
 @RunWith(JUnit4.class)
-public class PackageLookupFunctionTest extends FoundationTestCaseForJunit4 {
+public class PackageLookupFunctionTest extends FoundationTestCase {
   private AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages;
   private MemoizingEvaluator evaluator;
   private SequentialBuildDriver driver;

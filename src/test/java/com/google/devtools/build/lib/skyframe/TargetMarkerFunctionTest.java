@@ -20,7 +20,7 @@ import static org.junit.Assert.assertTrue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
@@ -51,7 +51,7 @@ import java.util.Map;
  * that isn't easily mockable. So our testing strategy is to make hacky calls to SkyframeExecutor.
  */
 @RunWith(JUnit4.class)
-public class TargetMarkerFunctionTest extends BuildViewTestCaseForJunit4 {
+public class TargetMarkerFunctionTest extends BuildViewTestCase {
 
   private SkyframeExecutor skyframeExecutor;
   private CustomInMemoryFs fs = new CustomInMemoryFs();

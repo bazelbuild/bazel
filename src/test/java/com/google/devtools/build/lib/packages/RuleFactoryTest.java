@@ -27,7 +27,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCaseForJunit4;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
@@ -40,7 +40,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RunWith(JUnit4.class)
-public class RuleFactoryTest extends PackageLoadingTestCaseForJunit4 {
+public class RuleFactoryTest extends PackageLoadingTestCase {
 
   private ConfiguredRuleClassProvider provider = TestRuleClassProvider.getRuleClassProvider();
   private RuleFactory ruleFactory = new RuleFactory(provider);

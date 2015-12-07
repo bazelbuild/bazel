@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -31,7 +31,7 @@ import org.junit.runners.JUnit4;
  * Tests for {@link CppCompilationContext}.
  */
 @RunWith(JUnit4.class)
-public class CppCompilationContextTest extends BuildViewTestCaseForJunit4 {
+public class CppCompilationContextTest extends BuildViewTestCase {
 
   @Before
   public final void createBuildFile() throws Exception {

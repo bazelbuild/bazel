@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCaseForJunit4;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.packages.util.PreprocessorUtils;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.testutil.ManualClock;
@@ -53,7 +53,7 @@ import java.util.Set;
 
 import javax.annotation.Nullable;
 
-abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCaseForJunit4 {
+abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCase {
   // Convenience constants, so test args are readable vs true/false
   protected static final boolean KEEP_GOING = true;
   protected static final boolean EXPECT_ERROR = true;

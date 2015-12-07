@@ -21,7 +21,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.testutil.FoundationTestCaseForJunit4;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import org.junit.Test;
@@ -35,7 +35,7 @@ import java.util.Map;
  * Test for {@link Runfiles}.
  */
 @RunWith(JUnit4.class)
-public class RunfilesTest extends FoundationTestCaseForJunit4 {
+public class RunfilesTest extends FoundationTestCase {
 
   private void checkWarning() {
     assertContainsEvent("obscured by a -> /workspace/a");

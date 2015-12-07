@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.buildtool.SkyframeBuilder;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.testutil.FoundationTestCaseForJunit4;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -82,7 +82,7 @@ import javax.annotation.Nullable;
 /**
  * The common code that's shared between various builder tests.
  */
-public abstract class TimestampBuilderTestCase extends FoundationTestCaseForJunit4 {
+public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
   private static final SkyKey OWNER_KEY = new SkyKey(SkyFunctions.ACTION_LOOKUP, "OWNER");
   protected static final ActionLookupValue.ActionLookupKey ALL_OWNER =

@@ -19,7 +19,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -36,7 +36,7 @@ import java.io.IOException;
 
 /** Tests for {@link PrepareDepsOfPatternsFunction}. */
 @RunWith(JUnit4.class)
-public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTestCaseForJunit4 {
+public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTestCase {
 
   private static SkyKey getKeyForLabel(Label label) {
     // Note that these tests used to look for TargetMarker SkyKeys before TargetMarker was

@@ -23,7 +23,7 @@ import static org.junit.Assert.assertTrue;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.config.ConfigRuleClasses.ConfigSettingRule;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
@@ -42,7 +42,7 @@ import java.util.Map;
  * Tests for {@link ConfigSetting}.
  */
 @RunWith(JUnit4.class)
-public class ConfigSettingTest extends BuildViewTestCaseForJunit4 {
+public class ConfigSettingTest extends BuildViewTestCase {
 
   private void writeSimpleExample() throws Exception {
     scratch.file("pkg/BUILD",

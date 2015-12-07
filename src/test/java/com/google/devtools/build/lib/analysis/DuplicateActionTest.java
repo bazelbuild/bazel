@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis;
 
 import static org.junit.Assert.assertFalse;
 
-import com.google.devtools.build.lib.analysis.util.AnalysisTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -26,7 +26,7 @@ import org.junit.runners.JUnit4;
  * Tests for duplicate action detection and handling when incremental analysis is enabled.
  */
 @RunWith(JUnit4.class)
-public class DuplicateActionTest extends AnalysisTestCaseForJunit4 {
+public class DuplicateActionTest extends AnalysisTestCase {
 
   @Test
   public void testDuplicateBuildInfoHeaderAction() throws Exception {

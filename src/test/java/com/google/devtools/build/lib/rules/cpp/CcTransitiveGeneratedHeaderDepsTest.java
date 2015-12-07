@@ -26,7 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -47,7 +47,7 @@ import java.util.Set;
  * headers DAG which hangs off of cc_library nodes.
  */
 @RunWith(JUnit4.class)
-public class CcTransitiveGeneratedHeaderDepsTest extends BuildViewTestCaseForJunit4 {
+public class CcTransitiveGeneratedHeaderDepsTest extends BuildViewTestCase {
 
   @Before
   public final void writeFiles() throws Exception {

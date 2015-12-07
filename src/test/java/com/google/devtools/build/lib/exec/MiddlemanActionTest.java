@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 
@@ -42,7 +42,7 @@ import java.util.Arrays;
  */
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
-public class MiddlemanActionTest extends BuildViewTestCaseForJunit4 {
+public class MiddlemanActionTest extends BuildViewTestCase {
 
   private AnalysisTestUtil.CollectingAnalysisEnvironment analysisEnvironment;
   private MiddlemanFactory middlemanFactory;

@@ -32,7 +32,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
-import com.google.devtools.build.lib.testutil.FoundationTestCaseForJunit4;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
@@ -67,7 +67,7 @@ import java.util.regex.Pattern;
 
 /** Tests for {@link RecursiveFilesystemTraversalFunction}. */
 @RunWith(JUnit4.class)
-public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTestCaseForJunit4 {
+public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTestCase {
 
   private TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
   private RecordingEvaluationProgressReceiver progressReceiver;

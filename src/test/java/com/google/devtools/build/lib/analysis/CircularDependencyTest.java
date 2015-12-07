@@ -20,7 +20,7 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -34,7 +34,7 @@ import org.junit.runners.JUnit4;
  * Tests that check that dependency cycles are reported correctly.
  */
 @RunWith(JUnit4.class)
-public class CircularDependencyTest extends BuildViewTestCaseForJunit4 {
+public class CircularDependencyTest extends BuildViewTestCase {
 
   @Test
   public void testOneRuleCycle() throws Exception {

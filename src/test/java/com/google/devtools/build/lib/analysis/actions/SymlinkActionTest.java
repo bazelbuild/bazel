@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -39,7 +39,7 @@ import org.junit.runners.JUnit4;
  * Tests {@link SymlinkAction}.
  */
 @RunWith(JUnit4.class)
-public class SymlinkActionTest extends BuildViewTestCaseForJunit4 {
+public class SymlinkActionTest extends BuildViewTestCase {
 
   private Path input;
   private Artifact inputArtifact;

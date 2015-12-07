@@ -17,7 +17,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.Rule;
@@ -40,7 +40,7 @@ import java.util.UUID;
  * of the imports of their respective definition SkylarkEnvironments.
  */
 @RunWith(JUnit4.class)
-public class SkylarkFileContentHashTests extends BuildViewTestCaseForJunit4 {
+public class SkylarkFileContentHashTests extends BuildViewTestCase {
 
   @Before
   public final void createFiles() throws Exception  {

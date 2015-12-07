@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCaseForJunit4;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -75,7 +75,7 @@ import java.util.Set;
  * Tests for {@link RuleClass}.
  */
 @RunWith(JUnit4.class)
-public class RuleClassTest extends PackageLoadingTestCaseForJunit4 {
+public class RuleClassTest extends PackageLoadingTestCase {
   private static final RuleClass.ConfiguredTargetFactory<Object, Object>
       DUMMY_CONFIGURED_TARGET_FACTORY = new RuleClass.ConfiguredTargetFactory<Object, Object>() {
         @Override

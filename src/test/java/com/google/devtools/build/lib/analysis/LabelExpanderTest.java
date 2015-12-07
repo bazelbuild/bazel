@@ -19,7 +19,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.testutil.Suite;
@@ -37,7 +37,7 @@ import java.util.Map;
  */
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
-public class LabelExpanderTest extends BuildViewTestCaseForJunit4 {
+public class LabelExpanderTest extends BuildViewTestCase {
   /**
    * A dummy target that resolves labels and receives errors.
    */

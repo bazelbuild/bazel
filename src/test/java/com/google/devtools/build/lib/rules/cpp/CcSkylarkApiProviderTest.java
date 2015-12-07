@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 
 import org.junit.Test;
@@ -28,7 +28,7 @@ import org.junit.runners.JUnit4;
  * Tests for Skylark providers for cpp rules.
  */
 @RunWith(JUnit4.class)
-public class CcSkylarkApiProviderTest extends BuildViewTestCaseForJunit4 {
+public class CcSkylarkApiProviderTest extends BuildViewTestCase {
   private CcSkylarkApiProvider getApi(String label) throws Exception {
     RuleConfiguredTarget rule = (RuleConfiguredTarget) getConfiguredTarget(label);
     return (CcSkylarkApiProvider) rule.get(CcSkylarkApiProvider.NAME);

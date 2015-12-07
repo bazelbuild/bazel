@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.testutil.FoundationTestCaseForJunit4;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -68,7 +68,7 @@ import java.util.UUID;
  * Testing framework for tests which check ConfigurationFactory.
  */
 @RunWith(JUnit4.class)
-public abstract class ConfigurationTestCase extends FoundationTestCaseForJunit4 {
+public abstract class ConfigurationTestCase extends FoundationTestCase {
 
   public static final class TestOptions extends OptionsBase {
     @Option(name = "multi_cpu",

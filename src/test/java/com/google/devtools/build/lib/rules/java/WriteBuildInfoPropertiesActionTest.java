@@ -16,7 +16,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertEquals;
 
 import com.google.common.base.Joiner;
-import com.google.devtools.build.lib.testutil.FoundationTestCaseForJunit4;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,7 +29,7 @@ import java.io.IOException;
  * Tests for {@link WriteBuildInfoPropertiesAction} utilities methods
  */
 @RunWith(JUnit4.class)
-public class WriteBuildInfoPropertiesActionTest extends FoundationTestCaseForJunit4 {
+public class WriteBuildInfoPropertiesActionTest extends FoundationTestCase {
 
   private static final Joiner LINE_JOINER = Joiner.on("\r\n");
   private static final Joiner LINEFEED_JOINER = Joiner.on("\n");

@@ -21,7 +21,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.PackageContext;
 import com.google.devtools.build.lib.rules.SkylarkModules;
@@ -35,7 +35,7 @@ import org.junit.Before;
 /**
  * A class to contain the common functionality for Skylark tests.
  */
-public abstract class SkylarkTestCase extends BuildViewTestCaseForJunit4 {
+public abstract class SkylarkTestCase extends BuildViewTestCase {
 
   // We don't have multiple inheritance, so we fake it.
   protected EvaluationTestCase ev;

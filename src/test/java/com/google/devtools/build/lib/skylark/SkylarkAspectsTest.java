@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
@@ -38,7 +38,7 @@ import javax.annotation.Nullable;
  * Tests for Skylark aspects
  */
 @RunWith(JUnit4.class)
-public class SkylarkAspectsTest extends BuildViewTestCaseForJunit4 {
+public class SkylarkAspectsTest extends BuildViewTestCase {
   @Test
   public void testAspect() throws Exception {
     scratch.file(

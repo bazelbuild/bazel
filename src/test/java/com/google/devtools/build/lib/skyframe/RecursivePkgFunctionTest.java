@@ -22,7 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -47,7 +47,7 @@ import org.junit.runners.JUnit4;
  * are a couple of corner cases we need to test directly.
  */
 @RunWith(JUnit4.class)
-public class RecursivePkgFunctionTest extends BuildViewTestCaseForJunit4 {
+public class RecursivePkgFunctionTest extends BuildViewTestCase {
 
   private SkyframeExecutor skyframeExecutor;
 

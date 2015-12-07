@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.skyframe.RecursivePkgValue.RecursivePkgKey;
@@ -30,7 +30,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link RecursivePkgKey}. */
 @RunWith(JUnit4.class)
-public class RecursivePkgKeyTest extends BuildViewTestCaseForJunit4 {
+public class RecursivePkgKeyTest extends BuildViewTestCase {
 
   private SkyKey buildRecursivePkgKey(
       RepositoryName repository,

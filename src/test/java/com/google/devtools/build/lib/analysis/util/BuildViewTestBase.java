@@ -48,7 +48,7 @@ import java.util.regex.Pattern;
 /**
  * Base class for BuildView test cases.
  */
-public abstract class BuildViewTestBase extends AnalysisTestCaseForJunit4 {
+public abstract class BuildViewTestBase extends AnalysisTestCase {
 
   protected static int getFrequencyOfErrorsWithLocation(
       PathFragment path, EventCollector eventCollector) {

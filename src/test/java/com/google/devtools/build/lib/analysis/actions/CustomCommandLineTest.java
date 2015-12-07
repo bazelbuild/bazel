@@ -17,7 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import org.junit.Test;
@@ -25,7 +25,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class CustomCommandLineTest extends BuildViewTestCaseForJunit4 {
+public class CustomCommandLineTest extends BuildViewTestCase {
 
   @Test
   public void testAddBeforeEachPath() {

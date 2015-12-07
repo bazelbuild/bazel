@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 /**
  * Common code for unit tests that validate --compile_only behavior.
  */
-public abstract class CompileOnlyTestCase extends BuildViewTestCaseForJunit4 {
+public abstract class CompileOnlyTestCase extends BuildViewTestCase {
 
   protected Artifact getArtifactByExecPathSuffix(ConfiguredTarget target, String path) {
     for (Artifact artifact : getOutputGroup(target, OutputGroupProvider.FILES_TO_COMPILE)) {

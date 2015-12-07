@@ -23,7 +23,7 @@ import com.google.common.testing.NullPointerTester;
 import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.util.AnalysisTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AspectRequiringRule;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -52,7 +52,7 @@ import javax.annotation.Nullable;
  * easier this way.
  */
 @RunWith(JUnit4.class)
-public class DependencyResolverTest extends AnalysisTestCaseForJunit4 {
+public class DependencyResolverTest extends AnalysisTestCase {
   private DependencyResolver dependencyResolver;
 
   @Before

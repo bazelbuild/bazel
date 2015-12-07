@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -26,7 +26,7 @@ import org.junit.runners.JUnit4;
  * Unit tests for the {@code cc_toolchain_suite} rule.
  */
 @RunWith(JUnit4.class)
-public class CcToolchainSuiteTest extends BuildViewTestCaseForJunit4 {
+public class CcToolchainSuiteTest extends BuildViewTestCase {
   @Test
   public void testSmoke() throws Exception {
     scratch.file("cc/BUILD",

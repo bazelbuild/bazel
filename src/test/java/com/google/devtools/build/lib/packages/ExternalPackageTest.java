@@ -17,7 +17,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.syntax.Argument;
@@ -37,7 +37,7 @@ import java.util.Map;
  * Test for building external packages.
  */
 @RunWith(JUnit4.class)
-public class ExternalPackageTest extends BuildViewTestCaseForJunit4 {
+public class ExternalPackageTest extends BuildViewTestCase {
 
   private Path workspacePath;
 

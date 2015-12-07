@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -24,7 +24,7 @@ import org.junit.runners.JUnit4;
  * Tests for toolchain features.
  */
 @RunWith(JUnit4.class)
-public class CcToolchainTest extends BuildViewTestCaseForJunit4 {
+public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testModuleMapAttribute() throws Exception {

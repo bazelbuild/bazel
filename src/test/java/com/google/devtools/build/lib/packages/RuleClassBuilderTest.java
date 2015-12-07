@@ -25,7 +25,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCaseForJunit4;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,7 +35,7 @@ import org.junit.runners.JUnit4;
  * Tests for the {@link RuleClass.Builder}.
  */
 @RunWith(JUnit4.class)
-public class RuleClassBuilderTest extends PackageLoadingTestCaseForJunit4 {
+public class RuleClassBuilderTest extends PackageLoadingTestCase {
   private static final RuleClass.ConfiguredTargetFactory<Object, Object>
       DUMMY_CONFIGURED_TARGET_FACTORY =
           new RuleClass.ConfiguredTargetFactory<Object, Object>() {

@@ -18,7 +18,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
 
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.packages.util.PackageLoadingTestCaseForJunit4;
+import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -28,7 +28,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class OutputFileTest extends PackageLoadingTestCaseForJunit4 {
+public class OutputFileTest extends PackageLoadingTestCase {
 
   private PackageFactory packageFactory;
   private Package pkg;

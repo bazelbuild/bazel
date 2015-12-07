@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -50,6 +51,8 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.OptionsParser;
 
+import org.junit.Before;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -62,17 +65,27 @@ import java.util.UUID;
  */
 public abstract class PackageLoadingTestCase extends FoundationTestCase {
 
+  private static final int GLOBBING_THREADS = 7;
+  
   protected ConfiguredRuleClassProvider ruleClassProvider;
   private SkyframeExecutor skyframeExecutor;
 
-  @Override
-  protected void setUp() throws Exception {
-    super.setUp();
-
+  @Before
+  public final void initializeSkyframeExecutor() throws Exception {
     ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
-    skyframeExecutor =
+    skyframeExecutor = createSkyframeExecutor(getEnvironmentExtensions(),
+        Preprocessor.Factory.Supplier.NullSupplier.INSTANCE, ConstantRuleVisibility.PUBLIC, "");
+    setUpSkyframe(parsePackageCacheOptions());
+  }
+
+  protected SkyframeExecutor createSkyframeExecutor(
+      Iterable<EnvironmentExtension> environmentExtensions,
+      Preprocessor.Factory.Supplier preprocessorFactorySupplier,
+      RuleVisibility defaultVisibility,
+      String defaultsPackageContents) {
+    SkyframeExecutor skyframeExecutor =
         SequencedSkyframeExecutor.create(
-            new PackageFactory(ruleClassProvider, getEnvironmentExtensions()),
+            new PackageFactory(ruleClassProvider, environmentExtensions),
             new TimestampGranularityMonitor(BlazeClock.instance()),
             new BlazeDirectories(outputBase, outputBase, rootDirectory),
             null, /* BinTools */
@@ -81,15 +94,15 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             ImmutableSet.<Path>of(),
             ImmutableList.<DiffAwareness.Factory>of(),
             Predicates.<PathFragment>alwaysFalse(),
-            Preprocessor.Factory.Supplier.NullSupplier.INSTANCE,
+            preprocessorFactorySupplier,
             ImmutableMap.<SkyFunctionName, SkyFunction>of(),
             ImmutableList.<PrecomputedValue.Injected>of(),
             ImmutableList.<SkyValueDirtinessChecker>of());
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
-        ConstantRuleVisibility.PUBLIC, true, 7, "",
+        defaultVisibility, true, GLOBBING_THREADS, defaultsPackageContents,
         UUID.randomUUID());
-    setUpSkyframe(parsePackageCacheOptions());
+    return skyframeExecutor;
   }
 
   protected Iterable<EnvironmentExtension> getEnvironmentExtensions() {

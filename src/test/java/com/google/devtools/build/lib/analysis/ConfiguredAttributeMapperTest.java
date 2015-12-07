@@ -18,7 +18,7 @@ import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -42,7 +42,7 @@ import java.util.List;
  * all attribute mappers.
  */
 @RunWith(JUnit4.class)
-public class ConfiguredAttributeMapperTest extends BuildViewTestCaseForJunit4 {
+public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
 
   /**
    * Returns a ConfiguredAttributeMapper bound to the given rule with the target configuration.

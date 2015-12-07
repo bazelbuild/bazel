@@ -18,7 +18,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -39,7 +39,7 @@ import java.util.UUID;
  * Tests for SkylarkImportLookupFunction.
  */
 @RunWith(JUnit4.class)
-public class SkylarkImportLookupFunctionTest extends BuildViewTestCaseForJunit4 {
+public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
 
   @Before
   public final void preparePackageLoading() throws Exception  {

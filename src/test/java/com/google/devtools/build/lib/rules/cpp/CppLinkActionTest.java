@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.cpp.CppLinkAction.Builder;
@@ -47,7 +47,7 @@ import org.junit.runners.JUnit4;
  * Tests for {@link CppLinkAction}.
  */
 @RunWith(JUnit4.class)
-public class CppLinkActionTest extends BuildViewTestCaseForJunit4 {
+public class CppLinkActionTest extends BuildViewTestCase {
   private RuleContext createDummyRuleContext() throws Exception {
     return view.getRuleContextForTesting(reporter, scratchConfiguredTarget(
         "dummyRuleContext", "dummyRuleContext",

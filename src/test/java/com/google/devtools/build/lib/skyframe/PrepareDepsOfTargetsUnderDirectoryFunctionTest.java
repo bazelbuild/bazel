@@ -22,7 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
@@ -46,7 +46,7 @@ import java.io.IOException;
  * Tests for {@link PrepareDepsOfTargetsUnderDirectoryFunction}. Insert excuses here.
  */
 @RunWith(JUnit4.class)
-public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTestCaseForJunit4 {
+public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTestCase {
 
   private SkyframeExecutor skyframeExecutor;
 

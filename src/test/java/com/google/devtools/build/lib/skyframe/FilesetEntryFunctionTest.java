@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.FilesetEntry.SymlinkBehavior;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.testutil.FoundationTestCaseForJunit4;
+import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -71,7 +71,7 @@ import javax.annotation.Nullable;
 
 /** Tests for {@link FilesetEntryFunction}. */
 @RunWith(JUnit4.class)
-public final class FilesetEntryFunctionTest extends FoundationTestCaseForJunit4 {
+public final class FilesetEntryFunctionTest extends FoundationTestCase {
 
   private TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
   private MemoizingEvaluator evaluator;

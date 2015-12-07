@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -54,7 +54,7 @@ import java.util.Map;
  * Tests {@link SpawnAction}.
  */
 @RunWith(JUnit4.class)
-public class SpawnActionTest extends BuildViewTestCaseForJunit4 {
+public class SpawnActionTest extends BuildViewTestCase {
   private Artifact welcomeArtifact;
   private Artifact destinationArtifact;
   private Artifact jarArtifact;

@@ -25,7 +25,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil.NullAction;
-import com.google.devtools.build.lib.analysis.util.AnalysisTestCaseForJunit4;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AspectInfo;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AspectRequiringRule;
@@ -52,7 +52,7 @@ import org.junit.runners.JUnit4;
  * aspects can be tested even if they aren't used by regular rules.
  */
 @RunWith(JUnit4.class)
-public class AspectTest extends AnalysisTestCaseForJunit4 {
+public class AspectTest extends AnalysisTestCase {
 
   private final void setRules(RuleDefinition... rules) throws Exception {
     ConfiguredRuleClassProvider.Builder builder =
