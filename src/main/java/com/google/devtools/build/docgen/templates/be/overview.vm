@@ -120,3 +120,4 @@
 #summaryTable($otherSummaryFamilies)
 
 </table>
+#parse("com/google/devtools/build/docgen/templates/be/footer.vm")
