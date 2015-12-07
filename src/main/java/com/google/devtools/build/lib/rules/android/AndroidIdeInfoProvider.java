@@ -197,12 +197,11 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     }
 
     public Builder addResourceSource(Artifact resource) {
+      PathFragment resourceDir = LocalResourceContainer.Builder.findResourceDir(resource);
       resourceDirs.add(
           new SourceDirectory(
               resource.getRoot().getPath().asFragment(),
-              trimTo(
-                  resource.getRootRelativePath(),
-                  LocalResourceContainer.Builder.findResourceDir(resource)),
+              trimTo(resource.getRootRelativePath(), resourceDir),
               resource.isSourceArtifact()));
       return this;
     }

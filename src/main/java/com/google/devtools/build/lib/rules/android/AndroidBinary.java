@@ -98,29 +98,23 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     AndroidCommon androidCommon = new AndroidCommon(
         javaCommon, true /* asNeverLink */, true /* exportDeps */);
-    try {
-      ResourceDependencies resourceDeps = LocalResourceContainer.definesAndroidResources(
-          ruleContext.attributes())
-          ? ResourceDependencies.fromRuleDeps(ruleContext, false /* neverlink */)
-          : ResourceDependencies.fromRuleResourceAndDeps(ruleContext, false /* neverlink */);
-      RuleConfiguredTargetBuilder builder = init(
-          ruleContext,
-          filesBuilder,
-          resourceDeps,
-          javaCommon,
-          androidCommon,
-          javaSemantics,
-          androidSemantics,
-          ImmutableList.<String>of("deps"));
-      if (builder == null) {
-        return null;
-      }
-      return builder.build();
-    } catch (RuleConfigurationException e) {
-      Preconditions.checkArgument(ruleContext.hasErrors(),
-          "Exception caught but no errors reported:\n %s", Joiner.on("\n").join(e.getStackTrace()));
+    ResourceDependencies resourceDeps = LocalResourceContainer.definesAndroidResources(
+        ruleContext.attributes())
+        ? ResourceDependencies.fromRuleDeps(ruleContext, false /* neverlink */)
+        : ResourceDependencies.fromRuleResourceAndDeps(ruleContext, false /* neverlink */);
+    RuleConfiguredTargetBuilder builder = init(
+        ruleContext,
+        filesBuilder,
+        resourceDeps,
+        javaCommon,
+        androidCommon,
+        javaSemantics,
+        androidSemantics,
+        ImmutableList.<String>of("deps"));
+    if (builder == null) {
       return null;
     }
+    return builder.build();
   }
 
   private static RuleConfiguredTargetBuilder init(
@@ -218,6 +212,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           getExpandedMakeVarsForAttr(ruleContext, "version_code"),
           getExpandedMakeVarsForAttr(ruleContext, "version_name"),
           false, getProguardConfigArtifact(ruleContext, ""));
+      if (ruleContext.hasErrors()) {
+        return null;
+      }
       incrementalResourceApk = applicationManifest.addStubApplication(ruleContext)
           .packWithDataAndResources(ruleContext
                   .getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_INCREMENTAL_RESOURCES_APK),
@@ -232,6 +229,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               getExpandedMakeVarsForAttr(ruleContext, "version_code"),
               getExpandedMakeVarsForAttr(ruleContext, "version_name"),
               true, getProguardConfigArtifact(ruleContext, "incremental"));
+      if (ruleContext.hasErrors()) {
+        return null;
+      }
       splitResourceApk = applicationManifest
           .createSplitManifest(ruleContext, "android_resources", false)
           .packWithDataAndResources(getDxArtifact(ruleContext, "android_resources.ap_"),
@@ -246,11 +246,17 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               getExpandedMakeVarsForAttr(ruleContext, "version_code"),
               getExpandedMakeVarsForAttr(ruleContext, "version_name"),
               true, getProguardConfigArtifact(ruleContext, "incremental_split"));
+      if (ruleContext.hasErrors()) {
+        return null;
+      }
     } else {
       // Retrieve the resources from the resources attribute on the android_binary rule
       // and recompile them if necessary.
-      applicationManifest = ApplicationManifest.fromResourcesRule(ruleContext).mergeWith(
-          ruleContext, resourceDeps);
+      ApplicationManifest resourcesManifest = ApplicationManifest.fromResourcesRule(ruleContext);
+      if (resourcesManifest == null) {
+        return null;
+      }
+      applicationManifest = resourcesManifest.mergeWith(ruleContext, resourceDeps);
       // Always recompiling resources causes AndroidTest to fail in certain circumstances.
       if (shouldRegenerate(ruleContext, resourceDeps)) {
         resourceApk = applicationManifest.packWithResources(
@@ -272,6 +278,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               resourceDeps,
               false,
               getProguardConfigArtifact(ruleContext, "incremental"));
+      if (ruleContext.hasErrors()) {
+        return null;
+      }
 
       splitResourceApk = applicationManifest
           .createSplitManifest(ruleContext, "android_resources", false)
@@ -280,6 +289,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             resourceDeps,
             false,
             getProguardConfigArtifact(ruleContext, "incremental_split"));
+      if (ruleContext.hasErrors()) {
+        return null;
+      }
     }
 
     JavaTargetAttributes resourceClasses = androidCommon.init(
