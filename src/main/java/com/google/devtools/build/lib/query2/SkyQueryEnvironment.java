@@ -248,7 +248,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     for (Collection<Target> parentCollection : rawReverseDeps.values()) {
       for (Target parent : parentCollection) {
         if (visited.add(parent)) {
-          if (parent instanceof Rule) {
+          if (parent instanceof Rule && dependencyFilter != Rule.ALL_DEPS) {
             for (Label label : getAllowedDeps((Rule) parent)) {
               if (keys.contains(label)) {
                 result.add(parent);
