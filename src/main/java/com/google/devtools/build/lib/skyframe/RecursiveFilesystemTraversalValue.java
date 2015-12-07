@@ -380,6 +380,11 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
       this.metadata = null;
     }
 
+    private DanglingSymlink(RootedPath linkNamePath, PathFragment linkTargetPath) {
+      this.symlink = new Symlink(linkNamePath, linkTargetPath);
+      this.metadata = null;
+    }
+
     DanglingSymlink(RootedPath linkNamePath, PathFragment linkTargetPath,
         FileStateValue metadata) {
       this.symlink = new Symlink(linkNamePath, linkTargetPath);
@@ -459,6 +464,13 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
       this.symlink = Preconditions.checkNotNull(symlink);
     }
 
+    private SymlinkToFile(
+        RootedPath targetPath, RootedPath linkNamePath, PathFragment linkTargetPath) {
+      this.path = Preconditions.checkNotNull(targetPath);
+      this.metadata = null;
+      this.symlink = new Symlink(linkNamePath, linkTargetPath);
+    }
+
     SymlinkToFile(RootedPath targetPath, RootedPath linkNamePath,
         PathFragment linkTargetPath, FileStateValue metadata) {
       this.path = Preconditions.checkNotNull(targetPath);
@@ -533,6 +545,13 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
       this.symlink = symlink;
     }
 
+    private SymlinkToDirectory(
+        RootedPath targetPath, RootedPath linkNamePath, PathFragment linkValue) {
+      this.path = Preconditions.checkNotNull(targetPath);
+      this.metadata = null;
+      this.symlink = new Symlink(linkNamePath, linkValue);
+    }
+
     SymlinkToDirectory(RootedPath targetPath, RootedPath linkNamePath,
         PathFragment linkValue, FileStateValue metadata) {
       this.path = Preconditions.checkNotNull(targetPath);
@@ -595,7 +614,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     }
   }
 
-  public static final class ResolvedFileFactory {
+  static final class ResolvedFileFactory {
     private ResolvedFileFactory() {}
 
     public static ResolvedFile regularFile(RootedPath path, FileStateValue metadata) {
@@ -619,6 +638,30 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     public static ResolvedFile danglingSymlink(RootedPath linkNamePath, PathFragment linkValue,
         FileStateValue metadata) {
       return new DanglingSymlink(linkNamePath, linkValue, metadata);
+    }
+  }
+
+  @VisibleForTesting
+  static final class ResolvedFileFactoryForTesting {
+    private ResolvedFileFactoryForTesting() {}
+
+    static ResolvedFile regularFileForTesting(RootedPath path) {
+      return new RegularFile(path);
+    }
+
+    static ResolvedFile symlinkToFileForTesting(
+        RootedPath targetPath, RootedPath linkNamePath, PathFragment linkTargetPath) {
+      return new SymlinkToFile(targetPath, linkNamePath, linkTargetPath);
+    }
+
+    static ResolvedFile symlinkToDirectoryForTesting(
+        RootedPath targetPath, RootedPath linkNamePath, PathFragment linkValue) {
+      return new SymlinkToDirectory(targetPath, linkNamePath, linkValue);
+    }
+
+    public static ResolvedFile danglingSymlinkForTesting(
+        RootedPath linkNamePath, PathFragment linkValue) {
+      return new DanglingSymlink(linkNamePath, linkValue);
     }
   }
 
