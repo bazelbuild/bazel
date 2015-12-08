@@ -3,7 +3,7 @@
 <div class="toc">
   <h2>Rules</h2>
   <ul>
-    <li><a href="#scala_library">scala_library</a></li>
+    <li><a href="#scala_library">scala_library/scala_macro_library</a></li>
     <li><a href="#scala_binary">scala_binary</a></li>
   </ul>
 </div>
@@ -11,23 +11,41 @@
 ## Overview
 
 This rule is used for building [Scala][scala] projects with Bazel. There are
-currently two rules, `scala_library` and `scala_binary`. More features will be
-added in the future, e.g. `scala_test`.
+currently three rules, `scala_library`, `scala_macro_library` and
+`scala_binary`. More features will be added in the future, e.g. `scala_test`.
+
+In order to use this build rule, you must add the following to your WORKSPACE
+file:
+```
+new_http_archive(
+    name = "scala",
+    strip_prefix = "scala-2.11.7",
+    sha256 = "ffe4196f13ee98a66cf54baffb0940d29432b2bd820bd0781a8316eec22926d0",
+    url = "http://downloads.typesafe.com/scala/2.11.7/scala-2.11.7.tgz",
+    build_file = "tools/build_defs/scala/scala.BUILD",
+)
+```
 
 [scala]: http://www.scala-lang.org/
 
 <a name="scala_library"></a>
-## scala_library
+## scala_library / scala_macro_library
 
 ```python
 scala_library(name, srcs, deps, data, main_class, resources, scalacopts, jvm_flags)
+scala_macro_library(name, srcs, deps, data, main_class, resources, scalacopts, jvm_flags)
 ```
 
-`scala_library` generates a `.jar` file from `.scala` source files.
-In order to make a java rule use this jar file, use the `java_import` rule.
+`scala_library` generates a `.jar` file from `.scala` source files. This rule
+also creates an interface jar to avoid recompiling downstream targets unless
+then interface changes.
 
-The current implementation assumes that the files `/usr/bin/scalac` and
-`/usr/share/java/scala-library.jar` exist.
+`scala_macro_library` generates a `.jar` file from `.scala` source files when
+they contain macros. For macros, there are no interface jars because the macro
+code is executed at compile time. For best performance, you want very granular
+targets until such time as the zinc incremental compiler can be supported.
+
+In order to make a java rule use this jar file, use the `java_import` rule.
 
 <table class="table table-condensed table-bordered table-params">
   <colgroup>
@@ -124,7 +142,7 @@ The current implementation assumes that the files `/usr/bin/scalac` and
 scala_binary(name, srcs, deps, data, main_class, resources, scalacopts, jvm_flags)
 ```
 
-`scala_binary` generates a Scala executable. It may depend on `scala_library`
+`scala_binary` generates a Scala executable. It may depend on `scala_library`, `scala_macro_library`
 and `java_library` rules.
 
 A `scala_binary` requires a `main_class` attribute.
