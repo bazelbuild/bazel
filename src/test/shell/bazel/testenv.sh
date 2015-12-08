@@ -44,6 +44,10 @@ singlejar_path="${TEST_SRCDIR}/src/java_tools/singlejar/SingleJar_deploy.jar"
 genclass_path="${TEST_SRCDIR}/src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass/GenClass_deploy.jar"
 ijar_path="${TEST_SRCDIR}/third_party/ijar/ijar"
 
+# Sandbox tools
+process_wrapper="${TEST_SRCDIR}/src/main/tools/process-wrapper"
+namespace_sandbox="${TEST_SRCDIR}/src/main/tools/namespace-sandbox"
+
 # Android tooling
 aargenerator_path="${TEST_SRCDIR}/src/tools/android/java/com/google/devtools/build/android/AarGeneratorAction_deploy.jar"
 androidresourceprocessor_path="${TEST_SRCDIR}/src/tools/android/java/com/google/devtools/build/android/AndroidResourceProcessingAction_deploy.jar"

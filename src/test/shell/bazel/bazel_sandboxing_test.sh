@@ -364,6 +364,8 @@ EOF
   kill_nc
 }
 
-check_kernel_version
+# The test shouldn't fail if the environment doesn't support running it.
+check_supported_platform || exit 0
 check_sandbox_allowed || exit 0
+
 run_suite "sandbox"
