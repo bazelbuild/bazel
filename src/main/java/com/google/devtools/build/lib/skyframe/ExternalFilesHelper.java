@@ -27,6 +27,10 @@ public class ExternalFilesHelper {
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final ExternalFileAction externalFileAction;
 
+  // This variable is set to true from multiple threads, but only read once, in the main thread.
+  // So volatility or an AtomicBoolean is not needed.
+  private boolean externalFileSeen = false;
+
   /**
    * @param pkgLocator an {@link AtomicReference} to a {@link PathPackageLocator} used to
    *    determine what files are internal.
@@ -50,15 +54,11 @@ public class ExternalFilesHelper {
     ERROR_OUT,
   }
 
-  private enum FileType {
-    // A file inside the package roots or in an external repository.
-    INTERNAL_FILE,
-
-    // A file outside the package roots about which we may make no other assumptions.
-    EXTERNAL_MUTABLE_FILE,
+  boolean isExternalFileSeen() {
+    return externalFileSeen;
   }
 
-  public static boolean isInternal(RootedPath rootedPath, PathPackageLocator packageLocator) {
+  static boolean isInternal(RootedPath rootedPath, PathPackageLocator packageLocator) {
     // TODO(bazel-team): This is inefficient when there are a lot of package roots or there are a
     // lot of external directories. Consider either explicitly preventing this case or using a more
     // efficient approach here (e.g. use a trie for determining if a file is under an external
@@ -77,6 +77,7 @@ public class ExternalFilesHelper {
       return;
     }
 
+    externalFileSeen = true;
     if (externalFileAction == ExternalFileAction.DEPEND_ON_EXTERNAL_PKG) {
       // For files outside the package roots, add a dependency on the //external package so that if
       // the WORKSPACE file changes, the File/DirectoryStateValue will be re-evaluated.

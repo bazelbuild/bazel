@@ -326,6 +326,14 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private void handleDiffsWithMissingDiffInformation(EventHandler eventHandler,
       Set<Pair<Path, DiffAwarenessManager.ProcessableModifiedFileSet>>
           pathEntriesWithoutDiffInformation) throws InterruptedException {
+    if (pathEntriesWithoutDiffInformation.isEmpty()
+        && Iterables.isEmpty(customDirtinessCheckers)
+        && !externalFilesHelper.isExternalFileSeen()) {
+      // Avoid a full graph scan if we have good diff information for all path entries, there are
+      // no custom checkers that need to look at the whole graph, and no external (not under any
+      // path) files need to be checked.
+      return;
+    }
     // Before running the FilesystemValueChecker, ensure that all values marked for invalidation
     // have actually been invalidated (recall that invalidation happens at the beginning of the
     // next evaluate() call), because checking those is a waste of time.
