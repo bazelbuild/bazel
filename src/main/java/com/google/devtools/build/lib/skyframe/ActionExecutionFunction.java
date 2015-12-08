@@ -17,10 +17,10 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -56,6 +57,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
+import java.util.logging.Level;
 
 import javax.annotation.Nullable;
 
@@ -388,46 +390,52 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         // Include scanning didn't find anything beforehand -- these are the definitive discovered
         // inputs.
         state.discoveredInputs = metadataFoundDuringActionExecution.keySet();
-      } else {
-        // Sadly, even if we discovered inputs, sometimes the action runs and discovers more inputs.
-        // Technically, this means our pre-execution input discovery is buggy, but it turns out this
-        // is impractical to fix.
         if (env.valuesMissing()) {
-          // Any new inputs should already have been built -- this is a check that our input
-          // discovery code is not missing too much. It may have to be removed if further input
-          // discovery quirks are found.
-          Set<Artifact> missingArtifacts =
-              Maps.filterValues(metadataFoundDuringActionExecution, Predicates.isNull()).keySet();
-          throw new IllegalStateException(
-              "Missing artifacts: " + missingArtifacts + ", " + state + action);
+          return null;
         }
-        Set<FileArtifactValue> knownMetadata =
-            ImmutableSet.copyOf(state.inputArtifactData.values());
-        ImmutableSet.Builder<Artifact> discoveredInputBuilder =
-            ImmutableSet.<Artifact>builder().addAll(state.discoveredInputs);
-        for (Map.Entry<Artifact, FileArtifactValue> entry :
-            metadataFoundDuringActionExecution.entrySet()) {
-          Preconditions.checkState(knownMetadata.contains(entry.getValue()),
-              "%s %s", action, entry);
-          discoveredInputBuilder.add(entry.getKey());
+        if (!metadataFoundDuringActionExecution.isEmpty()) {
+          // We are in the interesting case of an action that discovered its inputs during
+          // execution, and found some new ones, but the new ones were already present in the graph.
+          // We must therefore cache the metadata for those new ones.
+          Map<Artifact, FileArtifactValue> inputArtifactData = new HashMap<>();
+          inputArtifactData.putAll(state.inputArtifactData);
+          inputArtifactData.putAll(metadataFoundDuringActionExecution);
+          state.inputArtifactData = inputArtifactData;
+          metadataHandler =
+              new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm);
         }
-        state.discoveredInputs = discoveredInputBuilder.build();
-      }
-      if (env.valuesMissing()) {
-        return null;
-      }
-      if (!metadataFoundDuringActionExecution.isEmpty()) {
-        // We are in the interesting case of an action that discovered its inputs during execution,
-        // and found some new ones, but the new ones were already present in the graph. We must
-        // therefore cache the metadata for those new ones.
-        Map<Artifact, FileArtifactValue> inputArtifactData = new HashMap<>();
-        inputArtifactData.putAll(state.inputArtifactData);
-        inputArtifactData.putAll(metadataFoundDuringActionExecution);
-        state.inputArtifactData = inputArtifactData;
-        metadataHandler =
-            new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm);
+      } else if (!metadataFoundDuringActionExecution.isEmpty()) {
+        // The action has run and discovered more inputs. This is a bug, probably the result of
+        // the action dynamically executing locally instead of remotely, and a discrepancy between
+        // our include scanning and the action's compiler. Fail the build so that the user notices,
+        // and also report the issue.
+        String errorMessage =
+            action.prettyPrint()
+                + " discovered unexpected inputs. This indicates a mismatch between "
+                + Constants.PRODUCT_NAME
+                + " and the action's compiler. Please report this issue. The ";
+        if (metadataFoundDuringActionExecution.size() > 10) {
+          errorMessage += "first ten ";
+        }
+        errorMessage += "additional inputs found were: ";
+        int artifactPrinted = 0;
+        for (Artifact extraArtifact : metadataFoundDuringActionExecution.keySet()) {
+          if (artifactPrinted >= 10) {
+            break;
+          }
+          if (artifactPrinted > 0) {
+            errorMessage += ", ";
+          }
+          artifactPrinted++;
+          errorMessage += extraArtifact.prettyPrint();
+        }
+        ActionExecutionException exception =
+            new ActionExecutionException(errorMessage, action, /*catastrophe=*/ false);
+        LoggingUtil.logToRemote(Level.SEVERE, errorMessage, exception);
+        throw exception;
       }
     }
+    Preconditions.checkState(!env.valuesMissing(), action);
     skyframeActionExecutor.afterExecution(action, metadataHandler, state.token);
     return state.value;
   }
