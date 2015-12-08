@@ -35,13 +35,14 @@ import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST_DICT;
 
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.syntax.GlobCriteria;
 import com.google.devtools.build.lib.syntax.GlobList;
 
+import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -56,18 +57,15 @@ public class AttributeSerializer {
    * may be multiple values.
    */
   public static Iterable<Object> getAttributeValues(Rule rule, Attribute attr) {
-    List<Object> values = new LinkedList<>(); // Not an ImmutableList: may host null values.
-
+    // Values may be null, so use normal collections rather than immutable collections.
     if (attr.getName().equals("visibility")) {
-      values.add(rule.getVisibility().getDeclaredLabels());
+      List<Object> result = new ArrayList<>(1);
+      result.add(rule.getVisibility().getDeclaredLabels());
+      return result;
     } else {
-      for (Object o :
-          AggregatingAttributeMapper.of(rule).visitAttribute(attr.getName(), attr.getType())) {
-        values.add(o);
-      }
+      return Lists.<Object>newArrayList(
+          AggregatingAttributeMapper.of(rule).visitAttribute(attr.getName(), attr.getType()));
     }
-
-    return values;
   }
 
   /**
