@@ -176,6 +176,22 @@ public class PlistMerging extends Value<PlistMerging> {
    * Generates a Plistmerging combining values from sourceFiles and automaticEntries, and modifying
    * them based on subsitutions and keysToRemoveIfEmptyString.
    */
+  public static PlistMerging from(
+      MergingArguments mergingArguments,
+      Map<String, NSObject> automaticEntries,
+      KeysToRemoveIfEmptyString keysToRemoveIfEmptyString)
+      throws IOException {
+    return from(
+        mergingArguments.getSourceFilePaths(),
+        automaticEntries,
+        mergingArguments.getVariableSubstitutions(),
+        keysToRemoveIfEmptyString);
+  }
+  
+  /**
+   * Generates a Plistmerging combining values from sourceFiles and automaticEntries, and modifying
+   * them based on subsitutions and keysToRemoveIfEmptyString.
+   */
   public static PlistMerging from(List<Path> sourceFiles, Map<String, NSObject> automaticEntries,
       Map<String, String> substitutions, KeysToRemoveIfEmptyString keysToRemoveIfEmptyString)
           throws IOException {

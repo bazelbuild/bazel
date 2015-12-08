@@ -12,6 +12,7 @@ FILES = [
     "android_studio_ide_info",
     "package_manifest",
     "test_status",
+    "plmerge",
     "bundlemerge",
     "xcodegen",
     "worker_protocol",
