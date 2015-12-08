@@ -147,6 +147,12 @@ sh_test(
 )
 
 sh_test(
+    name = "external_correctness_test",
+    srcs = ["external_correctness_test.sh"],
+    data = [":test-deps"],
+)
+
+sh_test(
     name = "external_integration_test",
     size = "large",
     srcs = ["external_integration_test.sh"],

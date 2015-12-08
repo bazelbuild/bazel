@@ -332,7 +332,6 @@ public class BallPit {
 }
 EOF
 
-  bazel fetch //zoo:ball-pit || fail "Fetch failed"
   bazel run //zoo:ball-pit >& $TEST_log || echo "Expected run to succeed"
   kill_nc
   expect_log "Tra-la!"
@@ -407,7 +406,6 @@ cat external/toto/file/toto
 EOF
 
   chmod +x test/test.sh
-  bazel fetch //test || fail "Fetch failed"
   bazel run //test >& $TEST_log || echo "Expected run to succeed"
   kill_nc
   expect_log "Tra-la!"
@@ -592,13 +590,13 @@ genrule(
 )
 EOF
 
-  bazel build @x//:catter || fail "Build failed"
+  bazel build @x//:catter &> $TEST_log || fail "Build 1 failed"
   assert_contains "abc" bazel-genfiles/external/x/catter.out
   mv x.BUILD x.BUILD.new || fail "Moving x.BUILD failed"
   sed 's/x.BUILD/x.BUILD.new/g' WORKSPACE > WORKSPACE.tmp || \
     fail "Editing WORKSPACE failed"
   mv WORKSPACE.tmp WORKSPACE
-  bazel build @x//:catter || fail "Build failed"
+  bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
   assert_contains "abc" bazel-genfiles/external/x/catter.out
 }
 
@@ -635,12 +633,12 @@ genrule(
 )
 EOF
 
-  bazel build @x//:catter || fail "Build failed"
+  bazel build @x//:catter || fail "Build 1 failed"
   assert_contains "abc" bazel-genfiles/external/x/catter.out
   sed 's/x.BUILD/x.BUILD.new/g' WORKSPACE > WORKSPACE.tmp || \
     fail "Editing WORKSPACE failed"
   mv WORKSPACE.tmp WORKSPACE
-  bazel build @x//:catter || fail "Build failed"
+  bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
   assert_contains "def" bazel-genfiles/external/x/catter.out
 }
 

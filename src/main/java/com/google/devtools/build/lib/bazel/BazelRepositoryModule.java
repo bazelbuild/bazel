@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -60,13 +59,11 @@ import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.util.Clock;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.OptionsProvider;
 
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -75,7 +72,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class BazelRepositoryModule extends BlazeModule {
 
-  private BlazeDirectories directories;
   // A map of repository handlers that can be looked up by rule class name.
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
@@ -109,15 +105,9 @@ public class BazelRepositoryModule extends BlazeModule {
   public void blazeStartup(OptionsProvider startupOptions,
       BlazeVersionInfo versionInfo, UUID instanceId, BlazeDirectories directories,
       Clock clock) {
-    this.directories = directories;
     for (RepositoryFunction handler : repositoryHandlers.values()) {
       handler.setDirectories(directories);
     }
-  }
-
-  @Override
-  public Set<Path> getImmutableDirectories() {
-    return ImmutableSet.of(RepositoryFunction.getExternalRepositoryDirectory(directories));
   }
 
   @Override

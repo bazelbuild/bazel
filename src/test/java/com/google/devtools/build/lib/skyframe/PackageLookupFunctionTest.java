@@ -73,7 +73,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>(
         new PathPackageLocator(outputBase, ImmutableList.of(emptyPackagePath, rootDirectory)));
     deletedPackages = new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
-    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator);
+    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator, false);
     TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
     BlazeDirectories directories = new BlazeDirectories(rootDirectory, outputBase, rootDirectory);
 
@@ -84,7 +84,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
         SkyFunctions.PACKAGE,
         new PackageFunction(null, null, null, null, null, null, null));
     skyFunctions.put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper));
-    skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator, tsgm, externalFilesHelper));
+    skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
         new BlacklistedPackagePrefixesFunction());
     RuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();

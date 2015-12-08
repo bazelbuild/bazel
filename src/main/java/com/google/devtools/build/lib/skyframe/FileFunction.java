@@ -20,7 +20,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -30,7 +29,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicReference;
@@ -46,15 +44,9 @@ import javax.annotation.Nullable;
  */
 public class FileFunction implements SkyFunction {
   private final AtomicReference<PathPackageLocator> pkgLocator;
-  private final TimestampGranularityMonitor tsgm;
-  private final ExternalFilesHelper externalFilesHelper;
 
-  public FileFunction(AtomicReference<PathPackageLocator> pkgLocator,
-      TimestampGranularityMonitor tsgm,
-      ExternalFilesHelper externalFilesHelper) {
+  public FileFunction(AtomicReference<PathPackageLocator> pkgLocator) {
     this.pkgLocator = pkgLocator;
-    this.tsgm = tsgm;
-    this.externalFilesHelper = externalFilesHelper;
   }
 
   @Override
@@ -101,33 +93,13 @@ public class FileFunction implements SkyFunction {
     while (realFileStateValue.getType().equals(FileStateValue.Type.SYMLINK)) {
       symlinkChain.add(realRootedPath);
       orderedSeenPaths.add(realRootedPath.asPath());
-      if (externalFilesHelper.shouldAssumeImmutable(realRootedPath)) {
-        // If the file is assumed to be immutable, we want to resolve the symlink chain without
-        // adding dependencies since we don't care about incremental correctness.
-        try {
-          Path realPath = rootedPath.asPath().resolveSymbolicLinks();
-          realRootedPath = RootedPath.toRootedPathMaybeUnderRoot(realPath,
-              pkgLocator.get().getPathEntries());
-          realFileStateValue = FileStateValue.create(realRootedPath, tsgm);
-        } catch (IOException e) {
-          RootedPath root = RootedPath.toRootedPath(
-              rootedPath.asPath().getFileSystem().getRootDirectory(),
-              rootedPath.asPath().getFileSystem().getRootDirectory());
-          return FileValue.value(
-              rootedPath, fileStateValue,
-              root, FileStateValue.NONEXISTENT_FILE_STATE_NODE);
-        } catch (InconsistentFilesystemException e) {
-          throw new FileFunctionException(e, Transience.TRANSIENT);
-        }
-      } else {
-        Pair<RootedPath, FileStateValue> resolvedState = getSymlinkTargetRootedPath(realRootedPath,
-            realFileStateValue.getSymlinkTarget(), orderedSeenPaths, symlinkChain, env);
-        if (resolvedState == null) {
-          return null;
-        }
-        realRootedPath = resolvedState.getFirst();
-        realFileStateValue = resolvedState.getSecond();
+      Pair<RootedPath, FileStateValue> resolvedState = getSymlinkTargetRootedPath(realRootedPath,
+          realFileStateValue.getSymlinkTarget(), orderedSeenPaths, symlinkChain, env);
+      if (resolvedState == null) {
+        return null;
       }
+      realRootedPath = resolvedState.getFirst();
+      realFileStateValue = resolvedState.getSecond();
     }
     return FileValue.value(rootedPath, fileStateValue, realRootedPath, realFileStateValue);
   }
@@ -142,10 +114,7 @@ public class FileFunction implements SkyFunction {
     PathFragment relativePath = rootedPath.getRelativePath();
     RootedPath realRootedPath = rootedPath;
     FileValue parentFileValue = null;
-    // We only resolve ancestors if the file is not assumed to be immutable (handling ancestors
-    // would be too aggressive).
-    if (!externalFilesHelper.shouldAssumeImmutable(rootedPath)
-        && !relativePath.equals(PathFragment.EMPTY_FRAGMENT)) {
+    if (!relativePath.equals(PathFragment.EMPTY_FRAGMENT)) {
       RootedPath parentRootedPath = RootedPath.toRootedPath(rootedPath.getRoot(),
           relativePath.getParentDirectory());
       parentFileValue = (FileValue) env.getValue(FileValue.key(parentRootedPath));

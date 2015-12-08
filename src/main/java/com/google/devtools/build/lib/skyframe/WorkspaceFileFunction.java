@@ -66,12 +66,12 @@ public class WorkspaceFileFunction implements SkyFunction {
     Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRelativePath());
     LegacyBuilder builder =
         com.google.devtools.build.lib.packages.Package.newExternalPackageBuilder(
-            repoWorkspace, packageFactory.getRuleClassProvider().getRunfilesPrefix());
+            repoWorkspace, ruleClassProvider.getRunfilesPrefix());
     try (Mutability mutability = Mutability.create("workspace %s", repoWorkspace)) {
       WorkspaceFactory parser =
           new WorkspaceFactory(
               builder,
-              packageFactory.getRuleClassProvider(),
+              ruleClassProvider,
               packageFactory.getEnvironmentExtensions(),
               mutability,
               directories.getEmbeddedBinariesRoot(),

@@ -17,7 +17,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
@@ -51,7 +50,6 @@ import com.google.devtools.common.options.OptionsProvider;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import javax.annotation.Nullable;
@@ -102,13 +100,6 @@ public abstract class BlazeModule {
   public void blazeStartup(OptionsProvider startupOptions,
       BlazeVersionInfo versionInfo, UUID instanceId, BlazeDirectories directories,
       Clock clock) throws AbruptExitException {
-  }
-
-  /**
-   * Returns the set of directories under which blaze may assume all files are immutable.
-   */
-  public Set<Path> getImmutableDirectories() {
-    return ImmutableSet.<Path>of();
   }
 
   /**

@@ -44,7 +44,7 @@ EOF
 filegroup(name="mfg", srcs=["//external:e"])
 EOF
 
-  bazel build //:mfg
+  bazel build //:mfg &> $TEST_log || fail "Building //:mfg failed"
 }
 
 # Uses a glob from a different repository for a runfile.
@@ -259,14 +259,11 @@ public class Mongoose {
 }
 EOF
 
-  # Check that rebuilding this doesn't rebuild libmongoose.jar, even though it
-  # has changed. Bazel assumes that files in external repositories are
-  # immutable.
+  # Check that external repo changes are noticed and libmongoose.jar is rebuilt.
   bazel fetch //zoo:ball-pit || fail "Fetch failed"
   bazel run //zoo:ball-pit >& $TEST_log || fail "Failed to build/run zoo"
-  expect_log "Tra-la!"
-  expect_not_log "Building endangered/libmongoose.jar"
-  expect_not_log "Growl!"
+  expect_not_log "Tra-la!"
+  expect_log "Growl!"
 }
 
 function test_default_ws() {
@@ -329,7 +326,7 @@ EOF
 # Creates an indirect dependency on X from A and make sure the error message
 # refers to the correct label.
 function test_indirect_dep_message() {
-  local external_dir=$TEST_TMPDIR
+  local external_dir=$TEST_TMPDIR/ext-dir
   mkdir -p a b $external_dir/x
   cat > a/A.java <<EOF
 package a;
@@ -395,7 +392,6 @@ local_repository(
 )
 EOF
 
-  bazel fetch //a:a || fail "Fetch failed"
   bazel build //a:a >& $TEST_log && fail "Building //a:a should error out"
   expect_log "** Please add the following dependencies:"
   expect_log "@x-repo//x  to //a:a"

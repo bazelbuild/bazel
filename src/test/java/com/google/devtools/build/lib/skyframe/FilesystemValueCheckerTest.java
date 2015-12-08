@@ -28,9 +28,13 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.TestAction;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
+import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
@@ -91,22 +95,34 @@ public class FilesystemValueCheckerTest {
 
     fs = new MockFileSystem();
     pkgRoot = fs.getPath("/testroot");
+    FileSystemUtils.createDirectoryAndParents(pkgRoot);
+    FileSystemUtils.createEmptyFile(pkgRoot.getRelative("WORKSPACE"));
 
     tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
     AtomicReference<PathPackageLocator> pkgLocator =
-        new AtomicReference<>(PathPackageLocator.EMPTY);
-    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator);
+        new AtomicReference<>(new PathPackageLocator(pkgRoot));
+    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator, false);
     skyFunctions.put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper));
-    skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator, tsgm, externalFilesHelper));
+    skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(
         SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS, new FileSymlinkCycleUniquenessFunction());
     skyFunctions.put(
         SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS,
         new FileSymlinkInfiniteExpansionUniquenessFunction());
+    skyFunctions.put(SkyFunctions.PACKAGE,
+        new PackageFunction(null, null, null, null, null, null, null));
+    skyFunctions.put(SkyFunctions.PACKAGE_LOOKUP,
+        new PackageLookupFunction(new AtomicReference<>(ImmutableSet.<PackageIdentifier>of())));
+    skyFunctions.put(SkyFunctions.WORKSPACE_FILE,
+        new WorkspaceFileFunction(TestRuleClassProvider.getRuleClassProvider(),
+            new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),
+            new BlazeDirectories(pkgRoot, pkgRoot, pkgRoot)));
+
     differencer = new RecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions.build(), differencer);
     driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
+    PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
   }
 
   @Test
@@ -123,8 +139,8 @@ public class FilesystemValueCheckerTest {
     FileSystemUtils.createEmptyFile(path);
     assertEmptyDiff(getDirtyFilesystemKeys(evaluator, checker));
 
-    SkyKey skyKey =
-        FileStateValue.key(RootedPath.toRootedPath(fs.getRootDirectory(), new PathFragment("foo")));
+    SkyKey skyKey = FileStateValue.key(
+        RootedPath.toRootedPath(fs.getRootDirectory(), new PathFragment("foo")));
     EvaluationResult<SkyValue> result =
         driver.evaluate(
             ImmutableList.of(skyKey),

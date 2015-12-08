@@ -126,7 +126,7 @@ public abstract class FileValue implements SkyValue {
    * Only intended to be used by {@link FileFunction}. Should not be used for symlink cycles.
    */
   static FileValue value(RootedPath rootedPath, FileStateValue fileStateValue,
-      RootedPath realRootedPath, FileStateValue realFileStateValue) {
+                         RootedPath realRootedPath, FileStateValue realFileStateValue) {
     if (rootedPath.equals(realRootedPath)) {
       Preconditions.checkState(fileStateValue.getType() != FileStateValue.Type.SYMLINK,
           "rootedPath: %s, fileStateValue: %s, realRootedPath: %s, realFileStateValue: %s",
@@ -137,7 +137,8 @@ public abstract class FileValue implements SkyValue {
         return new SymlinkFileValue(realRootedPath, realFileStateValue,
             fileStateValue.getSymlinkTarget());
       } else {
-        return new DifferentRealPathFileValue(realRootedPath, realFileStateValue);
+        return new DifferentRealPathFileValue(
+            realRootedPath, realFileStateValue);
       }
     }
   }
@@ -201,7 +202,7 @@ public abstract class FileValue implements SkyValue {
     protected final FileStateValue realFileStateValue;
 
     public DifferentRealPathFileValue(RootedPath realRootedPath,
-        FileStateValue realFileStateValue) {
+                                      FileStateValue realFileStateValue) {
       this.realRootedPath = Preconditions.checkNotNull(realRootedPath);
       this.realFileStateValue = Preconditions.checkNotNull(realFileStateValue);
     }
@@ -245,7 +246,7 @@ public abstract class FileValue implements SkyValue {
     private final PathFragment linkValue;
 
     public SymlinkFileValue(RootedPath realRootedPath, FileStateValue realFileState,
-        PathFragment linkTarget) {
+                            PathFragment linkTarget) {
       super(realRootedPath, realFileState);
       this.linkValue = linkTarget;
     }
@@ -276,7 +277,8 @@ public abstract class FileValue implements SkyValue {
 
     @Override
     public int hashCode() {
-      return Objects.hash(realRootedPath, realFileStateValue, linkValue, Boolean.TRUE);
+      return Objects.hash(
+          realRootedPath, realFileStateValue, linkValue, Boolean.TRUE);
     }
 
     @Override

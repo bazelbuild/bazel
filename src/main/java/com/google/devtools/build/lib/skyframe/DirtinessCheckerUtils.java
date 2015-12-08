@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.devtools.build.lib.skyframe.SkyFunctions.DIRECTORY_LISTING_STATE;
 import static com.google.devtools.build.lib.skyframe.SkyFunctions.FILE_STATE;
 
+import com.google.common.base.Objects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -30,7 +32,7 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Utilities for checking dirtiness of keys (mainly filesystem keys) in the graph. */
-class DirtinessCheckerUtils {
+public class DirtinessCheckerUtils {
   private DirtinessCheckerUtils() {}
 
   static class FileDirtinessChecker extends SkyValueDirtinessChecker {
@@ -91,16 +93,53 @@ class DirtinessCheckerUtils {
   }
 
   static final class MissingDiffDirtinessChecker extends BasicFilesystemDirtinessChecker {
-    private final Set<Path> missingDiffPaths;
+    private final Set<Path> missingDiffPackageRoots;
 
-    MissingDiffDirtinessChecker(final Set<Path> missingDiffPaths) {
-      this.missingDiffPaths = missingDiffPaths;
+    MissingDiffDirtinessChecker(final Set<Path> missingDiffPackageRoots) {
+      this.missingDiffPackageRoots = missingDiffPackageRoots;
     }
 
     @Override
     public boolean applies(SkyKey key) {
       return super.applies(key)
-          && missingDiffPaths.contains(((RootedPath) key.argument()).getRoot());
+          && missingDiffPackageRoots.contains(((RootedPath) key.argument()).getRoot());
+    }
+  }
+
+  /** Checks files outside of the package roots for changes. */
+  static final class ExternalDirtinessChecker extends BasicFilesystemDirtinessChecker {
+    private final PathPackageLocator packageLocator;
+
+    ExternalDirtinessChecker(PathPackageLocator packageLocator) {
+      this.packageLocator = packageLocator;
+    }
+
+    @Override
+    public boolean applies(SkyKey key) {
+      return super.applies(key)
+          && !ExternalFilesHelper.isInternal((RootedPath) key.argument(), packageLocator);
+    }
+
+    /**
+     * Files under output_base/external have a dependency on the WORKSPACE file, so we don't add a
+     * new SkyValue to the graph yet because it might change once the WORKSPACE file has been
+     * parsed.
+     *
+     * <p>This dirtiness checker is a bit conservative: files that are outside the package roots
+     * but aren't under output_base/external/ could just be stat-ed here (but they aren't).</p>
+     */
+    @Nullable
+    @Override
+    public SkyValue createNewValue(SkyKey key, @Nullable TimestampGranularityMonitor tsgm) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public SkyValueDirtinessChecker.DirtyResult check(
+        SkyKey skyKey, SkyValue oldValue, @Nullable TimestampGranularityMonitor tsgm) {
+      return Objects.equal(super.createNewValue(skyKey, tsgm), oldValue)
+          ? SkyValueDirtinessChecker.DirtyResult.notDirty(oldValue)
+          : SkyValueDirtinessChecker.DirtyResult.dirty(oldValue);
     }
   }
 

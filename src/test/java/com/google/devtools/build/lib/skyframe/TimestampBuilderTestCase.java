@@ -38,12 +38,15 @@ import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.util.DummyExecutor;
 import com.google.devtools.build.lib.actions.util.TestAction;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.buildtool.SkyframeBuilder;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.BlazeClock;
@@ -59,6 +62,7 @@ import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequentialBuildDriver;
+import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -133,8 +137,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
       final boolean keepGoing,
       @Nullable EvaluationProgressReceiver evaluationProgressReceiver) {
     AtomicReference<PathPackageLocator> pkgLocator =
-        new AtomicReference<>(new PathPackageLocator(outputBase, ImmutableList.<Path>of()));
-    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator);
+        new AtomicReference<>(new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)));
+    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator, false);
     differencer = new RecordingDifferencer();
 
     ActionExecutionStatusReporter statusReporter =
@@ -148,19 +152,26 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
 
     final InMemoryMemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
-            ImmutableMap.of(
-                SkyFunctions.FILE_STATE,
-                new FileStateFunction(tsgm, externalFilesHelper),
-                SkyFunctions.FILE,
-                new FileFunction(pkgLocator, tsgm, externalFilesHelper),
-                SkyFunctions.ARTIFACT,
-                new ArtifactFunction(Predicates.<PathFragment>alwaysFalse()),
-                SkyFunctions.ACTION_EXECUTION,
-                new ActionExecutionFunction(skyframeActionExecutor, tsgm)),
+            ImmutableMap.<SkyFunctionName, SkyFunction>builder()
+                .put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper))
+                .put(SkyFunctions.FILE, new FileFunction(pkgLocator))
+                .put(SkyFunctions.ARTIFACT,
+                    new ArtifactFunction(Predicates.<PathFragment>alwaysFalse()))
+                .put(SkyFunctions.ACTION_EXECUTION,
+                    new ActionExecutionFunction(skyframeActionExecutor, tsgm))
+                .put(SkyFunctions.PACKAGE,
+                    new PackageFunction(null, null, null, null, null, null, null))
+                .put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(null))
+                .put(SkyFunctions.WORKSPACE_FILE,
+                    new WorkspaceFileFunction(TestRuleClassProvider.getRuleClassProvider(),
+                        new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),
+                        new BlazeDirectories(rootDirectory, outputBase, rootDirectory)))
+                .build(),
             differencer,
             evaluationProgressReceiver);
     final SequentialBuildDriver driver = new SequentialBuildDriver(evaluator);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
+    PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
 
     return new Builder() {
       private void setGeneratingActions() {
