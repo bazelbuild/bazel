@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -28,6 +29,12 @@ public class AppleToolchain {
   // until compile time on any given build machine.
   private static final String DEVELOPER_DIR = "__BAZEL_XCODE_DEVELOPER_DIR__";
   private static final String SDKROOT_DIR = "__BAZEL_XCODE_SDKROOT__";
+  
+  // These two paths are framework paths relative to SDKROOT.
+  @VisibleForTesting
+  public static final String DEVELOPER_FRAMEWORK_PATH = "/Developer/Library/Frameworks";
+  @VisibleForTesting
+  public static final String SYSTEM_FRAMEWORK_PATH = "/System/Library/Frameworks";
   
   // There is a handy reference to many clang warning flags at
   // http://nshipster.com/clang-diagnostics/
@@ -95,8 +102,25 @@ public class AppleToolchain {
   /**
    * Returns the SDK frameworks directory inside of Xcode for a given configuration.
    */
-  public static String sdkDeveloperFrameworkDir() {
-    return sdkDir() + "/Developer/Library/Frameworks";
+  public static String sdkFrameworkDir(Platform targetPlatform,
+      AppleConfiguration configuration) {
+    String relativePath;
+    switch (targetPlatform) {
+      case IOS_DEVICE:
+      case IOS_SIMULATOR:
+        if (configuration.getIosSdkVersion().compareTo(DottedVersion.fromString("9.0")) >= 0) {
+          relativePath = SYSTEM_FRAMEWORK_PATH;
+        } else {
+          relativePath = DEVELOPER_FRAMEWORK_PATH;
+        }
+        break;
+      case MACOSX:
+        relativePath = DEVELOPER_FRAMEWORK_PATH;
+        break;
+      default:
+        throw new IllegalArgumentException("Unhandled platform " + targetPlatform);
+    }
+    return sdkDir() + relativePath;
   }
 
   /**

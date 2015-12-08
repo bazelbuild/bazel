@@ -1306,7 +1306,8 @@ public final class CompilationSupport {
       ObjcProvider provider, ObjcConfiguration objcConfiguration,
       AppleConfiguration appleConfiguration) {
     ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
-    if (Platform.forIosArch(appleConfiguration.getIosCpu()) == Platform.IOS_SIMULATOR) {
+    Platform platform = Platform.forIosArch(appleConfiguration.getIosCpu());
+    if (platform == Platform.IOS_SIMULATOR) {
       builder.add("-mios-simulator-version-min=" + objcConfiguration.getMinimumOs());
     } else {
       builder.add("-miphoneos-version-min=" + objcConfiguration.getMinimumOs());
@@ -1320,7 +1321,7 @@ public final class CompilationSupport {
         .add("-arch", appleConfiguration.getIosCpu())
         .add("-isysroot", AppleToolchain.sdkDir())
         // TODO(bazel-team): Pass framework search paths to Xcodegen.
-        .add("-F", AppleToolchain.sdkDeveloperFrameworkDir())
+        .add("-F", AppleToolchain.sdkFrameworkDir(platform, appleConfiguration))
         // As of sdk8.1, XCTest is in a base Framework dir
         .add("-F", AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration))
         // Add custom (non-SDK) framework search paths. For each framework foo/bar.framework,
