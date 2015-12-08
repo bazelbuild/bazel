@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
@@ -1076,6 +1076,7 @@ public final class RuleClass {
     this.configuredTargetFunction = configuredTargetFunction;
     this.externalBindingsFunction = externalBindingsFunction;
     this.ruleDefinitionEnvironment = ruleDefinitionEnvironment;
+    validateNoClashInPublicNames(attributes);
     this.attributes = ImmutableList.copyOf(attributes);
     this.workspaceOnly = workspaceOnly;
     this.outputsDefaultExecutable = outputsDefaultExecutable;
@@ -1087,6 +1088,23 @@ public final class RuleClass {
     attributeIndex = new HashMap<>(attributes.length);
     for (Attribute attribute : attributes) {
       attributeIndex.put(attribute.getName(), index++);
+    }
+  }
+
+  private void validateNoClashInPublicNames(Attribute[] attributes) {
+    Map<String, Attribute> publicToPrivateNames = new HashMap<>();
+    for (Attribute attribute : attributes) {
+      String publicName = attribute.getPublicName();
+      if (publicToPrivateNames.containsKey(publicName)) {
+        throw new IllegalStateException(
+            String.format(
+                "Rule %s: Attributes %s and %s have an identical public name: %s",
+                name,
+                attribute.getName(),
+                publicToPrivateNames.get(publicName).getName(),
+                publicName));
+      }
+      publicToPrivateNames.put(publicName, attribute);
     }
   }
 

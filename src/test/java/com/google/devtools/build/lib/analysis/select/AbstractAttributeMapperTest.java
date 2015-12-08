@@ -156,7 +156,7 @@ public class AbstractAttributeMapperTest extends FoundationTestCase {
   @Test
   public void testComputedDefault() throws Exception {
     // Should return a valid ComputedDefault instance since this is a computed default:
-    assertThat(mapper.getComputedDefault("$stl", BuildType.LABEL))
+    assertThat(mapper.getComputedDefault("$stl_default", BuildType.LABEL))
         .isInstanceOf(Attribute.ComputedDefault.class);
     // Should return null since this *isn't* a computed default:
     assertNull(mapper.getComputedDefault("srcs", BuildType.LABEL_LIST));

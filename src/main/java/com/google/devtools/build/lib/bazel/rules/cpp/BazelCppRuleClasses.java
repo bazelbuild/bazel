@@ -200,15 +200,15 @@ public class BazelCppRuleClasses {
   /**
    * Returns the STL prerequisite of the rule.
    *
-   * <p>If rule has an implicit $stl attribute returns STL version set on the
-   * command line or if not set, the value of the $stl attribute. Returns
+   * <p>If rule has an implicit $stl_default attribute returns STL version set on the
+   * command line or if not set, the value of the $stl_default attribute. Returns
    * {@code null} otherwise.
    */
   private static Label getStl(Rule rule, BuildConfiguration original) {
     Label stl = null;
-    if (rule.getRuleClassObject().hasAttr("$stl", BuildType.LABEL)) {
+    if (rule.getRuleClassObject().hasAttr("$stl_default", BuildType.LABEL)) {
       Label stlConfigLabel = original.getFragment(CppConfiguration.class).getStl();
-      Label stlRuleLabel = RawAttributeMapper.of(rule).get("$stl", BuildType.LABEL);
+      Label stlRuleLabel = RawAttributeMapper.of(rule).get("$stl_default", BuildType.LABEL);
       if (stlConfigLabel == null) {
         stl = stlRuleLabel;
       } else if (!stlConfigLabel.equals(rule.getLabel()) && stlRuleLabel != null) {
@@ -260,8 +260,9 @@ public class BazelCppRuleClasses {
           so be careful about header files included elsewhere.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("copts", STRING_LIST))
-          .add(attr("$stl", LABEL).value(env.getLabel(
-              Constants.TOOLS_REPOSITORY + "//tools/cpp:stl")))
+          .add(
+              attr("$stl_default", LABEL)
+                  .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/cpp:stl")))
           .add(attr(":stl", LABEL).value(STL))
           .build();
     }
@@ -451,18 +452,20 @@ public class BazelCppRuleClasses {
             accordance with gcc convention.
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("srcs", LABEL_LIST)
-              .direct_compile_time_input()
-              .allowedFileTypes(ALLOWED_SRC_FILES))
+          .add(
+              attr("srcs", LABEL_LIST)
+                  .direct_compile_time_input()
+                  .allowedFileTypes(ALLOWED_SRC_FILES))
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the binary target.
           ${SYNOPSIS}
           <p>These are always <code>cc_library</code> rules.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .override(attr("deps", LABEL_LIST)
-              .allowedRuleClasses(DEPS_ALLOWED_RULES)
-              .allowedFileTypes(CppFileTypes.LINKER_SCRIPT)
-              .skipAnalysisTimeFileTypeCheck())
+          .override(
+              attr("deps", LABEL_LIST)
+                  .allowedRuleClasses(DEPS_ALLOWED_RULES)
+                  .allowedFileTypes(CppFileTypes.LINKER_SCRIPT)
+                  .skipAnalysisTimeFileTypeCheck())
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(linkopts) -->
           Add these flags to the C++ linker command.
           ${SYNOPSIS}
@@ -528,16 +531,20 @@ public class BazelCppRuleClasses {
            </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("linkstatic", BOOLEAN).value(true))
-          .override(attr("$stl", LABEL).value(new Attribute.ComputedDefault() {
-            @Override
-            public Object getDefault(AttributeMap rule) {
-              // Every cc_rule depends implicitly on STL to make
-              // sure that the correct headers are used for inclusion. The only exception is
-              // STL itself to avoid cycles in the dependency graph.
-              Label stl = env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/cpp:stl");
-              return rule.getLabel().equals(stl) ? null : stl;
-            }
-          }))
+          .override(
+              attr("$stl_default", LABEL)
+                  .value(
+                      new Attribute.ComputedDefault() {
+                        @Override
+                        public Object getDefault(AttributeMap rule) {
+                          // Every cc_rule depends implicitly on STL to make
+                          // sure that the correct headers are used for inclusion.
+                          // The only exception is STL itself,
+                          // to avoid cycles in the dependency graph.
+                          Label stl = env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/cpp:stl");
+                          return rule.getLabel().equals(stl) ? null : stl;
+                        }
+                      }))
           .build();
     }
     @Override
