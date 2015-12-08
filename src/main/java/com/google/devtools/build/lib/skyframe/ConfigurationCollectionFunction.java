@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigura
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.ConfigurationCollectionValue.ConfigurationCollectionKey;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -45,12 +44,9 @@ import javax.annotation.Nullable;
 public class ConfigurationCollectionFunction implements SkyFunction {
 
   private final Supplier<ConfigurationFactory> configurationFactory;
-  private final RuleClassProvider ruleClassProvider;
 
-  public ConfigurationCollectionFunction(Supplier<ConfigurationFactory> configurationFactory,
-      RuleClassProvider ruleClassProvider) {
+  public ConfigurationCollectionFunction(Supplier<ConfigurationFactory> configurationFactory) {
     this.configurationFactory = configurationFactory;
-    this.ruleClassProvider = ruleClassProvider;
   }
 
   @Override
@@ -58,9 +54,9 @@ public class ConfigurationCollectionFunction implements SkyFunction {
       ConfigurationCollectionFunctionException {
     ConfigurationCollectionKey collectionKey = (ConfigurationCollectionKey) skyKey.argument();
     try {
-      BuildConfigurationCollection result = getConfigurations(env,
-          new SkyframePackageLoaderWithValueEnvironment(env, ruleClassProvider),
-          collectionKey.getBuildOptions(), collectionKey.getMultiCpu());
+      BuildConfigurationCollection result =
+          getConfigurations(env, new SkyframePackageLoaderWithValueEnvironment(env),
+              collectionKey.getBuildOptions(), collectionKey.getMultiCpu());
 
       // BuildConfigurationCollection can be created, but dependencies to some files might be
       // missing. In that case we need to build configurationCollection again.

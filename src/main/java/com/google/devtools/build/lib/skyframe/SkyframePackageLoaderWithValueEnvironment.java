@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframePackageLoader;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -41,12 +40,9 @@ import java.io.IOException;
  */
 class SkyframePackageLoaderWithValueEnvironment implements PackageProviderForConfigurations {
   private final SkyFunction.Environment env;
-  private final RuleClassProvider ruleClassProvider;
 
-  public SkyframePackageLoaderWithValueEnvironment(SkyFunction.Environment env,
-      RuleClassProvider ruleClassProvider) {
+  public SkyframePackageLoaderWithValueEnvironment(SkyFunction.Environment env) {
     this.env = env;
-    this.ruleClassProvider = ruleClassProvider;
   }
 
   private Package getPackage(final PackageIdentifier pkgIdentifier)
@@ -81,7 +77,7 @@ class SkyframePackageLoaderWithValueEnvironment implements PackageProviderForCon
   public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType)
       throws InvalidConfigurationException {
     ConfigurationFragmentValue fragmentNode = (ConfigurationFragmentValue) env.getValueOrThrow(
-        ConfigurationFragmentValue.key(buildOptions, fragmentType, ruleClassProvider),
+        ConfigurationFragmentValue.key(buildOptions, fragmentType),
         InvalidConfigurationException.class);
     if (fragmentNode == null) {
       return null;

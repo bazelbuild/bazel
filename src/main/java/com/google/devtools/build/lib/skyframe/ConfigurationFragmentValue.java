@@ -14,13 +14,11 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -48,16 +46,9 @@ public class ConfigurationFragmentValue implements SkyValue {
   }
   
   @ThreadSafe
-  public static SkyKey key(BuildOptions buildOptions, Class<? extends Fragment> fragmentType,
-      RuleClassProvider ruleClassProvider) {
-    // Trim the options down to just those used by this fragment. This ensures we don't end
-    // up with different Skyframe keys due to trimming of unrelated options.
-    BuildOptions optionsUsedByFragment = buildOptions.trim(
-        BuildConfiguration.getOptionsClasses(
-            ImmutableList.<Class<? extends BuildConfiguration.Fragment>>of(fragmentType),
-            ruleClassProvider));
+  public static SkyKey key(BuildOptions buildOptions, Class<? extends Fragment> fragmentType) {
     return new SkyKey(SkyFunctions.CONFIGURATION_FRAGMENT,
-        new ConfigurationFragmentKey(optionsUsedByFragment, fragmentType));
+        new ConfigurationFragmentKey(buildOptions, fragmentType));
   }
   
   static final class ConfigurationFragmentKey implements Serializable {
