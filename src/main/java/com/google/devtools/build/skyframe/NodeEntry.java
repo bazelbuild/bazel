@@ -307,6 +307,14 @@ public interface NodeEntry extends ThinNodeEntry {
   void addTemporaryDirectDeps(GroupedListHelper<SkyKey> helper);
 
   /**
+   * Add a group of direct deps to the node. May only be called with a {@link Collection} returned
+   * by {@link #getNextDirtyDirectDeps()} just before enqueuing those direct deps during dependency
+   * checking.
+   */
+  @ThreadSafe
+  void addTemporaryDirectDepsGroupToDirtyEntry(Collection<SkyKey> group);
+
+  /**
    * Returns true if the node is ready to be evaluated, i.e., it has been signaled exactly as many
    * times as it has temporary dependencies. This may only be called while the node is being
    * evaluated, that is, before {@link #setValue} and after {@link #markDirty}.

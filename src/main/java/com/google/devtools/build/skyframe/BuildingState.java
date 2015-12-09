@@ -176,7 +176,7 @@ public class BuildingState {
    * Which child should be re-evaluated next in the process of determining if this entry needs to
    * be re-evaluated. Used by {@link #getNextDirtyDirectDeps} and {@link #signalDep(boolean)}.
    */
-  private Iterator<Iterable<SkyKey>> dirtyDirectDepIterator = null;
+  private Iterator<Collection<SkyKey>> dirtyDirectDepIterator = null;
 
   BuildingState() {
     lastBuildDirectDeps = null;
@@ -354,8 +354,7 @@ public class BuildingState {
     Preconditions.checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
     Preconditions.checkState(evaluating, this);
     Preconditions.checkState(dirtyDirectDepIterator.hasNext(), this);
-    List<SkyKey> nextDeps = ImmutableList.copyOf(dirtyDirectDepIterator.next());
-    return nextDeps;
+    return dirtyDirectDepIterator.next();
   }
 
   Collection<SkyKey> getAllRemainingDirtyDirectDeps() {
@@ -376,6 +375,10 @@ public class BuildingState {
 
   void addDirectDeps(GroupedListHelper<SkyKey> depsThisRun) {
     directDeps.append(depsThisRun);
+  }
+
+  void addDirectDepsGroup(Collection<SkyKey> group) {
+    directDeps.appendGroup(group);
   }
 
   /**

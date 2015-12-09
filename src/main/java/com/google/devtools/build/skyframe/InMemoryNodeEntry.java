@@ -450,6 +450,12 @@ public class InMemoryNodeEntry implements NodeEntry {
   }
 
   @Override
+  public synchronized void addTemporaryDirectDepsGroupToDirtyEntry(Collection<SkyKey> group) {
+    Preconditions.checkState(!isDone(), "add group temp shouldn't be done: %s %s", group, this);
+    buildingState.addDirectDepsGroup(group);
+  }
+
+  @Override
   public synchronized boolean isReady() {
     Preconditions.checkState(!isDone(), "can't be ready if done: %s", this);
     return buildingState.isReady();

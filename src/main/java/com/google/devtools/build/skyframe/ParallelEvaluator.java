@@ -869,7 +869,8 @@ public final class ParallelEvaluator implements Evaluator {
           // in #invalidatedByErrorTransience means that the error transience node is not newer
           // than this node, so we are going to mark it clean (since the error transience node is
           // always the last dep).
-          state.addTemporaryDirectDeps(GroupedListHelper.create(directDepsToCheck));
+          state.addTemporaryDirectDepsGroupToDirtyEntry(directDepsToCheck);
+
           for (Map.Entry<SkyKey, NodeEntry> e
               : graph.createIfAbsentBatch(directDepsToCheck).entrySet()) {
             SkyKey directDep = e.getKey();

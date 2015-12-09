@@ -28,15 +28,18 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Encapsulates a list of lists. Is intended to be used in "batch" mode -- to set the value of a
+ * Encapsulates a list of groups. Is intended to be used in "batch" mode -- to set the value of a
  * GroupedList, users should first construct a {@link GroupedListHelper}, add elements to it, and
  * then {@link #append} the helper to a new GroupedList instance. The generic type T <i>must not</i>
  * be a {@link List}.
  *
  * <p>Despite the "list" name, it is an error for the same element to appear multiple times in the
  * list. Users are responsible for not trying to add the same element to a GroupedList twice.
+ *
+ * <p>Groups are implemented as lists to minimize memory use. However, {@link #equals} is defined
+ * to treat groups as unordered.
  */
-public class GroupedList<T> implements Iterable<Iterable<T>> {
+public class GroupedList<T> implements Iterable<Collection<T>> {
   // Total number of items in the list. At least elements.size(), but might be larger if there are
   // any nested lists.
   private int size = 0;
@@ -64,6 +67,24 @@ public class GroupedList<T> implements Iterable<Iterable<T>> {
         "Cannot make grouped list of lists: %s", helper);
     elements.addAll(helper.groupedList);
     size += helper.size();
+  }
+
+  public void appendGroup(Collection<T> group) {
+    // Do a check to make sure we don't have lists here. Note that if group is empty,
+    // Iterables.getFirst will return null, and null is not instanceof List.
+    Preconditions.checkState(!(Iterables.getFirst(group, null) instanceof List),
+        "Cannot make grouped list of lists: %s", group);
+    switch (group.size()) {
+      case 0:
+        return;
+      case 1:
+        elements.add(Iterables.getOnlyElement(group));
+        break;
+      default:
+        elements.add(group);
+        break;
+    }
+    size += group.size();
   }
 
   /**
@@ -163,6 +184,9 @@ public class GroupedList<T> implements Iterable<Iterable<T>> {
     for (int i = 0; i < this.elements.size(); i++) {
       Object thisElt = this.elements.get(i);
       Object thatElt = that.elements.get(i);
+      if (thisElt == thatElt) {
+        continue;
+      }
       if (thisElt instanceof List) {
         // Recall that each inner item is either a List or a singleton element.
         if (!(thatElt instanceof List)) {
@@ -191,7 +215,7 @@ public class GroupedList<T> implements Iterable<Iterable<T>> {
    * iterator is needed here because, to optimize memory, we store single-element lists as elements
    * internally, and so they must be wrapped before they're returned.
    */
-  private class GroupedIterator implements Iterator<Iterable<T>> {
+  private class GroupedIterator implements Iterator<Collection<T>> {
     private final Iterator<Object> iter = elements.iterator();
 
     @Override
@@ -201,7 +225,7 @@ public class GroupedList<T> implements Iterable<Iterable<T>> {
 
     @SuppressWarnings("unchecked") // Cast of Object to List<T> or T.
     @Override
-    public Iterable<T> next() {
+    public Collection<T> next() {
       Object obj = iter.next();
       if (obj instanceof List) {
         return (List<T>) obj;
@@ -216,7 +240,7 @@ public class GroupedList<T> implements Iterable<Iterable<T>> {
   }
 
   @Override
-  public Iterator<Iterable<T>> iterator() {
+  public Iterator<Collection<T>> iterator() {
     return new GroupedIterator();
   }
 
