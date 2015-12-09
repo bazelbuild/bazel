@@ -139,6 +139,11 @@ a minimal set of extra dependencies.
 * License: Apache License 2.0
 
 
+## [guice](https://github.com/google/guice)
+
+* Version: 4.0
+* License: Apache License 2.0
+
 ## [javac](https://github.com/google/error-prone-javac)
 
 * Version: 1.9.0-dev-r2973-2

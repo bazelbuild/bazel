@@ -249,6 +249,15 @@ java_import(
     jars = ["guava/guava-18.0.jar"],
 )
 
+java_import(
+    name = "guice",
+    jars = [
+        "guice/guice-4.0.jar",
+        "guice/guice-multibindings-4.0.jar",
+        "jsr330_inject/javax.inject.jar",
+    ],
+)
+
 # For bootstrapping JavaBuilder
 filegroup(
     name = "guava-jars",
