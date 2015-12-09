@@ -46,19 +46,13 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
    * unconditionally  available to computed defaults no matter what dependencies
    * they've declared.
    */
-  private final List<String> nonconfigurableAttributes;
+  private final List<String> nonConfigurableAttributes;
 
   private AggregatingAttributeMapper(Rule rule) {
     super(rule.getPackage(), rule.getRuleClassObject(), rule.getLabel(),
         rule.getAttributeContainer());
 
-    ImmutableList.Builder<String> nonconfigurableAttributesBuilder = ImmutableList.builder();
-    for (Attribute attr : rule.getAttributes()) {
-      if (!attr.isConfigurable()) {
-        nonconfigurableAttributesBuilder.add(attr.getName());
-      }
-    }
-    nonconfigurableAttributes = nonconfigurableAttributesBuilder.build();
+    nonConfigurableAttributes = rule.getRuleClassObject().getNonConfigurableAttributes();
   }
 
   public static AggregatingAttributeMapper of(Rule rule) {
@@ -374,7 +368,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       @Override
       public <T> T get(String attributeName, Type<T> type) {
         owner.checkType(attributeName, type);
-        if (nonconfigurableAttributes.contains(attributeName)) {
+        if (nonConfigurableAttributes.contains(attributeName)) {
           return owner.get(attributeName, type);
         }
         if (!directMap.containsKey(attributeName)) {
@@ -393,7 +387,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       @Override public Label getLabel() { return owner.getLabel(); }
       @Override public Iterable<String> getAttributeNames() {
         return ImmutableList.<String>builder()
-            .addAll(directMap.keySet()).addAll(nonconfigurableAttributes).build();
+            .addAll(directMap.keySet()).addAll(nonConfigurableAttributes).build();
       }
       @Override
       public void visitLabels(AcceptsLabelAttribute observer) { owner.visitLabels(observer); }
