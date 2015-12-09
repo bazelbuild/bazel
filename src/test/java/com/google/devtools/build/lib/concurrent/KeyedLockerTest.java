@@ -66,7 +66,7 @@ public abstract class KeyedLockerTest {
     return new Supplier<KeyedLocker.AutoUnlocker>() {
       @Override
       public AutoUnlocker get() {
-        return locker.lock(key);
+        return locker.writeLock(key);
       }
     };
   }

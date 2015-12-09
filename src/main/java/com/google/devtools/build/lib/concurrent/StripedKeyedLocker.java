@@ -17,21 +17,21 @@ import com.google.common.util.concurrent.Striped;
 
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReadWriteLock;
 
 /**
  * An implementation of {@link KeyedLocker} backed by a {@link Striped}.
  */
 public class StripedKeyedLocker<K> implements KeyedLocker<K> {
 
-  private final Striped<Lock> locks;
+  private final Striped<ReadWriteLock> locks;
 
   public StripedKeyedLocker(int stripes) {
-    locks = Striped.lock(stripes);
+    locks = Striped.readWriteLock(stripes);
   }
 
-  @Override
-  public AutoUnlocker lock(final K key) {
-    final Lock lock = locks.get(key);
+  private static AutoUnlocker lockAndMakeAutoUnlocker(
+      final Lock lock, final Object keyForDebugging) {
     lock.lock();
     return new AutoUnlocker() {
       private final AtomicBoolean closeCalled = new AtomicBoolean(false);
@@ -39,12 +39,24 @@ public class StripedKeyedLocker<K> implements KeyedLocker<K> {
       @Override
       public void close() {
         if (closeCalled.getAndSet(true)) {
-          String msg = String.format("For key %s, 'close' can be called at most once per "
-              + "AutoUnlocker instance", key);
+          String msg =
+              String.format(
+                  "For key %s, 'close' can be called at most once per AutoUnlocker instance",
+                  keyForDebugging);
           throw new IllegalUnlockException(msg);
         }
         lock.unlock();
       }
     };
+  }
+
+  @Override
+  public AutoUnlocker writeLock(K key) {
+    return lockAndMakeAutoUnlocker(locks.get(key).writeLock(), key);
+  }
+
+  @Override
+  public AutoUnlocker readLock(K key) {
+    return lockAndMakeAutoUnlocker(locks.get(key).readLock(), key);
   }
 }
