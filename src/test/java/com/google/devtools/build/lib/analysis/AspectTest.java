@@ -237,6 +237,7 @@ public class AspectTest extends AnalysisTestCase {
         Object lateBoundPrereq = ruleContext.getPrerequisite(":late", TARGET);
         return new ConfiguredAspect.Builder("testaspect", ruleContext)
             .addProvider(
+                AspectInfo.class,
                 new AspectInfo(
                     NestedSetBuilder.create(
                         Order.STABLE_ORDER, lateBoundPrereq != null ? "non-empty" : "empty")))

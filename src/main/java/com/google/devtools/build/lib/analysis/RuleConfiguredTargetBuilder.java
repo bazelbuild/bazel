@@ -235,13 +235,6 @@ public final class RuleConfiguredTargetBuilder {
   }
 
   /**
-   * Add a specific provider with a given value. Shortcut for addProvider(value.getClass(), value).
-   */
-  public RuleConfiguredTargetBuilder addProvider(TransitiveInfoProvider value) {
-    return addProvider(value.getClass(), value);
-  }
-
-  /**
    * Add multiple providers with given values.
    */
   public RuleConfiguredTargetBuilder addProviders(
@@ -249,17 +242,6 @@ public final class RuleConfiguredTargetBuilder {
     for (Entry<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> provider :
         providers.entrySet()) {
       addProvider(provider.getKey(), provider.getValue());
-    }
-    return this;
-  }
-
-  /**
-   * Add multiple providers with given values.
-   */
-  public RuleConfiguredTargetBuilder addProviders(
-      Iterable<? extends TransitiveInfoProvider> providers) {
-    for (TransitiveInfoProvider provider : providers) {
-      addProvider(provider);
     }
     return this;
   }
