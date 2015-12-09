@@ -26,7 +26,6 @@ bazel_root="${TEST_TMPDIR}/root"
 mkdir -p "${bazel_root}"
 
 bazel_javabase="${jdk_dir}"
-bazel="${bazel_path}/bazel"
 
 echo "bazel binary is at $bazel"
 
