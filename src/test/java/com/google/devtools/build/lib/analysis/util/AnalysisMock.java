@@ -77,11 +77,9 @@ public abstract class AnalysisMock {
     ImmutableMap<String, RepositoryFunction> repositoryHandlers = ImmutableMap.of(
         LocalRepositoryRule.NAME, localRepositoryFunction);
 
-    return ImmutableMap.of(
+    return ImmutableMap.<SkyFunctionName, SkyFunction>of(
         SkyFunctions.REPOSITORY,
-        new RepositoryDelegatorFunction(directories, repositoryHandlers, new AtomicBoolean(true)),
-        localRepositoryFunction.getSkyFunctionName(),
-        localRepositoryFunction);
+        new RepositoryDelegatorFunction(directories, repositoryHandlers, new AtomicBoolean(true)));
   }
 
   public static class Delegate extends AnalysisMock {

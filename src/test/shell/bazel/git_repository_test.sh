@@ -267,6 +267,53 @@ EOF
 }
 
 
+function test_git_repository_refetched_when_commit_changes() {
+  local repo_dir=$TEST_TMPDIR/repos/refetch
+
+  cd $WORKSPACE_DIR
+  cat > WORKSPACE <<EOF
+git_repository(name='g', remote='$repo_dir', commit='f0b79ff0')
+EOF
+
+  bazel build @g//:g >& $TEST_log || fail "Build failed"
+  expect_log "Cloning"
+  assert_contains "GIT 1" bazel-genfiles/external/g/go
+
+  cat > WORKSPACE <<EOF
+git_repository(name='g', remote='$repo_dir', commit='62777acc')
+EOF
+
+
+  bazel build @g//:g >& $TEST_log || fail "Build failed"
+  expect_log "Cloning"
+  assert_contains "GIT 2" bazel-genfiles/external/g/go
+}
+
+function test_git_repository_and_nofetch() {
+  local repo_dir=$TEST_TMPDIR/repos/refetch
+
+  cd $WORKSPACE_DIR
+  cat > WORKSPACE <<EOF
+git_repository(name='g', remote='$repo_dir', commit='f0b79ff0')
+EOF
+
+  bazel build --nofetch @g//:g >& $TEST_log && fail "Build succeeded"
+  expect_log "fetching repositories is disabled"
+  bazel build @g//:g >& $TEST_log || fail "Build failed"
+  assert_contains "GIT 1" bazel-genfiles/external/g/go
+
+  cat > WORKSPACE <<EOF
+git_repository(name='g', remote='$repo_dir', commit='62777acc')
+EOF
+
+
+  bazel build --nofetch @g//:g >& $TEST_log || fail "Build failed"
+  expect_log "External repository 'g' is not up-to-date"
+  assert_contains "GIT 1" bazel-genfiles/external/g/go
+  bazel build  @g//:g >& $TEST_log || fail "Build failed"
+  assert_contains "GIT 2" bazel-genfiles/external/g/go
+}
+
 # Helper function for setting up the workspace as follows
 #
 # $WORKSPACE_DIR/

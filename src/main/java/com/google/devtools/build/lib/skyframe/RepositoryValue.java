@@ -34,24 +34,35 @@ public class RepositoryValue implements SkyValue {
    * it. Then user changes will be ignored (in favor of the cached version).
    */
   private final Optional<FileValue> overlaidBuildFile;
+  private final boolean fetchingDelayed;
 
-  private RepositoryValue(Path path, Optional<FileValue> overlaidBuildFile) {
+  private RepositoryValue(
+      Path path, Optional<FileValue> overlaidBuildFile, boolean fetchingDelayed) {
     this.path = path;
     this.overlaidBuildFile = overlaidBuildFile;
+    this.fetchingDelayed = fetchingDelayed;
   }
 
   /**
    * Creates an immutable external repository.
    */
   public static RepositoryValue create(Path repositoryDirectory) {
-    return new RepositoryValue(repositoryDirectory, Optional.<FileValue>absent());
+    return new RepositoryValue(repositoryDirectory, Optional.<FileValue>absent(), false);
+  }
+
+  /**
+   * Creates a value that represents a repository whose fetching has been delayed by a
+   * {@code --nofetch} command line option.
+   */
+  public static RepositoryValue fetchingDelayed(Path repositoryDirectory) {
+    return new RepositoryValue(repositoryDirectory, Optional.<FileValue>absent(), true);
   }
 
   /**
    * Creates an immutable external repository with a mutable BUILD file.
    */
   public static RepositoryValue createNew(Path repositoryDirectory, FileValue overlaidBuildFile) {
-    return new RepositoryValue(repositoryDirectory, Optional.of(overlaidBuildFile));
+    return new RepositoryValue(repositoryDirectory, Optional.of(overlaidBuildFile), false);
   }
 
   /**
@@ -66,6 +77,10 @@ public class RepositoryValue implements SkyValue {
 
   public Optional<FileValue> getOverlaidBuildFile() {
     return overlaidBuildFile;
+  }
+
+  public boolean isFetchingDelayed() {
+    return fetchingDelayed;
   }
 
   @Override

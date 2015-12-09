@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Ascii;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -24,7 +23,6 @@ import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
-import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
@@ -34,9 +32,8 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import org.apache.maven.settings.Server;
@@ -61,58 +58,62 @@ import javax.annotation.Nullable;
  * Implementation of maven_jar.
  */
 public class MavenJarFunction extends HttpArchiveFunction {
-
   private static final String DEFAULT_SERVER = "default";
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws RepositoryFunctionException {
-    RepositoryName repositoryName = (RepositoryName) skyKey.argument();
-    Rule rule = RepositoryFunction.getRule(repositoryName, MavenJarRule.NAME, env);
-    if (rule == null) {
+  public boolean isLocal() {
+    return false;
+  }
+
+  @Override
+  protected byte[] getRuleSpecificMarkerData(Rule rule, Environment env)
+      throws RepositoryFunctionException {
+    MavenServerValue serverValue = getServer(rule, env);
+    if (env.valuesMissing()) {
       return null;
     }
 
-    MavenServerValue serverValue;
+    return new Fingerprint()
+        .addString(serverValue.getUrl())
+        .addBytes(serverValue.getSettingsFingerprint())
+        .digestAndReset();
+  }
+
+  private MavenServerValue getServer(Rule rule, Environment env)
+      throws RepositoryFunctionException {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     boolean hasRepository = mapper.has("repository", Type.STRING)
         && !mapper.get("repository", Type.STRING).isEmpty();
     boolean hasServer = mapper.has("server", Type.STRING)
         && !mapper.get("server", Type.STRING).isEmpty();
+
     if (hasRepository && hasServer) {
       throw new RepositoryFunctionException(new EvalException(
-          Location.fromFile(getWorkspace().getRelative("WORKSPACE")), rule + " specifies both "
+          rule.getLocation(), rule + " specifies both "
               + "'repository' and 'server', which are mutually exclusive options"),
           Transience.PERSISTENT);
     } else if (hasRepository) {
-      serverValue = MavenServerValue.createFromUrl(mapper.get("repository", Type.STRING));
+      return MavenServerValue.createFromUrl(mapper.get("repository", Type.STRING));
     } else {
       String serverName = DEFAULT_SERVER;
       if (hasServer) {
         serverName = mapper.get("server", Type.STRING);
       }
 
-      serverValue = (MavenServerValue) env.getValue(MavenServerValue.key(serverName));
-      if (serverValue == null) {
-        return null;
-      }
+      return (MavenServerValue) env.getValue(MavenServerValue.key(serverName));
     }
+  }
 
-    byte[] serverData = new Fingerprint()
-        .addString(serverValue.getUrl())
-        .addBytes(serverValue.getSettingsFingerprint())
-        .digestAndReset();
-
-    if (isFilesystemUpToDate(rule, serverData)) {
-      return RepositoryValue.create(getExternalRepositoryDirectory().getRelative(rule.getName()));
+  @Override
+  public SkyValue fetch(Rule rule, Environment env)
+      throws RepositoryFunctionException {
+    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
+    MavenServerValue serverValue = getServer(rule, env);
+    if (env.valuesMissing()) {
+      return null;
     }
-
     MavenDownloader downloader = createMavenDownloader(mapper, serverValue);
-    SkyValue result = createOutputTree(downloader, env);
-    if (!env.valuesMissing()) {
-      writeMarkerFile(rule, serverData);
-    }
-
-    return result;
+    return createOutputTree(downloader, env);
   }
 
   @VisibleForTesting
@@ -151,11 +152,6 @@ public class MavenJarFunction extends HttpArchiveFunction {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
     return RepositoryValue.create(value.getDirectory());
-  }
-
-  @Override
-  public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.create(Ascii.toUpperCase(MavenJarRule.NAME));
   }
 
   /**

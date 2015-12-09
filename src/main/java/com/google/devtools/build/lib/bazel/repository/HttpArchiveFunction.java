@@ -16,15 +16,13 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpArchiveRule;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -34,25 +32,9 @@ import java.io.IOException;
  * Downloads a file over HTTP.
  */
 public class HttpArchiveFunction extends RepositoryFunction {
-
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-    RepositoryName repositoryName = (RepositoryName) skyKey.argument();
-    Rule rule = RepositoryFunction.getRule(repositoryName, HttpArchiveRule.NAME, env);
-    if (rule == null) {
-      return null;
-    }
-
-    if (isFilesystemUpToDate(rule, NO_RULE_SPECIFIC_DATA)) {
-      return RepositoryValue.create(getExternalRepositoryDirectory().getRelative(rule.getName()));
-    }
-
-    SkyValue result = compute(env, rule);
-    if (result != null) {
-      writeMarkerFile(rule, NO_RULE_SPECIFIC_DATA);
-    }
-
-    return result;
+  public boolean isLocal() {
+    return false;
   }
 
   protected void createDirectory(Path path)
@@ -64,7 +46,8 @@ public class HttpArchiveFunction extends RepositoryFunction {
     }
   }
 
-  protected SkyValue compute(Environment env, Rule rule)
+  @Override
+  public SkyValue fetch(Rule rule, Environment env)
       throws RepositoryFunctionException {
     // The output directory is always under .external-repository (to stay out of the way of
     // artifacts from this repository) and uses the rule's name to avoid conflicts with other
@@ -102,11 +85,6 @@ public class HttpArchiveFunction extends RepositoryFunction {
         .setArchivePath(downloadPath)
         .setRepositoryPath(outputDirectory)
         .build());
-  }
-
-  @Override
-  public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.create(HttpArchiveRule.NAME.toUpperCase());
   }
 
   @Override

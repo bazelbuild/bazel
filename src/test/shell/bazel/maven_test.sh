@@ -213,7 +213,7 @@ EOF
   chmod +x y.sh
 
   bazel build //:y &> $TEST_log && fail "Building thing failed"
-  expect_log "no such package '@x//'"
+  expect_log "does not represent an actual repository"
 }
 
 function test_auth() {

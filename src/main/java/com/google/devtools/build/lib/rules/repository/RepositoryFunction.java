@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
@@ -39,10 +40,11 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -51,11 +53,34 @@ import java.util.Arrays;
 import javax.annotation.Nullable;
 
 /**
- * Parent class for repository-related Skyframe functions.
+ * Implementation of fetching various external repository types.
+ *
+ * <p>These objects are called from {@link RepositoryDelegatorFunction}.
+ *
+ * <p>External repositories come in two flavors: local and non-local.
+ *
+ * <p>Local ones are those whose fetching does not require access to any external resources
+ * (e.g. network). These are always re-fetched on Bazel server restarts. This operation is fast
+ * (usually just a few symlinks and maybe writing a BUILD file). {@code --nofetch} does not apply
+ * to local repositories.
+ *
+ * <p>The up-to-dateness of non-local repositories is checked using a marker file under the
+ * output base. When such a repository is fetched, data from the rule in the WORKSPACE file is
+ * written to the marker file which is consulted on next server startup. If the rule hasn't changed,
+ * the repository is not re-fetched.
+ *
+ * <p>Fetching repositories can be disabled using the {@code --nofetch} command line option. If a
+ * repository is on the file system, Bazel just tries to use it and hopes for the best. If the
+ * repository has never been fetched, Bazel errors out for lack of a better option. This is
+ * implemented using
+ * {@link com.google.devtools.build.lib.bazel.BazelRepositoryModule#REPOSITORY_VALUE_CHECKER} and
+ * a flag in {@link RepositoryValue} that tells Bazel whether the value in Skyframe is stale
+ * according to the value of {@code --nofetch} or not.
+ *
+ * <p>When a rule in the WORKSPACE file is changed, the corresponding {@link RepositoryValue} is
+ * invalidated using the usual Skyframe route.
  */
-public abstract class RepositoryFunction implements SkyFunction {
-  protected static final byte[] NO_RULE_SPECIFIC_DATA = new byte[] {};
-
+public abstract class RepositoryFunction {
   /**
    * Exception thrown when something goes wrong accessing a remote repository.
    *
@@ -85,11 +110,41 @@ public abstract class RepositoryFunction implements SkyFunction {
   private BlazeDirectories directories;
 
   private byte[] computeRuleKey(Rule rule, byte[] ruleSpecificData) {
-
     return new Fingerprint()
         .addBytes(RuleSerializer.serializeRule(rule).build().toByteArray())
         .addBytes(ruleSpecificData)
         .digestAndReset();
+  }
+
+  /**
+   * Fetch the remote repository represented by the given rule.
+   *
+   * <p>When this method is called, it has already been determined that the repository is stale and
+   * that it needs to be re-fetched.
+   */
+  @ThreadSafe
+  @Nullable
+  public abstract SkyValue fetch(Rule rule, Environment env)
+      throws SkyFunctionException, InterruptedException;
+
+  /**
+   * Whether fetching is done using local operations only.
+   *
+   * <p>If this is false, Bazel may decide not to re-fetch the repository, for example when the
+   * {@code --nofetch} command line option is used.
+   */
+  protected abstract boolean isLocal();
+
+  /**
+   * Returns a block of data that must be equal for two Rules for them to be considered the same.
+   *
+   * <p>This is used for the up-to-dateness check of fetched directory trees. The only reason for
+   * this to exist is the {@code maven_server} rule (which should go away, but until then, we need
+   * to keep it working somehow)
+   */
+  protected byte[] getRuleSpecificMarkerData(Rule rule, Environment env)
+    throws RepositoryFunctionException {
+    return new byte[] {};
   }
 
   private Path getMarkerPath(Rule rule) {
@@ -103,7 +158,7 @@ public abstract class RepositoryFunction implements SkyFunction {
    * <p>Deletes the marker file if not so that no matter what happens after, the state of the file
    * system stays consistent.
    */
-  protected boolean isFilesystemUpToDate(Rule rule, byte[] ruleSpecificData)
+  boolean isFilesystemUpToDate(Rule rule, byte[] ruleSpecificData)
       throws RepositoryFunctionException {
     try {
       Path markerPath = getMarkerPath(rule);
@@ -126,7 +181,7 @@ public abstract class RepositoryFunction implements SkyFunction {
     }
   }
 
-  protected void writeMarkerFile(Rule rule, byte[] ruleSpecificData)
+  void writeMarkerFile(Rule rule, byte[] ruleSpecificData)
       throws RepositoryFunctionException {
     try {
       FileSystemUtils.writeContent(getMarkerPath(rule), computeRuleKey(rule, ruleSpecificData));
@@ -393,16 +448,6 @@ public abstract class RepositoryFunction implements SkyFunction {
     }
     return value;
   }
-
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
-  /**
-   * Gets Skyframe's name for this.
-   */
-  public abstract SkyFunctionName getSkyFunctionName();
 
   /**
    * Sets up output path information.

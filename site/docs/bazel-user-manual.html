@@ -533,18 +533,16 @@ Subtractive patterns:
   when new external dependendencies are added or because you'd like to
   "prefetch" dependencies (say, before a flight where you'll be offline). If you
   would like to prevent new dependencies from being added during builds, you
-  can specify the <code>--fetch=false</code> flag.
+  can specify the <code>--fetch=false</code> flag. Note that this flag only
+  applies to repository rules that do not point to a directory in the local
+  file system. Changes, for example, to <code>local_repository</code>,
+  <code>new_local_repository</code> and Android SDK and NDK repository rules
+  will always take effect regardless of the value <code>--fetch</code> .
 </p>
 
 <p>
   If you disallow fetching during builds and Bazel finds new external
-  dependencies, your build will fail with:
-<pre>
-ERROR: /path/to/your/BUILD:1:1: error loading package 'external': to fix, run
-    bazel fetch //...
-External repository @your-repo not found and referenced by '//your:target'.
-ERROR: Loading failed; build aborted.
-</pre>
+  dependencies, your build will fail.
 </p>
 
 <p>

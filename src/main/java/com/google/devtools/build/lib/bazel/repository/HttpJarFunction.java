@@ -16,15 +16,9 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpJarRule;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.skyframe.SkyFunctionException;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
 
@@ -32,27 +26,6 @@ import java.io.IOException;
  * Downloads a jar file from a URL.
  */
 public class HttpJarFunction extends HttpArchiveFunction {
-
-  @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-    RepositoryName repositoryName = (RepositoryName) skyKey.argument();
-    Rule rule = RepositoryFunction.getRule(repositoryName, HttpJarRule.NAME, env);
-    if (rule == null) {
-      return null;
-    }
-
-    if (isFilesystemUpToDate(rule, NO_RULE_SPECIFIC_DATA)) {
-      return RepositoryValue.create(getExternalRepositoryDirectory().getRelative(rule.getName()));
-    }
-
-    SkyValue result = compute(env, rule);
-    if (!env.valuesMissing()) {
-      writeMarkerFile(rule, NO_RULE_SPECIFIC_DATA);
-    }
-
-    return result;
-  }
-
   @Override
   protected SkyKey decompressorValueKey(Rule rule, Path downloadPath, Path outputDirectory)
       throws IOException {
@@ -62,11 +35,6 @@ public class HttpJarFunction extends HttpArchiveFunction {
         .setArchivePath(downloadPath)
         .setRepositoryPath(outputDirectory)
         .build());
-  }
-
-  @Override
-  public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.create(HttpJarRule.NAME.toUpperCase());
   }
 
   @Override

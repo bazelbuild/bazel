@@ -16,16 +16,14 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.rules.workspace.GitRepositoryRule;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
@@ -35,18 +33,14 @@ import java.io.IOException;
  */
 public class GitRepositoryFunction extends RepositoryFunction {
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-    RepositoryName repositoryName = (RepositoryName) skyKey.argument();
-    Rule rule = RepositoryFunction.getRule(repositoryName, GitRepositoryRule.NAME, env);
-    if (rule == null) {
-      return null;
-    }
+  public boolean isLocal() {
+    return false;
+  }
 
+  @Override
+  public SkyValue fetch(Rule rule, Environment env)
+      throws SkyFunctionException {
     Path outputDirectory = getExternalRepositoryDirectory().getRelative(rule.getName());
-    if (isFilesystemUpToDate(rule, NO_RULE_SPECIFIC_DATA)) {
-      return RepositoryValue.create(outputDirectory);
-    }
-
     createDirectory(outputDirectory, rule);
 
     try {
@@ -59,7 +53,6 @@ public class GitRepositoryFunction extends RepositoryFunction {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 
-    writeMarkerFile(rule, NO_RULE_SPECIFIC_DATA);
     return RepositoryValue.create(outputDirectory);
   }
 
@@ -71,11 +64,6 @@ public class GitRepositoryFunction extends RepositoryFunction {
       throw new RepositoryFunctionException(new IOException("Could not create directory for "
           + rule.getName() + ": " + e.getMessage()), Transience.TRANSIENT);
     }
-  }
-
-  @Override
-  public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.create(GitRepositoryRule.NAME.toUpperCase());
   }
 
   @Override

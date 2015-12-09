@@ -14,17 +14,11 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.devtools.build.lib.bazel.rules.workspace.NewGitRepositoryRule;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.skyframe.FileValue;
-import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
@@ -34,28 +28,9 @@ import java.io.IOException;
  */
 public class NewGitRepositoryFunction extends GitRepositoryFunction {
   @Override
-  public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.create(NewGitRepositoryRule.NAME.toUpperCase());
-  }
-
-  @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-    RepositoryName repositoryName = (RepositoryName) skyKey.argument();
-    Rule rule = RepositoryFunction.getRule(repositoryName, NewGitRepositoryRule.NAME, env);
-    if (rule == null) {
-      return null;
-    }
-
+  public SkyValue fetch(Rule rule, Environment env)
+      throws SkyFunctionException {
     Path outputDirectory = getExternalRepositoryDirectory().getRelative(rule.getName());
-    if (isFilesystemUpToDate(rule, NO_RULE_SPECIFIC_DATA)) {
-      FileValue buildFileValue = getBuildFileValue(rule, env);
-      if (env.valuesMissing()) {
-        return null;
-      }
-
-      return RepositoryValue.createNew(outputDirectory, buildFileValue);
-    }
-
     createDirectory(outputDirectory, rule);
     try {
       HttpDownloadValue value = (HttpDownloadValue) env.getValueOrThrow(

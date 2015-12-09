@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.rules.repository;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.FileValue;
@@ -35,11 +35,14 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Implements delegation to the correct repository fetcher.
+ * A {@link SkyFunction} that implements delegation to the correct repository fetcher.
+ *
+ * <p>Each repository in the WORKSPACE file is represented by a {@link SkyValue} that is computed
+ * by this function.
  */
 public class RepositoryDelegatorFunction implements SkyFunction {
 
-  // Mapping of rule class name to SkyFunction.
+  // Mapping of rule class name to RepositoryFunction.
   private final ImmutableMap<String, RepositoryFunction> handlers;
 
   // This is a reference to isFetch in BazelRepositoryModule, which tracks whether the current
@@ -56,33 +59,13 @@ public class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+  public SkyValue compute(SkyKey skyKey, Environment env)
+      throws SkyFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
     Rule rule = RepositoryFunction
         .getRule(repositoryName, null, env);
     if (rule == null) {
       return null;
-    }
-
-    // If Bazel isn't running a fetch command, we shouldn't be able to download anything. To
-    // prevent having to rerun fetch on server restart, we check if the external repository
-    // directory already exists and, if it does, just use that.
-    if (!isFetch.get()) {
-      FileValue repoRoot = RepositoryFunction.getRepositoryDirectory(
-          RepositoryFunction
-              .getExternalRepositoryDirectory(directories)
-              .getRelative(rule.getName()), env);
-      if (repoRoot == null) {
-        return null;
-      }
-      Path repoPath = repoRoot.realRootedPath().asPath();
-      if (!repoPath.exists()) {
-        throw new RepositoryFunctionException(new IOException(
-            "to fix, run\n\tbazel fetch //...\nExternal repository " + repositoryName
-                + " not found"),
-            Transience.TRANSIENT);
-      }
-      return RepositoryValue.create(repoPath);
     }
 
     RepositoryFunction handler = handlers.get(rule.getRuleClass());
@@ -91,18 +74,73 @@ public class RepositoryDelegatorFunction implements SkyFunction {
           Location.fromFile(directories.getWorkspace().getRelative("WORKSPACE")),
           "Could not find handler for " + rule), Transience.PERSISTENT);
     }
-    SkyKey key = new SkyKey(handler.getSkyFunctionName(), repositoryName);
 
-    try {
-      return env.getValueOrThrow(
-          key, NoSuchPackageException.class, IOException.class, EvalException.class);
-    } catch (NoSuchPackageException e) {
-      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
-    } catch (EvalException e) {
-      throw new RepositoryFunctionException(e, Transience.PERSISTENT);
+    if (handler.isLocal()) {
+      // Local repositories are always fetched because the operation is generally fast and they do
+      // not depend on non-local data, so it does not make much sense to try to catch from across
+      // server instances.
+      return handler.fetch(rule, env);
     }
+
+    // We check the repository root for existence here, but we can't depend on the FileValue,
+    // because it's possible that we eventually create that directory in which case the FileValue
+    // and the state of the file system would be inconsistent.
+    Path repoRoot =
+        RepositoryFunction.getExternalRepositoryDirectory(directories).getRelative(rule.getName());
+
+    byte[] ruleSpecificData = handler.getRuleSpecificMarkerData(rule, env);
+    boolean markerUpToDate = handler.isFilesystemUpToDate(rule, ruleSpecificData);
+    if (markerUpToDate && repoRoot.exists()) {
+      // Now that we know that it exists, we can declare a Skyframe dependency on the repository
+      // root.
+      FileValue repoRootValue = RepositoryFunction.getRepositoryDirectory(repoRoot, env);
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      // NB: This returns the wrong repository value for non-local new_* repository functions.
+      // This should sort itself out automatically once the ExternalFilesHelper refactoring is
+      // finally submitted.
+      return RepositoryValue.create(repoRootValue.realRootedPath().asPath());
+    }
+
+    if (isFetch.get()) {
+      // Fetching enabled, go ahead.
+      SkyValue result = handler.fetch(rule, env);
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      handler.writeMarkerFile(rule, ruleSpecificData);
+      return result;
+    }
+
+    if (!repoRoot.exists()) {
+      // The repository isn't on the file system, there is nothing we can do.
+      throw new RepositoryFunctionException(new IOException(
+          "to fix, run\n\tbazel fetch //...\nExternal repository " + repositoryName
+              + " not found and fetching repositories is disabled."),
+          Transience.TRANSIENT);
+    }
+
+    // Declare a Skyframe dependency so that this is re-evaluated when something happens to the
+    // directory.
+    FileValue repoRootValue = RepositoryFunction.getRepositoryDirectory(repoRoot, env);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    // Try to build with whatever is on the file system and emit a warning.
+    env.getListener().handle(Event.warn(rule.getLocation(), String.format(
+        "External repository '%s' is not up-to-date and fetching is disabled. To update, "
+        + "run the build without the '--nofetch' command line option.",
+        rule.getName())));
+
+    // NB: This returns the wrong repository value for non-local new_* repository functions because
+    // overlaidBuildFile won't be set.
+    // TODO(lberki): overlaidBuildFile can now probably be removed. Try to excise it write a test
+    // that makes sure this works as expected.
+    return RepositoryValue.fetchingDelayed(repoRootValue.realRootedPath().asPath());
   }
 
   @Override

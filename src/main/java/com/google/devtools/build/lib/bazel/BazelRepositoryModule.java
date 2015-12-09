@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.bazel.repository.HttpJarFunction;
 import com.google.devtools.build.lib.bazel.repository.JarFunction;
 import com.google.devtools.build.lib.bazel.repository.MavenJarFunction;
 import com.google.devtools.build.lib.bazel.repository.MavenServerFunction;
+import com.google.devtools.build.lib.bazel.repository.MavenServerRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewGitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewHttpArchiveFunction;
 import com.google.devtools.build.lib.bazel.repository.TarGzFunction;
@@ -44,6 +45,7 @@ import com.google.devtools.build.lib.bazel.rules.workspace.HttpArchiveRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpFileRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpJarRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
+import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewGitRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.workspace.NewHttpArchiveRule;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
@@ -57,15 +59,22 @@ import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.util.Clock;
+import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsProvider;
 
 import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+
+import javax.annotation.Nullable;
 
 /**
  * Adds support for fetching external code.
@@ -92,6 +101,7 @@ public class BazelRepositoryModule extends BlazeModule {
             .put(NewLocalRepositoryRule.NAME, new NewLocalRepositoryFunction())
             .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
             .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction())
+            .put(MavenServerRule.NAME, new MavenServerRepositoryFunction())
             .build();
   }
 
@@ -108,6 +118,39 @@ public class BazelRepositoryModule extends BlazeModule {
     for (RepositoryFunction handler : repositoryHandlers.values()) {
       handler.setDirectories(directories);
     }
+  }
+
+  /**
+   * A dirtiness checker that always dirties {@link RepositoryValue}s so that if they were produced
+   * in a {@code --nofetch} build, they are re-created no subsequent {@code --fetch} builds.
+   *
+   * <p>The alternative solution would be to reify the value of the flag as a Skyframe value.
+   */
+  private static final SkyValueDirtinessChecker REPOSITORY_VALUE_CHECKER =
+      new SkyValueDirtinessChecker() {
+        @Override
+        public boolean applies(SkyKey skyKey) {
+          return skyKey.functionName().equals(SkyFunctions.REPOSITORY);
+        }
+
+        @Override
+        public SkyValue createNewValue(SkyKey key, @Nullable TimestampGranularityMonitor tsgm) {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public DirtyResult check(
+            SkyKey skyKey, SkyValue skyValue, @Nullable TimestampGranularityMonitor tsgm) {
+          RepositoryValue repositoryValue = (RepositoryValue) skyValue;
+          return repositoryValue.isFetchingDelayed()
+              ? DirtyResult.dirty(skyValue)
+              : DirtyResult.notDirty(skyValue);
+        }
+      };
+
+  @Override
+  public Iterable<SkyValueDirtinessChecker> getCustomDirtinessCheckers() {
+    return ImmutableList.of(REPOSITORY_VALUE_CHECKER);
   }
 
   @Override
@@ -138,11 +181,6 @@ public class BazelRepositoryModule extends BlazeModule {
   @Override
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> builder = ImmutableMap.builder();
-
-    // Bazel-specific repository downloaders.
-    for (RepositoryFunction handler : repositoryHandlers.values()) {
-      builder.put(handler.getSkyFunctionName(), handler);
-    }
 
     // Create the delegator everything flows through.
     builder.put(SkyFunctions.REPOSITORY,

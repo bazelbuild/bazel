@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.NdkPaths;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.NdkRelease;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpl;
 import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -39,9 +38,9 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CrosstoolRelease;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.DefaultCpuToolchain;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -69,14 +68,13 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+  public boolean isLocal() {
+    return true;
+  }
 
-    RepositoryName repositoryName = (RepositoryName) skyKey.argument();
-    Rule rule = getRule(repositoryName, AndroidNdkRepositoryRule.NAME, env);
-    if (rule == null) {
-      return null;
-    }
-
+  @Override
+  public SkyValue fetch(Rule rule, Environment env)
+      throws SkyFunctionException {
     Path outputDirectory = prepareLocalRepositorySymlinkTree(rule, env);
     PathFragment pathFragment = getTargetPath(rule);
     Path ndkSymlinkTreeDirectory = outputDirectory.getRelative("ndk");
@@ -124,11 +122,6 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
 
     String buildFile = createBuildFile(ruleName, crosstoolsAndStls.build());
     return writeBuildFile(outputDirectory, buildFile);
-  }
-
-  @Override
-  public SkyFunctionName getSkyFunctionName() {
-    return SkyFunctionName.create(AndroidNdkRepositoryRule.NAME.toUpperCase());
   }
 
   @Override

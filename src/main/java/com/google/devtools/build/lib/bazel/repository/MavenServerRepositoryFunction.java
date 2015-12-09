@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,45 +12,42 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.repository;
+package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import javax.annotation.Nullable;
+
 /**
- * Create a repository from a directory on the local filesystem.
+ * Stub {@link RepositoryFunction} for {@code maven_server} rules.
  */
-public class NewLocalRepositoryFunction extends RepositoryFunction {
+public class MavenServerRepositoryFunction extends RepositoryFunction {
+
   @Override
   public boolean isLocal() {
     return true;
   }
 
+  @Nullable
   @Override
   public SkyValue fetch(Rule rule, Environment env)
-      throws SkyFunctionException {
-    Path outputDirectory = prepareLocalRepositorySymlinkTree(rule, env);
-    PathFragment pathFragment = getTargetPath(rule);
-    
-    // Link x/y/z to /some/path/to/y/z.
-    if (!symlinkLocalRepositoryContents(
-        outputDirectory,
-        getOutputBase().getFileSystem().getPath(pathFragment),
-        env)) {
-      return null;
-    }
-
-    // Link x/BUILD to <build_root>/x.BUILD.
-    return symlinkBuildFile(rule, outputDirectory, env);
+      throws SkyFunctionException, InterruptedException {
+    throw new RepositoryFunctionException(new EvalException(
+        rule.getLocation(),
+        "maven_server rule '" + rule.getName() + "' does not represent an actual repository"),
+        Transience.PERSISTENT);
   }
 
   @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
-    return NewLocalRepositoryRule.class;
+    return MavenServerRule.class;
   }
 }
