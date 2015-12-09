@@ -1067,7 +1067,7 @@ public class MemoizingEvaluatorTest {
   }
 
   @Test
-  public void parentOfCycleAndTransientNotTransient() throws Exception {
+  public void parentOfCycleAndTransient() throws Exception {
     initializeTester();
     SkyKey cycleKey1 = GraphTester.toSkyKey("cycleKey1");
     SkyKey cycleKey2 = GraphTester.toSkyKey("cycleKey2");
@@ -1082,15 +1082,22 @@ public class MemoizingEvaluatorTest {
     CountDownLatch topEvaluated = new CountDownLatch(2);
     tester.getOrCreate(top).setBuilder(new ChainedFunction(topEvaluated, null, null, false,
         new StringValue("unused"), ImmutableList.of(mid, cycleKey1)));
-    ErrorInfo errorInfo = tester.evalAndGetError(top);
+    EvaluationResult<StringValue> evalResult = tester.eval(true, top);
+    assertTrue(evalResult.hasError());
+    ErrorInfo errorInfo = evalResult.getError(top);
     assertThat(topEvaluated.getCount()).isEqualTo(1);
-    assertThat(errorInfo.isTransient()).isFalse();
+    // The parent should be transitively transient, since it transitively depends on a transient
+    // error.
+    assertThat(errorInfo.isTransient()).isTrue();
     assertWithMessage(errorInfo.toString())
         .that(errorInfo.getCycleInfo())
         .containsExactly(
             new CycleInfo(ImmutableList.of(top), ImmutableList.of(cycleKey1, cycleKey2)));
     assertThat(errorInfo.getException()).hasMessage(NODE_TYPE.getName() + ":errorKey");
     assertThat(errorInfo.getRootCauseOfException()).isEqualTo(errorKey);
+    // But the parent itself shouldn't have a direct dep on the special error transience node.
+    assertThat(evalResult.getWalkableGraph().getDirectDeps(ImmutableList.of(top)).get(top))
+        .doesNotContain(ErrorTransienceValue.KEY);
   }
 
   /**

@@ -47,22 +47,42 @@ public class ErrorInfoTest {
     }
   }
 
-  @Test
-  public void testFromException() {
+  private void runTestFromException(boolean isDirectlyTransient, boolean isTransitivelyTransient) {
     Exception exception = new IOException("ehhhhh");
     SkyKey causeOfException = new SkyKey(SkyFunctionName.create("CAUSE"), 1234);
     DummySkyFunctionException dummyException =
-        new DummySkyFunctionException(exception, /*isTransient=*/ true, /*isCatastrophic=*/ false);
+        new DummySkyFunctionException(exception, isDirectlyTransient, /*isCatastrophic=*/ false);
 
     ErrorInfo errorInfo = ErrorInfo.fromException(
-        new ReifiedSkyFunctionException(dummyException, causeOfException));
+        new ReifiedSkyFunctionException(dummyException, causeOfException),
+        isTransitivelyTransient);
 
     assertThat(errorInfo.getRootCauses()).containsExactly(causeOfException);
     assertThat(errorInfo.getException()).isSameAs(exception);
     assertThat(errorInfo.getRootCauseOfException()).isSameAs(causeOfException);
     assertThat(errorInfo.getCycleInfo()).isEmpty();
-    assertThat(errorInfo.isTransient()).isTrue();
+    assertThat(errorInfo.isTransient()).isEqualTo(isDirectlyTransient || isTransitivelyTransient);
     assertThat(errorInfo.isCatastrophic()).isFalse();
+  }
+
+  @Test
+  public void testFromException_NonTransient() {
+    runTestFromException(/*isDirectlyTransient=*/ false, /*isTransitivelyTransient= */ false);
+  }
+
+  @Test
+  public void testFromException_DirectlyTransient() {
+    runTestFromException(/*isDirectlyTransient=*/ true, /*isTransitivelyTransient= */ false);
+  }
+
+  @Test
+  public void testFromException_TransitivelyTransient() {
+    runTestFromException(/*isDirectlyTransient=*/ false, /*isTransitivelyTransient= */ true);
+  }
+
+  @Test
+  public void testFromException_DirectlyAndTransitivelyTransient() {
+    runTestFromException(/*isDirectlyTransient=*/ true, /*isTransitivelyTransient= */ true);
   }
 
   @Test
@@ -92,15 +112,17 @@ public class ErrorInfoTest {
     DummySkyFunctionException dummyException1 =
         new DummySkyFunctionException(exception1, /*isTransient=*/ true, /*isCatastrophic=*/ false);
     ErrorInfo exceptionErrorInfo1 = ErrorInfo.fromException(
-        new ReifiedSkyFunctionException(dummyException1, causeOfException1));
+        new ReifiedSkyFunctionException(dummyException1, causeOfException1),
+        /*isTransitivelyTransient=*/ false);
 
     // N.B this ErrorInfo will be catastrophic.
     Exception exception2 = new IOException("blahhhhh");
     SkyKey causeOfException2 = new SkyKey(SkyFunctionName.create("CAUSE2"), 5678);
     DummySkyFunctionException dummyException2 =
-        new DummySkyFunctionException(exception2, /*isTransient=*/ true, /*isCatastrophic=*/ true);
+        new DummySkyFunctionException(exception2, /*isTransient=*/ false, /*isCatastrophic=*/ true);
     ErrorInfo exceptionErrorInfo2 = ErrorInfo.fromException(
-        new ReifiedSkyFunctionException(dummyException2, causeOfException2));
+        new ReifiedSkyFunctionException(dummyException2, causeOfException2),
+        /*isTransitivelyTransient=*/ false);
 
     SkyKey currentKey = new SkyKey(SkyFunctionName.create("CURRENT"), 9876);
 
@@ -119,7 +141,7 @@ public class ErrorInfoTest {
         new CycleInfo(
             ImmutableList.of(currentKey, Iterables.getOnlyElement(cycle.getPathToCycle())),
             cycle.getCycle()));
-    assertThat(errorInfo.isTransient()).isFalse();
+    assertThat(errorInfo.isTransient()).isTrue();
     assertThat(errorInfo.isCatastrophic()).isTrue();
   }
 
