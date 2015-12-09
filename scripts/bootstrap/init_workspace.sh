@@ -20,19 +20,25 @@
 # Create symlinks so we can use tools and examples from the base_workspace.
 function symlink_directory() {
   local dir=$1
-  rm -fr ${base_workspace}/${dir}
-  mkdir ${base_workspace}/${dir}
+  rm -fr "${base_workspace}/${dir}"
+  mkdir "${base_workspace}/${dir}"
 
-  for i in $(cd ${dir}; ls); do
-    ln -s $(pwd)/${dir}/$i ${base_workspace}/${dir}/$i;
+  for i in $(cd ${dir}; ls | grep -v "^BUILD$"); do
+    ln -s "$(pwd)/${dir}/$i" "${base_workspace}/${dir}/$i";
   done
 
-  touch ${base_workspace}/${dir}/DONT_FOLLOW_SYMLINKS_WHEN_TRAVERSING_THIS_DIRECTORY_VIA_A_RECURSIVE_TARGET_PATTERN
+  touch "${base_workspace}/${dir}/DONT_FOLLOW_SYMLINKS_WHEN_TRAVERSING_THIS_DIRECTORY_VIA_A_RECURSIVE_TARGET_PATTERN"
 }
 
-base_workspace=${WORKSPACE_DIR}/base_workspace
-mkdir -p "$base_workspace"
+base_workspace="${WORKSPACE_DIR}/base_workspace"
+mkdir -p "${base_workspace}"
+
 symlink_directory tools
+cat > "${base_workspace}/tools/BUILD" <<EOF
+package(default_visibility = ["//visibility:public"])
+exports_files(["test_sharding_compliant"])
+EOF
+
 symlink_directory examples
 symlink_directory third_party
 
