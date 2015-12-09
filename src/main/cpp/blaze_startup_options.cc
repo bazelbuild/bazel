@@ -42,6 +42,7 @@ BlazeStartupOptions::BlazeStartupOptions(const BlazeStartupOptions &rhs)
       install_base(rhs.install_base),
       output_root(rhs.output_root),
       output_user_root(rhs.output_user_root),
+      deep_execroot(rhs.deep_execroot),
       block_for_lock(rhs.block_for_lock),
       host_jvm_debug(rhs.host_jvm_debug),
       host_jvm_profile(rhs.host_jvm_profile),

@@ -159,6 +159,13 @@ public class BlazeServerStartupOptions extends OptionsBase {
              "such as continuous builds.")
   public boolean batch;
 
+  @Option(name = "deep_execroot",
+      defaultValue = "false", // NOTE: purely decorative!  See class docstring.
+      category = "server startup",
+      help = "If set, the execution root will be under $OUTPUT_BASE/execroot instead of "
+          + "$OUTPUT_BASE")
+  public boolean deepExecRoot;
+
   @Option(name = "block_for_lock",
       defaultValue = "true", // NOTE: purely decorative!  See class docstring.
       category = "server startup",

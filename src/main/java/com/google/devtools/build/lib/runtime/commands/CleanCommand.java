@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.events.Event;
@@ -162,9 +161,11 @@ public final class CleanCommand implements BlazeCommand {
     } else {
       LOG.info("Output cleaning...");
       runtime.clearCaches();
+      // In order to be sure that we delete everything, delete the workspace directory both for
+      // --deep_execroot and for --nodeep_execroot.
       for (String directory : new String[] {
-          BlazeDirectories.RELATIVE_OUTPUT_PATH, runtime.getWorkspaceName() }) {
-        Path child = outputBase.getChild(directory);
+          runtime.getWorkspaceName(), "execroot/" + runtime.getWorkspaceName() }) {
+        Path child = outputBase.getRelative(directory);
         if (child.exists()) {
           LOG.finest("Cleaning " + child);
           FileSystemUtils.deleteTreesBelow(child);

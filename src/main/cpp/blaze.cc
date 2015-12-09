@@ -350,6 +350,11 @@ static vector<string> GetArgumentArray() {
   if (globals->options.allow_configurable_attributes) {
     result.push_back("--allow_configurable_attributes");
   }
+  if (globals->options.deep_execroot) {
+    result.push_back("--deep_execroot");
+  } else {
+    result.push_back("--nodeep_execroot");
+  }
   if (globals->options.watchfs) {
     result.push_back("--watchfs");
   }

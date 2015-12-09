@@ -117,6 +117,10 @@ class BlazeStartupOptions {
   // output_base.
   string output_user_root;
 
+  // Whether to put the execroot at $OUTPUT_BASE/$WORKSPACE_NAME (if false) or
+  // $OUTPUT_BASE/execroot/$WORKSPACE_NAME (if true).
+  bool deep_execroot;
+
   // Block for the Blaze server lock. Otherwise,
   // quit with non-0 exit code if lock can't
   // be acquired immediately.

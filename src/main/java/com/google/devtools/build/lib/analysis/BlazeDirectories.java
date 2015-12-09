@@ -70,23 +70,25 @@ public final class BlazeDirectories {
   private final Path outputPath;
   private final Path localOutputPath;
 
-  public BlazeDirectories(Path installBase, Path outputBase, @Nullable Path workspace,
-                          @Nullable String installMD5) {
+  public BlazeDirectories(Path installBase, Path outputBase, Path workspace,
+      boolean deepExecRoot, @Nullable String installMD5) {
     this.installBase = installBase;
     this.workspace = workspace;
     this.outputBase = outputBase;
     this.installMD5 = installMD5 == null ? null : checkMD5(HashCode.fromString(installMD5));
     boolean useDefaultExecRootName = this.workspace == null || this.workspace.isRootDirectory();
+    Path execRootBase = deepExecRoot
+        ? outputBase.getChild("execroot") : outputBase;
     if (useDefaultExecRootName) {
       // TODO(bazel-team): if workspace is null execRoot should be null, but at the moment there is
       // a lot of code that depends on it being non-null.
-      this.execRoot = outputBase.getChild(DEFAULT_EXEC_ROOT);
+      this.execRoot = execRootBase.getChild(DEFAULT_EXEC_ROOT);
     } else {
-      this.execRoot = outputBase.getChild(workspace.getBaseName());
+      this.execRoot = execRootBase.getChild(workspace.getBaseName());
     }
     this.outputPath = execRoot.getRelative(RELATIVE_OUTPUT_PATH);
     Preconditions.checkState(useDefaultExecRootName || outputPath.asFragment().equals(
-        outputPathFromOutputBase(outputBase.asFragment(), workspace.asFragment())));
+        outputPathFromOutputBase(outputBase.asFragment(), workspace.asFragment(), deepExecRoot)));
 
     this.localOutputPath = outputBase.getRelative(BlazeDirectories.RELATIVE_OUTPUT_PATH);
   }
@@ -98,8 +100,8 @@ public final class BlazeDirectories {
   }
 
   @VisibleForTesting
-  public BlazeDirectories(Path installBase, Path outputBase, @Nullable Path workspace) {
-    this(installBase, outputBase, workspace, null);
+  public BlazeDirectories(Path installBase, Path outputBase, Path workspace) {
+    this(installBase, outputBase, workspace, false, null);
   }
 
   /**
@@ -161,11 +163,13 @@ public final class BlazeDirectories {
    * @return the outputPath as a path fragment, given the outputBase.
    */
   public static PathFragment outputPathFromOutputBase(
-      PathFragment outputBase, PathFragment workspace) {
+      PathFragment outputBase, PathFragment workspace, boolean deepExecRoot) {
+    PathFragment execRoot = deepExecRoot ? outputBase.getChild("execroot") : outputBase;
+
     if (workspace.equals(PathFragment.EMPTY_FRAGMENT)) {
-      return outputBase;
+      return execRoot;
     }
-    return outputBase.getRelative(workspace.getBaseName() + "/" + RELATIVE_OUTPUT_PATH);
+    return execRoot.getRelative(workspace.getBaseName() + "/" + RELATIVE_OUTPUT_PATH);
   }
 
   /**

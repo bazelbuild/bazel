@@ -38,6 +38,7 @@ void BlazeStartupOptions::Init() {
   blaze_util::ToLower(&product);
   output_user_root = blaze_util::JoinPath(
       output_root, "_" + product + "_" + GetUserName());
+  deep_execroot = false;
   block_for_lock = true;
   host_jvm_debug = false;
   host_javabase = "";
@@ -71,6 +72,7 @@ void BlazeStartupOptions::Copy(
   lhs->install_base = rhs.install_base;
   lhs->output_root = rhs.output_root;
   lhs->output_user_root = rhs.output_user_root;
+  lhs->deep_execroot = rhs.deep_execroot;
   lhs->block_for_lock = rhs.block_for_lock;
   lhs->host_jvm_debug = rhs.host_jvm_debug;
   lhs->host_jvm_profile = rhs.host_jvm_profile;
@@ -112,6 +114,12 @@ blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
                                      "--output_user_root")) != NULL) {
     output_user_root = MakeAbsolute(value);
     option_sources["output_user_root"] = rcfile;
+  } else if (GetNullaryOption(arg, "--deep_execroot")) {
+    deep_execroot = true;
+    option_sources["deep_execroot"] = rcfile;
+  } else if (GetNullaryOption(arg, "--nodeep_execroot")) {
+    deep_execroot = false;
+    option_sources["deep_execroot"] = rcfile;
   } else if (GetNullaryOption(arg, "--noblock_for_lock")) {
     block_for_lock = false;
     option_sources["block_for_lock"] = rcfile;

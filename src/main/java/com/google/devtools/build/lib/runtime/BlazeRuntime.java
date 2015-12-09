@@ -1113,7 +1113,7 @@ public final class BlazeRuntime {
     }
 
     PathFragment outputPathFragment = BlazeDirectories.outputPathFromOutputBase(
-        outputBase, workspaceDirectory);
+        outputBase, workspaceDirectory, startupOptions.deepExecRoot);
     FileSystem fs = null;
     for (BlazeModule module : blazeModules) {
       FileSystem moduleFs = module.getFileSystem(options, outputPathFragment);
@@ -1137,7 +1137,7 @@ public final class BlazeRuntime {
 
     BlazeDirectories directories =
         new BlazeDirectories(installBasePath, outputBasePath, workspaceDirectoryPath,
-                             startupOptions.installMD5);
+                             startupOptions.deepExecRoot, startupOptions.installMD5);
 
     Clock clock = BlazeClock.instance();
 
