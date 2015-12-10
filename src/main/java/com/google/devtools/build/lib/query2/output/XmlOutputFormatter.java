@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.FakeSubincludeTarget;
+import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.AspectResolver.BuildFileDependencyMode;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.util.BinaryPredicate;
@@ -36,6 +37,7 @@ import org.w3c.dom.DOMException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
+import java.io.IOException;
 import java.io.PrintStream;
 import java.util.Collection;
 import java.util.HashSet;
@@ -57,11 +59,9 @@ import javax.xml.transform.stream.StreamResult;
  */
 class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
-  private boolean xmlLineNumbers;
-  private boolean showDefaultValues;
-  private boolean relativeLocations;
-  private transient AspectResolver aspectResolver;
-  private transient BinaryPredicate<Rule, Attribute> dependencyFilter;
+  private QueryOptions options;
+  private AspectResolver aspectResolver;
+  private BinaryPredicate<Rule, Attribute> dependencyFilter;
 
   @Override
   public String getName() {
@@ -69,36 +69,52 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
   }
 
   @Override
-  public void outputUnordered(QueryOptions options, Iterable<Target> result, PrintStream out,
-      AspectResolver aspectResolver) throws InterruptedException {
-    this.xmlLineNumbers = options.xmlLineNumbers;
-    this.showDefaultValues = options.xmlShowDefaultValues;
-    this.relativeLocations = options.relativeLocations;
-    this.dependencyFilter = OutputFormatter.getDependencyFilter(options);
+  public OutputFormatterCallback<Target> createStreamCallback(QueryOptions options,
+      final PrintStream out, AspectResolver aspectResolver) {
+    this.options = options;
     this.aspectResolver = aspectResolver;
-    Document doc;
-    try {
-      DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-      doc = factory.newDocumentBuilder().newDocument();
-    } catch (ParserConfigurationException e) {
-      // This shouldn't be possible: all the configuration is hard-coded.
-      throw new IllegalStateException("XML output failed",  e);
-    }
-    doc.setXmlVersion("1.1");
-    Element queryElem = doc.createElement("query");
-    queryElem.setAttribute("version", "2");
-    doc.appendChild(queryElem);
-    for (Target target : result) {
-      queryElem.appendChild(createTargetElement(doc, target));
-    }
-    try {
-      Transformer transformer = TransformerFactory.newInstance().newTransformer();
-      transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-      transformer.transform(new DOMSource(doc), new StreamResult(out));
-    } catch (TransformerFactoryConfigurationError | TransformerException e) {
-      // This shouldn't be possible: all the configuration is hard-coded.
-      throw new IllegalStateException("XML output failed",  e);
-    }
+    this.dependencyFilter = OutputFormatter.getDependencyFilter(options);
+    return new OutputFormatterCallback<Target>() {
+
+      private Document doc;
+      private Element queryElem;
+
+
+      @Override
+      public void start() {
+        try {
+          DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+          doc = factory.newDocumentBuilder().newDocument();
+        } catch (ParserConfigurationException e) {
+          // This shouldn't be possible: all the configuration is hard-coded.
+          throw new IllegalStateException("XML output failed", e);
+        }
+        doc.setXmlVersion("1.1");
+        queryElem = doc.createElement("query");
+        queryElem.setAttribute("version", "2");
+        doc.appendChild(queryElem);
+      }
+
+      @Override
+      protected void processOutput(Iterable<Target> partialResult)
+          throws IOException, InterruptedException {
+        for (Target target : partialResult) {
+          queryElem.appendChild(createTargetElement(doc, target));
+        }
+      }
+
+      @Override
+      public void close() throws IOException {
+        try {
+          Transformer transformer = TransformerFactory.newInstance().newTransformer();
+          transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+          transformer.transform(new DOMSource(doc), new StreamResult(out));
+        } catch (TransformerFactoryConfigurationError | TransformerException e) {
+          // This shouldn't be possible: all the configuration is hard-coded.
+          throw new IllegalStateException("XML output failed", e);
+        }
+      }
+    };
   }
 
   /**
@@ -120,9 +136,9 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       Rule rule = (Rule) target;
       elem = doc.createElement("rule");
       elem.setAttribute("class", rule.getRuleClass());
-      for (Attribute attr: rule.getAttributes()) {
+      for (Attribute attr : rule.getAttributes()) {
         Pair<Iterable<Object>, AttributeValueSource> values = getAttributeValues(rule, attr);
-        if (values.second == AttributeValueSource.RULE || showDefaultValues) {
+        if (values.second == AttributeValueSource.RULE || options.xmlShowDefaultValues) {
           Element attrElem = createValueElement(doc, attr.getType(), values.first);
           attrElem.setAttribute("name", attr.getName());
           elem.appendChild(attrElem);
@@ -205,8 +221,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
     }
 
     elem.setAttribute("name", target.getLabel().toString());
-    String location = getLocation(target, relativeLocations);
-    if (!xmlLineNumbers) {
+    String location = getLocation(target, options.relativeLocations);
+    if (!options.xmlLineNumbers) {
       int firstColon = location.indexOf(':');
       if (firstColon != -1) {
         location = location.substring(0, firstColon);

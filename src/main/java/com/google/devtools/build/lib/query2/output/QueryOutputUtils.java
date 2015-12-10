@@ -14,32 +14,43 @@
 package com.google.devtools.build.lib.query2.output;
 
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.query2.engine.BlazeQueryEvalResult;
+import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
+import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
-import com.google.devtools.build.lib.query2.output.OutputFormatter.UnorderedFormatter;
+import com.google.devtools.build.lib.query2.output.OutputFormatter.StreamedFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.Set;
 
 /** Static utility methods for outputting a query. */
 public class QueryOutputUtils {
   // Utility class cannot be instantiated.
   private QueryOutputUtils() {}
 
-  public static boolean orderResults(QueryOptions queryOptions, OutputFormatter formatter) {
-    return queryOptions.orderOutput != OrderOutput.NO || !(formatter instanceof UnorderedFormatter);
+  public static boolean shouldStreamResults(QueryOptions queryOptions, OutputFormatter formatter) {
+    return queryOptions.orderOutput == OrderOutput.NO
+        && formatter instanceof StreamedFormatter;
   }
 
-  public static void output(QueryOptions queryOptions, QueryEvalResult<Target> result,
-      OutputFormatter formatter, PrintStream outputStream, AspectResolver aspectResolver)
+  public static void output(QueryOptions queryOptions, QueryEvalResult result,
+      Set<Target> targetsResult, OutputFormatter formatter, PrintStream outputStream,
+      AspectResolver aspectResolver)
       throws IOException, InterruptedException {
-    if (orderResults(queryOptions, formatter)) {
-      formatter.output(queryOptions, ((BlazeQueryEvalResult<Target>) result).getResultGraph(),
+    /*
+     * This is not really streaming, but we are using the streaming interface for writing into the
+     * output everything in one batch. This happens when the QueryEnvironment does not
+     * support streaming but we don't care about ordered results.
+     */
+    boolean orderedResults = !shouldStreamResults(queryOptions, formatter);
+    if (orderedResults) {
+      formatter.output(queryOptions,
+          ((DigraphQueryEvalResult<Target>) result).getGraph().extractSubgraph(targetsResult),
           outputStream, aspectResolver);
     } else {
-      ((UnorderedFormatter) formatter).outputUnordered(queryOptions, result.getResultSet(),
-          outputStream, aspectResolver);
+      OutputFormatterCallback.processAllTargets(((StreamedFormatter) formatter)
+          .createStreamCallback(queryOptions, outputStream, aspectResolver), targetsResult);
     }
   }
 }

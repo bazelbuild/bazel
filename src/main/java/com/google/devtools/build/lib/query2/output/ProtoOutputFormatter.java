@@ -34,10 +34,12 @@ import com.google.devtools.build.lib.packages.ProtoUtils;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.FakeSubincludeTarget;
+import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.AspectResolver.BuildFileDependencyMode;
-import com.google.devtools.build.lib.query2.output.OutputFormatter.UnorderedFormatter;
+import com.google.devtools.build.lib.query2.output.OutputFormatter.AbstractUnorderedFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult.Builder;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 
@@ -54,7 +56,7 @@ import java.util.Set;
  * By taking the bytes and calling {@code mergeFrom()} on a
  * {@code Build.QueryResult} object the full result can be reconstructed.
  */
-public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFormatter {
+public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
 
   /**
    * A special attribute name for the rule implementation hash code.
@@ -77,19 +79,36 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
   }
 
   @Override
-  public void outputUnordered(QueryOptions options, Iterable<Target> result, PrintStream out,
-      AspectResolver aspectResolver) throws IOException, InterruptedException {
+  public OutputFormatterCallback<Target> createStreamCallback(QueryOptions options,
+      final PrintStream out, AspectResolver aspectResolver) {
     relativeLocations = options.relativeLocations;
     this.aspectResolver = aspectResolver;
     this.includeDefaultValues = options.protoIncludeDefaultValues;
     setDependencyFilter(options);
 
-    Build.QueryResult.Builder queryResult = Build.QueryResult.newBuilder();
-    for (Target target : result) {
-      addTarget(queryResult, target);
-    }
+    return new OutputFormatterCallback<Target>() {
 
-    queryResult.build().writeTo(out);
+      private Builder queryResult;
+
+      @Override
+      public void start() {
+        queryResult = Build.QueryResult.newBuilder();
+      }
+
+      @Override
+      protected void processOutput(Iterable<Target> partialResult)
+          throws IOException, InterruptedException {
+
+        for (Target target : partialResult) {
+          queryResult.addTarget(toTargetProtoBuffer(target));
+        }
+      }
+
+      @Override
+      public void close() throws IOException {
+        queryResult.build().writeTo(out);
+      }
+    };
   }
 
   private static Iterable<Target> getSortedLabels(Digraph<Target> result) {
@@ -98,24 +117,8 @@ public class ProtoOutputFormatter extends OutputFormatter implements UnorderedFo
   }
 
   @Override
-  public void output(QueryOptions options, Digraph<Target> result, PrintStream out,
-      AspectResolver aspectResolver) throws IOException, InterruptedException {
-    outputUnordered(
-        options,
-        options.orderOutput == OrderOutput.FULL ? getSortedLabels(result) : result.getLabels(),
-        out,
-        aspectResolver);
-  }
-
-  /**
-   * Add the target to the query result.
-   * @param queryResult The query result that contains all rule, input and
-   *   output targets.
-   * @param target The query target being converted to a protocol buffer.
-   */
-  private void addTarget(Build.QueryResult.Builder queryResult, Target target)
-      throws InterruptedException {
-    queryResult.addTarget(toTargetProtoBuffer(target));
+  protected Iterable<Target> getOrderedTargets(Digraph<Target> result, QueryOptions options) {
+    return options.orderOutput == OrderOutput.FULL ? getSortedLabels(result) : result.getLabels();
   }
 
   /**

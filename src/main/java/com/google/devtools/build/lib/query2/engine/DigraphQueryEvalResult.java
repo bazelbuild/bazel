@@ -17,20 +17,18 @@ package com.google.devtools.build.lib.query2.engine;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.graph.Digraph;
 
-import java.util.Set;
-
 /** {@link QueryEvalResult} along with a digraph giving the structure of the results. */
-public class BlazeQueryEvalResult<T> extends QueryEvalResult<T> {
+public class DigraphQueryEvalResult<T> extends QueryEvalResult {
 
   private final Digraph<T> graph;
 
-  public BlazeQueryEvalResult(boolean success, Set<T> resultSet, Digraph<T> graph) {
-    super(success, resultSet);
+  public DigraphQueryEvalResult(boolean success, boolean isEmpty, Digraph<T> graph) {
+    super(success, isEmpty);
     this.graph = Preconditions.checkNotNull(graph);
   }
 
-  /** Returns the result as a directed graph over elements. */
-  public Digraph<T> getResultGraph() {
-    return graph.extractSubgraph(resultSet);
+  /** Returns the recorded graph */
+  public Digraph<T> getGraph() {
+    return graph;
   }
 }

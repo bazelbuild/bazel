@@ -49,10 +49,11 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
-import com.google.devtools.build.lib.query2.engine.BlazeQueryEvalResult;
+import com.google.devtools.build.lib.query2.engine.DigraphQueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
+import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
 import com.google.devtools.build.lib.query2.engine.SkyframeRestartQueryException;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.output.QueryOptions;
@@ -260,8 +261,9 @@ public class GenQuery implements RuleConfiguredTargetFactory {
                          String query, RuleContext ruleContext)
       throws InterruptedException {
 
-    BlazeQueryEvalResult<Target> queryResult;
+    DigraphQueryEvalResult<Target> queryResult;
     OutputFormatter formatter;
+    AggregateAllCallback<Target> targets = new AggregateAllCallback<>();
     try {
       Set<Setting> settings = queryOptions.toSettings();
 
@@ -283,20 +285,20 @@ public class GenQuery implements RuleConfiguredTargetFactory {
       // All the packages are already loaded at this point, so there is no need
       // to start up many threads. 4 are started up to make good use of multiple
       // cores.
-      queryResult = (BlazeQueryEvalResult<Target>) AbstractBlazeQueryEnvironment
+      queryResult = (DigraphQueryEvalResult<Target>) AbstractBlazeQueryEnvironment
           .newQueryEnvironment(
               /*transitivePackageLoader=*/null, /*graph=*/null, packageProvider,
               evaluator,
               /*keepGoing=*/false,
               ruleContext.attributes().get("strict", Type.BOOLEAN),
-              /*orderedResults=*/QueryOutputUtils.orderResults(queryOptions, formatter),
+              /*orderedResults=*/!QueryOutputUtils.shouldStreamResults(queryOptions, formatter),
               /*universeScope=*/ImmutableList.<String>of(),
               /*loadingPhaseThreads=*/4,
               labelFilter,
               getEventHandler(ruleContext),
               settings,
               ImmutableList.<QueryFunction>of(),
-              /*packagePath=*/null).evaluateQuery(query);
+              /*packagePath=*/null).evaluateQuery(query, targets);
     } catch (SkyframeRestartQueryException e) {
       // Do not emit errors for skyframe restarts. They make output of the ConfiguredTargetFunction
       // inconsistent from run to run, and make detecting legitimate errors more difficult.
@@ -310,7 +312,8 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     PrintStream printStream = new PrintStream(outputStream);
 
     try {
-      QueryOutputUtils.output(queryOptions, queryResult, formatter, printStream,
+      QueryOutputUtils
+          .output(queryOptions, queryResult, targets.getResult(), formatter, printStream,
           queryOptions.aspectDeps.createResolver(packageProvider, getEventHandler(ruleContext)));
     } catch (ClosedByInterruptException e) {
       throw new InterruptedException(e.getMessage());

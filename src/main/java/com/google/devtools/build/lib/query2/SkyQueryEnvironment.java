@@ -167,14 +167,14 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   }
 
   @Override
-  public QueryEvalResult<Target> evaluateQuery(QueryExpression expr)
+  public QueryEvalResult evaluateQuery(QueryExpression expr, Callback<Target> callback)
       throws QueryException, InterruptedException {
     // Some errors are reported as QueryExceptions and others as ERROR events (if --keep_going). The
     // result is set to have an error iff there were errors emitted during the query, so we reset
     // errors here.
     eventHandler.resetErrors();
     init();
-    return super.evaluateQuery(expr);
+    return super.evaluateQuery(expr, callback);
   }
 
   private Map<Target, Collection<Target>> makeTargetsMap(Map<SkyKey, Iterable<SkyKey>> input) {
@@ -376,7 +376,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     }
   }
 
-  private static Target getSubincludeTarget(final Label label, Package pkg) {
+  private static Target getSubincludeTarget(Label label, Package pkg) {
     return new FakeSubincludeTarget(label, pkg);
   }
 

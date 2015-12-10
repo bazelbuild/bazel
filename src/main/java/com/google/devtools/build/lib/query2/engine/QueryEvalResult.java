@@ -14,24 +14,18 @@
 
 package com.google.devtools.build.lib.query2.engine;
 
-import com.google.common.base.Preconditions;
-
-import java.util.Set;
-
 /**
- * The result of a query evaluation, containing a set of elements.
- *
- * @param <T> the node type of the elements.
+ * Information about the query evaluation, like if it was successful and number of elements
+ * returned.
  */
-public class QueryEvalResult<T> {
+public class QueryEvalResult {
 
-  protected final boolean success;
-  protected final Set<T> resultSet;
+  private final boolean success;
+  private final boolean empty;
 
-  public QueryEvalResult(
-      boolean success, Set<T> resultSet) {
+  public QueryEvalResult(boolean success, boolean empty) {
     this.success = success;
-    this.resultSet = Preconditions.checkNotNull(resultSet);
+    this.empty = empty;
   }
 
   /**
@@ -42,16 +36,13 @@ public class QueryEvalResult<T> {
     return success;
   }
 
-  /**
-   * Returns the result as a set of targets.
-   */
-  public Set<T> getResultSet() {
-    return resultSet;
+  /** True if the query did not return any result; */
+  public boolean isEmpty() {
+    return empty;
   }
 
   @Override
   public String toString() {
-    return (getSuccess() ? "Successful" : "Unsuccessful") + ", result size = "
-        + getResultSet().size() + ", " + getResultSet();
+    return (getSuccess() ? "Successful" : "Unsuccessful") + ", empty = " + empty;
   }
 }
