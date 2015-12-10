@@ -58,7 +58,7 @@ public class LocalRepositoryFunction extends RepositoryFunction {
     try {
       FileSystemUtils.createDirectoryAndParents(repositoryPath.getParentDirectory());
       if (repositoryPath.exists(Symlinks.NOFOLLOW)) {
-        repositoryPath.delete();
+        FileSystemUtils.deleteTree(repositoryPath);
       }
       repositoryPath.createSymbolicLink(pathFragment);
     } catch (IOException e) {

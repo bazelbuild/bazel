@@ -136,10 +136,6 @@ public class RepositoryDelegatorFunction implements SkyFunction {
         + "run the build without the '--nofetch' command line option.",
         rule.getName())));
 
-    // NB: This returns the wrong repository value for non-local new_* repository functions because
-    // overlaidBuildFile won't be set.
-    // TODO(lberki): overlaidBuildFile can now probably be removed. Try to excise it write a test
-    // that makes sure this works as expected.
     return RepositoryValue.fetchingDelayed(repoRootValue.realRootedPath().asPath());
   }
 

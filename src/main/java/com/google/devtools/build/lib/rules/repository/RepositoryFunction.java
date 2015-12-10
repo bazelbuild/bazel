@@ -252,6 +252,12 @@ public abstract class RepositoryFunction {
     SkyKey buildFileKey = FileValue.key(rootedBuild);
     FileValue buildFileValue;
     try {
+      // Note that this dependency is, strictly speaking, not necessary: the symlink could simply
+      // point to this FileValue and the symlink chasing could be done while loading the package
+      // but this results in a nicer error message and it's correct as long as RepositoryFunctions
+      // don't write to things in the file system this FileValue depends on. In theory, the latter
+      // is possible if the file referenced by build_file is a symlink to somewhere under the
+      // external/ directory, but if you do that, you are really asking for trouble.
       buildFileValue = (FileValue) env.getValueOrThrow(buildFileKey, IOException.class,
           FileSymlinkException.class, InconsistentFilesystemException.class);
       if (buildFileValue == null) {
@@ -285,7 +291,7 @@ public abstract class RepositoryFunction {
     if (createSymbolicLink(buildFilePath, buildFileValue.realRootedPath().asPath(), env) == null) {
       return null;
     }
-    return RepositoryValue.createNew(outputDirectory, buildFileValue);
+    return RepositoryValue.create(outputDirectory);
   }
 
   protected static PathFragment getTargetPath(Rule rule) throws RepositoryFunctionException {

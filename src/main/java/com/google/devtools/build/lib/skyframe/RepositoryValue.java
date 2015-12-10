@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Objects;
-import com.google.common.base.Optional;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -26,20 +25,10 @@ import com.google.devtools.build.skyframe.SkyValue;
  */
 public class RepositoryValue implements SkyValue {
   private final Path path;
-
-  /**
-   * If this repository is using a user-created BUILD file (any of the new_* functions) then that
-   * FileValue needs to be propagated up to the PackageLookup so it doesn't get pruned. The BUILD
-   * file symlink will be under external/, thus assumed to be immutable, thus Skyframe will prune
-   * it. Then user changes will be ignored (in favor of the cached version).
-   */
-  private final Optional<FileValue> overlaidBuildFile;
   private final boolean fetchingDelayed;
 
-  private RepositoryValue(
-      Path path, Optional<FileValue> overlaidBuildFile, boolean fetchingDelayed) {
+  private RepositoryValue(Path path, boolean fetchingDelayed) {
     this.path = path;
-    this.overlaidBuildFile = overlaidBuildFile;
     this.fetchingDelayed = fetchingDelayed;
   }
 
@@ -47,7 +36,7 @@ public class RepositoryValue implements SkyValue {
    * Creates an immutable external repository.
    */
   public static RepositoryValue create(Path repositoryDirectory) {
-    return new RepositoryValue(repositoryDirectory, Optional.<FileValue>absent(), false);
+    return new RepositoryValue(repositoryDirectory, false);
   }
 
   /**
@@ -55,14 +44,7 @@ public class RepositoryValue implements SkyValue {
    * {@code --nofetch} command line option.
    */
   public static RepositoryValue fetchingDelayed(Path repositoryDirectory) {
-    return new RepositoryValue(repositoryDirectory, Optional.<FileValue>absent(), true);
-  }
-
-  /**
-   * Creates an immutable external repository with a mutable BUILD file.
-   */
-  public static RepositoryValue createNew(Path repositoryDirectory, FileValue overlaidBuildFile) {
-    return new RepositoryValue(repositoryDirectory, Optional.of(overlaidBuildFile), false);
+    return new RepositoryValue(repositoryDirectory, true);
   }
 
   /**
@@ -73,10 +55,6 @@ public class RepositoryValue implements SkyValue {
    */
   public Path getPath() {
     return path;
-  }
-
-  public Optional<FileValue> getOverlaidBuildFile() {
-    return overlaidBuildFile;
   }
 
   public boolean isFetchingDelayed() {
@@ -91,20 +69,19 @@ public class RepositoryValue implements SkyValue {
 
     if (other instanceof RepositoryValue) {
       RepositoryValue otherValue = (RepositoryValue) other;
-      return overlaidBuildFile.equals(otherValue.overlaidBuildFile);
+      return path.equals(otherValue.path);
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(overlaidBuildFile);
+    return Objects.hashCode(path);
   }
 
   @Override
   public String toString() {
-    return path.getPathString() + (overlaidBuildFile.isPresent()
-        ? " (BUILD file: " + overlaidBuildFile.get() + ")" : "");
+    return path.getPathString();
   }
 
   /**

@@ -967,8 +967,7 @@ EOF
   expect_log "42"
 }
 
-# Currently disabled due to a bug in Bazel. Stay tuned.
-function DISABLED_test_change_new_repository_build_file() {
+function test_change_new_repository_build_file() {
   local r=$TEST_TMPDIR/r
   rm -fr $r
   mkdir -p $r

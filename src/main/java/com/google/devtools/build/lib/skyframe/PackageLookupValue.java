@@ -13,15 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-
-import java.util.Objects;
 
 /**
  * A value that represents a package lookup result.
@@ -57,11 +54,6 @@ public abstract class PackageLookupValue implements SkyValue {
 
   public static PackageLookupValue success(Path root) {
     return new SuccessfulPackageLookupValue(root);
-  }
-
-  public static PackageLookupValue overlaidBuildFile(
-      Path root, Optional<FileValue> overlaidBuildFile) {
-    return new OverlaidPackageLookupValue(root, overlaidBuildFile);
   }
 
   public static PackageLookupValue workspace(Path root) {
@@ -148,35 +140,6 @@ public abstract class PackageLookupValue implements SkyValue {
     @Override
     public int hashCode() {
       return root.hashCode();
-    }
-  }
-
-  /**
-   * A package under external/ that has a BUILD file that is not under external/.
-   *
-   * <p>This is kind of a hack to get around our assumption that external/ is immutable.</p>
-   */
-  private static class OverlaidPackageLookupValue extends SuccessfulPackageLookupValue {
-
-    private final Optional<FileValue> overlaidBuildFile;
-
-    public OverlaidPackageLookupValue(Path root, Optional<FileValue> overlaidBuildFile) {
-      super(root);
-      this.overlaidBuildFile = overlaidBuildFile;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (!(obj instanceof OverlaidPackageLookupValue)) {
-        return false;
-      }
-      OverlaidPackageLookupValue other = (OverlaidPackageLookupValue) obj;
-      return super.equals(other) && overlaidBuildFile.equals(other.overlaidBuildFile);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(super.hashCode(), overlaidBuildFile);
     }
   }
 
