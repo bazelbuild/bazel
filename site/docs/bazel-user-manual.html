@@ -842,6 +842,22 @@ $ bazel fetch //...
   To disable this warning you can pass the <code>--ignore_unsupported_sandboxing</code> flag to
   Bazel.
 </p>
+
+<p>
+  On some platform such as <a href="https://cloud.google.com/container-engine/">GKE</a>
+  cluster nodes, namespace are deactivated using the <code>kernel.unprivileged_userns_clone</code>
+  sysctl. This can be checked by looking at the file
+  <code>/proc/sys/kernel/unprivileged_userns_clone</code>: if it exists and set to 0, then
+  namespace can be activated with <code>sudo sysctl kernel.unprivileged_userns_clone=1</code>.
+</p>
+<p>
+  In some cases, Bazel sandbox fails to execute rules because of the system setup. The symptom is
+  generally a failure that output a message similar to
+  <code>namespace-sandbox.c:633: execvp(argv[0], argv): No such file or directory</code>. In that
+  case, try to deactivate the sandbox for genrule with <code>--genrule_strategy=standalone</code>
+  and for other rules with <code>--spawn_strategy=standalone</code>.
+</p>
+
 <p>
   <sup>1</sup>: Hermeticity means that the action only uses its declared input files and no other
   files in the filesystem, and it only produces its declared output files.
