@@ -33,6 +33,7 @@ import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.api.errors.InvalidRefNameException;
 import org.eclipse.jgit.api.errors.InvalidRemoteException;
+import org.eclipse.jgit.api.errors.JGitInternalException;
 import org.eclipse.jgit.api.errors.RefNotFoundException;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
@@ -154,6 +155,12 @@ public class GitCloneFunction implements SkyFunction {
     } catch (GitAPIException e) {
       throw new RepositoryFunctionException(
           new IOException(e.getMessage()), Transience.TRANSIENT);
+    } catch (JGitInternalException e) {
+      // This is a lame catch-all for jgit throwing RuntimeExceptions all over the place because,
+      // as the docs put it, "a lot of exceptions are so low-level that is is unlikely that the
+      // caller of the command can handle them effectively." Thanks, jgit.
+      throw new RepositoryFunctionException(
+          new IOException(e.getMessage()), Transience.PERSISTENT);
     } finally {
       if (git != null) {
         git.close();
