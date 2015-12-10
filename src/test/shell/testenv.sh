@@ -122,9 +122,9 @@ if [ -z "${TEST_TMPDIR:-}" ]; then
 fi
 if [ ! -e "${TEST_TMPDIR}" ]; then
   mkdir -p -m 0700 "${TEST_TMPDIR}"
+  # Clean TEST_TMPDIR on exit
+  atexit "rm -fr ${TEST_TMPDIR}"
 fi
-# Clean TEST_TMPDIR on exit
-atexit "rm -fr ${TEST_TMPDIR}"
 
 # Functions to compare the actual output of a test to the expected
 # (golden) output.

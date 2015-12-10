@@ -531,8 +531,8 @@ function run_suite() {
           timestamp >$TEST_TMPDIR/__ts_start
           set_up
           eval $TEST_name
-          timestamp >$TEST_TMPDIR/__ts_end
           tear_down
+          timestamp >$TEST_TMPDIR/__ts_end
           test $TEST_passed == true
         ) 2>&1 | tee $TEST_TMPDIR/__log
         # Note that tee will prevent the control flow continuing if the test
@@ -570,7 +570,7 @@ function run_suite() {
         echo "FAILED: $TEST_name" >&2
         # end marker in CDATA cannot be escaped, we need to split the CDATA sections
         log=$(cat $TEST_TMPDIR/__log | sed 's/]]>/]]>]]&gt;<![CDATA[/g')
-        fail_msg=$(cat $TEST_TMPDIR/__fail || echo "No failure message")
+        fail_msg=$(cat $TEST_TMPDIR/__fail 2> /dev/null || echo "No failure message")
         testcase_tag="<testcase name=\"$TEST_name\" status=\"run\" time=\"$run_time\" classname=\"\"><error message=\"$fail_msg\"><![CDATA[$log]]></error></testcase>"
       fi
       $TEST_verbose && echo >&2

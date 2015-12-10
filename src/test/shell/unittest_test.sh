@@ -20,6 +20,16 @@
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 source ${DIR}/unittest.bash || { echo "Could not source unittest.sh" >&2; exit 1; }
 
+function set_up() {
+  tmp_TEST_TMPDIR=$TEST_TMPDIR
+  TEST_TMPDIR=$TEST_TMPDIR/$TEST_name
+  mkdir -p $TEST_TMPDIR
+}
+
+function tear_down() {
+  TEST_TMPDIR=$tmp_TEST_TMPDIR
+}
+
 function test_1() {
   echo "Everything is okay in test_1"
 }
@@ -34,6 +44,42 @@ function test_timestamp() {
 
   local time_diff=$(get_run_time 100000 223456)
   assert_equals $time_diff 123.456
+}
+
+function test_failure_message() {
+  cd $TEST_TMPDIR
+  cat > thing.sh <<EOF
+#!/bin/bash
+source ${DIR}/unittest.bash
+
+function test_thing() {
+  fail "I'm a failure"
+}
+
+run_suite "thing tests"
+EOF
+  chmod +x thing.sh
+  ./thing.sh &> $TEST_log || echo "thing.sh should fail"
+  expect_not_log "__fail: No such file or directory"
+  assert_contains "I'm a failure." $XML_OUTPUT_FILE
+}
+
+function test_no_failure_message() {
+  cd $TEST_TMPDIR
+  cat > thing.sh <<EOF
+#!/bin/bash
+source ${DIR}/unittest.bash
+
+function test_thing() {
+  TEST_passed=blorp
+}
+
+run_suite "thing tests"
+EOF
+  chmod +x thing.sh
+  ./thing.sh &> $TEST_log || echo "thing.sh should fail"
+  expect_not_log "__fail: No such file or directory"
+  assert_contains "No failure message" $XML_OUTPUT_FILE
 }
 
 run_suite "unittests Tests"
