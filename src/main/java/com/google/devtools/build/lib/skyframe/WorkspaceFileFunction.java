@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -106,7 +106,7 @@ public class WorkspaceFileFunction implements SkyFunction {
     // Load skylark imports
     PackageFunction.SkylarkImportResult importResult;
     importResult = PackageFunction.fetchImportsFromBuildFile(repoWorkspace,
-            PackageIdentifier.createInDefaultRepo("external"),
+            Label.EXTERNAL_PACKAGE_IDENTIFIER,
             parser.getBuildFileAST(),
             skyEnvironment,
             null);

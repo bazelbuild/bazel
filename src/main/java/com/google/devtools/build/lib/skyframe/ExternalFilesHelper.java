@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -92,7 +92,7 @@ public class ExternalFilesHelper {
       // files is small.
       // TODO(kchodorow): check that the path is under output_base/external before adding the dep.
       PackageValue pkgValue = (PackageValue) env.getValue(PackageValue.key(
-              PackageIdentifier.createInDefaultRepo(PackageIdentifier.EXTERNAL_PREFIX)));
+              Label.EXTERNAL_PACKAGE_IDENTIFIER));
       if (pkgValue == null) {
         return;
       }

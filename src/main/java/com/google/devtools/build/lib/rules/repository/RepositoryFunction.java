@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.repository;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -369,7 +370,7 @@ public abstract class RepositoryFunction {
   @Nullable
   public static Package getExternalPackage(Environment env)
       throws RepositoryFunctionException {
-    SkyKey packageKey = PackageValue.key(Package.EXTERNAL_PACKAGE_IDENTIFIER);
+    SkyKey packageKey = PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
     PackageValue packageValue;
     try {
       packageValue = (PackageValue) env.getValueOrThrow(packageKey,
@@ -377,7 +378,7 @@ public abstract class RepositoryFunction {
     } catch (NoSuchPackageException e) {
       throw new RepositoryFunctionException(
           new BuildFileNotFoundException(
-              Package.EXTERNAL_PACKAGE_IDENTIFIER, "Could not load //external package"),
+              Label.EXTERNAL_PACKAGE_IDENTIFIER, "Could not load //external package"),
           Transience.PERSISTENT);
     }
     if (packageValue == null) {
@@ -388,7 +389,7 @@ public abstract class RepositoryFunction {
     if (externalPackage.containsErrors()) {
       throw new RepositoryFunctionException(
           new BuildFileContainsErrorsException(
-              Package.EXTERNAL_PACKAGE_IDENTIFIER, "Could not load //external package"),
+              Label.EXTERNAL_PACKAGE_IDENTIFIER, "Could not load //external package"),
           Transience.PERSISTENT);
     }
     return externalPackage;
@@ -425,7 +426,7 @@ public abstract class RepositoryFunction {
     if (rule == null) {
       throw new RepositoryFunctionException(
           new BuildFileContainsErrorsException(
-              Package.EXTERNAL_PACKAGE_IDENTIFIER,
+              Label.EXTERNAL_PACKAGE_IDENTIFIER,
               "The repository named '" + repositoryName + "' could not be resolved"),
           Transience.PERSISTENT);
     }
@@ -469,7 +470,7 @@ public abstract class RepositoryFunction {
   public static Path getExternalRepositoryDirectory(BlazeDirectories directories) {
     return directories
         .getOutputBase()
-        .getRelative(Package.EXTERNAL_PACKAGE_IDENTIFIER.getPackageFragment());
+        .getRelative(Label.EXTERNAL_PATH_PREFIX);
   }
 
   /**

@@ -48,9 +48,9 @@ import javax.annotation.concurrent.Immutable;
  */
 @Immutable
 public final class PackageIdentifier implements Comparable<PackageIdentifier>, Serializable {
-  public static final String EXTERNAL_PREFIX = "external";
 
   private static final Interner<PackageIdentifier> INTERNER = Interners.newWeakInterner();
+
 
   public static PackageIdentifier create(String repository, PathFragment pkgName)
       throws LabelSyntaxException {
@@ -145,7 +145,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
      * was invalid.
      */
     public static Pair<RepositoryName, PathFragment> fromPathFragment(PathFragment path) {
-      if (path.segmentCount() < 2 || !path.getSegment(0).equals(EXTERNAL_PREFIX)) {
+      if (path.segmentCount() < 2 || !path.getSegment(0).equals(Label.EXTERNAL_PATH_PREFIX)) {
         return null;
       }
       try {
@@ -221,7 +221,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     public PathFragment getPathFragment() {
       return isDefault()
           ? PathFragment.EMPTY_FRAGMENT
-          : new PathFragment(EXTERNAL_PREFIX).getRelative(strippedName());
+          : new PathFragment(Label.EXTERNAL_PATH_PREFIX).getRelative(strippedName());
     }
 
     /**

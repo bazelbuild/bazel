@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
@@ -32,8 +33,12 @@ import javax.annotation.Nullable;
  */
 public abstract class AbstractAttributeMapper implements AttributeMap {
 
-  private static final PathFragment VISIBILITY = new PathFragment("visibility");
-  private static final PathFragment EXTERNAL = new PathFragment("external");
+  /**
+   * Package names that aren't made relative to the current repository because they mean special
+   * things to Bazel.
+   */
+  private static final ImmutableSet<PathFragment> ABSOLUTE_PACKAGE_NAMES = ImmutableSet.of(
+      new PathFragment("visibility"), Label.EXTERNAL_PACKAGE_NAME);
 
   private final Package pkg;
   private final RuleClass ruleClass;
@@ -168,8 +173,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
           // generally tools, which go to the main repository.
           absoluteLabel = label;
         } else if (label.getPackageIdentifier().getRepository().isDefault()
-            && (VISIBILITY.equals(label.getPackageIdentifier().getPackageFragment())
-                || EXTERNAL.equals(label.getPackageIdentifier().getPackageFragment()))) {
+            && ABSOLUTE_PACKAGE_NAMES.contains(label.getPackageIdentifier().getPackageFragment())) {
           // //visibility: and //external: labels must also be special-cased :(
           absoluteLabel = label;
         } else {

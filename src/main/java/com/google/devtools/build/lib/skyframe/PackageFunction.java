@@ -394,10 +394,10 @@ public class PackageFunction implements SkyFunction {
       }
     }
 
-    if (packageId.equals(Package.EXTERNAL_PACKAGE_IDENTIFIER)) {
+    if (packageId.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
       return getExternalPackage(env, packageLookupValue.getRoot());
     }
-    SkyKey externalPackageKey = PackageValue.key(Package.EXTERNAL_PACKAGE_IDENTIFIER);
+    SkyKey externalPackageKey = PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER);
     PackageValue externalPackage = (PackageValue) env.getValue(externalPackageKey);
     if (externalPackage == null) {
       return null;
@@ -405,7 +405,7 @@ public class PackageFunction implements SkyFunction {
     Package externalPkg = externalPackage.getPackage();
     if (externalPkg.containsErrors()) {
       throw new PackageFunctionException(
-          new BuildFileContainsErrorsException(Package.EXTERNAL_PACKAGE_IDENTIFIER),
+          new BuildFileContainsErrorsException(Label.EXTERNAL_PACKAGE_IDENTIFIER),
           Transience.PERSISTENT);
     }
 
@@ -947,7 +947,7 @@ public class PackageFunction implements SkyFunction {
   private static class BadWorkspaceFileException extends NoSuchPackageException {
     private BadWorkspaceFileException(String message) {
       super(
-          Package.EXTERNAL_PACKAGE_IDENTIFIER,
+          Label.EXTERNAL_PACKAGE_IDENTIFIER,
           "Error encountered while dealing with the WORKSPACE file: " + message);
     }
   }

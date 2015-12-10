@@ -125,7 +125,6 @@ import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
 
@@ -133,8 +132,6 @@ import java.io.IOException;
  * A rule class provider implementing the rules Bazel knows.
  */
 public class BazelRuleClassProvider {
-  private static final PathFragment EXTERNAL = new PathFragment("external");
-
   /**
    * Used by the build encyclopedia generator.
    */
@@ -163,7 +160,7 @@ public class BazelRuleClassProvider {
     private void validateDirectPrerequisiteVisibility(
         RuleContext.Builder context, ConfiguredTarget prerequisite, String attrName) {
       Rule rule = context.getRule();
-      if (rule.getLabel().getPackageFragment().equals(EXTERNAL)) {
+      if (rule.getLabel().getPackageFragment().equals(Label.EXTERNAL_PACKAGE_NAME)) {
         // //external: labels are special. They have access to everything and visibility is checked
         // at the edge that points to the //external: label.
         return;
