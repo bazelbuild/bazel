@@ -636,6 +636,41 @@ public class MethodLibrary {
     }
   };
 
+  @SkylarkSignature(name = "splitlines", objectType = StringModule.class,
+      returnType = MutableList.class,
+      doc =
+      "Splits the string at line boundaries ('\\n', '\\r\\n', '\\r') "
+      + "and returns the result as a list.",
+      mandatoryPositionals = {
+          @Param(name = "self", type = String.class, doc = "This string.")},
+      optionalPositionals = {
+          @Param(name = "keepends", type = Boolean.class, defaultValue = "False",
+              doc = "Whether the line breaks should be included in the resulting list.")})
+  private static BuiltinFunction splitLines = new BuiltinFunction("splitlines") {
+    @SuppressWarnings("unused")
+    public MutableList invoke(String self, Boolean keepEnds) throws EvalException {
+      List<String> result = new ArrayList<>();
+      Matcher matcher = SPLIT_LINES_PATTERN.matcher(self);
+      while (matcher.find()) {
+        String line = matcher.group("line");
+        String lineBreak = matcher.group("break");
+        boolean trailingBreak = lineBreak.isEmpty();
+        if (line.isEmpty() && trailingBreak) {
+          break;
+        }
+        if (keepEnds && !trailingBreak) {
+          result.add(line + lineBreak);
+        } else {
+          result.add(line);
+        }
+      }
+      return new MutableList(result);
+    }
+  };
+
+  private static final Pattern SPLIT_LINES_PATTERN =
+      Pattern.compile("(?<line>.*)(?<break>(\\r\\n|\\r|\\n)?)");
+
   @SkylarkSignature(name = "isalpha", objectType = StringModule.class, returnType = Boolean.class,
     doc = "Returns True if all characters in the string are alphabetic ([a-zA-Z]) and it "
         + "contains at least one character.",
