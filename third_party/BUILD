@@ -252,7 +252,7 @@ java_import(
 java_import(
     name = "guice",
     jars = [
-        "guice/guice-4.0.jar",
+        "guice/guice-4.0-no_aop.jar",
         "guice/guice-multibindings-4.0.jar",
         "jsr330_inject/javax.inject.jar",
     ],
