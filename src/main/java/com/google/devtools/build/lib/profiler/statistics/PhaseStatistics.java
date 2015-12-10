@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler.statistics;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.Iterators;
 import com.google.devtools.build.lib.profiler.ProfileInfo;
@@ -21,6 +20,7 @@ import com.google.devtools.build.lib.profiler.ProfileInfo.AggregateAttr;
 import com.google.devtools.build.lib.profiler.ProfileInfo.Task;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.EnumMap;
 import java.util.Iterator;

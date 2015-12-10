@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * An utility for custom reporting of errors from cycles in the the Skyframe graph. This class is

@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.rules.fileset;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.packages.FilesetEntry;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 

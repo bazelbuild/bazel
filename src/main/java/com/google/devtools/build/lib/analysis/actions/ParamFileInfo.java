@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.nio.charset.Charset;
 import java.util.Objects;

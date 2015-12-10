@@ -74,6 +74,7 @@ java_library(
     srcs = glob(["concurrent/*.java"]),
     deps = [
         ":common",
+        ":preconditions",
         "//third_party:jsr305",
     ],
 )
@@ -87,6 +88,7 @@ java_library(
     ]),
     deps = [
         ":common",
+        ":preconditions",
         "//third_party:jsr305",
     ],
 )
@@ -104,6 +106,7 @@ java_library(
         ":common",
         ":concurrent",
         ":os_util",
+        ":preconditions",
         ":unix",
         "//third_party:jsr305",
     ],
@@ -134,6 +137,7 @@ java_library(
         ":clock",
         ":common",
         ":concurrent",
+        ":preconditions",
         ":unix",
         ":vfs",
         "//third_party:jsr305",
@@ -163,6 +167,17 @@ java_library(
     ],
     deps = [
         ":common",
+        ":preconditions",
+    ],
+)
+
+# Varargs-avoiding overloads of Preconditions functions.
+java_library(
+    name = "preconditions",
+    srcs = ["util/Preconditions.java"],
+    deps = [
+        ":common",
+        "//third_party:jsr305",
     ],
 )
 
@@ -194,6 +209,7 @@ java_library(
             "util/ExitCode.java",
             "util/JavaClock.java",
             "util/OS.java",
+            "util/Preconditions.java",
             "util/StringCanonicalizer.java",
             "util/StringTrie.java",
             "util/VarInt.java",
@@ -205,6 +221,7 @@ java_library(
         ":collect",
         ":exitcode-external",
         ":os_util",
+        ":preconditions",
     ],
     deps = [
         ":base-util",
@@ -213,6 +230,7 @@ java_library(
         ":concurrent",
         ":exitcode-external",
         ":os_util",
+        ":preconditions",
         ":shell",
         ":unix",
         ":vfs",
@@ -239,6 +257,7 @@ java_library(
         ":common",
         ":concurrent",
         ":io",
+        ":preconditions",
         ":vfs",
         "//third_party:jsr305",
     ],

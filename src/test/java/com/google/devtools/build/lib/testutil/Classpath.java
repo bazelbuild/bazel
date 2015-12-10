@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.testutil;
 
-import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.io.File;
 import java.io.IOException;

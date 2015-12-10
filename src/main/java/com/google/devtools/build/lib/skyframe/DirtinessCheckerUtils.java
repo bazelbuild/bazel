@@ -17,9 +17,9 @@ import static com.google.devtools.build.lib.skyframe.SkyFunctions.DIRECTORY_LIST
 import static com.google.devtools.build.lib.skyframe.SkyFunctions.FILE_STATE;
 
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;

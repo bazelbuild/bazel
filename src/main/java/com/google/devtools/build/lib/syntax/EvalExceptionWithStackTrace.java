@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Deque;
 import java.util.LinkedList;

@@ -14,8 +14,8 @@
 package com.google.devtools.build.lib.collect.nestedset;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.collect.CompactHashSet;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.BitSet;
 import java.util.Set;

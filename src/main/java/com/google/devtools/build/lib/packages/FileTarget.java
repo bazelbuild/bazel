@@ -14,10 +14,10 @@
 
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.util.FileType.HasFilename;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Set;
 

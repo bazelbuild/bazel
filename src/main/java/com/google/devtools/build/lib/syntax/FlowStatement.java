@@ -14,11 +14,11 @@
 package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
 import com.google.devtools.build.lib.syntax.compiler.Jump;
 import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
 import com.google.devtools.build.lib.syntax.compiler.VariableScope;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 

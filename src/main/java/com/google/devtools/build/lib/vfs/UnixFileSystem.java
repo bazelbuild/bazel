@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -23,6 +22,7 @@ import com.google.devtools.build.lib.unix.ErrnoFileStatus;
 import com.google.devtools.build.lib.unix.FilesystemUtils;
 import com.google.devtools.build.lib.unix.FilesystemUtils.Dirents;
 import com.google.devtools.build.lib.unix.FilesystemUtils.ReadTypes;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.io.IOException;
 import java.util.ArrayList;

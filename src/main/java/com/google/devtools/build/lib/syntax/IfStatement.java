@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils.append;
 
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
 import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
@@ -25,6 +24,7 @@ import com.google.devtools.build.lib.syntax.compiler.Jump.PrimitiveComparison;
 import com.google.devtools.build.lib.syntax.compiler.LabelAdder;
 import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
 import com.google.devtools.build.lib.syntax.compiler.VariableScope;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 

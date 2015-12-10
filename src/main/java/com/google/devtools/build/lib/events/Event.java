@@ -15,11 +15,12 @@ package com.google.devtools.build.lib.events;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
-import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Objects;
+
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 

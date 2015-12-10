@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Clock;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;

@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams.Builder;
+import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * A cache of C link parameters.

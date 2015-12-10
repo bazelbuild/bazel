@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.rules.test;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * This event is used to notify about a successfully built baseline coverage artifact.

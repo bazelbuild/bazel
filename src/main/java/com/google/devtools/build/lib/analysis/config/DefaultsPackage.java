@@ -14,12 +14,12 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Locale;
 import java.util.Map;

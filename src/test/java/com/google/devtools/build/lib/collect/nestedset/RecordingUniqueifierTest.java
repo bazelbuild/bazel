@@ -15,8 +15,8 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import static org.junit.Assert.assertEquals;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

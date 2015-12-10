@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.analysis.actions;
 
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * A representation of a command line to be executed by a SpawnAction.

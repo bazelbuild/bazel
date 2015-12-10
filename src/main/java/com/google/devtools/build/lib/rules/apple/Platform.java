@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Locale;
 import java.util.Set;

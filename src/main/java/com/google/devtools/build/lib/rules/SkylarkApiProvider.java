@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.lib.rules;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * An abstract class for adding a Skylark API for the native providers.

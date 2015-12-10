@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.concurrent;
 
-import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.server;
 
-import com.google.common.base.Preconditions;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.io.ByteArrayOutputStream;
 import java.io.UnsupportedEncodingException;

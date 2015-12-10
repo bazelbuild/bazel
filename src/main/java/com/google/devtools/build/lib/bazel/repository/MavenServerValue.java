@@ -15,8 +15,8 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Objects;
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 

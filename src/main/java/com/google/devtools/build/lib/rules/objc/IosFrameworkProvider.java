@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * Provider for iOS Framework info.

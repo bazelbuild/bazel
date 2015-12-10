@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.collect.nestedset;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.LinkedHashSet;
 

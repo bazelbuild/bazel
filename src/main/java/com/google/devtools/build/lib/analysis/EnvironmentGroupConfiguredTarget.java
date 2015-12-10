@@ -14,9 +14,9 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
+import com.google.devtools.build.lib.util.Preconditions;
 
 /**
  * Dummy ConfiguredTarget for environment groups. Contains no functionality, since

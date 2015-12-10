@@ -13,8 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import javax.annotation.Nullable;
 

@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.collect;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.AbstractCollection;
 import java.util.AbstractMap.SimpleImmutableEntry;
