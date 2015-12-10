@@ -844,18 +844,20 @@ $ bazel fetch //...
 </p>
 
 <p>
-  On some platform such as <a href="https://cloud.google.com/container-engine/">GKE</a>
-  cluster nodes, namespace are deactivated using the <code>kernel.unprivileged_userns_clone</code>
-  sysctl. This can be checked by looking at the file
-  <code>/proc/sys/kernel/unprivileged_userns_clone</code>: if it exists and set to 0, then
-  namespace can be activated with <code>sudo sysctl kernel.unprivileged_userns_clone=1</code>.
+  On some platforms such as <a href="https://cloud.google.com/container-engine/">Google Container
+  Engine</a> cluster nodes or Debian, user namespaces are deactivated by default due to security
+  concerns. This can be checked by looking at the file
+  <code>/proc/sys/kernel/unprivileged_userns_clone</code>: if it exists and contains a 0, then
+  user namespaces can be activated with <code>sudo sysctl kernel.unprivileged_userns_clone=1</code>.
 </p>
 <p>
-  In some cases, Bazel sandbox fails to execute rules because of the system setup. The symptom is
-  generally a failure that output a message similar to
+  In some cases, the Bazel sandbox fails to execute rules because of the system setup. The symptom
+  is generally a failure that output a message similar to
   <code>namespace-sandbox.c:633: execvp(argv[0], argv): No such file or directory</code>. In that
-  case, try to deactivate the sandbox for genrule with <code>--genrule_strategy=standalone</code>
-  and for other rules with <code>--spawn_strategy=standalone</code>.
+  case, try to deactivate the sandbox for genrules with <code>--genrule_strategy=standalone</code>
+  and for other rules with <code>--spawn_strategy=standalone</code>. Also please report a bug on our
+  issue tracker and mention which Linux distribution you're using so that we can investigate and
+  provide a fix in a subsequent release.
 </p>
 
 <p>
