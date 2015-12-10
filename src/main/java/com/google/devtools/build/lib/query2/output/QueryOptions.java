@@ -215,6 +215,16 @@ public class QueryOptions extends OptionsBase {
           + "aspect is decided in the analysis phase, which is not run during 'blaze query'.")
   public AspectResolver.Mode aspectDeps;
 
+  @Option(
+    name = "query_file",
+    defaultValue = "",
+    category = "query",
+    help =
+        "If set, query will read the query from the file named here, rather than on the "
+            + "command line. It is an error to specify a file here as well as a command-line query."
+  )
+  public String queryFile;
+
   /**
    * Return the current options as a set of QueryEnvironment settings.
    */
