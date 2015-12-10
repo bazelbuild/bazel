@@ -17,14 +17,19 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
+import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
+import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
+import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
@@ -51,6 +56,33 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
   }
 
   /**
+   * A {@link CcLinkParamsStore} to be propagated to dependent cc_{library, binary} targets.
+   */
+  private static class ObjcLibraryCcLinkParamsStore extends CcLinkParamsStore {
+
+    private ObjcCommon common;
+
+    public ObjcLibraryCcLinkParamsStore(ObjcCommon common) {
+      this.common = common;
+    }
+
+    @Override
+    protected void collect(
+        CcLinkParams.Builder builder, boolean linkingStatically, boolean linkShared) {
+      ObjcProvider objcProvider = common.getObjcProvider();
+
+      ImmutableSet.Builder<LibraryToLink> libraries = new ImmutableSet.Builder<>();
+      for (Artifact library : objcProvider.get(ObjcProvider.LIBRARY)) {
+        libraries.add(LinkerInputs.opaqueLibraryToLink(library));
+      }
+
+      libraries.addAll(objcProvider.get(ObjcProvider.CC_LIBRARY));
+
+      builder.addLibraries(libraries.build());
+    }
+  }
+
+  /**
    * Constructs an {@link ObjcCommon} instance based on the attributes of the given rule. The rule
    * should inherit from {@link ObjcLibraryRule}..
    */
@@ -73,8 +105,7 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
             ruleContext.getPrerequisites("non_propagated_deps", Mode.TARGET, ObjcProvider.class))
         .addDepCcHeaderProviders(
             ruleContext.getPrerequisites("deps", Mode.TARGET, CppCompilationContext.class))
-        .addDepCcLinkProviders(
-            ruleContext.getPrerequisites("deps", Mode.TARGET, CcLinkParamsProvider.class))
+        .addDepCcLinkProviders(ruleContext)
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setAlwayslink(alwayslink)
         .setHasModuleMap()
@@ -85,10 +116,13 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
-    ObjcCommon common = common(
-        ruleContext, ImmutableList.<SdkFramework>of(),
-        ruleContext.attributes().get("alwayslink", Type.BOOLEAN), new ExtraImportLibraries(),
-        ImmutableList.<ObjcProvider>of());
+    final ObjcCommon common =
+        common(
+            ruleContext,
+            ImmutableList.<SdkFramework>of(),
+            ruleContext.attributes().get("alwayslink", Type.BOOLEAN),
+            new ExtraImportLibraries(),
+            ImmutableList.<ObjcProvider>of());
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     NestedSetBuilder<Artifact> filesToBuild = NestedSetBuilder.<Artifact>stableOrder()
@@ -122,6 +156,9 @@ public class ObjcLibrary implements RuleConfiguredTargetFactory {
         .addProvider(
             InstrumentedFilesProvider.class,
             compilationSupport.getInstrumentedFilesProvider(common))
+        .addProvider(
+            CcLinkParamsProvider.class,
+            new CcLinkParamsProvider(new ObjcLibraryCcLinkParamsStore(common)))
         .build();
   }
 }

@@ -60,6 +60,7 @@ import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -68,6 +69,7 @@ import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
+import com.google.devtools.build.lib.rules.cpp.CppRunfilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -443,8 +445,18 @@ public final class ObjcCommon {
     /**
      * Sets information from {@code cc_library} dependencies to be used during linking.
      */
-    public Builder addDepCcLinkProviders(Iterable<CcLinkParamsProvider> depCcLinkProviders) {
-      this.depCcLinkProviders = Iterables.concat(this.depCcLinkProviders, depCcLinkProviders);
+    public Builder addDepCcLinkProviders(RuleContext ruleContext) {
+      for (TransitiveInfoCollection dep : ruleContext.getPrerequisites("deps", Mode.TARGET)) {
+        // Hack to determine if dep is a cc target. Required so objc_library archives packed in
+        // CcLinkParamsProvider do not get consumed as cc targets.
+        if (dep.getProvider(CppRunfilesProvider.class) != null) {
+          CcLinkParamsProvider ccLinkParamsProvider = dep.getProvider(CcLinkParamsProvider.class);
+          this.depCcLinkProviders =
+              Iterables.concat(
+                  this.depCcLinkProviders,
+                  ImmutableList.<CcLinkParamsProvider>of(ccLinkParamsProvider));
+        }
+      }
       return this;
     }
 

@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext;
 import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraLinkArgs;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
@@ -200,8 +199,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
                 ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class))
             .addDepCcHeaderProviders(
                 ruleContext.getPrerequisites("deps", Mode.TARGET, CppCompilationContext.class))
-            .addDepCcLinkProviders(
-                ruleContext.getPrerequisites("deps", Mode.TARGET, CcLinkParamsProvider.class))
+            .addDepCcLinkProviders(ruleContext)
             .addDepObjcProviders(
                 ruleContext.getPrerequisites("bundles", Mode.TARGET, ObjcProvider.class))
             .addNonPropagatedDepObjcProviders(
