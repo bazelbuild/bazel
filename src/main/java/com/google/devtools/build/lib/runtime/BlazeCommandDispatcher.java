@@ -117,15 +117,6 @@ public class BlazeCommandDispatcher {
     this.runtime = runtime;
   }
 
-  private Path getDoNotBuildFile(Path workspace) {
-    Path result = workspace.getParentDirectory();
-    if (result.getBaseName().equals("execroot")) {
-      result = result.getParentDirectory();
-    }
-
-    return result.getRelative(BlazeRuntime.DO_NOT_BUILD_FILE_NAME);
-  }
-
   /**
    * Only some commands work if cwd != workspaceSuffix in Blaze. In that case, also check if Blaze
    * was called from the output directory and fail if it was.
@@ -150,7 +141,9 @@ public class BlazeCommandDispatcher {
       return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
     }
 
-    Path doNotBuild = getDoNotBuildFile(workspace);
+    Path doNotBuild = workspace.getParentDirectory().getRelative(
+        BlazeRuntime.DO_NOT_BUILD_FILE_NAME);
+
     if (doNotBuild.exists()) {
       if (!commandAnnotation.canRunInOutputDirectory()) {
         outErr.printErrLn(getNotInRealWorkspaceError(doNotBuild));

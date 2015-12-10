@@ -209,7 +209,7 @@ public final class BlazeRuntime {
 
     if (inWorkspace()) {
       writeOutputBaseReadmeFile();
-      writeOutputBaseDoNotBuildHereFile();
+      writeDoNotBuildHereFile();
     }
     setupExecRoot();
   }
@@ -326,13 +326,21 @@ public final class BlazeRuntime {
     }
   }
 
-  private void writeOutputBaseDoNotBuildHereFile() {
-    Preconditions.checkNotNull(getWorkspace());
-    Path filePath = getOutputBase().getRelative(DO_NOT_BUILD_FILE_NAME);
+  private void writeDoNotBuildHereFile(Path filePath) {
     try {
+      FileSystemUtils.createDirectoryAndParents(filePath.getParentDirectory());
       FileSystemUtils.writeContent(filePath, ISO_8859_1, getWorkspace().toString());
     } catch (IOException e) {
       LOG.warning("Couldn't write to '" + filePath + "': " + e.getMessage());
+    }
+  }
+
+  private void writeDoNotBuildHereFile() {
+    Preconditions.checkNotNull(getWorkspace());
+    writeDoNotBuildHereFile(getOutputBase().getRelative(DO_NOT_BUILD_FILE_NAME));
+    if (startupOptionsProvider.getOptions(BlazeServerStartupOptions.class).deepExecRoot) {
+      writeDoNotBuildHereFile(getOutputBase().getRelative("execroot").getRelative(
+          DO_NOT_BUILD_FILE_NAME));
     }
   }
 
