@@ -95,7 +95,7 @@ def Main():
   try:
     sys.stdout.flush()
     os.execv(program, args)
-  except EnvironmentError, e:
+  except EnvironmentError as e:
     # This exception occurs when os.execv() fails for some reason.
     if not getattr(e, 'filename', None):
       e.filename = program  # Add info to error message
