@@ -31,8 +31,10 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -670,7 +672,7 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
         PackageIdentifier.create(
             TestConstants.TOOLS_REPOSITORY,
             new PathFragment(
-                new PathFragment(TestConstants.MOCK_CROSSTOOL_PATH), new PathFragment(path)));
+                new PathFragment(TestConstants.TOOLS_REPOSITORY_PATH), new PathFragment(path)));
     return packageIdentifier.getPathFragment();
   }
 
@@ -989,17 +991,17 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  dynamic_runtimes_filegroup: \"dynamic-group\""
                 + "}\n");
 
-    final String ctTop = TestConstants.TOOLS_REPOSITORY + "//" + TestConstants.MOCK_CROSSTOOL_PATH;
+    final PackageIdentifier ctTop = MockCcSupport.getMockCrosstoolsTop();
 
     CppConfiguration defaultLibs = create(loader, "--cpu=piii");
     assertEquals(
-        ctTop + ":static-runtime-libs-piii", defaultLibs.getStaticRuntimeLibsLabel().toString());
+        Label.create(ctTop, "static-runtime-libs-piii"), defaultLibs.getStaticRuntimeLibsLabel());
     assertEquals(
-        ctTop + ":dynamic-runtime-libs-piii", defaultLibs.getDynamicRuntimeLibsLabel().toString());
+        Label.create(ctTop, "dynamic-runtime-libs-piii"), defaultLibs.getDynamicRuntimeLibsLabel());
 
     CppConfiguration customLibs = create(loader, "--cpu=k8");
-    assertEquals(ctTop + ":static-group", customLibs.getStaticRuntimeLibsLabel().toString());
-    assertEquals(ctTop + ":dynamic-group", customLibs.getDynamicRuntimeLibsLabel().toString());
+    assertEquals(Label.create(ctTop, "static-group"), customLibs.getStaticRuntimeLibsLabel());
+    assertEquals(Label.create(ctTop, "dynamic-group"), customLibs.getDynamicRuntimeLibsLabel());
   }
 
   /*

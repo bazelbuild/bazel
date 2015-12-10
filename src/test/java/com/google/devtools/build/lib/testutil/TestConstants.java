@@ -69,5 +69,5 @@ public class TestConstants {
 
   public static final String TOOLS_REPOSITORY = "@bazel_tools";
 
-  public static final String MOCK_CROSSTOOL_PATH = "tools/cpp";
+  public static final String TOOLS_REPOSITORY_PATH = "tools/cpp";
 }

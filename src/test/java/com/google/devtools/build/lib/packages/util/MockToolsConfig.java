@@ -79,8 +79,14 @@ public final class MockToolsConfig {
       }
 
       if (!newContent.toString().equals(existingContent)) {
-        throw new IOException("Conflict: '" + relativePath + "':\n'" + newContent + "'\n vs \n'"
-            + existingContent + "'");
+        throw new IOException(
+            "Conflict: '"
+                + relativePath
+                + "':\n'"
+                + newContent
+                + "'\n vs \n'"
+                + existingContent
+                + "'");
       }
     }
     return path;

@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
@@ -29,7 +29,8 @@ import java.io.IOException;
  */
 public class CrosstoolConfigurationHelper {
   public static Path overwriteCrosstoolFile(Path workspace, String content) throws IOException {
-    Path crosstool = workspace.getRelative(TestConstants.MOCK_CROSSTOOL_PATH + "/CROSSTOOL");
+    Path crosstool =
+        workspace.getRelative(AnalysisMock.get().ccSupport().getMockCrosstoolPath() + "/CROSSTOOL");
     long newMTime = crosstool.exists() ? crosstool.getLastModifiedTime() + 1 : -1;
     crosstool.delete();
     FileSystemUtils.createDirectoryAndParents(crosstool.getParentDirectory());
