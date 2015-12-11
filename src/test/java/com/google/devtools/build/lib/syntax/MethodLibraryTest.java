@@ -40,6 +40,112 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testMinWithInvalidArgs() throws Exception {
+    new SkylarkTest()
+        .testIfExactError("type 'int' is not iterable", "min(1)")
+        .testIfExactError("Expected at least one argument", "min([])");
+  }
+
+  @Test
+  public void testMinWithString() throws Exception {
+    new SkylarkTest()
+        .testStatement("min('abcdefxyz')", "a")
+        .testStatement("min('test', 'xyz')", "test");
+  }
+
+  @Test
+  public void testMinWithList() throws Exception {
+    new SkylarkTest()
+        .testEval("min([4, 5], [1])", "[1]")
+        .testEval("min([1, 2], [3])", "[1, 2]")
+        .testEval("min([1, 5], [1, 6], [2, 4], [0, 6])", "[0, 6]")
+        .testStatement("min([-1])", -1)
+        .testStatement("min([5, 2, 3])", 2);
+  }
+
+  @Test
+  public void testMinWithDict() throws Exception {
+    new SkylarkTest().testStatement("min({1: 2, -1 : 3})", -1).testStatement("min({2: None})", 2);
+  }
+
+  @Test
+  public void testMinWithSet() throws Exception {
+    new SkylarkTest().testStatement("min(set([-1]))", -1).testStatement("min(set([5, 2, 3]))", 2);
+  }
+
+  @Test
+  public void testMinWithPositionalArguments() throws Exception {
+    new SkylarkTest().testStatement("min(-1, 2)", -1).testStatement("min(5, 2, 3)", 2);
+  }
+
+  @Test
+  public void testMinWithSameValues() throws Exception {
+    new SkylarkTest()
+        .testStatement("min(1, 1, 1, 1, 1, 1)", 1)
+        .testStatement("min([1, 1, 1, 1, 1, 1])", 1);
+  }
+
+  @Test
+  public void testMinWithDifferentTypes() throws Exception {
+    new SkylarkTest()
+        .testStatement("min(1, '2', True)", true)
+        .testStatement("min([1, '2', True])", true)
+        .testStatement("min(None, 1, 'test')", Runtime.NONE);
+  }
+
+  @Test
+  public void testMaxWithInvalidArgs() throws Exception {
+    new SkylarkTest()
+        .testIfExactError("type 'int' is not iterable", "max(1)")
+        .testIfExactError("Expected at least one argument", "max([])");
+  }
+
+  @Test
+  public void testMaxWithString() throws Exception {
+    new SkylarkTest()
+        .testStatement("max('abcdefxyz')", "z")
+        .testStatement("max('test', 'xyz')", "xyz");
+  }
+
+  @Test
+  public void testMaxWithList() throws Exception {
+    new SkylarkTest()
+        .testEval("max([1, 2], [5])", "[5]")
+        .testStatement("max([-1])", -1)
+        .testStatement("max([5, 2, 3])", 5);
+  }
+
+  @Test
+  public void testMaxWithDict() throws Exception {
+    new SkylarkTest().testStatement("max({1: 2, -1 : 3})", 1).testStatement("max({2: None})", 2);
+  }
+
+  @Test
+  public void testMaxWithSet() throws Exception {
+    new SkylarkTest().testStatement("max(set([-1]))", -1).testStatement("max(set([5, 2, 3]))", 5);
+  }
+
+  @Test
+  public void testMaxWithPositionalArguments() throws Exception {
+    new SkylarkTest().testStatement("max(-1, 2)", 2).testStatement("max(5, 2, 3)", 5);
+  }
+
+  @Test
+  public void testMaxWithSameValues() throws Exception {
+    new SkylarkTest()
+        .testStatement("max(1, 1, 1, 1, 1, 1)", 1)
+        .testStatement("max([1, 1, 1, 1, 1, 1])", 1);
+  }
+
+  @Test
+  public void testMaxWithDifferentTypes() throws Exception {
+    new SkylarkTest()
+        .testStatement("max(1, '2', True)", "2")
+        .testStatement("max([1, '2', True])", "2")
+        .testStatement("max(None, 1, 'test')", "test");
+  }
+
+  @Test
   public void testSplitLines_EmptyLine() throws Exception {
     new SkylarkTest().testEval("''.splitlines()", "[]").testEval("'\\n'.splitlines()", "['']");
   }

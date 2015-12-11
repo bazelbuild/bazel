@@ -35,6 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -850,6 +851,64 @@ public class MethodLibrary {
     return list.subList(left, right);
   }
 
+  @SkylarkSignature(
+    name = "min",
+    returnType = Object.class,
+    doc =
+        "Returns the smallest one of all given arguments. "
+            + "If only one argument is provided, it must be a non-empty iterable.",
+    extraPositionals = {
+      @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked.")
+    },
+    useLocation = true
+  )
+  private static BuiltinFunction min = new BuiltinFunction("min") {
+    @SuppressWarnings("unused") // Accessed via Reflection.
+    public Object invoke(SkylarkList args, Location loc) throws EvalException {
+      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse(), loc);
+    }
+  };
+
+  @SkylarkSignature(
+    name = "max",
+    returnType = Object.class,
+    doc =
+        "Returns the largest one of all given arguments. "
+            + "If only one argument is provided, it must be a non-empty iterable.",
+    extraPositionals = {
+      @Param(name = "args", type = SkylarkList.class, doc = "The elements to be checked.")
+    },
+    useLocation = true
+  )
+  private static BuiltinFunction max = new BuiltinFunction("max") {
+    @SuppressWarnings("unused") // Accessed via Reflection.
+    public Object invoke(SkylarkList args, Location loc) throws EvalException {
+      return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR, loc);
+    }
+  };
+
+  /**
+   * Returns the maximum element from this list, as determined by maxOrdering.
+   */
+  private static Object findExtreme(SkylarkList args, Ordering<Object> maxOrdering, Location loc)
+      throws EvalException {
+    // Args can either be a list of elements or a list whose first element is a non-empty iterable
+    // of elements.
+    try {
+      return maxOrdering.max(getIterable(args, loc));
+    } catch (NoSuchElementException ex) {
+      throw new EvalException(loc, "Expected at least one argument");
+    }
+  }
+
+  /**
+   * This method returns the first element of the list, if that particular element is an
+   * Iterable<?>. Otherwise, it will return the entire list.
+   */
+  private static Iterable<?> getIterable(SkylarkList list, Location loc) throws EvalException {
+    return (list.size() == 1) ? EvalUtils.toIterable(list.get(0), loc) : list;
+  }
+
   // supported list methods
   @SkylarkSignature(
     name = "sorted",
@@ -867,8 +926,7 @@ public class MethodLibrary {
             throws EvalException, ConversionException {
           try {
             return new MutableList(
-                Ordering.from(EvalUtils.SKYLARK_COMPARATOR).sortedCopy(
-                    EvalUtils.toCollection(self, loc)),
+                EvalUtils.SKYLARK_COMPARATOR.sortedCopy(EvalUtils.toCollection(self, loc)),
                 env);
           } catch (EvalUtils.ComparisonException e) {
             throw new EvalException(loc, e);
@@ -1630,9 +1688,9 @@ public class MethodLibrary {
 
   static final List<BaseFunction> skylarkGlobalFunctions =
       ImmutableList.<BaseFunction>builder()
-      .addAll(buildGlobalFunctions)
-      .add(dir, fail, getattr, hasattr, print, set, struct, type)
-      .build();
+          .addAll(buildGlobalFunctions)
+          .add(dir, fail, getattr, hasattr, max, min, print, set, struct, type)
+          .build();
 
 
   /**

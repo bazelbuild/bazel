@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import net.bytebuddy.implementation.bytecode.StackManipulation;
 
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -57,7 +56,7 @@ public final class EvalUtils {
    * <p> It may throw an unchecked exception ComparisonException that should be wrapped in
    * an EvalException.
    */
-  public static final Comparator<Object> SKYLARK_COMPARATOR = new Comparator<Object>() {
+  public static final Ordering<Object> SKYLARK_COMPARATOR = new Ordering<Object>() {
     private int compareLists(SkylarkList o1, SkylarkList o2) {
       for (int i = 0; i < Math.min(o1.size(), o2.size()); i++) {
         int cmp = compare(o1.get(i), o2.get(i));
@@ -390,7 +389,7 @@ public final class EvalUtils {
       // For dictionaries we iterate through the keys only
       // For determinism, we sort the keys.
       try {
-        return Ordering.from(SKYLARK_COMPARATOR).sortedCopy(dict.keySet());
+        return SKYLARK_COMPARATOR.sortedCopy(dict.keySet());
       } catch (ComparisonException e) {
         throw new EvalException(loc, e);
       }
