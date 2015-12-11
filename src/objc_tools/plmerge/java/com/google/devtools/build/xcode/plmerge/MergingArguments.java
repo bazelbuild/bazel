@@ -32,6 +32,7 @@ class MergingArguments {
 
   private final FileSystem fileSystem = FileSystems.getDefault();
   private final List<Path> sourceFilePaths;
+  private final List<Path> immutableSourceFilePaths;
   private final String outFile;
   private final Map<String, String> variableSubstitutions;
   private final String primaryBundleId;
@@ -46,6 +47,13 @@ class MergingArguments {
       sourceFilePathsBuilder.add(fileSystem.getPath(pathString));
     }
     sourceFilePaths = sourceFilePathsBuilder.build();
+    
+    ImmutableList.Builder<Path> immutableSourceFilePathsBuilder = new Builder<>();
+    for (String pathString : control.getImmutableSourceFileList()) {
+      immutableSourceFilePathsBuilder.add(fileSystem.getPath(pathString));
+    }
+    immutableSourceFilePaths = immutableSourceFilePathsBuilder.build();
+    
     outFile = control.getOutFile();
     variableSubstitutions = control.getVariableSubstitutionMap();
     primaryBundleId = control.getPrimaryBundleId();
@@ -62,6 +70,7 @@ class MergingArguments {
     }
 
     sourceFilePaths = sourceFilePathsBuilder.build();
+    immutableSourceFilePaths = ImmutableList.<Path>of();
     outFile = options.outFile;
     variableSubstitutions = ImmutableMap.<String, String>of();
     primaryBundleId = options.primaryBundleId;
@@ -76,6 +85,13 @@ class MergingArguments {
     return sourceFilePaths;
   }
 
+  /*
+   * Returns paths to plist files with keys which may not be overwritten.
+   */
+  public List<Path> getImmutableSourceFilePaths() {
+    return immutableSourceFilePaths;
+  }
+  
   /**
    * Returns path to the output file to merge relative to plmerge.
    */

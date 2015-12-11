@@ -173,36 +173,62 @@ public class PlistMerging extends Value<PlistMerging> {
   }
 
   /**
-   * Generates a Plistmerging combining values from sourceFiles and automaticEntries, and modifying
-   * them based on subsitutions and keysToRemoveIfEmptyString.
+   * Generates a Plistmerging combining values from sourceFiles and immutableSourceFiles, and 
+   * modifying them based on substitutions and keysToRemoveIfEmptyString.
    */
   public static PlistMerging from(
       MergingArguments mergingArguments,
-      Map<String, NSObject> automaticEntries,
       KeysToRemoveIfEmptyString keysToRemoveIfEmptyString)
       throws IOException {
+     
     return from(
         mergingArguments.getSourceFilePaths(),
-        automaticEntries,
+        mergingArguments.getImmutableSourceFilePaths(),
         mergingArguments.getVariableSubstitutions(),
         keysToRemoveIfEmptyString);
   }
   
   /**
-   * Generates a Plistmerging combining values from sourceFiles and automaticEntries, and modifying
-   * them based on subsitutions and keysToRemoveIfEmptyString.
+   * Generates a Plistmerging combining values from sourceFiles and immutableSourceFiles, and 
+   * modifying them based on subsitutions and keysToRemoveIfEmptyString.
    */
-  public static PlistMerging from(List<Path> sourceFiles, Map<String, NSObject> automaticEntries,
-      Map<String, String> substitutions, KeysToRemoveIfEmptyString keysToRemoveIfEmptyString)
-          throws IOException {
+  public static PlistMerging from(
+      List<Path> sourceFiles,
+      List<Path> immutableSourceFiles,
+      Map<String, String> substitutions,
+      KeysToRemoveIfEmptyString keysToRemoveIfEmptyString)
+      throws IOException {
+    return from(
+        sourceFiles,
+        PlistMerging.merge(immutableSourceFiles),
+        substitutions,
+        keysToRemoveIfEmptyString);
+  }
+
+  /**
+   * Generates a Plistmerging combining values from sourceFiles and immutableEntries, and modifying
+   * them based on subsitutions and keysToRemoveIfEmptyString.
+   *
+   * This version of from() is required until bundlemerge no longer uses this method.
+   * TODO (cpeyser): Remove this version to require from() accepts a list of immutable source file
+   * paths instead of an already-merged map of entries.
+   */
+  public static PlistMerging from(
+      List<Path> sourceFiles,
+      Map<String, NSObject> immutableEntries,
+      Map<String, String> substitutions,
+      KeysToRemoveIfEmptyString keysToRemoveIfEmptyString)
+      throws IOException {
     NSDictionary merged = PlistMerging.merge(sourceFiles);
 
-    Set<String> conflictingEntries = Sets.intersection(automaticEntries.keySet(), merged.keySet());
+    Set<String> conflictingEntries = Sets.intersection(immutableEntries.keySet(), merged.keySet());
 
-    Preconditions.checkArgument(conflictingEntries.isEmpty(),
-        "The following plist entries are generated automatically, but are present in more than one "
-            + "of the input lists: %s", conflictingEntries);
-    merged.putAll(automaticEntries);
+    Preconditions.checkArgument(
+        conflictingEntries.isEmpty(),
+        "The following plist entries may not be overridden, but are present in more than one "
+            + "of the input lists: %s",
+        conflictingEntries);
+    merged.putAll(immutableEntries);
 
     for (Map.Entry<String, NSObject> entry : merged.entrySet()) {
       if (entry.getValue().toJavaObject() instanceof String) {
@@ -221,10 +247,10 @@ public class PlistMerging extends Value<PlistMerging> {
     // Info.plist files must contain a valid CFBundleVersion and a valid CFBundleShortVersionString,
     // or it will be rejected by Apple.
     // A valid Bundle Version is 18 characters or less, and only contains [0-9.]
-    // We know we have an info.plist file as opposed to a strings file if the automaticEntries
+    // We know we have an info.plist file as opposed to a strings file if the immutableEntries
     // have any values set.
     // TODO(bazel-team): warn user if we replace their values.
-    if (automaticEntries.size() > 0) {
+    if (!immutableEntries.isEmpty()) {
       Pattern versionPattern = Pattern.compile("[^0-9.]");
       if (!merged.containsKey(BUNDLE_VERSION_PLIST_KEY)) {
         merged.put(BUNDLE_VERSION_PLIST_KEY, BUNDLE_VERSION_DEFAULT);

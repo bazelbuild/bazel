@@ -19,9 +19,15 @@ option java_package = "com.google.devtools.build.xcode.plmerge.proto";
 
 // Contains necessary arguments for PlMerge, which is responsible for merging
 // plist files.
+// Next Id: 7
 message Control {
   // Paths to the plist files to merge relative to execution root.
   repeated string source_file = 1;
+
+  // Paths to plist files to merge relative to execution root.  Unlike
+  // source_file, these keys cannot be overwritten by other plists.
+  // Plmerge will throw an error if any of these keys occur more than once.
+  repeated string immutable_source_file = 6;
 
   // Path to the output file to merge relative to execution root.
   required string out_file = 2;
