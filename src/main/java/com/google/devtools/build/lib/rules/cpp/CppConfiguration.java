@@ -359,7 +359,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   protected CppConfiguration(CppConfigurationParameters params)
       throws InvalidConfigurationException {
     CrosstoolConfig.CToolchain toolchain = params.toolchain;
-    cppOptions = params.buildOptions.get(CppOptions.class);
+    cppOptions = params.cppOptions;
     this.hostSystemName = toolchain.getHostSystemName();
     this.compiler = toolchain.getCompiler();
     this.targetCpu = toolchain.getTargetCpu();
@@ -368,8 +368,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.targetLibc = toolchain.getTargetLibc();
     this.crosstoolTop = params.crosstoolTop;
     this.ccToolchainLabel = params.ccToolchainLabel;
-    this.compilationMode =
-        params.buildOptions.get(BuildConfiguration.Options.class).compilationMode;
+    this.compilationMode = params.commonOptions.compilationMode;
     this.lipoContextCollector = cppOptions.lipoCollector;
     this.execRoot = params.execRoot;
 
@@ -411,7 +410,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     }
 
     this.fdoSupport = new FdoSupport(
-        params.buildOptions.get(CppOptions.class).fdoInstrument, params.fdoZip,
+        cppOptions.fdoInstrument, params.fdoZip,
         cppOptions.lipoMode, execRoot);
 
     this.stripBinaries =

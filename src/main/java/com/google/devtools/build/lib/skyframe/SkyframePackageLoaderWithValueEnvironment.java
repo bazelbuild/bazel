@@ -72,7 +72,6 @@ class SkyframePackageLoaderWithValueEnvironment implements PackageProviderForCon
     }
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   public <T extends Fragment> T getFragment(BuildOptions buildOptions, Class<T> fragmentType)
       throws InvalidConfigurationException {
@@ -82,7 +81,7 @@ class SkyframePackageLoaderWithValueEnvironment implements PackageProviderForCon
     if (fragmentNode == null) {
       return null;
     }
-    return (T) fragmentNode.getFragment();
+    return fragmentType.cast(fragmentNode.getFragment());
   }
 
   @Override
