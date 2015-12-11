@@ -997,8 +997,9 @@ public final class ParallelEvaluator implements Evaluator {
       GroupedListHelper<SkyKey> newDirectDeps = env.newlyRequestedDeps;
 
       if (value != null) {
-        Preconditions.checkState(!env.valuesMissing(),
-            "%s -> %s, ValueEntry: %s", skyKey, newDirectDeps, state);
+        Preconditions.checkState(!env.valuesMissing(), "Evaluation of %s returned non-null value "
+            + "but requested dependencies that weren't computed yet (one of %s), ValueEntry: %s",
+            skyKey, newDirectDeps, state);
         env.setValue(value);
         registerNewlyDiscoveredDepsForDoneEntry(skyKey, state,
             graph.getBatch(env.newlyRequestedDeps), env);
