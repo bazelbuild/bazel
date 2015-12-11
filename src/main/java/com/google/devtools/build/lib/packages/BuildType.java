@@ -436,34 +436,28 @@ public final class BuildType {
    * objects of the attribute's native Type.
    */
   public static final class Selector<T> {
-    private final Type<T> originalType;
-    private final Map<Label, T> map;
-    private final Label defaultConditionLabel;
-    private final boolean hasDefaultCondition;
-
-    /**
-     * Value to use when none of an attribute's selection criteria match.
-     */
+    /** Value to use when none of an attribute's selection criteria match. */
     @VisibleForTesting
     public static final String DEFAULT_CONDITION_KEY = "//conditions:default";
+
+    private static final Label DEFAULT_CONDITION_LABEL =
+        Label.parseAbsoluteUnchecked(DEFAULT_CONDITION_KEY);
+
+    private final Type<T> originalType;
+    private final Map<Label, T> map;
+    private final boolean hasDefaultCondition;
 
     @VisibleForTesting
     Selector(Object x, String what, @Nullable Label context, Type<T> originalType)
         throws ConversionException {
       Preconditions.checkState(x instanceof Map<?, ?>);
 
-      try {
-        defaultConditionLabel = Label.parseAbsolute(DEFAULT_CONDITION_KEY);
-      } catch (LabelSyntaxException e) {
-        throw new IllegalStateException(DEFAULT_CONDITION_KEY + " is not a valid label");
-      }
-
       this.originalType = originalType;
       Map<Label, T> result = Maps.newLinkedHashMap();
       boolean foundDefaultCondition = false;
       for (Entry<?, ?> entry : ((Map<?, ?>) x).entrySet()) {
         Label key = LABEL.convert(entry.getKey(), what, context);
-        if (key.equals(defaultConditionLabel)) {
+        if (key.equals(DEFAULT_CONDITION_LABEL)) {
           foundDefaultCondition = true;
         }
         result.put(key, originalType.convert(entry.getValue(), what, context));
@@ -483,7 +477,7 @@ public final class BuildType {
      * Returns the value to use when none of the attribute's selection keys match.
      */
     public T getDefault() {
-      return map.get(defaultConditionLabel);
+      return map.get(DEFAULT_CONDITION_LABEL);
     }
 
     /**
@@ -506,7 +500,7 @@ public final class BuildType {
      * map to actual targets.
      */
     public static boolean isReservedLabel(Label label) {
-      return label.toString().equals(DEFAULT_CONDITION_KEY);
+      return DEFAULT_CONDITION_LABEL.equals(label);
     }
   }
 
