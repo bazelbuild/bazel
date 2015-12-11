@@ -80,8 +80,10 @@ public class PlistMerging extends Value<PlistMerging> {
 
   private final NSDictionary merged;
 
-  @VisibleForTesting
-  PlistMerging(NSDictionary merged) {
+  /**
+   * Wraps a {@code NSDictionary} as a PlistMerging.
+   */
+  public PlistMerging(NSDictionary merged) {
     super(merged);
     this.merged = merged;
   }

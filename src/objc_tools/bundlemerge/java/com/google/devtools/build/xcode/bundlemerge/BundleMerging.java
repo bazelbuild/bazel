@@ -87,6 +87,10 @@ public final class BundleMerging {
   private static final String INFOPLIST_FILENAME = "Info.plist";
   private static final String PKGINFO_FILENAME = "PkgInfo";
 
+  @VisibleForTesting
+  static final String BOTH_ARGS_ERR =
+      "Only one of source_plist_file and bundle_info_plist_file may be specified";
+
   /**
    * A hack needed briefly to maintain backwards compatibility during rename of {@link Platform}
    * enums. Except for backwards-compatible names, falls back to usage of {@link Platform#valueOf}.
@@ -114,35 +118,50 @@ public final class BundleMerging {
     Path tempMergedPlist = Files.createTempFile(tempDir, null, INFOPLIST_FILENAME);
     Path tempPkgInfo = Files.createTempFile(tempDir, null, PKGINFO_FILENAME);
 
-    // Generate the Info.plist and PkgInfo files to include in the app bundle.
-    ImmutableList.Builder<Path> sourcePlistFilesBuilder = new ImmutableList.Builder<>();
-    for (String sourcePlist : control.getSourcePlistFileList()) {
-      sourcePlistFilesBuilder.add(fileSystem.getPath(sourcePlist));
+    
+    if (control.hasBundleInfoPlistFile() && !control.getSourcePlistFileList().isEmpty()) {
+      throw new IllegalArgumentException(BOTH_ARGS_ERR);
     }
-    ImmutableList<Path> sourcePlistFiles = sourcePlistFilesBuilder.build();
-    ImmutableMap.Builder<String, String> substitutionMap = ImmutableMap.builder();
-    for (VariableSubstitution substitution : control.getVariableSubstitutionList()) {
-      substitutionMap.put(substitution.getName(), substitution.getValue());
+    if (control.hasBundleInfoPlistFile()) {
+      Path bundleInfoPlist = fileSystem.getPath(control.getBundleInfoPlistFile());
+
+      new PlistMerging(PlistMerging.readPlistFile(bundleInfoPlist))
+          .setBundleIdentifier(
+              control.hasPrimaryBundleIdentifier() ? control.getPrimaryBundleIdentifier() : null,
+              control.hasFallbackBundleIdentifier() ? control.getFallbackBundleIdentifier() : null)
+          .write(tempMergedPlist, tempPkgInfo);
+    } else {
+      // TODO (cpeyser): Remove this branch once blaze uses bundle_info_plist_file
+
+      // Generate the Info.plist and PkgInfo files to include in the app bundle.
+      ImmutableList.Builder<Path> sourcePlistFilesBuilder = new ImmutableList.Builder<>();
+      for (String sourcePlist : control.getSourcePlistFileList()) {
+        sourcePlistFilesBuilder.add(fileSystem.getPath(sourcePlist));
+      }
+      ImmutableList<Path> sourcePlistFiles = sourcePlistFilesBuilder.build();
+      ImmutableMap.Builder<String, String> substitutionMap = ImmutableMap.builder();
+      for (VariableSubstitution substitution : control.getVariableSubstitutionList()) {
+        substitutionMap.put(substitution.getName(), substitution.getValue());
+      }
+      PlistMerging plistMerging =
+          PlistMerging.from(
+              sourcePlistFiles,
+              PlistMerging.automaticEntries(
+                  control.getTargetDeviceFamilyList(),
+                  platformFromName(control.getPlatform()),
+                  control.getSdkVersion(),
+                  control.getMinimumOsVersion()),
+              substitutionMap.build(),
+              new KeysToRemoveIfEmptyString("CFBundleIconFile", "NSPrincipalClass"));
+      if (control.hasExecutableName()) {
+        plistMerging.setExecutableName(control.getExecutableName());
+      }
+
+      plistMerging.setBundleIdentifier(
+          control.hasPrimaryBundleIdentifier() ? control.getPrimaryBundleIdentifier() : null,
+          control.hasFallbackBundleIdentifier() ? control.getFallbackBundleIdentifier() : null)
+        .write(tempMergedPlist, tempPkgInfo);
     }
-    PlistMerging plistMerging = PlistMerging.from(
-        sourcePlistFiles,
-        PlistMerging.automaticEntries(
-            control.getTargetDeviceFamilyList(),
-            platformFromName(control.getPlatform()),
-            control.getSdkVersion(),
-            control.getMinimumOsVersion()),
-        substitutionMap.build(),
-        new KeysToRemoveIfEmptyString("CFBundleIconFile", "NSPrincipalClass"));
-    if (control.hasExecutableName()) {
-      plistMerging.setExecutableName(control.getExecutableName());
-    }
-
-    plistMerging.setBundleIdentifier(
-        control.hasPrimaryBundleIdentifier() ? control.getPrimaryBundleIdentifier() : null,
-        control.hasFallbackBundleIdentifier() ? control.getFallbackBundleIdentifier() : null);
-
-    plistMerging.write(tempMergedPlist, tempPkgInfo);
-
 
     bundleRoot = joinPath(bundleRoot, control.getBundleRoot());
 
@@ -232,8 +251,8 @@ public final class BundleMerging {
         combiner.addFile(zipOutEntry, zipIn);
       }
     }
-  }
-
+  }  
+  
   @VisibleForTesting
   void execute() throws IOException {
     try (OutputStream out = Files.newOutputStream(outputZip);

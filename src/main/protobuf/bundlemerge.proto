@@ -20,10 +20,18 @@ option java_package = "com.google.devtools.build.xcode.bundlemerge.proto";
 // Contains all the arguments necessary to drive the BundleMerge tool,
 // including the path to the output file and extra files to include in the
 // bundle.
+// Next Id: 17
 message Control {
   // Paths to the plist files to merge into the final Plist.info file. These
   // can be binary, XML, or ASCII format.
+  // This field is deprecated, but is supported for backwards compatibility.
+  // If bundle_info_plist_file is not supplied, this key will be used instead.
   repeated string source_plist_file = 1;
+
+  // The single info.plist file to be bundled into the archive. This plist will
+  // not be modified by bundlemerge.
+  // This field replaces source_plist_file.
+  optional string bundle_info_plist_file = 16;
 
   // Path to the .ipa file to write. This is the final application bundle. Note
   // this is ignored for nested bundles.
@@ -69,6 +77,10 @@ message Control {
 
   // Variable substitutions to perform on property values in the merged
   // .plist file.
+  // This field is deprecated, and will not be used if a bundle_info_plist_file
+  // is specified.  For backwards compatibility, if a bundle_info_plist_file
+  // is not specified, source_plist_file will be used instead and variable
+  // substitutions will be applied.
   repeated VariableSubstitution variable_substitution = 11;
 
   // Bundles that are nested within this one. bundle_root in these bundles is
