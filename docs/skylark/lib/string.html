@@ -36,6 +36,7 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
               <li><a href="#rsplit">rsplit</a></li>
               <li><a href="#rstrip">rstrip</a></li>
               <li><a href="#split">split</a></li>
+              <li><a href="#splitlines">splitlines</a></li>
               <li><a href="#startswith">startswith</a></li>
               <li><a href="#strip">strip</a></li>
               <li><a href="#title">title</a></li>
@@ -682,6 +683,37 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
             <td>
                           <p><code>int</code></p>
                           <p>The maximum number of splits.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="splitlines">splitlines</h2>
+        <p><pre><a class="anchor" href="list.html">list</a> string.splitlines(keepends=False)
+</pre></p>
+
+    Splits the string at line boundaries ('\n', '\r\n', '\r') and returns the result as a list.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="splitlines.keepends">
+              <code>keepends</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="globals.html#bool">bool</a></code></p>
+                          <p>Whether the line breaks should be included in the resulting list.</p>
             </td>
           </tr>
                 </tbody>
