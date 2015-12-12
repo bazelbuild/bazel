@@ -31,6 +31,8 @@ $ sudo apt-get update
 $ sudo apt-get install oracle-java8-installer
 ```
 
+Note: You might need to `sudo apt-get install software-properties-common` if you don't have the `add-apt-repository` command. See [here](http://manpages.ubuntu.com/manpages/wily/man1/add-apt-repository.1.html).
+
 **Ubuntu Wily (15.10).** To install OpenJDK 8:
 
 ```
