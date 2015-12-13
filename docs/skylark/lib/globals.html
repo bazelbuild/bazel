@@ -28,6 +28,8 @@ Objects, functions and modules registered in the global environment.
               <li><a href="#int">int</a></li>
               <li><a href="#len">len</a></li>
               <li><a href="#list">list</a></li>
+              <li><a href="#max">max</a></li>
+              <li><a href="#min">min</a></li>
               <li><a href="#print">print</a></li>
               <li><a href="#provider">provider</a></li>
               <li><a href="#range">range</a></li>
@@ -492,6 +494,68 @@ list({5: "a", 2: "b", 4: "c"}) == [2, 4, 5]</pre>
             </td>
             <td>
                           <p>The object to convert.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="max">max</h2>
+        <p><pre>unknown max(*args)
+</pre></p>
+
+    Returns the largest one of all given arguments. If only one argument is provided, it must be a non-empty iterable.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="max.args">
+              <code>args</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">sequence</a></code></p>
+                          <p>The elements to be checked.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="min">min</h2>
+        <p><pre>unknown min(*args)
+</pre></p>
+
+    Returns the smallest one of all given arguments. If only one argument is provided, it must be a non-empty iterable.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="min.args">
+              <code>args</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">sequence</a></code></p>
+                          <p>The elements to be checked.</p>
             </td>
           </tr>
                 </tbody>
