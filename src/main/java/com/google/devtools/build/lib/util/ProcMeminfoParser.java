@@ -48,6 +48,9 @@ public class ProcMeminfoParser {
     ImmutableMap.Builder<String, Long> builder = ImmutableMap.builder();
     for (String line : lines) {
       int colon = line.indexOf(':');
+      if (colon == -1) {
+        continue;
+      }
       String keyword = line.substring(0, colon);
       String valString = line.substring(colon + 1);
       try {

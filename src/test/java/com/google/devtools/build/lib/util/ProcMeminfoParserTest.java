@@ -66,7 +66,8 @@ public class ProcMeminfoParserTest {
         "HugePages_Rsvd:      0",
         "Hugepagesize:     2048 kB",
         "Bogus: not_a_number",
-        "Bogus2: 1000000000000000000000000000000000000000000000000 kB"
+        "Bogus2: 1000000000000000000000000000000000000000000000000 kB",
+        "Not even a valid line"
     );
 
     String meminfoFile = scratch.file("test_meminfo", meminfoContent).getPathString();
