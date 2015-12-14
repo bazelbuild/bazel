@@ -15,14 +15,16 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Joiner;
-import com.google.devtools.build.skyframe.SkyFunctionName;
+import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 
 /**
  * Creates a repository for a random file.
  */
 public class FileFunction extends JarFunction {
+  public static final Decompressor INSTANCE = new FileFunction();
 
-  public static final SkyFunctionName NAME = SkyFunctionName.create("DOWNLOAD_FILE_FUNCTION");
+  private FileFunction() {
+  }
 
   @Override
   protected String getPackageName() {

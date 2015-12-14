@@ -105,8 +105,8 @@ public class MavenJarFunction extends HttpArchiveFunction {
   }
 
   @Override
-  public SkyValue fetch(Rule rule, Environment env)
-      throws RepositoryFunctionException {
+  public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
+      throws RepositoryFunctionException, InterruptedException {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     MavenServerValue serverValue = getServer(rule, env);
     if (env.valuesMissing()) {
@@ -124,7 +124,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
   }
 
   SkyValue createOutputTree(MavenDownloader downloader, Environment env)
-      throws RepositoryFunctionException {
+      throws RepositoryFunctionException, InterruptedException {
     Path outputDirectory = downloader.getOutputDirectory();
     createDirectory(outputDirectory);
     Path repositoryJar;
@@ -136,22 +136,13 @@ public class MavenJarFunction extends HttpArchiveFunction {
     }
 
     // Add a WORKSPACE file & BUILD file to the Maven jar.
-    DecompressorValue value;
-    try {
-      value = (DecompressorValue) env.getValueOrThrow(DecompressorValue.key(
-          JarFunction.NAME, DecompressorDescriptor.builder()
-              .setTargetKind(MavenJarRule.NAME)
-              .setTargetName(downloader.getName())
-              .setArchivePath(repositoryJar)
-              .setRepositoryPath(outputDirectory).build()),
-          IOException.class);
-      if (value == null) {
-        return null;
-      }
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
-    return RepositoryValue.create(value.getDirectory());
+    Path result = DecompressorValue.decompress(DecompressorDescriptor.builder()
+        .setDecompressor(JarFunction.INSTANCE)
+        .setTargetKind(MavenJarRule.NAME)
+        .setTargetName(downloader.getName())
+        .setArchivePath(repositoryJar)
+        .setRepositoryPath(outputDirectory).build());
+    return RepositoryValue.create(result);
   }
 
   /**

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
@@ -47,8 +46,8 @@ public class HttpArchiveFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(Rule rule, Environment env)
-      throws RepositoryFunctionException {
+  public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
+      throws RepositoryFunctionException, InterruptedException {
     // The output directory is always under .external-repository (to stay out of the way of
     // artifacts from this repository) and uses the rule's name to avoid conflicts with other
     // remote repository rules. For example, suppose you had the following WORKSPACE file:
@@ -56,35 +55,21 @@ public class HttpArchiveFunction extends RepositoryFunction {
     // http_archive(name = "png", url = "http://example.com/downloads/png.tar.gz", sha256 = "...")
     //
     // This would download png.tar.gz to .external-repository/png/png.tar.gz.
-    Path outputDirectory = getExternalRepositoryDirectory().getRelative(rule.getName());
     createDirectory(outputDirectory);
-    try {
-      HttpDownloadValue downloadValue = (HttpDownloadValue) env.getValueOrThrow(
-          HttpDownloadFunction.key(rule, outputDirectory), IOException.class);
-      if (downloadValue == null) {
-        return null;
-      }
+    Path downloadedPath = HttpDownloader.download(rule, outputDirectory, env.getListener());
 
-      DecompressorValue value = (DecompressorValue) env.getValueOrThrow(
-          decompressorValueKey(rule, downloadValue.getPath(), outputDirectory), IOException.class);
-      if (value == null) {
-        return null;
-      }
-    } catch (IOException e) {
-      // Assumes all IO errors transient.
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
+    DecompressorValue.decompress(getDescriptor(rule, downloadedPath, outputDirectory));
     return RepositoryValue.create(outputDirectory);
   }
 
-  protected SkyKey decompressorValueKey(Rule rule, Path downloadPath, Path outputDirectory)
-      throws IOException {
-    return DecompressorValue.key(DecompressorDescriptor.builder()
+  protected DecompressorDescriptor getDescriptor(Rule rule, Path downloadPath, Path outputDirectory)
+      throws RepositoryFunctionException {
+    return DecompressorDescriptor.builder()
         .setTargetKind(rule.getTargetKind())
         .setTargetName(rule.getName())
         .setArchivePath(downloadPath)
         .setRepositoryPath(outputDirectory)
-        .build());
+        .build();
   }
 
   @Override

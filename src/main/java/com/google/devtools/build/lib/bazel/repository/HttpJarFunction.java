@@ -18,23 +18,21 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpJarRule;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.skyframe.SkyKey;
-
-import java.io.IOException;
 
 /**
  * Downloads a jar file from a URL.
  */
 public class HttpJarFunction extends HttpArchiveFunction {
   @Override
-  protected SkyKey decompressorValueKey(Rule rule, Path downloadPath, Path outputDirectory)
-      throws IOException {
-    return DecompressorValue.key(JarFunction.NAME, DecompressorDescriptor.builder()
+  protected DecompressorDescriptor getDescriptor(Rule rule, Path downloadPath, Path outputDirectory)
+      throws RepositoryFunctionException {
+    return DecompressorDescriptor.builder()
+        .setDecompressor(JarFunction.INSTANCE)
         .setTargetKind(rule.getTargetKind())
         .setTargetName(rule.getName())
         .setArchivePath(downloadPath)
         .setRepositoryPath(outputDirectory)
-        .build());
+        .build();
   }
 
   @Override

@@ -20,27 +20,25 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.skyframe.SkyKey;
-
-import java.io.IOException;
 
 /**
  * Downloads a jar file from a URL.
  */
 public class HttpFileFunction extends HttpArchiveFunction {
   @Override
-  protected SkyKey decompressorValueKey(Rule rule, Path downloadPath, Path outputDirectory)
-      throws IOException {
+  protected DecompressorDescriptor getDescriptor(Rule rule, Path downloadPath, Path outputDirectory)
+      throws RepositoryFunctionException {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     boolean executable = (mapper.has("executable", Type.BOOLEAN)
         && mapper.get("executable", Type.BOOLEAN));
-    return DecompressorValue.key(FileFunction.NAME, DecompressorDescriptor.builder()
+    return DecompressorDescriptor.builder()
+        .setDecompressor(FileFunction.INSTANCE)
         .setTargetKind(rule.getTargetKind())
         .setTargetName(rule.getName())
         .setArchivePath(downloadPath)
         .setRepositoryPath(outputDirectory)
         .setExecutable(executable)
-        .build());
+        .build();
   }
 
   @Override

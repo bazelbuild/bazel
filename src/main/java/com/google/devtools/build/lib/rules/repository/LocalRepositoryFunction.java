@@ -21,10 +21,8 @@ import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -42,7 +40,7 @@ public class LocalRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(Rule rule, Environment env)
+  public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
       throws SkyFunctionException {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     String path = mapper.get("path", Type.STRING);
@@ -54,19 +52,14 @@ public class LocalRepositoryFunction extends RepositoryFunction {
               "In " + rule + " the 'path' attribute must specify an absolute path"),
           Transience.PERSISTENT);
     }
-    Path repositoryPath = getExternalRepositoryDirectory().getRelative(rule.getName());
     try {
-      FileSystemUtils.createDirectoryAndParents(repositoryPath.getParentDirectory());
-      if (repositoryPath.exists(Symlinks.NOFOLLOW)) {
-        FileSystemUtils.deleteTree(repositoryPath);
-      }
-      repositoryPath.createSymbolicLink(pathFragment);
+      outputDirectory.createSymbolicLink(pathFragment);
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException("Could not create symlink to repository " + pathFragment + ": "
               + e.getMessage()), Transience.TRANSIENT);
     }
-    FileValue repositoryValue = getRepositoryDirectory(repositoryPath, env);
+    FileValue repositoryValue = getRepositoryDirectory(outputDirectory, env);
     if (repositoryValue == null) {
       // TODO(bazel-team): If this returns null, we unnecessarily recreate the symlink above on the
       // second execution.
@@ -78,7 +71,7 @@ public class LocalRepositoryFunction extends RepositoryFunction {
           new IOException(rule + " must specify an existing directory"), Transience.TRANSIENT);
     }
 
-    return RepositoryValue.create(repositoryPath);
+    return RepositoryValue.create(outputDirectory);
   }
 
   @Override

@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Optional;
+import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.Path;
 
 import java.util.Objects;
@@ -22,7 +24,7 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * Description of an archive to be decompressed for use in a SkyKey.
+ * Description of an archive to be decompressed.
  * TODO(bazel-team): this should be an autovalue class.
  */
 public class DecompressorDescriptor {
@@ -32,16 +34,18 @@ public class DecompressorDescriptor {
   private final Path repositoryPath;
   private final Optional<String> prefix;
   private final boolean executable;
+  private final Decompressor decompressor;
 
   private DecompressorDescriptor(
       String targetKind, String targetName, Path archivePath, Path repositoryPath,
-      @Nullable String prefix, boolean executable) {
+      @Nullable String prefix, boolean executable, Decompressor decompressor) {
     this.targetKind = targetKind;
     this.targetName = targetName;
     this.archivePath = archivePath;
     this.repositoryPath = repositoryPath;
     this.prefix = Optional.fromNullable(prefix);
     this.executable = executable;
+    this.decompressor = decompressor;
   }
 
   public String targetKind() {
@@ -68,6 +72,10 @@ public class DecompressorDescriptor {
     return executable;
   }
 
+  public Decompressor getDecompressor() {
+    return decompressor;
+  }
+
   @Override
   public boolean equals(Object other) {
     if (this == other) {
@@ -84,7 +92,8 @@ public class DecompressorDescriptor {
         && Objects.equals(archivePath, descriptor.archivePath)
         && Objects.equals(repositoryPath, descriptor.repositoryPath)
         && Objects.equals(prefix, descriptor.prefix)
-        && Objects.equals(executable, descriptor.executable);
+        && Objects.equals(executable, descriptor.executable)
+        && decompressor == descriptor.decompressor;
   }
 
   @Override
@@ -107,13 +116,17 @@ public class DecompressorDescriptor {
     private Path repositoryPath;
     private String prefix;
     private boolean executable;
+    private Decompressor decompressor;
 
     private Builder() {
     }
 
-    public DecompressorDescriptor build() {
+    public DecompressorDescriptor build() throws RepositoryFunctionException {
+      if (decompressor == null) {
+        decompressor = DecompressorValue.getDecompressor(archivePath);
+      }
       return new DecompressorDescriptor(
-          targetKind, targetName, archivePath, repositoryPath, prefix, executable);
+          targetKind, targetName, archivePath, repositoryPath, prefix, executable, decompressor);
     }
 
     public Builder setTargetKind(String targetKind) {
@@ -143,6 +156,11 @@ public class DecompressorDescriptor {
 
     public Builder setExecutable(boolean executable) {
       this.executable = executable;
+      return this;
+    }
+
+    public Builder setDecompressor(Decompressor decompressor) {
+      this.decompressor = decompressor;
       return this;
     }
   }

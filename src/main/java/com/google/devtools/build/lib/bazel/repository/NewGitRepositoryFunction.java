@@ -15,34 +15,27 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
-
-import java.io.IOException;
 
 /**
  * Clones a Git repository, creates a WORKSPACE file, and adds a BUILD file for it.
  */
 public class NewGitRepositoryFunction extends GitRepositoryFunction {
   @Override
-  public SkyValue fetch(Rule rule, Environment env)
+  public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
       throws SkyFunctionException {
-    Path outputDirectory = getExternalRepositoryDirectory().getRelative(rule.getName());
-    createDirectory(outputDirectory, rule);
-    try {
-      HttpDownloadValue value = (HttpDownloadValue) env.getValueOrThrow(
-          GitCloneFunction.key(rule, outputDirectory), IOException.class);
-      if (value == null) {
-        return null;
-      }
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    FileValue buildFileValue = getBuildFileValue(rule, env);
+    if (env.valuesMissing()) {
+      return null;
     }
 
+    createDirectory(outputDirectory, rule);
+    GitCloner.clone(rule, outputDirectory, env.getListener());
     createWorkspaceFile(outputDirectory, rule);
-    return symlinkBuildFile(rule, outputDirectory, env);
+    return symlinkBuildFile(buildFileValue, outputDirectory);
   }
 }

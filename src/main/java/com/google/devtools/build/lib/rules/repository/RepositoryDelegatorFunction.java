@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reposit
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -58,6 +59,15 @@ public class RepositoryDelegatorFunction implements SkyFunction {
     this.isFetch = isFetch;
   }
 
+  private void setupRepositoryRoot(Path repoRoot) throws RepositoryFunctionException {
+    try {
+      FileSystemUtils.deleteTree(repoRoot);
+      FileSystemUtils.createDirectoryAndParents(repoRoot.getParentDirectory());
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
@@ -75,18 +85,20 @@ public class RepositoryDelegatorFunction implements SkyFunction {
           "Could not find handler for " + rule), Transience.PERSISTENT);
     }
 
+    Path repoRoot =
+        RepositoryFunction.getExternalRepositoryDirectory(directories).getRelative(rule.getName());
+
     if (handler.isLocal()) {
       // Local repositories are always fetched because the operation is generally fast and they do
       // not depend on non-local data, so it does not make much sense to try to catch from across
       // server instances.
-      return handler.fetch(rule, env);
+      setupRepositoryRoot(repoRoot);
+      return handler.fetch(rule, repoRoot, env);
     }
 
     // We check the repository root for existence here, but we can't depend on the FileValue,
     // because it's possible that we eventually create that directory in which case the FileValue
     // and the state of the file system would be inconsistent.
-    Path repoRoot =
-        RepositoryFunction.getExternalRepositoryDirectory(directories).getRelative(rule.getName());
 
     byte[] ruleSpecificData = handler.getRuleSpecificMarkerData(rule, env);
     boolean markerUpToDate = handler.isFilesystemUpToDate(rule, ruleSpecificData);
@@ -106,11 +118,16 @@ public class RepositoryDelegatorFunction implements SkyFunction {
 
     if (isFetch.get()) {
       // Fetching enabled, go ahead.
-      SkyValue result = handler.fetch(rule, env);
+      setupRepositoryRoot(repoRoot);
+      SkyValue result = handler.fetch(rule, repoRoot, env);
       if (env.valuesMissing()) {
         return null;
       }
 
+      // No new Skyframe dependencies must be added between calling the repository implementation
+      // and writing the marker file because if they aren't computed, it would cause a Skyframe
+      // restart thus calling the possibly very slow (networking, decompression...) fetch()
+      // operation again. So we write the marker file here immediately.
       handler.writeMarkerFile(rule, ruleSpecificData);
       return result;
     }

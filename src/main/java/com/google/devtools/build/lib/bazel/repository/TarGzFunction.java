@@ -15,15 +15,12 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Optional;
+import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
@@ -34,19 +31,17 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.zip.GZIPInputStream;
 
-import javax.annotation.Nullable;
-
 /**
  * Creates a  repository by unarchiving a .tar.gz file.
  */
-public class TarGzFunction implements SkyFunction {
+public class TarGzFunction implements Decompressor {
+  public static final Decompressor INSTANCE = new TarGzFunction();
 
-  public static final SkyFunctionName NAME = SkyFunctionName.create("TAR_GZ_FUNCTION");
+  private TarGzFunction() {
+  }
 
-  @Nullable
   @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws RepositoryFunctionException {
-    DecompressorDescriptor descriptor = (DecompressorDescriptor) skyKey.argument();
+  public Path decompress(DecompressorDescriptor descriptor) throws RepositoryFunctionException {
     Optional<String> prefix = descriptor.prefix();
     boolean foundPrefix = false;
 
@@ -90,13 +85,6 @@ public class TarGzFunction implements SkyFunction {
           Transience.PERSISTENT);
     }
 
-    return new DecompressorValue(descriptor.repositoryPath());
+    return descriptor.repositoryPath();
   }
-
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
 }

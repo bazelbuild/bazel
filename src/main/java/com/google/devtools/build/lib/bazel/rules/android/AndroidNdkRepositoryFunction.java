@@ -73,9 +73,9 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(Rule rule, Environment env)
+  public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
       throws SkyFunctionException {
-    Path outputDirectory = prepareLocalRepositorySymlinkTree(rule, env);
+    prepareLocalRepositorySymlinkTree(rule, outputDirectory);
     PathFragment pathFragment = getTargetPath(rule);
     Path ndkSymlinkTreeDirectory = outputDirectory.getRelative("ndk");
     try {
@@ -95,6 +95,9 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
     ApiLevel apiLevel = new ApiLevel(env.getListener(), ruleName, apiLevelAttr);
 
     NdkRelease ndkRelease = getNdkRelease(outputDirectory, env);
+    if (env.valuesMissing()) {
+      return null;
+    }
 
     ImmutableList.Builder<CrosstoolStlPair> crosstoolsAndStls = ImmutableList.builder();
     try {

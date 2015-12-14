@@ -38,9 +38,9 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(Rule rule, Environment env)
+  public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
       throws SkyFunctionException {
-    Path outputDirectory = prepareLocalRepositorySymlinkTree(rule, env);
+    prepareLocalRepositorySymlinkTree(rule, outputDirectory);
     PathFragment pathFragment = getTargetPath(rule);
 
     if (!symlinkLocalRepositoryContents(

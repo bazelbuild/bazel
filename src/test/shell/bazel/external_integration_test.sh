@@ -596,6 +596,7 @@ EOF
   sed 's/x.BUILD/x.BUILD.new/g' WORKSPACE > WORKSPACE.tmp || \
     fail "Editing WORKSPACE failed"
   mv WORKSPACE.tmp WORKSPACE
+  serve_file x.tar.gz
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
   assert_contains "abc" bazel-genfiles/external/x/catter.out
 }
@@ -638,6 +639,7 @@ EOF
   sed 's/x.BUILD/x.BUILD.new/g' WORKSPACE > WORKSPACE.tmp || \
     fail "Editing WORKSPACE failed"
   mv WORKSPACE.tmp WORKSPACE
+  serve_file x.tar.gz
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
   assert_contains "def" bazel-genfiles/external/x/catter.out
 }

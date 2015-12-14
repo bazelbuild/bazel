@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -38,7 +39,7 @@ public class MavenServerRepositoryFunction extends RepositoryFunction {
 
   @Nullable
   @Override
-  public SkyValue fetch(Rule rule, Environment env)
+  public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
       throws SkyFunctionException, InterruptedException {
     throw new RepositoryFunctionException(new EvalException(
         rule.getLocation(),

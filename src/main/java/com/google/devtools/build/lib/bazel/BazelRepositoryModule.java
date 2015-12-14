@@ -21,21 +21,15 @@ import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.commands.FetchCommand;
-import com.google.devtools.build.lib.bazel.repository.FileFunction;
-import com.google.devtools.build.lib.bazel.repository.GitCloneFunction;
 import com.google.devtools.build.lib.bazel.repository.GitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpArchiveFunction;
-import com.google.devtools.build.lib.bazel.repository.HttpDownloadFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpFileFunction;
 import com.google.devtools.build.lib.bazel.repository.HttpJarFunction;
-import com.google.devtools.build.lib.bazel.repository.JarFunction;
 import com.google.devtools.build.lib.bazel.repository.MavenJarFunction;
 import com.google.devtools.build.lib.bazel.repository.MavenServerFunction;
 import com.google.devtools.build.lib.bazel.repository.MavenServerRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewGitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewHttpArchiveFunction;
-import com.google.devtools.build.lib.bazel.repository.TarGzFunction;
-import com.google.devtools.build.lib.bazel.repository.ZipFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
@@ -57,8 +51,6 @@ import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunctio
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.Command;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
@@ -84,8 +76,6 @@ public class BazelRepositoryModule extends BlazeModule {
   // A map of repository handlers that can be looked up by rule class name.
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
-  private HttpDownloadFunction downloadFunction;
-  private GitCloneFunction gitCloneFunction;
 
   public BazelRepositoryModule() {
     repositoryHandlers =
@@ -103,12 +93,6 @@ public class BazelRepositoryModule extends BlazeModule {
             .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction())
             .put(MavenServerRule.NAME, new MavenServerRepositoryFunction())
             .build();
-  }
-
-  @Override
-  public void beforeCommand(Command command, CommandEnvironment env) {
-    downloadFunction.setReporter(env.getReporter());
-    gitCloneFunction.setReporter(env.getReporter());
   }
 
   @Override
@@ -187,14 +171,6 @@ public class BazelRepositoryModule extends BlazeModule {
         new RepositoryDelegatorFunction(directories, repositoryHandlers, isFetch));
 
     // Helper SkyFunctions.
-    downloadFunction = new HttpDownloadFunction();
-    builder.put(HttpDownloadFunction.NAME, downloadFunction);
-    gitCloneFunction = new GitCloneFunction();
-    builder.put(SkyFunctionName.create(GitCloneFunction.NAME), gitCloneFunction);
-    builder.put(JarFunction.NAME, new JarFunction());
-    builder.put(ZipFunction.NAME, new ZipFunction());
-    builder.put(TarGzFunction.NAME, new TarGzFunction());
-    builder.put(FileFunction.NAME, new FileFunction());
     builder.put(MavenServerFunction.NAME, new MavenServerFunction(directories));
     return builder.build();
   }

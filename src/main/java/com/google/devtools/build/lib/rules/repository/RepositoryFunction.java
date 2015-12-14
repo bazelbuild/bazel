@@ -122,10 +122,22 @@ public abstract class RepositoryFunction {
    *
    * <p>When this method is called, it has already been determined that the repository is stale and
    * that it needs to be re-fetched.
+   *
+   * <p>The {@code env} argument can be used to fetch Skyframe dependencies the repository
+   * implementation needs on the following conditions:
+   * <ul>
+   *   <li>When a Skyframe value is missing, fetching must be restarted, thus, in order to avoid
+   *     doing duplicate work, it's better to first request the Skyframe dependencies you need and
+   *     only then start doing anything costly.
+   *   <li>The output directory must be populated from within this method (and not from within
+   *     another SkyFunction). This is because if it was populated in another SkyFunction, the
+   *     repository function would be restarted <b>after</b> that SkyFunction has been run, and
+   *     it would wipe the output directory clean.
+   * </ul>
    */
   @ThreadSafe
   @Nullable
-  public abstract SkyValue fetch(Rule rule, Environment env)
+  public abstract SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
       throws SkyFunctionException, InterruptedException;
 
   /**
@@ -192,11 +204,9 @@ public abstract class RepositoryFunction {
   }
 
 
-  protected Path prepareLocalRepositorySymlinkTree(Rule rule, Environment env)
+  protected Path prepareLocalRepositorySymlinkTree(Rule rule, Path repositoryDirectory)
       throws RepositoryFunctionException {
-    Path repositoryDirectory = getExternalRepositoryDirectory().getRelative(rule.getName());
     try {
-      FileSystemUtils.deleteTree(repositoryDirectory);
       FileSystemUtils.createDirectoryAndParents(repositoryDirectory);
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
@@ -275,23 +285,16 @@ public abstract class RepositoryFunction {
 
   /**
    * Symlinks a BUILD file from the local filesystem into the external repository's root.
-   * @param rule the rule that declares the build_file path.
+   * @param buildFileValue {@link FileValue} representing the BUILD file to be linked in
    * @param outputDirectory the directory of the remote repository
-   * @param env the Skyframe environment.
    * @return the file value of the symlink created.
    * @throws RepositoryFunctionException if the BUILD file specified does not exist or cannot be
    *         linked.
    */
-  protected RepositoryValue symlinkBuildFile(Rule rule, Path outputDirectory, Environment env)
+  protected RepositoryValue symlinkBuildFile(FileValue buildFileValue, Path outputDirectory)
       throws RepositoryFunctionException {
-    FileValue buildFileValue = getBuildFileValue(rule, env);
-    if (env.valuesMissing()) {
-      return null;
-    }
     Path buildFilePath = outputDirectory.getRelative("BUILD");
-    if (createSymbolicLink(buildFilePath, buildFileValue.realRootedPath().asPath(), env) == null) {
-      return null;
-    }
+    createSymbolicLink(buildFilePath, buildFileValue.realRootedPath().asPath());
     return RepositoryValue.create(outputDirectory);
   }
 
@@ -330,9 +333,7 @@ public abstract class RepositoryFunction {
       for (Path target : targetDirectory.getDirectoryEntries()) {
         Path symlinkPath =
             repositoryDirectory.getRelative(target.getBaseName());
-        if (createSymbolicLink(symlinkPath, target, env) == null) {
-          return false;
-        }
+        createSymbolicLink(symlinkPath, target);
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
@@ -341,7 +342,7 @@ public abstract class RepositoryFunction {
     return true;
   }
 
-  private static FileValue createSymbolicLink(Path from, Path to, Environment env)
+  private static void createSymbolicLink(Path from, Path to)
       throws RepositoryFunctionException {
     try {
       // Remove not-symlinks that are already there.
@@ -353,17 +354,6 @@ public abstract class RepositoryFunction {
       throw new RepositoryFunctionException(
           new IOException(String.format("Error creating symbolic link from %s to %s: %s",
               from, to, e.getMessage())), Transience.TRANSIENT);
-    }
-
-    SkyKey outputDirectoryKey = FileValue.key(RootedPath.toRootedPath(
-        from, PathFragment.EMPTY_FRAGMENT));
-    try {
-      return (FileValue) env.getValueOrThrow(outputDirectoryKey, IOException.class,
-          FileSymlinkException.class, InconsistentFilesystemException.class);
-    } catch (IOException | FileSymlinkException | InconsistentFilesystemException e) {
-      throw new RepositoryFunctionException(
-          new IOException(String.format("Could not access %s: %s", from, e.getMessage())),
-          Transience.PERSISTENT);
     }
   }
 

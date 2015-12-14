@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
@@ -22,10 +22,7 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import org.eclipse.jgit.api.Git;
@@ -45,21 +42,16 @@ import java.io.IOException;
 import java.util.Objects;
 import java.util.Set;
 
-import javax.annotation.Nullable;
-
 /**
  * Clones a Git repository, checks out the provided branch, tag, or commit, and
  * clones submodules if specified.
  */
-public class GitCloneFunction implements SkyFunction {
-  public static final String NAME = "GIT_CLONE";
-  private Reporter reporter;
-
-  public void setReporter(Reporter reporter) {
-    this.reporter = reporter;
+public class GitCloner {
+  private GitCloner() {
+    // Only static methods in this class
   }
 
-  private boolean isUpToDate(GitRepositoryDescriptor descriptor) {
+  private static boolean isUpToDate(GitRepositoryDescriptor descriptor) {
     // Initializing/checking status of/etc submodules cleanly is hard, so don't try for now.
     if (descriptor.initSubmodules) {
       return false;
@@ -99,10 +91,29 @@ public class GitCloneFunction implements SkyFunction {
     return false;
   }
 
-  @Nullable
-  @Override
-  public SkyValue compute(SkyKey skyKey, Environment env) throws RepositoryFunctionException {
-    GitRepositoryDescriptor descriptor = (GitRepositoryDescriptor) skyKey.argument();
+  public static SkyValue clone(Rule rule, Path outputDirectory, EventHandler eventHandler)
+      throws RepositoryFunctionException {
+    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
+    if ((mapper.has("commit", Type.STRING) == mapper.has("tag", Type.STRING))
+        && (mapper.get("commit", Type.STRING).isEmpty()
+            == mapper.get("tag", Type.STRING).isEmpty())) {
+      throw new RepositoryFunctionException(
+          new EvalException(rule.getLocation(), "One of either commit or tag must be defined"),
+          Transience.PERSISTENT);
+    }
+
+    String startingPoint;
+    if (mapper.has("commit", Type.STRING) && !mapper.get("commit", Type.STRING).isEmpty()) {
+      startingPoint = mapper.get("commit", Type.STRING);
+    } else {
+      startingPoint = "tags/" + mapper.get("tag", Type.STRING);
+    }
+
+    GitRepositoryDescriptor descriptor = new GitRepositoryDescriptor(
+        mapper.get("remote", Type.STRING),
+        startingPoint,
+        mapper.get("init_submodules", Type.BOOLEAN),
+        outputDirectory);
 
     Git git = null;
     try {
@@ -123,7 +134,8 @@ public class GitCloneFunction implements SkyFunction {
               .setDirectory(descriptor.directory.getPathFile())
               .setCloneSubmodules(false)
               .setNoCheckout(true)
-              .setProgressMonitor(new GitProgressMonitor("Cloning " + descriptor.remote, reporter))
+              .setProgressMonitor(
+                  new GitProgressMonitor("Cloning " + descriptor.remote, eventHandler))
               .call();
       git.checkout()
           .setCreateBranch(true)
@@ -141,14 +153,14 @@ public class GitCloneFunction implements SkyFunction {
         git
             .submoduleUpdate()
             .setProgressMonitor(
-                new GitProgressMonitor("Cloning submodules for " + descriptor.remote, reporter))
+                new GitProgressMonitor("Cloning submodules for " + descriptor.remote, eventHandler))
             .call();
       }
     } catch (InvalidRemoteException e) {
       throw new RepositoryFunctionException(
           new IOException("Invalid Git repository URI: " + e.getMessage()),
           Transience.PERSISTENT);
-    } catch (RefNotFoundException|InvalidRefNameException e) {
+    } catch (RefNotFoundException | InvalidRefNameException e) {
       throw new RepositoryFunctionException(
           new IOException("Invalid branch, tag, or commit: " + e.getMessage()),
           Transience.PERSISTENT);
@@ -169,43 +181,11 @@ public class GitCloneFunction implements SkyFunction {
     return new HttpDownloadValue(descriptor.directory);
   }
 
-  @Nullable
-  @Override
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
-  public static SkyKey key(Rule rule, Path outputDirectory)
-      throws RepositoryFunctionException {
-    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    if ((mapper.has("commit", Type.STRING) == mapper.has("tag", Type.STRING))
-        && (mapper.get("commit", Type.STRING).isEmpty()
-            == mapper.get("tag", Type.STRING).isEmpty())) {
-      throw new RepositoryFunctionException(
-          new EvalException(rule.getLocation(), "One of either commit or tag must be defined"),
-          Transience.PERSISTENT);
-    }
-    String startingPoint;
-    if (mapper.has("commit", Type.STRING) && !mapper.get("commit", Type.STRING).isEmpty()) {
-      startingPoint = mapper.get("commit", Type.STRING);
-    } else {
-      startingPoint = "tags/" + mapper.get("tag", Type.STRING);
-    }
-
-    return new SkyKey(
-        SkyFunctionName.create(NAME),
-        new GitCloneFunction.GitRepositoryDescriptor(
-            mapper.get("remote", Type.STRING),
-            startingPoint,
-            mapper.get("init_submodules", Type.BOOLEAN),
-            outputDirectory));
-  }
-
-  static final class GitRepositoryDescriptor {
-    private String remote;
-    private String checkout;
-    private boolean initSubmodules;
-    private Path directory;
+  private static final class GitRepositoryDescriptor {
+    private final String remote;
+    private final String checkout;
+    private final boolean initSubmodules;
+    private final Path directory;
 
     public GitRepositoryDescriptor(String remote, String checkout, boolean initSubmodules,
         Path directory) {

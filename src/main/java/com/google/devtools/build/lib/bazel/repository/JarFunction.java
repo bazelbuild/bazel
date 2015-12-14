@@ -15,14 +15,11 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Joiner;
+import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -32,9 +29,11 @@ import javax.annotation.Nullable;
 /**
  * Creates a repository for a jar file.
  */
-public class JarFunction implements SkyFunction {
+public class JarFunction implements Decompressor {
+  public static final Decompressor INSTANCE = new JarFunction();
 
-  public static final SkyFunctionName NAME = SkyFunctionName.create("JAR_FUNCTION");
+  protected JarFunction() {
+  }
 
   /**
    * The .jar can be used compressed, so this just exposes it in a way Bazel can use.
@@ -44,8 +43,7 @@ public class JarFunction implements SkyFunction {
    */
   @Override
   @Nullable
-  public SkyValue compute(SkyKey skyKey, Environment env) throws RepositoryFunctionException {
-    DecompressorDescriptor descriptor = (DecompressorDescriptor) skyKey.argument();
+  public Path decompress(DecompressorDescriptor descriptor) throws RepositoryFunctionException {
     // Example: archiveFile is external/some-name/foo.jar.
     String baseName = descriptor.archivePath().getBaseName();
 
@@ -82,7 +80,7 @@ public class JarFunction implements SkyFunction {
       throw new RepositoryFunctionException(new IOException(
           "Error auto-creating jar repo structure: " + e.getMessage()), Transience.TRANSIENT);
     }
-    return new DecompressorValue(descriptor.repositoryPath());
+    return descriptor.repositoryPath();
   }
 
   protected String getPackageName() {
@@ -98,11 +96,4 @@ public class JarFunction implements SkyFunction {
             "    visibility = ['//visibility:public']",
             ")");
   }
-
-  @Override
-  @Nullable
-  public String extractTag(SkyKey skyKey) {
-    return null;
-  }
-
 }

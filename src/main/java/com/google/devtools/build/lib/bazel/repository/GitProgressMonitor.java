@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.EventHandler;
 
 import org.eclipse.jgit.lib.ProgressMonitor;
 
@@ -24,7 +24,7 @@ import org.eclipse.jgit.lib.ProgressMonitor;
  */
 class GitProgressMonitor implements ProgressMonitor {
   private String message;
-  private Reporter reporter;
+  private EventHandler eventHandler;
   private int totalTasks;
   private int currentTask;
 
@@ -32,9 +32,9 @@ class GitProgressMonitor implements ProgressMonitor {
   private int totalWork;
   private int completedWork;
 
-  GitProgressMonitor(String message, Reporter reporter) {
+  GitProgressMonitor(String message, EventHandler eventHandler) {
     this.message = message;
-    this.reporter = reporter;
+    this.eventHandler = eventHandler;
   }
 
   @Override
@@ -44,7 +44,7 @@ class GitProgressMonitor implements ProgressMonitor {
   }
 
   private void report() {
-    reporter.handle(
+    eventHandler.handle(
         Event.progress("[" + currentTask + " / " + totalTasks + "] "
             + message + ": " + workTitle + " ("
             + completedWork + " / " + totalWork + ")"));

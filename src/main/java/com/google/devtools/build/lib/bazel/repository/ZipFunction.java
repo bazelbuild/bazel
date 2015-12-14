@@ -15,15 +15,12 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Optional;
+import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.zip.ZipFileEntry;
 import com.google.devtools.build.zip.ZipReader;
 
@@ -39,9 +36,11 @@ import javax.annotation.Nullable;
 /**
  * Creates a repository by decompressing a zip file.
  */
-public class ZipFunction implements SkyFunction {
+public class ZipFunction implements Decompressor {
+  public static final Decompressor INSTANCE = new ZipFunction();
 
-  public static final SkyFunctionName NAME = SkyFunctionName.create("ZIP_FUNCTION");
+  private ZipFunction() {
+  }
 
   private static final int WINDOWS_DIRECTORY = 0x10;
   private static final int WINDOWS_FILE = 0x20;
@@ -61,10 +60,8 @@ public class ZipFunction implements SkyFunction {
    *      ...
    * </pre>
    */
-  @Override
   @Nullable
-  public SkyValue compute(SkyKey skyKey, Environment env) throws RepositoryFunctionException {
-    DecompressorDescriptor descriptor = (DecompressorDescriptor) skyKey.argument();
+  public Path decompress(DecompressorDescriptor descriptor) throws RepositoryFunctionException {
     Path destinationDirectory = descriptor.archivePath().getParentDirectory();
     Optional<String> prefix = descriptor.prefix();
     boolean foundPrefix = false;
@@ -91,7 +88,7 @@ public class ZipFunction implements SkyFunction {
           Transience.PERSISTENT);
     }
 
-    return new DecompressorValue(destinationDirectory);
+    return destinationDirectory;
   }
 
   private void extractZipEntry(
@@ -122,12 +119,6 @@ public class ZipFunction implements SkyFunction {
       }
       outputPath.chmod(permissions);
     }
-  }
-
-  @Override
-  @Nullable
-  public String extractTag(SkyKey skyKey) {
-    return null;
   }
 
   private int getPermissions(int permissions, String path) throws IOException {

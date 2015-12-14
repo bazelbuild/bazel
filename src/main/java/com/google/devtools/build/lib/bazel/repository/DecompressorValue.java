@@ -14,18 +14,20 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
-
-import java.io.IOException;
 
 /**
  * The contents of decompressed archive.
  */
 public class DecompressorValue implements SkyValue {
+  /** Implementation of a decompression algorithm. */
+  public interface Decompressor {
+    Path decompress(DecompressorDescriptor descriptor) throws RepositoryFunctionException;
+  }
 
   private final Path directory;
 
@@ -55,27 +57,24 @@ public class DecompressorValue implements SkyValue {
     return directory.hashCode();
   }
 
-  public static SkyKey key(SkyFunctionName skyFunctionName, DecompressorDescriptor descriptor) {
-    Preconditions.checkNotNull(descriptor.archivePath());
-    return new SkyKey(skyFunctionName, descriptor);
-  }
-
-  public static SkyKey key(DecompressorDescriptor descriptor) throws IOException {
-    Preconditions.checkNotNull(descriptor.archivePath());
-    return key(getSkyFunctionName(descriptor.archivePath()), descriptor);
-  }
-
-  private static SkyFunctionName getSkyFunctionName(Path archivePath) throws IOException {
+  static Decompressor getDecompressor(Path archivePath)
+      throws RepositoryFunctionException {
     String baseName = archivePath.getBaseName();
     if (baseName.endsWith(".zip") || baseName.endsWith(".jar") || baseName.endsWith(".war")) {
-      return ZipFunction.NAME;
+      return ZipFunction.INSTANCE;
     } else if (baseName.endsWith(".tar.gz") || baseName.endsWith(".tgz")) {
-      return TarGzFunction.NAME;
+      return TarGzFunction.INSTANCE;
     } else {
-      throw new IOException(String.format(
-          "Expected a file with a .zip, .jar, .war, .tar.gz, or .tgz suffix (got %s)",
-          archivePath));
+      throw new RepositoryFunctionException(
+          new EvalException(null, String.format(
+              "Expected a file with a .zip, .jar, .war, .tar.gz, or .tgz suffix (got %s)",
+              archivePath)),
+          Transience.PERSISTENT);
     }
   }
 
+  public static Path decompress(DecompressorDescriptor descriptor)
+      throws RepositoryFunctionException, InterruptedException {
+    return descriptor.getDecompressor().decompress(descriptor);
+  }
 }

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -24,8 +25,6 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
-import java.io.IOException;
 
 /**
  * Tests for {@link DecompressorValue}.
@@ -38,20 +37,20 @@ public class DecompressorValueTest {
   @Test
   public void testKnownFileExtensionsDoNotThrow() throws Exception {
     Path path = fs.getPath("/foo/.external-repositories/some-repo/bar.zip");
-    DecompressorValue.key(DecompressorDescriptor.builder().setArchivePath(path).build());
+    DecompressorDescriptor.builder().setArchivePath(path).build();
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.jar");
-    DecompressorValue.key(DecompressorDescriptor.builder().setArchivePath(path).build());
+    DecompressorDescriptor.builder().setArchivePath(path).build();
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.zip");
-    DecompressorValue.key(DecompressorDescriptor.builder().setArchivePath(path).build());
+    DecompressorDescriptor.builder().setArchivePath(path).build();
   }
 
   @Test
   public void testUnknownFileExtensionsThrow() throws Exception {
     Path zipPath = fs.getPath("/foo/.external-repositories/some-repo/bar.baz");
     try {
-      DecompressorValue.key(DecompressorDescriptor.builder().setArchivePath(zipPath).build());
+      DecompressorDescriptor.builder().setArchivePath(zipPath).build();
       fail(".baz isn't a valid suffix");
-    } catch (IOException expected) {
+    } catch (RepositoryFunctionException expected) {
       assertThat(expected.getMessage()).contains("Expected a file with a .zip, .jar,");
     }
   }

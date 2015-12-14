@@ -17,9 +17,14 @@ package com.google.devtools.build.lib.bazel.repository;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.skyframe.SkyFunctionException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,6 +37,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import javax.annotation.Nullable;
+
 /**
  * Helper class for downloading a file from a URL.
  */
@@ -42,17 +49,34 @@ public class HttpDownloader {
   private final String sha256;
   private final String type;
   private final Path outputDirectory;
-  private final Reporter reporter;
+  private final EventHandler eventHandler;
   private final ScheduledExecutorService scheduler;
 
-  HttpDownloader(
-      Reporter reporter, String urlString, String sha256, Path outputDirectory, String type) {
+  private HttpDownloader(EventHandler eventHandler, String urlString, String sha256,
+      Path outputDirectory, String type) {
     this.urlString = urlString;
     this.sha256 = sha256;
     this.outputDirectory = outputDirectory;
-    this.reporter = reporter;
+    this.eventHandler = eventHandler;
     this.scheduler = Executors.newScheduledThreadPool(1);
     this.type = type;
+  }
+
+  @Nullable
+  public static Path download(Rule rule, Path outputDirectory, EventHandler eventHandler)
+      throws RepositoryFunctionException {
+    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
+    String url = mapper.get("url", Type.STRING);
+    String sha256 = mapper.get("sha256", Type.STRING);
+    String type = mapper.has("type", Type.STRING) ? mapper.get("type", Type.STRING) : "";
+
+    try {
+      return new HttpDownloader(eventHandler, url, sha256, outputDirectory, type).download();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(new IOException("Error downloading from "
+          + url + " to " + outputDirectory + ": " + e.getMessage()),
+          SkyFunctionException.Transience.TRANSIENT);
+    }
   }
 
   /**
@@ -127,10 +151,10 @@ public class HttpDownloader {
       @Override
       public void run() {
         try {
-          reporter.handle(Event.progress(
+          eventHandler.handle(Event.progress(
               "Downloading from " + urlString + ": " + formatSize(totalBytes.get())));
         } catch (Exception e) {
-          reporter.handle(Event.error(
+          eventHandler.handle(Event.error(
               "Error generating download progress: " + e.getMessage()));
         }
       }
