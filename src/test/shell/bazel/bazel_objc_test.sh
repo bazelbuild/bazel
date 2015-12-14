@@ -132,6 +132,26 @@ function test_valid_ios_sdk_version() {
   ls bazel-bin/ios/app.ipa || fail "should generate app.ipa"
 }
 
+# Bazel caches mappings for ios sdk locations for local host execution.
+# Verify that multiple invocations (with primed cache) work.
+function test_xcrun_cache() {
+  setup_objc_test_support
+  make_app
+
+  ! ls bazel-out/__xcruncache || fail "clean build should not have cache file"
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      //ios:bin >$TEST_log 2>&1 || fail "should pass"
+  ls bazel-out/__xcruncache || fail "xcrun cache should be present"
+  bazel build --verbose_failures --ios_sdk_version=$IOS_SDK_VERSION \
+      //ios:app >$TEST_log 2>&1 || fail "should pass"
+  ls bazel-bin/ios/app.xcodeproj || fail "should generate app.xcodeproj"
+  ls bazel-bin/ios/app.ipa || fail "should generate app.ipa"
+  ls bazel-out/__xcruncache || fail "xcrun cache should be present"
+
+  bazel clean
+  ! ls bazel-bin/__xcruncache || fail "xcrun cache should be removed on clean"
+}
+
 function test_invalid_ios_sdk_version() {
   setup_objc_test_support
   make_app

@@ -23,10 +23,10 @@ import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.AppleHostInfo;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
-import com.google.devtools.build.lib.shell.CommandResult;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.OS;
@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.File;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -46,9 +45,11 @@ import java.util.List;
 public class StandaloneSpawnStrategy implements SpawnActionContext {
   private final boolean verboseFailures;
   private final Path processWrapper;
+  private final Path execRoot;
 
   public StandaloneSpawnStrategy(Path execRoot, boolean verboseFailures) {
     this.verboseFailures = verboseFailures;
+    this.execRoot = execRoot;
     this.processWrapper = execRoot.getRelative(
         "_bin/process-wrapper" + OsUtils.executableExtension());
   }
@@ -172,27 +173,6 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
     if (OS.getCurrent() != OS.DARWIN) {
       throw new UserExecException("Cannot locate iOS SDK on non-darwin operating system");
     }
-
-    try {
-      // TODO(bazel-team): Propagate DEVELOPER_DIR for the xcrun call.
-      CommandResult xcrunResult = new Command(new String[] {"/usr/bin/xcrun", "--sdk",
-          String.format("%s%s", appleSdkPlatform.toLowerCase(), iosSdkVersion),
-          "--show-sdk-path"}).execute();
-
-      TerminationStatus xcrunStatus = xcrunResult.getTerminationStatus();
-      if (!xcrunResult.getTerminationStatus().exited()) {
-        throw new UserExecException(String.format("xcrun failed.\n%s\nStderr: %s",
-            xcrunStatus.toString(), new String(xcrunResult.getStderr(), StandardCharsets.UTF_8)));
-      }
-
-      // calling xcrun via Command returns a value with a newline on the end.
-      envBuilder.put("SDKROOT", new String(xcrunResult.getStdout(), StandardCharsets.UTF_8).trim());
-    } catch (AbnormalTerminationException e) {
-      String message = String.format("%s : %s",
-          e.getResult().getTerminationStatus(), new String(e.getResult().getStderr()));
-      throw new UserExecException(message, e);
-    } catch (CommandException e) {
-      throw new UserExecException(e);
-    }
+    envBuilder.put("SDKROOT", AppleHostInfo.getSdkRoot(execRoot, iosSdkVersion, appleSdkPlatform));
   }
 }

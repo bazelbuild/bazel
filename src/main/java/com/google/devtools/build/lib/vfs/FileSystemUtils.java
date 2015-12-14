@@ -926,9 +926,20 @@ public class FileSystemUtils {
    * @throws IOException if there was an error
    */
   public static Iterable<String> iterateLinesAsLatin1(Path inputFile) throws IOException {
-    return asByteSource(inputFile).asCharSource(ISO_8859_1).readLines();
+    return readLines(inputFile, ISO_8859_1);
   }
 
+  /**
+   * Returns an iterable that allows iterating over text file contents line by line in the given
+   * {@link Charset}. If the file ends in a line break, the iterator will return an empty string
+   * as the last element.
+   *
+   * @throws IOException if there was an error
+   */
+  public static Iterable<String> readLines(Path inputFile, Charset charset) throws IOException {
+    return asByteSource(inputFile).asCharSource(charset).readLines();
+  }
+  
   /**
    * Returns the entirety of the specified file and returns it as a byte array.
    *
