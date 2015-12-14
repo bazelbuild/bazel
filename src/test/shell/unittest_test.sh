@@ -59,7 +59,7 @@ function test_thing() {
 run_suite "thing tests"
 EOF
   chmod +x thing.sh
-  ./thing.sh &> $TEST_log || echo "thing.sh should fail"
+  ./thing.sh &> $TEST_log && fail "thing.sh should fail"
   expect_not_log "__fail: No such file or directory"
   assert_contains "I'm a failure." $XML_OUTPUT_FILE
 }
@@ -77,9 +77,39 @@ function test_thing() {
 run_suite "thing tests"
 EOF
   chmod +x thing.sh
-  ./thing.sh &> $TEST_log || echo "thing.sh should fail"
+  ./thing.sh &> $TEST_log && fail "thing.sh should fail"
   expect_not_log "__fail: No such file or directory"
   assert_contains "No failure message" $XML_OUTPUT_FILE
+}
+
+function test_errexit_prints_stack_trace() {
+  cd $TEST_TMPDIR
+  cat > thing.sh <<EOF
+#!/bin/bash
+source ${DIR}/unittest.bash
+
+enable_errexit
+
+function helper() {
+  echo before
+  false
+  echo after
+}
+
+function test_thing() {
+  helper
+}
+
+run_suite "thing tests"
+EOF
+  chmod +x thing.sh
+  ./thing.sh &> $TEST_log && fail "thing.sh should fail"
+  #cat $TEST_log
+
+  # Make sure the full stack trace is there.
+  expect_log "test_thing FAILED: terminated because this command returned a non-zero status:"
+  expect_log "./thing.sh:[0-9]*: in call to helper"
+  expect_log "./thing.sh:[0-9]*: in call to test_thing"
 }
 
 run_suite "unittests Tests"
