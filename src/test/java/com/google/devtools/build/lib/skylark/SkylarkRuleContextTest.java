@@ -191,8 +191,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     getConfiguredTarget("//test:cclib");
     assertContainsEvent(
         "ERROR /workspace/test/BUILD:2:10: Label '//test:sub/my_sub_lib.h' crosses boundary of "
-        + "subpackage 'test/sub' (perhaps you meant to put the colon here: "
-        + "'//test/sub:my_sub_lib.h'?)");
+            + "subpackage 'test/sub' (perhaps you meant to put the colon here: "
+            + "'//test/sub:my_sub_lib.h'?)");
   }
 
   @Test
@@ -546,5 +546,34 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         + "ruleContext.files.tools[0].basename + '.params')");
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
     assertEquals("foo/t.exe.params", fragment.getPathString());
+  }
+
+  @Test
+  public void testRelativeLabelInExternalRepository() throws Exception {
+    scratch.file("BUILD");
+    scratch.file("external_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "external_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'internal_dep': attr.label(default = Label('//:dep'))",
+        "  }",
+        ")");
+
+    scratch.file("/r/BUILD",
+        "filegroup(name='dep')");
+
+    scratch.file("/r/a/BUILD",
+        "load('/external_rule', 'external_rule')",
+        "external_rule(name='r')");
+
+    scratch.overwriteFile("WORKSPACE",
+        "local_repository(name='r', path='/r')");
+
+    invalidatePackages();
+    SkylarkRuleContext context = createRuleContext("@r//a:r");
+    Label depLabel = (Label) evalRuleContextCode(context, "ruleContext.attr.internal_dep.label");
+    assertThat(depLabel).isEqualTo(Label.parseAbsolute("@r//:dep"));
   }
 }
