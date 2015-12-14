@@ -71,7 +71,7 @@ class EnumFilterConverter<E extends Enum<E>> implements Converter<Set<E>> {
         throw new OptionsParsingException("Invalid " + prettyEnumName + " filter '" + value +
             "' in the input '" + input + "'");
       }
-      (excludeFlag ? excludedSet : includedSet).add(E.valueOf(typeClass, s));
+      (excludeFlag ? excludedSet : includedSet).add(Enum.valueOf(typeClass, s));
     }
     if (includedSet.isEmpty()) {
       includedSet = EnumSet.complementOf(excludedSet);
