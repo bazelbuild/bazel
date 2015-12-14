@@ -38,7 +38,12 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
    * things to Bazel.
    */
   private static final ImmutableSet<PathFragment> ABSOLUTE_PACKAGE_NAMES = ImmutableSet.of(
-      new PathFragment("visibility"), Label.EXTERNAL_PACKAGE_NAME);
+      // dependencies that are a function of the configuration
+      new PathFragment("tools/defaults"),
+      // Visibility is labels aren't actually targets
+      new PathFragment("visibility"),
+      // There is only one //external package
+      Label.EXTERNAL_PACKAGE_NAME);
 
   private final Package pkg;
   private final RuleClass ruleClass;
@@ -167,14 +172,8 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     if (value != null) { // null values are particularly possible for computed defaults.
       for (Label label : extractLabels(type, value)) {
         Label absoluteLabel;
-        if (attribute.isImplicit() || attribute.isLateBound()
-          || !attributes.isAttributeValueExplicitlySpecified(attribute)) {
-          // Implicit dependencies are not usually present in remote repositories. They are
-          // generally tools, which go to the main repository.
-          absoluteLabel = label;
-        } else if (label.getPackageIdentifier().getRepository().isDefault()
+        if (label.getPackageIdentifier().getRepository().isDefault()
             && ABSOLUTE_PACKAGE_NAMES.contains(label.getPackageIdentifier().getPackageFragment())) {
-          // //visibility: and //external: labels must also be special-cased :(
           absoluteLabel = label;
         } else {
           absoluteLabel = ruleLabel.resolveRepositoryRelative(label);
