@@ -15,7 +15,6 @@
 # TODO(bazel-team) test that modifying the source in a non-interface
 #   changing way results in the same -interface.jar.
 
-
 DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 
 ## Inputs
@@ -97,6 +96,7 @@ function check_consistent_file_contents() {
   local actual="$(cat $1 | ${MD5SUM} | awk '{ print $1; }')"
   local filename="$(echo $1 | ${MD5SUM} | awk '{ print $1; }')"
   local expected="$actual"
+  disable_errexit
   if $(echo "${expected_output}" | grep -q "^${filename} "); then
     echo "${expected_output}" | grep -q "^${filename} ${actual}$" || {
       ls -l "$1"
@@ -106,6 +106,7 @@ function check_consistent_file_contents() {
     expected_output="$expected_output$filename $actual
 "
   fi
+  enable_errexit
 }
 
 function set_up() {

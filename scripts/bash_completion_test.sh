@@ -170,8 +170,10 @@ source ${COMPLETION}
 assert_expansion_function() {
   local ws=${PWD}
   local function="$1" displacement="$2" type="$3" expected="$4" current="$5"
-  assert_equals "$(echo -e "${expected}")" \
-      "$(eval "_bazel__${function} \"${ws}\" \"${displacement}\" \"${current}\" \"${type}\"")"
+  disable_errexit
+  local actual_result=$(eval "_bazel__${function} \"${ws}\" \"${displacement}\" \"${current}\" \"${type}\"")
+  enable_errexit
+  assert_equals "$(echo -ne "${expected}")" "${actual_result}"
 }
 
 test_expand_rules_in_package() {

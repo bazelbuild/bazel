@@ -354,7 +354,6 @@ function setup_objc_test_support() {
 workspaces=()
 # Set-up a new, clean workspace with only the tools installed.
 function create_new_workspace() {
-  set -e
   new_workspace_dir=${1:-$(mktemp -d ${TEST_TMPDIR}/workspace.XXXXXXXX)}
   rm -fr ${new_workspace_dir}
   mkdir -p ${new_workspace_dir}

@@ -17,7 +17,8 @@
 # Common utility file for Bazel shell tests
 #
 
-set -eu
+# Enable errexit with pretty stack traces.
+enable_errexit
 
 # Print message in "$1" then exit with status "$2"
 die () {
