@@ -17,14 +17,36 @@
 # Test rules provided in Bazel not tested by examples
 #
 
-# TODO(philwo): Change this so the path to the custom worker gets passed in as an argument to the
-# test, once the bug that makes using the "args" attribute with sh_tests in Bazel impossible is
-# fixed.
-example_worker=$(find $PWD -name ExampleWorker_deploy.jar)
-
 # Load test environment
 source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
+
+# TODO(philwo): Change this so the path to the custom worker gets passed in as an argument to the
+# test, once the bug that makes using the "args" attribute with sh_tests in Bazel impossible is
+# fixed.
+example_worker=$(find $TEST_SRCDIR -name ExampleWorker_deploy.jar)
+
+function set_up() {
+  workers=$(print_workers)
+  if [[ ! -z "${workers}" ]]; then
+    kill $workers
+
+    # Wait at most 3 seconds for all workers to shut down.
+    for i in 0 1 2 3; do
+      still_running_workers=$(for pid in $workers; do ps -p $pid | sed 1d; done)
+
+      if [[ ! -z "${still_running_workers}" ]]; then
+        if [[ $i -eq 3 ]]; then
+          kill -TERM $still_running_workers
+        fi
+
+        sleep 1
+      fi
+    done
+  fi
+
+  assert_workers_not_running
+}
 
 function write_hello_library_files() {
   mkdir -p java/main
@@ -71,6 +93,7 @@ function print_workers() {
 function shutdown_and_print_unkilled_workers() {
   workers=$(print_workers)
   bazel shutdown || fail "shutdown failed"
+
   # Wait at most 10 seconds for all workers to shut down, then print the remaining (if any).
   for i in 0 1 2 3 4 5 6 7 8 9; do
     still_running_workers=$(for pid in $workers; do ps -p $pid | sed 1d; done)
@@ -78,6 +101,10 @@ function shutdown_and_print_unkilled_workers() {
       sleep 1
     fi
   done
+
+  if [ ! -z "$still_running_workers" ]; then
+    fail "Worker processes were still running after shutdown: ${unkilled_workers}"
+  fi
 }
 
 function assert_workers_running() {
@@ -96,21 +123,16 @@ function assert_workers_not_running() {
 
 function test_compiles_hello_library_using_persistent_javac() {
   write_hello_library_files
-  bazel --batch clean
 
   bazel build --strategy=Javac=worker //java/main:main || fail "build failed"
   bazel-bin/java/main/main | grep -q "Hello, Library!;Hello, World!" \
     || fail "comparison failed"
   assert_workers_running
-  unkilled_workers=$(shutdown_and_print_unkilled_workers)
-  if [ ! -z "$unkilled_workers" ]; then
-    fail "Worker processes were still running after shutdown: ${unkilled_workers}"
-  fi
+  shutdown_and_print_unkilled_workers
 }
 
 function test_incremental_heuristic() {
   write_hello_library_files
-  bazel --batch clean
 
   # Default strategy is assumed to not use workers.
   bazel build //java/main:main || fail "build failed"
@@ -133,7 +155,6 @@ function test_incremental_heuristic() {
 
 function test_workers_quit_after_build() {
   write_hello_library_files
-  bazel --batch clean
 
   bazel build --worker_quit_after_build --strategy=Javac=worker //java/main:main \
     || fail "build failed"
@@ -198,7 +219,6 @@ EOF
 
 function test_example_worker() {
   prepare_example_worker
-
   cat >>BUILD <<EOF
 work(
   name = "hello_world",
@@ -213,9 +233,6 @@ work(
 )
 EOF
 
-  bazel --batch clean
-  assert_workers_not_running
-
   bazel build --strategy=Work=worker :hello_world \
     || fail "build failed"
   assert_equals "hello world" "$(cat bazel-bin/hello_world.out)"
@@ -229,7 +246,6 @@ EOF
 
 function test_worker_restarts_after_exit() {
   prepare_example_worker
-
   cat >>BUILD <<'EOF'
 [work(
   name = "hello_world_%s" % idx,
@@ -238,9 +254,6 @@ function test_worker_restarts_after_exit() {
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF
-
-  bazel --batch clean
-  assert_workers_not_running
 
   bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 \
     || fail "build failed"
@@ -272,7 +285,6 @@ EOF
 
 function test_worker_restarts_when_worker_binary_changes() {
   prepare_example_worker
-
   cat >>BUILD <<'EOF'
 [work(
   name = "hello_world_%s" % idx,
@@ -280,9 +292,6 @@ function test_worker_restarts_when_worker_binary_changes() {
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF
-
-  bazel --batch clean
-  assert_workers_not_running
 
   bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 \
     || fail "build failed"
@@ -319,7 +328,6 @@ EOF
 
 function test_worker_restarts_when_worker_runfiles_change() {
   prepare_example_worker
-
   cat >>BUILD <<'EOF'
 [work(
   name = "hello_world_%s" % idx,
@@ -327,9 +335,6 @@ function test_worker_restarts_when_worker_runfiles_change() {
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF
-
-  bazel --batch clean
-  assert_workers_not_running
 
   bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 \
     || fail "build failed"
@@ -366,7 +371,6 @@ EOF
 # the action without struggling.
 function test_bazel_recovers_from_worker_returning_junk() {
   prepare_example_worker
-
   cat >>BUILD <<'EOF'
 [work(
   name = "hello_world_%s" % idx,
@@ -375,9 +379,6 @@ function test_bazel_recovers_from_worker_returning_junk() {
   args = ["--write_uuid", "--write_counter"],
 ) for idx in range(10)]
 EOF
-
-  bazel --batch clean
-  assert_workers_not_running
 
   bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 \
     || fail "build failed"
@@ -395,7 +396,6 @@ EOF
 
 function test_input_digests() {
   prepare_example_worker
-
   cat >>BUILD <<'EOF'
 [work(
   name = "hello_world_%s" % idx,
@@ -404,9 +404,6 @@ function test_input_digests() {
   srcs = [":input.txt"],
 ) for idx in range(10)]
 EOF
-
-  bazel --batch clean
-  assert_workers_not_running
 
   echo "hello world" > input.txt
   bazel build --strategy=Work=worker --worker_max_instances=1 :hello_world_1 \
