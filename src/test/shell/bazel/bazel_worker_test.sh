@@ -65,9 +65,7 @@ EOF
 
 function print_workers() {
   pid=$(bazel info | fgrep server_pid | cut -d' ' -f2)
-  # DANGER. This contains arcane shell wizardry that was carefully crafted to be compatible with
-  # both BSD and GNU tools so that this works under Linux and OS X.
-  ps ax -o ppid,pid | awk '{$1=$1};1' | egrep "^${pid} " | cut -d' ' -f2
+  pgrep -P $pid || true
 }
 
 function shutdown_and_print_unkilled_workers() {
