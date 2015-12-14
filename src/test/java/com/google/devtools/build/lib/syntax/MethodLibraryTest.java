@@ -770,6 +770,51 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testReversedWithInvalidTypes() throws Exception {
+    new BothModesTest()
+        .testIfExactError("type 'NoneType' is not iterable", "reversed(None)")
+        .testIfExactError("type 'int' is not iterable", "reversed(1)")
+        .testIfExactError(
+            "Argument to reversed() must be a sequence, not a dictionary.", "reversed({1: 3})");
+    new SkylarkTest()
+        .testIfExactError(
+            "Argument to reversed() must be a sequence, not a set.", "reversed(set([1]))");
+  }
+
+  @Test
+  public void testReversedWithLists() throws Exception {
+    new BothModesTest()
+        .testEval("reversed([])", "[]")
+        .testEval("reversed([1])", "[1]")
+        .testEval("reversed([1, 2, 3, 4, 5])", "[5, 4, 3, 2, 1]")
+        .testEval("reversed([[1, 2], 3, 4, [5]])", "[[5], 4, 3, [1, 2]]")
+        .testEval("reversed([1, 1, 1, 1, 2])", "[2, 1, 1, 1, 1]");
+  }
+
+  @Test
+  public void testReversedWithStrings() throws Exception {
+    new BothModesTest()
+        .testEval("reversed('')", "['']")
+        .testEval("reversed('a')", "['a']")
+        .testEval("reversed('abc')", "['c', 'b', 'a']")
+        .testEval("reversed('__test  ')", "[' ', ' ', 't', 's', 'e', 't', '_', '_']")
+        .testEval("reversed('bbb')", "['b', 'b', 'b']");
+  }
+
+  @Test
+  public void testReversedNoSideEffects() throws Exception {
+    new SkylarkTest()
+        .testEval(
+            "def foo():\n"
+                + "  x = ['a', 'b']\n"
+                + "  y = reversed(x)\n"
+                + "  y += ['c']\n"
+                + "  return x\n"
+                + "foo()",
+            "['a', 'b']");
+  }
+
+  @Test
   public void testListSlice() throws Exception {
     new BothModesTest()
         .testEval("[0,1,2,3][0:-1]", "[0, 1, 2]")

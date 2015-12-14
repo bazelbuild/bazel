@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
@@ -935,6 +936,40 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
+    name = "reversed",
+    returnType = MutableList.class,
+    doc = "Returns a list that contains the elements of the original sequence in reversed order.",
+    mandatoryPositionals = {
+      @Param(
+        name = "sequence",
+        type = Object.class,
+        doc = "The sequence to be reversed (string, list or tuple)."
+      )
+    },
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static BuiltinFunction reversed =
+      new BuiltinFunction("reversed") {
+        @SuppressWarnings("unused") // Accessed via Reflection.
+        public MutableList invoke(Object sequence, Location loc, Environment env)
+            throws EvalException {
+          // We only allow lists and strings.
+          if (sequence instanceof Map) {
+            throw new EvalException(
+                loc, "Argument to reversed() must be a sequence, not a dictionary.");
+          } else if (sequence instanceof NestedSet || sequence instanceof SkylarkNestedSet) {
+            throw new EvalException(loc, "Argument to reversed() must be a sequence, not a set.");
+          }
+          LinkedList<Object> tmpList = new LinkedList<>();
+          for (Object element : EvalUtils.toIterable(sequence, loc)) {
+            tmpList.addFirst(element);
+          }
+          return new MutableList(tmpList, env);
+        }
+      };
+
+  @SkylarkSignature(
     name = "append",
     objectType = MutableList.class,
     returnType = Runtime.NoneType.class,
@@ -1683,8 +1718,10 @@ public class MethodLibrary {
       + "</pre>")
   static final class DictModule {}
 
-  static final List<BaseFunction> buildGlobalFunctions = ImmutableList.<BaseFunction>of(
-      bool, dict, enumerate, int_, len, list, minus, range, repr, select, sorted, str, zip);
+  static final List<BaseFunction> buildGlobalFunctions =
+      ImmutableList.<BaseFunction>of(
+          bool, dict, enumerate, int_, len, list, minus, range, repr, reversed, select, sorted, str,
+          zip);
 
   static final List<BaseFunction> skylarkGlobalFunctions =
       ImmutableList.<BaseFunction>builder()
