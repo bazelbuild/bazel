@@ -42,6 +42,7 @@ import org.apache.maven.model.building.ModelSource;
 import org.apache.maven.model.resolution.UnresolvableModelException;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -139,7 +140,7 @@ public class Resolver {
               "Could not resolve model for " + target + ": " + e.getMessage()));
           continue;
         }
-        resolver.resolveEffectiveModel(modelSource);
+        resolver.resolveEffectiveModel(modelSource, Collections.emptySet(), rule);
       } else {
         handler.handle(Event.warn(location, "Cannot fetch transitive dependencies for " + target
             + " yet, skipping"));
