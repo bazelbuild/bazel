@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -37,6 +36,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
 
@@ -60,7 +60,8 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
     ConfigurationEnvironment env =
         new ConfigurationEnvironment.TargetProviderEnvironment(
             skyframeExecutor.getPackageManager(), reporter, directories);
-    return loader.create(env, BuildOptions.of(AnalysisMock.get().getBuildOptions(), args));
+    return loader.create(env, BuildOptions.of(
+        TestRuleClassProvider.getRuleClassProvider().getOptionFragments(), args));
   }
 
   private CppConfigurationLoader loader(String crosstoolFileContents) throws IOException {

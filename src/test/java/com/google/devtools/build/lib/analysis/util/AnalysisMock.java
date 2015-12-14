@@ -13,12 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.util;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
@@ -68,8 +66,6 @@ public abstract class AnalysisMock {
   public abstract ConfigurationCollectionFactory createConfigurationCollectionFactory();
 
   public abstract Collection<String> getOptionOverrides();
-
-  public abstract ImmutableList<Class<? extends FragmentOptions>> getBuildOptions();
 
   public abstract MockCcSupport ccSupport();
 
@@ -126,9 +122,5 @@ public abstract class AnalysisMock {
       return delegate.getOptionOverrides();
     }
 
-    @Override
-    public ImmutableList<Class<? extends FragmentOptions>> getBuildOptions() {
-      return delegate.getBuildOptions();
-    }
   }
 }

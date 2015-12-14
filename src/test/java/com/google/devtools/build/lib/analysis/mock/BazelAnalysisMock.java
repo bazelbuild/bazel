@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.rules.BazelConfiguration;
 import com.google.devtools.build.lib.bazel.rules.BazelConfigurationCollection;
@@ -223,11 +222,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public Collection<String> getOptionOverrides() {
     return ImmutableList.of();
-  }
-
-  @Override
-  public ImmutableList<Class<? extends FragmentOptions>> getBuildOptions() {
-    return BazelRuleClassProvider.BUILD_OPTIONS;
   }
 
   @Override
