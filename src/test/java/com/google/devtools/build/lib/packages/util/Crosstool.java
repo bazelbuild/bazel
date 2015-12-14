@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages.util;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -178,12 +177,9 @@ final class Crosstool {
 
     config.create(crosstoolTop + "/" + version + "/x86/bin/gcc");
     config.create(crosstoolTop + "/" + version + "/x86/bin/ld");
-    config.create(crosstoolTop + "/BUILD", build);
-    Path crosstoolPath = config.getPath(crosstoolTop + "/CROSSTOOL");
-    if (crosstoolPath.exists()) {
-      crosstoolPath.delete();
-    }
-    config.create(crosstoolTop + "/CROSSTOOL", crosstoolFileContents);
+    config.getPath(crosstoolTop + "/CROSSTOOL");
+    config.overwrite(crosstoolTop + "/BUILD", build);
+    config.overwrite(crosstoolTop + "/CROSSTOOL", crosstoolFileContents);
     config.create(crosstoolTop + "/crosstool.cppmap", "module crosstool {}");
   }
 }

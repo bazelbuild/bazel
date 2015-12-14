@@ -81,7 +81,7 @@ toolchain {
   tool_path { name: "objdump" path: "/usr/bin/objdump" }
   tool_path { name: "strip" path: "/usr/bin/strip" }
 
-  needsPic: true
+  needsPic: false
 
   builtin_sysroot: ""
   cxx_flag: "-std=c++0x"
