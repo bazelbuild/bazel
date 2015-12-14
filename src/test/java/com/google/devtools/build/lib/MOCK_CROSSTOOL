@@ -55,6 +55,7 @@ toolchain {
   cxx_builtin_include_directory: "/usr/include"
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
+  supports_interface_shared_objects: true
 }
 
 toolchain {
@@ -91,6 +92,7 @@ toolchain {
   cxx_builtin_include_directory: "/usr/include"
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
+  supports_interface_shared_objects: true
 }
 
 toolchain {
@@ -117,7 +119,7 @@ toolchain {
   tool_path { name: "objdump" path: "/usr/bin/objdump" }
   tool_path { name: "strip" path: "/usr/bin/strip" }
 
-  needsPic: true
+  needsPic: false
 
   builtin_sysroot: ""
   cxx_flag: "-std=c++0x"
@@ -132,6 +134,7 @@ toolchain {
   cxx_builtin_include_directory: "/Library/Developer/CommandLineTools"
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
+  supports_interface_shared_objects: true
 }
 
 toolchain {
@@ -164,6 +167,7 @@ toolchain {
   cxx_builtin_include_directory: "C:/mingw/lib/gcc"
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
+  supports_interface_shared_objects: true
 }
 
 toolchain {
@@ -195,6 +199,7 @@ toolchain {
   cxx_builtin_include_directory: "C:/msys64/mingw64/x86_64-w64-mingw32/include"
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
+  supports_interface_shared_objects: true
 }
 
 toolchain {
@@ -228,6 +233,8 @@ toolchain {
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
   builtin_sysroot: ""
+
+  supports_interface_shared_objects: true
 }
 
 # For Android rules where no Android NDK is specified
@@ -268,4 +275,6 @@ toolchain {
   tool_path { name: "objcopy" path: "/bin/false" }
   tool_path { name: "objdump" path: "/bin/false" }
   tool_path { name: "strip" path: "/bin/false" }
+
+  supports_interface_shared_objects: true
 }

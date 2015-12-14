@@ -937,6 +937,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:crosstool_config_proto",
+        "//src/main/protobuf:extra_actions_base_proto",
         "//src/test/java/com/google/devtools/build/lib:packages_testutil",
         "//third_party:guava",
         "//third_party:guava-testlib",
