@@ -38,7 +38,10 @@ java_import(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]) + ["//tools/objc/sim_devices:BUILD"],
+    srcs = glob(["**"]) + [
+        "//tools/objc/memleaks:srcs",
+        "//tools/objc/sim_devices:BUILD",
+    ],
 )
 
 filegroup(

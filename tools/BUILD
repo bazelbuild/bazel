@@ -14,7 +14,6 @@ filegroup(
         "//tools/cpp:srcs",
         "//tools/j2objc:srcs",
         "//tools/objc:srcs",
-        "//tools/objc/memleaks:srcs",
         "//tools/test:srcs",
         "//tools/python:srcs",
     ],

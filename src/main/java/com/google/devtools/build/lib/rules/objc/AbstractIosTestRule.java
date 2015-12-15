@@ -94,10 +94,11 @@ public abstract class AbstractIosTestRule implements RuleDefinition {
             attr("$test_runner", LABEL)
                 .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:testrunner")))
         .add(
-            attr(IosTest.MEMLEAKS_DEP, LABEL).value(env.getLabel("//tools/objc/memleaks:memleaks")))
+            attr(IosTest.MEMLEAKS_DEP, LABEL)
+                .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc/memleaks:memleaks")))
         .add(
             attr(IosTest.MEMLEAKS_PLUGIN, LABEL)
-                .value(env.getLabel("//tools/objc:memleaks_plugin")))
+                .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:memleaks_plugin")))
         .override(
             attr(":gcov", LABEL_LIST)
                 .cfg(HOST)
