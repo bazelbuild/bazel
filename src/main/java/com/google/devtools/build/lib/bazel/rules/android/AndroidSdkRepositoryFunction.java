@@ -63,6 +63,7 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
     }
 
     String buildFile = template
+        .replaceAll("%repository_name%", rule.getName())
         .replaceAll("%build_tools_version%", buildToolsVersion)
         .replaceAll("%api_level%", apiLevel.toString());
 

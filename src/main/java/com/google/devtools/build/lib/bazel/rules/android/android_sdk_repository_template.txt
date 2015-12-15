@@ -134,9 +134,9 @@ filegroup(
      srcs = [],
      cmd  = "\n".join(["cat > $@ << 'EOF'",
          "#!/bin/bash -eu",
-         "BINARY=$${0##*-out/host/bin/}",
-         "DIRNAME=$$(dirname $$BINARY)",
-         "SDK=$${0}.runfiles/$${DIRNAME}",
+         # The tools under build-tools/VERSION require the libraries under build-tools/VERSION/lib,
+         # so we can't simply depend on them as a file like we do with aapt.
+         "SDK=$${0}.runfiles/external/%repository_name%",
          "exec $${SDK}/build-tools/%build_tools_version%/" + tool + " $$*",
          "EOF\n"]),
 ) for tool in ["aapt", "aidl", "zipalign"]]
