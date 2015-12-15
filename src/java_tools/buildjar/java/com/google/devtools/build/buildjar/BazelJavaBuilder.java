@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.buildjar;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.buildjar.javac.JavacOptions;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
@@ -120,7 +121,8 @@ public abstract class BazelJavaBuilder {
    *         file failed
    * @throws InvalidCommandLineException on any command line error
    */
-  private static JavaLibraryBuildRequest parse(List<String> args) throws IOException,
+  @VisibleForTesting
+  public static JavaLibraryBuildRequest parse(List<String> args) throws IOException,
       InvalidCommandLineException {
     ImmutableList<BlazeJavaCompilerPlugin> plugins =
         ImmutableList.<BlazeJavaCompilerPlugin>of(
