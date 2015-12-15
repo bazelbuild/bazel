@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -43,8 +42,6 @@ import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
-import java.util.List;
-
 /**
  * An implementation for the "android_library" rule.
  */
@@ -60,12 +57,11 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     if (!AndroidSdkProvider.verifyPresence(ruleContext)) {
       return null;
     }
-    List<? extends TransitiveInfoCollection> deps =
-        ruleContext.getPrerequisites("deps", Mode.TARGET);
     checkResourceInlining(ruleContext);
     NestedSetBuilder<Aar> transitiveAars = collectTransitiveAars(ruleContext);
     NestedSet<LinkerInput> transitiveNativeLibraries =
-        AndroidCommon.collectTransitiveNativeLibraries(deps);
+        AndroidCommon.collectTransitiveNativeLibraries(
+            AndroidCommon.collectTransitiveInfo(ruleContext, Mode.TARGET));
     NestedSet<Artifact> transitiveProguardConfigs =
         new ProguardLibrary(ruleContext).collectProguardSpecs();
     JavaCommon javaCommon = new JavaCommon(ruleContext, javaSemantics);
@@ -222,4 +218,3 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     return builder;
   }
 }
-

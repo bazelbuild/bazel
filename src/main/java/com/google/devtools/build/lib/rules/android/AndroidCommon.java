@@ -103,6 +103,17 @@ public class AndroidCommon {
     return builder.build();
   }
 
+  public static final Iterable<TransitiveInfoCollection> collectTransitiveInfo(
+      RuleContext ruleContext, Mode mode) {
+    ImmutableList.Builder<TransitiveInfoCollection> builder = ImmutableList.builder();
+    for (String attr : TRANSITIVE_ATTRIBUTES) {
+      if (ruleContext.getAttribute(attr) != null) {
+        builder.addAll(ruleContext.getPrerequisites(attr, mode));
+      }
+    }
+    return builder.build();
+  }
+
   private final RuleContext ruleContext;
   private final JavaCommon javaCommon;
   private final boolean asNeverLink;
