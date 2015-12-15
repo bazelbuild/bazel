@@ -133,9 +133,6 @@ public class PackageParser {
   @VisibleForTesting
   public void writeManifest(@Nonnull Map<Path, String> sourceToPackageMap, Path outputFile)
       throws IOException {
-    if (sourceToPackageMap.isEmpty()) {
-      return;
-    }
     PackageManifest.Builder builder = PackageManifest.newBuilder();
     for (Entry<Path, String> entry : sourceToPackageMap.entrySet()) {
       builder.addSources(JavaSourcePackage.newBuilder()
