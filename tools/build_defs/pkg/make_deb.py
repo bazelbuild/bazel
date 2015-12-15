@@ -126,6 +126,7 @@ def CreateDebControl(extrafiles=None, **kwargs):
       for name in extrafiles:
         tarinfo = tarfile.TarInfo(name)
         tarinfo.size = len(extrafiles[name])
+        tarinfo.mode = 0755
         f.addfile(tarinfo, fileobj=StringIO(extrafiles[name]))
   control = tar.getvalue()
   tar.close()
