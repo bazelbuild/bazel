@@ -1,11 +1,11 @@
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
 
-<h1>${ruleFamily} Rules</h1>
+<h1>${ruleFamily.name} Rules</h1>
 
 <div class="toc">
   <h2>Rules</h2>
   <ul>
-#foreach ($rule in $ruleDocs)
+#foreach ($rule in $ruleFamily.rules)
     <li>
       <a href="#${rule.ruleName}">
         ${rule.ruleName}#if($rule.isDeprecated()) (deprecated)#end
@@ -15,7 +15,7 @@
   </ul>
 </div>
 
-#foreach ($rule in $ruleDocs)
+#foreach ($rule in $ruleFamily.rules)
   <h2 id="${rule.ruleName}"#if($rule.isDeprecated()) class="deprecated"#end>
     ${rule.ruleName}
   </h2>

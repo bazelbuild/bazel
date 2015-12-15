@@ -110,14 +110,14 @@
       <th></th>
     </tr>
   </thead>
-#summaryTable($langSpecificSummaryFamilies)
+#summaryTable($langSpecificRuleFamilies)
 
 </table>
 <h4>Rules that do not apply to a specific programming language</h4>
 
 <table class="table table-condensed table-striped" summary="Table of rules not specific to a programming language">
   <colgroup span="6" width="20%"></colgroup>
-#summaryTable($otherSummaryFamilies)
+#summaryTable($genericRuleFamilies)
 
 </table>
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")

@@ -16,9 +16,9 @@
   </li>
   <li class="sidebar-nav-heading">Built-in Rules</li>
   <li><a href="${path}/functions.html">Functions</a></li>
-  #foreach ($namePair in $ruleFamilyNames)
-  <li><a href="${path}/${namePair.getFirst()}.html">${namePair.getSecond()}</a></li>
-  #end
+#foreach ($ruleFamily in $ruleFamilies)
+  <li><a href="${path}/${ruleFamily.id}.html">${ruleFamily.name}</a></li>
+#end
 
   <li class="sidebar-nav-heading">Skylark Rules</li>
   <li><a href="${path}/appengine.html">Java AppEngine</a></li>
