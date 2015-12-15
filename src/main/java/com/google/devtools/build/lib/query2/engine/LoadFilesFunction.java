@@ -16,33 +16,32 @@ package com.google.devtools.build.lib.query2.engine;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.collect.CompactHashSet;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Argument;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.ArgumentType;
-import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 
 import java.util.List;
 import java.util.Set;
 
 /**
- * A buildfiles(x) query expression, which computes the set of BUILD files and
- * subincluded files for each target in set x.  The result is unordered.  This
+ * A loadfiles(x) query expression, which computes the set of .bzl files
+ * for each target in set x.  The result is unordered.  This
  * operator is typically used for determinining what files or packages to check
  * out.
  *
- * <pre>expr ::= BUILDFILES '(' expr ')'</pre>
+ * <pre>expr ::= LOADFILES '(' expr ')'</pre>
  */
-class BuildFilesFunction implements QueryFunction {
-  BuildFilesFunction() {
-  }
+class LoadFilesFunction implements QueryEnvironment.QueryFunction {
+  LoadFilesFunction() {}
 
   @Override
   public String getName() {
-    return "buildfiles";
+    return "loadfiles";
   }
 
   @Override
-  public <T> void eval(final QueryEnvironment<T> env, final QueryExpression expression,
-      List<Argument> args, final Callback<T> callback)
+  public <T> void eval(
+      final QueryEnvironment<T> env,
+      final QueryExpression expression,
+      List<QueryEnvironment.Argument> args,
+      final Callback<T> callback)
       throws QueryException, InterruptedException {
     env.eval(
         args.get(0).getExpression(),
@@ -54,7 +53,11 @@ class BuildFilesFunction implements QueryFunction {
             Iterables.addAll(result, partialResult);
             callback.process(
                 env.getBuildFiles(
-                    expression, result, /* BUILD */ true, /* subinclude */ true, /* load */ true));
+                    expression,
+                    result,
+                    /* BUILD */ false,
+                    /* subinclude */ false,
+                    /* load */ true));
           }
         });
   }
@@ -65,7 +68,7 @@ class BuildFilesFunction implements QueryFunction {
   }
 
   @Override
-  public List<ArgumentType> getArgumentTypes() {
-    return ImmutableList.of(ArgumentType.EXPRESSION);
+  public List<QueryEnvironment.ArgumentType> getArgumentTypes() {
+    return ImmutableList.of(QueryEnvironment.ArgumentType.EXPRESSION);
   }
 }

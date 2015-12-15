@@ -53,6 +53,7 @@
 <a href="#kind">kind</a><br/>
 <a href="#labels">labels</a><br/>
 <a href="#variables">let</a><br/>
+<a href="#loadfiles">loadfiles</a><br/>
 <a href="#rdeps">rdeps</a><br/>
 <a href="#set">set</a><br/>
 <a href="#some">some</a><br/>
@@ -497,7 +498,9 @@ x intersect (y union z)</pre>
   <code>deps(foo/...)</code> is the dependency graphs whose roots are
   all rules in every package beneath the <code>foo</code> directory.
   Please note that 'dependencies' means only rule and file targets
-  in this context, therefore the BUILD, Skylark and EBL files needed to
+  in this context, therefore the BUILD,
+
+  and Skylark files needed to
   create these targets are not included here. For that you should use the
   <a href="#buildfiles"><code>buildfiles</code></a> operator.
 </p>
@@ -1227,6 +1230,15 @@ genrule(
   that are <code>load()</code>'ed
 
   will be missing.
+</p>
+
+<h3 id="loadfiles">Package definition files: loadfiles</h3>
+<pre>expr ::= loadfiles(<var>expr</var>)</pre>
+<p>
+  The <code>loadfiles(<var>x</var>)</code> operator returns the set of
+  Skylark files that are needed to load the packages of each target in
+  set <var>x</var>. In other words, for each package, it returns the
+  .bzl files that are referenced from its BUILD files.
 </p>
 
 <h2>Output formats</h2>

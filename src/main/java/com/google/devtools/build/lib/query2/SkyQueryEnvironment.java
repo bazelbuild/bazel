@@ -339,7 +339,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   }
 
   @Override
-  public Set<Target> getBuildFiles(QueryExpression caller, Set<Target> nodes)
+  public Set<Target> getBuildFiles(
+      QueryExpression caller,
+      Set<Target> nodes,
+      boolean buildFiles,
+      boolean subincludes,
+      boolean loads)
       throws QueryException {
     Set<Target> dependentFiles = new LinkedHashSet<>();
     Set<Package> seenPackages = new HashSet<>();
@@ -352,17 +357,32 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     for (Target x : nodes) {
       Package pkg = x.getPackage();
       if (seenPackages.add(pkg)) {
-        addIfUniqueLabel(pkg.getBuildFile(), seenLabels, dependentFiles);
-        for (Label subinclude
-            : Iterables.concat(pkg.getSubincludeLabels(), pkg.getSkylarkFileDependencies())) {
+        if (buildFiles) {
+          addIfUniqueLabel(pkg.getBuildFile(), seenLabels, dependentFiles);
+        }
+
+        List<Label> extensions = new ArrayList<>();
+        if (subincludes) {
+          extensions.addAll(pkg.getSubincludeLabels());
+        }
+        if (loads) {
+          extensions.addAll(pkg.getSkylarkFileDependencies());
+        }
+
+        for (Label subinclude : extensions) {
           addIfUniqueLabel(getSubincludeTarget(subinclude, pkg), seenLabels, dependentFiles);
 
-          // Also add the BUILD file of the subinclude.
-          try {
-            addIfUniqueLabel(getSubincludeTarget(
-                subinclude.getLocalTargetLabel("BUILD"), pkg), seenLabels, dependentFiles);
-          } catch (LabelSyntaxException e) {
-            throw new AssertionError("BUILD should always parse as a target name", e);
+          if (buildFiles) {
+            // Also add the BUILD file of the subinclude.
+            try {
+              addIfUniqueLabel(
+                  getSubincludeTarget(subinclude.getLocalTargetLabel("BUILD"), pkg),
+                  seenLabels,
+                  dependentFiles);
+
+            } catch (LabelSyntaxException e) {
+              throw new AssertionError("BUILD should always parse as a target name", e);
+            }
           }
         }
       }

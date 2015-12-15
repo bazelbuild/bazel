@@ -48,10 +48,12 @@ import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -348,7 +350,12 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   // TODO(bazel-team): rename this to getDependentFiles when all implementations
   // of QueryEnvironment is fixed.
   @Override
-  public Set<Target> getBuildFiles(final QueryExpression caller, Set<Target> nodes)
+  public Set<Target> getBuildFiles(
+      final QueryExpression caller,
+      Set<Target> nodes,
+      boolean buildFiles,
+      boolean subincludes,
+      boolean loads)
       throws QueryException {
     Set<Target> dependentFiles = new LinkedHashSet<>();
     Set<Package> seenPackages = new HashSet<>();
@@ -361,17 +368,32 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     for (Target x : nodes) {
       Package pkg = x.getPackage();
       if (seenPackages.add(pkg)) {
-        addIfUniqueLabel(getNode(pkg.getBuildFile()), seenLabels, dependentFiles);
-        for (Label subinclude
-            : Iterables.concat(pkg.getSubincludeLabels(), pkg.getSkylarkFileDependencies())) {
+        if (buildFiles) {
+          addIfUniqueLabel(getNode(pkg.getBuildFile()), seenLabels, dependentFiles);
+        }
+
+        List<Label> extensions = new ArrayList<>();
+        if (subincludes) {
+          extensions.addAll(pkg.getSubincludeLabels());
+        }
+        if (loads) {
+          extensions.addAll(pkg.getSkylarkFileDependencies());
+        }
+
+        for (Label subinclude : extensions) {
           addIfUniqueLabel(getSubincludeTarget(subinclude, pkg), seenLabels, dependentFiles);
 
           // Also add the BUILD file of the subinclude.
-          try {
-            addIfUniqueLabel(getSubincludeTarget(
-                subinclude.getLocalTargetLabel("BUILD"), pkg), seenLabels, dependentFiles);
-          } catch (LabelSyntaxException e) {
-            throw new AssertionError("BUILD should always parse as a target name", e);
+          if (buildFiles) {
+            try {
+              addIfUniqueLabel(
+                  getSubincludeTarget(subinclude.getLocalTargetLabel("BUILD"), pkg),
+                  seenLabels,
+                  dependentFiles);
+
+            } catch (LabelSyntaxException e) {
+              throw new AssertionError("BUILD should always parse as a target name", e);
+            }
           }
         }
       }
