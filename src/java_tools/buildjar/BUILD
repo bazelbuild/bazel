@@ -2,7 +2,10 @@ package(default_visibility = ["//src:__subpackages__"])
 
 java_binary(
     name = "JavaBuilder",
-    srcs = glob(["java/com/google/devtools/build/buildjar/**/*.java"]),
+    srcs = glob(
+        ["java/com/google/devtools/build/buildjar/**/*.java"],
+        exclude = ["java/com/google/devtools/build/buildjar/javac/testing/**"],
+    ),
     main_class = "com.google.devtools.build.buildjar.BazelJavaBuilder",
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
@@ -203,7 +206,10 @@ bootstrap_java_library(
 
 bootstrap_java_binary(
     name = "bootstrap",
-    srcs = glob(["java/com/google/devtools/build/buildjar/**/*.java"]) + [
+    srcs = glob(
+        ["java/com/google/devtools/build/buildjar/**/*.java"],
+        exclude = ["java/com/google/devtools/build/buildjar/javac/testing/**"],
+    ) + [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:JarCreator.java",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:JarHelper.java",
     ],
