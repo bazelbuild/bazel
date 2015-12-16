@@ -99,8 +99,8 @@ public class FilesystemValueCheckerTest {
     FileSystemUtils.createEmptyFile(pkgRoot.getRelative("WORKSPACE"));
 
     tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
-    AtomicReference<PathPackageLocator> pkgLocator =
-        new AtomicReference<>(new PathPackageLocator(pkgRoot));
+    AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>(new PathPackageLocator(
+        fs.getPath("/output_base"), ImmutableList.of(pkgRoot)));
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator, false);
     skyFunctions.put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper));
     skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator));

@@ -23,7 +23,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 /** Common utilities for dealing with files outside the package roots. */
 public class ExternalFilesHelper {
-
   private final AtomicReference<PathPackageLocator> pkgLocator;
   private final ExternalFileAction externalFileAction;
 
@@ -78,27 +77,31 @@ public class ExternalFilesHelper {
     }
 
     externalFileSeen = true;
-    if (externalFileAction == ExternalFileAction.DEPEND_ON_EXTERNAL_PKG) {
-      // For files outside the package roots, add a dependency on the //external package so that if
-      // the WORKSPACE file changes, the File/DirectoryStateValue will be re-evaluated.
-      //
-      // Note that:
-      // - We don't add a dependency on the parent directory at the package root boundary, so
-      // the only transitive dependencies from files inside the package roots to external files
-      // are through symlinks. So the upwards transitive closure of external files is small.
-      // - The only way other than external repositories for external source files to get into the
-      // skyframe graph in the first place is through symlinks outside the package roots, which we
-      // neither want to encourage nor optimize for since it is not common. So the set of external
-      // files is small.
-      // TODO(kchodorow): check that the path is under output_base/external before adding the dep.
-      PackageValue pkgValue = (PackageValue) env.getValue(PackageValue.key(
-              Label.EXTERNAL_PACKAGE_IDENTIFIER));
-      if (pkgValue == null) {
-        return;
-      }
-      Preconditions.checkState(!pkgValue.getPackage().containsErrors());
-    } else {
+    if (externalFileAction == ExternalFileAction.ERROR_OUT) {
       throw new FileOutsidePackageRootsException(rootedPath);
     }
+
+    if (!rootedPath.asPath().startsWith(
+        pkgLocator.get().getOutputBase().getRelative(Label.EXTERNAL_PATH_PREFIX))) {
+      return;
+    }
+
+    // For files that are under $OUTPUT_BASE/external, add a dependency on the //external package
+    // so that if the WORKSPACE file changes, the File/DirectoryStateValue will be re-evaluated.
+    //
+    // Note that:
+    // - We don't add a dependency on the parent directory at the package root boundary, so
+    // the only transitive dependencies from files inside the package roots to external files
+    // are through symlinks. So the upwards transitive closure of external files is small.
+    // - The only way other than external repositories for external source files to get into the
+    // skyframe graph in the first place is through symlinks outside the package roots, which we
+    // neither want to encourage nor optimize for since it is not common. So the set of external
+    // files is small.
+    PackageValue pkgValue = (PackageValue) env.getValue(PackageValue.key(
+            Label.EXTERNAL_PACKAGE_IDENTIFIER));
+    if (pkgValue == null) {
+      return;
+    }
+    Preconditions.checkState(!pkgValue.getPackage().containsErrors());
   }
 }

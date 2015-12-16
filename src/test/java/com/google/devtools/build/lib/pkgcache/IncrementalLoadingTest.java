@@ -383,7 +383,69 @@ public class IncrementalLoadingTest {
     tester.getTarget("//a:a");
   }
 
+  @Test
+  public void testChangedExternalFile() throws Exception {
+    tester.addFile("a/BUILD",
+        "load('/a/b', 'b')",
+        "b()");
+
+    tester.addFile("/b.bzl",
+        "def b():",
+        "  pass");
+    tester.addSymlink("a/b.bzl", "/b.bzl");
+    tester.sync();
+    tester.getTarget("//a:BUILD");
+    tester.modifyFile("/b.bzl", "ERROR ERROR");
+    tester.sync();
+
+    try {
+      tester.getTarget("//a:BUILD");
+      fail();
+    } catch (NoSuchThingException e) {
+      // expected
+    }
+  }
+
+
   static class PackageCacheTester {
+    private class ManualDiffAwareness implements DiffAwareness {
+      private View lastView;
+      private View currentView;
+
+      @Override
+      public View getCurrentView() {
+        lastView = currentView;
+        currentView = new View() {};
+        return currentView;
+      }
+
+      @Override
+      public ModifiedFileSet getDiff(View oldView, View newView) {
+        if (oldView == lastView && newView == currentView) {
+          return Preconditions.checkNotNull(modifiedFileSet);
+        } else {
+          return ModifiedFileSet.EVERYTHING_MODIFIED;
+        }
+      }
+
+      @Override
+      public String name() {
+        return "PackageCacheTester.DiffAwareness";
+      }
+
+      @Override
+      public void close() {
+      }
+    }
+
+    private class ManualDiffAwarenessFactory implements DiffAwareness.Factory {
+      @Nullable
+      @Override
+      public DiffAwareness maybeCreate(Path pathEntry) {
+        return pathEntry == workspace ? new ManualDiffAwareness() : null;
+      }
+    }
+
     private final ManualClock clock;
     private final Path workspace;
     private final Path outputBase;
@@ -391,6 +453,7 @@ public class IncrementalLoadingTest {
     private final SkyframeExecutor skyframeExecutor;
     private final List<Path> changes = new ArrayList<>();
     private boolean everythingModified = false;
+    private ModifiedFileSet modifiedFileSet;
 
     public PackageCacheTester(
         FileSystem fs, ManualClock clock, Preprocessor.Factory.Supplier supplier)
@@ -410,7 +473,7 @@ public class IncrementalLoadingTest {
               null, /* BinTools */
               null, /* workspaceStatusActionFactory */
               TestRuleClassProvider.getRuleClassProvider().getBuildInfoFactories(),
-              ImmutableList.<DiffAwareness.Factory>of(),
+              ImmutableList.of(new ManualDiffAwarenessFactory()),
               Predicates.<PathFragment>alwaysFalse(),
               supplier,
               ImmutableMap.<SkyFunctionName, SkyFunction>of(),
@@ -494,12 +557,13 @@ public class IncrementalLoadingTest {
     void sync() throws InterruptedException {
       clock.advanceMillis(1);
 
+      modifiedFileSet = getModifiedFileSet();
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(outputBase, ImmutableList.of(workspace)),
           ConstantRuleVisibility.PUBLIC, true, 7, "",
           UUID.randomUUID());
       skyframeExecutor.invalidateFilesUnderPathForTesting(
-          new Reporter(), getModifiedFileSet(), workspace);
+          new Reporter(), modifiedFileSet, workspace);
       ((SequencedSkyframeExecutor) skyframeExecutor).handleDiffs(new Reporter());
 
       changes.clear();

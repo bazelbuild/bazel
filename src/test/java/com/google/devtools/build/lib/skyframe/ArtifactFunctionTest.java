@@ -93,8 +93,8 @@ public class ArtifactFunctionTest {
   @Before
   public final void setUp() throws Exception  {
     setupRoot(new CustomInMemoryFs());
-    AtomicReference<PathPackageLocator> pkgLocator =
-        new AtomicReference<>(new PathPackageLocator(root));
+    AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>(new PathPackageLocator(
+        root.getFileSystem().getPath("/outputbase"), ImmutableList.of(root)));
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator, false);
     differencer = new RecordingDifferencer();
     evaluator =
