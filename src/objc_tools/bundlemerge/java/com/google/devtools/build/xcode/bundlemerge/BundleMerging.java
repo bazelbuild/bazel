@@ -152,7 +152,8 @@ public final class BundleMerging {
                   control.getSdkVersion(),
                   control.getMinimumOsVersion()),
               substitutionMap.build(),
-              new KeysToRemoveIfEmptyString("CFBundleIconFile", "NSPrincipalClass"));
+              new KeysToRemoveIfEmptyString("CFBundleIconFile", "NSPrincipalClass"),
+              /*executableName*/ null);
       if (control.hasExecutableName()) {
         plistMerging.setExecutableName(control.getExecutableName());
       }

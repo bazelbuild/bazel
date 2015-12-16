@@ -37,6 +37,7 @@ class MergingArguments {
   private final Map<String, String> variableSubstitutions;
   private final String primaryBundleId;
   private final String fallbackBundleId;
+  private final String executableName;
 
   /**
    * Build MergingArguments from a plmerge protobuf.
@@ -58,6 +59,11 @@ class MergingArguments {
     variableSubstitutions = control.getVariableSubstitutionMap();
     primaryBundleId = control.getPrimaryBundleId();
     fallbackBundleId = control.getFallbackBundleId();
+    if (control.hasExecutableName()) {
+      executableName = control.getExecutableName();
+    } else {
+      executableName = null;
+    }
   }
 
   /**
@@ -75,6 +81,7 @@ class MergingArguments {
     variableSubstitutions = ImmutableMap.<String, String>of();
     primaryBundleId = options.primaryBundleId;
     fallbackBundleId = options.fallbackBundleId;
+    executableName = null;
   }
 
   /**
@@ -129,5 +136,13 @@ class MergingArguments {
    */
   public Map<String, String> getVariableSubstitutions() {
     return variableSubstitutions;
+  }
+  
+  /**
+   * Returns the name of the executable for the bundle the merged plist is intended for, or null
+   * if no such executable exists.
+   */
+  public String getExecutableName() {
+    return executableName;
   }
 }

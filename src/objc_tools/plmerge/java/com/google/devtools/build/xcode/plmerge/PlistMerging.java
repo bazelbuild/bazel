@@ -187,24 +187,27 @@ public class PlistMerging extends Value<PlistMerging> {
         mergingArguments.getSourceFilePaths(),
         mergingArguments.getImmutableSourceFilePaths(),
         mergingArguments.getVariableSubstitutions(),
-        keysToRemoveIfEmptyString);
+        keysToRemoveIfEmptyString,
+        mergingArguments.getExecutableName());
   }
   
   /**
-   * Generates a Plistmerging combining values from sourceFiles and immutableSourceFiles, and 
+   * Generates a Plistmerging combining values from sourceFiles and immutableSourceFiles, and
    * modifying them based on subsitutions and keysToRemoveIfEmptyString.
    */
   public static PlistMerging from(
       List<Path> sourceFiles,
       List<Path> immutableSourceFiles,
       Map<String, String> substitutions,
-      KeysToRemoveIfEmptyString keysToRemoveIfEmptyString)
+      KeysToRemoveIfEmptyString keysToRemoveIfEmptyString,
+      String executableName)
       throws IOException {
     return from(
         sourceFiles,
         PlistMerging.merge(immutableSourceFiles),
         substitutions,
-        keysToRemoveIfEmptyString);
+        keysToRemoveIfEmptyString,
+        executableName);
   }
 
   /**
@@ -219,7 +222,8 @@ public class PlistMerging extends Value<PlistMerging> {
       List<Path> sourceFiles,
       Map<String, NSObject> immutableEntries,
       Map<String, String> substitutions,
-      KeysToRemoveIfEmptyString keysToRemoveIfEmptyString)
+      KeysToRemoveIfEmptyString keysToRemoveIfEmptyString,
+      String executableName)
       throws IOException {
     NSDictionary merged = PlistMerging.merge(sourceFiles);
 
@@ -273,7 +277,14 @@ public class PlistMerging extends Value<PlistMerging> {
         }
       }
     }
-    return new PlistMerging(merged);
+    
+    PlistMerging result = new PlistMerging(merged);
+
+    if (executableName != null) {
+      result.setExecutableName(executableName);
+    }
+
+    return result;
   }
 
   private static String substituteEnvironmentVariable(

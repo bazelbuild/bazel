@@ -19,7 +19,7 @@ option java_package = "com.google.devtools.build.xcode.plmerge.proto";
 
 // Contains necessary arguments for PlMerge, which is responsible for merging
 // plist files.
-// Next Id: 7
+// Next Id: 8
 message Control {
   // Paths to the plist files to merge relative to execution root.
   repeated string source_file = 1;
@@ -51,4 +51,10 @@ message Control {
   // identifier is not specified in primary_bundle_id or an associated plist
   // file.
   optional string fallback_bundle_id = 5;
+
+  // Name of executable for the bundle this merged plist is intended for, or
+  // unset if no such executable exists.  If a value for CFBundleExectuable is
+  // given in a source_file or immutable_source_file, that value mut not
+  // conflict with this key.
+  optional string executable_name = 7;
 }
