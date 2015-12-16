@@ -21,6 +21,7 @@ source $(cd "$(dirname $(dirname "${BASH_SOURCE[0]}"))" && pwd)/bazel/test-setup
 
 PRODUCT_NAME=bazel
 WORKSPACE_NAME=main
+bazelrc=$TEST_TMPDIR/bazelrc
 
 function put_bazel_on_path() {
   put_blaze_on_path "$@"
@@ -42,4 +43,5 @@ function write_default_bazelrc() {
 function create_and_cd_client() {
   setup_clean_workspace
   echo "workspace(name = '$WORKSPACE_NAME')" >WORKSPACE
+  touch .bazelrc
 }

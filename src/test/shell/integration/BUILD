@@ -16,6 +16,14 @@ sh_test(
     data = [":test-deps"],
 )
 
+sh_test(
+    name = "loading_phase_tests",
+    size = "medium",
+    srcs = ["loading_phase_tests.sh"],
+    data = [":test-deps"],
+    shard_count = 4,
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
