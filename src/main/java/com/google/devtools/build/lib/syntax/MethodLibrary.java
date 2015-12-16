@@ -676,146 +676,26 @@ public class MethodLibrary {
       Pattern.compile("(?<line>.*)(?<break>(\\r\\n|\\r|\\n)?)");
 
   @SkylarkSignature(name = "isalpha", objectType = StringModule.class, returnType = Boolean.class,
-    doc = "Returns True if all characters in the string are alphabetic ([a-zA-Z]) and there is "
-        + "at least one character.",
+    doc = "Returns True if all characters in the string are alphabetic ([a-zA-Z]) and it "
+        + "contains at least one character.",
     mandatoryPositionals = {
         @Param(name = "self", type = String.class, doc = "This string.")})
   private static BuiltinFunction isalpha = new BuiltinFunction("isalpha") {
-    @SuppressWarnings("unused") // Called via Reflection
     public Boolean invoke(String self) throws EvalException {
-      return MethodLibrary.matches(self, MethodLibrary.ALPHA, false);
-    }
-  };
-
-  @SkylarkSignature(name = "isalnum", objectType = StringModule.class, returnType = Boolean.class,
-      doc =
-      "Returns True if all characters in the string are alphanumeric ([a-zA-Z0-9]) and there is "
-      + "at least one character.",
-      mandatoryPositionals = {@Param(name = "self", type = String.class, doc = "This string.")})
-  private static BuiltinFunction isAlnum = new BuiltinFunction("isalnum") {
-    @SuppressWarnings("unused") // Called via Reflection
-    public Boolean invoke(String self) throws EvalException {
-      return MethodLibrary.matches(self, MethodLibrary.ALNUM, false);
-    }
-  };
-
-  @SkylarkSignature(name = "isdigit", objectType = StringModule.class, returnType = Boolean.class,
-      doc =
-      "Returns True if all characters in the string are digits ([0-9]) and there is "
-      + "at least one character.",
-      mandatoryPositionals = {@Param(name = "self", type = String.class, doc = "This string.")})
-  private static BuiltinFunction isDigit = new BuiltinFunction("isdigit") {
-    @SuppressWarnings("unused") // Called via Reflection
-    public Boolean invoke(String self) throws EvalException {
-      return MethodLibrary.matches(self, MethodLibrary.DIGIT, false);
-    }
-  };
-
-  @SkylarkSignature(name = "isspace", objectType = StringModule.class, returnType = Boolean.class,
-      doc =
-      "Returns True if all characters are white space characters and the string "
-      + "contains at least one character.",
-      mandatoryPositionals = {@Param(name = "self", type = String.class, doc = "This string.")})
-  private static BuiltinFunction isSpace = new BuiltinFunction("isspace") {
-    @SuppressWarnings("unused") // Called via Reflection
-    public Boolean invoke(String self) throws EvalException {
-      return MethodLibrary.matches(self, MethodLibrary.SPACE, false);
-    }
-  };
-
-  @SkylarkSignature(name = "islower", objectType = StringModule.class, returnType = Boolean.class,
-      doc =
-      "Returns True if all cased characters in the string are lowercase and there is "
-      + "at least one character.",
-      mandatoryPositionals = {@Param(name = "self", type = String.class, doc = "This string.")})
-  private static BuiltinFunction isLower = new BuiltinFunction("islower") {
-    @SuppressWarnings("unused") // Called via Reflection
-    public Boolean invoke(String self) throws EvalException {
-      // Python also accepts non-cased characters, so we cannot use LOWER.
-      return MethodLibrary.matches(self, MethodLibrary.UPPER.negate(), true);
-    }
-  };
-
-  @SkylarkSignature(name = "isupper", objectType = StringModule.class, returnType = Boolean.class,
-      doc =
-      "Returns True if all cased characters in the string are uppercase and there is "
-      + "at least one character.",
-      mandatoryPositionals = {@Param(name = "self", type = String.class, doc = "This string.")})
-  private static BuiltinFunction isUpper = new BuiltinFunction("isupper") {
-    @SuppressWarnings("unused") // Called via Reflection
-    public Boolean invoke(String self) throws EvalException {
-      // Python also accepts non-cased characters, so we cannot use UPPER.
-      return MethodLibrary.matches(self, MethodLibrary.LOWER.negate(), true);
-    }
-  };
-
-  @SkylarkSignature(name = "istitle", objectType = StringModule.class, returnType = Boolean.class,
-      doc =
-      "Returns True if the string is in title case and it contains at least one character. "
-      + "This means that every uppercase character must follow an uncased one (e.g. whitespace) "
-      + "and every lowercase character must follow a cased one (e.g. uppercase or lowercase).",
-      mandatoryPositionals = {@Param(name = "self", type = String.class, doc = "This string.")})
-  private static BuiltinFunction isTitle = new BuiltinFunction("istitle") {
-    @SuppressWarnings("unused") // Called via Reflection
-    public Boolean invoke(String self) throws EvalException {
-      if (self.isEmpty()) {
+      int length = self.length();
+      if (length < 1) {
         return false;
       }
-      // From the Python documentation: "uppercase characters may only follow uncased characters
-      // and lowercase characters only cased ones".
-      char[] data = self.toCharArray();
-      CharMatcher matcher = CharMatcher.ANY;
-      char leftMostCased = ' ';
-      for (int pos = data.length - 1; pos >= 0; --pos) {
-        char current = data[pos];
-        // 1. Check condition that was determined by the right neighbor.
-        if (!matcher.matches(current)) {
+      for (int index = 0; index < length; index++) {
+        char character = self.charAt(index);
+        if (!((character >= 'A' && character <= 'Z')
+            || (character >= 'a' && character <= 'z'))) {
           return false;
         }
-        // 2. Determine condition for the left neighbor.
-        if (LOWER.matches(current)) {
-          matcher = CASED;
-        } else if (UPPER.matches(current)) {
-          matcher = CASED.negate();
-        } else {
-          matcher = CharMatcher.ANY;
-        }
-        // 3. Store character if it is cased.
-        if (CASED.matches(current)) {
-          leftMostCased = current;
-        }
       }
-      // The leftmost cased letter must be uppercase. If leftMostCased is not a cased letter here,
-      // then the string doesn't have any cased letter, so UPPER.test will return false.
-      return UPPER.matches(leftMostCased);
+      return true;
     }
   };
-
-  private static boolean matches(
-      String str, CharMatcher matcher, boolean requiresAtLeastOneCasedLetter) {
-    if (str.isEmpty()) {
-      return false;
-    } else if (!requiresAtLeastOneCasedLetter) {
-      return matcher.matchesAllOf(str);
-    }
-    int casedLetters = 0;
-    for (char current : str.toCharArray()) {
-      if (!matcher.matches(current)) {
-        return false;
-      } else if (requiresAtLeastOneCasedLetter && CASED.matches(current)) {
-        ++casedLetters;
-      }
-    }
-    return casedLetters > 0;
-  }
-
-  private static final CharMatcher DIGIT = CharMatcher.javaDigit();
-  private static final CharMatcher LOWER = CharMatcher.inRange('a', 'z');
-  private static final CharMatcher UPPER = CharMatcher.inRange('A', 'Z');
-  private static final CharMatcher ALPHA = LOWER.or(UPPER);
-  private static final CharMatcher ALNUM = ALPHA.or(DIGIT);
-  private static final CharMatcher CASED = ALPHA;
-  private static final CharMatcher SPACE = CharMatcher.WHITESPACE;
 
   @SkylarkSignature(name = "count", objectType = StringModule.class, returnType = Integer.class,
       doc = "Returns the number of (non-overlapping) occurrences of substring <code>sub</code> in "
