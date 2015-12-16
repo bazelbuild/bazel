@@ -62,6 +62,7 @@ import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
+import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -202,7 +203,6 @@ public class SkylarkRuleClassFunctions {
   }
 
   // TODO(bazel-team): implement attribute copy and other rule properties
-
   @SkylarkSignature(name = "rule", doc =
       "Creates a new rule. Store it in a global value, so that it can be loaded and called "
       + "from BUILD files.",
@@ -243,14 +243,14 @@ public class SkylarkRuleClassFunctions {
             doc = "If true, the files will be generated in the genfiles directory instead of the "
             + "bin directory. Unless you need it for compatibility with existing rules "
             + "(e.g. when generating header files for C++), do not set this flag."),
-       @Param(name = "fragments", type = SkylarkList.class, generic1 = String.class,
-           defaultValue = "[]",
-           doc = "List of names of configuration fragments that the rule requires "
-           + "in target configuration."),
-       @Param(name = "host_fragments", type = SkylarkList.class, generic1 = String.class,
-           defaultValue = "[]",
-           doc = "List of names of configuration fragments that the rule requires "
-           + "in host configuration.")},
+        @Param(name = "fragments", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]",
+            doc = "List of names of configuration fragments that the rule requires "
+            + "in target configuration."),
+        @Param(name = "host_fragments", type = SkylarkList.class, generic1 = String.class,
+            defaultValue = "[]",
+            doc = "List of names of configuration fragments that the rule requires "
+            + "in host configuration.")},
       useAst = true, useEnvironment = true)
   private static final BuiltinFunction rule = new BuiltinFunction("rule") {
     @SuppressWarnings({"rawtypes", "unchecked"}) // castMap produces
@@ -265,19 +265,8 @@ public class SkylarkRuleClassFunctions {
 
       // We'll set the name later, pass the empty string for now.
       RuleClass.Builder builder = new RuleClass.Builder("", type, true, parent);
-      ImmutableList.Builder<Pair<String, SkylarkAttr.Descriptor>> attributes =
-          ImmutableList.builder();
-
-      if (attrs != Runtime.NONE) {
-        for (Map.Entry<String, SkylarkAttr.Descriptor> attr :
-            castMap(attrs, String.class, SkylarkAttr.Descriptor.class, "attrs").entrySet()) {
-          SkylarkAttr.Descriptor attrDescriptor = attr.getValue();
-          String attrName =
-              attributeToNative(attr.getKey(), ast.getLocation(),
-                  attrDescriptor.getAttributeBuilder().hasLateBoundValue());
-          attributes.add(Pair.of(attrName, attrDescriptor));
-        }
-      }
+      ImmutableList<Pair<String, SkylarkAttr.Descriptor>> attributes =
+          attrObjectToAttributesList(attrs, ast);
       if (executable || test) {
         addAttribute(
             ast.getLocation(),
@@ -292,16 +281,18 @@ public class SkylarkRuleClassFunctions {
       if (implicitOutputs != Runtime.NONE) {
         if (implicitOutputs instanceof BaseFunction) {
           BaseFunction func = (BaseFunction) implicitOutputs;
-          SkylarkCallbackFunction callback =
-              new SkylarkCallbackFunction(func, ast, funcallEnv);
+          SkylarkCallbackFunction callback = new SkylarkCallbackFunction(func, ast, funcallEnv);
           builder.setImplicitOutputsFunction(
               new SkylarkImplicitOutputsFunctionWithCallback(callback, ast.getLocation()));
         } else {
           builder.setImplicitOutputsFunction(
               new SkylarkImplicitOutputsFunctionWithMap(
-                  ImmutableMap.copyOf(castMap(
-                      implicitOutputs, String.class, String.class,
-                      "implicit outputs of the rule class"))));
+                  ImmutableMap.copyOf(
+                      castMap(
+                          implicitOutputs,
+                          String.class,
+                          String.class,
+                          "implicit outputs of the rule class"))));
         }
       }
 
@@ -312,27 +303,48 @@ public class SkylarkRuleClassFunctions {
       registerRequiredFragments(fragments, hostFragments, builder);
       builder.setConfiguredTargetFunction(implementation);
       builder.setRuleDefinitionEnvironment(funcallEnv);
-      return new RuleFunction(builder, type, attributes.build(), ast.getLocation());
+      return new RuleFunction(builder, type, attributes, ast.getLocation());
     }
 
+      private void registerRequiredFragments(
+          SkylarkList fragments, SkylarkList hostFragments, RuleClass.Builder builder)
+          throws EvalException {
+        Map<ConfigurationTransition, ImmutableSet<String>> map = new HashMap<>();
+        addFragmentsToMap(map, fragments, NONE); // NONE represents target configuration
+        addFragmentsToMap(map, hostFragments, HOST);
 
-    private void registerRequiredFragments(
-        SkylarkList fragments, SkylarkList hostFragments, RuleClass.Builder builder)
-        throws EvalException {
-      Map<ConfigurationTransition, ImmutableSet<String>> map = new HashMap<>();
-      addFragmentsToMap(map, fragments, NONE); // NONE represents target configuration
-      addFragmentsToMap(map, hostFragments, HOST);
+        builder.requiresConfigurationFragments(new SkylarkModuleNameResolver(), map);
+      }
 
-      builder.requiresConfigurationFragments(new SkylarkModuleNameResolver(), map);
-    }
+      private void addFragmentsToMap(
+          Map<ConfigurationTransition, ImmutableSet<String>> map,
+          SkylarkList fragments,
+          ConfigurationTransition config)
+          throws EvalException {
+        if (!fragments.isEmpty()) {
+          map.put(config, ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")));
+        }
+      }
+    };
 
-    private void addFragmentsToMap(Map<ConfigurationTransition, ImmutableSet<String>> map,
-        SkylarkList fragments, ConfigurationTransition config) throws EvalException {
-      if (!fragments.isEmpty()) {
-        map.put(config, ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")));
+  protected static ImmutableList<Pair<String, Descriptor>> attrObjectToAttributesList(
+      Object attrs, FuncallExpression ast) throws EvalException {
+    ImmutableList.Builder<Pair<String, Descriptor>> attributes = ImmutableList.builder();
+
+    if (attrs != Runtime.NONE) {
+      for (Map.Entry<String, Descriptor> attr :
+          castMap(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
+        Descriptor attrDescriptor = attr.getValue();
+        String attrName =
+            attributeToNative(
+                attr.getKey(),
+                ast.getLocation(),
+                attrDescriptor.getAttributeBuilder().hasLateBoundValue());
+        attributes.add(Pair.of(attrName, attrDescriptor));
       }
     }
-  };
+    return attributes.build();
+  }
 
   private static void addAttribute(
       Location location, RuleClass.Builder builder, Attribute attribute) throws EvalException {
@@ -356,12 +368,7 @@ public class SkylarkRuleClassFunctions {
         generic1 = String.class,
         defaultValue = "[]"
       ),
-      @Param(
-        name = "extra_deps",
-        type = SkylarkList.class,
-        generic1 = String.class,
-        defaultValue = "[]"
-      )
+      @Param(name = "attrs", type = Map.class, noneable = true, defaultValue = "None")
     },
     useEnvironment = true,
     useAst = true
@@ -371,29 +378,37 @@ public class SkylarkRuleClassFunctions {
         public SkylarkAspect invoke(
             BaseFunction implementation,
             SkylarkList attributeAspects,
-            SkylarkList extraDeps,
+            Object attrs,
             FuncallExpression ast,
-            Environment funcallEnv) throws EvalException {
-          ImmutableList.Builder<String> attributeListBuilder = ImmutableList.builder();
+            Environment funcallEnv)
+            throws EvalException {
+          ImmutableList.Builder<String> attrAspects = ImmutableList.builder();
           for (Object attributeAspect : attributeAspects) {
-            attributeListBuilder.add(STRING.convert(attributeAspect, "attr_aspects"));
-          }
-          ImmutableList.Builder<Label> extraDepsBuilder = ImmutableList.builder();
-          for (Object extraDep : extraDeps) {
-            String extraDepsString = STRING.convert(extraDep, "extra_deps");
-            Label label;
-            try {
-              label = Label.parseAbsolute(extraDepsString);
-            } catch (LabelSyntaxException e) {
-              throw new EvalException(ast.getLocation(), e.getMessage());
-            }
-            extraDepsBuilder.add(label);
+            attrAspects.add(STRING.convert(attributeAspect, "attr_aspects"));
           }
 
-          return new SkylarkAspect(implementation,
-              attributeListBuilder.build(),
-              extraDepsBuilder.build(),
-              funcallEnv);
+          ImmutableList<Pair<String, SkylarkAttr.Descriptor>> attributes =
+              attrObjectToAttributesList(attrs, ast);
+          for (Pair<String, Descriptor> attribute : attributes) {
+            String nativeName = attribute.getFirst();
+            if (!Attribute.isImplicit(nativeName)) {
+              throw new EvalException(
+                  ast.getLocation(),
+                  String.format(
+                      "Aspect attribute '%s' must be implicit (its name should start with '_').",
+                      nativeName));
+            }
+
+            String skylarkName = "_" + nativeName.substring(1);
+
+            if (!attribute.getSecond().getAttributeBuilder().isValueSet()) {
+              throw new EvalException(
+                  ast.getLocation(),
+                  String.format("Aspect attribute '%s' has no default value.", skylarkName));
+            }
+          }
+
+          return new SkylarkAspect(implementation, attrAspects.build(), attributes, funcallEnv);
         }
       };
 
@@ -634,17 +649,18 @@ public class SkylarkRuleClassFunctions {
   public static final class SkylarkAspect implements SkylarkValue {
     private final BaseFunction implementation;
     private final ImmutableList<String> attributeAspects;
-    private final ImmutableList<Label> extraDeps;
+    private final ImmutableList<Pair<String, Descriptor>> attributes;
     private final Environment funcallEnv;
     private Exported exported;
 
     public SkylarkAspect(
         BaseFunction implementation,
         ImmutableList<String> attributeAspects,
-        ImmutableList<Label> extraDeps, Environment funcallEnv) {
+        ImmutableList<Pair<String, Descriptor>> attributes,
+        Environment funcallEnv) {
       this.implementation = implementation;
       this.attributeAspects = attributeAspects;
-      this.extraDeps = extraDeps;
+      this.attributes = attributes;
       this.funcallEnv = funcallEnv;
     }
 
@@ -660,8 +676,8 @@ public class SkylarkRuleClassFunctions {
       return funcallEnv;
     }
 
-    public ImmutableList<Label> getExtraDeps() {
-      return extraDeps;
+    public ImmutableList<Pair<String, Descriptor>> getAttributes() {
+      return attributes;
     }
 
     @Override
@@ -737,9 +753,11 @@ public class SkylarkRuleClassFunctions {
       for (String attributeAspect : skylarkAspect.getAttributeAspects()) {
         builder.attributeAspect(attributeAspect, this);
       }
-      builder.add(attr("$extra_deps", LABEL_LIST).value(skylarkAspect.getExtraDeps()));
+      ImmutableList<Pair<String, Descriptor>> attributes = skylarkAspect.getAttributes();
+      for (Pair<String, Descriptor> attribute : attributes) {
+        builder.add(attribute.second.getAttributeBuilder().build(attribute.first));
+      }
       this.aspectDefinition = builder.build();
-
     }
 
     @Override

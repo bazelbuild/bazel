@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.SkylarkAttr;
+import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
 import com.google.devtools.build.lib.rules.SkylarkFileType;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.RuleFunction;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
+import com.google.devtools.build.lib.util.Pair;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -211,11 +213,35 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "def _impl(target, ctx):",
         "   pass",
         "my_aspect = aspect(_impl,",
-        "   extra_deps=['//foo/bar:baz']",
-        ")"
-    );
+        "   attrs = { '_extra_deps' : attr.label(default = Label('//foo/bar:baz')) }",
+        ")");
     SkylarkAspect aspect = (SkylarkAspect) ev.lookup("my_aspect");
-    assertThat(aspect.getExtraDeps()).containsExactly(Label.parseAbsolute("//foo/bar:baz"));
+    Pair<String, Descriptor> pair = Iterables.getOnlyElement(aspect.getAttributes());
+    assertThat(pair.first).isEqualTo("$extra_deps");
+    assertThat(pair.second.getAttributeBuilder().build("$extra_deps").getDefaultValue(null))
+        .isEqualTo(Label.parseAbsolute("//foo/bar:baz"));
+  }
+
+  @Test
+  public void testAspectNonImplicitAttribute() throws Exception {
+    checkErrorContains(
+        "Aspect attribute 'extra_deps' must be implicit (its name should start with '_')",
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl,",
+        "   attrs = { 'extra_deps' : attr.label(default = Label('//foo/bar:baz')) }",
+        ")");
+  }
+
+  @Test
+  public void testAspectNoDefaultValueAttribute() throws Exception {
+    checkErrorContains(
+        "Aspect attribute '_extra_deps' has no default value",
+        "def _impl(target, ctx):",
+        "   pass",
+        "my_aspect = aspect(_impl,",
+        "   attrs = { '_extra_deps' : attr.label() }",
+        ")");
   }
 
   @Test

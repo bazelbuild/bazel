@@ -250,6 +250,17 @@ public final class AspectDefinition {
      */
     public <TYPE> Builder add(Attribute.Builder<TYPE> attr) {
       Attribute attribute = attr.build();
+      return add(attribute);
+    }
+
+    /**
+     * Adds an attribute to the aspect.
+     *
+     * <p>Since aspects do not appear in BUILD files, the attribute must be either implicit
+     * (not available in the BUILD file, starting with '$') or late-bound (determined after the
+     * configuration is available, starting with ':')
+     */
+    public Builder add(Attribute attribute) {
       Preconditions.checkState(attribute.isImplicit() || attribute.isLateBound());
       Preconditions.checkState(!attributes.containsKey(attribute.getName()),
           "An attribute with the name '%s' already exists.", attribute.getName());

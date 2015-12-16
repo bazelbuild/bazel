@@ -479,6 +479,10 @@ public final class Attribute implements Comparable<Attribute> {
       return this;
     }
 
+    public boolean isValueSet() {
+      return valueSet;
+    }
+
     /**
      * Sets the attribute default value to a computed default value - use
      * this when the default value is a function of other attributes of the
