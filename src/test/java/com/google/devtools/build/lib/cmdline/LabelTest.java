@@ -206,6 +206,10 @@ public class LabelTest {
                       "//foo/bar:baz(foo)");
     assertSyntaxError("target names may not contain ')'",
                       "//foo/bar:bazfoo)");
+    // Warning: if these assertions are false, tools that assume that they can safely quote labels
+    // may need to be fixed. Please consult with bazel-dev before loosening these restrictions.
+    assertSyntaxError("target names may not contain '''", "//foo/bar:baz'foo");
+    assertSyntaxError("target names may not contain '\"'", "//foo/bar:baz\"foo");
   }
 
   @Test
