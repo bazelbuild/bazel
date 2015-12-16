@@ -24,9 +24,9 @@ The context of the rule containing helper functions and information about attrib
               <li><a href="#host_fragments">host_fragments</a></li>
                     <li><a href="#label">label</a></li>
                     <li><a href="#new_file">new_file</a></li>
-              <li><a href="#new_file">new_file</a></li>
-                    <li><a href="#outputs">outputs</a></li>
+                          <li><a href="#outputs">outputs</a></li>
               <li><a href="#resolve_command">resolve_command</a></li>
+              <li><a href="#rule">rule</a></li>
               <li><a href="#runfiles">runfiles</a></li>
               <li><a href="#template_action">template_action</a></li>
                     <li><a href="#var">var</a></li>
@@ -354,13 +354,7 @@ ctx.expand_make_variables("cmd", "$$PWD", {})  # == "$PWD"
     Creates a file object with the given filename, in the current package. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
 
 
-        <h2 id="new_file">new_file</h2>
-        <p><pre><a class="anchor" href="File.html">File</a> ctx.new_file(<a class="anchor" href="File.html">File</a>, <a class="anchor" href="string.html">string</a>)</pre></p>
-
-    Creates a new file object in the same directory as the original file. Does not actually create a file on the file system, just declares that some action will do so. You must create an action that generates the file. If the file should be visible to other rules, declare a rule output instead when possible. Doing so enables Bazel to associate a label with the file that rules can refer to (allowing finer dependency control) instead of referencing the whole rule.
-
-
-          <h2 id="outputs">outputs</h2>
+            <h2 id="outputs">outputs</h2>
         <p><pre><a class="anchor" href="struct.html">struct</a> ctx.outputs</pre></p>
 
     A <code>struct</code> containing all the output files. The struct is generated the following way:<br><ul><li>If the rule is marked as <code>executable=True</code> the struct has an "executable" field with the rules default executable <code>file</code> value.<li>For every entry in the rule's <code>outputs</code> dict an attr is generated with the same name and the corresponding <code>file</code> value.<li>For every output type attribute a struct attribute is generated with the same name and the corresponding <code>file</code> value or <code>None</code>, if no value is specified in the rule.<li>For every output list type attribute a struct attribute is generated with the same name and corresponding <code>list</code> of <code>file</code>s value (an empty list if no value is specified in the rule).</ul>
@@ -441,6 +435,12 @@ ctx.expand_make_variables("cmd", "$$PWD", {})  # == "$PWD"
           </tr>
                 </tbody>
       </table>
+
+        <h2 id="rule">rule</h2>
+        <p><pre><a class="anchor" href="rule_attributes.html">rule_attributes</a> ctx.rule</pre></p>
+
+    Returns rule attributes descriptor
+
 
         <h2 id="runfiles">runfiles</h2>
         <p><pre><a class="anchor" href="runfiles.html">runfiles</a> ctx.runfiles(files=[], transitive_files=None, collect_data=False, collect_default=False)

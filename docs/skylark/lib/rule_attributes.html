@@ -1,0 +1,43 @@
+---
+layout: documentation
+---
+
+<h1 id="modules.rule_attributes">rule_attributes</h1>
+
+Information about attributes of a rule an aspect is applied to.
+
+<div class="toc">
+  <h2>Methods</h2>
+  <ul>
+          <li><a href="#attr">attr</a></li>
+              <li><a href="#executable">executable</a></li>
+              <li><a href="#file">file</a></li>
+              <li><a href="#files">files</a></li>
+        </ul>
+</div>
+
+      <h2 id="attr">attr</h2>
+        <p><pre><a class="anchor" href="struct.html">struct</a> rule_attributes.attr</pre></p>
+
+    A struct to access the values of the attributes. The values are provided by the user (if not, a default value is used).
+
+
+        <h2 id="executable">executable</h2>
+        <p><pre><a class="anchor" href="struct.html">struct</a> rule_attributes.executable</pre></p>
+
+    A <code>struct</code> containing executable files defined in label type attributes marked as <code>executable=True</code>. The struct fields correspond to the attribute names. Each struct value is always a <code>file</code>s or <code>None</code>. If an optional attribute is not specified in the rule then the corresponding struct value is <code>None</code>. If a label type is not marked as <code>executable=True</code>, no corresponding struct field is generated.
+
+
+        <h2 id="file">file</h2>
+        <p><pre><a class="anchor" href="struct.html">struct</a> rule_attributes.file</pre></p>
+
+    A <code>struct</code> containing files defined in label type attributes marked as <code>single_file=True</code>. The struct fields correspond to the attribute names. The struct value is always a <code>file</code> or <code>None</code>. If an optional attribute is not specified in the rule then the corresponding struct value is <code>None</code>. If a label type is not marked as <code>single_file=True</code>, no corresponding struct field is generated. It is a shortcut for:<pre class=language-python>list(ctx.attr.<ATTR>.files)[0]</pre>
+
+
+        <h2 id="files">files</h2>
+        <p><pre><a class="anchor" href="struct.html">struct</a> rule_attributes.files</pre></p>
+
+    A <code>struct</code> containing files defined in label or label list type attributes. The struct fields correspond to the attribute names. The struct values are <code>list</code> of <code>file</code>s. If an optional attribute is not specified in the rule, an empty list is generated.It is a shortcut for:<pre class=language-python>[f for t in ctx.attr.<ATTR> for f in t.files]</pre>
+
+
+
