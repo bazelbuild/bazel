@@ -504,7 +504,7 @@ class IncrementalInstallTest(unittest.TestCase):
       self.assertTrue("Device unauthorized." in str(e))
 
   def testInstallFailure(self):
-    self._mock_adb.SetError(0, "Failure", "", for_arg="install")
+    self._mock_adb.SetError(0, "Failure", "INSTALL_FAILED", for_arg="install")
     self._CreateZip()
     self._CreateLocalManifest("zip1 zp1 ip1 0")
     try:

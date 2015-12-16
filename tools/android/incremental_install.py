@@ -225,7 +225,7 @@ class Adb(object):
     pkg_args = ["-p", pkg] if pkg else []
     ret, stdout, stderr, args = self._Exec(
         ["install-multiple", "-r"] + pkg_args + [apk])
-    if "Success" not in stderr and "Success" not in stdout:
+    if "FAILED" in stdout or "FAILED" in stderr:
       raise AdbError(args, ret, stdout, stderr)
 
   def Install(self, apk):
@@ -240,7 +240,7 @@ class Adb(object):
     # and yet it will still have a return code of 0. At least for the install
     # command, it will print "Success" if it succeeded, so check for that in
     # standard out instead of relying on the return code.
-    if "Success" not in stderr and "Success" not in stdout:
+    if "FAILED" in stdout or "FAILED" in stderr:
       raise AdbError(args, ret, stdout, stderr)
 
   def Uninstall(self, pkg):
@@ -716,7 +716,6 @@ def IncrementalInstall(adb_path, execroot, stub_datafile, output_marker,
             adb.GetInstallTime(app_package),
             "%s/%s/install_timestamp" % (DEVICE_DIRECTORY, app_package))
         future.result()
-
       else:
         if start_type == "warm":
           adb.StopAppAndSaveState(app_package)
