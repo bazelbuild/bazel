@@ -49,6 +49,16 @@ public class EvalUtilsTest {
   }
 
   @Test
+  public void testEmptyStringToIterable() throws Exception {
+    assertThat(EvalUtils.toIterable("", null)).isEmpty();
+  }
+
+  @Test
+  public void testStringToIterable() throws Exception {
+    assertThat(EvalUtils.toIterable("abc", null)).hasSize(3);
+  }
+
+  @Test
   public void testDataTypeNames() throws Exception {
     assertEquals("string", EvalUtils.getDataTypeName("foo"));
     assertEquals("int", EvalUtils.getDataTypeName(3));

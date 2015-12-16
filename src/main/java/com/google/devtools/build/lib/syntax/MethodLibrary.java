@@ -1030,6 +1030,51 @@ public class MethodLibrary {
     return (list.size() == 1) ? EvalUtils.toIterable(list.get(0), loc) : list;
   }
 
+  @SkylarkSignature(
+    name = "all",
+    returnType = Boolean.class,
+    doc = "Returns true if all elements evaluate to True or if the collection is empty.",
+    mandatoryPositionals = {
+      @Param(name = "elements", type = Object.class, doc = "A string or a collection of elements.")
+    },
+    useLocation = true
+  )
+  private static BuiltinFunction all =
+      new BuiltinFunction("all") {
+        @SuppressWarnings("unused") // Accessed via Reflection.
+        public Boolean invoke(Object collection, Location loc) throws EvalException {
+          return !hasElementWithBooleanValue(collection, false, loc);
+        }
+      };
+
+  @SkylarkSignature(
+    name = "any",
+    returnType = Boolean.class,
+    doc = "Returns true if at least one element evaluates to True.",
+    mandatoryPositionals = {
+      @Param(name = "elements", type = Object.class, doc = "A string or a collection of elements.")
+    },
+    useLocation = true
+  )
+  private static BuiltinFunction any =
+      new BuiltinFunction("any") {
+        @SuppressWarnings("unused") // Accessed via Reflection.
+        public Boolean invoke(Object collection, Location loc) throws EvalException {
+          return hasElementWithBooleanValue(collection, true, loc);
+        }
+      };
+
+  private static boolean hasElementWithBooleanValue(Object collection, boolean value, Location loc)
+      throws EvalException {
+    Iterable<?> iterable = EvalUtils.toIterable(collection, loc);
+    for (Object obj : iterable) {
+      if (EvalUtils.toBoolean(obj) == value) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   // supported list methods
   @SkylarkSignature(
     name = "sorted",
@@ -1846,9 +1891,8 @@ public class MethodLibrary {
   static final List<BaseFunction> skylarkGlobalFunctions =
       ImmutableList.<BaseFunction>builder()
           .addAll(buildGlobalFunctions)
-          .add(dir, fail, getattr, hasattr, max, min, print, set, struct, type)
+          .add(all, any, dir, fail, getattr, hasattr, max, min, print, set, struct, type)
           .build();
-
 
   /**
    * Collect global functions for the validation environment.

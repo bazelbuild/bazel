@@ -266,6 +266,91 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testAllWithEmptyValue() throws Exception {
+    new SkylarkTest()
+        .testStatement("all('')", true)
+        .testStatement("all([])", true)
+        .testIfExactError("type 'NoneType' is not iterable", "any(None)");
+  }
+
+  @Test
+  public void testAllWithPrimitiveType() throws Exception {
+    new SkylarkTest()
+        .testStatement("all('test')", true)
+        .testIfErrorContains("", "all(1)");
+  }
+
+  @Test
+  public void testAllWithList() throws Exception {
+    new SkylarkTest()
+        .testStatement("all([False])", false)
+        .testStatement("all([True, False])", false)
+        .testStatement("all([False, False])", false)
+        .testStatement("all([False, True])", false)
+        .testStatement("all(['', True])", false)
+        .testStatement("all([0, True])", false)
+        .testStatement("all([[], True])", false)
+        .testStatement("all([True, 't', 1])", true);
+  }
+
+  @Test
+  public void testAllWithSet() throws Exception {
+    new SkylarkTest()
+        .testStatement("all(set([0]))", false)
+        .testStatement("all(set([1, 0]))", false)
+        .testStatement("all(set([1]))", true);
+  }
+
+  @Test
+  public void testAllWithDict() throws Exception {
+    new SkylarkTest()
+        .testStatement("all({1 : None})", true)
+        .testStatement("all({None : 1})", false);
+  }
+
+  @Test
+  public void testAnyWithEmptyValue() throws Exception {
+    new SkylarkTest()
+        .testStatement("any('')", false)
+        .testStatement("any([])", false)
+        .testIfExactError("type 'NoneType' is not iterable", "any(None)");
+  }
+
+  @Test
+  public void testAnyWithPrimitiveType() throws Exception {
+    new SkylarkTest()
+        .testStatement("any('test')", true)
+        .testIfErrorContains("", "any(1)");
+  }
+
+  @Test
+  public void testAnyWithList() throws Exception {
+    new SkylarkTest()
+        .testStatement("any([False])", false)
+        .testStatement("any([0])", false)
+        .testStatement("any([''])", false)
+        .testStatement("any([[]])", false)
+        .testStatement("any([True, False])", true)
+        .testStatement("any([False, False])", false)
+        .testStatement("any([False, '', 0])", false)
+        .testStatement("any([False, '', 42])", true);
+  }
+
+  @Test
+  public void testAnyWithSet() throws Exception {
+    new SkylarkTest()
+        .testStatement("any(set([0]))", false)
+        .testStatement("any(set([1, 0]))", true);
+  }
+
+  @Test
+  public void testAnyWithDict() throws Exception {
+    new SkylarkTest()
+        .testStatement("any({1 : None, '' : None})", true)
+        .testStatement("any({None : 1, '' : 2})", false);
+  }
+
+  @Test
   public void testStackTraceLocation() throws Exception {
     new SkylarkTest().testIfErrorContains(
         "Traceback (most recent call last):\n\t"
@@ -867,7 +952,7 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testReversedWithStrings() throws Exception {
     new BothModesTest()
-        .testEval("reversed('')", "['']")
+        .testEval("reversed('')", "[]")
         .testEval("reversed('a')", "['a']")
         .testEval("reversed('abc')", "['c', 'b', 'a']")
         .testEval("reversed('__test  ')", "[' ', ' ', 't', 's', 'e', 't', '_', '_']")

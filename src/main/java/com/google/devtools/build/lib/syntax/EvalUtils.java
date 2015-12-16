@@ -378,18 +378,16 @@ public final class EvalUtils {
   public static final StackManipulation toCollection =
       ByteCodeUtils.invoke(EvalUtils.class, "toCollection", Object.class, Location.class);
 
-  @SuppressWarnings("unchecked")
   public static Collection<?> toCollection(Object o, Location loc) throws EvalException {
     if (o instanceof Collection) {
-      return (Collection<Object>) o;
+      return (Collection<?>) o;
     } else if (o instanceof SkylarkList) {
       return ((SkylarkList) o).getList();
-    } else if (o instanceof Map<?, ?>) {
-      Map<Comparable<?>, Object> dict = (Map<Comparable<?>, Object>) o;
+    } else if (o instanceof Map) {
       // For dictionaries we iterate through the keys only
       // For determinism, we sort the keys.
       try {
-        return SKYLARK_COMPARATOR.sortedCopy(dict.keySet());
+        return SKYLARK_COMPARATOR.sortedCopy(((Map<?, ?>) o).keySet());
       } catch (ComparisonException e) {
         throw new EvalException(loc, e);
       }
@@ -404,22 +402,27 @@ public final class EvalUtils {
   public static final StackManipulation toIterable =
       ByteCodeUtils.invoke(EvalUtils.class, "toIterable", Object.class, Location.class);
 
-  @SuppressWarnings("unchecked")
   public static Iterable<?> toIterable(Object o, Location loc) throws EvalException {
     if (o instanceof String) {
       // This is not as efficient as special casing String in for and dict and list comprehension
       // statements. However this is a more unified way.
-      // The regex matches every character in the string until the end of the string,
-      // so "abc" will be split into ["a", "b", "c"].
-      return ImmutableList.<Object>copyOf(((String) o).split("(?!^)"));
+      return split((String) o);
     } else if (o instanceof Iterable) {
-      return (Iterable<Object>) o;
-    } else if (o instanceof Map<?, ?>) {
+      return (Iterable<?>) o;
+    } else if (o instanceof Map) {
       return toCollection(o, loc);
     } else {
       throw new EvalException(loc,
           "type '" + getDataTypeName(o) + "' is not iterable");
     }
+  }
+
+  private static ImmutableList<String> split(String value) {
+    ImmutableList.Builder<String> builder = new ImmutableList.Builder<>();
+    for (char c : value.toCharArray()) {
+      builder.add(String.valueOf(c));
+    }
+    return builder.build();
   }
 
   /**
