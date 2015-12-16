@@ -596,7 +596,6 @@ java_test(
     ),
     args = ["com.google.devtools.build.lib.AllTests"],
     deps = [
-        ":analysis_testutil",
         ":packages_testutil",
         ":test_runner",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
