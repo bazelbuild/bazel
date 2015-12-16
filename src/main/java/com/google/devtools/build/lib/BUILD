@@ -591,7 +591,6 @@ java_library(
     srcs = ["bazel/repository/MavenConnector.java"],
     deps = [
         "//third_party:aether",
-        "//third_party:jsr330_inject",
         "//third_party:maven_model",
     ],
 )
