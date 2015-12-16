@@ -140,11 +140,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
             || !includeAttribute(attr)) {
           continue;
         }
-        rulePb.addAttribute(AttributeSerializer.getAttributeProto(
-            attr,
-            AttributeSerializer.getAttributeValues(rule, attr),
-            rule.isAttributeValueExplicitlySpecified(attr),
-            /*includeGlobs=*/ false));
+        rulePb.addAttribute(
+            AttributeSerializer.getAttributeProto(
+                attr,
+                AttributeSerializer.getAttributeValues(rule, attr),
+                rule.isAttributeValueExplicitlySpecified(attr),
+                /*includeGlobs=*/ false));
       }
 
       postProcess(rule, rulePb);
@@ -165,11 +166,12 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           aspectResolver.computeAspectDependencies(target);
       // Add information about additional attributes from aspects.
       for (Entry<Attribute, Collection<Label>> entry : aspectsDependencies.asMap().entrySet()) {
-        rulePb.addAttribute(AttributeSerializer.getAttributeProto(
-            entry.getKey(),
-            Lists.<Object>newArrayList(entry.getValue()),
-            /*explicitlySpecified=*/ false,
-            /*includeGlobs=*/ false));
+        rulePb.addAttribute(
+            AttributeSerializer.getAttributeProto(
+                entry.getKey(),
+                Lists.<Object>newArrayList(entry.getValue()),
+                /*explicitlySpecified=*/ false,
+                /*includeGlobs=*/ false));
       }
       // Add all deps from aspects as rule inputs of current target.
       for (Label label : aspectsDependencies.values()) {

@@ -73,8 +73,8 @@ public class AttributeSerializer {
    * globs expressions when present, omit otherwise.
    */
   @SuppressWarnings("unchecked")
-  public static Build.Attribute getAttributeProto(Attribute attr, Iterable<Object> values,
-      Boolean explicitlySpecified, boolean includeGlobs) {
+  public static Build.Attribute getAttributeProto(
+      Attribute attr, Iterable<Object> values, boolean explicitlySpecified, boolean includeGlobs) {
     // Get the attribute type.  We need to convert and add appropriately
     com.google.devtools.build.lib.syntax.Type<?> type = attr.getType();
 
@@ -83,10 +83,7 @@ public class AttributeSerializer {
     // Set the type, name and source
     attrPb.setName(attr.getName());
     attrPb.setType(ProtoUtils.getDiscriminatorFromType(type));
-
-    if (explicitlySpecified != null) {
-      attrPb.setExplicitlySpecified(explicitlySpecified);
-    }
+    attrPb.setExplicitlySpecified(explicitlySpecified);
 
     // Convenience binding for single-value attributes. Because those attributes can only
     // have a single value, when we encounter configurable versions of them we need to
