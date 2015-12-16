@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.SkylarkType.SkylarkFunctionType;
 import com.google.devtools.build.lib.util.Preconditions;
 

@@ -25,6 +25,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.EvalException.EvalExceptionWithJavaCause;
 import com.google.devtools.build.lib.syntax.compiler.ByteCodeMethodCalls;
 import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;

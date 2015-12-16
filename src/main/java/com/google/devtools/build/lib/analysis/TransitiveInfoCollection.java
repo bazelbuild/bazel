@@ -17,7 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.syntax.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 
 import javax.annotation.Nullable;
 

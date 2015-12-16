@@ -17,9 +17,9 @@ import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.SkylarkSignature;
-import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature.Param;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+
 /**
  * Helper class that resolves the name of classes with SkylarkModule annotation.
  */

@@ -22,12 +22,12 @@ import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.MethodLibrary;
 import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkCallable;
-import com.google.devtools.build.lib.syntax.SkylarkModule;
-import com.google.devtools.build.lib.syntax.SkylarkSignature;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;

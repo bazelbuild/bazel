@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.syntax;
+package com.google.devtools.build.lib.skylarkinterface;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -19,18 +19,18 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * A marker interface for Java methods which can be called from Skylark.
+ * An annotation to mark Skylark modules or Skylark accessible Java data types.
+ * A Skylark modules always corresponds to exactly one Java class.
  */
-@Target({ElementType.METHOD})
+@Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
-public @interface SkylarkCallable {
-  String name() default "";
+public @interface SkylarkModule {
 
-  String doc() default ""; // only allowed to be empty if documented() is false.
+  String name();
+
+  String doc();
 
   boolean documented() default true;
 
-  boolean structField() default false;
-
-  boolean allowReturnNones() default false;
+  boolean namespace() default false;
 }

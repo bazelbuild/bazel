@@ -14,7 +14,9 @@
 package com.google.devtools.build.docgen.skylark;
 
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.lib.syntax.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 
 import java.util.ArrayList;
 import java.util.Collection;

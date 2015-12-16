@@ -12,6 +12,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:common",
         "//src/main/java/com/google/devtools/build/lib:packages",
+        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//third_party:apache_velocity",
         "//third_party:guava",
         "//third_party:jsr305",

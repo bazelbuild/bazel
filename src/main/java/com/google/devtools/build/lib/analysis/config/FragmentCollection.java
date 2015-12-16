@@ -18,8 +18,8 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.ClassObject;
-import com.google.devtools.build.lib.syntax.SkylarkModule;
 
 import javax.annotation.Nullable;
 

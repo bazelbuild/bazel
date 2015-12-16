@@ -34,6 +34,8 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Su
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
@@ -41,8 +43,6 @@ import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
-import com.google.devtools.build.lib.syntax.SkylarkSignature;
-import com.google.devtools.build.lib.syntax.SkylarkSignature.Param;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 
 import org.junit.Before;
@@ -50,6 +50,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -594,13 +595,20 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
 
   /**
    * Simulates the fact that the Parser currently uses Latin1 to read BUILD files, while users
-   * usually write those files using UTF-8 encoding.
-   * Once {@link
-   * com.google.devtools.build.lib.syntax.ParserInputSource#create(com.google.devtools.build.lib.vfs.Path)} parses files using UTF-8, this test will fail.
+   * usually write those files using UTF-8 encoding. Currently, the string-valued 'substitutions'
+   * parameter of the template_action function contains a hack that assumes its input is a UTF-8
+   * encoded string which has been ingested as Latin 1. The hack converts the string to its
+   * "correct" UTF-8 value. Once {@link com.google.devtools.build.lib.syntax.ParserInputSource#create(com.google.devtools.build.lib.vfs.Path)}
+   * parses files using UTF-8 and the hack for the substituations parameter is removed, this test
+   * will fail.
    */
   @Test
   public void testCreateTemplateActionWithWrongEncoding() throws Exception {
-    String value = "Š©±½";
+    // The following array contains bytes that represent a string of length two when treated as
+    // UTF-8 and a string of length four when treated as ISO-8859-1 (a.k.a. Latin 1).
+    byte[] bytesToDecode = {(byte) 0xC2, (byte) 0xA2, (byte) 0xC2, (byte) 0xA2};
+    Charset latin1 = StandardCharsets.ISO_8859_1;
+    Charset utf8 = StandardCharsets.UTF_8;
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     TemplateExpansionAction action =
         (TemplateExpansionAction)
@@ -609,21 +617,14 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
                 "ruleContext.template_action(",
                 "  template = ruleContext.files.srcs[0],",
                 "  output = ruleContext.files.srcs[1],",
-                "  substitutions = {'a': '" + convertUtf8ToLatin1(value) + "'},",
+                "  substitutions = {'a': '" + new String(bytesToDecode, latin1) + "'},",
                 "  executable = False)");
 
     List<Substitution> substitutions = action.getSubstitutions();
     assertThat(substitutions).hasSize(1);
-    assertThat(substitutions.get(0).getValue()).isEqualTo(value);
+    assertThat(substitutions.get(0).getValue()).isEqualTo(new String(bytesToDecode, utf8));
   }
-
-  /**
-   * Turns the given UTF-8 input into an "unreadable" Latin1 string
-   */
-  private String convertUtf8ToLatin1(String input) {
-    return new String(input.getBytes(StandardCharsets.UTF_8), StandardCharsets.ISO_8859_1);
-  }
-
+  
   @Test
   public void testGetProviderNotTransitiveInfoCollection() throws Exception {
     checkErrorContains(

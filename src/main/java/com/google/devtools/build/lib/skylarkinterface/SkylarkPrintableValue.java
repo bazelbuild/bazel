@@ -11,31 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-package com.google.devtools.build.lib.syntax;
+package com.google.devtools.build.lib.skylarkinterface;
 
 /**
- * Java objects that are also Skylark values.
- *
- * <p>This is used for extending the Skylark interpreted with domain-specific values.
+ * A Skylark value that is represented by {@code print()} differently than by {@code write()}.
  */
-public interface SkylarkValue {
-
+public interface SkylarkPrintableValue extends SkylarkValue {
   /**
-   * Returns if the value is immutable and thus suitable for being used as a dictionary key.
-   *
-   * <p>Immutability is deep, i.e. in order for a value to be immutable, all values it is composed
-   * of must be immutable, too.
-   */
-  boolean isImmutable();
-
-  /**
-   * Print an official representation of object x.
-   *
-   * <p>For regular data structures, the value should be parsable back into an equal data structure.
+   * Print an informal, human-readable representation of the value.
    *
    * @param buffer the buffer to append the representation to
    * @param quotationMark The quote style (" or ') to be used
    */
-  void write(Appendable buffer, char quotationMark);
+  void print(Appendable buffer, char quotationMark);
 }

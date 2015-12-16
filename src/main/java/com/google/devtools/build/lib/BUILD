@@ -284,6 +284,16 @@ java_library(
     ],
 )
 
+java_library(
+    name = "skylarkinterface",
+    srcs = glob([
+        "skylarkinterface/*.java",
+    ]),
+    deps = [
+        "//third_party:jsr305",
+    ],
+)
+
 ########################################################################
 #
 # The "cmdline" library: Label validation and target pattern
@@ -301,7 +311,7 @@ java_library(
         ":base-util",
         ":common",
         ":concurrent",
-        ":syntax",
+        ":skylarkinterface",
         ":util",
         ":vfs",
         "//third_party:jsr305",
@@ -318,6 +328,7 @@ java_library(
         ":common",
         ":concurrent",
         ":events",
+        ":skylarkinterface",
         ":util",
         ":vfs",
         "//third_party:asm",
@@ -364,6 +375,7 @@ java_library(
         ":common",
         ":concurrent",
         ":events",
+        ":skylarkinterface",
         ":syntax",
         ":util",
         ":vfs",
@@ -432,6 +444,7 @@ java_library(
         ":os_util",
         ":packages-internal",
         ":shell",
+        ":skylarkinterface",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -475,6 +488,7 @@ java_library(
         ":packages-internal",
         ":proto-rules",
         ":python-rules",
+        ":skylarkinterface",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -627,6 +641,7 @@ java_library(
         ":common",
         ":concurrent",
         ":packages-internal",
+        ":skylarkinterface",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -656,6 +671,7 @@ java_library(
         ":java-implicit-attributes",
         ":packages-internal",
         ":shell",
+        ":skylarkinterface",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
@@ -707,8 +723,8 @@ java_library(
         ":collect",
         ":common",
         ":concurrent",
-        ":nativedeps-rules",
         ":packages-internal",
+        ":skylarkinterface",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",

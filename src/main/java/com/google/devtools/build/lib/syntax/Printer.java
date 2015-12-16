@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.syntax;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkPrintableValue;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
