@@ -324,6 +324,7 @@ java_library(
         "syntax/**/*.java",
     ]),
     deps = [
+        ":cmdline",
         ":collect",
         ":common",
         ":concurrent",
