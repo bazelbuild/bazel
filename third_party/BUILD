@@ -246,7 +246,7 @@ filegroup(
 
 java_import(
     name = "guava",
-    jars = ["guava/guava-18.0.jar"],
+    jars = ["guava/guava-19.0.jar"],
 )
 
 java_import(
@@ -261,7 +261,7 @@ java_import(
 # For bootstrapping JavaBuilder
 filegroup(
     name = "guava-jars",
-    srcs = ["guava/guava-18.0.jar"],
+    srcs = ["guava/guava-19.0.jar"],
 )
 
 java_import(

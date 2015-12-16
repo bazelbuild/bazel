@@ -135,7 +135,7 @@ a minimal set of extra dependencies.
 
 ## [guava](https://code.google.com/p/guava-libraries/)
 
-* Version: 18.0
+* Version: 19.0
 * License: Apache License 2.0
 
 
