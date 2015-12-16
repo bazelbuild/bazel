@@ -33,6 +33,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -280,7 +281,6 @@ public class FileFunctionTest {
         getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("../outside", true, "a"));
     assertThat(seenFiles)
         .containsExactly(
-            rootedPath("WORKSPACE"),
             rootedPath("a"),
             rootedPath(""),
             RootedPath.toRootedPath(fs.getRootDirectory(), PathFragment.EMPTY_FRAGMENT),
@@ -298,11 +298,34 @@ public class FileFunctionTest {
         getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("/absolute", true, "a"));
     assertThat(seenFiles)
         .containsExactly(
-            rootedPath("WORKSPACE"),
             rootedPath("a"),
             rootedPath(""),
             RootedPath.toRootedPath(fs.getRootDirectory(), PathFragment.EMPTY_FRAGMENT),
             RootedPath.toRootedPath(fs.getRootDirectory(), new PathFragment("absolute")));
+  }
+
+  @Test
+  public void testAbsoluteSymlinkToExternal() throws Exception {
+    String externalPath =
+        outputBase.getRelative(Label.EXTERNAL_PATH_PREFIX).getRelative("a/b").getPathString();
+    symlink("a", externalPath);
+    file("b");
+    file(externalPath);
+    Set<RootedPath> seenFiles = Sets.newHashSet();
+    seenFiles.addAll(getFilesSeenAndAssertValueChangesIfContentsOfFileChanges("b", false, "a"));
+    seenFiles.addAll(
+        getFilesSeenAndAssertValueChangesIfContentsOfFileChanges(externalPath, true, "a"));
+    Path root = fs.getRootDirectory();
+    assertThat(seenFiles)
+        .containsExactly(
+            rootedPath("WORKSPACE"),
+            rootedPath("a"),
+            rootedPath(""),
+            RootedPath.toRootedPath(root, PathFragment.EMPTY_FRAGMENT),
+            RootedPath.toRootedPath(root, new PathFragment("output_base")),
+            RootedPath.toRootedPath(root, new PathFragment("output_base/external")),
+            RootedPath.toRootedPath(root, new PathFragment("output_base/external/a")),
+            RootedPath.toRootedPath(root, new PathFragment("output_base/external/a/b")));
   }
 
   @Test

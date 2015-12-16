@@ -120,6 +120,26 @@ EOF
 
 }
 
+function test_load_from_symlink_to_outside_of_workspace() {
+  OTHER=$TEST_TMPDIR/other
+
+  cat > WORKSPACE<<EOF
+load("/a/b/c", "c")
+EOF
+
+  mkdir -p $OTHER/a/b
+  touch $OTHER/a/b/BUILD
+  cat > $OTHER/a/b/c.bzl <<EOF
+def c():
+  pass
+EOF
+
+  touch BUILD
+  ln -s $TEST_TMPDIR/other/a a
+  bazel build //:BUILD || fail "Failed to build"
+  rm -fr $TEST_TMPDIR/other
+}
+
 function tear_down() {
   true
 }
