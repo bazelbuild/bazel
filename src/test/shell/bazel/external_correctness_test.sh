@@ -129,4 +129,19 @@ EOF
   assert_contains 2.0 bazel-genfiles/b.out
 }
 
+function test_genrule_d_correctness() {
+  subdir=$REMOTE/b/c
+  mkdir -p $subdir
+  cat > $subdir/BUILD <<EOF
+genrule(
+    name = "echo-d",
+    outs = ["d"],
+    cmd = "echo \$(@D) > \$@",
+)
+EOF
+  bazel build @a//b/c:echo-d &> $TEST_log || fail "Build failed"
+  assert_contains "bazel-out/local_.*-fastbuild/genfiles/external/a/b/c" \
+    "bazel-genfiles/external/a/b/c/d"
+}
+
 run_suite "//external correctness tests"
