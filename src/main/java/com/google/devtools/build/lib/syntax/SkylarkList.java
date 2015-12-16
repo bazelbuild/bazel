@@ -318,6 +318,11 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
       add(element);
     }
 
+    public void remove(int index, Location loc, Environment env) throws EvalException {
+      checkMutable(loc, env);
+      contents.remove(index);
+    }
+
     /**
      * Adds all the elements at the end of the MutableList.
      * @param elements the elements to add

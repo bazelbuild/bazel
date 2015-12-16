@@ -1183,7 +1183,7 @@ public class MethodLibrary {
         "Returns the index in the list of the first item whose value is x. "
             + "It is an error if there is no such item.",
     mandatoryPositionals = {
-      @Param(name = "self", type = MutableList.class, doc = "This string, a separator."),
+      @Param(name = "self", type = MutableList.class, doc = "This list."),
       @Param(name = "x", type = Object.class, doc = "The object to search.")
     },
     useLocation = true
@@ -1197,6 +1197,34 @@ public class MethodLibrary {
               return i;
             }
             i++;
+          }
+          throw new EvalException(loc, Printer.format("Item %r not found in list", x));
+        }
+      };
+
+  @SkylarkSignature(
+    name = "remove",
+    objectType = MutableList.class,
+    returnType = Runtime.NoneType.class,
+    doc =
+        "Removes the first item from the list whose value is x. "
+            + "It is an error if there is no such item.",
+    mandatoryPositionals = {
+      @Param(name = "self", type = MutableList.class, doc = "This list."),
+      @Param(name = "x", type = Object.class, doc = "The object to remove.")
+    },
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static BuiltinFunction listRemove =
+      new BuiltinFunction("remove") {
+        public Runtime.NoneType invoke(MutableList self, Object x, Location loc, Environment env)
+            throws EvalException {
+          for (int i = 0; i < self.size(); i++) {
+            if (self.get(i).equals(x)) {
+              self.remove(i, loc, env);
+              return Runtime.NONE;
+            }
           }
           throw new EvalException(loc, Printer.format("Item %r not found in list", x));
         }

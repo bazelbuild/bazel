@@ -1306,6 +1306,27 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testListRemove() throws Exception {
+    new BothModesTest()
+        .setUp("foo = ['a', 'b', 'c', 'b']", "foo.remove('b')")
+        .testLookup("foo", MutableList.of(env, "a", "c", "b"))
+        .setUp("foo.remove('c')")
+        .testLookup("foo", MutableList.of(env, "a", "b"))
+        .setUp("foo.remove('a')")
+        .testLookup("foo", MutableList.of(env, "b"))
+        .setUp("foo.remove('b')")
+        .testLookup("foo", MutableList.of(env))
+        .testIfErrorContains("Item 3 not found in list", "[1, 2].remove(3)");
+
+    new BuildTest()
+        .testIfErrorContains(
+            "function remove is not defined on object of type 'tuple'", "(1, 2).remove(3)");
+
+    new SkylarkTest()
+        .testIfErrorContains("Type tuple has no function remove(int)", "(1, 2).remove(3)");
+  }
+
+  @Test
   public void testReassignmentOfPrimitivesNotForbiddenByCoreLanguage() throws Exception {
     new BuildTest()
         .setUp("cc_binary = (['hello.cc'])")
