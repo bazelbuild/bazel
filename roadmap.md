@@ -71,7 +71,7 @@ be refined if appropriate.
     <tr><td>Support for fetching dependencies from <a href="http://bazel.io/docs/be/workspace.html#maven_jar">Maven repositories</a>
         and <a href="http://bazel.io/docs/be/workspace.html#http_archive">web servers</a></td></tr>
     <tr>
-      <td rowspan="17"><b><a name="beta"></a>Beta</b></td>
+      <td rowspan="19"><b><a name="beta"></a>Beta</b></td>
       <td rowspan="9"><b>0.1</b></td>
       <td rowspan="9"><b>2015&#8209;09</b></td>
       <td>P0. Binary distribution for Linux & OS X</td<
