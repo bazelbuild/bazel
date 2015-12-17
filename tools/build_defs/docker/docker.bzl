@@ -133,23 +133,43 @@ def _get_base_artifact(ctx):
       fail("base attribute should be a single tar file.")
     return ctx.files.base[0]
 
+def _serialize_dict(dict_value):
+    return ",".join(["%s=%s" % (k, dict_value[k]) for k in dict_value])
+
 def _metadata_action(ctx, layer, name, output):
   """Generate the action to create the JSON metadata for the layer."""
   rewrite_tool = ctx.executable._rewrite_tool
-  env = ctx.attr.env
+
+  label_file_dict = dict()
+  for i in range(len(ctx.files.label_files)):
+    fname = ctx.attr.label_file_strings[i]
+    file = ctx.files.label_files[i]
+    label_file_dict[fname] = file
+
+  labels = dict()
+  for l in ctx.attr.labels:
+    fname = ctx.attr.labels[l]
+    if fname[0] == '@':
+      labels[l] = "@" + label_file_dict[fname[1:]].path
+    else:
+      labels[l] = fname
+
   args = [
       "--output=%s" % output.path,
       "--layer=%s" % layer.path,
       "--name=@%s" % name.path,
       "--entrypoint=%s" % ",".join(ctx.attr.entrypoint),
       "--command=%s" % ",".join(ctx.attr.cmd),
-      "--env=%s" % ",".join(["%s=%s" % (k, env[k]) for k in env]),
+      "--labels=%s" % _serialize_dict(labels),
+      "--env=%s" % _serialize_dict(ctx.attr.env),
       "--ports=%s" % ",".join(ctx.attr.ports),
       "--volumes=%s" % ",".join(ctx.attr.volumes)
       ]
   if ctx.attr.workdir:
     args += ["--workdir=" + ctx.attr.workdir]
   inputs = [layer, rewrite_tool, name]
+  if ctx.attr.label_files:
+    inputs += ctx.files.label_files
   base = _get_base_artifact(ctx)
   if base:
     args += ["--base=%s" % base.path]
@@ -302,11 +322,15 @@ docker_build_ = rule(
         "entrypoint": attr.string_list(),
         "cmd": attr.string_list(),
         "env": attr.string_dict(),
+        "labels": attr.string_dict(),
         "ports": attr.string_list(),  # Skylark doesn't support int_list...
         "volumes": attr.string_list(),
         "workdir": attr.string(),
         "repository": attr.string(default="bazel"),
         # Implicit dependencies.
+        "label_files": attr.label_list(
+            allow_files=True),
+        "label_file_strings": attr.string_list(),
         "_build_layer": attr.label(
             default=Label("//tools/build_defs/pkg:build_tar"),
             cfg=HOST_CFG,
@@ -447,6 +471,13 @@ def docker_build(**kwargs):
   """
   if "cmd" in kwargs:
     kwargs["cmd"] = _validate_command("cmd", kwargs["cmd"])
+  for reserved in ["label_files", "label_file_strings"]:
+    if reserved in kwargs:
+      fail("reserved for internal use by docker_build macro", attr=reserved)
+  if "labels" in kwargs:
+    files = sorted(set([v[1:] for v in kwargs["labels"].values() if v[0] == '@']))
+    kwargs["label_files"] = files
+    kwargs["label_file_strings"] = files
   if "entrypoint" in kwargs:
     kwargs["entrypoint"] = _validate_command("entrypoint", kwargs["entrypoint"])
   docker_build_(**kwargs)

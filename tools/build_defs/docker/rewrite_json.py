@@ -42,6 +42,8 @@ gflags.DEFINE_list(
     'command', None,
     'Override the "Cmd" of the previous layer')
 
+gflags.DEFINE_list('labels', None, 'Augment the "Label" of the previous layer')
+
 gflags.DEFINE_list(
     'ports', None,
     'Augment the "ExposedPorts" of the previous layer')
@@ -60,23 +62,37 @@ gflags.DEFINE_list(
 
 FLAGS = gflags.FLAGS
 
-_MetadataOptionsT = namedtuple(
-    'MetadataOptionsT',
-    ['name', 'parent', 'size', 'entrypoint', 'cmd', 'env', 'ports', 'volumes',
-     'workdir'])
+_MetadataOptionsT = namedtuple('MetadataOptionsT',
+                               ['name', 'parent', 'size', 'entrypoint', 'cmd',
+                                'env', 'labels', 'ports', 'volumes', 'workdir'])
 
 
 class MetadataOptions(_MetadataOptionsT):
   """Docker image layer metadata options."""
 
-  def __new__(cls, name=None, parent=None, size=None,
-              entrypoint=None, cmd=None, env=None,
-              ports=None, volumes=None, workdir=None):
+  def __new__(cls,
+              name=None,
+              parent=None,
+              size=None,
+              entrypoint=None,
+              cmd=None,
+              labels=None,
+              env=None,
+              ports=None,
+              volumes=None,
+              workdir=None):
     """Constructor."""
-    return super(MetadataOptions, cls).__new__(
-        cls, name=name, parent=parent, size=size,
-        entrypoint=entrypoint, cmd=cmd, env=env,
-        ports=ports, volumes=volumes, workdir=workdir)
+    return super(MetadataOptions, cls).__new__(cls,
+                                               name=name,
+                                               parent=parent,
+                                               size=size,
+                                               entrypoint=entrypoint,
+                                               cmd=cmd,
+                                               labels=labels,
+                                               env=env,
+                                               ports=ports,
+                                               volumes=volumes,
+                                               workdir=workdir)
 
 
 _DOCKER_VERSION = '1.5.0'
@@ -102,6 +118,15 @@ def DeepCopySkipNull(data):
     return dict((DeepCopySkipNull(k), DeepCopySkipNull(v))
                 for k, v in data.iteritems() if v is not None)
   return copy.deepcopy(data)
+
+
+def KeyValueToDict(pair):
+  """Converts an iterable object of key=value pairs to dictionary."""
+  d = dict()
+  for kv in pair:
+    (k, v) = kv.split('=', 1)
+    d[k] = v
+  return d
 
 
 def RewriteMetadata(data, options):
@@ -147,20 +172,23 @@ def RewriteMetadata(data, options):
   output['architecture'] = _PROCESSOR_ARCHITECTURE
   output['os'] = _OPERATING_SYSTEM
 
+  def Dict2ConfigValue(d):
+    return ['%s=%s' % (k, d[k]) for k in sorted(d.keys())]
+
   if options.env:
-    environ_dict = {}
     # Build a dictionary of existing environment variables (used by Resolve).
-    for kv in output['config'].get('Env', []):
-      (k, v) = kv.split('=', 1)
-      environ_dict[k] = v
+    environ_dict = KeyValueToDict(output['config'].get('Env', []))
     # Merge in new environment variables, resolving references.
-    for kv in options.env:
-      (k, v) = kv.split('=', 1)
+    for k, v in options.env.iteritems():
       # Resolve handles scenarios like "PATH=$PATH:...".
-      v = Resolve(v, environ_dict)
-      environ_dict[k] = v
-    output['config']['Env'] = [
-        '%s=%s' % (k, environ_dict[k]) for k in sorted(environ_dict.keys())]
+      environ_dict[k] = Resolve(v, environ_dict)
+    output['config']['Env'] = Dict2ConfigValue(environ_dict)
+
+  if options.labels:
+    label_dict = KeyValueToDict(output['config'].get('Label', []))
+    for k, v in options.labels.iteritems():
+      label_dict[k] = v
+    output['config']['Label'] = Dict2ConfigValue(label_dict)
 
   if options.ports:
     if 'ExposedPorts' not in output['config']:
@@ -263,16 +291,23 @@ def main(unused_argv):
     with open(name[1:], 'r') as f:
       name = f.read()
 
-  output = RewriteMetadata(data, MetadataOptions(
-      name=name,
-      parent=parent,
-      size=os.path.getsize(FLAGS.layer),
-      entrypoint=FLAGS.entrypoint,
-      cmd=FLAGS.command,
-      env=FLAGS.env,
-      ports=FLAGS.ports,
-      volumes=FLAGS.volumes,
-      workdir=FLAGS.workdir))
+  labels = KeyValueToDict(FLAGS.labels)
+  for label, value in labels.iteritems():
+    if value.startswith('@'):
+      with open(value[1:], 'r') as f:
+        labels[label] = f.read()
+
+  output = RewriteMetadata(data,
+                           MetadataOptions(name=name,
+                                           parent=parent,
+                                           size=os.path.getsize(FLAGS.layer),
+                                           entrypoint=FLAGS.entrypoint,
+                                           cmd=FLAGS.command,
+                                           labels=labels,
+                                           env=KeyValueToDict(FLAGS.env),
+                                           ports=FLAGS.ports,
+                                           volumes=FLAGS.volumes,
+                                           workdir=FLAGS.workdir))
 
   with open(FLAGS.output, 'w') as fp:
     json.dump(output, fp, sort_keys=True)

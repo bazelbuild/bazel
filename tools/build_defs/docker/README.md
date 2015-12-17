@@ -199,7 +199,7 @@ repositories: pull and push docker image.
 ## docker_build
 
 ```python
-docker_build(name, base, data_path, directory, files, mode, tars, debs, symlinks, entrypoint, cmd, env, ports, volumes, workdir, repository)
+docker_build(name, base, data_path, directory, files, mode, tars, debs, symlinks, entrypoint, cmd, env, labels, ports, volumes, workdir, repository)
 ```
 
 <table class="table table-condensed table-bordered table-implicit">
@@ -376,6 +376,42 @@ docker_build(name, base, data_path, directory, files, mode, tars, debs, symlinks
         <code>String or string list, optional</code>
         <p><a href="https://docs.docker.com/reference/builder/#cmd">List
                of commands to execute in the layer.</a></p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>env</code></td>
+      <td>
+        <code>Dictionary from strings to strings, optional</code>
+        <p><a href="https://docs.docker.com/reference/builder/#env">Dictionary
+               from environment variable names to their values when running the
+               docker image.</a></p>
+        <p>
+          <code>
+          env = {
+            "FOO": "bar",
+            ...
+          },
+          </code>
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>labels</code></td>
+      <td>
+        <code>Dictionary from strings to strings, optional</code>
+        <p><a href="https://docs.docker.com/reference/builder/#label">Dictionary
+               from custom metadata names to their values. You can also put a
+               file name prefixed by '@' as a value. Then the value is replaced
+               with the contents of the file.
+        <p>
+          <code>
+          labels = {
+            "com.example.foo": "bar",
+            "com.example.baz": "@metadata.json",
+            ...
+          },
+          </code>
+        </p>
       </td>
     </tr>
     <tr>

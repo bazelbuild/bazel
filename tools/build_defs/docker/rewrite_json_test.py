@@ -556,17 +556,17 @@ class RewriteJsonTest(unittest.TestCase):
     }
     name = 'deadbeef'
     parent = 'blah'
-    env = [
-        'baz=blah',
-        'foo=bar',
-    ]
+    env = {'baz': 'blah', 'foo': 'bar',}
     expected = {
         'id': name,
         'parent': parent,
         'config': {
             'User': 'mattmoor',
             'WorkingDir': '/usr/home/mattmoor',
-            'Env': env,
+            'Env': [
+                'baz=blah',
+                'foo=bar',
+            ],
         },
         'docker_version': _DOCKER_VERSION,
         'architecture': _PROCESSOR_ARCHITECTURE,
@@ -591,10 +591,7 @@ class RewriteJsonTest(unittest.TestCase):
     }
     name = 'deadbeef'
     parent = 'blah'
-    env = [
-        'baz=replacement',
-        'foo=$foo:asdf',
-    ]
+    env = {'baz': 'replacement', 'foo': '$foo:asdf',}
     expected = {
         'id': name,
         'parent': parent,
@@ -614,6 +611,75 @@ class RewriteJsonTest(unittest.TestCase):
 
     actual = RewriteMetadata(in_data, MetadataOptions(
         name=name, env=env, parent=parent))
+    self.assertEquals(expected, actual)
+
+  def testLabel(self):
+    in_data = {
+        'config': {
+            'User': 'mattmoor',
+            'WorkingDir': '/usr/home/mattmoor'
+        }
+    }
+    name = 'deadbeef'
+    parent = 'blah'
+    labels = {'baz': 'blah', 'foo': 'bar',}
+    expected = {
+        'id': name,
+        'parent': parent,
+        'config': {
+            'User': 'mattmoor',
+            'WorkingDir': '/usr/home/mattmoor',
+            'Label': [
+                'baz=blah',
+                'foo=bar',
+            ],
+        },
+        'docker_version': _DOCKER_VERSION,
+        'architecture': _PROCESSOR_ARCHITECTURE,
+        'os': _OPERATING_SYSTEM,
+    }
+
+    actual = RewriteMetadata(in_data,
+                             MetadataOptions(name=name,
+                                             labels=labels,
+                                             parent=parent))
+    self.assertEquals(expected, actual)
+
+  def testAugmentLabel(self):
+    in_data = {
+        'config': {
+            'User': 'mattmoor',
+            'WorkingDir': '/usr/home/mattmoor',
+            'Label': [
+                'baz=blah',
+                'blah=still around',
+            ],
+        }
+    }
+    name = 'deadbeef'
+    parent = 'blah'
+    labels = {'baz': 'replacement', 'foo': 'bar',}
+    expected = {
+        'id': name,
+        'parent': parent,
+        'config': {
+            'User': 'mattmoor',
+            'WorkingDir': '/usr/home/mattmoor',
+            'Label': [
+                'baz=replacement',
+                'blah=still around',
+                'foo=bar',
+            ],
+        },
+        'docker_version': _DOCKER_VERSION,
+        'architecture': _PROCESSOR_ARCHITECTURE,
+        'os': _OPERATING_SYSTEM,
+    }
+
+    actual = RewriteMetadata(in_data,
+                             MetadataOptions(name=name,
+                                             labels=labels,
+                                             parent=parent))
     self.assertEquals(expected, actual)
 
   def testAugmentVolumeWithNullInput(self):

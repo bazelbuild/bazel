@@ -110,6 +110,13 @@ function check_env() {
   check_property Env "notop_${input}" "${@}"
 }
 
+function check_label() {
+  input="$1"
+  shift
+  check_property Label "${input}" "${@}"
+  check_property Label "notop_${input}" "${@}"
+}
+
 function check_workdir() {
   input="$1"
   shift
@@ -339,6 +346,27 @@ function test_with_double_env() {
   check_env "with_double_env" \
     "576a9fd9c690be04dc7aacbb9dbd1f14816e32dbbcc510f4d42325bbff7163dd" \
     '["bar=blah blah blah", "baz=/asdf blah blah blah", "foo=/asdf"]'
+}
+
+function test_with_label() {
+  check_layers "with_label" \
+    "125e7cfb9d4a6d803a57b88bcdb05d9a6a47ac0d6312a8b4cff52a2685c5c858" \
+    "eba6abda3d259ab6ed5f4d48b76df72a5193fad894d4ae78fbf0a363d8f9e8fd"
+
+  check_label "with_label" \
+    "eba6abda3d259ab6ed5f4d48b76df72a5193fad894d4ae78fbf0a363d8f9e8fd" \
+    '["com.example.bar={\"name\": \"blah\"}", "com.example.baz=qux", "com.example.foo={\"name\": \"blah\"}"]'
+}
+
+function test_with_double_label() {
+  check_layers "with_double_label" \
+    "125e7cfb9d4a6d803a57b88bcdb05d9a6a47ac0d6312a8b4cff52a2685c5c858" \
+    "eba6abda3d259ab6ed5f4d48b76df72a5193fad894d4ae78fbf0a363d8f9e8fd" \
+    "bfe88fbb5e24fc5bff138f7a1923d53a2ee1bbc8e54b6f5d9c371d5f48b6b023" \
+
+  check_label "with_double_label" \
+    "bfe88fbb5e24fc5bff138f7a1923d53a2ee1bbc8e54b6f5d9c371d5f48b6b023" \
+    '["com.example.bar={\"name\": \"blah\"}", "com.example.baz=qux", "com.example.foo={\"name\": \"blah\"}", "com.example.qux={\"name\": \"blah-blah\"}"]'
 }
 
 function get_layer_listing() {

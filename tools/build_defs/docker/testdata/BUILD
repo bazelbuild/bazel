@@ -195,6 +195,33 @@ docker_build(
 )
 
 docker_build(
+    name = "with_label",
+    base = ":base_with_volume",
+    labels = {
+        "com.example.foo": "@blah.json",
+        "com.example.bar": "@blah.json",
+        "com.example.baz": "qux",
+    },
+)
+
+docker_build(
+    name = "with_double_label",
+    base = ":with_label",
+    labels = {
+        "com.example.qux": "@blah-blah.json",
+    },
+)
+
+[genrule(
+    name = "label-" + n,
+    outs = ["%s.json" % n],
+    cmd = "echo -n '{\"name\": \"%s\"}' > $@" % n,
+) for n in [
+    "blah",
+    "blah-blah",
+]]
+
+docker_build(
     name = "link_with_files_base",
     base = ":files_base",
     symlinks = {
@@ -304,6 +331,24 @@ docker_build(
     base = ":notop_with_env",
     env = {
         "baz": "${foo} $bar",
+    },
+)
+
+docker_build(
+    name = "notop_with_label",
+    base = ":notop_base_with_volume",
+    labels = {
+        "com.example.foo": "@blah.json",
+        "com.example.bar": "@blah.json",
+        "com.example.baz": "qux",
+    },
+)
+
+docker_build(
+    name = "notop_with_double_label",
+    base = ":notop_with_label",
+    labels = {
+        "com.example.qux": "@blah-blah.json",
     },
 )
 
