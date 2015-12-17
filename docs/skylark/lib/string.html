@@ -11,7 +11,10 @@ c = """multiline string"""
 # Strings support slicing (negative index starts from the end):
 x = "hello"[2:4]  # "ll"
 y = "hello"[1:-1]  # "ell"
-z = "hello"[:4]  # "hell"</pre>Strings are iterable and support the <code>in</code> operator. Examples:<br><pre class="language-python">"bc" in "abcd"   # evaluates to True
+z = "hello"[:4]  # "hell"# Slice steps can be used, too:
+s = "hello"[::2] # "hlo"
+t = "hello"[3:0:-1] # "lle"
+</pre>Strings are iterable and support the <code>in</code> operator. Examples:<br><pre class="language-python">"bc" in "abcd"   # evaluates to True
 x = [s for s in "abc"]  # x == ["a", "b", "c"]</pre>
 Implicit concatenation of strings is not allowed; use the <code>+</code> operator instead.
 
@@ -24,7 +27,13 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
               <li><a href="#find">find</a></li>
               <li><a href="#format">format</a></li>
               <li><a href="#index">index</a></li>
+              <li><a href="#isalnum">isalnum</a></li>
               <li><a href="#isalpha">isalpha</a></li>
+              <li><a href="#isdigit">isdigit</a></li>
+              <li><a href="#islower">islower</a></li>
+              <li><a href="#isspace">isspace</a></li>
+              <li><a href="#istitle">istitle</a></li>
+              <li><a href="#isupper">isupper</a></li>
               <li><a href="#join">join</a></li>
               <li><a href="#lower">lower</a></li>
               <li><a href="#lstrip">lstrip</a></li>
@@ -292,11 +301,53 @@ Implicit concatenation of strings is not allowed; use the <code>+</code> operato
                 </tbody>
       </table>
 
+        <h2 id="isalnum">isalnum</h2>
+        <p><pre><a class="anchor" href="globals.html#bool">bool</a> string.isalnum()
+</pre></p>
+
+    Returns True if all characters in the string are alphanumeric ([a-zA-Z0-9]) and there is at least one character.
+
+
         <h2 id="isalpha">isalpha</h2>
         <p><pre><a class="anchor" href="globals.html#bool">bool</a> string.isalpha()
 </pre></p>
 
-    Returns True if all characters in the string are alphabetic ([a-zA-Z]) and it contains at least one character.
+    Returns True if all characters in the string are alphabetic ([a-zA-Z]) and there is at least one character.
+
+
+        <h2 id="isdigit">isdigit</h2>
+        <p><pre><a class="anchor" href="globals.html#bool">bool</a> string.isdigit()
+</pre></p>
+
+    Returns True if all characters in the string are digits ([0-9]) and there is at least one character.
+
+
+        <h2 id="islower">islower</h2>
+        <p><pre><a class="anchor" href="globals.html#bool">bool</a> string.islower()
+</pre></p>
+
+    Returns True if all cased characters in the string are lowercase and there is at least one character.
+
+
+        <h2 id="isspace">isspace</h2>
+        <p><pre><a class="anchor" href="globals.html#bool">bool</a> string.isspace()
+</pre></p>
+
+    Returns True if all characters are white space characters and the string contains at least one character.
+
+
+        <h2 id="istitle">istitle</h2>
+        <p><pre><a class="anchor" href="globals.html#bool">bool</a> string.istitle()
+</pre></p>
+
+    Returns True if the string is in title case and it contains at least one character. This means that every uppercase character must follow an uncased one (e.g. whitespace) and every lowercase character must follow a cased one (e.g. uppercase or lowercase).
+
+
+        <h2 id="isupper">isupper</h2>
+        <p><pre><a class="anchor" href="globals.html#bool">bool</a> string.isupper()
+</pre></p>
+
+    Returns True if all cased characters in the string are uppercase and there is at least one character.
 
 
         <h2 id="join">join</h2>
