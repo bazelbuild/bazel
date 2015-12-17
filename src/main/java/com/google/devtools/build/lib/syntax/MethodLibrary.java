@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -921,57 +922,162 @@ public class MethodLibrary {
   };
 
   // slice operator
-  @SkylarkSignature(name = "$slice", objectType = String.class,
-      documented = false,
-      mandatoryPositionals = {
-        @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(name = "start", type = Integer.class, doc = "start position of the slice."),
-        @Param(name = "end", type = Integer.class, doc = "end position of the slice.")},
-      doc = "x[<code>start</code>:<code>end</code>] returns a slice or a list slice.")
-  private static BuiltinFunction stringSlice = new BuiltinFunction("$slice") {
-    public Object invoke(String self, Integer left, Integer right)
-        throws EvalException, ConversionException {
-      return pythonSubstring(self, left, right, "");
-    }
-  };
+  @SkylarkSignature(
+    name = "$slice",
+    objectType = String.class,
+    documented = false,
+    mandatoryPositionals = {
+      @Param(name = "self", type = String.class, doc = "This string."),
+      @Param(name = "start", type = Object.class, doc = "start position of the slice."),
+      @Param(name = "end", type = Object.class, doc = "end position of the slice.")
+    },
+    optionalPositionals = {
+      @Param(name = "step", type = Integer.class, defaultValue = "1", doc = "step value.")
+    },
+    doc =
+        "x[<code>start</code>:<code>end</code>:<code>step</code>] returns a slice or a list slice. "
+            + "Values may be negative and can be omitted.",
+    useLocation = true
+  )
+  private static BuiltinFunction stringSlice =
+      new BuiltinFunction("$slice") {
+        @SuppressWarnings("unused") // Accessed via Reflection.
+        public Object invoke(String self, Object start, Object end, Integer step, Location loc)
+            throws EvalException, ConversionException {
+          List<Integer> indices = getSliceIndices(start, end, step, self.length(), loc);
+          char[] result = new char[indices.size()];
+          char[] original = self.toCharArray();
+          int resultIndex = 0;
+          for (int originalIndex : indices) {
+            result[resultIndex] = original[originalIndex];
+            ++resultIndex;
+          }
+          return new String(result);
+        }
+      };
 
-  @SkylarkSignature(name = "$slice", objectType = MutableList.class, returnType = MutableList.class,
-      documented = false,
-      mandatoryPositionals = {
-        @Param(name = "self", type = MutableList.class, doc = "This list."),
-        @Param(name = "start", type = Integer.class, doc = "start position of the slice."),
-        @Param(name = "end", type = Integer.class, doc = "end position of the slice.")},
-      doc = "x[<code>start</code>:<code>end</code>] returns a slice or a list slice.",
-      useEnvironment = true)
-  private static BuiltinFunction mutableListSlice = new BuiltinFunction("$slice") {
-    public MutableList invoke(MutableList self, Integer left, Integer right,
-        Environment env) throws EvalException, ConversionException {
-      return new MutableList(sliceList(self.getList(), left, right), env);
-    }
-  };
+  @SkylarkSignature(
+    name = "$slice",
+    objectType = MutableList.class,
+    returnType = MutableList.class,
+    documented = false,
+    mandatoryPositionals = {
+      @Param(name = "self", type = MutableList.class, doc = "This list."),
+      @Param(name = "start", type = Object.class, doc = "start position of the slice."),
+      @Param(name = "end", type = Object.class, doc = "end position of the slice.")
+    },
+    optionalPositionals = {
+      @Param(name = "step", type = Integer.class, defaultValue = "1", doc = "step value.")
+    },
+    doc =
+        "x[<code>start</code>:<code>end</code>:<code>step</code>] returns a slice or a list slice."
+            + "Values may be negative and can be omitted.",
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static BuiltinFunction mutableListSlice =
+      new BuiltinFunction("$slice") {
+        @SuppressWarnings("unused") // Accessed via Reflection.
+        public MutableList invoke(
+            MutableList self, Object start, Object end, Integer step, Location loc,
+            Environment env)
+            throws EvalException, ConversionException {
+          return new MutableList(sliceList(self.getList(), start, end, step, loc), env);
+        }
+      };
 
-  @SkylarkSignature(name = "$slice", objectType = Tuple.class, returnType = Tuple.class,
-      documented = false,
-      mandatoryPositionals = {
-        @Param(name = "self", type = Tuple.class, doc = "This tuple."),
-        @Param(name = "start", type = Integer.class, doc = "start position of the slice."),
-        @Param(name = "end", type = Integer.class, doc = "end position of the slice.")},
-      doc = "x[<code>start</code>:<code>end</code>] returns a slice or a list slice.",
-      useEnvironment = true)
-  private static BuiltinFunction tupleSlice = new BuiltinFunction("$slice") {
-      public Tuple invoke(Tuple self, Integer left, Integer right,
-          Environment env) throws EvalException, ConversionException {
-        return Tuple.copyOf(sliceList(self.getList(), left, right));
+  @SkylarkSignature(
+    name = "$slice",
+    objectType = Tuple.class,
+    returnType = Tuple.class,
+    documented = false,
+    mandatoryPositionals = {
+      @Param(name = "self", type = Tuple.class, doc = "This tuple."),
+      @Param(name = "start", type = Object.class, doc = "start position of the slice."),
+      @Param(name = "end", type = Object.class, doc = "end position of the slice.")
+    },
+    optionalPositionals = {
+      @Param(name = "step", type = Integer.class, defaultValue = "1", doc = "step value.")
+    },
+    doc =
+        "x[<code>start</code>:<code>end</code>:<code>step</code>] returns a slice or a list slice. "
+            + "Values may be negative and can be omitted.",
+    useLocation = true
+  )
+  private static BuiltinFunction tupleSlice =
+      new BuiltinFunction("$slice") {
+        @SuppressWarnings("unused") // Accessed via Reflection.
+        public Tuple invoke(Tuple self, Object start, Object end, Integer step, Location loc)
+            throws EvalException, ConversionException {
+          return Tuple.copyOf(sliceList(self.getList(), start, end, step, loc));
+        }
+      };
+
+  private static List<Object> sliceList(
+      List<Object> original, Object startObj, Object endObj, int step, Location loc)
+      throws EvalException {
+    int length = original.size();
+    ImmutableList.Builder<Object> slice = ImmutableList.builder();
+    for (int pos : getSliceIndices(startObj, endObj, step, length, loc)) {
+      slice.add(original.get(pos));
+    }
+    return slice.build();
+  }
+
+  /**
+   *  Calculates the indices of the elements that should be included in the slice [start:end:step]
+   * of a sequence with the given length.
+   */
+  private static List<Integer> getSliceIndices(
+      Object startObj, Object endObj, int step, int length, Location loc) throws EvalException {
+    if (step == 0) {
+      throw new EvalException(loc, "slice step cannot be zero");
+    }
+    int start = getIndex(startObj,
+        step,
+        /*positiveStepDefault=*/ 0,
+        /*negativeStepDefault=*/ length - 1,
+        /*length=*/ length,
+        loc);
+    int end = getIndex(endObj,
+        step,
+        /*positiveStepDefault=*/ length,
+        /*negativeStepDefault=*/ -1,
+        /*length=*/ length,
+        loc);
+    Comparator<Integer> comparator = getOrderingForStep(step);
+    ImmutableList.Builder<Integer> indices = ImmutableList.builder();
+    for (int current = start; comparator.compare(current, end) < 0; current += step) {
+      indices.add(current);
+    }
+    return indices.build();
+  }
+
+  /**
+   * Converts the given value into an integer index.
+   *
+   * <p>If the value is {@code None}, the return value of this methods depends on the sign of the
+   * slice step.
+   */
+  private static int getIndex(Object value, int step, int positiveStepDefault,
+      int negativeStepDefault, int length, Location loc) throws EvalException {
+    if (value == Runtime.NONE) {
+      return step < 0 ? negativeStepDefault : positiveStepDefault;
+    } else {
+      try {
+        return clampIndex(Type.INTEGER.cast(value), length);
+      } catch (ClassCastException ex) {
+        throw new EvalException(loc, String.format("'%s' is not a valid int", value));
       }
-    };
-
-  private static List<Object> sliceList(List<Object> list, Integer left, Integer right) {
-    left = clampIndex(left, list.size());
-    right = clampIndex(right, list.size());
-    if (left > right) {
-      left = right;
     }
-    return list.subList(left, right);
+  }
+
+  private static Ordering<Integer> getOrderingForStep(int step) {
+    Ordering<Integer> ordering = Ordering.<Integer>natural();
+    if (step < 0) {
+      ordering = ordering.reverse();
+    }
+    return ordering;
   }
 
   @SkylarkSignature(
@@ -1871,22 +1977,28 @@ public class MethodLibrary {
   /**
    * Skylark String module.
    */
-  @SkylarkModule(name = "string", doc =
-      "A language built-in type to support strings. "
-      + "Examples of string literals:<br>"
-      + "<pre class=\"language-python\">a = 'abc\\ndef'\n"
-      + "b = \"ab'cd\"\n"
-      + "c = \"\"\"multiline string\"\"\"\n"
-      + "\n"
-      + "# Strings support slicing (negative index starts from the end):\n"
-      + "x = \"hello\"[2:4]  # \"ll\"\n"
-      + "y = \"hello\"[1:-1]  # \"ell\"\n"
-      + "z = \"hello\"[:4]  # \"hell\"</pre>"
-      + "Strings are iterable and support the <code>in</code> operator. Examples:<br>"
-      + "<pre class=\"language-python\">\"bc\" in \"abcd\"   # evaluates to True\n"
-      + "x = [s for s in \"abc\"]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
-      + "Implicit concatenation of strings is not allowed; use the <code>+</code> "
-      + "operator instead.")
+  @SkylarkModule(
+    name = "string",
+    doc =
+        "A language built-in type to support strings. "
+            + "Examples of string literals:<br>"
+            + "<pre class=\"language-python\">a = 'abc\\ndef'\n"
+            + "b = \"ab'cd\"\n"
+            + "c = \"\"\"multiline string\"\"\"\n"
+            + "\n"
+            + "# Strings support slicing (negative index starts from the end):\n"
+            + "x = \"hello\"[2:4]  # \"ll\"\n"
+            + "y = \"hello\"[1:-1]  # \"ell\"\n"
+            + "z = \"hello\"[:4]  # \"hell\""
+            + "# Slice steps can be used, too:\n"
+            + "s = \"hello\"[::2] # \"hlo\"\n"
+            + "t = \"hello\"[3:0:-1] # \"lle\"\n</pre>"
+            + "Strings are iterable and support the <code>in</code> operator. Examples:<br>"
+            + "<pre class=\"language-python\">\"bc\" in \"abcd\"   # evaluates to True\n"
+            + "x = [s for s in \"abc\"]  # x == [\"a\", \"b\", \"c\"]</pre>\n"
+            + "Implicit concatenation of strings is not allowed; use the <code>+</code> "
+            + "operator instead."
+  )
   static final class StringModule {}
 
   /**

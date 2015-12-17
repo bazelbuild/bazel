@@ -23,6 +23,7 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.syntax.Argument.Passed;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
 
@@ -257,7 +258,7 @@ public class ParserTest extends EvaluationTestCase {
   public void testSubstring() throws Exception {
     FuncallExpression e = (FuncallExpression) parseExpression("'FOO.CC'[:].lower()[1:]");
     assertEquals("$slice", e.getFunction().getName());
-    assertThat(e.getArguments()).hasSize(2);
+    assertThat(e.getArguments()).hasSize(3);
 
     e = (FuncallExpression) parseExpression("'FOO.CC'.lower()[1:].startswith('oo')");
     assertEquals("startswith", e.getFunction().getName());
@@ -265,7 +266,48 @@ public class ParserTest extends EvaluationTestCase {
 
     e = (FuncallExpression) parseExpression("'FOO.CC'[1:][:2]");
     assertEquals("$slice", e.getFunction().getName());
-    assertThat(e.getArguments()).hasSize(2);
+    assertThat(e.getArguments()).hasSize(3);
+  }
+
+  @Test
+  public void testSlice() throws Exception {
+    evalSlice("'0123'[:]", Runtime.NONE, Runtime.NONE, 1);
+    evalSlice("'0123'[1:]", 1, Runtime.NONE, 1);
+    evalSlice("'0123'[:3]", Runtime.NONE, 3, 1);
+    evalSlice("'0123'[::]", Runtime.NONE, Runtime.NONE, 1);
+    evalSlice("'0123'[1::]", 1, Runtime.NONE, 1);
+    evalSlice("'0123'[:3:]", Runtime.NONE, 3, 1);
+    evalSlice("'0123'[::-1]", Runtime.NONE, Runtime.NONE, -1);
+    evalSlice("'0123'[1:3:]", 1, 3, 1);
+    evalSlice("'0123'[1::-1]", 1, Runtime.NONE, -1);
+    evalSlice("'0123'[:3:-1]", Runtime.NONE, 3, -1);
+    evalSlice("'0123'[1:3:-1]", 1, 3, -1);
+  }
+
+  private void evalSlice(String statement, Object... expectedArgs) {
+    FuncallExpression e = (FuncallExpression) parseExpression(statement);
+    assertEquals("$slice", e.getFunction().getName());
+    List<Passed> actualArgs = e.getArguments();
+    assertThat(actualArgs).hasSize(expectedArgs.length);
+    int pos = 0;
+    for (Passed arg : actualArgs) {
+      // There is no way to evaluate the expression here, so we rely on string comparison.
+      String actualString = arg.getValue().toString();
+      String expectedString = printSliceArg(expectedArgs[pos]);
+      assertThat(actualString).isEqualTo(expectedString);
+      ++pos;
+    }
+  }
+
+  private String printSliceArg(Object arg) {
+    // The parser sees negative integer constants as FuncallExpressions instead of negative
+    // IntegerLiterals.
+    // Consequently, the string representation of -1 is "-(1)", not "-1".
+    if (arg instanceof Integer) {
+      int value = (int) arg;
+      return value < 0 ? String.format("-(%d)", -value) : String.valueOf(value);
+    }
+    return arg.toString();
   }
 
   private void assertLocation(int start, int end, Location location)

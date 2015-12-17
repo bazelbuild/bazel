@@ -453,7 +453,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testBoolean() throws Exception {
-    new BothModesTest().testStatement("False", Boolean.FALSE).testStatement("True", Boolean.TRUE);
+    new BothModesTest()
+        .testStatement("False", Boolean.FALSE)
+        .testStatement("True", Boolean.TRUE);
   }
 
   @Test
@@ -973,14 +975,98 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testEquivalenceOfReversedAndSlice() throws Exception {
+    String[] data = new String[] {"[]", "[1]", "[1, 2, 3]"};
+    for (String toBeReversed : data) {
+      new SkylarkTest().testEval(
+          String.format("reversed(%s)", toBeReversed), String.format("%s[::-1]", toBeReversed));
+    }
+  }
+
+  @Test
   public void testListSlice() throws Exception {
     new BothModesTest()
-        .testEval("[0,1,2,3][0:-1]", "[0, 1, 2]")
-        .testEval("[0,1,2,3,4,5][2:4]", "[2, 3]")
-        .testEval("[0,1,2,3,4,5][-2:-1]", "[4]")
+        .testEval("[0, 1, 2, 3][0:-1]", "[0, 1, 2]")
+        .testEval("[0, 1, 2, 3, 4, 5][2:4]", "[2, 3]")
+        .testEval("[0, 1, 2, 3, 4, 5][-2:-1]", "[4]")
         .testEval("[][1:2]", "[]")
-        .testEval("[1,2,3][1:0]", "[]")
-        .testEval("[0,1,2,3][-10:10]", "[0, 1, 2, 3]");
+        .testEval("[0, 1, 2, 3][-10:10]", "[0, 1, 2, 3]");
+  }
+
+  @Test
+  public void testListSlice_WrongType() throws Exception {
+    new BothModesTest()
+        .testIfExactError("'a' is not a valid int", "'123'['a'::]")
+        .testIfExactError("'b' is not a valid int", "'123'[:'b':]");
+  }
+
+  @Test
+  public void testListSliceStep() throws Exception {
+    new BothModesTest()
+        .testEval("[1, 2, 3, 4, 5][::1]", "[1, 2, 3, 4, 5]")
+        .testEval("[1, 2, 3, 4, 5][1::1]", "[2, 3, 4, 5]")
+        .testEval("[1, 2, 3, 4, 5][:2:1]", "[1, 2]")
+        .testEval("[1, 2, 3, 4, 5][1:3:1]", "[2, 3]")
+        .testEval("[1, 2, 3, 4, 5][-4:-2:1]", "[2, 3]")
+        .testEval("[1, 2, 3, 4, 5][-10:10:1]", "[1, 2, 3, 4, 5]")
+        .testEval("[1, 2, 3, 4, 5][::42]", "[1]");
+  }
+
+  @Test
+  public void testListSliceStep_EmptyList() throws Exception {
+    new BothModesTest().testEval("[][::1]", "[]").testEval("[][::-1]", "[]");
+  }
+
+  @Test
+  public void testListSliceStep_SkipValues() throws Exception {
+    new BothModesTest()
+        .testEval("[1, 2, 3, 4, 5, 6, 7][::3]", "[1, 4, 7]")
+        .testEval("[1, 2, 3, 4, 5, 6, 7, 8, 9][1:7:3]", "[2, 5]");
+  }
+
+  @Test
+  public void testListSliceStep_Negative() throws Exception {
+    new BothModesTest()
+        .testEval("[1, 2, 3, 4, 5][::-1]", "[5, 4, 3, 2, 1]")
+        .testEval("[1, 2, 3, 4, 5][4::-1]", "[5, 4, 3, 2, 1]")
+        .testEval("[1, 2, 3, 4, 5][:0:-1]", "[5, 4, 3, 2]")
+        .testEval("[1, 2, 3, 4, 5][3:1:-1]", "[4, 3]")
+        .testEval("[1, 2, 3, 4, 5][::-2]", "[5, 3, 1]")
+        .testEval("[1, 2, 3, 4, 5][::-10]", "[5]");
+  }
+
+  @Test
+  public void testListSlice_WrongOrder() throws Exception {
+    new BothModesTest().testEval("[1, 2, 3][3:1:1]", "[]").testEval("[1, 2, 3][1:3:-1]", "[]");
+  }
+
+  @Test
+  public void testListSliceStep_InvalidStep() throws Exception {
+    String msg = "slice step cannot be zero";
+    new BothModesTest()
+        .testIfExactError(msg, "[1, 2, 3][::0]")
+        .testIfExactError(msg, "[1, 2, 3][1::0]")
+        .testIfExactError(msg, "[1, 2, 3][:3:0]")
+        .testIfExactError(msg, "[1, 2, 3][1:3:0]");
+  }
+
+  @Test
+  public void testTupleSlice() throws Exception {
+    // Not as comprehensive as the tests for slicing lists since the underlying mechanism is the
+    // same.
+    new BothModesTest()
+        .testEval("()[1:2]", "()")
+        .testEval("()[::1]", "()")
+        .testEval("(0, 1, 2, 3)[0:-1]", "(0, 1, 2)")
+        .testEval("(0, 1, 2, 3, 4, 5)[2:4]", "(2, 3)")
+        .testEval("(0, 1, 2, 3)[-10:10]", "(0, 1, 2, 3)")
+        .testEval("(1, 2, 3, 4, 5)[-10:10:1]", "(1, 2, 3, 4, 5)")
+        .testEval("(1, 2, 3, 4, 5, 6, 7, 8, 9)[1:7:3]", "(2, 5)")
+        .testEval("(1, 2, 3, 4, 5)[::-1]", "(5, 4, 3, 2, 1)")
+        .testEval("(1, 2, 3, 4, 5)[3:1:-1]", "(4, 3)")
+        .testEval("(1, 2, 3, 4, 5)[::-2]", "(5, 3, 1)")
+        .testEval("(1, 2, 3, 4, 5)[::-10]", "(5,)")
+        .testIfExactError("slice step cannot be zero", "(1, 2, 3)[1::0]");
   }
 
   @Test
@@ -1062,6 +1148,78 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testIfErrorContains("List index out of range", "'abcdef'[10]")
         .testIfErrorContains("List index out of range", "'abcdef'[-11]")
         .testIfErrorContains("List index out of range", "'abcdef'[42]");
+  }
+
+  @Test
+  public void testStringSlice() throws Exception {
+    new BothModesTest()
+        .testStatement("'0123'[0:-1]", "012")
+        .testStatement("'012345'[2:4]", "23")
+        .testStatement("'012345'[-2:-1]", "4")
+        .testStatement("''[1:2]", "")
+        .testStatement("'012'[1:0]", "")
+        .testStatement("'0123'[-10:10]", "0123");
+  }
+
+  @Test
+  public void testStringSlice_WrongType() throws Exception {
+    new BothModesTest()
+        .testIfExactError("'a' is not a valid int", "'123'['a'::]")
+        .testIfExactError("'b' is not a valid int", "'123'[:'b':]");
+  }
+
+  @Test
+  public void testStringSliceStep() throws Exception {
+    new BothModesTest()
+        .testStatement("'01234'[::1]", "01234")
+        .testStatement("'01234'[1::1]", "1234")
+        .testStatement("'01234'[:2:1]", "01")
+        .testStatement("'01234'[1:3:1]", "12")
+        .testStatement("'01234'[-4:-2:1]", "12")
+        .testStatement("'01234'[-10:10:1]", "01234")
+        .testStatement("'01234'[::42]", "0");
+  }
+
+  @Test
+  public void testStringSliceStep_EmptyString() throws Exception {
+    new BothModesTest()
+        .testStatement("''[::1]", "")
+        .testStatement("''[::-1]", "");
+  }
+
+  @Test
+  public void testStringSliceStep_SkipValues() throws Exception {
+    new BothModesTest()
+        .testStatement("'0123456'[::3]", "036")
+        .testStatement("'01234567'[1:7:3]", "14");
+  }
+
+  @Test
+  public void testStringSliceStep_Negative() throws Exception {
+    new BothModesTest()
+        .testStatement("'01234'[::-1]", "43210")
+        .testStatement("'01234'[4::-1]", "43210")
+        .testStatement("'01234'[:0:-1]", "4321")
+        .testStatement("'01234'[3:1:-1]", "32")
+        .testStatement("'01234'[::-2]", "420")
+        .testStatement("'01234'[::-10]", "4");
+  }
+
+  @Test
+  public void testStringSliceStep_WrongOrder() throws Exception {
+    new BothModesTest()
+        .testStatement("'123'[3:1:1]", "")
+        .testStatement("'123'[1:3:-1]", "");
+  }
+
+  @Test
+  public void testStringSliceStep_InvalidStep() throws Exception {
+    String msg = "slice step cannot be zero";
+    new BothModesTest()
+        .testIfExactError(msg, "'123'[::0]")
+        .testIfExactError(msg, "'123'[1::0]")
+        .testIfExactError(msg, "'123'[:3:0]")
+        .testIfExactError(msg, "'123'[1:3:0]");
   }
 
   @Test
