@@ -45,7 +45,7 @@ public final class AndroidAaptActionHelper {
   private final RuleContext ruleContext;
   private final Artifact manifest;
   private final Collection<Artifact> inputs = new LinkedHashSet<>();
-  private final List<ResourceContainer> resourceContainers;
+  private final Iterable<ResourceContainer> resourceContainers;
 
   /**
    * Constructs an instance of AndroidAaptActionHelper.
@@ -57,7 +57,7 @@ public final class AndroidAaptActionHelper {
    * @param resourceContainers The transitive closure of the ResourceContainers.
    */
   public AndroidAaptActionHelper(RuleContext ruleContext, Artifact manifest,
-      List<ResourceContainer> resourceContainers) {
+      Iterable<ResourceContainer> resourceContainers) {
     this.ruleContext = ruleContext;
     this.manifest = manifest;
     this.resourceContainers = resourceContainers;
@@ -277,7 +277,7 @@ public final class AndroidAaptActionHelper {
             ruleContext.getExecutablePrerequisite("$android_aapt_apk_generator", Mode.HOST))
         .setCommandLine(CommandLine.of(aaptCommand, false))
         .useParameterFile(ParameterFileType.UNQUOTED)
-        .setProgressMessage("Generating Proguard Configuration")
+        .setProgressMessage("Generating Proguard configuration for resources")
         .setMnemonic("AndroidAapt")
         .build(ruleContext));
   }
