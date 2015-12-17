@@ -210,12 +210,31 @@ java_import(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_core-2.0.6-20151001-884eec772c13541a7b1af249a68373cd9f30e488.jar",
-        "error_prone/error_prone_annotations-2.0.6-20151001-884eec772c13541a7b1af249a68373cd9f30e488.jar",
+        "error_prone/error_prone_core-2.0.8-20151216.jar",
+        "error_prone/error_prone_annotations-2.0.8-20151216.jar",
+        "error_prone/error_prone_annotation-2.0.8-20151216.jar",
     ],
     exports = [
         ":checker_framework_dataflow",
+        ":guava",
+        ":jcip_annotations",
         ":jformatstring",
+        ":jsr305",
+        ":pcollections",
+    ],
+)
+
+java_import(
+    name = "jcip_annotations",
+    jars = [
+        "jcip_annotations/jcip-annotations-1.0-1.jar",
+    ],
+)
+
+java_import(
+    name = "pcollections",
+    jars = [
+        "pcollections/pcollections-2.1.2.jar",
     ],
 )
 
@@ -238,9 +257,14 @@ filegroup(
     name = "error_prone-jars",
     srcs = [
         "checker_framework_dataflow/dataflow-1.8.10.jar",
-        "error_prone/error_prone_annotations-2.0.6-20151001-884eec772c13541a7b1af249a68373cd9f30e488.jar",
-        "error_prone/error_prone_core-2.0.6-20151001-884eec772c13541a7b1af249a68373cd9f30e488.jar",
+        "error_prone/error_prone_annotation-2.0.8-20151216.jar",
+        "error_prone/error_prone_annotations-2.0.8-20151216.jar",
+        "error_prone/error_prone_core-2.0.8-20151216.jar",
+        "guava/guava-19.0.jar",
+        "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jformatstring/jFormatString-3.0.0.jar",
+        "jsr305/jsr-305.jar",
+        "pcollections/pcollections-2.1.2.jar",
     ],
 )
 

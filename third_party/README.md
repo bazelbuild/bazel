@@ -84,8 +84,21 @@ a minimal set of extra dependencies.
 
 ## [Error Prone](https://github.com/google/error-prone)
 
-* Version: 2.0.6-20151001-884eec772c13541a7b1af249a68373cd9f30e488
+* Version: 2.0.6-20151216
 * License: Apache License 2.0
+
+
+## [JCIP Annotations](https://github.com/stephenc/jcip-annotations/)
+
+* Version: 1.0-1
+* License: Apache License 2.0
+
+
+## [PCollections](https://github.com/pcollections/pcollections/)
+
+* Version: 2.1.2
+* License: MIT
+
 
 ## [jFormatString](https://code.google.com/p/j-format-string/)
 
