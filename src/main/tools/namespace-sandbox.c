@@ -48,9 +48,8 @@ static double global_kill_delay;
 static int global_child_pid;
 static volatile sig_atomic_t global_signal;
 
-// The uid and gid of the user and group 'nobody'.
-static const int kNobodyUid = 65534;
-static const int kNobodyGid = 65534;
+// The username of 'nobody'.
+static const char *kNobodyUsername = "nobody";
 
 // Options parsing result.
 struct Options {
@@ -573,6 +572,17 @@ static void SetupUserNamespace(int uid, int gid, int new_uid, int new_gid) {
   CHECK_CALL(setresgid(new_gid, new_gid, new_gid));
 }
 
+static void SetupUserNamespaceForNobody(int uid, int gid) {
+  struct passwd *pwd = getpwnam(kNobodyUsername);
+
+  if (pwd == NULL) {
+    perror("Unable to find passwd for user nobody.");
+    exit(EXIT_FAILURE);
+  }
+  
+  SetupUserNamespace(uid, gid, pwd->pw_uid, pwd->pw_gid);
+}
+
 static void ChangeRoot(struct Options *opt) {
   // move the real root to old_root, then detach it
   char old_root[16] = "old-root-XXXXXX";
@@ -705,7 +715,7 @@ int main(int argc, char *const argv[]) {
   if (opt.fake_root) {
     SetupUserNamespace(uid, gid, 0, 0);
   } else {
-    SetupUserNamespace(uid, gid, kNobodyUid, kNobodyGid);
+    SetupUserNamespaceForNobody(uid, gid);
   }
   ChangeRoot(&opt);
 
