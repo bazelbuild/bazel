@@ -485,7 +485,9 @@ static void SetupDirectories(struct Options *opt) {
       DIE("Home directory of user nobody must be an absolute path, but is %s",
           homedir);
     }
-    opt->create_dirs[opt->num_create_dirs++] = homedir;
+    if (strcmp(homedir, "/") != 0) {
+      opt->create_dirs[opt->num_create_dirs++] = homedir;
+    }
   }
 
   // Create needed directories.
@@ -579,7 +581,7 @@ static void SetupUserNamespaceForNobody(int uid, int gid) {
     perror("Unable to find passwd for user nobody.");
     exit(EXIT_FAILURE);
   }
-  
+
   SetupUserNamespace(uid, gid, pwd->pw_uid, pwd->pw_gid);
 }
 
