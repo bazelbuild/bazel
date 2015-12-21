@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 
@@ -81,7 +82,9 @@ public class ExternalFilesHelper {
       throw new FileOutsidePackageRootsException(rootedPath);
     }
 
-    if (!rootedPath.asPath().startsWith(
+    // The outputBase may be null if we're not actually running a build.
+    Path outputBase = pkgLocator.get().getOutputBase();
+    if (outputBase != null && !rootedPath.asPath().startsWith(
         pkgLocator.get().getOutputBase().getRelative(Label.EXTERNAL_PATH_PREFIX))) {
       return;
     }
