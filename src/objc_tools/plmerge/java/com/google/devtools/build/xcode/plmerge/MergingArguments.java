@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.xcode.plmerge;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
@@ -57,13 +58,10 @@ class MergingArguments {
     
     outFile = control.getOutFile();
     variableSubstitutions = control.getVariableSubstitutionMap();
-    primaryBundleId = control.getPrimaryBundleId();
-    fallbackBundleId = control.getFallbackBundleId();
-    if (control.hasExecutableName()) {
-      executableName = control.getExecutableName();
-    } else {
-      executableName = null;
-    }
+    
+    primaryBundleId = Strings.emptyToNull(control.getPrimaryBundleId());
+    fallbackBundleId = Strings.emptyToNull(control.getFallbackBundleId());
+    executableName = Strings.emptyToNull(control.getExecutableName());
   }
 
   /**
