@@ -54,10 +54,6 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         <p>This rule currently forces source and class compatibility with Java 7,
         although try with resources is not supported.
         </p>
-        <p><code>srcs</code> files of type <code>.jar</code> are linked in.
-        (This is useful if you have third-party <code>.jar</code> files
-        with no source.)
-        </p>
         <p>If <code>srcs</code> is omitted, then any dependency specified in
         <code>deps</code> is exported from this rule (see
         <a href="#java_library.exports">java_library's exports</a> for more
