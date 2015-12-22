@@ -13,9 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Function;
+import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
@@ -38,16 +42,19 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
- * A {@link RecursivePackageProvider} backed by a {@link WalkableGraph}, used by
- * {@code SkyQueryEnvironment} to look up the packages and targets matching the universe that's
- * been preloaded in {@code graph}.
- * */
+ * A {@link RecursivePackageProvider} backed by a {@link WalkableGraph}, used by {@code
+ * SkyQueryEnvironment} to look up the packages and targets matching the universe that's been
+ * preloaded in {@code graph}.
+ */
 public final class GraphBackedRecursivePackageProvider implements RecursivePackageProvider {
 
   private final WalkableGraph graph;
@@ -147,43 +154,75 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     ImmutableList.Builder<PathFragment> builder = ImmutableList.builder();
     if (filteringPolicy != null) {
       for (Path root : roots) {
-        collectPackagesUnder(repository, RootedPath.toRootedPath(root, directory),
-            excludedSubdirectories, builder, filteringPolicy);
+        RootedPath rootedDir = RootedPath.toRootedPath(root, directory);
+        TraversalInfo info = new TraversalInfo(rootedDir, excludedSubdirectories);
+        collectPackagesUnder(repository, ImmutableSet.of(info), builder, filteringPolicy);
       }
     }
     return builder.build();
   }
 
-  private void collectPackagesUnder(RepositoryName repository, RootedPath directory,
-      ImmutableSet<PathFragment> excludedSubdirectories,
-      ImmutableList.Builder<PathFragment> builder, FilteringPolicy policy) {
-    SkyKey key =
-        PrepareDepsOfTargetsUnderDirectoryValue.key(
-            repository, directory, excludedSubdirectories, policy);
-    // If the key does not exist in the graph, because the SkyQuery environment has
-    // already loaded the universe, and we found a TargetsBelowDirectory pattern in the universe
-    // that contained it, then we know the directory does not exist in the universe.
-    if (!graph.exists(key)) {
-      return;
+  private final void preloadPackages(final RepositoryName repositoryName,
+      Iterable<TraversalInfo> traversals) {
+    // Note that the return value is intentionally unused - we call this to elicit the side effect
+    // that the packages end up warm in the graph.
+    graph.getSuccessfulValues(Iterables.transform(traversals,
+        new Function<TraversalInfo, SkyKey>() {
+          @Override
+          public SkyKey apply(TraversalInfo traversalInfo) {
+            return PackageValue.key(
+                PackageIdentifier.create(repositoryName,
+                    traversalInfo.rootedDir.getRelativePath()));
+          }
+        }));
+  }
+
+  private void collectPackagesUnder(final RepositoryName repository,
+      Set<TraversalInfo> traversals, ImmutableList.Builder<PathFragment> builder,
+      final FilteringPolicy policy) {
+    Map<TraversalInfo, SkyKey> traversalToKeyMap =
+        Maps.asMap(traversals, new Function<TraversalInfo, SkyKey>() {
+          @Override
+          public SkyKey apply(TraversalInfo traversalInfo) {
+            return PrepareDepsOfTargetsUnderDirectoryValue.key(
+                repository, traversalInfo.rootedDir, traversalInfo.excludedSubdirectories, policy);
+          }
+        });
+    Map<SkyKey, SkyValue> values = graph.getSuccessfulValues(traversalToKeyMap.values());
+    // Preload the packages so subsequent lookups are faster. A better approach might be forego this
+    // here, and instead load the needed package in batch on demand.
+    preloadPackages(repository, traversals);
+
+    ImmutableSet.Builder<TraversalInfo> subdirTraversalBuilder = ImmutableSet.builder();
+    for (Map.Entry<TraversalInfo, SkyKey> entry : traversalToKeyMap.entrySet()) {
+      TraversalInfo info = entry.getKey();
+      SkyKey key = entry.getValue();
+      SkyValue val = values.get(key);
+      PrepareDepsOfTargetsUnderDirectoryValue prepDepsValue =
+          (PrepareDepsOfTargetsUnderDirectoryValue) val;
+      if (prepDepsValue != null) {
+        if (prepDepsValue.isDirectoryPackage()) {
+          builder.add(info.rootedDir.getRelativePath());
+        }
+
+        ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackages =
+            prepDepsValue.getSubdirectoryTransitivelyContainsPackages();
+        for (RootedPath subdirectory : subdirectoryTransitivelyContainsPackages.keySet()) {
+          if (subdirectoryTransitivelyContainsPackages.get(subdirectory)) {
+            PathFragment subdirectoryRelativePath = subdirectory.getRelativePath();
+            ImmutableSet<PathFragment> excludedSubdirectoriesBeneathThisSubdirectory =
+                PathFragment.filterPathsStartingWith(
+                    info.excludedSubdirectories, subdirectoryRelativePath);
+            subdirTraversalBuilder.add(
+                new TraversalInfo(subdirectory, excludedSubdirectoriesBeneathThisSubdirectory));
+          }
+        }
+      }
     }
 
-    // If the key exists in the graph, then it must have a value and must not have an exception,
-    // because PrepareDepsOfTargetsUnderDirectoryFunction#compute never throws.
-    PrepareDepsOfTargetsUnderDirectoryValue prepDepsValue =
-        (PrepareDepsOfTargetsUnderDirectoryValue) Preconditions.checkNotNull(graph.getValue(key));
-    if (prepDepsValue.isDirectoryPackage()) {
-      builder.add(directory.getRelativePath());
-    }
-    ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackages =
-        prepDepsValue.getSubdirectoryTransitivelyContainsPackages();
-    for (RootedPath subdirectory : subdirectoryTransitivelyContainsPackages.keySet()) {
-      if (subdirectoryTransitivelyContainsPackages.get(subdirectory)) {
-        PathFragment subdirectoryRelativePath = subdirectory.getRelativePath();
-        ImmutableSet<PathFragment> excludedSubdirectoriesBeneathThisSubdirectory =
-            PathFragment.filterPathsStartingWith(excludedSubdirectories, subdirectoryRelativePath);
-        collectPackagesUnder(repository, subdirectory,
-            excludedSubdirectoriesBeneathThisSubdirectory, builder, policy);
-      }
+    ImmutableSet<TraversalInfo> subdirTraversals = subdirTraversalBuilder.build();
+    if (!subdirTraversals.isEmpty()) {
+      collectPackagesUnder(repository, subdirTraversals, builder, policy);
     }
   }
 
@@ -191,5 +230,33 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
   public Target getTarget(EventHandler eventHandler, Label label)
       throws NoSuchPackageException, NoSuchTargetException {
     return getPackage(eventHandler, label.getPackageIdentifier()).getTarget(label.getName());
+  }
+
+  private static final class TraversalInfo {
+    private final RootedPath rootedDir;
+    private final ImmutableSet<PathFragment> excludedSubdirectories;
+
+    private TraversalInfo(RootedPath rootedDir, ImmutableSet<PathFragment> excludedSubdirectories) {
+      this.rootedDir = rootedDir;
+      this.excludedSubdirectories = excludedSubdirectories;
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hashCode(rootedDir, excludedSubdirectories);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (obj instanceof TraversalInfo) {
+        TraversalInfo otherTraversal = (TraversalInfo) obj;
+        return Objects.equal(rootedDir, otherTraversal.rootedDir)
+            && Objects.equal(excludedSubdirectories, otherTraversal.excludedSubdirectories);
+      }
+      return false;
+    }
   }
 }
