@@ -72,4 +72,7 @@ public class TestConstants {
   public static final String TOOLS_REPOSITORY = "@bazel_tools";
 
   public static final String TOOLS_REPOSITORY_PATH = "tools/cpp";
+
+  public static final ImmutableList<String> DOCS_RULES_PATHS = ImmutableList.of(
+      "src/main/java/com/google/devtools/build/lib/rules");
 }

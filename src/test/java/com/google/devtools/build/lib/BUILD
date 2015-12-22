@@ -792,6 +792,7 @@ java_library(
     srcs = glob([
         "syntax/util/*.java",
     ]),
+    visibility = ["//visibility:public"],
     deps = [
         ":foundations_testutil",
         ":test_runner",
@@ -818,6 +819,7 @@ java_library(
     srcs = glob([
         "skylark/util/*.java",
     ]),
+    visibility = ["//visibility:public"],
     deps = [
         ":analysis_testutil",
         ":foundations_testutil",
