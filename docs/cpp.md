@@ -177,8 +177,6 @@ more complicated:
   link errors for duplicate symbols.
 * It uses header files that relative to the `gtest-1.7.0/include/` directory
   (`"gtest/gtest.h"`), so we must add that directory the include paths.
-* It uses "private" header files in `src/`, so we add that to the include pahs,
-  too, so it can `#include "src/gtest-internal-inl.h"`.
 * It needs to link in pthread, so we add that as a `linkopt`.
 
 The final rule looks like this:
@@ -190,9 +188,11 @@ cc_library(
         ["gtest-1.7.0/src/*.cc"],
         exclude = ["gtest-1.7.0/src/gtest-all.cc"]
     ),
-    hdrs = glob(["gtest-1.7.0/include/**/*.h"]),
+    hdrs = glob([
+        "gtest-1.7.0/include/**/*.h",
+        "gtest-1.7.0/src/*.h"
+    ]),
     copts = [
-        "-Iexternal/gtest/gtest-1.7.0",
         "-Iexternal/gtest/gtest-1.7.0/include"
     ],
     linkopts = ["-pthread"],
@@ -223,11 +223,11 @@ cc_library(
         ["src/*.cc"],
         exclude = ["src/gtest-all.cc"]
     ),
-    hdrs = glob(["include/**/*.h"]),
-    copts = [
-        "-Iexternal/gtest",
-        "-Iexternal/gtest/include"
-    ],
+    hdrs = glob([
+        "include/**/*.h",
+        "src/*.h"
+    ]),
+    copts = ["-Iexternal/gtest/include"],
     linkopts = ["-pthread"],
     visibility = ["//visibility:public"],
 )
