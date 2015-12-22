@@ -21,13 +21,10 @@
 source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
 
-function set_up() {
+function setup_go() {
   copy_examples
 
   cat <<EOF > WORKSPACE
-bind(name  = "go_prefix",
-  actual = "//:go_prefix",
-)
 
 EOF
 
@@ -35,10 +32,12 @@ EOF
   rm -rf tools/build_rules/go/toolchain
   for p in golang-linux-amd64 golang-darwin-amd64 ; do
     d=$TEST_SRCDIR/external/${p}
-    for f in $(cd ${d}; find -L . -type f -print ) ; do
-      mkdir -p tools/build_rules/go/toolchain/$(dirname $f)
-      ln -s ${d}/$f tools/build_rules/go/toolchain/$f
-    done
+    if [[ -d "${d}" ]]; then
+      for f in $(cd ${d}; find -L . -type f -print ) ; do
+        mkdir -p tools/build_rules/go/toolchain/$(dirname $f)
+        ln -s ${d}/$f tools/build_rules/go/toolchain/$f
+      done
+    fi
   done
   ln -s $TEST_SRCDIR/tools/build_rules/go/toolchain/BUILD.go-toolchain tools/build_rules/go/toolchain/BUILD
   cat  <<EOF > BUILD
@@ -49,8 +48,9 @@ EOF
 }
 
 function test_basic() {
-    mkdir -p ex/
-    cat <<EOF > ex/m.go
+  setup_go
+  mkdir -p ex/
+  cat <<EOF > ex/m.go
 package main
 import (
   "fmt"
@@ -62,12 +62,12 @@ func main() {
 }
 
 EOF
-    cat <<EOF > ex/l.go
+  cat <<EOF > ex/l.go
 package ex
 func F() int { return 42 }
 EOF
 
-    cat <<EOF > ex/BUILD
+  cat <<EOF > ex/BUILD
 load("/tools/build_rules/go/def", "go_library", "go_binary")
 go_library(name = "go_default_library",
   srcs = [ "l.go"])
@@ -83,6 +83,7 @@ EOF
 }
 
 function test_runfiles() {
+  setup_go
   mkdir -p ex/
 
 # Note this binary is also a test (for the correct handling of runfiles by
@@ -154,8 +155,9 @@ EOF
 }
 
 function test_runfiles_lib() {
-    mkdir -p ex/
-    cat <<EOF > ex/m.go
+  setup_go
+  mkdir -p ex/
+  cat <<EOF > ex/m.go
 package main
 import (
   "fmt"
@@ -175,7 +177,7 @@ func main() {
 
 EOF
 
-    cat <<EOF > ex/l.go
+  cat <<EOF > ex/l.go
 package ex
 func RunfilePath() string { return "ex/runfile" }
 EOF

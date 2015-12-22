@@ -21,7 +21,6 @@ The rules should be considered experimental. They support:
 
 They currently do not support (in order of importance):
 
-* Darwin
 * `//+build` tags
 * auto generated BUILD files.
 * C/C++ interoperation (cgo, swig etc.)
@@ -70,7 +69,7 @@ They currently do not support (in order of importance):
 
 * In this case, import the library as `github.com/joe/project/lib`.
 * For vendored libraries, you may depend on
-  `//lib/vendor/github_com/user/project:go_default_library`. Vendored
+  `//lib/vendor/github.com/user/project:go_default_library`. Vendored
   libraries should have BUILD files like normal libraries.
 * To declare a test,
 

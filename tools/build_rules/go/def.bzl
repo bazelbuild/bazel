@@ -334,7 +334,7 @@ go_library_attrs = {
     ),
     "go_prefix": attr.label(
         providers = ["go_prefix"],
-        default = Label("//external:go_prefix"),
+        default = Label("//:go_prefix"),
         allow_files = False,
         cfg = HOST_CFG,
     ),
@@ -380,12 +380,7 @@ go_test = rule(
     test = True,
 )
 
-# TODO(bazel-team): support darwin
 def go_repositories():
-  native.bind(name  = "go_prefix",
-    actual = "//:go_prefix",
-  )
-
   native.new_http_archive(
     name=  "golang-linux-amd64",
     url = "https://storage.googleapis.com/golang/go1.5.1.linux-amd64.tar.gz",
