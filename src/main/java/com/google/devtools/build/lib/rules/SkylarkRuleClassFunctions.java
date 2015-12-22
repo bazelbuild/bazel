@@ -356,19 +356,33 @@ public class SkylarkRuleClassFunctions {
   }
 
 
-  @SkylarkSignature(
-    name = "aspect",
+  @SkylarkSignature(name = "aspect", doc =
+    "Creates a new aspect. The result of this fucntion must be stored in a global value.",
     returnType = SkylarkAspect.class,
-    documented = false, // TODO(dslomov): Experimental, document later.
-    mandatoryPositionals = {@Param(name = "implementation", type = BaseFunction.class)},
+    mandatoryPositionals = {
+        @Param(name = "implementation", type = BaseFunction.class,
+            doc = "the function implementing this aspect. Must have two parameters: "
+            + "<a href=\"Target.html\">Target</a> (the target to which the aspect is applied) and"
+            + "<a href=\"ctx.html\">ctx</a>. Attributes of the target are available via ctx.rule "
+            + " field. The function is called during the analysis phase for each application of "
+            + "an aspect to a target."
+        ),
+    },
     optionalPositionals = {
-      @Param(
-        name = "attr_aspects",
-        type = SkylarkList.class,
-        generic1 = String.class,
-        defaultValue = "[]"
+      @Param(name = "attr_aspects", type = SkylarkList.class, generic1 = String.class,
+        defaultValue = "[]",
+        doc = "List of attribute names.  The aspect propagates along dependencies specified by "
+        + " attributes of a target with this name"
       ),
-      @Param(name = "attrs", type = Map.class, noneable = true, defaultValue = "None")
+      @Param(name = "attrs", type = Map.class, noneable = true, defaultValue = "None",
+        doc = "dictionary to declare all the attributes of the aspect.  "
+        + "It maps from an attribute name to an attribute object "
+        + "(see <a href=\"attr.html\">attr</a> module). "
+        + "Aspect attributes are available to implementation function as fields of ctx parameter. "
+        + "All aspect attributes must be private, so their names must start with <code>_</code>. "
+        + "All aspect attributes must be have default values, and be of type "
+        + "<code>label</code> or <code>label_list</code>"
+      )
     },
     useEnvironment = true,
     useAst = true
