@@ -66,9 +66,10 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
     }
     try {
       LabelValidator.PackageAndTarget labelParts = LabelValidator.parseAbsoluteLabel(absName);
-      validate(labelParts.getPackageName(), labelParts.getTargetName());
+      PackageIdentifier pkgIdWithoutRepo =
+          validate(labelParts.getPackageName(), labelParts.getTargetName());
       return new Label(
-          PackageIdentifier.create(repo, new PathFragment(labelParts.getPackageName())),
+          PackageIdentifier.create(repo, pkgIdWithoutRepo.getPackageFragment()),
           labelParts.getTargetName());
     } catch (BadLabelException e) {
       throw new LabelSyntaxException(e.getMessage());
@@ -169,8 +170,8 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   }
 
   /**
-   * Validates the given package name and returns a canonical PathFragment instance if it is valid.
-   * Otherwise it throws a SyntaxException.
+   * Validates the given package name and returns a canonical {@link PackageIdentifier} instance
+   * if it is valid. Otherwise it throws a SyntaxException.
    */
   private static PackageIdentifier validate(String packageIdentifier, String name)
       throws LabelSyntaxException {
