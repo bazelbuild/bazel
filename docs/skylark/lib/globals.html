@@ -20,7 +20,8 @@ Objects, functions and modules registered in the global environment.
               <li><a href="#True">True</a></li>
               <li><a href="#all">all</a></li>
               <li><a href="#any">any</a></li>
-                    <li><a href="#bool">bool</a></li>
+              <li><a href="#aspect">aspect</a></li>
+              <li><a href="#bool">bool</a></li>
               <li><a href="#dict">dict</a></li>
               <li><a href="#dir">dir</a></li>
               <li><a href="#enumerate">enumerate</a></li>
@@ -213,7 +214,56 @@ Objects, functions and modules registered in the global environment.
                 </tbody>
       </table>
 
-          <h2 id="bool">bool</h2>
+        <h2 id="aspect">aspect</h2>
+        <p><pre>SkylarkAspect aspect(implementation, attr_aspects=[], attrs=None)
+</pre></p>
+
+    Creates a new aspect. The result of this fucntion must be stored in a global value.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="aspect.implementation">
+              <code>implementation</code>
+            </td>
+            <td>
+                          <p><code>function</code></p>
+                          <p>the function implementing this aspect. Must have two parameters: <a href="Target.html">Target</a> (the target to which the aspect is applied) and<a href="ctx.html">ctx</a>. Attributes of the target are available via ctx.rule  field. The function is called during the analysis phase for each application of an aspect to a target.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="aspect.attr_aspects">
+              <code>attr_aspects</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p>List of attribute names.  The aspect propagates along dependencies specified by  attributes of a target with this name</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="aspect.attrs">
+              <code>attrs</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="dict.html">dict</a></code></p>
+                          <p>dictionary to declare all the attributes of the aspect.  It maps from an attribute name to an attribute object (see <a href="attr.html">attr</a> module). Aspect attributes are available to implementation function as fields of ctx parameter. All aspect attributes must be private, so their names must start with <code>_</code>. All aspect attributes must be have default values, and be of type <code>label</code> or <code>label_list</code></p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="bool">bool</h2>
         <p><pre><a class="anchor" href="globals.html#bool">bool</a> bool(x)
 </pre></p>
 

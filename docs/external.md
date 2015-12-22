@@ -33,6 +33,11 @@ By default, external dependencies are fetched as needed during `bazel build`. If
 you would like to disable this behavior or prefetch dependencies, use
 [`bazel fetch`](http://bazel.io/docs/bazel-user-manual.html#fetch).
 
+## Using Proxies
+
+Bazel will pick up proxy addresses from the `HTTPS_PROXY` and `HTTP_PROXY`
+environment variables and use these to download HTTP/HTTPS files (if specified).
+
 <a name="transitive-dependencies"></a>
 ## Transitive dependencies
 
