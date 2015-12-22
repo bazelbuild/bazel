@@ -1113,9 +1113,11 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
   @Test
   public void testListAccessBadIndex() throws Exception {
-    new BothModesTest().testIfErrorContains(
-        "expected value of type 'int' for index operand, but got \"a\" (string)",
-        "[[1], [2]]['a']");
+    new BothModesTest()
+        .testIfErrorContains(
+            "Method list.$index(key: int) is not applicable for arguments (string): "
+                + "'key' is string, but should be int",
+            "[[1], [2]]['a']");
   }
 
   @Test
@@ -1482,6 +1484,30 @@ public class MethodLibraryTest extends EvaluationTestCase {
 
     new SkylarkTest()
         .testIfErrorContains("Type tuple has no function remove(int)", "(1, 2).remove(3)");
+  }
+
+  @Test
+  public void testListPop() throws Exception {
+    new BothModesTest()
+        .setUp("li = [2, 3, 4]; ret = li.pop()")
+        .testLookup("li", MutableList.of(env, 2, 3))
+        .testLookup("ret", 4);
+    new BothModesTest()
+        .setUp("li = [2, 3, 4]; ret = li.pop(-2)")
+        .testLookup("li", MutableList.of(env, 2, 4))
+        .testLookup("ret", 3);
+    new BothModesTest()
+        .setUp("li = [2, 3, 4]; ret = li.pop(1)")
+        .testLookup("li", MutableList.of(env, 2, 4))
+        .testLookup("ret", 3);
+    new BothModesTest()
+        .testIfErrorContains(
+            "List index out of range (index is 3, but list has 2 elements)", "[1, 2].pop(3)");
+
+    new BuildTest()
+        .testIfErrorContains(
+            "function pop is not defined on object of type 'tuple'", "(1, 2).pop()");
+    new SkylarkTest().testIfErrorContains("Type tuple has no function pop()", "(1, 2).pop()");
   }
 
   @Test

@@ -84,10 +84,9 @@ public class MethodLibrary {
     return str.substring(start, stop);
   }
 
-  private static int getListIndex(Object key, int listSize, Location loc)
+  private static int getListIndex(int index, int listSize, Location loc)
       throws ConversionException, EvalException {
     // Get the nth element in the list
-    int index = Type.INTEGER.convert(key, "index operand");
     if (index < 0) {
       index += listSize;
     }
@@ -1338,6 +1337,40 @@ public class MethodLibrary {
         }
       };
 
+  @SkylarkSignature(
+    name = "pop",
+    objectType = MutableList.class,
+    returnType = Object.class,
+    doc =
+        "Removes the item at the given position in the list, and returns it. "
+            + "If no index is specified, it removes and returns the last item in the list.",
+    mandatoryPositionals = {
+      @Param(name = "self", type = MutableList.class, doc = "This list."),
+    },
+    optionalPositionals = {
+      @Param(
+        name = "i",
+        type = Integer.class,
+        noneable = true,
+        defaultValue = "None",
+        doc = "The index of the item."
+      )
+    },
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static BuiltinFunction listPop =
+      new BuiltinFunction("pop") {
+        public Object invoke(MutableList self, Object i, Location loc, Environment env)
+            throws EvalException {
+          int arg = i == Runtime.NONE ? -1 : (Integer) i;
+          int index = getListIndex(arg, self.size(), loc);
+          Object result = self.get(index);
+          self.remove(index, loc, env);
+          return result;
+        }
+      };
+
   // dictionary access operator
   @SkylarkSignature(name = "$index", documented = false, objectType = Map.class,
       doc = "Looks up a value in a dictionary.",
@@ -1356,54 +1389,74 @@ public class MethodLibrary {
   };
 
   // list access operator
-  @SkylarkSignature(name = "$index", documented = false, objectType = MutableList.class,
-      doc = "Returns the nth element of a list.",
-      mandatoryPositionals = {
-        @Param(name = "self", type = MutableList.class, doc = "This list."),
-        @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
-      useLocation = true, useEnvironment = true)
-  private static BuiltinFunction listIndexOperator = new BuiltinFunction("$index") {
-      public Object invoke(MutableList self, Object key,
-          Location loc, Environment env) throws EvalException, ConversionException {
-        if (self.isEmpty()) {
-          throw new EvalException(loc, "List is empty");
+  @SkylarkSignature(
+    name = "$index",
+    documented = false,
+    objectType = MutableList.class,
+    doc = "Returns the nth element of a list.",
+    mandatoryPositionals = {
+      @Param(name = "self", type = MutableList.class, doc = "This list."),
+      @Param(name = "key", type = Integer.class, doc = "The index or key to access.")
+    },
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static BuiltinFunction listIndexOperator =
+      new BuiltinFunction("$index") {
+        public Object invoke(MutableList self, Integer key, Location loc, Environment env)
+            throws EvalException, ConversionException {
+          if (self.isEmpty()) {
+            throw new EvalException(loc, "List is empty");
+          }
+          int index = getListIndex(key, self.size(), loc);
+          return SkylarkType.convertToSkylark(self.getList().get(index), env);
         }
-        int index = getListIndex(key, self.size(), loc);
-        return SkylarkType.convertToSkylark(self.getList().get(index), env);
-      }
-    };
+      };
 
   // tuple access operator
-  @SkylarkSignature(name = "$index", documented = false, objectType = Tuple.class,
-      doc = "Returns the nth element of a tuple.",
-      mandatoryPositionals = {
-        @Param(name = "self", type = Tuple.class, doc = "This tuple."),
-        @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
-      useLocation = true, useEnvironment = true)
-  private static BuiltinFunction tupleIndexOperator = new BuiltinFunction("$index") {
-      public Object invoke(Tuple self, Object key,
-          Location loc, Environment env) throws EvalException, ConversionException {
-        if (self.isEmpty()) {
-          throw new EvalException(loc, "tuple is empty");
+  @SkylarkSignature(
+    name = "$index",
+    documented = false,
+    objectType = Tuple.class,
+    doc = "Returns the nth element of a tuple.",
+    mandatoryPositionals = {
+      @Param(name = "self", type = Tuple.class, doc = "This tuple."),
+      @Param(name = "key", type = Integer.class, doc = "The index or key to access.")
+    },
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static BuiltinFunction tupleIndexOperator =
+      new BuiltinFunction("$index") {
+        public Object invoke(Tuple self, Integer key, Location loc, Environment env)
+            throws EvalException, ConversionException {
+          if (self.isEmpty()) {
+            throw new EvalException(loc, "tuple is empty");
+          }
+          int index = getListIndex(key, self.size(), loc);
+          return SkylarkType.convertToSkylark(self.getList().get(index), env);
         }
-        int index = getListIndex(key, self.size(), loc);
-        return SkylarkType.convertToSkylark(self.getList().get(index), env);
-      }
-    };
+      };
 
-  @SkylarkSignature(name = "$index", documented = false, objectType = String.class,
-      doc = "Returns the nth element of a string.",
-      mandatoryPositionals = {
-        @Param(name = "self", type = String.class, doc = "This string."),
-        @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
-      useLocation = true)
-  private static BuiltinFunction stringIndexOperator = new BuiltinFunction("$index") {
-    public Object invoke(String self, Object key,
-        Location loc) throws EvalException, ConversionException {
-      int index = getListIndex(key, self.length(), loc);
-      return self.substring(index, index + 1);
-    }
-  };
+  @SkylarkSignature(
+    name = "$index",
+    documented = false,
+    objectType = String.class,
+    doc = "Returns the nth element of a string.",
+    mandatoryPositionals = {
+      @Param(name = "self", type = String.class, doc = "This string."),
+      @Param(name = "key", type = Integer.class, doc = "The index or key to access.")
+    },
+    useLocation = true
+  )
+  private static BuiltinFunction stringIndexOperator =
+      new BuiltinFunction("$index") {
+        public Object invoke(String self, Integer key, Location loc)
+            throws EvalException, ConversionException {
+          int index = getListIndex(key, self.length(), loc);
+          return self.substring(index, index + 1);
+        }
+      };
 
   @SkylarkSignature(name = "values", objectType = Map.class,
       returnType = MutableList.class,
@@ -1480,16 +1533,21 @@ public class MethodLibrary {
   };
 
   // unary minus
-  @SkylarkSignature(name = "-", returnType = Integer.class,
-      documented = false,
-      doc = "Unary minus operator.",
-      mandatoryPositionals = {
-        @Param(name = "num", type = Integer.class, doc = "The number to negate.")})
-  private static BuiltinFunction minus = new BuiltinFunction("-") {
-    public Integer invoke(Integer num) throws ConversionException {
-      return -num;
+  @SkylarkSignature(
+    name = "-",
+    returnType = Integer.class,
+    documented = false,
+    doc = "Unary minus operator.",
+    mandatoryPositionals = {
+      @Param(name = "num", type = Integer.class, doc = "The number to negate.")
     }
-  };
+  )
+  private static BuiltinFunction minus =
+      new BuiltinFunction("-") {
+        public Integer invoke(Integer num) throws ConversionException {
+          return -num;
+        }
+      };
 
   @SkylarkSignature(name = "list", returnType = MutableList.class,
       doc = "Converts a collection (e.g. set or dictionary) to a list."
@@ -1504,19 +1562,23 @@ public class MethodLibrary {
     }
   };
 
-  @SkylarkSignature(name = "len", returnType = Integer.class, doc =
-      "Returns the length of a string, list, tuple, set, or dictionary.",
-      mandatoryPositionals = {@Param(name = "x", doc = "The object to check length of.")},
-      useLocation = true)
-  private static BuiltinFunction len = new BuiltinFunction("len") {
-    public Integer invoke(Object x, Location loc) throws EvalException {
-      int l = EvalUtils.size(x);
-      if (l == -1) {
-        throw new EvalException(loc, EvalUtils.getDataTypeName(x) + " is not iterable");
-      }
-      return l;
-    }
-  };
+  @SkylarkSignature(
+    name = "len",
+    returnType = Integer.class,
+    doc = "Returns the length of a string, list, tuple, set, or dictionary.",
+    mandatoryPositionals = {@Param(name = "x", doc = "The object to check length of.")},
+    useLocation = true
+  )
+  private static BuiltinFunction len =
+      new BuiltinFunction("len") {
+        public Integer invoke(Object x, Location loc) throws EvalException {
+          int l = EvalUtils.size(x);
+          if (l == -1) {
+            throw new EvalException(loc, EvalUtils.getDataTypeName(x) + " is not iterable");
+          }
+          return l;
+        }
+      };
 
   @SkylarkSignature(name = "str", returnType = String.class, doc =
       "Converts any object to string. This is useful for debugging."
