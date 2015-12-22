@@ -270,24 +270,6 @@ public class ValidationTest extends EvaluationTestCase {
   }
 
   @Test
-  public void testLoadRelativePathOneSegment() throws Exception {
-    parse("load('extension', 'a')\n");
-  }
-
-  @Test
-  public void testLoadAbsolutePathMultipleSegments() throws Exception {
-    parse("load('/pkg/extension', 'a')\n");
-  }
-
-  @Test
-  public void testLoadRelativePathMultipleSegments() throws Exception {
-    checkError(
-        "Path 'pkg/extension.bzl' is not valid. It should either start with "
-            + "a slash or refer to a file in the current directory.",
-        "load('pkg/extension', 'a')\n");
-  }
-
-  @Test
   public void testDollarErrorDoesNotLeak() throws Exception {
     setFailFast(false);
     parseFile(

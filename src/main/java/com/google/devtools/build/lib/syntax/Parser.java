@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
 import com.google.devtools.build.lib.syntax.IfStatement.ConditionalStatements;
+import com.google.devtools.build.lib.syntax.SkylarkImports.SkylarkImportSyntaxException;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.ArrayList;
@@ -1067,18 +1068,16 @@ public class Parser {
     }
     expect(TokenKind.RPAREN);
 
-    LoadStatement stmt = new LoadStatement(path, symbols);
-
-    // Although validateLoadPath() is invoked as part of validate(ValidationEnvironment),
-    // this only happens in Skylark. Consequently, we invoke it here to discover
-    // invalid load paths in BUILD mode, too.
+    SkylarkImport imp;
     try {
-      stmt.validatePath();
-    } catch (EvalException e) {
-      reportError(path.getLocation(), e.getMessage());
+      imp = SkylarkImports.create(path.getValue());
+      LoadStatement stmt = new LoadStatement(imp, symbols);
+      list.add(setLocation(stmt, start, token.left));
+    } catch (SkylarkImportSyntaxException e) {
+      String msg = "Load statement parameter '" + path + "' is invalid. "
+          + e.getMessage();
+      reportError(path.getLocation(), msg);
     }
-
-    list.add(setLocation(stmt, start, token.left));
   }
 
   /**

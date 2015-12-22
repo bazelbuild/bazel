@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 
 import java.io.IOException;
@@ -998,7 +997,7 @@ public final class PackageFactory {
       Path buildFile,
       Preprocessor.Result preprocessingResult,
       List<Statement> preludeStatements,
-      Map<PathFragment, Extension> imports,
+      Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
       RuleVisibility defaultVisibility,
       Globber globber) throws InterruptedException {
@@ -1035,7 +1034,7 @@ public final class PackageFactory {
       PackageIdentifier packageId,
       Path buildFile,
       Preprocessor.AstAfterPreprocessing astAfterPreprocessing,
-      Map<PathFragment, Extension> imports,
+      Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies,
       RuleVisibility defaultVisibility,
       Globber globber) throws InterruptedException {
@@ -1120,7 +1119,7 @@ public final class PackageFactory {
                 buildFile,
                 preprocessingResult,
                 /*preludeStatements=*/ImmutableList.<Statement>of(),
-                /*imports=*/ImmutableMap.<PathFragment, Extension>of(),
+                /*imports=*/ImmutableMap.<String, Extension>of(),
                 /*skylarkFileDependencies=*/ImmutableList.<Label>of(),
                 /*defaultVisibility=*/ConstantRuleVisibility.PUBLIC,
                 globber)
@@ -1307,7 +1306,7 @@ public final class PackageFactory {
       RuleVisibility defaultVisibility,
       boolean containsError,
       MakeEnvironment.Builder pkgMakeEnv,
-      Map<PathFragment, Extension> imports,
+      Map<String, Extension> imports,
       ImmutableList<Label> skylarkFileDependencies)
       throws InterruptedException {
     Package.LegacyBuilder pkgBuilder = new Package.LegacyBuilder(

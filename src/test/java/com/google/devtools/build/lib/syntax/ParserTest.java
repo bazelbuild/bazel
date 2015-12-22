@@ -22,10 +22,12 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.Argument.Passed;
 import com.google.devtools.build.lib.syntax.DictionaryLiteral.DictionaryEntryLiteral;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import org.junit.Before;
 import org.junit.Test;
@@ -1079,26 +1081,135 @@ public class ParserTest extends EvaluationTestCase {
     assertContainsError("syntax error");
   }
 
-  private static final String DOUBLE_SLASH_LOAD = "load('//foo/bar/file', 'test')\n";
-  private static final String DOUBLE_SLASH_ERROR =
-      "First argument of load() is a path, not a label. It should start with a "
-      + "single slash if it is an absolute path.";
-
   @Test
-  public void testLoadDoubleSlashBuild() throws Exception {
+  public void testValidAbsoluteImportPath() {
+    List<Statement> statements =
+        parseFileForSkylark("load('/some/skylark/file', 'fun_test')\n");
+    LoadStatement stmt = (LoadStatement) statements.get(0);
+    SkylarkImport imp = stmt.getImport();
+    assertThat(imp.getImportString()).isEqualTo("/some/skylark/file");
+    assertThat(imp.hasAbsolutePath()).isTrue();
+    assertThat(imp.getAbsolutePath()).isEqualTo(new PathFragment("/some/skylark/file.bzl"));
+  }
+
+  private void validNonAbsoluteImportTest(String importString, String containingFileLabelString,
+      String expectedLabelString) {
+    List<Statement> statements =
+        parseFileForSkylark("load('" + importString + "', 'fun_test')\n");
+    LoadStatement stmt = (LoadStatement) statements.get(0);
+    SkylarkImport imp = stmt.getImport();
+    assertThat(imp.getImportString()).isEqualTo(importString);
+    assertThat(imp.hasAbsolutePath()).isFalse();
+    Label containingFileLabel = Label.parseAbsoluteUnchecked(containingFileLabelString);
+    assertThat(imp.getLabel(containingFileLabel))
+    .isEqualTo(Label.parseAbsoluteUnchecked(expectedLabelString));      
+  }
+
+  private void invalidImportTest(String importString, String expectedMsg) {
     setFailFast(false);
-    parseFile(DOUBLE_SLASH_LOAD);
-    assertContainsError(DOUBLE_SLASH_ERROR);
+    parseFileForSkylark("load('" + importString + "', 'fun_test')\n"); 
+    assertContainsError(expectedMsg);    
   }
 
   @Test
-  public void testLoadDoubleSlashSkylark() throws Exception {
-    setFailFast(false);
-    parseFileForSkylark(DOUBLE_SLASH_LOAD);
-    assertContainsError(DOUBLE_SLASH_ERROR);
+  public void testValidRelativeImportPathInPackageDir() throws Exception {
+    validNonAbsoluteImportTest("file", /*containing*/ "//some/skylark:BUILD",
+        /*expected*/ "//some/skylark:file.bzl");
   }
 
   @Test
+  public void testValidRelativeImportPathInPackageSubdir() throws Exception {
+    validNonAbsoluteImportTest("file", /*containing*/ "//some/path/to:skylark/parent.bzl",
+        /*expected*/ "//some/path/to:skylark/file.bzl");
+  }
+
+  @Test
+  public void testInvalidRelativePathBzlExtImplicit() throws Exception {
+    invalidImportTest("file.bzl", SkylarkImports.BZL_EXT_IMPLICIT_MSG);
+  }
+
+  @Test
+  public void testInvalidRelativePathNoSubdirs() throws Exception {
+    invalidImportTest("path/to/file", SkylarkImports.RELATIVE_PATH_NO_SUBDIRS_MSG);
+  }
+
+  @Test
+  public void testInvalidRelativePathInvalidFilename() throws Exception {
+    invalidImportTest("\tfile", SkylarkImports.INVALID_FILENAME_PREFIX);
+  }
+
+  private void validAbsoluteImportLabelTest(String importString) {
+    validNonAbsoluteImportTest(importString, /*irrelevant*/ "//another/path:BUILD",
+        /*expected*/ importString);
+  }
+
+  @Test
+  public void testValidAbsoluteImportLabel() throws Exception {
+    validAbsoluteImportLabelTest("//some/skylark:file.bzl");
+  }
+
+  @Test
+  public void testValidAbsoluteImportLabelWithRepo() throws Exception {
+    validAbsoluteImportLabelTest("@my_repo//some/skylark:file.bzl");
+  }
+
+  @Test
+  public void testInvalidAbsoluteImportLabel() throws Exception {
+    invalidImportTest("//some/skylark/:file.bzl", SkylarkImports.INVALID_LABEL_PREFIX);
+  }
+
+  @Test
+  public void testInvalidAbsoluteImportLabelWithRepo() throws Exception {
+    invalidImportTest("@my_repo//some/skylark/:file.bzl",
+        SkylarkImports.INVALID_LABEL_PREFIX);
+  }
+
+  @Test
+  public void testInvalidAbsoluteImportLabelMissingBzlExt() throws Exception {
+    invalidImportTest("//some/skylark:file", SkylarkImports.MUST_HAVE_BZL_EXT_MSG);
+  }
+
+  @Test
+  public void testInvalidAbsoluteImportReferencesExternalPkg() throws Exception {
+    invalidImportTest("//external:file.bzl", SkylarkImports.EXTERNAL_PKG_NOT_ALLOWED_MSG);
+  }
+
+  @Test
+  public void testValidRelativeImportSimpleLabelInPackageDir() throws Exception {
+    validNonAbsoluteImportTest(":file.bzl", /*containing*/ "//some/skylark:BUILD",
+        /*expected*/ "//some/skylark:file.bzl");
+  }
+
+  @Test
+  public void testValidRelativeImportSimpleLabelInPackageSubdir() throws Exception {
+    validNonAbsoluteImportTest(":file.bzl", /*containing*/ "//some/path/to:skylark/parent.bzl",
+        /*expected*/ "//some/path/to:file.bzl");
+  }
+
+  @Test
+  public void testValidRelativeImportComplexLabelInPackageDir() throws Exception {
+    validNonAbsoluteImportTest(":subdir/containing/file.bzl", /*containing*/ "//some/skylark:BUILD",
+        /*expected*/ "//some/skylark:subdir/containing/file.bzl");
+  }
+
+  @Test
+  public void testValidRelativeImportComplexLabelInPackageSubdir() throws Exception {
+    validNonAbsoluteImportTest(":subdir/containing/file.bzl",
+        /*containing*/ "//some/path/to:skylark/parent.bzl",
+        /*expected*/ "//some/path/to:subdir/containing/file.bzl");
+  }
+
+  @Test
+  public void testInvalidRelativeImportLabelMissingBzlExt() throws Exception {
+    invalidImportTest(":file", SkylarkImports.MUST_HAVE_BZL_EXT_MSG);
+  }
+
+  @Test
+  public void testInvalidRelativeImportLabelSyntax() throws Exception {
+    invalidImportTest("::file.bzl", SkylarkImports.INVALID_TARGET_PREFIX);
+  }
+
+ @Test
   public void testLoadNoSymbol() throws Exception {
     setFailFast(false);
     parseFileForSkylark("load('/foo/bar/file')\n");
@@ -1110,7 +1221,7 @@ public class ParserTest extends EvaluationTestCase {
     List<Statement> statements = parseFileForSkylark(
         "load('/foo/bar/file', 'fun_test')\n");
     LoadStatement stmt = (LoadStatement) statements.get(0);
-    assertEquals("/foo/bar/file.bzl", stmt.getImportPath().toString());
+    assertEquals("/foo/bar/file", stmt.getImport().getImportString());
     assertThat(stmt.getSymbols()).hasSize(1);
   }
 
@@ -1119,7 +1230,7 @@ public class ParserTest extends EvaluationTestCase {
     List<Statement> statements = parseFileForSkylark(
         "load('/foo/bar/file', 'fun_test',)\n");
     LoadStatement stmt = (LoadStatement) statements.get(0);
-    assertEquals("/foo/bar/file.bzl", stmt.getImportPath().toString());
+    assertEquals("/foo/bar/file", stmt.getImport().getImportString());
     assertThat(stmt.getSymbols()).hasSize(1);
   }
 
@@ -1128,7 +1239,7 @@ public class ParserTest extends EvaluationTestCase {
     List<Statement> statements = parseFileForSkylark(
         "load('file', 'foo', 'bar')\n");
     LoadStatement stmt = (LoadStatement) statements.get(0);
-    assertEquals("file.bzl", stmt.getImportPath().toString());
+    assertEquals("file", stmt.getImport().getImportString());
     assertThat(stmt.getSymbols()).hasSize(2);
   }
 

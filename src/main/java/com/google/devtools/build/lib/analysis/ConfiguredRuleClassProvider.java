@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.SkylarkType;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsClassProvider;
 
 import java.lang.reflect.Constructor;
@@ -484,7 +483,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       Environment.Frame globals,
       EventHandler eventHandler,
       String astFileContentHashCode,
-      Map<PathFragment, Extension> importMap) {
+      Map<String, Extension> importMap) {
     Environment env = Environment.builder(mutability)
         .setSkylark()
         .setGlobals(globals)
@@ -501,7 +500,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       Mutability mutability,
       EventHandler eventHandler,
       String astFileContentHashCode,
-      Map<PathFragment, Extension> importMap) {
+      Map<String, Extension> importMap) {
     return createSkylarkRuleClassEnvironment(
         mutability, globals, eventHandler, astFileContentHashCode, importMap);
   }

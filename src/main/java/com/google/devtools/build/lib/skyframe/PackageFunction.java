@@ -48,8 +48,8 @@ import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.Skylar
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.EvalException;
-import com.google.devtools.build.lib.syntax.LoadStatement;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
+import com.google.devtools.build.lib.syntax.SkylarkImport;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -535,7 +535,7 @@ public class PackageFunction implements SkyFunction {
     if (astAfterPreprocessing.containsAstParsingErrors) {
       importResult =
           new SkylarkImportResult(
-              ImmutableMap.<PathFragment, Extension>of(),
+              ImmutableMap.<String, Extension>of(),
               ImmutableList.<Label>of());
     } else {
       importResult =
@@ -562,10 +562,10 @@ public class PackageFunction implements SkyFunction {
       Environment env,
       SkylarkImportLookupFunction skylarkImportLookupFunctionForInlining)
       throws PackageFunctionException, InterruptedException {
-    ImmutableList<LoadStatement> loadStmts = buildFileAST.getImports();
-    Map<PathFragment, Extension> importMap = Maps.newHashMapWithExpectedSize(loadStmts.size());
+    ImmutableList<SkylarkImport> imports = buildFileAST.getImports();
+    Map<String, Extension> importMap = Maps.newHashMapWithExpectedSize(imports.size());
     ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
-    ImmutableMap<PathFragment, Label> importPathMap;
+    ImmutableMap<String, Label> importPathMap;
     
     // Find the labels corresponding to the load statements.
     Label labelForCurrBuildFile;
@@ -577,12 +577,11 @@ public class PackageFunction implements SkyFunction {
     }
     try {
       importPathMap = SkylarkImportLookupFunction.findLabelsForLoadStatements(
-          loadStmts, labelForCurrBuildFile, env);
+          imports, labelForCurrBuildFile, env);
       if (importPathMap == null) {
         return null;
       }
     } catch (SkylarkImportFailedException e) {
-      env.getListener().handle(Event.error(Location.fromFile(buildFilePath), e.getMessage()));
       throw new PackageFunctionException(
           new BuildFileContainsErrorsException(packageId, e.getMessage()), Transience.PERSISTENT);
     }
@@ -635,7 +634,6 @@ public class PackageFunction implements SkyFunction {
 
       }
     } catch (SkylarkImportFailedException e) {
-      env.getListener().handle(Event.error(Location.fromFile(buildFilePath), e.getMessage()));
       throw new PackageFunctionException(
           new BuildFileContainsErrorsException(packageId, e.getMessage()), Transience.PERSISTENT);
     } catch (InconsistentFilesystemException e) {
@@ -649,13 +647,13 @@ public class PackageFunction implements SkyFunction {
     }
     
     // Process the loaded imports.
-    for (Entry<PathFragment, Label> importEntry : importPathMap.entrySet()) {
-      PathFragment importPath = importEntry.getKey();
+    for (Entry<String, Label> importEntry : importPathMap.entrySet()) {
+      String importString = importEntry.getKey();
       Label importLabel = importEntry.getValue();
       SkyKey keyForLabel = SkylarkImportLookupValue.key(importLabel, inWorkspace);
       SkylarkImportLookupValue importLookupValue =
           (SkylarkImportLookupValue) skylarkImportMap.get(keyForLabel);
-      importMap.put(importPath, importLookupValue.getEnvironmentExtension());
+      importMap.put(importString, importLookupValue.getEnvironmentExtension());
       fileDependencies.add(importLookupValue.getDependency());
     }
     
@@ -849,8 +847,6 @@ public class PackageFunction implements SkyFunction {
                   ? FileSystemUtils.readContent(buildFilePath)
                   : FileSystemUtils.readWithKnownFileSize(buildFilePath, buildFileValue.getSize());
             } catch (IOException e) {
-              env.getListener().handle(Event.error(Location.fromFile(buildFilePath),
-                  e.getMessage()));
               // Note that we did this work, so we should conservatively report this error as
               // transient.
               throw new PackageFunctionException(new BuildFileContainsErrorsException(
@@ -860,12 +856,9 @@ public class PackageFunction implements SkyFunction {
               preprocessingResult = packageFactory.preprocess(buildFilePath, packageId,
                   buildFileBytes, globber);
             } catch (IOException e) {
-              env.getListener().handle(Event.error(
-                  Location.fromFile(buildFilePath),
-                  "preprocessing failed: " + e.getMessage()));
               throw new PackageFunctionException(
-                  new BuildFileContainsErrorsException(packageId, "preprocessing failed", e),
-                  Transience.TRANSIENT);
+                  new BuildFileContainsErrorsException(
+                      packageId, "preprocessing failed" + e.getMessage(), e), Transience.TRANSIENT);
             }
           } else {
             ParserInputSource replacementSource =
@@ -970,10 +963,10 @@ public class PackageFunction implements SkyFunction {
 
   /** A simple value class to store the result of the Skylark imports.*/
   static final class SkylarkImportResult {
-    final Map<PathFragment, Extension> importMap;
+    final Map<String, Extension> importMap;
     final ImmutableList<Label> fileDependencies;
     private SkylarkImportResult(
-        Map<PathFragment, Extension> importMap,
+        Map<String, Extension> importMap,
         ImmutableList<Label> fileDependencies) {
       this.importMap = importMap;
       this.fileDependencies = fileDependencies;

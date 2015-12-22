@@ -34,35 +34,28 @@ public class SkylarkImportTest {
   @Rule
   public ExpectedException thrown = ExpectedException.none();
 
-  @Test
-  public void testValidAbsoluteLabel() throws Exception {
-    String labelToTest = "//some/skylark:file.bzl";
-    SkylarkImport importForLabel = SkylarkImports.create(labelToTest);
+  private void validAbsoluteLabelTest(String labelString) throws Exception {
+    SkylarkImport importForLabel = SkylarkImports.create(labelString);
 
     assertThat(importForLabel.hasAbsolutePath()).isFalse();
+    assertThat(importForLabel.getImportString()).isEqualTo(labelString);
 
     Label irrelevantContainingFile = Label.parseAbsoluteUnchecked("//another/path:BUILD");
     assertThat(importForLabel.getLabel(irrelevantContainingFile))
-        .isEqualTo(Label.parseAbsoluteUnchecked("//some/skylark:file.bzl"));
+        .isEqualTo(Label.parseAbsoluteUnchecked(labelString));
 
     thrown.expect(IllegalStateException.class);
-    importForLabel.getAbsolutePath();
+    importForLabel.getAbsolutePath();   
   }
 
+  @Test
+  public void testValidAbsoluteLabel() throws Exception {
+    validAbsoluteLabelTest("//some/skylark:file.bzl");
+  }
 
   @Test
   public void testValidAbsoluteLabelWithRepo() throws Exception {
-    String labelToTest = "@my_repo//some/skylark:file.bzl";
-    SkylarkImport importForLabel = SkylarkImports.create(labelToTest);
-
-    assertThat(importForLabel.hasAbsolutePath()).isFalse();
-
-    Label irrelevantContainingFile = Label.parseAbsoluteUnchecked("//another/path:BUILD");
-    assertThat(importForLabel.getLabel(irrelevantContainingFile))
-        .isEqualTo(Label.parseAbsoluteUnchecked("@my_repo//some/skylark:file.bzl"));
-
-    thrown.expect(IllegalStateException.class);
-    importForLabel.getAbsolutePath();
+    validAbsoluteLabelTest("@my_repo//some/skylark:file.bzl");
   }
 
   @Test
@@ -71,197 +64,141 @@ public class SkylarkImportTest {
     SkylarkImport importForPath = SkylarkImports.create(pathToTest);
 
     assertThat(importForPath.hasAbsolutePath()).isTrue();
+    assertThat(importForPath.getImportString()).isEqualTo(pathToTest);
 
     Label irrelevantContainingFile = Label.parseAbsoluteUnchecked("//another/path:BUILD");
-    assertThat(importForPath.getAbsolutePath()).isEqualTo(new PathFragment(pathToTest));
+    assertThat(importForPath.getAbsolutePath()).isEqualTo(new PathFragment(pathToTest + ".bzl"));
 
     thrown.expect(IllegalStateException.class);
     importForPath.getLabel(irrelevantContainingFile);
   }
 
-  @Test
-  public void testValidRelativeSimpleLabelInPackageDir() throws Exception {
-    String labelToTest = ":file.bzl";
-    SkylarkImport importForLabel = SkylarkImports.create(labelToTest);
+  private void validRelativeLabelTest(String labelString,
+      String containingLabelString, String expectedLabelString) throws Exception {
+    SkylarkImport importForLabel = SkylarkImports.create(labelString);
 
     assertThat(importForLabel.hasAbsolutePath()).isFalse();
+    assertThat(importForLabel.getImportString()).isEqualTo(labelString);
 
     // The import label is relative to the parent's package, not the parent's directory.
-    Label containingFile = Label.parseAbsolute("//some/skylark:BUILD");
-    assertThat(importForLabel.getLabel(containingFile))
-        .isEqualTo(Label.parseAbsolute("//some/skylark:file.bzl"));
+    Label containingLabel = Label.parseAbsolute(containingLabelString);
+    assertThat(importForLabel.getLabel(containingLabel))
+    .isEqualTo(Label.parseAbsolute(expectedLabelString));
 
     thrown.expect(IllegalStateException.class);
     importForLabel.getAbsolutePath();
+  }
+
+  @Test
+  public void testValidRelativeSimpleLabelInPackageDir() throws Exception {
+    validRelativeLabelTest(":file.bzl", /*containing*/ "//some/skylark:BUILD",
+        /*expected*/ "//some/skylark:file.bzl");
   }
 
   @Test
   public void testValidRelativeSimpleLabelInPackageSubdir() throws Exception {
-    String labelToTest = ":file.bzl";
-    SkylarkImport importForLabel = SkylarkImports.create(labelToTest);
-
-    assertThat(importForLabel.hasAbsolutePath()).isFalse();
-
-    // The import label is relative to the parent's package, not the parent's directory.
-    Label containingFile = Label.parseAbsolute("//some/path/to:skylark/parent.bzl");
-    assertThat(importForLabel.getLabel(containingFile))
-        .isEqualTo(Label.parseAbsolute("//some/path/to:file.bzl"));
-
-    thrown.expect(IllegalStateException.class);
-    importForLabel.getAbsolutePath();
+    validRelativeLabelTest(":file.bzl", /*containing*/ "//some/path/to:skylark/parent.bzl",
+        /*expected*/ "//some/path/to:file.bzl");
   }
 
   @Test
   public void testValidRelativeComplexLabelInPackageDir() throws Exception {
-    String labelToTest = ":subdir/containing/file.bzl";
-    SkylarkImport importForLabel = SkylarkImports.create(labelToTest);
-
-    assertThat(importForLabel.hasAbsolutePath()).isFalse();
-
-    // The import label is relative to the parent's package, not the parent's directory.
-    Label containingFile = Label.parseAbsolute("//some/skylark:BUILD");
-    assertThat(importForLabel.getLabel(containingFile))
-        .isEqualTo(Label.parseAbsolute("//some/skylark:subdir/containing/file.bzl"));
-
-    thrown.expect(IllegalStateException.class);
-    importForLabel.getAbsolutePath();
+    validRelativeLabelTest(":subdir/containing/file.bzl",
+        /*containing*/ "//some/skylark:BUILD",
+        /*expected*/ "//some/skylark:subdir/containing/file.bzl");
   }
 
   @Test
   public void testValidRelativeComplexLabelInPackageSubdir() throws Exception {
-    String labelToTest = ":subdir/containing/file.bzl";
-    SkylarkImport importForLabel = SkylarkImports.create(labelToTest);
+    validRelativeLabelTest(":subdir/containing/file.bzl",
+        /*containing*/ "//some/path/to:skylark/parent.bzl",
+        /*expected*/ "//some/path/to:subdir/containing/file.bzl");
+  }
 
-    assertThat(importForLabel.hasAbsolutePath()).isFalse();
+  private void validRelativePathTest(String pathString, String containingLabelString,
+      String expectedLabelString) throws Exception {
+    SkylarkImport importForPath = SkylarkImports.create(pathString);
 
-    // The import label is relative to the parent's package, not the parent's directory.
-    Label containingFile = Label.parseAbsolute("//some/path/to:skylark/parent.bzl");
-    assertThat(importForLabel.getLabel(containingFile))
-        .isEqualTo(Label.parseAbsolute("//some/path/to:subdir/containing/file.bzl"));
+    assertThat(importForPath.hasAbsolutePath()).isFalse();
+
+    // The import label is relative to the parent's directory not the parent's package.
+    Label containingLabel = Label.parseAbsolute(containingLabelString);
+    assertThat(importForPath.getLabel(containingLabel))
+    .isEqualTo(Label.parseAbsolute(expectedLabelString));
 
     thrown.expect(IllegalStateException.class);
-    importForLabel.getAbsolutePath();
+    importForPath.getAbsolutePath();
   }
 
   @Test
   public void testValidRelativePathInPackageDir() throws Exception {
-    String pathToTest = "file";
-    SkylarkImport importForPath = SkylarkImports.create(pathToTest);
-
-    assertThat(importForPath.hasAbsolutePath()).isFalse();
-
-    // The import label is relative to the parent's directory not the parent's package.
-    Label containingFile = Label.parseAbsolute("//some/skylark:BUILD");
-    assertThat(importForPath.getLabel(containingFile))
-        .isEqualTo(Label.parseAbsolute("//some/skylark:file.bzl"));
-
-    thrown.expect(IllegalStateException.class);
-    importForPath.getAbsolutePath();
+    validRelativePathTest("file", /*containing*/ "//some/skylark:BUILD",
+        /*expected*/ "//some/skylark:file.bzl");
   }
 
   @Test
   public void testValidRelativePathInPackageSubdir() throws Exception {
-    String pathToTest = "file";
-    SkylarkImport importForPath = SkylarkImports.create(pathToTest);
-    assertThat(importForPath.hasAbsolutePath()).isFalse();
+    validRelativePathTest("file", /*containing*/ "//some/path/to:skylark/parent.bzl",
+        /*expected*/ "//some/path/to:skylark/file.bzl");
+  }
 
-    // The import label is relative to the parent's directory not the parent's package.
-    Label containingFile = Label.parseAbsolute("//some/path/to:skylark/parent.bzl");
-    assertThat(importForPath.getLabel(containingFile))
-        .isEqualTo(Label.parseAbsolute("//some/path/to:skylark/file.bzl"));
-
-    thrown.expect(IllegalStateException.class);
-    importForPath.getAbsolutePath();
+  private void invalidImportTest(String importString, String expectedMsgPrefix) throws Exception {
+    thrown.expect(SkylarkImportSyntaxException.class);
+    thrown.expectMessage(startsWith(expectedMsgPrefix));
+    SkylarkImports.create(importString);   
   }
 
   @Test
   public void testInvalidAbsoluteLabelSyntax() throws Exception {
-    String labelToTest = "//some/skylark/:file.bzl"; // final '/' is illegal
-    
-    thrown.expect(SkylarkImportSyntaxException.class);
-    thrown.expectMessage(startsWith(SkylarkImports.INVALID_LABEL_PREFIX));
-    SkylarkImports.create(labelToTest);
+    // final '/' is illegal
+    invalidImportTest("//some/skylark/:file.bzl", SkylarkImports.INVALID_LABEL_PREFIX);
   }
 
   @Test
   public void testInvalidAbsoluteLabelSyntaxWithRepo() throws Exception {
-    String labelToTest = "@my_repo//some/skylark/:file.bzl"; // final '/' is illegal
-    
-    thrown.expect(SkylarkImportSyntaxException.class);
-    thrown.expectMessage(startsWith(SkylarkImports.INVALID_LABEL_PREFIX));
-    SkylarkImports.create(labelToTest);
+    // final '/' is illegal
+    invalidImportTest("@my_repo//some/skylark/:file.bzl", SkylarkImports.INVALID_LABEL_PREFIX);
   }
 
   @Test
   public void tesInvalidAbsoluteLabelMissingBzlExt() throws Exception {
-    String labelToTest = "//some/skylark:file";
-    
-    thrown.expect(SkylarkImportSyntaxException.class);
-    thrown.expectMessage(SkylarkImports.MUST_HAVE_BZL_EXT_MSG);
-    SkylarkImports.create(labelToTest);
+    invalidImportTest("//some/skylark:file", SkylarkImports.MUST_HAVE_BZL_EXT_MSG);
   }
 
   @Test
   public void tesInvalidAbsoluteLabelReferencesExternalPkg() throws Exception {
-    String labelToTest = "//external:file.bzl";
-    
-    thrown.expect(SkylarkImportSyntaxException.class);
-    thrown.expectMessage(SkylarkImports.EXTERNAL_PKG_NOT_ALLOWED_MSG);
-    SkylarkImports.create(labelToTest);
+    invalidImportTest("//external:file.bzl", SkylarkImports.EXTERNAL_PKG_NOT_ALLOWED_MSG);
   }
 
- @Test
+  @Test
   public void tesInvalidAbsolutePathBzlExtImplicit() throws Exception {
-    String labelToTest = "/some/skylark/file.bzl";
-    
-    thrown.expect(SkylarkImportSyntaxException.class);
-    thrown.expectMessage(SkylarkImports.BZL_EXT_IMPLICIT_MSG);
-    SkylarkImports.create(labelToTest);
+    invalidImportTest("/some/skylark/file.bzl", SkylarkImports.BZL_EXT_IMPLICIT_MSG);
   }
 
   @Test
   public void testInvalidRelativeLabelMissingBzlExt() throws Exception {
-    String labelToTest = ":file";
-    
-    thrown.expect(SkylarkImportSyntaxException.class);
-    thrown.expectMessage(SkylarkImports.MUST_HAVE_BZL_EXT_MSG);
-    SkylarkImports.create(labelToTest);
+    invalidImportTest(":file", SkylarkImports.MUST_HAVE_BZL_EXT_MSG);
   }
 
   @Test
   public void testInvalidRelativeLabelSyntax() throws Exception {
-    String labelToTest = "::file.bzl";
-    
-    thrown.expect(SkylarkImportSyntaxException.class);
-    thrown.expectMessage(startsWith(SkylarkImports.INVALID_TARGET_PREFIX));
-    SkylarkImports.create(labelToTest);
+    invalidImportTest("::file.bzl", SkylarkImports.INVALID_TARGET_PREFIX);
   }
 
   @Test
   public void testInvalidRelativePathBzlExtImplicit() throws Exception {
-    String labelToTest = "file.bzl";
-    
-    thrown.expect(SkylarkImportSyntaxException.class);
-    thrown.expectMessage(SkylarkImports.BZL_EXT_IMPLICIT_MSG);
-    SkylarkImports.create(labelToTest);
+    invalidImportTest("file.bzl", SkylarkImports.BZL_EXT_IMPLICIT_MSG);
   }
 
   @Test
   public void testInvalidRelativePathNoSubdirs() throws Exception {
-    String labelToTest = "path/to/file";
-    
-    thrown.expect(SkylarkImportSyntaxException.class);
-    thrown.expectMessage(SkylarkImports.RELATIVE_PATH_NO_SUBDIRS_MSG);
-    SkylarkImports.create(labelToTest);
+    invalidImportTest("path/to/file", SkylarkImports.RELATIVE_PATH_NO_SUBDIRS_MSG);
   }
 
   @Test
   public void testInvalidRelativePathInvalidFilename() throws Exception {
-    String labelToTest = "\tfile"; // tab character is invalid
-    
-    thrown.expect(SkylarkImportSyntaxException.class);
-    thrown.expectMessage(startsWith(SkylarkImports.INVALID_FILENAME_PREFIX));
-    SkylarkImports.create(labelToTest);
+    // tab character is invalid
+    invalidImportTest("\tfile", SkylarkImports.INVALID_FILENAME_PREFIX);
   }
 }
 

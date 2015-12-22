@@ -24,15 +24,39 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * Factory class for creating appropriate instances of {@link SkylarkImports}.
  */
 public class SkylarkImports {
-  
+
   private SkylarkImports() {
     throw new IllegalStateException("This class should not be instantiated");
   }
 
-  private static final class AbsolutePathImport implements SkylarkImport {
+  // Default implementation class for SkylarkImport.
+  private abstract static class SkylarkImportImpl implements SkylarkImport {
+    protected String importString;
+
+    @Override
+    public String getImportString() {
+      return importString;
+    }
+
+    @Override
+    public abstract Label getLabel(Label containingFileLabel);
+
+    @Override
+    public boolean hasAbsolutePath() {
+      return false;
+    }
+
+    @Override
+    public PathFragment getAbsolutePath() {
+      throw new IllegalStateException("can't request absolute path from a non-absolute import");
+    }
+  }
+
+  private static final class AbsolutePathImport extends SkylarkImportImpl {
     private PathFragment importPath;
 
-    private AbsolutePathImport(PathFragment importPath) {
+    private AbsolutePathImport(String importString, PathFragment importPath) {
+      this.importString = importString;
       this.importPath = importPath;
     }
 
@@ -52,10 +76,11 @@ public class SkylarkImports {
     }
   }
 
-  private static final class RelativePathImport implements SkylarkImport {
+  private static final class RelativePathImport extends SkylarkImportImpl {
     private String importFile;
 
-    private RelativePathImport(String importFile) {
+    private RelativePathImport(String importString, String importFile) {
+      this.importString = importString;
       this.importFile = importFile;
     }
 
@@ -75,46 +100,29 @@ public class SkylarkImports {
         throw new IllegalStateException(e);
       }
     }
-
-    @Override
-    public boolean hasAbsolutePath() {
-      return false;
-    }
-
-    @Override
-    public PathFragment getAbsolutePath() {
-      throw new IllegalStateException("can't request absolute path from a non-absolute import");
-    }
   }
 
-  private static final class AbsoluteLabelImport implements SkylarkImport {
+  private static final class AbsoluteLabelImport extends SkylarkImportImpl {
     private Label importLabel;
 
-    private AbsoluteLabelImport(Label importLabel) {
+    private AbsoluteLabelImport(String importString, Label importLabel) {
+      this.importString = importString;
       this.importLabel = importLabel;
     }
 
     @Override
     public Label getLabel(Label containingFileLabel) {
-      // The containing file label is irrelevant here since this is an absolute path.
-      return importLabel;
-    }
-
-    @Override
-    public boolean hasAbsolutePath() {
-      return false;
-    }
-
-    @Override
-    public PathFragment getAbsolutePath() {
-      throw new IllegalStateException("can't request absolute path from a non-absolute import");
+      // When the import label contains no explicit repository identifier, we resolve it relative
+      // to the repo of the containing file.
+      return containingFileLabel.resolveRepositoryRelative(importLabel);
     }
   }
 
-  private static final class RelativeLabelImport implements SkylarkImport {
+  private static final class RelativeLabelImport extends SkylarkImportImpl {
     private String importTarget;
 
-    private RelativeLabelImport(String importTarget) {
+    private RelativeLabelImport(String importString, String importTarget) {
+      this.importString = importString;
       this.importTarget = importTarget;
     }
 
@@ -130,16 +138,6 @@ public class SkylarkImports {
         throw new IllegalStateException(e);
       }
     }
-
-    @Override
-    public boolean hasAbsolutePath() {
-      return false;
-    }
-
-    @Override
-    public PathFragment getAbsolutePath() {
-      throw new IllegalStateException("can't request absolute path from a non-absolute import");
-    }
   }
 
   /**
@@ -152,10 +150,11 @@ public class SkylarkImports {
   }
 
   @VisibleForTesting
-  static final String INVALID_LABEL_PREFIX = "invalid label: ";
+  static final String INVALID_LABEL_PREFIX = "Invalid label: ";
 
   @VisibleForTesting
-  static final String MUST_HAVE_BZL_EXT_MSG = "must reference a file with extension '.bzl'";
+  static final String MUST_HAVE_BZL_EXT_MSG =
+      "The label must reference a file with extension '.bzl'";
 
   @VisibleForTesting
   static final String EXTERNAL_PKG_NOT_ALLOWED_MSG =
@@ -163,17 +162,17 @@ public class SkylarkImports {
 
   @VisibleForTesting
   static final String BZL_EXT_IMPLICIT_MSG =
-  "the '.bzl' file extension is implicit; remove it from the path";
+  "The '.bzl' file extension is implicit; remove it from the path";
 
   @VisibleForTesting
-  static final String INVALID_TARGET_PREFIX = "invalid target: ";
+  static final String INVALID_TARGET_PREFIX = "Invalid target: ";
 
   @VisibleForTesting
-  static final String INVALID_FILENAME_PREFIX = "invalid filename: ";
+  static final String INVALID_FILENAME_PREFIX = "Invalid filename: ";
 
   @VisibleForTesting
   static final String RELATIVE_PATH_NO_SUBDIRS_MSG =
-  "relative import path may not contain subdirectories";
+  "A relative import path may not contain subdirectories";
 
   /**
    * Creates and syntactically validates a {@link SkylarkImports} instance from a string.
@@ -200,14 +199,14 @@ public class SkylarkImports {
       if (packageId.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
         throw new SkylarkImportSyntaxException(EXTERNAL_PKG_NOT_ALLOWED_MSG);
       }
-      return new AbsoluteLabelImport(importLabel);
+      return new AbsoluteLabelImport(importString, importLabel);
     } else if (importString.startsWith("/")) {
       // Absolute path.
       if (importString.endsWith(".bzl")) {
         throw new SkylarkImportSyntaxException(BZL_EXT_IMPLICIT_MSG);
       }
-      PathFragment importPath = new PathFragment(importString);
-      return new AbsolutePathImport(importPath);
+      PathFragment importPath = new PathFragment(importString + ".bzl");
+      return new AbsolutePathImport(importString, importPath);
     } else if (importString.startsWith(":")) {
       // Relative label. We require that relative labels use an explicit ':' prefix to distinguish
       // them from relative paths, which have a different semantics.
@@ -220,7 +219,7 @@ public class SkylarkImports {
         // Null indicates successful target validation.
         throw new SkylarkImportSyntaxException(INVALID_TARGET_PREFIX + maybeErrMsg);
       }
-      return new RelativeLabelImport(importTarget);
+      return new RelativeLabelImport(importString, importTarget);
     } else {
       // Relative path.
       if (importString.endsWith(".bzl")) {
@@ -235,7 +234,7 @@ public class SkylarkImports {
         // Null indicates successful target validation.
         throw new SkylarkImportSyntaxException(INVALID_FILENAME_PREFIX + maybeErrMsg);
       }
-      return new RelativePathImport(importTarget);
+      return new RelativePathImport(importString, importTarget);
     }
   }
 }

@@ -16,12 +16,19 @@ package com.google.devtools.build.lib.syntax;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.io.Serializable;
+
 /**
  * Encapsulates the four syntactic variants of Skylark imports: Absolute paths, relative
  * paths, absolute labels, and relative labels.
  */
-public interface SkylarkImport {
+public interface SkylarkImport extends Serializable {
 
+  /**
+   * Returns the string originally used to specify the import (may represent a label or a path).
+   */
+  String getImportString();
+  
   /**
    * Given a {@link Label} representing the file that contains this import, returns a {@link Label}
    * representing the .bzl file to be imported.

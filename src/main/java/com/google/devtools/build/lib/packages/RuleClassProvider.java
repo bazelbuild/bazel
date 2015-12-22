@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.packages.NativeAspectClass.NativeAspectFact
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Map;
 
@@ -59,7 +58,7 @@ public interface RuleClassProvider {
       Mutability mutability,
       EventHandler eventHandler,
       @Nullable String astFileContentHashCode,
-      @Nullable Map<PathFragment, Extension> importMap);
+      @Nullable Map<String, Extension> importMap);
 
   /**
    * Returns a map from aspect names to aspect factory objects.

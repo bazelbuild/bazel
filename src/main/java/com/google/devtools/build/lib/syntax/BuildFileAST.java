@@ -34,7 +34,7 @@ public class BuildFileAST extends ASTNode {
 
   private final ImmutableList<Comment> comments;
 
-  private ImmutableList<LoadStatement> loads;
+  private ImmutableList<SkylarkImport> imports;
 
   /**
    * Whether any errors were encountered during scanning or parsing.
@@ -60,15 +60,15 @@ public class BuildFileAST extends ASTNode {
   }
 
   /** Collects all load statements */
-  private ImmutableList<LoadStatement> fetchLoads(List<Statement> stmts) {
-    ImmutableList.Builder<LoadStatement> loads = new ImmutableList.Builder<>();
+  private ImmutableList<SkylarkImport> fetchLoads(List<Statement> stmts) {
+    ImmutableList.Builder<SkylarkImport> imports = new ImmutableList.Builder<>();
     for (Statement stmt : stmts) {
       if (stmt instanceof LoadStatement) {
-        LoadStatement imp = (LoadStatement) stmt;
-        loads.add(imp);
+        SkylarkImport imp = ((LoadStatement) stmt).getImport();
+        imports.add(imp);
       }
     }
-    return loads.build();
+    return imports.build();
   }
 
   /**
@@ -97,11 +97,11 @@ public class BuildFileAST extends ASTNode {
   /**
    * Returns a list of loads in this BUILD file.
    */
-  public synchronized ImmutableList<LoadStatement> getImports() {
-    if (loads == null) {
-      loads = fetchLoads(stmts);
+  public synchronized ImmutableList<SkylarkImport> getImports() {
+    if (imports == null) {
+      imports = fetchLoads(stmts);
     }
-    return loads;
+    return imports;
   }
 
   /**

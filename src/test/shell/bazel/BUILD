@@ -178,6 +178,14 @@ sh_test(
 )
 
 sh_test(
+    name = "external_skylark_load_test",
+    size = "large",
+    srcs = ["external_skylark_load_test.sh"],
+    data = [":test-deps"],
+    shard_count = 6,
+)
+
+sh_test(
     name = "skylark_repository_test",
     size = "large",
     srcs = ["skylark_repository_test.sh"],

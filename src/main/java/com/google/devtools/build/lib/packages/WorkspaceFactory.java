@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.File;
 import java.util.Map;
@@ -153,7 +152,7 @@ public class WorkspaceFactory {
     return buildFileAST;
   }
 
-  public void setImportedExtensions(Map<PathFragment, Extension> importedExtensions) {
+  public void setImportedExtensions(Map<String, Extension> importedExtensions) {
     environmentBuilder.setImportedExtensions(importedExtensions);
   }
 

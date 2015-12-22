@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
 
@@ -132,7 +131,7 @@ public class PackageFactoryApparatus {
             ConstantRuleVisibility.PUBLIC,
             false,
             new MakeEnvironment.Builder(),
-            ImmutableMap.<PathFragment, Extension>of(),
+            ImmutableMap.<String, Extension>of(),
             ImmutableList.<Label>of());
     Package result = resultBuilder.build();
     Event.replayEventsOn(eventHandler, result.getEvents());
