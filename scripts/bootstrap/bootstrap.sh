@@ -34,8 +34,7 @@ fi
       --javabuilder_top=//src/java_tools/buildjar:bootstrap_deploy.jar \
       --genclass_top=//src/java_tools/buildjar:bootstrap_genclass_deploy.jar \
       --ijar_top=//third_party/ijar \
-      --strategy=Javac=worker --worker_quit_after_build \
-      ${EXTRA_BAZEL_ARGS-}"}
+      --strategy=Javac=worker --worker_quit_after_build"}
 
 function bazel_bootstrap() {
   local mode=${3:-"0644"}
