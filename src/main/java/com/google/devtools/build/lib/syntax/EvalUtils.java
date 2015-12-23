@@ -384,7 +384,7 @@ public final class EvalUtils {
     if (o instanceof Collection) {
       return (Collection<?>) o;
     } else if (o instanceof SkylarkList) {
-      return ((SkylarkList) o).getList();
+      return ((SkylarkList) o).getImmutableList();
     } else if (o instanceof Map) {
       // For dictionaries we iterate through the keys only
       // For determinism, we sort the keys.

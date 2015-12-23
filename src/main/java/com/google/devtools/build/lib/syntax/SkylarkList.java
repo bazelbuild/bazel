@@ -41,8 +41,7 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
    * Returns the List object underlying this SkylarkList.
    * Mutating it (if mutable) will actually mutate the contents of the list.
    */
-  // TODO(bazel-team): make this public no more.
-  public abstract List<Object> getList();
+  protected abstract List<Object> getList();
 
   /**
    * Returns an ImmutableList object with the current underlying contents of this SkylarkList.
@@ -56,7 +55,7 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
    */
   // TODO(bazel-team): move GlobList out of Skylark, into an extension,
   // and maybe get rid of this method?
-  public abstract List<Object> getContents();
+  protected abstract List<Object> getContents();
 
   /**
    * Returns true if this list is a tuple.

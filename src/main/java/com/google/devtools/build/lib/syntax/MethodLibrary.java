@@ -896,7 +896,7 @@ public class MethodLibrary {
     @SuppressWarnings("unused")
     public String invoke(String self, SkylarkList args, Map<String, Object> kwargs, Location loc)
         throws ConversionException, EvalException {
-      return new FormatParser(loc).format(self, args.getList(), kwargs);
+      return new FormatParser(loc).format(self, args.getImmutableList(), kwargs);
     }
   };
 
