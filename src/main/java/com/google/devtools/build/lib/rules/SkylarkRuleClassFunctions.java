@@ -35,11 +35,17 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.Constants;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -81,6 +87,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkModuleNameResolver;
+import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
@@ -652,6 +659,29 @@ public class SkylarkRuleClassFunctions {
       sb.append("\n");
       }
     };
+
+  @SkylarkSignature(name = "output_group",
+      documented = false, //  TODO(dslomov): document.
+      objectType =  TransitiveInfoCollection.class,
+      returnType = SkylarkNestedSet.class,
+      mandatoryPositionals = {
+          @Param(name = "self", type = TransitiveInfoCollection.class, doc =
+              "this target"
+          ),
+          @Param(name = "group_name", type = String.class, doc =
+              "Output group name"
+          )
+      }
+  )
+  public static final BuiltinFunction output_group = new BuiltinFunction("output_group") {
+      public SkylarkNestedSet invoke(TransitiveInfoCollection self, String group) {
+        OutputGroupProvider provider = self.getProvider(OutputGroupProvider.class);
+        NestedSet<Artifact> result = provider != null
+            ? provider.getOutputGroup(group)
+            : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
+        return SkylarkNestedSet.of(Artifact.class, result);
+      }
+  };
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(SkylarkRuleClassFunctions.class);
