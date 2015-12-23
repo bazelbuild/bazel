@@ -385,18 +385,6 @@ public final class Environment implements Freezable {
     return lexicalFrame == null;
   }
 
-  /**
-   * Is the current code Skylark?
-   * @return true if Skylark was enabled when this code was read.
-   */
-  // TODO(bazel-team): Delete this function.
-  // This function is currently used in various functions that change their behavior with respect to
-  // lists depending on the Skylark-ness of the code; lists should be unified between the two modes.
-  @VisibleForTesting
-  public boolean isSkylark() {
-    return isSkylark;
-  }
-
   @Override
   public Mutability mutability() {
     // the mutability of the environment is that of its dynamic frame.
@@ -550,7 +538,7 @@ public final class Environment implements Freezable {
       if (importedExtensions == null) {
         importedExtensions = ImmutableMap.of();
       }
-      Environment env = new Environment(
+      return new Environment(
           globalFrame,
           dynamicFrame,
           eventHandler,
@@ -558,7 +546,6 @@ public final class Environment implements Freezable {
           isSkylark,
           fileContentHashCode,
           isLoadingPhase);
-      return env;
     }
   }
 

@@ -94,17 +94,15 @@ public class LValue implements Serializable {
       throws EvalException, InterruptedException {
     Preconditions.checkNotNull(result, "trying to assign null to %s", ident);
 
-    if (env.isSkylark()) {
-      // The variable may have been referenced successfully if a global variable
-      // with the same name exists. In this case an Exception needs to be thrown.
-      if (env.isKnownGlobalVariable(ident.getName())) {
-        throw new EvalException(
-            loc,
-            String.format(
-                "Variable '%s' is referenced before assignment. "
-                    + "The variable is defined in the global scope.",
-                ident.getName()));
-      }
+    // The variable may have been referenced successfully if a global variable
+    // with the same name exists. In this case an Exception needs to be thrown.
+    if (env.isKnownGlobalVariable(ident.getName())) {
+      throw new EvalException(
+          loc,
+          String.format(
+              "Variable '%s' is referenced before assignment. "
+                  + "The variable is defined in the global scope.",
+              ident.getName()));
     }
     env.update(ident.getName(), result);
   }
