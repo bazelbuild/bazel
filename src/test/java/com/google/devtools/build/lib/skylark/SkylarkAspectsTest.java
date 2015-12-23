@@ -19,12 +19,15 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
@@ -147,6 +150,57 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
                 }))
         .containsExactly("//test:xxx", "//test:yyy");
   }
+
+  @Test
+  public void testAspectWithOutputGroups() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   f = target.output_group('_hidden_top_level')",
+        "   return struct(output_groups = { 'my_result' : f })",
+        "",
+        "MyAspect = aspect(",
+        "   implementation=_impl,",
+        "   attr_aspects=['deps'],",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "java_library(",
+        "     name = 'xxx',",
+        "     srcs = ['A.java'],",
+        ")");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("//test:xxx"),
+            ImmutableList.of("test/aspect.bzl%MyAspect"),
+            false,
+            LOADING_PHASE_THREADS,
+            true,
+            new EventBus());
+    assertThat(
+        transform(
+            analysisResult.getTargetsToBuild(),
+            new Function<ConfiguredTarget, String>() {
+              @Nullable
+              @Override
+              public String apply(ConfiguredTarget configuredTarget) {
+                return configuredTarget.getLabel().toString();
+              }
+            }))
+        .containsExactly("//test:xxx");
+    AspectValue aspectValue = analysisResult.getAspects().iterator().next();
+    OutputGroupProvider outputGroupProvider =
+        aspectValue.getConfiguredAspect().getProvider(OutputGroupProvider.class);
+    assertThat(outputGroupProvider).isNotNull();
+    NestedSet<Artifact> names = outputGroupProvider.getOutputGroup("my_result");
+    assertThat(names).isNotEmpty();
+    NestedSet<Artifact> expectedSet = getConfiguredTarget("//test:xxx")
+        .getProvider(OutputGroupProvider.class)
+        .getOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL);
+    assertThat(names).containsExactlyElementsIn(expectedSet);
+  }
+
 
   @Test
   public void testAspectsFromSkylarkRules() throws Exception {

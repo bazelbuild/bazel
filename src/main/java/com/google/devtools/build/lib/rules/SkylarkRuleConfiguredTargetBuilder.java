@@ -41,6 +41,8 @@ import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
 
+import java.util.Map;
+
 /**
  * A helper class to build Rule Configured Targets via runtime loaded rule implementations
  * defined using the Skylark Build Extension Language.
@@ -148,6 +150,20 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     return executable;
   }
 
+  private static void addOutputGroups(Object value, Location loc,
+      RuleConfiguredTargetBuilder builder)
+      throws EvalException {
+    Map<String, SkylarkNestedSet> outputGroups = SkylarkType
+        .castMap(value, String.class, SkylarkNestedSet.class, "output_groups");
+
+    for (String outputGroup : outputGroups.keySet()) {
+      SkylarkNestedSet objects = outputGroups.get(outputGroup);
+      builder.addOutputGroup(outputGroup,
+          SkylarkType.cast(objects, SkylarkNestedSet.class, Artifact.class, loc,
+              "Output group '%s'", outputGroup).getSet(Artifact.class));
+    }
+  }
+
   private static ConfiguredTarget addStructFields(RuleContext ruleContext,
       RuleConfiguredTargetBuilder builder, Object target, Artifact executable)
       throws EvalException {
@@ -169,6 +185,8 @@ public final class SkylarkRuleConfiguredTargetBuilder {
           dataRunfiles = cast("data_runfiles", struct, Runfiles.class, loc);
         } else if (key.equals("default_runfiles")) {
           defaultRunfiles = cast("default_runfiles", struct, Runfiles.class, loc);
+        } else if (key.equals("output_groups")) {
+          addOutputGroups(struct.getValue(key), loc, builder);
         } else if (!key.equals("executable")) {
           // We handled executable already.
           builder.addSkylarkTransitiveInfo(key, struct.getValue(key), loc);
