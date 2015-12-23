@@ -602,8 +602,7 @@ public final class FuncallExpression extends Expression {
       function = (BaseFunction) fieldValue;
       return function.call(
           positionalArgs, ImmutableMap.<String, Object>copyOf(keyWordArgs), call, env);
-    } else if (env.isSkylark()) {
-      // Only allow native Java calls when using Skylark
+    } else {
       // When calling a Java method, the name is not in the Environment,
       // so evaluating 'func' would fail.
       Class<?> objClass;
@@ -627,13 +626,6 @@ public final class FuncallExpression extends Expression {
                 EvalUtils.getDataTypeNameFromClass(objClass)));
       }
       return callMethod(methodDescriptor, method, obj, positionalArgs.toArray(), location, env);
-    } else {
-      throw new EvalException(
-          location,
-          String.format(
-              "%s is not defined on object of type '%s'",
-              call.functionName(),
-              EvalUtils.getDataTypeName(value)));
     }
   }
 
