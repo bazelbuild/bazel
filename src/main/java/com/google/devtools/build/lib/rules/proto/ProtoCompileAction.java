@@ -190,6 +190,16 @@ public final class ProtoCompileAction {
     }
   }
 
+  /**
+   * A convenience method to register an action, if it's present.
+   * @param protoCompileActionOptional
+   */
+  public static void registerAction(Optional<ProtoCompileAction> protoCompileActionOptional) {
+    if (protoCompileActionOptional.isPresent()) {
+      protoCompileActionOptional.get().registerAction();
+    }
+  }
+
   public ProtoCompileAction(
       RuleContext ruleContext,
       SupportData supportData,
@@ -207,6 +217,14 @@ public final class ProtoCompileAction {
     this.prefixArguments = prefixArguments;
     this.langPluginTarget = langPluginTarget;
     this.compilerTarget = compilerTarget;
+  }
+
+  /**
+   * Registers a proto compile action with the RuleContext.
+   */
+  public void registerAction() {
+    SpawnAction.Builder action = createAction(protoCompileCommandLine().build());
+    ruleContext.registerAction(action.build(ruleContext));
   }
 
   public SpawnAction.Builder createAction(CommandLine commandLine) {
