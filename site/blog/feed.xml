@@ -11,7 +11,7 @@
     <item>
       <title>{{ post.title }}</title>
       <link>{{ post.url }}</link>
-      <description>{{ post.content }}</description>
+      <description>{{ post.content | xml_escape }}</description>
       <pubDate>{{ post.date | date: "%a, %d %b %Y %H:%M:%S %z" }}</pubDate>
     </item>
   {% endfor %}
