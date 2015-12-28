@@ -71,7 +71,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
   
   @VisibleForTesting static final String DEFAULT_IOS_CPU = "x86_64";
   
-  @Option(name = "default_ios_provisiong_profile",
+  @Option(name = "default_ios_provisioning_profile",
       defaultValue = "",
       category = "undocumented",
       converter = DefaultProvisioningProfileConverter.class)
