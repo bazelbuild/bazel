@@ -101,6 +101,9 @@ public class RepositoryDelegatorFunction implements SkyFunction {
     // and the state of the file system would be inconsistent.
 
     byte[] ruleSpecificData = handler.getRuleSpecificMarkerData(rule, env);
+    if (ruleSpecificData == null) {
+      return null;
+    }
     boolean markerUpToDate = handler.isFilesystemUpToDate(rule, ruleSpecificData);
     if (markerUpToDate && repoRoot.exists()) {
       // Now that we know that it exists, we can declare a Skyframe dependency on the repository
