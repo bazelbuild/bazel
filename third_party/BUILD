@@ -351,13 +351,13 @@ java_import(
 
 java_import(
     name = "protobuf",
-    jars = ["protobuf/protobuf-java-3.0.0-alpha-3.jar"],
+    jars = ["protobuf/protobuf-java-3.0.0-beta-1.jar"],
 )
 
 # For bootstrapping JavaBuilder
 filegroup(
     name = "protobuf-jars",
-    srcs = ["protobuf/protobuf-java-3.0.0-alpha-3.jar"],
+    srcs = ["protobuf/protobuf-java-3.0.0-beta-1.jar"],
 )
 
 java_import(
