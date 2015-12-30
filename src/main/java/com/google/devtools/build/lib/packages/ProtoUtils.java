@@ -42,6 +42,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.query2.proto.proto2api.Build;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.Attribute.Discriminator;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -91,30 +92,49 @@ public class ProtoUtils {
   static final ImmutableSetMultimap<Discriminator, Type<?>> INVERSE_TYPE_MAP =
       TYPE_MAP.asMultimap().inverse();
 
-  /**
-   * Returns the appropriate Attribute.Discriminator value from an internal attribute type.
-   */
-  public static Discriminator getDiscriminatorFromType(
-      Type<?> type) {
+  /** Returns the {@link Discriminator} value corresponding to the provided {@link Type}. */
+  public static Discriminator getDiscriminatorFromType(Type<?> type) {
     Preconditions.checkArgument(TYPE_MAP.containsKey(type), type);
     return TYPE_MAP.get(type);
   }
 
+  /** Returns the {@link Type} associated with an {@link Build.Attribute}. */
+  static Type<?> getTypeFromAttributePb(
+      Build.Attribute attrPb, String ruleClassName, String attrName) {
+    Optional<Boolean> nodepHint =
+        attrPb.hasNodep() ? Optional.of(attrPb.getNodep()) : Optional.<Boolean>absent();
+    Discriminator attrPbDiscriminator = attrPb.getType();
+    boolean isSelectorList = attrPbDiscriminator.equals(Discriminator.SELECTOR_LIST);
+    return getTypeFromDiscriminator(
+        isSelectorList ? attrPb.getSelectorList().getType() : attrPbDiscriminator,
+        nodepHint,
+        ruleClassName,
+        attrName);
+  }
+
   /**
-   * Returns the appropriate set of internal attribute types from an Attribute.Discriminator value.
+   * Returns the set of {@link Type}s associated with a {@link Discriminator} value.
+   *
+   * <p>The set will contain more than one {@link Type} when {@param discriminator} is either
+   * {@link Discriminator#STRING} or {@link Discriminator#STRING_LIST}, because each of them
+   * corresponds with two {@link Type} values. A nodeps hint is needed to determine which {@link
+   * Type} applies.
    */
-  public static ImmutableSet<Type<?>> getTypesFromDiscriminator(Discriminator discriminator) {
+  private static ImmutableSet<Type<?>> getTypesFromDiscriminator(Discriminator discriminator) {
     Preconditions.checkArgument(INVERSE_TYPE_MAP.containsKey(discriminator), discriminator);
     return INVERSE_TYPE_MAP.get(discriminator);
   }
 
   /**
-   * Returns the appropriate internal attribute type from an Attribute.Discriminator value, given
-   * an optional nodeps hint.
+   * Returns the {@link Type} associated with a {@link Discriminator} value, given an optional
+   * nodeps hint.
    */
-  public static Type<?> getTypeFromDiscriminator(Discriminator discriminator,
-      Optional<Boolean> nodeps, String ruleClassName, String attrName) {
-    Preconditions.checkArgument(INVERSE_TYPE_MAP.containsKey(discriminator));
+  private static Type<?> getTypeFromDiscriminator(
+      Discriminator discriminator,
+      Optional<Boolean> nodeps,
+      String ruleClassName,
+      String attrName) {
+    Preconditions.checkArgument(INVERSE_TYPE_MAP.containsKey(discriminator), discriminator);
     ImmutableSet<Type<?>> possibleTypes = ProtoUtils.getTypesFromDiscriminator(discriminator);
     Type<?> preciseType;
     if (possibleTypes.size() == 1) {

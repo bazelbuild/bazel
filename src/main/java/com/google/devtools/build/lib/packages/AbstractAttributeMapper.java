@@ -93,6 +93,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
    *         type. This happens whether or not it's a computed default.
    */
   @VisibleForTesting // Should be protected
+  @Nullable
   public <T> Attribute.ComputedDefault getComputedDefault(String attributeName, Type<T> type) {
     int index = getIndexWithTypeCheck(attributeName, type);
     Object value = attributes.getAttributeValue(index);

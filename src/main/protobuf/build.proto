@@ -91,11 +91,25 @@ message FilesetEntry {
   optional string strip_prefix = 6;
 }
 
-// A rule attribute.  Each attribute must have a type and can only have one of
-// the various value fields populated.  By checking the type, the appropriate
-// value can be extracted - see the comments on each type for the associated
-// value.  The order of lists comes from the blaze parsing and if an attribute
-// is of a list type, the associated list should never be empty.
+// A rule attribute. Each attribute must have a type and one of the various
+// value fields populated - for the most part.
+//
+// Attributes of BOOLEAN and TRISTATE type may set all of the int, bool, and
+// string values for backwards compatibility with clients that expect them to
+// be set.
+//
+// Attributes of INTEGER, STRING, LABEL, LICENSE, BOOLEAN, and TRISTATE type
+// may set *none* of the values. This can happen if the Attribute message is
+// prepared for a client that doesn't support SELECTOR_LIST, but the rule has
+// a selector list value for the attribute. (Selector lists for attributes of
+// other types--the collection types--are handled differently when prepared
+// for such a client. The possible collection values are gathered together
+// and flattened.)
+//
+// By checking the type, the appropriate value can be extracted - see the
+// comments on each type for the associated value.  The order of lists comes
+// from the blaze parsing. If an attribute is of a list type, the associated
+// list should never be empty.
 message Attribute {
   // Indicates the type of attribute.
   enum Discriminator {
@@ -118,6 +132,7 @@ message Attribute {
     STRING_DICT_UNARY = 17;  // string_dict_unary_value
     UNKNOWN = 18;            // unknown type, use only for build extensions
     LABEL_DICT_UNARY = 19;   // label_dict_unary_value
+    SELECTOR_LIST = 20;      // selector_list
   }
 
   // Values for the TriState field type.
@@ -125,6 +140,52 @@ message Attribute {
     NO = 0;
     YES = 1;
     AUTO = 2;
+  }
+
+  message SelectorEntry {
+    // The key of the selector entry. At this time, this is the label of a
+    // config_setting rule, or the pseudo-label "//conditions:default".
+    optional string label = 1;
+
+    // Exactly one of the following fields (except for glob_criteria) must be
+    // populated - note that the BOOLEAN and TRISTATE caveat in Attribute's
+    // comment does not apply here. The type field in the SelectorList
+    // containing this entry indicates which of these fields is populated,
+    // in accordance with the comments on Discriminator enum values above.
+    // (To be explicit: BOOLEAN populates the boolean_value field and TRISTATE
+    // populates the tristate_value field.)
+    optional int32 int_value = 2;
+    optional string string_value = 3;
+    optional bool boolean_value = 4;
+    optional Tristate tristate_value = 5;
+    repeated string string_list_value = 6;
+    optional License license = 7;
+    repeated StringDictEntry string_dict_value = 8;
+    repeated FilesetEntry fileset_list_value = 9;
+    repeated LabelListDictEntry label_list_dict_value = 10;
+    repeated StringListDictEntry string_list_dict_value = 11;
+    repeated GlobCriteria glob_criteria = 12;
+    repeated int32 int_list_value = 13;
+    repeated StringDictUnaryEntry string_dict_unary_value = 14;
+    repeated LabelDictUnaryEntry label_dict_unary_value = 15;
+  }
+
+  message Selector {
+    // The list of (label, value) pairs in the map that defines the selector.
+    // At this time, this cannot be empty, i.e. a selector has at least one
+    // entry.
+    repeated SelectorEntry entries = 1;
+  }
+
+  message SelectorList {
+    // The type that this selector list evaluates to, and the type that each
+    // selector in the list evaluates to. At this time, this cannot be
+    // SELECTOR_LIST, i.e. selector lists do not nest.
+    optional Discriminator type = 1;
+
+    // The list of selector elements in this selector list. At this time, this
+    // cannot be empty, i.e. a selector list is never empty.
+    repeated Selector elements = 2;
   }
 
   // The name of the attribute
@@ -149,21 +210,17 @@ message Attribute {
   // If this attribute has an integer value this will be populated.
   // Boolean and TriState also use this field as [0,1] and [-1,0,1]
   // for [false, true] and [auto, no, yes] respectively.
-  // Null-valued attributes will *not* set this value.
   optional int32 int_value = 3;
 
   // If the attribute has a string value this will be populated.  Label and
   // path attributes use this field as the value even though the type may
   // be LABEL or something else other than STRING.
-  // Null-valued attributes will *not* set this value.
   optional string string_value = 5;
 
   // If the attribute has a boolean value this will be populated.
-  // Null-valued attributes will *not* set this value.
   optional bool boolean_value = 14;
 
   // If the attribute is a Tristate value, this will be populated.
-  // Null-valued attributes will *not* set this value.
   optional Tristate tristate_value = 15;
 
   // The value of the attribute has a list of string values (label and path
@@ -171,7 +228,6 @@ message Attribute {
   repeated string string_list_value = 6;
 
   // If this is a license attribute, the license information is stored here.
-  // Null-valued attributes will *not* set this value.
   optional License license = 7;
 
   // If this is a string dict, each entry will be stored here.
@@ -187,8 +243,8 @@ message Attribute {
   // If this is a string list dict, each entry will be stored here.
   repeated StringListDictEntry string_list_dict_value = 11;
 
-  // The glob criteria. This is non-empty if
-  // 1. This attribute is a list of strings or labels
+  // The glob criteria. This is non-empty if:
+  // 1. This attribute is a list of strings or labels, and,
   // 2. It contained a glob() expression
   repeated GlobCriteria glob_criteria = 16;
 
@@ -200,6 +256,11 @@ message Attribute {
 
   // If this is a label dict unary, each entry will be stored here.
   repeated LabelDictUnaryEntry label_dict_unary_value = 19;
+
+  // If this attribute's value is an expression containing one or more select
+  // expressions, then its type is SELECTOR_LIST and a SelectorList will be
+  // stored here.
+  optional SelectorList selector_list = 21;
 }
 
 // A rule from a BUILD file (e.g., cc_library, java_binary).  The rule class

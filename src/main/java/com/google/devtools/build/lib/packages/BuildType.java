@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.Type.DictType;
 import com.google.devtools.build.lib.syntax.Type.ListType;
-import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -399,6 +398,11 @@ public final class BuildType {
       this.elements = builder.build();
     }
 
+    SelectorList(List<Selector<T>> elements, Type<T> originalType) {
+      this.elements = ImmutableList.copyOf(elements);
+      this.originalType = originalType;
+    }
+
     /**
      * Returns a syntactically order-preserved list of all values and selectors for this attribute.
      */
@@ -444,18 +448,16 @@ public final class BuildType {
         Label.parseAbsoluteUnchecked(DEFAULT_CONDITION_KEY);
 
     private final Type<T> originalType;
-    private final Map<Label, T> map;
+    private final ImmutableMap<Label, T> map;
     private final boolean hasDefaultCondition;
 
     @VisibleForTesting
-    Selector(Object x, String what, @Nullable Label context, Type<T> originalType)
+    Selector(ImmutableMap<?, ?> x, String what, @Nullable Label context, Type<T> originalType)
         throws ConversionException {
-      Preconditions.checkState(x instanceof Map<?, ?>);
-
       this.originalType = originalType;
       Map<Label, T> result = Maps.newLinkedHashMap();
       boolean foundDefaultCondition = false;
-      for (Entry<?, ?> entry : ((Map<?, ?>) x).entrySet()) {
+      for (Entry<?, ?> entry : x.entrySet()) {
         Label key = LABEL.convert(entry.getKey(), what, context);
         if (key.equals(DEFAULT_CONDITION_LABEL)) {
           foundDefaultCondition = true;
@@ -468,8 +470,11 @@ public final class BuildType {
 
     /**
      * Returns the selector's (configurability pattern --gt; matching values) map.
+     *
+     * <p>Entries in this map retain the order of the entries in the map provided to the {@link
+     * #Selector} constructor.
      */
-    public Map<Label, T> getEntries() {
+    public ImmutableMap<Label, T> getEntries() {
       return map;
     }
 

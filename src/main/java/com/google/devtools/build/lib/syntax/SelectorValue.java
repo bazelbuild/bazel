@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 
 import java.util.Map;
@@ -34,16 +35,20 @@ public final class SelectorValue {
   // TODO(bazel-team): Selectors are currently split between .packages and .syntax . They should
   // really all be in .packages, but then we'd need to figure out a way how to extend binary
   // operators, which is a non-trivial problem.
-  private final Map<?, ?> dictionary;
+  private final ImmutableMap<?, ?> dictionary;
   private final Class<?> type;
 
   public SelectorValue(Map<?, ?> dictionary) {
     // Put the dict through a sorting to avoid depending on insertion order.
-    this.dictionary = new TreeMap<>(dictionary);
+    this.dictionary = ImmutableMap.copyOf(new TreeMap<>(dictionary));
     this.type = dictionary.isEmpty() ? null : Iterables.get(dictionary.values(), 0).getClass();
   }
 
-  public Map<?, ?> getDictionary() {
+  /**
+   * Returns an {@link ImmutableMap} containing the entries in the map provided to {@link
+   * #SelectorValue} in sorted order.
+   */
+  public ImmutableMap<?, ?> getDictionary() {
     return dictionary;
   }
 

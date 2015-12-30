@@ -19,13 +19,15 @@ import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.RULE;
 import static com.google.devtools.build.lib.query2.proto.proto2api.Build.Target.Discriminator.SOURCE_FILE;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.graph.Digraph;
+import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeSerializer;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -140,12 +142,19 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
             || !includeAttribute(attr)) {
           continue;
         }
-        rulePb.addAttribute(
+        Iterable<Object> possibleAttributeValues =
+            AggregatingAttributeMapper.of(rule).getPossibleAttributeValues(rule, attr);
+        Object flattenedAttributeValue =
+            AggregatingAttributeMapper.flattenAttributeValues(
+                attr.getType(), possibleAttributeValues);
+        Build.Attribute serializedAttribute =
             AttributeSerializer.getAttributeProto(
                 attr,
-                AttributeSerializer.getAttributeValues(rule, attr),
+                flattenedAttributeValue,
                 rule.isAttributeValueExplicitlySpecified(attr),
-                /*includeGlobs=*/ false));
+                /*includeGlobs=*/ false,
+                /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
+        rulePb.addAttribute(serializedAttribute);
       }
 
       postProcess(rule, rulePb);
@@ -166,12 +175,17 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           aspectResolver.computeAspectDependencies(target);
       // Add information about additional attributes from aspects.
       for (Entry<Attribute, Collection<Label>> entry : aspectsDependencies.asMap().entrySet()) {
-        rulePb.addAttribute(
+        Attribute attribute = entry.getKey();
+        Collection<Label> labels = entry.getValue();
+        Object attributeValue = getAspectAttributeValue(attribute, labels);
+        Build.Attribute serializedAttribute =
             AttributeSerializer.getAttributeProto(
-                entry.getKey(),
-                Lists.<Object>newArrayList(entry.getValue()),
+                attribute,
+                attributeValue,
                 /*explicitlySpecified=*/ false,
-                /*includeGlobs=*/ false));
+                /*includeGlobs=*/ false,
+                /*encodeBooleanAndTriStateAsIntegerAndString=*/ true);
+        rulePb.addAttribute(serializedAttribute);
       }
       // Add all deps from aspects as rule inputs of current target.
       for (Label label : aspectsDependencies.values()) {
@@ -289,6 +303,22 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     }
 
     return targetPb.build();
+  }
+
+  private static Object getAspectAttributeValue(Attribute attribute, Collection<Label> labels) {
+    com.google.devtools.build.lib.syntax.Type<?> attributeType = attribute.getType();
+    if (attributeType.equals(BuildType.LABEL)) {
+      Preconditions.checkState(labels.size() == 1, "attribute=%s, labels=%s", attribute, labels);
+      return Iterables.getOnlyElement(labels);
+    } else {
+      Preconditions.checkState(
+          attributeType.equals(BuildType.LABEL_LIST),
+          "attribute=%s, type=%s, labels=%s",
+          attribute,
+          attributeType,
+          labels);
+      return labels;
+    }
   }
 
   /** Further customize the proto output */

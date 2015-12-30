@@ -13,11 +13,34 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
+import static com.google.devtools.build.lib.packages.BuildType.FILESET_ENTRY_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_DICT_UNARY;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST_DICT;
+import static com.google.devtools.build.lib.packages.BuildType.LICENSE;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.OUTPUT;
+import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
+import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
+import static com.google.devtools.build.lib.syntax.Type.INTEGER;
+import static com.google.devtools.build.lib.syntax.Type.INTEGER_LIST;
+import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.syntax.Type.STRING_DICT;
+import static com.google.devtools.build.lib.syntax.Type.STRING_DICT_UNARY;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST_DICT;
+
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.CollectionUtils;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
@@ -26,11 +49,13 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -40,6 +65,10 @@ import javax.annotation.Nullable;
  * values an attribute might take.
  */
 public class AggregatingAttributeMapper extends AbstractAttributeMapper {
+
+  @SuppressWarnings("unchecked")
+  private static final ImmutableSet<Type<?>> scalarTypes =
+      ImmutableSet.of(INTEGER, STRING, LABEL, NODEP_LABEL, OUTPUT, BOOLEAN, TRISTATE, LICENSE);
 
   /**
    * Store for all of this rule's attributes that are non-configurable. These are
@@ -169,6 +198,106 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     }
 
     return duplicates.build();
+  }
+
+  /**
+   * Returns a list of the possible values of the specified attribute in the specified rule.
+   *
+   * <p>If the attribute's value is a simple value, then this returns a singleton list of that
+   * value.
+   *
+   * <p>If the attribute's value is an expression containing one or many {@code select(...)}
+   * expressions, then this returns a list of all values that expression may evaluate to.
+   *
+   * <p>If the attribute does not have an explicit value for this rule, and the rule provides a
+   * computed default, the computed default function is evaluated given the rule's other attribute
+   * values as inputs and the output is returned in a singleton list.
+   *
+   * <p>If the attribute does not have an explicit value for this rule, and the rule provides a
+   * computed default, and the computed default function depends on other attributes whose values
+   * contain {@code select(...)} expressions, then the computed default function is evaluated for
+   * every possible combination of input values, and the list of outputs is returned.
+   */
+  public Iterable<Object> getPossibleAttributeValues(Rule rule, Attribute attr) {
+    // Values may be null, so use normal collections rather than immutable collections.
+    // This special case for the visibility attribute is needed because its value is replaced
+    // with an empty list during package loading if it is public or private in order not to visit
+    // the package called 'visibility'.
+    if (attr.getName().equals("visibility")) {
+      List<Object> result = new ArrayList<>(1);
+      result.add(rule.getVisibility().getDeclaredLabels());
+      return result;
+    }
+    return Lists.<Object>newArrayList(visitAttribute(attr.getName(), attr.getType()));
+  }
+
+  /**
+   * Coerces the list {@param possibleValues} of values of type {@param attrType} to a single
+   * value of that type, in the following way:
+   *
+   * <p>If the list contains a single value, return that value.
+   *
+   * <p>If the list contains zero or multiple values and the type is a scalar type, return {@code
+   * null}.
+   *
+   * <p>If the list contains zero or multiple values and the type is a collection or map type,
+   * merge the collections/maps in the list and return the merged collection/map.
+   */
+  @Nullable
+  @SuppressWarnings("unchecked")
+  public static Object flattenAttributeValues(Type<?> attrType, Iterable<Object> possibleValues) {
+    // If there is only one possible value, return it.
+    if (Iterables.size(possibleValues) == 1) {
+      return Iterables.getOnlyElement(possibleValues);
+    }
+
+    // Otherwise, there are multiple possible values. To conform to the message shape expected by
+    // query output's clients, we must transform the list of possible values. This transformation
+    // will be lossy, but this is the best we can do.
+
+    // If the attribute's type is not a collection type, return null. Query output's clients do
+    // not support list values for scalar attributes.
+    if (scalarTypes.contains(attrType)) {
+      return null;
+    }
+
+    // If the attribute's type is a collection type, merge the list of collections into a single
+    // collection. This is a sensible solution for query output's clients, which are happy to get
+    // the union of possible values.
+    if (attrType == STRING_LIST
+        || attrType == LABEL_LIST
+        || attrType == NODEP_LABEL_LIST
+        || attrType == OUTPUT_LIST
+        || attrType == DISTRIBUTIONS
+        || attrType == INTEGER_LIST
+        || attrType == FILESET_ENTRY_LIST) {
+      Builder<Object> builder = ImmutableList.builder();
+      for (Object possibleValue : possibleValues) {
+        Collection<Object> collection = (Collection<Object>) possibleValue;
+        for (Object o : collection) {
+          builder.add(o);
+        }
+      }
+      return builder.build();
+    }
+
+    // Same for maps as for collections.
+    if (attrType == STRING_DICT
+        || attrType == STRING_DICT_UNARY
+        || attrType == STRING_LIST_DICT
+        || attrType == LABEL_DICT_UNARY
+        || attrType == LABEL_LIST_DICT) {
+      Map<Object, Object> mergedDict = new HashMap<>();
+      for (Object possibleValue : possibleValues) {
+        Map<Object, Object> stringDict = (Map<Object, Object>) possibleValue;
+        for (Entry<Object, Object> entry : stringDict.entrySet()) {
+          mergedDict.put(entry.getKey(), entry.getValue());
+        }
+      }
+      return mergedDict;
+    }
+
+    throw new AssertionError("Unknown type: " + attrType);
   }
 
   /**

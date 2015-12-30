@@ -80,10 +80,10 @@ public class BuildTypeTest {
    */
   @Test
   public void testSelector() throws Exception {
-    Object input = ImmutableMap.of(
+    ImmutableMap<String, String> input = ImmutableMap.of(
         "//conditions:a", "//a:a",
         "//conditions:b", "//b:b",
-        BuildType.Selector.DEFAULT_CONDITION_KEY, "//d:d");
+        Selector.DEFAULT_CONDITION_KEY, "//d:d");
     Selector<Label> selector = new Selector<>(input, null, currentRule, BuildType.LABEL);
     assertEquals(BuildType.LABEL, selector.getOriginalType());
 
@@ -100,7 +100,7 @@ public class BuildTypeTest {
    */
   @Test
   public void testSelectorWrongType() throws Exception {
-    Object input = ImmutableMap.of(
+    ImmutableMap<String, String> input = ImmutableMap.of(
         "//conditions:a", "not a label",
         "//conditions:b", "also not a label",
         BuildType.Selector.DEFAULT_CONDITION_KEY, "whatever");
@@ -117,7 +117,7 @@ public class BuildTypeTest {
    */
   @Test
   public void testSelectorKeyIsNotALabel() throws Exception {
-    Object input = ImmutableMap.of(
+    ImmutableMap<String, String> input = ImmutableMap.of(
         "not a label", "//a:a",
         BuildType.Selector.DEFAULT_CONDITION_KEY, "whatever");
     try {
@@ -133,7 +133,7 @@ public class BuildTypeTest {
    */
   @Test
   public void testSelectorDefault() throws Exception {
-    Object input = ImmutableMap.of(
+    ImmutableMap<String, String> input = ImmutableMap.of(
         "//conditions:a", "//a:a",
         "//conditions:b", "//b:b",
         BuildType.Selector.DEFAULT_CONDITION_KEY, "//d:d");

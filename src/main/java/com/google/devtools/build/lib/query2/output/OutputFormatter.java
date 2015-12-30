@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
+import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.AttributeSerializer;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
@@ -334,12 +334,13 @@ public abstract class OutputFormatter implements Serializable {
           out.printf("  name = \"%s\",%n", rule.getName());
 
           for (Attribute attr : rule.getAttributes()) {
-            Pair<Iterable<Object>, AttributeValueSource> values = getAttributeValues(rule, attr);
+            Pair<Iterable<Object>, AttributeValueSource> values =
+                getPossibleAttributeValuesAndSources(rule, attr);
             if (Iterables.size(values.first) != 1) {
-              continue;  // TODO(bazel-team): handle configurable attributes.
+              continue; // TODO(bazel-team): handle configurable attributes.
             }
             if (values.second != AttributeValueSource.RULE) {
-              continue;  // Don't print default values.
+              continue; // Don't print default values.
             }
             Object value = Iterables.getOnlyElement(values.first);
             out.printf("  %s = ", attr.getPublicName());
@@ -538,17 +539,18 @@ public abstract class OutputFormatter implements Serializable {
   }
 
   /**
-   * Returns the possible values of the specified attribute in the specified rule. For
-   * non-configured attributes, this is a single value. For configurable attributes, this
-   * may be multiple values.
+   * Returns the possible values of the specified attribute in the specified rule. For simple
+   * attributes, this is a single value. For configurable and computed attributes, this may be a
+   * list of values. See {@link AggregatingAttributeMapper#getPossibleAttributeValues} for how the
+   * value(s) is/are made.
    *
    * @return a pair, where the first value is the set of possible values and the
    *     second is an enum that tells where the values come from (declared on the
    *     rule, declared as a package level default or a
    *     global default)
    */
-  protected static Pair<Iterable<Object>, AttributeValueSource> getAttributeValues(
-      Rule rule, Attribute attr) {
+  protected static Pair<Iterable<Object>, AttributeValueSource>
+      getPossibleAttributeValuesAndSources(Rule rule, Attribute attr) {
     AttributeValueSource source;
 
     if (attr.getName().equals("visibility")) {
@@ -564,7 +566,9 @@ public abstract class OutputFormatter implements Serializable {
           ? AttributeValueSource.RULE : AttributeValueSource.DEFAULT;
     }
 
-    return Pair.of(AttributeSerializer.getAttributeValues(rule, attr), source);
+    Iterable<Object> possibleAttributeValues =
+        AggregatingAttributeMapper.of(rule).getPossibleAttributeValues(rule, attr);
+    return Pair.of(possibleAttributeValues, source);
   }
 
   /**
