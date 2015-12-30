@@ -39,6 +39,9 @@ public class SkylarkImports {
     }
 
     @Override
+    public abstract PathFragment asPathFragment();
+
+    @Override
     public abstract Label getLabel(Label containingFileLabel);
 
     @Override
@@ -58,6 +61,11 @@ public class SkylarkImports {
     private AbsolutePathImport(String importString, PathFragment importPath) {
       this.importString = importString;
       this.importPath = importPath;
+    }
+
+    @Override
+    public PathFragment asPathFragment() {
+      return importPath;
     }
 
     @Override
@@ -82,6 +90,11 @@ public class SkylarkImports {
     private RelativePathImport(String importString, String importFile) {
       this.importString = importString;
       this.importFile = importFile;
+    }
+
+    @Override
+    public PathFragment asPathFragment() {
+      return new PathFragment(importFile);
     }
 
     @Override
@@ -111,6 +124,11 @@ public class SkylarkImports {
     }
 
     @Override
+    public PathFragment asPathFragment() {
+      return new PathFragment(PathFragment.ROOT_DIR).getRelative(importLabel.toPathFragment());
+    }
+
+    @Override
     public Label getLabel(Label containingFileLabel) {
       // When the import label contains no explicit repository identifier, we resolve it relative
       // to the repo of the containing file.
@@ -124,6 +142,11 @@ public class SkylarkImports {
     private RelativeLabelImport(String importString, String importTarget) {
       this.importString = importString;
       this.importTarget = importTarget;
+    }
+
+    @Override
+    public PathFragment asPathFragment() {
+      return new PathFragment(importTarget);
     }
 
     @Override

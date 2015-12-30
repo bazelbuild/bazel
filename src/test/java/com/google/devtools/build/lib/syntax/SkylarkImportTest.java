@@ -34,15 +34,19 @@ public class SkylarkImportTest {
   @Rule
   public ExpectedException thrown = ExpectedException.none();
 
-  private void validAbsoluteLabelTest(String labelString) throws Exception {
+  private void validAbsoluteLabelTest(String labelString, String expectedLabelString,
+      String expectedPathString) throws Exception {
     SkylarkImport importForLabel = SkylarkImports.create(labelString);
 
-    assertThat(importForLabel.hasAbsolutePath()).isFalse();
-    assertThat(importForLabel.getImportString()).isEqualTo(labelString);
+    assertThat(importForLabel.hasAbsolutePath()).named("hasAbsolutePath()").isFalse();
+    assertThat(importForLabel.getImportString()).named("getIMportString()").isEqualTo(labelString);
 
     Label irrelevantContainingFile = Label.parseAbsoluteUnchecked("//another/path:BUILD");
-    assertThat(importForLabel.getLabel(irrelevantContainingFile))
-        .isEqualTo(Label.parseAbsoluteUnchecked(labelString));
+    assertThat(importForLabel.getLabel(irrelevantContainingFile)).named("getLabel()")
+        .isEqualTo(Label.parseAbsoluteUnchecked(expectedLabelString));
+ 
+    assertThat(importForLabel.asPathFragment()).named("asPathFragment()")
+        .isEqualTo(new PathFragment(expectedPathString));
 
     thrown.expect(IllegalStateException.class);
     importForLabel.getAbsolutePath();   
@@ -50,12 +54,16 @@ public class SkylarkImportTest {
 
   @Test
   public void testValidAbsoluteLabel() throws Exception {
-    validAbsoluteLabelTest("//some/skylark:file.bzl");
+    validAbsoluteLabelTest("//some/skylark:file.bzl",
+        /*expected label*/ "//some/skylark:file.bzl",
+        /*expected path*/ "/some/skylark/file.bzl");
   }
 
   @Test
   public void testValidAbsoluteLabelWithRepo() throws Exception {
-    validAbsoluteLabelTest("@my_repo//some/skylark:file.bzl");
+    validAbsoluteLabelTest("@my_repo//some/skylark:file.bzl",
+        /*expected label*/ "@my_repo//some/skylark:file.bzl",
+        /*expected path*/ "/some/skylark/file.bzl");
   }
 
   @Test
@@ -63,68 +71,85 @@ public class SkylarkImportTest {
     String pathToTest = "/some/skylark/file";
     SkylarkImport importForPath = SkylarkImports.create(pathToTest);
 
-    assertThat(importForPath.hasAbsolutePath()).isTrue();
-    assertThat(importForPath.getImportString()).isEqualTo(pathToTest);
+    assertThat(importForPath.hasAbsolutePath()).named("hasAbsolutePath()").isTrue();
+    assertThat(importForPath.getImportString()).named("getImportString()").isEqualTo(pathToTest);
 
     Label irrelevantContainingFile = Label.parseAbsoluteUnchecked("//another/path:BUILD");
-    assertThat(importForPath.getAbsolutePath()).isEqualTo(new PathFragment(pathToTest + ".bzl"));
+    assertThat(importForPath.getAbsolutePath()).named("getAbsolutePath()")
+        .isEqualTo(new PathFragment("//some/skylark/file.bzl"));
+
+     assertThat(importForPath.asPathFragment()).named("asPathFragment()")
+        .isEqualTo(new PathFragment("/some/skylark/file.bzl"));
 
     thrown.expect(IllegalStateException.class);
     importForPath.getLabel(irrelevantContainingFile);
   }
 
   private void validRelativeLabelTest(String labelString,
-      String containingLabelString, String expectedLabelString) throws Exception {
+      String containingLabelString, String expectedLabelString, String expectedPathString)
+          throws Exception {
     SkylarkImport importForLabel = SkylarkImports.create(labelString);
 
-    assertThat(importForLabel.hasAbsolutePath()).isFalse();
-    assertThat(importForLabel.getImportString()).isEqualTo(labelString);
+    assertThat(importForLabel.hasAbsolutePath()).named("hasAbsolutePath()").isFalse();
+    assertThat(importForLabel.getImportString()).named("getImportString()").isEqualTo(labelString);
 
     // The import label is relative to the parent's package, not the parent's directory.
     Label containingLabel = Label.parseAbsolute(containingLabelString);
-    assertThat(importForLabel.getLabel(containingLabel))
-    .isEqualTo(Label.parseAbsolute(expectedLabelString));
+    assertThat(importForLabel.getLabel(containingLabel)).named("getLabel()")
+        .isEqualTo(Label.parseAbsolute(expectedLabelString));
 
-    thrown.expect(IllegalStateException.class);
+    assertThat(importForLabel.asPathFragment()).named("asPathFragment()")
+        .isEqualTo(new PathFragment(expectedPathString));
+
+   thrown.expect(IllegalStateException.class);
     importForLabel.getAbsolutePath();
   }
 
   @Test
   public void testValidRelativeSimpleLabelInPackageDir() throws Exception {
-    validRelativeLabelTest(":file.bzl", /*containing*/ "//some/skylark:BUILD",
-        /*expected*/ "//some/skylark:file.bzl");
+    validRelativeLabelTest(":file.bzl",
+        /*containing*/ "//some/skylark:BUILD",
+        /*expected label*/ "//some/skylark:file.bzl",
+        /*expected path*/ "file.bzl");
   }
 
   @Test
   public void testValidRelativeSimpleLabelInPackageSubdir() throws Exception {
-    validRelativeLabelTest(":file.bzl", /*containing*/ "//some/path/to:skylark/parent.bzl",
-        /*expected*/ "//some/path/to:file.bzl");
+    validRelativeLabelTest(":file.bzl",
+        /*containing*/ "//some/path/to:skylark/parent.bzl",
+        /*expected label*/ "//some/path/to:file.bzl",
+        /*expected path*/ "file.bzl");
   }
 
   @Test
   public void testValidRelativeComplexLabelInPackageDir() throws Exception {
     validRelativeLabelTest(":subdir/containing/file.bzl",
         /*containing*/ "//some/skylark:BUILD",
-        /*expected*/ "//some/skylark:subdir/containing/file.bzl");
+        /*expected label*/ "//some/skylark:subdir/containing/file.bzl",
+        /*expected path*/ "subdir/containing/file.bzl");
   }
 
   @Test
   public void testValidRelativeComplexLabelInPackageSubdir() throws Exception {
     validRelativeLabelTest(":subdir/containing/file.bzl",
         /*containing*/ "//some/path/to:skylark/parent.bzl",
-        /*expected*/ "//some/path/to:subdir/containing/file.bzl");
+        /*expected label*/ "//some/path/to:subdir/containing/file.bzl",
+        /*expected path*/ "subdir/containing/file.bzl");
   }
 
   private void validRelativePathTest(String pathString, String containingLabelString,
-      String expectedLabelString) throws Exception {
+      String expectedLabelString, String expectedPathString) throws Exception {
     SkylarkImport importForPath = SkylarkImports.create(pathString);
 
-    assertThat(importForPath.hasAbsolutePath()).isFalse();
+    assertThat(importForPath.hasAbsolutePath()).named("hasAbsolutePath()").isFalse();
 
     // The import label is relative to the parent's directory not the parent's package.
     Label containingLabel = Label.parseAbsolute(containingLabelString);
-    assertThat(importForPath.getLabel(containingLabel))
-    .isEqualTo(Label.parseAbsolute(expectedLabelString));
+    assertThat(importForPath.getLabel(containingLabel)).named("getLabel()")
+        .isEqualTo(Label.parseAbsolute(expectedLabelString));
+    
+    assertThat(importForPath.asPathFragment()).named("asPathFragment()")
+        .isEqualTo(new PathFragment(expectedPathString));
 
     thrown.expect(IllegalStateException.class);
     importForPath.getAbsolutePath();
@@ -132,14 +157,18 @@ public class SkylarkImportTest {
 
   @Test
   public void testValidRelativePathInPackageDir() throws Exception {
-    validRelativePathTest("file", /*containing*/ "//some/skylark:BUILD",
-        /*expected*/ "//some/skylark:file.bzl");
+    validRelativePathTest("file",
+        /*containing*/ "//some/skylark:BUILD",
+        /*expected label*/ "//some/skylark:file.bzl",
+        /*expected path*/ "file.bzl");
   }
 
   @Test
   public void testValidRelativePathInPackageSubdir() throws Exception {
-    validRelativePathTest("file", /*containing*/ "//some/path/to:skylark/parent.bzl",
-        /*expected*/ "//some/path/to:skylark/file.bzl");
+    validRelativePathTest("file",
+        /*containing*/ "//some/path/to:skylark/parent.bzl",
+        /*expected label*/ "//some/path/to:skylark/file.bzl",
+        /*expected path*/ "file.bzl");
   }
 
   private void invalidImportTest(String importString, String expectedMsgPrefix) throws Exception {

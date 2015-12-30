@@ -28,11 +28,21 @@ public interface SkylarkImport extends Serializable {
    * Returns the string originally used to specify the import (may represent a label or a path).
    */
   String getImportString();
-  
+
+  /**
+   * Returns the import in the form of a path fragment for use by tools. Label-based imports are
+   * converted to paths as follows: Imports using absolute labels or paths yield an absolute path
+   * (whose root corresponds to the containing depot). Imports using relative labels yield a
+   * package-relate path, and imports using relative paths yield a directory (of the importing-file)
+   * relative path. All paths reference file names ending in '.bzl'. If there is an external
+   * repository prefix, it is ignored.
+   */
+  PathFragment asPathFragment();
+
   /**
    * Given a {@link Label} representing the file that contains this import, returns a {@link Label}
    * representing the .bzl file to be imported.
-   * 
+   *
    * @throws IllegalStateException if this import takes the form of an absolute path.
    */
   Label getLabel(Label containingFileLabel);
