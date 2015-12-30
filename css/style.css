@@ -338,3 +338,10 @@ colgroup .col-description {
 .blog-post .blog-post-meta {
   margin-bottom: 20px;
 }
+.gsc-control-cse *,
+.gsc-control-cse *:before,
+.gsc-control-cse *:after {
+  -webkit-box-sizing: content-box !important;
+  -moz-box-sizing: content-box !important;
+  box-sizing: content-box !important;
+}
