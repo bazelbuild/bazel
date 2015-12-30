@@ -15,11 +15,13 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.base.Objects;
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
@@ -88,6 +90,36 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     }
     return pkgValue.getPackage();
   }
+
+  @Override
+  public Map<PackageIdentifier, Package> bulkGetPackages(EventHandler eventHandler,
+      Iterable<PackageIdentifier> pkgIds) throws NoSuchPackageException {
+    Set<SkyKey> pkgKeys = ImmutableSet.copyOf(PackageValue.keys(pkgIds));
+
+    ImmutableMap.Builder<PackageIdentifier, Package> pkgResults = ImmutableMap.builder();
+    Map<SkyKey, SkyValue> packages = graph.getSuccessfulValues(pkgKeys);
+    for (PackageIdentifier pkgId : pkgIds) {
+      PackageValue pkgValue = (PackageValue) packages.get(PackageValue.key(pkgId));
+      pkgResults.put(pkgId, Preconditions.checkNotNull(pkgValue.getPackage(), pkgId));
+    }
+
+    SetView<SkyKey> unknownKeys = Sets.difference(pkgKeys, packages.keySet());
+    for (Map.Entry<SkyKey, Exception> missingOrExceptionEntry :
+        graph.getMissingAndExceptions(unknownKeys).entrySet()) {
+      PackageIdentifier pkgIdentifier =
+          (PackageIdentifier) missingOrExceptionEntry.getKey().argument();
+      Exception exception = missingOrExceptionEntry.getValue();
+      if (exception == null) {
+        // If the package key does not exist in the graph, then it must not correspond to any
+        // package, because the SkyQuery environment has already loaded the universe.
+        throw new BuildFileNotFoundException(pkgIdentifier, "BUILD file not found on package path");
+      }
+      Throwables.propagateIfInstanceOf(exception, NoSuchPackageException.class);
+      Throwables.propagate(exception);
+    }
+    return pkgResults.build();
+  }
+
 
   @Override
   public boolean isPackage(EventHandler eventHandler, PackageIdentifier packageName) {
@@ -162,21 +194,6 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     return builder.build();
   }
 
-  private final void preloadPackages(final RepositoryName repositoryName,
-      Iterable<TraversalInfo> traversals) {
-    // Note that the return value is intentionally unused - we call this to elicit the side effect
-    // that the packages end up warm in the graph.
-    graph.getSuccessfulValues(Iterables.transform(traversals,
-        new Function<TraversalInfo, SkyKey>() {
-          @Override
-          public SkyKey apply(TraversalInfo traversalInfo) {
-            return PackageValue.key(
-                PackageIdentifier.create(repositoryName,
-                    traversalInfo.rootedDir.getRelativePath()));
-          }
-        }));
-  }
-
   private void collectPackagesUnder(final RepositoryName repository,
       Set<TraversalInfo> traversals, ImmutableList.Builder<PathFragment> builder,
       final FilteringPolicy policy) {
@@ -189,9 +206,6 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
           }
         });
     Map<SkyKey, SkyValue> values = graph.getSuccessfulValues(traversalToKeyMap.values());
-    // Preload the packages so subsequent lookups are faster. A better approach might be forego this
-    // here, and instead load the needed package in batch on demand.
-    preloadPackages(repository, traversals);
 
     ImmutableSet.Builder<TraversalInfo> subdirTraversalBuilder = ImmutableSet.builder();
     for (Map.Entry<TraversalInfo, SkyKey> entry : traversalToKeyMap.entrySet()) {

@@ -13,7 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Function;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
@@ -31,6 +34,8 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
+import java.util.Map;
 
 /**
  * A {@link TargetPatternResolver} backed by a {@link RecursivePackageProvider}.
@@ -63,6 +68,11 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   private Package getPackage(PackageIdentifier pkgIdentifier)
       throws NoSuchPackageException, InterruptedException {
     return recursivePackageProvider.getPackage(eventHandler, pkgIdentifier);
+  }
+
+  private Map<PackageIdentifier, Package> bulkGetPackages(Iterable<PackageIdentifier> pkgIds)
+          throws NoSuchPackageException, InterruptedException {
+    return recursivePackageProvider.bulkGetPackages(eventHandler, pkgIds);
   }
 
   @Override
@@ -113,6 +123,26 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     }
   }
 
+  private Map<PackageIdentifier, ResolvedTargets<Target>> bulkGetTargetsInPackage(
+          String originalPattern,
+          Iterable<PackageIdentifier> pkgIds, FilteringPolicy policy)
+          throws TargetParsingException, InterruptedException {
+    try {
+      Map<PackageIdentifier, Package> pkgs = bulkGetPackages(pkgIds);
+      ImmutableMap.Builder<PackageIdentifier, ResolvedTargets<Target>> result =
+              ImmutableMap.builder();
+      for (PackageIdentifier pkgId : pkgIds) {
+        Package pkg = pkgs.get(pkgId);
+        result.put(pkgId,  TargetPatternResolverUtil.resolvePackageTargets(pkg, policy));
+      }
+      return result.build();
+    } catch (NoSuchThingException e) {
+      String message = TargetPatternResolverUtil.getParsingErrorMessage(
+              e.getMessage(), originalPattern);
+      throw new TargetParsingException(message, e);
+    }
+  }
+
   @Override
   public boolean isPackage(PackageIdentifier packageIdentifier) {
     return recursivePackageProvider.isPackage(eventHandler, packageIdentifier);
@@ -124,7 +154,7 @@ public class RecursivePackageProviderBackedTargetPatternResolver
   }
 
   @Override
-  public ResolvedTargets<Target> findTargetsBeneathDirectory(RepositoryName repository,
+  public ResolvedTargets<Target> findTargetsBeneathDirectory(final RepositoryName repository,
       String originalPattern, String directory, boolean rulesOnly,
       ImmutableSet<String> excludedSubdirectories)
       throws TargetParsingException, InterruptedException {
@@ -138,10 +168,17 @@ public class RecursivePackageProviderBackedTargetPatternResolver
     Iterable<PathFragment> packagesUnderDirectory =
         recursivePackageProvider.getPackagesUnderDirectory(
             repository, pathFragment, excludedPathFragments);
-    for (PathFragment pkg : packagesUnderDirectory) {
-      targetBuilder.merge(getTargetsInPackage(originalPattern,
-          PackageIdentifier.create(repository, pkg),
-          FilteringPolicies.NO_FILTER));
+
+    Iterable<PackageIdentifier> pkgIds = Iterables.transform(packagesUnderDirectory,
+            new Function<PathFragment, PackageIdentifier>() {
+              @Override
+              public PackageIdentifier apply(PathFragment path) {
+                return PackageIdentifier.create(repository, path);
+              }
+            });
+    for (ResolvedTargets<Target> targets : bulkGetTargetsInPackage(originalPattern, pkgIds,
+            FilteringPolicies.NO_FILTER).values()) {
+      targetBuilder.merge(targets);
     }
 
     // Perform the no-targets-found check before applying the filtering policy so we only return the

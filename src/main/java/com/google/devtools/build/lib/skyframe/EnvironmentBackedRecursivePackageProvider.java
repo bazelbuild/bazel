@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -37,6 +38,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * A {@link RecursivePackageProvider} backed by an {@link Environment}. Its methods
@@ -75,6 +77,17 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
       }
     }
     return pkgValue.getPackage();
+  }
+
+  @Override
+  public Map<PackageIdentifier, Package> bulkGetPackages(EventHandler eventHandler,
+          Iterable<PackageIdentifier> pkgIds)
+          throws NoSuchPackageException, InterruptedException {
+    ImmutableMap.Builder<PackageIdentifier, Package> builder = ImmutableMap.builder();
+    for (PackageIdentifier pkgId : pkgIds) {
+      builder.put(pkgId, getPackage(eventHandler, pkgId));
+    }
+    return builder.build();
   }
 
   @Override
