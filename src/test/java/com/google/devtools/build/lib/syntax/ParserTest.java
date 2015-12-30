@@ -1083,13 +1083,22 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testValidAbsoluteImportPath() {
+    String importString = "/some/skylark/file";
     List<Statement> statements =
-        parseFileForSkylark("load('/some/skylark/file', 'fun_test')\n");
+        parseFileForSkylark("load('" + importString + "', 'fun_test')\n");
     LoadStatement stmt = (LoadStatement) statements.get(0);
     SkylarkImport imp = stmt.getImport();
-    assertThat(imp.getImportString()).isEqualTo("/some/skylark/file");
-    assertThat(imp.hasAbsolutePath()).isTrue();
-    assertThat(imp.getAbsolutePath()).isEqualTo(new PathFragment("/some/skylark/file.bzl"));
+
+    assertThat(imp.getImportString()).named("getImportString()").isEqualTo("/some/skylark/file");
+    assertThat(imp.hasAbsolutePath()).named("hasAbsolutePath()").isTrue();
+    assertThat(imp.getAbsolutePath()).named("getAbsolutePath()")
+        .isEqualTo(new PathFragment("/some/skylark/file.bzl"));
+
+    int startOffset = stmt.getImportLocation().getStartOffset();
+    int endOffset = stmt.getImportLocation().getEndOffset();
+    assertThat(startOffset).named("getStartOffset()").isEqualTo(5);
+    assertThat(endOffset).named("getEndOffset()")
+        .isEqualTo(startOffset + importString.length() + 2);
   }
 
   private void validNonAbsoluteImportTest(String importString, String containingFileLabelString,
@@ -1098,11 +1107,19 @@ public class ParserTest extends EvaluationTestCase {
         parseFileForSkylark("load('" + importString + "', 'fun_test')\n");
     LoadStatement stmt = (LoadStatement) statements.get(0);
     SkylarkImport imp = stmt.getImport();
-    assertThat(imp.getImportString()).isEqualTo(importString);
-    assertThat(imp.hasAbsolutePath()).isFalse();
+
+    assertThat(imp.getImportString()).named("getImportString()").isEqualTo(importString);
+    assertThat(imp.hasAbsolutePath()).named("hasAbsolutePath()").isFalse();
+
     Label containingFileLabel = Label.parseAbsoluteUnchecked(containingFileLabelString);
-    assertThat(imp.getLabel(containingFileLabel))
-    .isEqualTo(Label.parseAbsoluteUnchecked(expectedLabelString));      
+    assertThat(imp.getLabel(containingFileLabel)).named("containingFileLabel()")
+        .isEqualTo(Label.parseAbsoluteUnchecked(expectedLabelString)); 
+
+    int startOffset = stmt.getImportLocation().getStartOffset();
+    int endOffset = stmt.getImportLocation().getEndOffset();
+    assertThat(startOffset).named("getStartOffset()").isEqualTo(5);
+    assertThat(endOffset).named("getEndOffset()")
+        .isEqualTo(startOffset + importString.length() + 2);
   }
 
   private void invalidImportTest(String importString, String expectedMsg) {

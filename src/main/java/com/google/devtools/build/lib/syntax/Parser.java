@@ -1052,7 +1052,7 @@ public class Parser {
       return;
     }
 
-    StringLiteral path = parseStringLiteral();
+    StringLiteral importString = parseStringLiteral();
     expect(TokenKind.COMMA);
 
     Map<Identifier, String> symbols = new HashMap<>();
@@ -1070,13 +1070,13 @@ public class Parser {
 
     SkylarkImport imp;
     try {
-      imp = SkylarkImports.create(path.getValue());
-      LoadStatement stmt = new LoadStatement(imp, symbols);
+      imp = SkylarkImports.create(importString.getValue());
+      LoadStatement stmt = new LoadStatement(imp, importString.getLocation(), symbols);
       list.add(setLocation(stmt, start, token.left));
     } catch (SkylarkImportSyntaxException e) {
-      String msg = "Load statement parameter '" + path + "' is invalid. "
+      String msg = "Load statement parameter '" + importString + "' is invalid. "
           + e.getMessage();
-      reportError(path.getLocation(), msg);
+      reportError(importString.getLocation(), msg);
     }
   }
 

@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
 import com.google.devtools.build.lib.syntax.compiler.LoopLabels;
 import com.google.devtools.build.lib.syntax.compiler.VariableScope;
@@ -33,6 +34,7 @@ public final class LoadStatement extends Statement {
   private final ImmutableMap<Identifier, String> symbols;
   private final ImmutableList<Identifier> cachedSymbols; // to save time
   private final SkylarkImport imp;
+  private final Location importLocation;
 
   /**
    * Constructs an import statement.
@@ -41,10 +43,15 @@ public final class LoadStatement extends Statement {
    * the bzl file that should be loaded. If aliasing is used, the value differs from its key's
    * {@code symbol.getName()}. Otherwise, both values are identical.
    */
-  LoadStatement(SkylarkImport imp, Map<Identifier, String> symbols) {
+  LoadStatement(SkylarkImport imp, Location importLocation, Map<Identifier, String> symbols) {
     this.imp = imp;
+    this.importLocation = importLocation;
     this.symbols = ImmutableMap.copyOf(symbols);
     this.cachedSymbols = ImmutableList.copyOf(symbols.keySet());
+  }
+
+  public Location getImportLocation() {
+    return importLocation;
   }
 
   public ImmutableList<Identifier> getSymbols() {
