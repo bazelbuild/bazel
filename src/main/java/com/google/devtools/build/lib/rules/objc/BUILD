@@ -25,9 +25,11 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:bundlemerge_proto",
+        "//src/main/protobuf:plmerge_proto",
         "//src/main/protobuf:xcodegen_proto",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party/java/dd_plist",
     ],
 )
 
