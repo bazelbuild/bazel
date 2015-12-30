@@ -1,7 +1,7 @@
 java_library(
     name = "workspace",
     srcs = glob(["*.java"]),
-    visibility = ["//src/tools/generate_workspace:__pkg__"],
+    visibility = ["//src/tools/generate_workspace:__subpackages__"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
