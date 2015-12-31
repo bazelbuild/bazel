@@ -312,12 +312,12 @@ public class AndroidResourceProcessor {
         return contents;
       }
       String pkg = packageMatcher.group(1);
-      StringBuilder out = new StringBuilder();
+      StringBuffer out = new StringBuffer();
       Matcher innerClassMatcher = INNER_CLASS.matcher(contents);
       while (innerClassMatcher.find()) {
         String resourceType = innerClassMatcher.group(1);
         Matcher idMatcher = ID_PATTERN.matcher(innerClassMatcher.group(2));
-        StringBuilder resourceIds = new StringBuilder();
+        StringBuffer resourceIds = new StringBuffer();
         while (idMatcher.find()) {
           String javaId = idMatcher.group(1);
           idMatcher.appendReplacement(resourceIds, String.format("public static int %s=0x%08X;",
