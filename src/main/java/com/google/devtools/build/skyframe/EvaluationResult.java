@@ -40,6 +40,7 @@ import javax.annotation.Nullable;
 public class EvaluationResult<T extends SkyValue> {
 
   private final boolean hasError;
+  @Nullable private final Exception catastrophe;
 
   private final Map<SkyKey, T> resultMap;
   private final Map<SkyKey, ErrorInfo> errorMap;
@@ -48,13 +49,18 @@ public class EvaluationResult<T extends SkyValue> {
   /**
    * Constructor for the "completed" case. Used only by {@link Builder}.
    */
-  private EvaluationResult(Map<SkyKey, T> result, Map<SkyKey, ErrorInfo> errorMap,
-      boolean hasError, @Nullable WalkableGraph walkableGraph) {
+  private EvaluationResult(
+      Map<SkyKey, T> result,
+      Map<SkyKey, ErrorInfo> errorMap,
+      boolean hasError,
+      @Nullable Exception catastrophe,
+      @Nullable WalkableGraph walkableGraph) {
     Preconditions.checkState(errorMap.isEmpty() || hasError,
         "result=%s, errorMap=%s", result, errorMap);
     this.resultMap = Preconditions.checkNotNull(result);
     this.errorMap = Preconditions.checkNotNull(errorMap);
     this.hasError = hasError;
+    this.catastrophe = catastrophe;
     this.walkableGraph = walkableGraph;
   }
 
@@ -73,6 +79,12 @@ public class EvaluationResult<T extends SkyValue> {
    */
   public boolean hasError() {
     return hasError;
+  }
+
+  /** @return catastrophic error encountered during evaluation, if any */
+  @Nullable
+  public Exception getCatastrophe() {
+    return catastrophe;
   }
 
   /**
@@ -152,6 +164,7 @@ public class EvaluationResult<T extends SkyValue> {
     private final Map<SkyKey, T> result = new HashMap<>();
     private final Map<SkyKey, ErrorInfo> errors = new HashMap<>();
     private boolean hasError = false;
+    @Nullable private Exception catastrophe = null;
     private WalkableGraph walkableGraph = null;
 
     /** Adds a value to the result. An error for this key must not already be present. */
@@ -184,11 +197,15 @@ public class EvaluationResult<T extends SkyValue> {
     }
 
     public EvaluationResult<T> build() {
-      return new EvaluationResult<>(result, errors, hasError, walkableGraph);
+      return new EvaluationResult<>(result, errors, hasError, catastrophe, walkableGraph);
     }
 
     public void setHasError(boolean hasError) {
       this.hasError = hasError;
+    }
+
+    public void setCatastrophe(Exception catastrophe) {
+      this.catastrophe = catastrophe;
     }
   }
 }

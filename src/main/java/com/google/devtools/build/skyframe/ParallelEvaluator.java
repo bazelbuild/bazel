@@ -1312,10 +1312,14 @@ public final class ParallelEvaluator implements Evaluator {
       // ErrorInfo could only be null if SchedulerException wrapped an InterruptedException, but
       // that should have been propagated.
       ErrorInfo errorInfo = Preconditions.checkNotNull(e.getErrorInfo(), errorKey);
-      catastrophe = errorInfo.isCatastrophic();
-      if (!catastrophe || !keepGoing) {
+      if (!keepGoing) {
         bubbleErrorInfo = bubbleErrorUp(errorInfo, errorKey, skyKeys, visitor);
       } else {
+        Preconditions.checkState(
+            errorInfo.isCatastrophic(),
+            "Scheduler exception only thrown for catastrophe in keep_going evaluation: %s",
+            e);
+        catastrophe = true;
         // Bubbling the error up requires that graph edges are present for done nodes. This is not
         // always the case in a keepGoing evaluation, since it is assumed that done nodes do not
         // need to be traversed. In this case, we hope the caller is tolerant of a possibly empty
@@ -1507,10 +1511,17 @@ public final class ParallelEvaluator implements Evaluator {
    * {@code skyKeys} are known to be in the DONE state ({@code entry.isDone()} returns true).
    */
   private <T extends SkyValue> EvaluationResult<T> constructResult(
-      @Nullable ValueVisitor visitor, Iterable<SkyKey> skyKeys,
-      Map<SkyKey, ValueWithMetadata> bubbleErrorInfo, boolean catastrophe) {
-    Preconditions.checkState(!keepGoing || catastrophe || bubbleErrorInfo == null,
-        "", skyKeys, bubbleErrorInfo);
+      @Nullable ValueVisitor visitor,
+      Iterable<SkyKey> skyKeys,
+      @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo,
+      boolean catastrophe) {
+    Preconditions.checkState(
+        catastrophe == (keepGoing && bubbleErrorInfo != null),
+        "Catastrophe not consistent with keepGoing mode and bubbleErrorInfo: %s %s %s %s",
+        skyKeys,
+        catastrophe,
+        keepGoing,
+        bubbleErrorInfo);
     EvaluationResult.Builder<T> result = EvaluationResult.builder();
     List<SkyKey> cycleRoots = new ArrayList<>();
     boolean hasError = false;
@@ -1556,6 +1567,20 @@ public final class ParallelEvaluator implements Evaluator {
     Preconditions.checkState(bubbleErrorInfo == null || hasError,
         "If an error bubbled up, some top-level node must be in error", bubbleErrorInfo, skyKeys);
     result.setHasError(hasError);
+    if (catastrophe) {
+      // We may not have a top-level node completed. Inform the caller of the catastrophic exception
+      // that shut down the evaluation so that it has some context.
+      ErrorInfo errorInfo =
+          Preconditions.checkNotNull(
+              Iterables.getOnlyElement(bubbleErrorInfo.values()).getErrorInfo(),
+              "bubbleErrorInfo should have contained element with errorInfo: %s",
+              bubbleErrorInfo);
+      Preconditions.checkState(
+          errorInfo.isCatastrophic(),
+          "bubbleErrorInfo should have contained element with catastrophe: %s",
+          bubbleErrorInfo);
+      result.setCatastrophe(errorInfo.getException());
+    }
     return result.build();
   }
 

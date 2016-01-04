@@ -556,25 +556,28 @@ public class ParallelEvaluatorTest {
     SkyKey catastropheKey = GraphTester.toSkyKey("catastrophe");
     SkyKey otherKey = GraphTester.toSkyKey("someKey");
 
-    tester.getOrCreate(catastropheKey).setBuilder(new SkyFunction() {
-      @Nullable
-      @Override
-      public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
-        throw new SkyFunctionException(new SomeErrorException("bad"),
-            Transience.PERSISTENT) {
-          @Override
-          public boolean isCatastrophic() {
-            return true;
-          }
-        };
-      }
+    final Exception catastrophe = new SomeErrorException("bad");
+    tester
+        .getOrCreate(catastropheKey)
+        .setBuilder(
+            new SkyFunction() {
+              @Nullable
+              @Override
+              public SkyValue compute(SkyKey skyKey, Environment env) throws SkyFunctionException {
+                throw new SkyFunctionException(catastrophe, Transience.PERSISTENT) {
+                  @Override
+                  public boolean isCatastrophic() {
+                    return true;
+                  }
+                };
+              }
 
-      @Nullable
-      @Override
-      public String extractTag(SkyKey skyKey) {
-        return null;
-      }
-    });
+              @Nullable
+              @Override
+              public String extractTag(SkyKey skyKey) {
+                return null;
+              }
+            });
 
     tester.getOrCreate(otherKey).setBuilder(new SkyFunction() {
       @Nullable
@@ -600,6 +603,7 @@ public class ParallelEvaluatorTest {
     } else {
       assertTrue(result.hasError());
       assertThat(result.errorMap()).isEmpty();
+      assertThat(result.getCatastrophe()).isSameAs(catastrophe);
     }
   }
 
