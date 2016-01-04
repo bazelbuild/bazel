@@ -565,6 +565,7 @@ function run_suite() {
       fi
 
       local run_time="0.0"
+      rm -f $TEST_TMPDIR/{__ts_start,__ts_end}
 
       if [ "$(type -t $TEST_name)" = function ]; then
         # Save exit handlers eventually set.
