@@ -3752,3 +3752,13 @@ Start time: [time elapsed from the profiling session start]       Duration: [tas
   </ul></li>
 </ul>
 
+<p>If Bazel appears to be hung, you can hit <kbd>&langle;Control&rangle;</kbd>-<kbd>\</kbd> or send Bazel
+  a <code>SIGINT</code> signal (<code>kill -3 $(bazel info server_pid)</code>) to get a
+  thread dump in the file <code>$(bazel info output_base)/server/jvm.out</code>.
+</p>
+
+<p>
+  Since you may not be able to run <code>bazel info</code> if bazel is hung, the
+  <code>output_base</code> directory is usually the parent of the <code>bazel-base_workspace</code>
+  symlink in your workspace directory.
+</p>
