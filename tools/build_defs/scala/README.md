@@ -16,7 +16,7 @@ currently three rules, `scala_library`, `scala_macro_library` and
 
 In order to use this build rule, you must add the following to your WORKSPACE
 file:
-```
+```python
 new_http_archive(
     name = "scala",
     strip_prefix = "scala-2.11.7",
@@ -29,7 +29,7 @@ new_http_archive(
 [scala]: http://www.scala-lang.org/
 
 <a name="scala_library"></a>
-## scala_library / scala_macro_library
+## scala\_library / scala\_macro_library
 
 ```python
 scala_library(name, srcs, deps, data, main_class, resources, scalacopts, jvm_flags)
