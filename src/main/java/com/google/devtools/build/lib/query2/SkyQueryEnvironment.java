@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.CompactHashSet;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -497,8 +496,15 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     Map<String, SkyKey> keys = new HashMap<>(patterns.size());
 
     for (String pattern : patterns) {
-      keys.put(pattern, TargetPatternValue.key(pattern,
-          TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix));
+      try {
+        keys.put(
+            pattern,
+            TargetPatternValue.key(
+                pattern, TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix));
+      } catch (TargetParsingException e) {
+        reportBuildFileError(caller, e.getMessage());
+        result.put(pattern, ImmutableSet.<Target>of());
+      }
     }
     // Get all the patterns in one batch call
     Map<SkyKey, SkyValue> existingPatterns = graph.getSuccessfulValues(keys.values());
@@ -506,6 +512,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     Map<String, Set<Target>> patternsWithTargetsToFilter = new HashMap<>();
     for (String pattern : patterns) {
       SkyKey patternKey = keys.get(pattern);
+      if (patternKey == null) {
+        // Exception was thrown when creating key above. Skip.
+        continue;
+      }
       TargetParsingException targetParsingException = null;
       if (existingPatterns.containsKey(patternKey)) {
         // The graph already contains a value or exception for this target pattern, so we use it.
@@ -542,13 +552,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       }
 
       if (targetParsingException != null) {
-        if (!keepGoing) {
-          throw targetParsingException;
-        } else {
-          eventHandler.handle(Event.error("Evaluation of query \"" + caller + "\" failed: "
-              + targetParsingException.getMessage()));
-          result.put(pattern, ImmutableSet.<Target>of());
-        }
+        reportBuildFileError(caller, targetParsingException.getMessage());
+        result.put(pattern, ImmutableSet.<Target>of());
       }
     }
     // filterTargetsNotInGraph does graph lookups. So we batch all the queries in one call.
