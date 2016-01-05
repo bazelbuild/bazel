@@ -154,7 +154,7 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
 
     RuleIdeInfo.Kind ruleKind = getRuleKind(ruleContext.getRule(), base);
 
-    NestedSet<Label> directDependencies = processDependencies(
+    DependenciesResult dependenciesResult = processDependencies(
         base, ruleContext, providerBuilder, ruleKind);
 
     AndroidStudioInfoFilesProvider provider;
@@ -164,7 +164,8 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
               base,
               ruleContext,
               ruleKind,
-              directDependencies,
+              dependenciesResult.deps,
+              dependenciesResult.runtimeDeps,
               providerBuilder);
     } else {
       provider = providerBuilder.build();
@@ -181,7 +182,17 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
     return builder.build();
   }
 
-  private NestedSet<Label> processDependencies(
+  private static class DependenciesResult {
+    private DependenciesResult(Iterable<Label> deps,
+        Iterable<Label> runtimeDeps) {
+      this.deps = deps;
+      this.runtimeDeps = runtimeDeps;
+    }
+    final Iterable<Label> deps;
+    final Iterable<Label> runtimeDeps;
+  }
+
+  private DependenciesResult processDependencies(
       ConfiguredTarget base, RuleContext ruleContext,
       AndroidStudioInfoFilesProvider.Builder providerBuilder, RuleIdeInfo.Kind ruleKind) {
 
@@ -223,12 +234,21 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
       }
     }
 
+    // runtime_deps
+    List<? extends TransitiveInfoCollection> runtimeDeps = ImmutableList.of();
+    NestedSetBuilder<Label> runtimeDepsBuilder = NestedSetBuilder.stableOrder();
+    if (ruleContext.attributes().has("runtime_deps", BuildType.LABEL_LIST)) {
+      runtimeDeps = ruleContext.getPrerequisites("runtime_deps", Mode.TARGET);
+      for (TransitiveInfoCollection dep : runtimeDeps) {
+        runtimeDepsBuilder.add(dep.getLabel());
+      }
+    }
+
     // Propagate providers from all prerequisites (deps + runtime_deps)
     ImmutableList.Builder<TransitiveInfoCollection> prerequisitesBuilder = ImmutableList.builder();
     prerequisitesBuilder.addAll(directDeps);
-    if (ruleContext.attributes().has("runtime_deps", BuildType.LABEL_LIST)) {
-      prerequisitesBuilder.addAll(ruleContext.getPrerequisites("runtime_deps", Mode.TARGET));
-    }
+    prerequisitesBuilder.addAll(runtimeDeps);
+
     List<TransitiveInfoCollection> prerequisites = prerequisitesBuilder.build();
 
     for (AndroidStudioInfoFilesProvider depProvider :
@@ -238,7 +258,7 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
       providerBuilder.ideResolveFilesBuilder().addTransitive(depProvider.getIdeResolveFiles());
     }
 
-    return dependencies;
+    return new DependenciesResult(dependencies, runtimeDepsBuilder.build());
   }
 
   private static AndroidSdkRuleInfo makeAndroidSdkRuleInfo(AndroidSdkProvider provider) {
@@ -254,7 +274,8 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
       ConfiguredTarget base,
       RuleContext ruleContext,
       Kind ruleKind,
-      NestedSet<Label> directDependencies,
+      Iterable<Label> directDependencies,
+      Iterable<Label> runtimeDeps,
       AndroidStudioInfoFilesProvider.Builder providerBuilder) {
 
     Artifact ideInfoFile = derivedArtifact(base, ruleContext, ASWB_BUILD_SUFFIX);
@@ -308,7 +329,7 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
     AndroidStudioInfoFilesProvider provider = providerBuilder.build();
 
     outputBuilder.addAllDependencies(transform(directDependencies, LABEL_TO_STRING));
-
+    outputBuilder.addAllRuntimeDeps(transform(runtimeDeps, LABEL_TO_STRING));
     outputBuilder.addAllTags(base.getTarget().getAssociatedRule().getRuleTags());
 
     final RuleIdeInfo ruleIdeInfo = outputBuilder.build();

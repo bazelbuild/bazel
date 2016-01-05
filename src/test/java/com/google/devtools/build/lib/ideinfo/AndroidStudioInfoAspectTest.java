@@ -855,6 +855,39 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
   }
 
   @Test
+  public void testRuntimeDepsAddedToProto() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "java_library(",
+        "   name = 'foobar',",
+        "   srcs = ['FooBar.java'],",
+        ")",
+        "java_library(",
+        "   name = 'foobar2',",
+        "   srcs = ['FooBar2.java'],",
+        ")",
+        "java_library(",
+        "   name = 'lib',",
+        "   srcs = ['Lib.java'],",
+        "   deps = [':lib2'],",
+        "   runtime_deps = [':foobar'],",
+        ")",
+        "java_library(",
+        "   name = 'lib2',",
+        "   srcs = ['Lib2.java'],",
+        "   runtime_deps = [':foobar2'],",
+        ")");
+
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:lib");
+    // Fails if aspect was not propagated
+    RuleIdeInfo lib = getRuleInfoAndVerifyLabel("//com/google/example:lib", ruleIdeInfos);
+    RuleIdeInfo lib2 = getRuleInfoAndVerifyLabel("//com/google/example:lib2", ruleIdeInfos);
+
+    assertThat(lib.getRuntimeDepsList()).containsExactly("//com/google/example:foobar");
+    assertThat(lib2.getRuntimeDepsList()).containsExactly("//com/google/example:foobar2");
+  }
+
+  @Test
   public void testAndroidLibraryGeneratesResourceClass() throws Exception {
     scratch.file(
         "java/com/google/example/BUILD",

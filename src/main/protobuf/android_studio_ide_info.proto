@@ -82,4 +82,5 @@ message RuleIdeInfo {
   AndroidRuleIdeInfo android_rule_ide_info = 8;
 
   repeated string tags = 9;
+  repeated string runtime_deps = 10;
 }
