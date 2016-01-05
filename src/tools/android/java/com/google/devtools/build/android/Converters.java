@@ -45,7 +45,8 @@ public final class Converters {
       try {
         return UnvalidatedAndroidData.valueOf(input);
       } catch (IllegalArgumentException e) {
-        throw new OptionsParsingException("invalid UnvalidatedAndroidData specification", e);
+        throw new OptionsParsingException(
+            String.format("invalid UnvalidatedAndroidData: %s", e.getMessage()), e);
       }
     }
 
@@ -75,7 +76,8 @@ public final class Converters {
         }
         return builder.build();
       } catch (IllegalArgumentException e) {
-        throw new OptionsParsingException("invalid DependencyAndroidData", e);
+        throw new OptionsParsingException(
+            String.format("invalid DependencyAndroidData: %s", e.getMessage()), e);
       }
     }
 
@@ -126,11 +128,13 @@ public final class Converters {
       try {
         Path path = FileSystems.getDefault().getPath(input);
         if (mustExist && !Files.exists(path)) {
-          throw new OptionsParsingException(String.format("%s is not a valid path.", input));
+          throw new OptionsParsingException(
+              String.format("%s is not a valid path: it does not exist.", input));
         }
         return path;
       } catch (InvalidPathException e) {
-        throw new OptionsParsingException(String.format("%s is not a valid path.", input), e);
+        throw new OptionsParsingException(
+            String.format("%s is not a valid path: %s.", input, e.getMessage()), e);
       }
     }
 
