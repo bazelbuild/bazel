@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.query2;
 
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -231,7 +230,6 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
         resolvedTargetPatterns.putAll(preloadOrThrow(caller, ImmutableList.of(pattern)));
       } catch (TargetParsingException e) {
         // Will skip the target and keep going if -k is specified.
-        resolvedTargetPatterns.put(pattern, ImmutableSet.<Target>of());
         reportBuildFileError(caller, e.getMessage());
       }
     }
