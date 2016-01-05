@@ -427,8 +427,8 @@ public final class AndroidRuleClasses {
           <code>res</code> directory.
           <br/>
           Generated files (from genrules) can be referenced by
-          <a href="build-ref.html#labels">Label</a> here as well. The only restriction is that the
-          generated outputs must be under the same "<code>res</code>" directory as any other
+          <a href="../build-ref.html#labels">Label</a> here as well. The only restriction is that
+          the generated outputs must be under the same "<code>res</code>" directory as any other
           resource files that are included.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("resource_files", LABEL_LIST).legacyAllowAnyFileType())
