@@ -36,7 +36,7 @@
 // Tell the compiler that a given function never returns
 //
 #define ATTRIBUTE_NORETURN __attribute__((noreturn))
-#define ATTRIBUTE_UNUSED __attribute__ ((unused))
+#define ATTRIBUTE_UNUSED __attribute__ ((__unused__))
 
 #else  // Not GCC
 
