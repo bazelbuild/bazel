@@ -3,6 +3,9 @@ licenses(["notice"])  # Apache 2.0
 java_test(
     name = "WorkspaceTest",
     srcs = ["WorkspaceFileGeneratorTest.java"],
+    # This test connects to the network on OS X (the sandbox prevents it from doing so on Linux),
+    # so disable it for now.
+    tags = ["manual"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:vfs",
