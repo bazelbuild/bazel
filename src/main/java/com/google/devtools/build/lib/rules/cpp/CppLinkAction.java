@@ -1119,9 +1119,6 @@ public final class CppLinkAction extends AbstractAction {
       this.linkstamps.addAll(linkstamps.keySet());
       // Add inputs for linkstamping.
       if (!linkstamps.isEmpty()) {
-        // This will just be the compiler unless include scanning is disabled, in which case it will
-        // include all header files. Since we insist that linkstamps declare all their headers, all
-        // header files would be overkill, but that only happens when include scanning is disabled.
         addTransitiveCompilationInputs(toolchain.getCompile());
         for (Map.Entry<Artifact, ImmutableList<Artifact>> entry : linkstamps.entrySet()) {
           addCompilationInputs(entry.getValue());

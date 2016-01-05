@@ -125,10 +125,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
    * Returns the files necessary for compilation.
    */
   public NestedSet<Artifact> getCompile() {
-    // If include scanning is disabled, we need the entire crosstool filegroup, including header
-    // files. If it is enabled, we use the filegroup without header files - they are found by
-    // include scanning. For go, we also don't need the header files.
-    return cppConfiguration != null && cppConfiguration.shouldScanIncludes() ? compile : crosstool;
+    return compile;
   }
 
   /**

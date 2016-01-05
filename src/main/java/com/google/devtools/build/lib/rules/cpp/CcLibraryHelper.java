@@ -764,11 +764,11 @@ public final class CcLibraryHelper {
     contextBuilder.addDeclaredIncludeSrcs(publicTextualHeaders);
     contextBuilder.addDeclaredIncludeSrcs(privateHeaders);
     contextBuilder.addPregreppedHeaderMap(
-        CppHelper.createExtractInclusions(ruleContext, publicHeaders));
+        CppHelper.createExtractInclusions(ruleContext, semantics, publicHeaders));
     contextBuilder.addPregreppedHeaderMap(
-        CppHelper.createExtractInclusions(ruleContext, publicTextualHeaders));
+        CppHelper.createExtractInclusions(ruleContext, semantics, publicTextualHeaders));
     contextBuilder.addPregreppedHeaderMap(
-        CppHelper.createExtractInclusions(ruleContext, privateHeaders));
+        CppHelper.createExtractInclusions(ruleContext, semantics, privateHeaders));
     contextBuilder.addCompilationPrerequisites(prerequisites);
 
     // Add this package's dir to declaredIncludeDirs, & this rule's headers to declaredIncludeSrcs

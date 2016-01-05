@@ -202,20 +202,6 @@ public class CppOptions extends FragmentOptions {
              "All ELF toolchains currently support this setting.")
   public boolean useInterfaceSharedObjects;
 
-  @Option(name = "cc_include_scanning",
-          defaultValue = "true",
-          category = "strategy",
-          help = "Whether to perform include scanning. Without it, your build will most likely "
-              + "fail.")
-  public boolean scanIncludes;
-
-  @Option(name = "extract_generated_inclusions",
-          defaultValue = "true",
-          category = "undocumented",
-          help = "Run grep-includes actions (used for include scanning) over " +
-                 "generated headers and sources.")
-  public boolean extractInclusions;
-
   @Option(name = "fission",
           defaultValue = "no",
           converter = FissionOptionConverter.class,
@@ -513,11 +499,9 @@ public class CppOptions extends FragmentOptions {
 
     host.useThinArchives = useThinArchives;
     host.useStartEndLib = useStartEndLib;
-    host.extractInclusions = extractInclusions;
     host.stripBinaries = StripMode.ALWAYS;
     host.fdoOptimize = null;
     host.lipoMode = LipoMode.OFF;
-    host.scanIncludes = scanIncludes;
     host.inmemoryDotdFiles = inmemoryDotdFiles;
 
     return host;

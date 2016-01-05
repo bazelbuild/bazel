@@ -288,10 +288,10 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
     assertEquals(CompilationMode.OPT, create("-c", "opt").getOptionValue("compilation_mode"));
 
     // Options defined in a fragment:
-    assertEquals(Boolean.TRUE, create("--cc_include_scanning")
-        .getOptionValue("cc_include_scanning"));
-    assertEquals(Boolean.FALSE, create("--nocc_include_scanning")
-        .getOptionValue("cc_include_scanning"));
+    assertEquals(Boolean.TRUE, create("--force_pic")
+        .getOptionValue("force_pic"));
+    assertEquals(Boolean.FALSE, create("--noforce_pic")
+        .getOptionValue("force_pic"));
 
     // Unrecognized option:
     assertNull(create().getOptionValue("do_my_dishes"));

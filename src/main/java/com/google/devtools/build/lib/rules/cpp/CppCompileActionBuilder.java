@@ -79,6 +79,7 @@ public class CppCompileActionBuilder {
   private CppConfiguration cppConfiguration;
   private ImmutableMap<Artifact, IncludeScannable> lipoScannableMap;
   private RuleContext ruleContext = null;
+  private Boolean shouldScanIncludes;
   // New fields need to be added to the copy constructor.
 
   /**
@@ -167,6 +168,7 @@ public class CppCompileActionBuilder {
     this.usePic = other.usePic;
     this.lipoScannableMap = other.lipoScannableMap;
     this.ruleContext = other.ruleContext;
+    this.shouldScanIncludes = other.shouldScanIncludes;
   }
 
   public PathFragment getTempOutputFile() {
@@ -245,18 +247,13 @@ public class CppCompileActionBuilder {
    * action).
    */
   public CppCompileAction build() {
+    // This must be set either to false or true by CppSemantics, otherwise someone forgot to call
+    // finalizeCompileActionBuilder on this builder.
+    Preconditions.checkNotNull(shouldScanIncludes);
+
     // Configuration can be null in tests.
     NestedSetBuilder<Artifact> realMandatoryInputsBuilder = NestedSetBuilder.compileOrder();
     realMandatoryInputsBuilder.addTransitive(mandatoryInputsBuilder.build());
-    String filename = sourceFile.getFilename();
-    // Assembler without C preprocessing can use the '.include' pseudo-op which is not
-    // understood by the include scanner, so we'll disable scanning, and instead require
-    // the declared sources to state (possibly overapproximate) the dependencies.
-    // Assembler with preprocessing can also use '.include', but supporting both kinds
-    // of inclusion for that use-case is ridiculous.
-    boolean shouldScanIncludes = !CppFileTypes.ASSEMBLER.matches(filename)
-        && configuration != null
-        && configuration.getFragment(CppConfiguration.class).shouldScanIncludes();
     if (tempOutputFile == null && !shouldScanIncludes) {
       realMandatoryInputsBuilder.addTransitive(context.getDeclaredIncludeSrcs());
     }
@@ -457,5 +454,13 @@ public class CppCompileActionBuilder {
   public CppCompileActionBuilder setPicMode(boolean usePic) {
     this.usePic = usePic;
     return this;
+  }
+
+  public void setShouldScanIncludes(boolean shouldScanIncludes) {
+    this.shouldScanIncludes = shouldScanIncludes;
+  }
+
+  public boolean getShouldScanIncludes() {
+    return shouldScanIncludes;
   }
 }

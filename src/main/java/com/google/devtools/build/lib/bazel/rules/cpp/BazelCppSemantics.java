@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompilationContext.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionBuilder;
@@ -44,7 +45,10 @@ public class BazelCppSemantics implements CppSemantics {
       RuleContext ruleContext, CppCompileActionBuilder actionBuilder) {
     actionBuilder.setCppConfiguration(ruleContext.getFragment(CppConfiguration.class));
     actionBuilder.setActionContext(CppCompileActionContext.class);
-    actionBuilder.addTransitiveMandatoryInputs(CppHelper.getToolchain(ruleContext).getCompile());
+    // Because Bazel does not support include scanning, we need the entire crosstool filegroup,
+    // including header files, as opposed to just the "compile" filegroup.
+    actionBuilder.addTransitiveMandatoryInputs(CppHelper.getToolchain(ruleContext).getCrosstool());
+    actionBuilder.setShouldScanIncludes(false);
   }
 
   @Override
@@ -54,5 +58,15 @@ public class BazelCppSemantics implements CppSemantics {
   @Override
   public HeadersCheckingMode determineHeadersCheckingMode(RuleContext ruleContext) {
     return HeadersCheckingMode.STRICT;
+  }
+
+  @Override
+  public boolean needsIncludeScanning(RuleContext ruleContext) {
+    return false;
+  }
+
+  @Override
+  public Root getGreppedIncludesDirectory(RuleContext ruleContext) {
+    return null;
   }
 }
