@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
@@ -35,6 +36,7 @@ import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
 import java.net.Proxy;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -110,13 +112,13 @@ public class HttpDownloader {
     AtomicInteger totalBytes = new AtomicInteger(0);
     final ScheduledFuture<?> loggerHandle = getLoggerHandle(totalBytes);
 
-    try (OutputStream outputStream = destination.getOutputStream()) {
-      InputStream in = getInputStream(url);
+    try (OutputStream out = destination.getOutputStream();
+         InputStream in = getInputStream(url)) {
       int read;
       byte[] buf = new byte[BUFFER_SIZE];
       while ((read = in.read(buf)) > 0) {
         totalBytes.addAndGet(read);
-        outputStream.write(buf, 0, read);
+        out.write(buf, 0, read);
       }
     } catch (IOException e) {
       throw new IOException(
@@ -183,7 +185,13 @@ public class HttpDownloader {
         createProxyIfNeeded(url.getProtocol()));
     connection.setInstanceFollowRedirects(true);
     connection.connect();
-    return connection.getInputStream();
+    if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
+      return connection.getInputStream();
+    }
+
+    InputStream errorStream = connection.getErrorStream();
+    throw new IOException(connection.getResponseCode() + ": "
+        + new String(ByteStreams.toByteArray(errorStream), StandardCharsets.UTF_8));
   }
 
   private static Proxy createProxyIfNeeded(String protocol) throws IOException {
