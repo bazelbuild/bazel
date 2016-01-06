@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.syntax.Runtime.NONE;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -102,40 +104,52 @@ public class WorkspaceFactory {
   // State while parsing the WORKSPACE file.
   // We store them so we can pause the parsing and load skylark imports from the
   // WorkspaceFileFunction. Loading skylark imports require access to the .skyframe package
-  // which this package cannot depends on.
+  // which this package cannot depend on.
   private BuildFileAST buildFileAST = null;
   private Environment.Builder environmentBuilder = null;
   private ParserInputSource source = null;
 
-  // Called by com.google.devtools.build.workspace.Resolver from //src/tools/generate_workspace.
-  public void parse(ParserInputSource source) throws InterruptedException {
+  /**
+   * Parses the given WORKSPACE file without resolving skylark imports.
+   *
+   * <p>Called by com.google.devtools.build.workspace.Resolver from
+   * //src/tools/generate_workspace.</p>
+   */
+  public void parse(ParserInputSource source) throws InterruptedException, IOException {
     // This method is split in 2 so WorkspaceFileFunction can call the two parts separately and
-    // do the Skylark load imports in between.
-    parseBuildFile(source);
+    // do the Skylark load imports in between. We can't load skylark imports from
+    // generate_workspace at the moment because it doesn't have access to skyframe, but that's okay
+    // because most people are just using it to resolve Maven dependencies.
+    parseWorkspaceFile(source);
     execute();
   }
 
-  public void parseBuildFile(ParserInputSource source) {
+  /**
+   * Parses the WORKSPACE file, generating the AST.
+   * @throws IOException if parsing fails.
+   */
+  public void parseWorkspaceFile(ParserInputSource source) throws IOException {
     this.source = source;
     buildFileAST = BuildFileAST.parseBuildFile(source, localReporter, false);
     if (buildFileAST.containsErrors()) {
       environmentBuilder = null;
-      localReporter.handle(Event.error("WORKSPACE file could not be parsed"));
-    } else {
-      environmentBuilder =
-          Environment.builder(mutability)
-              .setGlobals(Environment.BUILD)
-              .setEventHandler(localReporter);
+      throw new IOException("WORKSPACE file could not be parsed");
     }
+    environmentBuilder = Environment.builder(mutability)
+        .setGlobals(Environment.BUILD)
+        .setEventHandler(localReporter);
   }
 
+  /**
+   * Actually runs through the AST, calling the functions in the WORKSPACE file and adding rules
+   * to the //external package.
+   */
   public void execute() throws InterruptedException {
-    if (environmentBuilder != null) {
-      Environment workspaceEnv = environmentBuilder.setLoadingPhase().build();
-      addWorkspaceFunctions(workspaceEnv);
-      if (!buildFileAST.exec(workspaceEnv, localReporter)) {
-        localReporter.handle(Event.error("Error evaluating WORKSPACE file " + source.getPath()));
-      }
+    Preconditions.checkNotNull(environmentBuilder);
+    Environment workspaceEnv = environmentBuilder.setLoadingPhase().build();
+    addWorkspaceFunctions(workspaceEnv);
+    if (!buildFileAST.exec(workspaceEnv, localReporter)) {
+      localReporter.handle(Event.error("Error evaluating WORKSPACE file " + source.getPath()));
     }
     environmentBuilder = null;
     buildFileAST = null;
