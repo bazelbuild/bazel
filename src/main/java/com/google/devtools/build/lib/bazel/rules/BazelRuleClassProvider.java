@@ -95,7 +95,6 @@ import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
 import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
-import com.google.devtools.build.lib.rules.objc.ExperimentalIosTestRule;
 import com.google.devtools.build.lib.rules.objc.IosApplicationRule;
 import com.google.devtools.build.lib.rules.objc.IosDeviceRule;
 import com.google.devtools.build.lib.rules.objc.IosExtensionBinaryRule;
@@ -318,8 +317,6 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new BazelAndroidBinaryRule());
 
     builder.addRuleDefinition(new IosTestRule());
-    // TODO(bazel-team): Remove this line after experimental_ios_test is completely removed.
-    builder.addRuleDefinition(new ExperimentalIosTestRule());
     builder.addRuleDefinition(new IosDeviceRule());
     builder.addRuleDefinition(new ObjcBinaryRule());
     builder.addRuleDefinition(new ObjcBundleRule());
@@ -331,7 +328,6 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new ObjcProtoLibraryRule());
     builder.addRuleDefinition(new ObjcXcodeprojRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CoptsRule());
-    builder.addRuleDefinition(new ObjcRuleClasses.IosTestBaseRule());
     builder.addRuleDefinition(new ObjcRuleClasses.BundlingRule());
     builder.addRuleDefinition(new ObjcRuleClasses.ReleaseBundlingRule());
     builder.addRuleDefinition(new ObjcRuleClasses.SimulatorRule());
