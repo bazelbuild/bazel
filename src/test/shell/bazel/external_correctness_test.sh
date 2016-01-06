@@ -144,4 +144,39 @@ EOF
     "bazel-genfiles/external/a/b/c/d"
 }
 
+# Regression test for #517.
+function test_refs_btwn_repos() {
+  REMOTE1=$TEST_TMPDIR/remote1
+  REMOTE2=$TEST_TMPDIR/remote2
+  mkdir -p $REMOTE1 $REMOTE2
+  touch $REMOTE1/WORKSPACE $REMOTE2/WORKSPACE
+  cat > $REMOTE1/input <<EOF
+1.0
+EOF
+  cat > $REMOTE1/BUILD <<EOF
+exports_files(['input'])
+EOF
+  cat > $REMOTE2/BUILD <<EOF
+genrule(
+    name = "x",
+    srcs = ["@remote1//:input"],
+    cmd = "cat \$< > \$@",
+    outs = ["x.out"],
+)
+EOF
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "remote1",
+    path = "$REMOTE1",
+)
+local_repository(
+    name = "remote2",
+    path = "$REMOTE2",
+)
+EOF
+
+  bazel build @remote2//:x &> $TEST_log || fail "Build failed"
+  assert_contains 1.0 bazel-genfiles/external/remote2/x.out
+}
+
 run_suite "//external correctness tests"
