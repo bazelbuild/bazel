@@ -220,16 +220,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
       help = "Unused.")
   public String unusedSkyframe;
 
-  @Option(
-    name = "experimental_preserve_spaces_in_host_jvm_args",
-    defaultValue = "false",
-    category = "undocumented",
-    help =
-        "If this option is true, each argument to --host_jvm_args is considered a single JVM "
-            + "flag, even if it has spaces in it."
-  )
-  public boolean unusedPreserveSpacesInHostJvmArgs;
-
   @Option(name = "fatal_event_bus_exceptions",
       defaultValue = "false",  // NOTE: purely decorative!
       category = "undocumented",
