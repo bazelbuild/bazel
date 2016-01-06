@@ -118,8 +118,9 @@ public class WorkspaceFileFunction implements SkyFunction {
   }
 
   private boolean parse(ParserInputSource source, Path repoWorkspace, WorkspaceFactory parser,
-      Environment skyEnvironment) throws PackageFunctionException, InterruptedException {
-    parser.parseBuildFile(source);
+      Environment skyEnvironment)
+      throws PackageFunctionException, InterruptedException, IOException {
+    parser.parseWorkspaceFile(source);
     if (!loadSkylarkImports(repoWorkspace, parser, skyEnvironment)) {
       return false;
     }

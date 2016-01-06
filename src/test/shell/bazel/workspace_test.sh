@@ -106,4 +106,18 @@ EOF
   check_eq "12" "$(cat bazel-genfiles/test.out | tr -d '[[:space:]]')"
 }
 
+# Regression test for issue #724: NullPointerException in WorkspaceFile
+function test_error_in_workspace_file() {
+  # Create a buggy workspace
+  cat >WORKSPACE <<'EOF'
+/
+EOF
+
+  # Try to refer to the workspace.
+  bazel --batch build @r//:rfg &>$TEST_log \
+      && fail "Failure expected" || true
+
+  expect_not_log "Exception"
+}
+
 run_suite "workspace tests"
