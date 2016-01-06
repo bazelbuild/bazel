@@ -36,7 +36,7 @@ import java.io.Serializable;
  * by arbitrarily many threads.
  *
  * <p>The safe usage of a Mutability requires to always use try-with-resource style:
- * <code>try(Mutability mutability = Mutability.create(fmt, ...)) { ... }</code>
+ * <code>try (Mutability mutability = Mutability.create(fmt, ...)) { ... }</code>
  * Thus, you can create a Mutability, build an {@link Environment}, mutate that {@link Environment}
  * and create mutable objects as you evaluate in that {@link Environment}, and finally return the
  * resulting {@link Environment}, at which point the resource is closed, and the {@link Environment}

@@ -453,7 +453,7 @@ public final class EvalUtils {
    * Build a map of kwarg arguments from a list, removing null-s or None-s.
    *
    * @param init a series of key, value pairs (as consecutive arguments)
-   *   as in {@code optionMap(k1, v1, k2, v2, k3, v3, map)}
+   *   as in {@code optionMap(k1, v1, k2, v2, k3, v3)}
    *   where each key is a String, each value is an arbitrary Objet.
    * @return a {@code Map<String, Object>} that has all the specified entries,
    *   where key, value pairs appearing earlier have precedence,
