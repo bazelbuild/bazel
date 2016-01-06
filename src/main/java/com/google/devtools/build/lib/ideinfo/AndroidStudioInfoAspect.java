@@ -129,7 +129,8 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
       Kind.ANDROID_LIBRARY,
       Kind.ANDROID_BINARY,
       Kind.ANDROID_TEST,
-      Kind.ANDROID_ROBOELECTRIC_TEST);
+      Kind.ANDROID_ROBOELECTRIC_TEST,
+      Kind.JAVA_PLUGIN);
 
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
@@ -312,7 +313,8 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
         || ruleKind == Kind.ANDROID_BINARY
         || ruleKind == Kind.ANDROID_TEST
         || ruleKind == Kind.ANDROID_ROBOELECTRIC_TEST
-        || ruleKind == Kind.PROTO_LIBRARY) {
+        || ruleKind == Kind.PROTO_LIBRARY
+        || ruleKind == Kind.JAVA_PLUGIN) {
       JavaRuleIdeInfo javaRuleIdeInfo = makeJavaRuleIdeInfo(
           base, ruleContext, ideResolveArtifacts, packageManifest);
       outputBuilder.setJavaRuleIdeInfo(javaRuleIdeInfo);
@@ -661,6 +663,8 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
         return Kind.ANDROID_ROBOELECTRIC_TEST;
       case "proto_library":
         return Kind.PROTO_LIBRARY;
+      case "java_plugin":
+        return Kind.JAVA_PLUGIN;
       default:
         {
           if (base.getProvider(AndroidSdkProvider.class) != null) {

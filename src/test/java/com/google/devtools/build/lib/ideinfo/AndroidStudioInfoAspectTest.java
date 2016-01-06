@@ -918,4 +918,26 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(resourceFiles.getAndroidRuleIdeInfo().getGenerateResourceClass()).isTrue();
     assertThat(manifest.getAndroidRuleIdeInfo().getGenerateResourceClass()).isTrue();
   }
+
+  @Test
+  public void testJavaPlugin() throws Exception {
+    scratch.file(
+        "java/com/google/example/BUILD",
+        "java_plugin(",
+        "  name = 'plugin',",
+        "  srcs = ['Plugin.java'],",
+        "  processor_class = 'com.google.example.Plugin',",
+        ")"
+    );
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//java/com/google/example:plugin");
+    RuleIdeInfo plugin = getRuleInfoAndVerifyLabel(
+        "//java/com/google/example:plugin", ruleIdeInfos);
+
+    assertThat(plugin.getKind()).isEqualTo(Kind.JAVA_PLUGIN);
+    assertThat(transform(
+        plugin.getJavaRuleIdeInfo().getJarsList(),
+        LIBRARY_ARTIFACT_TO_STRING))
+        .containsExactly(jarString("java/com/google/example",
+            "libplugin.jar", "libplugin-ijar.jar", "libplugin-src.jar"));
+  }
 }

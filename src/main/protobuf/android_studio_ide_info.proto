@@ -67,6 +67,7 @@ message RuleIdeInfo {
     JAVA_BINARY = 7;
     PROTO_LIBRARY = 8;
     ANDROID_SDK = 9;
+    JAVA_PLUGIN = 10;
   }
 
   string label = 1;
