@@ -99,6 +99,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
 
   private ImmutableList<TargetPatternKey> universeTargetPatternKeys;
 
+  private final Map<String, Set<Label>> precomputedPatterns = new HashMap<>();
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
   private final int loadingPhaseThreads;
   private final WalkableGraphFactory graphFactory;
@@ -326,7 +327,54 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   @Override
   public void getTargetsMatchingPattern(
       QueryExpression owner, String pattern, Callback<Target> callback) throws QueryException {
-    Set<Target> targets = new LinkedHashSet<>(resolvedTargetPatterns.get(pattern));
+    Set<Target> targets = ImmutableSet.of();
+    if (precomputedPatterns.containsKey(pattern)) {
+      Set<Label> labels = precomputedPatterns.get(pattern);
+      if (labels != null) {
+        targets = ImmutableSet.copyOf(makeTargetsFromLabels(labels));
+      } else {
+        TargetParsingException exception;
+        try {
+          // Because the graph was always initialized via a keep_going build, we know that the
+          // exception stored here must be a TargetParsingException. Thus the comment in
+          // SkyframeTargetPatternEvaluator#parseTargetPatternKeys describing the situation in which
+          // the exception acceptance must be looser does not apply here.
+          exception =
+              (TargetParsingException)
+                  Preconditions.checkNotNull(
+                      graph.getException(
+                          TargetPatternValue.key(
+                              pattern,
+                              TargetPatternEvaluator.DEFAULT_FILTERING_POLICY,
+                              parserPrefix)),
+                      pattern);
+        } catch (TargetParsingException e) {
+          exception = e;
+        }
+        reportBuildFileError(owner, exception.getMessage());
+      }
+    } else {
+      // If the graph doesn't contain a value for this target pattern, try to directly evaluate
+      // it, by making use of packages already present in the graph.
+      try {
+        TargetPatternKey targetPatternKey =
+            ((TargetPatternKey)
+                TargetPatternValue.key(
+                        pattern, TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix)
+                    .argument());
+        GraphBackedRecursivePackageProvider provider =
+            new GraphBackedRecursivePackageProvider(graph, universeTargetPatternKeys, pkgPath);
+        RecursivePackageProviderBackedTargetPatternResolver resolver =
+            new RecursivePackageProviderBackedTargetPatternResolver(
+                provider, eventHandler, targetPatternKey.getPolicy());
+        TargetPattern parsedPattern = targetPatternKey.getParsedPattern();
+        targets = parsedPattern.eval(resolver).getTargets();
+      } catch (TargetParsingException e) {
+        reportBuildFileError(owner, e.getMessage());
+      } catch (InterruptedException e) {
+        throw new QueryException(owner, e.getMessage());
+      }
+    }
 
     // Sets.filter would be more convenient here, but can't deal with exceptions.
     Iterator<Target> targetIterator = targets.iterator();
@@ -337,7 +385,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       }
     }
     try {
-      callback.process(targets);
+      callback.process(filterTargetsNotInGraph(targets));
     } catch (InterruptedException e) {
       throw new QueryException(owner, e.getMessage());
     }
@@ -492,13 +540,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   }
 
   @Override
-  protected Map<String, Set<Target>> preloadOrThrow(
-      QueryExpression caller, Collection<String> patterns)
+  protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns)
       throws QueryException, TargetParsingException {
-    GraphBackedRecursivePackageProvider provider =
-        new GraphBackedRecursivePackageProvider(graph, universeTargetPatternKeys, pkgPath);
-    Map<String, Set<Target>> result = Maps.newHashMapWithExpectedSize(patterns.size());
-
     Map<String, SkyKey> keys = new HashMap<>(patterns.size());
 
     for (String pattern : patterns) {
@@ -509,13 +552,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
                 pattern, TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix));
       } catch (TargetParsingException e) {
         reportBuildFileError(caller, e.getMessage());
-        result.put(pattern, ImmutableSet.<Target>of());
       }
     }
     // Get all the patterns in one batch call
     Map<SkyKey, SkyValue> existingPatterns = graph.getSuccessfulValues(keys.values());
 
-    Map<String, Set<Target>> patternsWithTargetsToFilter = new HashMap<>();
     for (String pattern : patterns) {
       SkyKey patternKey = keys.get(pattern);
       if (patternKey == null) {
@@ -527,8 +568,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
         // The graph already contains a value or exception for this target pattern, so we use it.
         TargetPatternValue value = (TargetPatternValue) existingPatterns.get(patternKey);
         if (value != null) {
-          result.put(
-              pattern, ImmutableSet.copyOf(makeTargetsFromLabels(value.getTargets().getTargets())));
+          precomputedPatterns.put(pattern, value.getTargets().getTargets());
         } else {
           // Because the graph was always initialized via a keep_going build, we know that the
           // exception stored here must be a TargetParsingException. Thus the comment in
@@ -538,39 +578,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
               (TargetParsingException)
                   Preconditions.checkNotNull(graph.getException(patternKey), pattern);
         }
-      } else {
-        // If the graph doesn't contain a value for this target pattern, try to directly evaluate
-        // it, by making use of packages already present in the graph.
-        TargetPatternValue.TargetPatternKey targetPatternKey =
-            ((TargetPatternValue.TargetPatternKey) patternKey.argument());
-
-        RecursivePackageProviderBackedTargetPatternResolver resolver =
-            new RecursivePackageProviderBackedTargetPatternResolver(provider, eventHandler,
-                targetPatternKey.getPolicy());
-        TargetPattern parsedPattern = targetPatternKey.getParsedPattern();
-        try {
-          patternsWithTargetsToFilter.put(pattern, parsedPattern.eval(resolver).getTargets());
-        } catch (TargetParsingException e) {
-          targetParsingException = e;
-        } catch (InterruptedException e) {
-          throw new QueryException(e.getMessage());
-        }
       }
 
       if (targetParsingException != null) {
         reportBuildFileError(caller, targetParsingException.getMessage());
-        result.put(pattern, ImmutableSet.<Target>of());
       }
     }
-    // filterTargetsNotInGraph does graph lookups. So we batch all the queries in one call.
-    Set<Target> targetsInGraph = filterTargetsNotInGraph(
-        ImmutableSet.copyOf(Iterables.concat(patternsWithTargetsToFilter.values())));
-
-    for (Entry<String, Set<Target>> pattern : patternsWithTargetsToFilter.entrySet()) {
-      result.put(pattern.getKey(), Sets.intersection(pattern.getValue(), targetsInGraph));
-    }
-
-    return result;
   }
 
   private static final Function<SkyKey, Label> SKYKEY_TO_LABEL = new Function<SkyKey, Label>() {

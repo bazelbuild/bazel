@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -64,6 +65,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
 
   private static final int MAX_DEPTH_FULL_SCAN_LIMIT = 20;
+  private final Map<String, Set<Target>> resolvedTargetPatterns = new HashMap<>();
   private final TargetPatternEvaluator targetPatternEvaluator;
   private final TransitivePackageLoader transitivePackageLoader;
   private final TargetProvider targetProvider;
@@ -112,6 +114,7 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     // errors here.
     eventHandler.resetErrors();
     final AtomicBoolean empty = new AtomicBoolean(true);
+    resolvedTargetPatterns.clear();
     QueryEvalResult queryEvalResult = super.evaluateQuery(expr, new Callback<Target>() {
       @Override
       public void process(Iterable<Target> partialResult)
@@ -414,17 +417,20 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       };
 
   @Override
-  protected Map<String, Set<Target>> preloadOrThrow(
-      QueryExpression caller, Collection<String> patterns) throws TargetParsingException {
-    try {
-      // Note that this may throw a RuntimeException if deps are missing in Skyframe and this is
-      // being called from within a SkyFunction.
-      return Maps.transformValues(
-          targetPatternEvaluator.preloadTargetPatterns(eventHandler, patterns, keepGoing),
-          RESOLVED_TARGETS_TO_TARGETS);
-    } catch (InterruptedException e) {
-      // TODO(bazel-team): Propagate the InterruptedException from here [skyframe-loading].
-      throw new TargetParsingException("interrupted");
+  protected void preloadOrThrow(QueryExpression caller, Collection<String> patterns)
+      throws TargetParsingException {
+    if (!resolvedTargetPatterns.keySet().containsAll(patterns)) {
+      try {
+        // Note that this may throw a RuntimeException if deps are missing in Skyframe and this is
+        // being called from within a SkyFunction.
+        resolvedTargetPatterns.putAll(
+            Maps.transformValues(
+                targetPatternEvaluator.preloadTargetPatterns(eventHandler, patterns, keepGoing),
+                RESOLVED_TARGETS_TO_TARGETS));
+      } catch (InterruptedException e) {
+        // TODO(bazel-team): Propagate the InterruptedException from here [skyframe-loading].
+        throw new TargetParsingException("interrupted");
+      }
     }
   }
 

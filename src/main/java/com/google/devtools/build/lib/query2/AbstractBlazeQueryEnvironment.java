@@ -58,7 +58,6 @@ import javax.annotation.Nullable;
 public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironment<T> {
   protected final ErrorSensingEventHandler eventHandler;
   private final Map<String, Set<T>> letBindings = new HashMap<>();
-  protected final Map<String, Set<Target>> resolvedTargetPatterns = new HashMap<>();
   protected final boolean keepGoing;
   protected final boolean strictScope;
 
@@ -143,14 +142,13 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
 
     final AtomicBoolean empty = new AtomicBoolean(true);
     try (final AutoProfiler p = AutoProfiler.logged("evaluating query", LOG)) {
-      resolvedTargetPatterns.clear();
 
       // In the --nokeep_going case, errors are reported in the order in which the patterns are
       // specified; using a linked hash set here makes sure that the left-most error is reported.
       Set<String> targetPatternSet = new LinkedHashSet<>();
       expr.collectTargetPatterns(targetPatternSet);
       try {
-        resolvedTargetPatterns.putAll(preloadOrThrow(expr, targetPatternSet));
+        preloadOrThrow(expr, targetPatternSet);
       } catch (TargetParsingException e) {
         // Unfortunately, by evaluating the patterns in parallel, we lose some location information.
         throw new QueryException(expr, e.getMessage());
@@ -226,21 +224,23 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
 
   public Set<T> evalTargetPattern(QueryExpression caller, String pattern)
       throws QueryException {
-    if (!resolvedTargetPatterns.containsKey(pattern)) {
-      try {
-        resolvedTargetPatterns.putAll(preloadOrThrow(caller, ImmutableList.of(pattern)));
-      } catch (TargetParsingException e) {
-        // Will skip the target and keep going if -k is specified.
-        reportBuildFileError(caller, e.getMessage());
-      }
+    try {
+      preloadOrThrow(caller, ImmutableList.of(pattern));
+    } catch (TargetParsingException e) {
+      // Will skip the target and keep going if -k is specified.
+      reportBuildFileError(caller, e.getMessage());
     }
     AggregateAllCallback<T> aggregatingCallback = new AggregateAllCallback<>();
     getTargetsMatchingPattern(caller, pattern, aggregatingCallback);
     return aggregatingCallback.getResult();
   }
 
-  protected abstract Map<String, Set<Target>> preloadOrThrow(
-      QueryExpression caller, Collection<String> patterns)
+  /**
+   * Perform any work that should be done ahead of time to resolve the target patterns in the
+   * query. Implementations may choose to cache the results of resolving the patterns, cache
+   * intermediate work, or not cache and resolve patterns on the fly.
+   */
+  protected abstract void preloadOrThrow(QueryExpression caller, Collection<String> patterns)
       throws QueryException, TargetParsingException;
 
   @Override
