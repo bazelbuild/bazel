@@ -124,8 +124,8 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   @Override
-  public Set<Target> getTargetsMatchingPattern(QueryExpression caller,
-      String pattern) throws QueryException {
+  public void getTargetsMatchingPattern(
+      QueryExpression caller, String pattern, Callback<Target> callback) throws QueryException {
     // We can safely ignore the boolean error flag. The evaluateQuery() method above wraps the
     // entire query computation in an error sensor.
 
@@ -180,7 +180,11 @@ public class BlazeQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         }
       }
     }
-    return result;
+    try {
+      callback.process(result);
+    } catch (InterruptedException e) {
+      throw new QueryException(caller, e.getMessage());
+    }
   }
 
   @Override

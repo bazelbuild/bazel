@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
+import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
 import com.google.devtools.build.lib.util.BinaryPredicate;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
@@ -233,7 +234,9 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
         reportBuildFileError(caller, e.getMessage());
       }
     }
-    return getTargetsMatchingPattern(caller, pattern);
+    AggregateAllCallback<T> aggregatingCallback = new AggregateAllCallback<>();
+    getTargetsMatchingPattern(caller, pattern, aggregatingCallback);
+    return aggregatingCallback.getResult();
   }
 
   protected abstract Map<String, Set<Target>> preloadOrThrow(

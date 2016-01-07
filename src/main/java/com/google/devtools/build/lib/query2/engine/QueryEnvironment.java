@@ -135,10 +135,10 @@ public interface QueryEnvironment<T> {
   }
 
   /**
-   * Returns the set of target nodes in the graph for the specified target
+   * Invokes {@code callback} with the set of target nodes in the graph for the specified target
    * pattern, in 'blaze build' syntax.
    */
-  Set<T> getTargetsMatchingPattern(QueryExpression owner, String pattern)
+  void getTargetsMatchingPattern(QueryExpression owner, String pattern, Callback<T> callback)
       throws QueryException;
 
   /** Ensures the specified target exists. */

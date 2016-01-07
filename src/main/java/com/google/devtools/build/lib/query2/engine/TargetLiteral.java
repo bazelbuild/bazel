@@ -51,7 +51,7 @@ final class TargetLiteral extends QueryExpression {
       }
       callback.process(value);
     } else {
-      callback.process(env.getTargetsMatchingPattern(this, pattern));
+      env.getTargetsMatchingPattern(this, pattern, callback);
     }
   }
 
