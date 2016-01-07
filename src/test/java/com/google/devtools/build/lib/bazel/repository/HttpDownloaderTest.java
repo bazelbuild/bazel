@@ -64,7 +64,7 @@ public class HttpDownloaderTest {
       HttpDownloader.createProxy("my.example.com");
       fail("Expected protocol error");
     } catch (IOException e) {
-      assertThat(e.getMessage()).contains("No proxy protocol found");
+      assertThat(e.getMessage()).contains("Proxy address my.example.com is not a valid URL");
     }
   }
 
@@ -74,7 +74,7 @@ public class HttpDownloaderTest {
       HttpDownloader.createProxy("my.example.com:12345");
       fail("Expected protocol error");
     } catch (IOException e) {
-      assertThat(e.getMessage()).contains("Invalid proxy protocol");
+      assertThat(e.getMessage()).contains("Proxy address my.example.com:12345 is not a valid URL");
     }
   }
 
@@ -84,7 +84,8 @@ public class HttpDownloaderTest {
       HttpDownloader.createProxy("http://my.example.com:foo");
       fail("Should have thrown an error for invalid port");
     } catch (IOException e) {
-      assertThat(e.getMessage()).contains("Error parsing proxy port");
+      assertThat(e.getMessage())
+          .contains("Proxy address http://my.example.com:foo is not a valid URL");
     }
   }
 

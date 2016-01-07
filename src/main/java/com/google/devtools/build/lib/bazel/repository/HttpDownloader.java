@@ -44,6 +44,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
@@ -211,35 +213,35 @@ public class HttpDownloader {
       return Proxy.NO_PROXY;
     }
 
-    // Split the proxyAddress into the protocol, address, and optional port. This does not use the
-    // URL class to avoid the DNS resolution it performs on creation.
-    int protocolIndex = proxyAddress.indexOf(':');
-    int lastColonSeen = protocolIndex;
-    if (protocolIndex == -1) {
-      throw new IOException("No proxy protocol found for " + proxyAddress);
-    }
-    boolean https;
-    String protocol = proxyAddress.substring(0, protocolIndex);
-    if (protocol.equals("https")) {
-      https = true;
-    } else if (protocol.equals("http")) {
-      https = false;
-    } else {
-      throw new IOException("Invalid proxy protocol for " + proxyAddress);
+    // Here there be dragons.
+    Pattern urlPattern = Pattern.compile(
+        "^(https?)://(?:([^:@]+?)(?::([^@]+?))?@)?(?:[^:]+)(?::(\\d+))?$");
+    Matcher matcher = urlPattern.matcher(proxyAddress);
+    if (!matcher.matches()) {
+      throw new IOException("Proxy address " + proxyAddress + " is not a valid URL");
     }
 
-    // Check for username:password@host
-    int atSign = proxyAddress.indexOf('@');
-    boolean containsCredentials = (atSign > 0);
-    if (containsCredentials) {
-      String credentials = proxyAddress.substring(protocol.length() + "://".length(), atSign);
-      int passwordIndex = credentials.indexOf(':');
-      if (passwordIndex == -1) {
-        throw new IOException("No password given for proxy: " + proxyAddress);
+    String protocol = matcher.group(1);
+    String username = matcher.group(2);
+    String password = matcher.group(3);
+    String port = matcher.group(4);
+
+    boolean https;
+    switch (protocol) {
+      case "https":
+        https = true;
+        break;
+      case "http":
+        https = false;
+        break;
+      default:
+        throw new IOException("Invalid proxy protocol for " + proxyAddress);
+    }
+
+    if (username != null) {
+      if (password == null) {
+        throw new IOException("No password given for proxy " + proxyAddress);
       }
-      lastColonSeen = proxyAddress.indexOf(':', protocolIndex + 1);
-      String username = credentials.substring(0, passwordIndex);
-      String password = credentials.substring(passwordIndex + 1);
       System.setProperty(protocol + ".proxyUser", username);
       System.setProperty(protocol + ".proxyPassword", password);
 
@@ -252,16 +254,13 @@ public class HttpDownloader {
       );
     }
 
-    int portIndex = proxyAddress.lastIndexOf(':');
-    if (portIndex == lastColonSeen) {
-      // No port set, just the http: colon.
+    if (port == null) {
       return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyAddress, https ? 443 : 80));
     }
 
     try {
       return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(
-          proxyAddress.substring(0, portIndex),
-          Integer.parseInt(proxyAddress.substring(portIndex + 1))));
+          proxyAddress.substring(0, proxyAddress.lastIndexOf(':')), Integer.parseInt(port)));
     } catch (NumberFormatException e) {
       throw new IOException("Error parsing proxy port: " + proxyAddress);
     }
