@@ -1245,7 +1245,6 @@ public class MethodLibrary {
     name = "append",
     objectType = MutableList.class,
     returnType = Runtime.NoneType.class,
-    documented = false,
     doc = "Adds an item to the end of the list.",
     mandatoryPositionals = {
       @Param(name = "self", type = MutableList.class, doc = "This list."),
@@ -1266,7 +1265,6 @@ public class MethodLibrary {
     name = "extend",
     objectType = MutableList.class,
     returnType = Runtime.NoneType.class,
-    documented = false,
     doc = "Adds all items to the end of the list.",
     mandatoryPositionals = {
       @Param(name = "self", type = MutableList.class, doc = "This list."),
