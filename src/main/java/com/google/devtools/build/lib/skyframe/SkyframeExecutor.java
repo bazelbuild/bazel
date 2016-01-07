@@ -1459,7 +1459,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Get metadata related to the prepareAndGet() lookup. Resulting data is specific to the
    * underlying evaluation implementation.
    */
-  public String prepareAndGetMetadata(Collection<String> patterns, String offset) {
+  public String prepareAndGetMetadata(Collection<String> patterns, String offset)
+      throws AbruptExitException, InterruptedException {
     return buildDriver.meta(ImmutableList.of(getUniverseKey(patterns, offset)));
   }
 

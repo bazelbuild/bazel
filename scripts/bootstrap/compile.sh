@@ -32,6 +32,7 @@ msys*|mingw*)
 esac
 
 BLAZE_CC_FILES=(
+src/main/cpp/blaze_abrupt_exit.cc
 src/main/cpp/blaze_startup_options.cc
 src/main/cpp/blaze_startup_options_common.cc
 src/main/cpp/blaze_util.cc

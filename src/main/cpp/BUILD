@@ -51,10 +51,24 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "blaze_abrupt_exit",
+    srcs = [
+        "blaze_abrupt_exit.cc",
+    ],
+    hdrs = [
+        "blaze_abrupt_exit.h",
+    ],
+    deps = [
+        "//src/main/cpp/util:blaze_exit_code",
+    ],
+)
+
 cc_binary(
     name = "client",
     srcs = [
         "blaze.cc",
+        "blaze_globals.h",
         "blaze_startup_options.cc",
         "blaze_startup_options.h",
         "blaze_startup_options_common.cc",
@@ -80,6 +94,7 @@ cc_binary(
     }),
     visibility = ["//src:__pkg__"],
     deps = [
+        ":blaze_abrupt_exit",
         ":blaze_util",
         "//src/main/cpp/util",
         "//src/main/cpp/util:md5",

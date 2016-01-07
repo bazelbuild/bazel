@@ -201,7 +201,7 @@ bool ReadFile(const string &filename, string *content) {
 // Writes 'content' into file 'filename', and makes it executable.
 // Returns false on failure, sets errno.
 bool WriteFile(const string &content, const string &filename) {
-  unlink(filename.c_str());
+  DeleteFile(filename);  // We don't care about the success of this.
   int fd = open(filename.c_str(), O_CREAT|O_WRONLY|O_TRUNC, 0755);  // chmod +x
   if (fd == -1) {
     return false;
@@ -216,6 +216,12 @@ bool WriteFile(const string &content, const string &filename) {
   }
   errno = saved_errno;  // Caller should see errno from write().
   return static_cast<uint>(r) == content.size();
+}
+
+// Deletes the file 'filename'.
+// Returns false on failure, sets errno.
+bool DeleteFile(const string &filename) {
+  return unlink(filename.c_str()) == 0;
 }
 
 // Returns true iff both stdout and stderr are connected to a
