@@ -42,11 +42,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Implementation for {@code experimental_ios_test} rule in Bazel.
- *
- * <p>Note that this will be renamed to {@code ios_test}, and {@link
- * com.google.devtools.build.lib.bazel.rules.objc.BazelIosTest} will be removed when it is slightly
- * more feature complete.
+ * Implementation for {@code ios_test} rule in Bazel.
  */
 public final class IosTest implements RuleConfiguredTargetFactory {
   
