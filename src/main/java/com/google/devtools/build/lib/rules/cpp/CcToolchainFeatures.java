@@ -74,13 +74,13 @@ public class CcToolchainFeatures implements Serializable {
   }
   
   /**
-   * A piece of a single flag.
+   * A piece of a single string value.
    * 
-   * <p>A single flag can contain a combination of text and variables (for example
-   * "-f %{var1}/%{var2}"). We split the flag into chunks, where each chunk represents either a
+   * <p>A single value can contain a combination of text and variables (for example
+   * "-f %{var1}/%{var2}"). We split the string into chunks, where each chunk represents either a
    * text snippet, or a variable that is to be replaced.
    */
-  interface FlagChunk {
+  interface StringChunk {
     
     /**
      * Expands this chunk.
@@ -92,13 +92,13 @@ public class CcToolchainFeatures implements Serializable {
   }
   
   /**
-   * A plain text chunk of a flag.
+   * A plain text chunk of a string (containing no variables).
    */
   @Immutable
-  private static class StringChunk implements FlagChunk, Serializable {
+  private static class StringLiteralChunk implements StringChunk, Serializable {
     private final String text;
     
-    private StringChunk(String text) {
+    private StringLiteralChunk(String text) {
       this.text = text;
     }
     
@@ -109,10 +109,10 @@ public class CcToolchainFeatures implements Serializable {
   }
   
   /**
-   * A chunk of a flag into which a variable should be expanded.
+   * A chunk of a string value into which a variable should be expanded.
    */
   @Immutable
-  private static class VariableChunk implements FlagChunk, Serializable {
+  private static class VariableChunk implements StringChunk, Serializable {
     private final String variableName;
     
     private VariableChunk(String variableName) {
@@ -120,7 +120,7 @@ public class CcToolchainFeatures implements Serializable {
     }
     
     @Override
-    public void expand(Map<String, String> variables, StringBuilder flag) {
+    public void expand(Map<String, String> variables, StringBuilder stringBuilder) {
       // We check all variables in FlagGroup.expandCommandLine.
       // If we arrive here with the variable not being available, the variable was provided, but
       // the nesting level of the NestedSequence was deeper than the nesting level of the flag
@@ -136,31 +136,29 @@ public class CcToolchainFeatures implements Serializable {
         throw new ExpansionException(
             "Internal blaze error: build variable '" + variableName + "'was set to 'null'.");
       }
-      flag.append(variables.get(variableName));
+      stringBuilder.append(variables.get(variableName));
     }
   }
   
   /**
-   * Parser for toolchain flags.
+   * Parser for toolchain string values.
    * 
-   * <p>A flag contains a snippet of text supporting variable expansion. For example, a flag value
-   * "-f %{var1}/%{var2}" will expand the values of the variables "var1" and "var2" in the
-   * corresponding places in the string.
+   * <p>A string value contains a snippet of text supporting variable expansion. For example, a
+   * string value "-f %{var1}/%{var2}" will expand the values of the variables "var1" and "var2"
+   * in the corresponding places in the string.
    * 
-   * <p>The {@code FlagParser} takes a flag string and parses it into a list of {@code FlagChunk}
-   * objects, where each chunk represents either a snippet of text or a variable to be expanded. In
-   * the above example, the resulting chunks would be ["-f ", var1, "/", var2].
+   * <p>The {@code StringValueParser} takes a string and parses it into a list of
+   * {@link StringChunk} objects, where each chunk represents either a snippet of text or a
+   * variable to be expanded. In the above example, the resulting chunks would be
+   * ["-f ", var1, "/", var2].
    * 
-   * <p>In addition to the list of chunks, the {@code FlagParser} also provides the set of variables
-   * necessary for the expansion of this flag via {@code getUsedVariables}.
+   * <p>In addition to the list of chunks, the {@link StringValueParser} also provides the set of
+   * variables necessary for the expansion of this flag via {@link #getUsedVariables}.
    * 
-   * <p>To get a literal percent character, "%%" can be used in the flag text.
+   * <p>To get a literal percent character, "%%" can be used in the string.
    */
-  private static class FlagParser {
-    
-    /**
-     * The given flag value.
-     */
+  private static class StringValueParser {
+
     private final String value;
     
     /**
@@ -168,30 +166,30 @@ public class CcToolchainFeatures implements Serializable {
      */
     private int current = 0;
     
-    private final ImmutableList.Builder<FlagChunk> chunks = ImmutableList.builder();
+    private final ImmutableList.Builder<StringChunk> chunks = ImmutableList.builder();
     private final ImmutableSet.Builder<String> usedVariables = ImmutableSet.builder();
     
-    private FlagParser(String value) throws InvalidConfigurationException {
+    private StringValueParser(String value) throws InvalidConfigurationException {
       this.value = value;
       parse();
     }
     
     /**
-     * @return the parsed chunks for this flag.
+     * @return the parsed chunks for this string.
      */
-    private ImmutableList<FlagChunk> getChunks() {
+    private ImmutableList<StringChunk> getChunks() {
       return chunks.build();
     }
     
     /**
-     * @return all variable names needed to expand this flag.
+     * @return all variable names needed to expand this string.
      */
     private ImmutableSet<String> getUsedVariables() {
       return usedVariables.build();
     }
     
     /**
-     * Parses the flag.
+     * Parses the string.
      * 
      * @throws InvalidConfigurationException if there is a parsing error.
      */
@@ -223,7 +221,7 @@ public class CcToolchainFeatures implements Serializable {
       // We only parse string chunks starting with '%' if they also start with '%%'.
       // In that case, we want to have a single '%' in the string, so we start at the second
       // character.
-      // Note that for flags like "abc%%def" this will lead to two string chunks, the first
+      // Note that for strings like "abc%%def" this will lead to two string chunks, the first
       // referencing the subtring "abc", and a second referencing the substring "%def".
       if (value.charAt(current) == '%') {
         current = current + 1;
@@ -234,7 +232,7 @@ public class CcToolchainFeatures implements Serializable {
         current = value.length();
       }
       final String text = value.substring(start, current);
-      chunks.add(new StringChunk(text));
+      chunks.add(new StringLiteralChunk(text));
     }
     
     /**
@@ -260,7 +258,7 @@ public class CcToolchainFeatures implements Serializable {
     
     /**
      * @throws InvalidConfigurationException with the given error text, adding information about
-     * the current position in the flag.
+     * the current position in the string.
      */
     private void abort(String error) throws InvalidConfigurationException {
       throw new InvalidConfigurationException("Invalid toolchain configuration: " + error
@@ -297,9 +295,9 @@ public class CcToolchainFeatures implements Serializable {
    */
   @Immutable
   private static class Flag implements Serializable, Expandable {
-    private final ImmutableList<FlagChunk> chunks;
+    private final ImmutableList<StringChunk> chunks;
     
-    private Flag(ImmutableList<FlagChunk> chunks) {
+    private Flag(ImmutableList<StringChunk> chunks) {
       this.chunks = chunks;
     }
     
@@ -309,7 +307,7 @@ public class CcToolchainFeatures implements Serializable {
     @Override
     public void expand(Variables.View view, List<String> commandLine) {
       StringBuilder flag = new StringBuilder();
-      for (FlagChunk chunk : chunks) {
+      for (StringChunk chunk : chunks) {
         chunk.expand(view.getVariables(), flag);
       }
       commandLine.add(flag.toString());
@@ -322,6 +320,36 @@ public class CcToolchainFeatures implements Serializable {
     }
   }
   
+  /**
+   * A single environment key/value pair to be expanded under a set of variables.
+   */
+  @Immutable
+  private static class EnvEntry implements Serializable {
+    private final String key;
+    private final ImmutableList<StringChunk> valueChunks;
+    private final ImmutableSet<String> usedVariables;
+    
+    private EnvEntry(CToolchain.EnvEntry envEntry) throws InvalidConfigurationException {
+      this.key = envEntry.getKey();
+      StringValueParser parser = new StringValueParser(envEntry.getValue());
+      this.valueChunks = parser.getChunks();
+      this.usedVariables = parser.getUsedVariables();
+    }
+
+    /**
+     * Adds the key/value pair this object represents to the given map of environment variables.
+     * The value of the entry is expanded with the given {@code variables}.
+     */
+    public void addEnvEntry(Variables variables, ImmutableMap.Builder<String, String> envBuilder) {
+      Variables.View view = variables.getView(usedVariables);
+      StringBuilder value = new StringBuilder();
+      for (StringChunk chunk : valueChunks) {
+        chunk.expand(view.getVariables(), value);
+      }
+      envBuilder.put(key, value.toString());
+    }
+  }
+
   /**
    * A group of flags.
    */
@@ -342,7 +370,7 @@ public class CcToolchainFeatures implements Serializable {
                 + "and another flag_group.");
       }
       for (String flag : flags) {
-        FlagParser parser = new FlagParser(flag);
+        StringValueParser parser = new StringValueParser(flag);
         expandables.add(new Flag(parser.getChunks()));
         usedVariables.addAll(parser.getUsedVariables());
       }
@@ -425,20 +453,58 @@ public class CcToolchainFeatures implements Serializable {
   }
   
   /**
+   * Groups a set of environment variables to apply for certain actions.
+   */
+  @Immutable
+  private static class EnvSet implements Serializable {
+    private final ImmutableSet<String> actions;
+    private final ImmutableList<EnvEntry> envEntries;
+    
+    private EnvSet(CToolchain.EnvSet envSet) throws InvalidConfigurationException {
+      this.actions = ImmutableSet.copyOf(envSet.getActionList());
+      ImmutableList.Builder<EnvEntry> builder = ImmutableList.builder();
+      for (CToolchain.EnvEntry envEntry : envSet.getEnvEntryList()) {
+        builder.add(new EnvEntry(envEntry));
+      }
+      this.envEntries = builder.build();
+    }
+
+    /**
+     * Adds the environment key/value pairs that apply to the given {@code action} to
+     * {@code envBuilder}.
+     */
+    private void expandEnvironment(String action, Variables variables,
+        ImmutableMap.Builder<String, String> envBuilder) {
+      if (!actions.contains(action)) {
+        return;
+      }
+      for (EnvEntry envEntry : envEntries) {
+        envEntry.addEnvEntry(variables, envBuilder);
+      }
+    }
+  }
+
+  /**
    * Contains flags for a specific feature.
    */
   @Immutable
   private static class Feature implements Serializable {
     private final String name;
     private final ImmutableList<FlagSet> flagSets;
+    private final ImmutableList<EnvSet> envSets;
     
     private Feature(CToolchain.Feature feature) throws InvalidConfigurationException {
       this.name = feature.getName();
-      ImmutableList.Builder<FlagSet> builder = ImmutableList.builder();
+      ImmutableList.Builder<FlagSet> flagSetBuilder = ImmutableList.builder();
       for (CToolchain.FlagSet flagSet : feature.getFlagSetList()) {
-        builder.add(new FlagSet(flagSet));
+        flagSetBuilder.add(new FlagSet(flagSet));
       }
-      this.flagSets = builder.build();
+      this.flagSets = flagSetBuilder.build();
+      ImmutableList.Builder<EnvSet> envSetBuilder = ImmutableList.builder();
+      for (CToolchain.EnvSet flagSet : feature.getEnvSetList()) {
+        envSetBuilder.add(new EnvSet(flagSet));
+      }
+      this.envSets = envSetBuilder.build();
     }
 
     /**
@@ -446,6 +512,13 @@ public class CcToolchainFeatures implements Serializable {
      */
     private String getName() {
       return name;
+    }
+
+    private void expandEnvironment(String action, Variables variables,
+        ImmutableMap.Builder<String, String> envBuilder) {
+      for (EnvSet envSet : envSets) {
+        envSet.expandEnvironment(action, variables, envBuilder);
+      }
     }
 
     /**
@@ -792,6 +865,17 @@ public class CcToolchainFeatures implements Serializable {
         feature.expandCommandLine(action, variables, commandLine);
       }
       return commandLine;
+    }
+
+    /**
+     * @return the environment variables (key/value pairs) for the given {@code action}.
+     */
+    Map<String, String> getEnvironmentVariables(String action, Variables variables) {
+      ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
+      for (Feature feature : enabledFeatures) {
+        feature.expandEnvironment(action, variables, envBuilder);
+      }
+      return envBuilder.build();
     }
   }
   

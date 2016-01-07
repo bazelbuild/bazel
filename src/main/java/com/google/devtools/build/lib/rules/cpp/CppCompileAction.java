@@ -610,6 +610,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       environment.putAll(appleConfiguration.appleTargetPlatformEnv(
           Platform.forTargetCpu(cppConfiguration.getTargetCpu())));
     }
+    
+    environment.putAll(cppCompileCommandLine.getEnvironment());
 
     // TODO(bazel-team): Check (crosstool) host system name instead of using OS.getCurrent.
     if (OS.getCurrent() == OS.WINDOWS) {
@@ -1257,6 +1259,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       this.featureConfiguration = featureConfiguration;
       this.variables = variables;
       this.fdoBuildStamp = fdoBuildStamp;
+    }
+
+    /**
+     * Returns the environment variables that should be set for C++ compile actions.
+     */
+    protected Map<String, String> getEnvironment() {
+      return featureConfiguration.getEnvironmentVariables(getActionName(), variables);
     }
 
     protected List<String> getArgv(PathFragment outputFile) {

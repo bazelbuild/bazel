@@ -85,6 +85,14 @@ message CToolchain {
     repeated FlagGroup flag_group = 2;
   }
 
+  // A key/value pair to be added as an environment variable. The value of
+  // this pair is expanded in the same way as is described in FlagGroup.
+  // The key remains an unexpanded string literal.
+  message EnvEntry {
+    required string key = 1;
+    required string value = 2;
+  }
+
   // A set of features; used to support logical 'and' when specifying feature
   // requirements in FlagSet and Feature.
   message FeatureSet {
@@ -119,7 +127,27 @@ message CToolchain {
     repeated string expand_if_all_available = 4;
   }
 
+  // A set of environment variables that are expanded in the command line for
+  // specific actions.
+  message EnvSet {
+    // The actions this env set applies to; each env set must specify at
+    // least one action.
+    repeated string action = 1;
+
+    // The environment variables applied via this env set.
+    repeated EnvEntry env_entry = 2;
+
+    // A list of feature sets defining when this env set gets applied.  The
+    // env set will be applied when any of the feature sets fully apply, that
+    // is, when all features of the feature set are enabled.
+    //
+    // If 'with_feature' is omitted, the env set will be applied
+    // unconditionally for every action specified.
+    repeated FeatureSet with_feature = 3;
+  }
+
   // Contains all flag specifications for one feature.
+  // Next ID: 7
   message Feature {
     // The feature's name. Feature names are generally defined by Bazel; it is
     // possible to introduce a feature without a change to Bazel by adding a
@@ -130,6 +158,10 @@ message CToolchain {
     // If the given feature is enabled, the flag sets will be applied for the
     // actions in the modes that they are specified for.
     repeated FlagSet flag_set = 2;
+
+    // If the given feature is enabled, the env sets will be applied for the
+    // actions in the modes that they are specified for.
+    repeated EnvSet env_set = 6;
 
     // A list of feature sets defining when this feature is supported by the
     // toolchain. The feature is supported if any of the feature sets fully

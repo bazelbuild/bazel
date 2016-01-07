@@ -132,6 +132,45 @@ public abstract class MockCcSupport {
           + "  }"
           + "}";
 
+  /**
+   * A feature configuration snippet useful for testing environment variables.
+   */
+  public static final String ENV_VAR_FEATURE_CONFIGURATION =
+      ""
+          + "feature {"
+          + "  name: 'env_feature'"
+          + "  implies: 'static_env_feature'"
+          + "  implies: 'module_maps'"
+          + "}"
+          + "feature {"
+          + "  name: 'static_env_feature'"
+          + "  env_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'c++-header-parsing'"
+          + "    action: 'c++-header-preprocessing'"
+          + "    action: 'c++-module-compile'"
+          + "    env_entry {"
+          + "      key: 'cat'"
+          + "      value: 'meow'"
+          + "    }"
+          + "  }"
+          + "}"
+          + "feature {"
+          + "  name: 'module_maps'"
+          + "  env_set {"
+          + "    action: 'c-compile'"
+          + "    action: 'c++-compile'"
+          + "    action: 'c++-header-parsing'"
+          + "    action: 'c++-header-preprocessing'"
+          + "    action: 'c++-module-compile'"
+          + "    env_entry {"
+          + "      key: 'module'"
+          + "      value: 'module_name:%{module_name}'"
+          + "    }"
+          + "  }"
+          + "}";
+
   public static final String THIN_LTO_CONFIGURATION =
       ""
           + "feature { "

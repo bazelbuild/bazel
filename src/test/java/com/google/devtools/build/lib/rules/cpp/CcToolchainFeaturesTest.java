@@ -39,6 +39,7 @@ import org.junit.runners.JUnit4;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -139,7 +140,42 @@ public class CcToolchainFeaturesTest {
         CppCompileAction.CPP_COMPILE, createVariables());
     assertThat(commandLine).containsExactly("-a-c++-compile", "-b-c++-compile").inOrder();
   }
-  
+
+  @Test
+  public void testEnvVars() throws Exception {
+    FeatureConfiguration configuration = buildFeatures(
+        "feature {",
+        "  name: 'a'",
+        "  env_set {",
+        "     action: 'c++-compile'",
+        "     env_entry { key: 'foo', value: 'bar' }",
+        "     env_entry { key: 'cat', value: 'meow' }",
+        "  }",
+        "  flag_set {",
+        "     action: 'c++-compile'",
+        "     flag_group { flag: '-a-c++-compile' }",
+        "  }",
+        "}",
+        "feature {",
+        "  name: 'b'",
+        "  env_set {",
+        "     action: 'c++-compile'",
+        "     env_entry { key: 'dog', value: 'woof' }",
+        "  }",
+        "}",
+        "feature {",
+        "  name: 'c'",
+        "  env_set {",
+        "     action: 'c++-compile'",
+        "     env_entry { key: 'doNotInclude', value: 'doNotIncludePlease' }",
+        "  }",
+        "}").getFeatureConfiguration("a", "b");
+    Map<String, String> env = configuration.getEnvironmentVariables(
+        CppCompileAction.CPP_COMPILE, createVariables());
+    assertThat(env).containsExactly("foo", "bar", "cat", "meow", "dog", "woof").inOrder();
+    assertThat(env).doesNotContainEntry("doNotInclude", "doNotIncludePlease");
+  }
+
   private String getExpansionOfFlag(String value) throws Exception {
     return getExpansionOfFlag(value, createVariables());
   }
