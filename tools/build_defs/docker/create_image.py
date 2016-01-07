@@ -35,7 +35,7 @@ gflags.MarkFlagAsRequired('metadata')
 gflags.DEFINE_string(
     'layer', None,
     'The tar file for the top layer of this image, mandatory.')
-gflags.MarkFlagAsRequired('metadata')
+gflags.MarkFlagAsRequired('layer')
 
 gflags.DEFINE_string(
     'id', None,
