@@ -110,6 +110,7 @@ toolchain {
 
   # Anticipated future default.
   unfiltered_cxx_flag: "-no-canonical-prefixes"
+  unfiltered_cxx_flag: "-fno-canonical-system-headers"
 
   # Make C++ compilation deterministic. Use linkstamping instead of these
   # compiler symbols.
@@ -220,6 +221,7 @@ toolchain {
 
   # Anticipated future default.
   unfiltered_cxx_flag: "-no-canonical-prefixes"
+
   # Make C++ compilation deterministic. Use linkstamping instead of these
   # compiler symbols.
   unfiltered_cxx_flag: "-Wno-builtin-macro-redefined"
@@ -323,6 +325,7 @@ toolchain {
 
   # Anticipated future default.
   unfiltered_cxx_flag: "-no-canonical-prefixes"
+  unfiltered_cxx_flag: "-fno-canonical-system-headers"
 
   # Make C++ compilation deterministic. Use linkstamping instead of these
   # compiler symbols.
