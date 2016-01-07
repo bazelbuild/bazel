@@ -32,8 +32,10 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.Authenticator;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
+import java.net.PasswordAuthentication;
 import java.net.Proxy;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -212,6 +214,7 @@ public class HttpDownloader {
     // Split the proxyAddress into the protocol, address, and optional port. This does not use the
     // URL class to avoid the DNS resolution it performs on creation.
     int protocolIndex = proxyAddress.indexOf(':');
+    int lastColonSeen = protocolIndex;
     if (protocolIndex == -1) {
       throw new IOException("No proxy protocol found for " + proxyAddress);
     }
@@ -224,8 +227,33 @@ public class HttpDownloader {
     } else {
       throw new IOException("Invalid proxy protocol for " + proxyAddress);
     }
+
+    // Check for username:password@host
+    int atSign = proxyAddress.indexOf('@');
+    boolean containsCredentials = (atSign > 0);
+    if (containsCredentials) {
+      String credentials = proxyAddress.substring(protocol.length() + "://".length(), atSign);
+      int passwordIndex = credentials.indexOf(':');
+      if (passwordIndex == -1) {
+        throw new IOException("No password given for proxy: " + proxyAddress);
+      }
+      lastColonSeen = proxyAddress.indexOf(':', protocolIndex + 1);
+      String username = credentials.substring(0, passwordIndex);
+      String password = credentials.substring(passwordIndex + 1);
+      System.setProperty(protocol + ".proxyUser", username);
+      System.setProperty(protocol + ".proxyPassword", password);
+
+      Authenticator.setDefault(
+          new Authenticator() {
+            public PasswordAuthentication getPasswordAuthentication() {
+              return new PasswordAuthentication(username, password.toCharArray());
+            }
+          }
+      );
+    }
+
     int portIndex = proxyAddress.lastIndexOf(':');
-    if (protocolIndex == portIndex) {
+    if (portIndex == lastColonSeen) {
       // No port set, just the http: colon.
       return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyAddress, https ? 443 : 80));
     }

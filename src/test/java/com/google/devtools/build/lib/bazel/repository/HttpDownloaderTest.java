@@ -88,4 +88,28 @@ public class HttpDownloaderTest {
     }
   }
 
+  @Test
+  public void testProxyAuth() throws Exception {
+    Proxy proxy = HttpDownloader.createProxy("http://foo:barbaz@my.example.com");
+    assertEquals(Proxy.Type.HTTP, proxy.type());
+    assertThat(proxy.toString()).endsWith(":80");
+    assertEquals(System.getProperty("http.proxyUser"), "foo");
+    assertEquals(System.getProperty("http.proxyPassword"), "barbaz");
+
+    proxy = HttpDownloader.createProxy("https://biz:bat@my.example.com");
+    assertThat(proxy.toString()).endsWith(":443");
+    assertEquals(System.getProperty("https.proxyUser"), "biz");
+    assertEquals(System.getProperty("https.proxyPassword"), "bat");
+  }
+
+  @Test
+  public void testInvalidAuth() throws Exception {
+    try {
+      HttpDownloader.createProxy("http://foo@my.example.com");
+      fail("Should have thrown an error for invalid auth");
+    } catch (IOException e) {
+      assertThat(e.getMessage()).contains("No password given for proxy");
+    }
+  }
+
 }
