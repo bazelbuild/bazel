@@ -55,7 +55,7 @@ import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PackageValue;
-import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsValue;
+import com.google.devtools.build.lib.skyframe.PrepareDepsOfPatternsFunction;
 import com.google.devtools.build.lib.skyframe.RecursivePackageProviderBackedTargetPatternResolver;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue;
@@ -147,21 +147,23 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       LOG.info("Spent " + (duration / 1000 / 1000) + " ms on evaluation and walkable graph");
     }
 
+    SkyKey universeKey = graphFactory.getUniverseKey(universeScope, parserPrefix);
+    universeTargetPatternKeys =
+        PrepareDepsOfPatternsFunction.getTargetPatternKeys(
+            PrepareDepsOfPatternsFunction.getSkyKeys(universeKey, eventHandler));
+
     // The prepareAndGet call above evaluates a single PrepareDepsOfPatterns SkyKey.
     // We expect to see either a single successfully evaluated value or a cycle in the result.
     Collection<SkyValue> values = result.values();
     if (!values.isEmpty()) {
       Preconditions.checkState(values.size() == 1, "Universe query \"%s\" returned multiple"
               + " values unexpectedly (%s values in result)", universeScope, values.size());
-      PrepareDepsOfPatternsValue prepareDepsOfPatternsValue =
-          (PrepareDepsOfPatternsValue) Iterables.getOnlyElement(values);
-      universeTargetPatternKeys = prepareDepsOfPatternsValue.getTargetPatternKeys();
+      Preconditions.checkNotNull(result.get(universeKey), result);
     } else {
       // No values in the result, so there must be an error. We expect the error to be a cycle.
       boolean foundCycle = !Iterables.isEmpty(result.getError().getCycleInfo());
       Preconditions.checkState(foundCycle, "Universe query \"%s\" failed with non-cycle error: %s",
           universeScope, result.getError());
-      universeTargetPatternKeys = ImmutableList.of();
     }
   }
 
