@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 
 import static com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils.append;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
 import com.google.devtools.build.lib.syntax.compiler.DebugInfo.AstAccessors;
@@ -31,7 +32,9 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Class representing an LValue.
@@ -83,8 +86,43 @@ public class LValue implements Serializable {
       return;
     }
 
+    // Support syntax for setting an element in an array, e.g. a[5] = 2
+    // We currently do not allow slices (e.g. a[2:6] = [3]).
+    if (lvalue instanceof FuncallExpression) {
+      FuncallExpression func = (FuncallExpression) lvalue;
+      List<Argument.Passed> args = func.getArguments();
+      if (func.getFunction().getName().equals("$index")
+          && func.getObject() instanceof Identifier
+          && args.size() == 1) {
+        Object key = args.get(0).getValue().eval(env);
+        assignItem(env, loc, (Identifier) func.getObject(), key, result);
+        return;
+      }
+    }
+
     throw new EvalException(loc,
         "can only assign to variables and tuples, not to '" + lvalue + "'");
+  }
+
+  // Since dict is still immutable, the expression 'a[x] = b' creates a new dictionary and
+  // assigns it to 'a'.
+  // TODO(bazel-team): make dict mutable - this function should be O(1) instead of O(n).
+  private static void assignItem(
+      Environment env, Location loc, Identifier ident, Object key, Object value)
+      throws EvalException, InterruptedException {
+    Object o = ident.eval(env);
+    if (!(o instanceof Map)) {
+      throw new EvalException(
+          loc,
+          "can only assign an element in a dictionary, not in a '"
+              + EvalUtils.getDataTypeName(o)
+              + "'");
+    }
+    Map<?, ?> dict = (Map<?, ?>) o;
+    Map<Object, Object> result = new LinkedHashMap<>(dict.size() + 1);
+    result.putAll(dict);
+    result.put(key, value);
+    env.update(ident.getName(), ImmutableMap.copyOf(result));
   }
 
   /**
@@ -123,6 +161,12 @@ public class LValue implements Serializable {
         validate(env, loc, e);
       }
       return;
+    }
+    if (expr instanceof FuncallExpression) {
+      FuncallExpression func = (FuncallExpression) expr;
+      if (func.getFunction().getName().equals("$index") && func.getObject() instanceof Identifier) {
+        return;
+      }
     }
     throw new EvalException(loc,
         "can only assign to variables and tuples, not to '" + expr + "'");

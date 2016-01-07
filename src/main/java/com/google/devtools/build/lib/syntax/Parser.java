@@ -1197,21 +1197,6 @@ public class Parser {
     if (token.kind == TokenKind.EQUALS) {
       nextToken();
       Expression rvalue = parseExpression();
-      if (expression instanceof FuncallExpression) {
-        FuncallExpression func = (FuncallExpression) expression;
-        if (func.getFunction().getName().equals("$index")
-            && func.getObject() instanceof Identifier) {
-          // Special casing to translate 'ident[key] = value' to 'ident = ident + {key: value}'
-          // Note that the locations of these extra expressions are fake.
-          Preconditions.checkArgument(func.getArguments().size() == 1);
-          DictionaryLiteral dictRValue = setLocation(new DictionaryLiteral(ImmutableList.of(
-              setLocation(new DictionaryEntryLiteral(func.getArguments().get(0).getValue(), rvalue),
-                  start, token.right))), start, token.right);
-          BinaryOperatorExpression binExp = setLocation(new BinaryOperatorExpression(
-              Operator.PLUS, func.getObject(), dictRValue), start, token.right);
-          return setLocation(new AssignmentStatement(func.getObject(), binExp), start, token.right);
-        }
-      }
       return setLocation(new AssignmentStatement(expression, rvalue), start, rvalue);
     } else if (augmentedAssignmentMethods.containsKey(token.kind)) {
       Operator operator = augmentedAssignmentMethods.get(token.kind);

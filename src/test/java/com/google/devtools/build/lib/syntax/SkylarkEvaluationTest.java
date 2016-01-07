@@ -816,6 +816,24 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
+  public void testDictTupleAssignmentAsLValue() throws Exception {
+    new SkylarkTest().setUp("def func():",
+        "  d = {'a' : 1}",
+        "  d['b'], d['c'] = 2, 3",
+        "  return d",
+        "d = func()").testLookup("d", ImmutableMap.of("a", 1, "b", 2, "c", 3));
+  }
+
+  @Test
+  public void testDictItemPlusEqual() throws Exception {
+    new SkylarkTest().setUp("def func():",
+        "  d = {'a' : 2}",
+        "  d['a'] += 3",
+        "  return d",
+        "d = func()").testLookup("d", ImmutableMap.of("a", 5));
+  }
+
+  @Test
   public void testDictAssignmentAsLValueNoSideEffects() throws Exception {
     new SkylarkTest().setUp("def func(d):",
         "  d['b'] = 2",
@@ -827,7 +845,7 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   public void testListIndexAsLValueAsLValue() throws Exception {
     new SkylarkTest()
         .testIfErrorContains(
-            "unsupported operand type(s) for +: 'list' and 'dict'",
+            "can only assign an element in a dictionary, not in a 'list'",
             "def id(l):",
             "  return l",
             "def func():",
