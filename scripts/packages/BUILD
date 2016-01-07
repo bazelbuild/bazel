@@ -151,14 +151,26 @@ genrule(
     stamp = 1,
 )
 
+config_setting(
+    name = "jdk7",
+    values = {"define": "JAVA_VERSION=1.7"},
+)
+
 pkg_deb(
     name = "bazel-debian",
     architecture = "amd64",
     built_using = "bazel (HEAD)",
     data = ":debian-data",
-    depends = [
-        "openjdk-8-jdk",
-        "openjdk-8-source",
+    depends = select({
+        ":jdk7": [
+            "openjdk-7-jdk",
+            "openjdk-7-source",
+        ],
+        "//conditions:default": [
+            "openjdk-8-jdk",
+            "openjdk-8-source",
+        ],
+    }) + [
         "pkg-config",
         "zip",
         "g++",

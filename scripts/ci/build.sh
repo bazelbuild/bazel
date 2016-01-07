@@ -119,12 +119,13 @@ function setup_jdk7() {
   export BAZEL_SKIP_TOOL_COMPILATION=tools/jdk/JavaBuilder_deploy.jar
   # Ignore JDK8 tests
   export BAZEL_TEST_FILTERS="-jdk8"
-  # And more ugly hack. Overwrite the BUILD file of JavaBuilder
-  # so we use the pre-built version in integration tests.
-  sed -i.bak 's/name = \"JavaBuilder\"/name = \"RealJavaBuilder\"/' \
-      src/java_tools/buildjar/BUILD
-  rm -f src/java_tools/buildjar/BUILD.bak
-  cat >>src/java_tools/buildjar/BUILD <<'EOF'
+  if ! grep -Fq 'RealJavaBuilder' src/java_tools/buildjar/BUILD; then
+    # And more ugly hack. Overwrite the BUILD file of JavaBuilder
+    # so we use the pre-built version in integration tests.
+    sed -i.bak 's/name = \"JavaBuilder\"/name = \"RealJavaBuilder\"/' \
+        src/java_tools/buildjar/BUILD
+    rm -f src/java_tools/buildjar/BUILD.bak
+    cat >>src/java_tools/buildjar/BUILD <<'EOF'
 genrule(
     name = "JavaBuilder",
     outs = ["JavaBuilder_deploy.jar"],
@@ -133,6 +134,7 @@ genrule(
     visibility = ["//visibility:public"],
 )
 EOF
+  fi
 }
 
 # Main entry point for building bazel.
@@ -148,8 +150,11 @@ function bazel_build() {
   fi
 
   if [[ "${JAVA_VERSION-}" =~ ^(1\.)?7$ ]]; then
+    JAVA_VERSION=1.7
     setup_jdk7
     release_label="${release_label}-jdk7"
+  else
+    JAVA_VERSION=1.8
   fi
 
   setup_android_repositories
@@ -165,6 +170,7 @@ function bazel_build() {
   ./output/bazel --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
       --embed_label=${release_label} --stamp \
       --workspace_status_command=scripts/ci/build_status_command.sh \
+      --define JAVA_VERSION=${JAVA_VERSION} \
       //scripts/packages/... || exit $?
 
   if [ -n "${1-}" ]; then
