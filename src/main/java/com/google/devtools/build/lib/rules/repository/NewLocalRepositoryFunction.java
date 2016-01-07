@@ -40,7 +40,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       return null;
     }
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
-    PathFragment pathFragment = getTargetPath(rule);
+    PathFragment pathFragment = getTargetPath(rule, getWorkspace());
     
     // Link x/y/z to /some/path/to/y/z.
     if (!symlinkLocalRepositoryContents(

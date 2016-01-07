@@ -19,7 +19,6 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
-import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -43,15 +42,7 @@ public class LocalRepositoryFunction extends RepositoryFunction {
   public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
       throws SkyFunctionException {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    String path = mapper.get("path", Type.STRING);
-    PathFragment pathFragment = new PathFragment(path);
-    if (!pathFragment.isAbsolute()) {
-      throw new RepositoryFunctionException(
-          new EvalException(
-              rule.getLocation(),
-              "In " + rule + " the 'path' attribute must specify an absolute path"),
-          Transience.PERSISTENT);
-    }
+    PathFragment pathFragment = new PathFragment(mapper.get("path", Type.STRING));
     try {
       outputDirectory.createSymbolicLink(pathFragment);
     } catch (IOException e) {

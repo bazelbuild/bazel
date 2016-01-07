@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -298,19 +299,13 @@ public abstract class RepositoryFunction {
     return RepositoryValue.create(outputDirectory);
   }
 
-  protected static PathFragment getTargetPath(Rule rule) throws RepositoryFunctionException {
+  @VisibleForTesting
+  protected static PathFragment getTargetPath(Rule rule, Path workspace)
+      throws RepositoryFunctionException {
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     String path = mapper.get("path", Type.STRING);
     PathFragment pathFragment = new PathFragment(path);
-    if (!pathFragment.isAbsolute()) {
-      throw new RepositoryFunctionException(
-          new EvalException(
-              rule.getLocation(),
-              "In " + rule + " the 'path' attribute must specify an absolute path"),
-          Transience.PERSISTENT);
-    }
-
-    return pathFragment;
+    return workspace.getRelative(pathFragment).asFragment();
   }
 
   /**

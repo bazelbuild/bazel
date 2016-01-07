@@ -41,7 +41,7 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
       throws SkyFunctionException {
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
-    PathFragment pathFragment = getTargetPath(rule);
+    PathFragment pathFragment = getTargetPath(rule, getWorkspace());
 
     if (!symlinkLocalRepositoryContents(
         outputDirectory,

@@ -76,7 +76,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
   public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
       throws SkyFunctionException {
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
-    PathFragment pathFragment = getTargetPath(rule);
+    PathFragment pathFragment = getTargetPath(rule, getWorkspace());
     Path ndkSymlinkTreeDirectory = outputDirectory.getRelative("ndk");
     try {
       ndkSymlinkTreeDirectory.createDirectory();

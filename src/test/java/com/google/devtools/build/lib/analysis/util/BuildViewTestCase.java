@@ -679,7 +679,12 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Rule scratchRule(String packageName, String ruleName, String... lines)
       throws Exception {
     String buildFilePathString = packageName + "/BUILD";
-    scratch.file(buildFilePathString, lines);
+    if (packageName.equals(Label.EXTERNAL_PATH_PREFIX)) {
+      buildFilePathString = "WORKSPACE";
+      scratch.overwriteFile(buildFilePathString, lines);
+    } else {
+      scratch.file(buildFilePathString, lines);
+    }
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter,
         new ModifiedFileSet.Builder().modify(new PathFragment(buildFilePathString)).build(),

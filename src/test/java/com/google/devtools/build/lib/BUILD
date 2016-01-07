@@ -953,6 +953,33 @@ java_test(
 )
 
 java_test(
+    name = "repository-rules-tests",
+    srcs = glob(["rules/repository/*.java"]),
+    args = ["com.google.devtools.build.lib.AllTests"],
+    tags = ["rules"],
+    deps = [
+        ":analysis_testutil",
+        ":testutil",
+        "//src/main/java/com/google/devtools/build/lib:bazel-main",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:cmdline",
+        "//src/main/java/com/google/devtools/build/lib:common",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:util",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:protobuf",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "bazel-rules-tests",
     srcs = glob([
         "bazel/rules/**/*.java",
