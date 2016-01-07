@@ -1,16 +1,17 @@
 package(default_visibility = ["@sassc//:__pkg__"])
 
-BASE_DIR = "libsass-3.3.0-beta1/"
-
 filegroup(
     name = "srcs",
     srcs = glob([
-         BASE_DIR + "src/**/*.h*",
-         BASE_DIR + "src/**/*.c*",
+         "src/**/*.h*",
+         "src/**/*.c*",
     ]),
 )
 
+# Includes directive may seem unnecessary here, but its needed for the weird
+# interplay between libsass/sassc projects. This is intentional.
 cc_library(
     name = "headers",
-    includes = [BASE_DIR + "include"],
+    includes = ["include"],
+    hdrs = glob(["include/**/*.h"]),
 )
