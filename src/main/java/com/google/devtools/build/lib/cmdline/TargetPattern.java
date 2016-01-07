@@ -19,9 +19,12 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.cmdline.LabelValidator.PackageAndTarget;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
+import com.google.devtools.build.lib.collect.CompactHashSet;
+import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -31,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import javax.annotation.concurrent.Immutable;
 
@@ -445,9 +449,22 @@ public abstract class TargetPattern implements Serializable {
     public <T> ResolvedTargets<T> eval(TargetPatternResolver<T> resolver,
         ImmutableSet<String> excludedSubdirectories)
         throws TargetParsingException, InterruptedException {
-      return resolver.findTargetsBeneathDirectory(
-          directory.getRepository(), getOriginalPattern(),
-          directory.getPackageFragment().getPathString(), rulesOnly, excludedSubdirectories);
+      final Set<T> results = CompactHashSet.create();
+      BatchCallback<T, RuntimeException> callback =
+          new BatchCallback<T, RuntimeException>() {
+            @Override
+            public void process(Iterable<T> partialResult) {
+              Iterables.addAll(results, partialResult);
+            }
+          };
+      resolver.findTargetsBeneathDirectory(
+          directory.getRepository(),
+          getOriginalPattern(),
+          directory.getPackageFragment().getPathString(),
+          rulesOnly,
+          excludedSubdirectories,
+          callback);
+      return ResolvedTargets.<T>builder().addAll(results).build();
     }
 
     @Override

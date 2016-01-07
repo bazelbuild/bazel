@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
+import com.google.devtools.build.lib.util.BatchCallback;
 
 /**
  * A callback interface that is used during the process of converting target patterns (such as
@@ -57,11 +58,12 @@ public interface TargetPatternResolver<T> {
       throws TargetParsingException, InterruptedException;
 
   /**
-   * Returns the set containing the targets found below the given {@code directory}. Conceptually,
-   * this method should look for all packages that start with the {@code directory} (as a proper
-   * prefix directory, i.e., "foo/ba" is not a proper prefix of "foo/bar/"), and then collect all
-   * targets in each such package (subject to {@code rulesOnly}) as if calling {@link
-   * #getTargetsInPackage}. The specified directory is not necessarily a valid package name.
+   * Computes the set containing the targets found below the given {@code directory}, passing it in
+   * batches to {@code callback}. Conceptually, this method should look for all packages that start
+   * with the {@code directory} (as a proper prefix directory, i.e., "foo/ba" is not a proper prefix
+   * of "foo/bar/"), and then collect all targets in each such package (subject to
+   * {@code rulesOnly}) as if calling {@link #getTargetsInPackage}. The specified directory is not
+   * necessarily a valid package name.
    *
    * <p>Note that the {@code directory} can be empty, which corresponds to the "//..." pattern.
    * Implementations may choose not to support this case and throw an {@link
@@ -76,11 +78,17 @@ public interface TargetPatternResolver<T> {
    * @param rulesOnly whether to return rules only
    * @param excludedSubdirectories a set of transitive subdirectories beneath {@code directory}
    *    to ignore
+   * @param callback the callback to receive the result, possibly in multiple batches.
    * @throws TargetParsingException under implementation-specific failure conditions
    */
-  ResolvedTargets<T> findTargetsBeneathDirectory(RepositoryName repository, String originalPattern,
-      String directory, boolean rulesOnly, ImmutableSet<String> excludedSubdirectories)
-      throws TargetParsingException, InterruptedException;
+  <E extends Exception> void findTargetsBeneathDirectory(
+      RepositoryName repository,
+      String originalPattern,
+      String directory,
+      boolean rulesOnly,
+      ImmutableSet<String> excludedSubdirectories,
+      BatchCallback<T, E> callback)
+      throws TargetParsingException, E, InterruptedException;
 
   /**
    * Returns true, if and only if the given package identifier corresponds to a package, i.e., a

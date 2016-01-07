@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
 import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageProvider.MissingDepException;
+import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -207,10 +208,14 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     }
 
     @Override
-    public ResolvedTargets<Void> findTargetsBeneathDirectory(RepositoryName repository,
-        String originalPattern, String directory, boolean rulesOnly,
-        ImmutableSet<String> excludedSubdirectories)
-        throws TargetParsingException, InterruptedException {
+    public <E extends Exception> void findTargetsBeneathDirectory(
+        RepositoryName repository,
+        String originalPattern,
+        String directory,
+        boolean rulesOnly,
+        ImmutableSet<String> excludedSubdirectories,
+        BatchCallback<Void, E> callback)
+        throws TargetParsingException, E, InterruptedException {
       FilteringPolicy policy =
           rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
       ImmutableSet<PathFragment> excludedPathFragments =
@@ -239,7 +244,6 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
           throw new MissingDepException();
         }
       }
-      return ResolvedTargets.empty();
     }
   }
 }

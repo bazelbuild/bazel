@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.query2.engine;
  * result. Assuming the {@code QueryEnvironment} supports it, it would allow the caller
  * to stream the results.
  */
+// TODO(janakr): have this inherit from com.google.devtools.build.lib.util.BatchCallback.
 public interface Callback<T> {
 
   /**
