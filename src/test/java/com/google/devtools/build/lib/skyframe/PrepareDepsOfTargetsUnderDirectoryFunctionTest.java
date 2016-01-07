@@ -55,6 +55,13 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
     skyframeExecutor = getSkyframeExecutor();
   }
 
+  private SkyKey createCollectPackagesKey(
+      Path root, PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
+    RootedPath rootedPath = RootedPath.toRootedPath(root, rootRelativePath);
+    return CollectPackagesUnderDirectoryValue.key(
+        PackageIdentifier.DEFAULT_REPOSITORY_NAME, rootedPath, excludedPaths);
+  }
+
   private SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath) {
     return createPrepDepsKey(root, rootRelativePath, ImmutableSet.<PathFragment>of());
   }
@@ -156,7 +163,15 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
         ImmutableSet.of(excludedPathFragment));
     EvaluationResult<PrepareDepsOfTargetsUnderDirectoryValue> evaluationResult =
         getEvaluationResult(key);
-    PrepareDepsOfTargetsUnderDirectoryValue value = evaluationResult.get(key);
+    CollectPackagesUnderDirectoryValue value =
+        (CollectPackagesUnderDirectoryValue)
+            evaluationResult
+                .getWalkableGraph()
+                .getValue(
+                    createCollectPackagesKey(
+                        rootDirectory,
+                        new PathFragment("a"),
+                        ImmutableSet.of(excludedPathFragment)));
 
     // Then the value reports that "a" is a package,
     assertThat(value.isDirectoryPackage()).isTrue();
@@ -193,7 +208,12 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
     SkyKey key = createPrepDepsKey(rootDirectory, new PathFragment("a"), excludedPaths);
     EvaluationResult<PrepareDepsOfTargetsUnderDirectoryValue> evaluationResult =
         getEvaluationResult(key);
-    PrepareDepsOfTargetsUnderDirectoryValue value = evaluationResult.get(key);
+    CollectPackagesUnderDirectoryValue value =
+        (CollectPackagesUnderDirectoryValue)
+            evaluationResult
+                .getWalkableGraph()
+                .getValue(
+                    createCollectPackagesKey(rootDirectory, new PathFragment("a"), excludedPaths));
 
     // Then the value reports that "a" is a package,
     assertThat(value.isDirectoryPackage()).isTrue();
@@ -209,10 +229,10 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
     // Also, the computation graph contains a cached value for "a/b" with "a/b/c" excluded, because
     // "a/b/c" does live underneath "a/b".
     WalkableGraph graph = Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
-    SkyKey abKey = createPrepDepsKey(rootDirectory, new PathFragment("a/b"), excludedPaths);
+    SkyKey abKey = createCollectPackagesKey(rootDirectory, new PathFragment("a/b"), excludedPaths);
     assertThat(graph.exists(abKey)).isTrue();
-    PrepareDepsOfTargetsUnderDirectoryValue abValue =
-        (PrepareDepsOfTargetsUnderDirectoryValue) Preconditions.checkNotNull(graph.getValue(abKey));
+    CollectPackagesUnderDirectoryValue abValue =
+        (CollectPackagesUnderDirectoryValue) Preconditions.checkNotNull(graph.getValue(abKey));
 
     // And that value says that "a/b" is not a package,
     assertThat(abValue.isDirectoryPackage()).isFalse();

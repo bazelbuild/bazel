@@ -34,8 +34,6 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
-import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
@@ -151,19 +149,21 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
       ImmutableSet<PathFragment> excludedSubdirectories) {
     PathFragment.checkAllPathsAreUnder(excludedSubdirectories, directory);
 
-    // Find the filtering policy of a TargetsBelowDirectory pattern, if any, in the universe that
-    // contains this directory.
-    FilteringPolicy filteringPolicy = null;
+    // Check that this package is covered by at least one of our universe patterns.
+    boolean inUniverse = false;
     for (TargetPatternKey patternKey : universeTargetPatternKeys) {
       TargetPattern pattern = patternKey.getParsedPattern();
       boolean isTBD = pattern.getType().equals(Type.TARGETS_BELOW_DIRECTORY);
       PackageIdentifier packageIdentifier = PackageIdentifier.create(
           repository, directory);
       if (isTBD && pattern.containsBelowDirectory(packageIdentifier)) {
-        filteringPolicy =
-            pattern.getRulesOnly() ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
+        inUniverse = true;
         break;
       }
+    }
+
+    if (!inUniverse) {
+      return ImmutableList.of();
     }
 
     List<Path> roots = new ArrayList<>();
@@ -184,27 +184,28 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     // then we can look for packages in and under it in the graph. If we didn't find one, then the
     // directory wasn't in the universe, so return an empty list.
     ImmutableList.Builder<PathFragment> builder = ImmutableList.builder();
-    if (filteringPolicy != null) {
-      for (Path root : roots) {
-        RootedPath rootedDir = RootedPath.toRootedPath(root, directory);
-        TraversalInfo info = new TraversalInfo(rootedDir, excludedSubdirectories);
-        collectPackagesUnder(repository, ImmutableSet.of(info), builder, filteringPolicy);
-      }
+    for (Path root : roots) {
+      RootedPath rootedDir = RootedPath.toRootedPath(root, directory);
+      TraversalInfo info = new TraversalInfo(rootedDir, excludedSubdirectories);
+      collectPackagesUnder(repository, ImmutableSet.of(info), builder);
     }
     return builder.build();
   }
 
-  private void collectPackagesUnder(final RepositoryName repository,
-      Set<TraversalInfo> traversals, ImmutableList.Builder<PathFragment> builder,
-      final FilteringPolicy policy) {
+  private void collectPackagesUnder(
+      final RepositoryName repository,
+      Set<TraversalInfo> traversals,
+      ImmutableList.Builder<PathFragment> builder) {
     Map<TraversalInfo, SkyKey> traversalToKeyMap =
-        Maps.asMap(traversals, new Function<TraversalInfo, SkyKey>() {
-          @Override
-          public SkyKey apply(TraversalInfo traversalInfo) {
-            return PrepareDepsOfTargetsUnderDirectoryValue.key(
-                repository, traversalInfo.rootedDir, traversalInfo.excludedSubdirectories, policy);
-          }
-        });
+        Maps.asMap(
+            traversals,
+            new Function<TraversalInfo, SkyKey>() {
+              @Override
+              public SkyKey apply(TraversalInfo traversalInfo) {
+                return CollectPackagesUnderDirectoryValue.key(
+                    repository, traversalInfo.rootedDir, traversalInfo.excludedSubdirectories);
+              }
+            });
     Map<SkyKey, SkyValue> values = graph.getSuccessfulValues(traversalToKeyMap.values());
 
     ImmutableSet.Builder<TraversalInfo> subdirTraversalBuilder = ImmutableSet.builder();
@@ -212,15 +213,15 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
       TraversalInfo info = entry.getKey();
       SkyKey key = entry.getValue();
       SkyValue val = values.get(key);
-      PrepareDepsOfTargetsUnderDirectoryValue prepDepsValue =
-          (PrepareDepsOfTargetsUnderDirectoryValue) val;
-      if (prepDepsValue != null) {
-        if (prepDepsValue.isDirectoryPackage()) {
+      CollectPackagesUnderDirectoryValue collectPackagesValue =
+          (CollectPackagesUnderDirectoryValue) val;
+      if (collectPackagesValue != null) {
+        if (collectPackagesValue.isDirectoryPackage()) {
           builder.add(info.rootedDir.getRelativePath());
         }
 
         ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackages =
-            prepDepsValue.getSubdirectoryTransitivelyContainsPackages();
+            collectPackagesValue.getSubdirectoryTransitivelyContainsPackages();
         for (RootedPath subdirectory : subdirectoryTransitivelyContainsPackages.keySet()) {
           if (subdirectoryTransitivelyContainsPackages.get(subdirectory)) {
             PathFragment subdirectoryRelativePath = subdirectory.getRelativePath();
@@ -236,7 +237,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
     ImmutableSet<TraversalInfo> subdirTraversals = subdirTraversalBuilder.build();
     if (!subdirTraversals.isEmpty()) {
-      collectPackagesUnder(repository, subdirTraversals, builder, policy);
+      collectPackagesUnder(repository, subdirTraversals, builder);
     }
   }
 

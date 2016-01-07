@@ -339,8 +339,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(SkyFunctions.TARGET_PATTERN, new TargetPatternFunction());
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new PrepareDepsOfPatternsFunction());
     map.put(SkyFunctions.PREPARE_DEPS_OF_PATTERN, new PrepareDepsOfPatternFunction(pkgLocator));
-    map.put(SkyFunctions.PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY,
-        new PrepareDepsOfTargetsUnderDirectoryFunction(directories));
+    map.put(
+        SkyFunctions.PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY,
+        new PrepareDepsOfTargetsUnderDirectoryFunction());
+    map.put(
+        SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY,
+        new CollectPackagesUnderDirectoryFunction(directories));
     map.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES, new BlacklistedPackagePrefixesFunction());
     map.put(SkyFunctions.TESTS_IN_SUITE, new TestsInSuiteFunction());
     map.put(SkyFunctions.TEST_SUITE_EXPANSION, new TestSuiteExpansionFunction());

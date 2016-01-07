@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -31,85 +30,22 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * The value computed by {@link PrepareDepsOfTargetsUnderDirectoryFunction}. Contains a mapping for
- * all its non-excluded directories to whether there are packages beneath them.
+ * Dummy value that is the result of {@link PrepareDepsOfTargetsUnderDirectoryFunction}.
  *
- * <p>This value is used by {@link GraphBackedRecursivePackageProvider#getPackagesUnderDirectory}
- * to help it traverse the graph and find the set of packages under a directory, and recursively by
- * {@link PrepareDepsOfTargetsUnderDirectoryFunction} which computes a value for a directory by
- * aggregating results calculated from its subdirectories.
- *
- * <p>Note that even though the {@link PrepareDepsOfTargetsUnderDirectoryFunction} is evaluated in
- * part because of its side-effects (i.e. loading transitive dependencies of targets), this value
- * interacts safely with change pruning, despite the fact that this value is a lossy representation
- * of the packages beneath a directory (i.e. it doesn't care <b>which</b> packages are under a
- * directory, just whether there are any). When the targets in a package change, the
- * {@link PackageValue} that {@link PrepareDepsOfTargetsUnderDirectoryFunction} depends on will be
- * invalidated, and the PrepareDeps function for that package's directory will be reevaluated,
- * loading any new transitive dependencies. Change pruning may prevent the reevaluation of
- * PrepareDeps for directories above that one, but they don't need to be re-run.
+ * <p>Note that even though the {@link PrepareDepsOfTargetsUnderDirectoryFunction} is evaluated
+ * entirely because of its side effects (i.e. loading transitive dependencies of targets), this
+ * value interacts safely with change pruning, despite the fact that this value is a singleton. When
+ * the targets in a package change, the {@link PackageValue} that
+ * {@link PrepareDepsOfTargetsUnderDirectoryFunction} depends on will be invalidated, and the
+ * PrepareDeps function for that package's directory will be re-evaluated, loading any new
+ * transitive dependencies. Change pruning may prevent the re-evaluation of PrepareDeps for
+ * directories above that one, but they don't need to be re-run.
  */
 public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
-  public static final PrepareDepsOfTargetsUnderDirectoryValue EMPTY =
-      new PrepareDepsOfTargetsUnderDirectoryValue(false, ImmutableMap.<RootedPath, Boolean>of());
-  public static final PrepareDepsOfTargetsUnderDirectoryValue EMPTY_DIRECTORY_PACKAGE =
-      new PrepareDepsOfTargetsUnderDirectoryValue(true, ImmutableMap.<RootedPath, Boolean>of());
+  public static final PrepareDepsOfTargetsUnderDirectoryValue INSTANCE =
+      new PrepareDepsOfTargetsUnderDirectoryValue();
 
-  public static final PrepareDepsOfTargetsUnderDirectoryValue of(boolean isDirectoryPackage,
-      ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackages) {
-    if (subdirectoryTransitivelyContainsPackages.isEmpty()) {
-      if (isDirectoryPackage) {
-        return EMPTY_DIRECTORY_PACKAGE;
-      } else {
-        return EMPTY;
-      }
-    } else {
-      return new PrepareDepsOfTargetsUnderDirectoryValue(
-          isDirectoryPackage, subdirectoryTransitivelyContainsPackages);
-    }
-  }
-
-  private final boolean isDirectoryPackage;
-  private final ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackages;
-
-  private PrepareDepsOfTargetsUnderDirectoryValue(boolean isDirectoryPackage,
-      ImmutableMap<RootedPath, Boolean> subdirectoryTransitivelyContainsPackages) {
-    this.isDirectoryPackage = isDirectoryPackage;
-    this.subdirectoryTransitivelyContainsPackages = Preconditions.checkNotNull(
-        subdirectoryTransitivelyContainsPackages);
-  }
-
-  /** Whether the directory is a package (i.e. contains a BUILD file). */
-  public boolean isDirectoryPackage() {
-    return isDirectoryPackage;
-  }
-
-  /**
-   * Returns a map from non-excluded immediate subdirectories of this directory to whether there
-   * are non-excluded packages under them.
-   */
-  public ImmutableMap<RootedPath, Boolean> getSubdirectoryTransitivelyContainsPackages() {
-    return subdirectoryTransitivelyContainsPackages;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof PrepareDepsOfTargetsUnderDirectoryValue)) {
-      return false;
-    }
-    PrepareDepsOfTargetsUnderDirectoryValue that = (PrepareDepsOfTargetsUnderDirectoryValue) o;
-    return isDirectoryPackage == that.isDirectoryPackage
-        && Objects.equals(subdirectoryTransitivelyContainsPackages,
-        that.subdirectoryTransitivelyContainsPackages);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(isDirectoryPackage, subdirectoryTransitivelyContainsPackages);
-  }
+  private PrepareDepsOfTargetsUnderDirectoryValue() {}
 
   /** Create a prepare deps of targets under directory request. */
   @ThreadSafe
