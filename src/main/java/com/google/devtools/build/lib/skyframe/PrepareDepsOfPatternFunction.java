@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
 import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.util.BatchCallback;
+import com.google.devtools.build.lib.util.BatchCallback.NullCallback;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -81,7 +82,8 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
       TargetPattern parsedPattern = patternKey.getParsedPattern();
       DepsOfPatternPreparer preparer = new DepsOfPatternPreparer(env, pkgPath.get());
       ImmutableSet<String> excludedSubdirectories = patternKey.getExcludedSubdirectories();
-      parsedPattern.eval(preparer, excludedSubdirectories);
+      parsedPattern.<Void, RuntimeException>eval(
+          preparer, excludedSubdirectories, NullCallback.<Void>instance());
     } catch (TargetParsingException e) {
       throw new PrepareDepsOfPatternFunctionException(e);
     } catch (MissingDepException e) {

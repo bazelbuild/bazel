@@ -29,4 +29,17 @@ public interface BatchCallback<T, E extends Exception> {
    * across calls.
    */
   void process(Iterable<T> partialResult) throws E, InterruptedException;
+
+  /** {@link BatchCallback} that does precisely nothing. */
+  class NullCallback<T> implements BatchCallback<T, RuntimeException> {
+    private static final NullCallback<Object> INSTANCE = new NullCallback<>();
+
+    @Override
+    public void process(Iterable<T> partialResult) {}
+
+    @SuppressWarnings("unchecked")
+    public static <T> NullCallback<T> instance() {
+      return (NullCallback<T>) INSTANCE;
+    }
+  }
 }
