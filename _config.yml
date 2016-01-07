@@ -2,3 +2,5 @@ destination: production
 markdown: redcarpet
 paginate: 10
 highlighter: pygments
+sass:
+  sass_dir: _sass

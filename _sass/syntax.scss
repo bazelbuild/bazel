@@ -1,0 +1,89 @@
+//
+// Copyright 2015 Google
+//
+// Generated using Base16 Builder
+// (https://github.com/chriskempson/base16-builder)
+
+$base00: #212121;  //  ----
+$base01: #424242;  //  ---
+$base02: #616161;  //  --
+$base03: #757575;  //  -
+$base04: #9e9e9e;  //  +
+$base05: #bdbdbd;  //  ++
+$base06: #e0e0e0;  //  +++
+$base07: #eee;     //  ++++
+
+$base08: #f44336;  //  red
+$base09: #ff9800;  //  orange
+$base0A: #ffc107;  //  yellow
+$base0B: #4caf50;  //  green
+$base0C: #009688;  //  aqua
+$base0D: #2196f3;  //  blue
+$base0E: #9c27b0;  //  purple
+$base0F: #795548;  //  brown
+
+.highlight .hll { background-color: $base06 }
+.highlight { background: $base07; color: $base00 }
+.highlight .c { color: $base04 }  // Comment
+.highlight .err { color: $base08 }  // Error
+.highlight .k { color: $base0E }  // Keyword
+.highlight .l { color: $base09 }  // Literal
+.highlight .n { color: $base00 }  // Name
+.highlight .o { color: $base0C }  // Operator
+.highlight .p { color: $base00 }  // Punctuation
+.highlight .cm { color: $base04 }  // Comment.Multiline
+.highlight .cp { color: $base04 }  // Comment.Preproc
+.highlight .c1 { color: $base04 }  // Comment.Single
+.highlight .cs { color: $base04 }  // Comment.Special
+.highlight .gd { color: $base08 }  // Generic.Deleted
+.highlight .ge { font-style: italic }  // Generic.Emph
+.highlight .gh { color: $base00; font-weight: bold }  // Generic.Heading
+.highlight .gi { color: $base0B }  // Generic.Inserted
+.highlight .gp { color: $base04; font-weight: bold }  // Generic.Prompt
+.highlight .gs { font-weight: bold }  // Generic.Strong
+.highlight .gu { color: $base0C; font-weight: bold }  // Generic.Subheading
+.highlight .kc { color: $base0E }  // Keyword.Constant
+.highlight .kd { color: $base0E }  // Keyword.Declaration
+.highlight .kn { color: $base0C }  // Keyword.Namespace
+.highlight .kp { color: $base0E }  // Keyword.Pseudo
+.highlight .kr { color: $base0E }  // Keyword.Reserved
+.highlight .kt { color: $base0A }  // Keyword.Type
+.highlight .ld { color: $base0B }  // Literal.Date
+.highlight .m { color: $base09 }  // Literal.Number
+.highlight .s { color: $base0B }  // Literal.String
+.highlight .na { color: $base0D }  // Name.Attribute
+.highlight .nb { color: $base00 }  // Name.Builtin
+.highlight .nc { color: $base0A }  // Name.Class
+.highlight .no { color: $base08 }  // Name.Constant
+.highlight .nd { color: $base0C }  // Name.Decorator
+.highlight .ni { color: $base00 }  // Name.Entity
+.highlight .ne { color: $base08 }  // Name.Exception
+.highlight .nf { color: $base0D }  // Name.Function
+.highlight .nl { color: $base00 }  // Name.Label
+.highlight .nn { color: $base0A }  // Name.Namespace
+.highlight .nx { color: $base0D }  // Name.Other
+.highlight .py { color: $base00 }  // Name.Property
+.highlight .nt { color: $base0C }  // Name.Tag
+.highlight .nv { color: $base08 }  // Name.Variable
+.highlight .ow { color: $base0C }  // Operator.Word
+.highlight .w { color: $base00 }  // Text.Whitespace
+.highlight .mf { color: $base09 }  // Literal.Number.Float
+.highlight .mh { color: $base09 }  // Literal.Number.Hex
+.highlight .mi { color: $base09 }  // Literal.Number.Integer
+.highlight .mo { color: $base09 }  // Literal.Number.Oct
+.highlight .sb { color: $base0B }  // Literal.String.Backtick
+.highlight .sc { color: $base00 }  // Literal.String.Char
+.highlight .sd { color: $base04 }  // Literal.String.Doc
+.highlight .s2 { color: $base0B }  // Literal.String.Double
+.highlight .se { color: $base09 }  // Literal.String.Escape
+.highlight .sh { color: $base0B }  // Literal.String.Heredoc
+.highlight .si { color: $base09 }  // Literal.String.Interpol
+.highlight .sx { color: $base0B }  // Literal.String.Other
+.highlight .sr { color: $base0B }  // Literal.String.Regex
+.highlight .s1 { color: $base0B }  // Literal.String.Single
+.highlight .ss { color: $base0B }  // Literal.String.Symbol
+.highlight .bp { color: $base00 }  // Name.Builtin.Pseudo
+.highlight .vc { color: $base08 }  // Name.Variable.Class
+.highlight .vg { color: $base08 }  // Name.Variable.Global
+.highlight .vi { color: $base08 }  // Name.Variable.Instance
+.highlight .il { color: $base09 }  // Literal.Number.Integer.Long
