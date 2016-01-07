@@ -25,9 +25,9 @@ java_binary(
     main_class = "com.google.devtools.build.docgen.BuildEncyclopediaGenerator",
     deps = [
         ":docgen_javalib",
-        "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:common",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel-rules",
     ],
 )
 
