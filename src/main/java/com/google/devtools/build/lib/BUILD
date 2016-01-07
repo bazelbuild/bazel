@@ -460,16 +460,65 @@ java_library(
 )
 
 java_library(
+    name = "bazel-rules",
+    srcs = glob(
+        [
+            "bazel/rules/**/*.java",
+        ],
+        exclude = [
+            "bazel/rules/workspace/*.java",
+        ],
+    ),
+    resources = glob(
+        [
+            "bazel/rules/**/*.txt",
+            "bazel/rules/**/*.WORKSPACE",
+        ],
+    ),
+    deps = [
+        ":android-rules",
+        ":bazel",
+        ":bazel-repository",
+        ":build-base",
+        ":build-info",
+        ":collect",
+        ":common",
+        ":events",
+        ":ideinfo",
+        ":java-rules",
+        ":packages-internal",
+        ":proto-rules",
+        ":python-rules",
+        ":skylarkinterface",
+        ":util",
+        ":vfs",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/query2:query-output",
+        "//src/main/java/com/google/devtools/build/lib/rules/apple",
+        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/rules/genquery",
+        "//src/main/java/com/google/devtools/build/lib/rules/objc",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:crosstool_config_proto",
+        "//third_party:guava",
+        "//third_party:joda_time",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "bazel-main",
     srcs = glob(["bazel/*.java"]),
     resources = [
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules:java/java_stub_template.txt",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules:python/stub_template.txt",
+        "bazel/rules/java/java_stub_template.txt",
+        "bazel/rules/python/stub_template.txt",
     ],
     deps = [
         ":bazel",
         ":bazel-commands",
         ":bazel-repository",
+        ":bazel-rules",
         ":build-base",
         ":build-info",
         ":clock",
@@ -481,8 +530,6 @@ java_library(
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bazel/dash",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules:bazel-rules",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules:workspace",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/worker",
@@ -542,7 +589,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:vfs",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules:workspace",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:aether",
         "//third_party:apache_commons_compress",
