@@ -108,7 +108,7 @@ a separate `.bzl` file. For example, write the definition of the macro in
 `path/generator.bzl`:
 
 ```
-def my_macro(name, arg, visibility=None):
+def file_generator(name, arg, visibility=None):
   native.genrule(
     name = name,
     outs = [name + ".txt"],
