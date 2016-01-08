@@ -395,7 +395,7 @@ java_import(
 
 java_import(
     name = "truth",
-    jars = ["truth/truth-0.27.jar"],
+    jars = ["truth/truth-0.28.jar"],
 )
 
 cc_library(

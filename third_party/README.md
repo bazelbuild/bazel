@@ -268,5 +268,5 @@ a minimal set of extra dependencies.
 
 ## [truth](http://google.github.io/truth/)
 
-* Version: 0.27
+* Version: 0.28
 * License: Apache License 2.0
