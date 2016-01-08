@@ -113,9 +113,9 @@ final class Bundling {
     }
     
     /**
-     * Adds any info plists specified in the given rule's {@code infoplist} attribute as well as
-     * from its {@code options} as inputs to this bundle's {@code Info.plist} (which is merged from
-     * any such added plists plus some additional information).
+     * Adds any info plists specified in the given rule's {@code infoplist}  or {@code infoplists}
+     * attribute as well as from its {@code options} as inputs to this bundle's {@code Info.plist}
+     * (which is merged from any such added plists plus some additional information).
      */
     public Builder addInfoplistInputFromRule(RuleContext ruleContext) {
       if (ruleContext.attributes().has("options", BuildType.LABEL)) {
@@ -129,6 +129,13 @@ final class Bundling {
       if (infoplist != null) {
         infoplistInputs.add(infoplist);
       }
+
+      Iterable<Artifact> infoplists =
+          ruleContext.getPrerequisiteArtifacts("infoplists", Mode.TARGET).list();
+      if (infoplists != null) {
+        infoplistInputs.addAll(infoplists);
+      }
+
       return this;
     }
 

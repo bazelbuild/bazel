@@ -811,40 +811,64 @@ public class ObjcRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          /* <!-- #BLAZE_RULE($objc_bundling_rule).ATTRIBUTE(infoplist) -->
-          The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
+          /* <!-- #BLAZE_RULE($objc_bundling_rule).ATTRIBUTE(infoplist)[DEPRECATED] -->
+           The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
+           ${SYNOPSIS}
+           Blaze will perform variable substitution on the plist file for the following values:
+           <ul>
+             <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
+                in the bundle by blaze, which can be used as the value for
+                <code>CFBundleExecutable</code> within the plist.
+             <li><code>${BUNDLE_NAME}</code>: This target's name and bundle suffix (.bundle or .app)
+                in the form<code><var>name</var></code>.<code>suffix</code>.
+             <li><code>${PRODUCT_NAME}</code>: This target's name.
+          </ul>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("infoplist", LABEL).allowedFileTypes(PLIST_TYPE))
+          /* <!-- #BLAZE_RULE($objc_bundling_rule).ATTRIBUTE(infoplists) -->
+           Infoplist files to be merged. The merged output corresponds to <i>appname</i>-Info.plist
+           in Xcode projects.  Duplicate keys between infoplist files will cause an error if
+           and only if the values conflict.  If both <code>infoplist</code> and
+           <code>infoplists</code> are specified, the files defined in both attributes will be used.
+           ${SYNOPSIS}
+           Blaze will perform variable substitution on the plist files for the following values:
+           <ul>
+             <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
+                in the bundle by blaze, which can be used as the value for
+                <code>CFBundleExecutable</code> within the plist.
+             <li><code>${BUNDLE_NAME}</code>: This target's name and bundle suffix (.bundle or .app)
+                in the form<code><var>name</var></code>.<code>suffix</code>.
+             <li><code>${PRODUCT_NAME}</code>: This target's name.
+          </ul>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("infoplists", BuildType.LABEL_LIST).allowedFileTypes(PLIST_TYPE))
+          /* <!-- #BLAZE_RULE($objc_bundling_rule).ATTRIBUTE(families) -->
+          The device families to which this bundle or binary is targeted.
           ${SYNOPSIS}
-          Blaze will perform variable substitution on the plist file for the following values:
-          <ul>
-            <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
-               in the bundle by blaze, which can be used as the value for
-               <code>CFBundleExecutable</code> within the plist.
-            <li><code>${BUNDLE_NAME}</code>: This target's name and bundle suffix (.bundle or .app)
-               in the form<code><var>name</var></code>.<code>suffix</code>.
-            <li><code>${PRODUCT_NAME}</code>: This target's name.
-         </ul>
-         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("infoplist", LABEL)
-            .allowedFileTypes(PLIST_TYPE))
-        /* <!-- #BLAZE_RULE($objc_bundling_rule).ATTRIBUTE(families) -->
-        The device families to which this bundle or binary is targeted.
-        ${SYNOPSIS}
 
-        This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
-        in Xcode project files. It is a list of one or more of the strings
-        <code>"iphone"</code> and <code>"ipad"</code>.
+          This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
+          in Xcode project files. It is a list of one or more of the strings
+          <code>"iphone"</code> and <code>"ipad"</code>.
 
-        <p>By default this is set to <code>"iphone"</code>, if explicitly specified may not be
-        empty.</p>
-        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("families", STRING_LIST)
-             .value(ImmutableList.of(TargetDeviceFamily.IPHONE.getNameInRule())))
-        .add(attr("$momcwrapper", LABEL).cfg(HOST).exec()
-            .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:momcwrapper")))
-        .add(attr("$swiftstdlibtoolwrapper", LABEL).cfg(HOST).exec()
-            .value(env.getLabel(
-                Constants.TOOLS_REPOSITORY + "//tools/objc:swiftstdlibtoolwrapper")))
-        .build();
+          <p>By default this is set to <code>"iphone"</code>, if explicitly specified may not be
+          empty.</p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(
+              attr("families", STRING_LIST)
+                  .value(ImmutableList.of(TargetDeviceFamily.IPHONE.getNameInRule())))
+          .add(
+              attr("$momcwrapper", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:momcwrapper")))
+          .add(
+              attr("$swiftstdlibtoolwrapper", LABEL)
+                  .cfg(HOST)
+                  .exec()
+                  .value(
+                      env.getLabel(
+                          Constants.TOOLS_REPOSITORY + "//tools/objc:swiftstdlibtoolwrapper")))
+          .build();
     }
     @Override
     public Metadata getMetadata() {
