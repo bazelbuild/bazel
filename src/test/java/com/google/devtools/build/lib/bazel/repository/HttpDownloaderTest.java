@@ -64,7 +64,7 @@ public class HttpDownloaderTest {
       HttpDownloader.createProxy("my.example.com");
       fail("Expected protocol error");
     } catch (IOException e) {
-      assertThat(e.getMessage()).contains("No proxy protocol found");
+      assertThat(e.getMessage()).contains("Proxy address my.example.com is not a valid URL");
     }
   }
 
@@ -74,7 +74,7 @@ public class HttpDownloaderTest {
       HttpDownloader.createProxy("my.example.com:12345");
       fail("Expected protocol error");
     } catch (IOException e) {
-      assertThat(e.getMessage()).contains("Invalid proxy protocol");
+      assertThat(e.getMessage()).contains("Proxy address my.example.com:12345 is not a valid URL");
     }
   }
 
@@ -84,7 +84,32 @@ public class HttpDownloaderTest {
       HttpDownloader.createProxy("http://my.example.com:foo");
       fail("Should have thrown an error for invalid port");
     } catch (IOException e) {
-      assertThat(e.getMessage()).contains("Error parsing proxy port");
+      assertThat(e.getMessage())
+          .contains("Proxy address http://my.example.com:foo is not a valid URL");
+    }
+  }
+
+  @Test
+  public void testProxyAuth() throws Exception {
+    Proxy proxy = HttpDownloader.createProxy("http://foo:barbaz@my.example.com");
+    assertEquals(Proxy.Type.HTTP, proxy.type());
+    assertThat(proxy.toString()).endsWith(":80");
+    assertEquals(System.getProperty("http.proxyUser"), "foo");
+    assertEquals(System.getProperty("http.proxyPassword"), "barbaz");
+
+    proxy = HttpDownloader.createProxy("https://biz:bat@my.example.com");
+    assertThat(proxy.toString()).endsWith(":443");
+    assertEquals(System.getProperty("https.proxyUser"), "biz");
+    assertEquals(System.getProperty("https.proxyPassword"), "bat");
+  }
+
+  @Test
+  public void testInvalidAuth() throws Exception {
+    try {
+      HttpDownloader.createProxy("http://foo@my.example.com");
+      fail("Should have thrown an error for invalid auth");
+    } catch (IOException e) {
+      assertThat(e.getMessage()).contains("No password given for proxy");
     }
   }
 
