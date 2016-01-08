@@ -54,6 +54,7 @@ public class AndroidSdkRepositoryRule implements RuleDefinition {
               "android/appcompat_v4", Label.parseAbsoluteUnchecked(prefix + "appcompat_v4"));
           builder.put(
               "android/appcompat_v7", Label.parseAbsoluteUnchecked(prefix + "appcompat_v7"));
+          builder.put("android/design", Label.parseAbsoluteUnchecked(prefix + "design"));
           builder.put(
               "android/mediarouter_v7", Label.parseAbsoluteUnchecked(prefix + "mediarouter_v7"));
           builder.put("android/cardview_v7", Label.parseAbsoluteUnchecked(prefix + "cardview_v7"));

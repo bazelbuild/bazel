@@ -19,6 +19,19 @@ android_library(
 )
 
 java_import(
+    name = "design_import",
+    jars = ["extras/android/support/design/libs/android-support-design.jar"],
+)
+
+android_library(
+    name = "design",
+    custom_package = "android.support.design",
+    manifest = "extras/android/support/design/AndroidManifest.xml",
+    resource_files = glob(["extras/android/support/design/res/**"]),
+    deps = [":design_import", ":appcompat_v7"]
+)
+
+java_import(
     name = "mediarouter_v7_import",
     jars = ["extras/android/support/v7/mediarouter/libs/android-support-v7-mediarouter.jar"]
 )
