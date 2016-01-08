@@ -331,6 +331,13 @@ run_silent "${CXX}" -o ${OUTPUT_DIR}/build-runfiles -std=c++0x src/main/tools/bu
 log "Compiling process-wrapper..."
 run_silent "${CC}" -o ${OUTPUT_DIR}/process-wrapper -std=c99 src/main/tools/process-wrapper.c src/main/tools/process-tools.c -lm ${LDFLAGS}
 
+log "Compiling xcode-locator..."
+if [[ $PLATFORM == "darwin" ]]; then
+  run_silent /usr/bin/xcrun clang -fobjc-arc -framework CoreServices -framework Foundation -o ${OUTPUT_DIR}/xcode-locator src/main/tools/xcode_locator.m
+else
+  cp src/main/tools/xcode_locator_stub.sh ${OUTPUT_DIR}/xcode-locator
+fi
+
 log "Compiling namespace-sandbox..."
 if [[ $PLATFORM == "linux" ]]; then
   run_silent "${CC}" -o ${OUTPUT_DIR}/namespace-sandbox -std=c99 src/main/tools/namespace-sandbox.c src/main/tools/network-tools.c src/main/tools/process-tools.c -lm ${LDFLAGS}
@@ -343,7 +350,7 @@ cp src/main/tools/jdk.* ${OUTPUT_DIR}
 
 log "Creating Bazel self-extracting archive..."
 ARCHIVE_DIR=${OUTPUT_DIR}/archive
-for i in libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} namespace-sandbox${EXE_EXT} build_interface_so ${MSYS_DLLS} jdk.BUILD; do
+for i in libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} xcode-locator${EXE_EXT} namespace-sandbox${EXE_EXT} build_interface_so ${MSYS_DLLS} jdk.BUILD; do
   mkdir -p $(dirname $ARCHIVE_DIR/$i);
   cp $OUTPUT_DIR/$i $ARCHIVE_DIR/$i;
 done

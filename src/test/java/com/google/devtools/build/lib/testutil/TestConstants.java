@@ -30,7 +30,8 @@ public class TestConstants {
       "build_interface_so",
       "build-runfiles",
       "namespace-sandbox",
-      "process-wrapper");
+      "process-wrapper",
+      "xcode-locator");
 
   /**
    * Location in the bazel repo where embedded binaries come from.
