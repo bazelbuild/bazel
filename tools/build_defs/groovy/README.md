@@ -6,6 +6,7 @@
     <li><a href="#groovy_library">groovy_library</a></li>
     <li><a href="#groovy_and_java_library">groovy_and_java_library</a></li>
     <li><a href="#groovy_binary">groovy_binary</a></li>
+    <li><a href="#groovy_junit_test">groovy_junit_test</a></li>
     <li><a href="#spock_test">spock_test</a></li>
   </ul>
 </div>
@@ -25,7 +26,7 @@ targets:
   * `//external:groovy-sdk`, pointing at the
     [Groovy SDK binaries](http://www.groovy-lang.org/download.html)
   * `//external:groovy`, pointing at the Groovy core language jar
-  * `//external:junit`, pointing at JUnit (only required if using `groovy_test`)
+  * `//external:junit`, pointing at JUnit (only required if using the test rules)
   * `//external:spock`, pointing at Spock (only required if using `spock_test`)
 
 The easiest way to do so is to add the following to your `WORKSPACE` file and
@@ -94,8 +95,8 @@ groovy_and_java_library(
 )
 ```
 
-To build the application under src/main/groovy/app, you can define a binary using
-`groovy_binary` as follows:
+To build the application under src/main/groovy/app, you can define a binary
+using `groovy_binary` as follows:
 
 ```python
 load("/tools/build_defs/groovy/groovy", "groovy_binary")
@@ -131,6 +132,11 @@ groovy_test(
   deps = [":testlib"],
 )
 ```
+
+If you're using JUnit or Spock, see
+<a href="#groovy_junit_test">groovy_junit_test</a> or
+<a href="#spock_test>spock_test</a> for wrappers that make testing with these
+systems slightly more convenient.
 
 <a name="groovy_library"></a>
 ## groovy_library
@@ -354,6 +360,99 @@ groovy_test(name, deps, srcs, data, resources, jvm_flags, size, tags)
         <p>
           List of .groovy source files whose names will be converted to classes
           passed to JUnitCore.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>deps</code></td>
+      <td>
+        <code>List of labels or .jar files, optional</code>
+        <p>
+          List of libraries to be included on both the compile-time classpath
+          when building this test and on the runtime classpath when executing it.
+        </p>
+        <p>
+          These can be `groovy_library` targets, `java_library` targets,
+          `groovy_and_java_library` targets, or raw .jar files.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>resources</code></td>
+      <td>
+        <code>List of labels, optional</code>
+        <p>
+          A list of data files to include on the test's classpath. This is
+          accomplished by creating a `java_library` containing only the specified
+          resources and including that library in the test's dependencies.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>jvm_flags</code></td>
+      <td>
+        <code>List of strings, optional</code>
+        <p>
+          A list of flags to embed in the wrapper script generated for running
+          this binary.
+        </p>
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<a name="groovy_junit_test"></a>
+## groovy_junit_test
+
+```python
+groovy_junit_test(name, tests, deps, groovy_srcs, java_srcs, data, resources, jvm_flags, size, tags)
+```
+
+<table class="table table-condensed table-bordered table-params">
+  <colgroup>
+    <col class="col-param" />
+    <col class="param-description" />
+  </colgroup>
+  <thead>
+    <tr>
+      <th colspan="2">Attributes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>name</code></td>
+      <td>
+        <code>Name, required</code>
+        <p>A unique name for this rule.</p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>tests</code></td>
+      <td>
+        <code>List of labels, required</code>
+        <p>
+          List of .groovy source files that will be used as test specifications
+          that will be executed by JUnit.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>groovy_srcs</code></td>
+      <td>
+        <code>List of labels, optional</code>
+        <p>
+          List of additional .groovy source files that will be used to build the
+          test.
+        </p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>java_srcs</code></td>
+      <td>
+        <code>List of labels, optional</code>
+        <p>
+          List of additional .java source files that will be used to build the
+          test.
         </p>
       </td>
     </tr>
