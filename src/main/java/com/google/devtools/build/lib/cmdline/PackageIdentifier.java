@@ -204,7 +204,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
      * Returns if this is the default repository, that is, {@link #name} is "".
      */
     public boolean isDefault() {
-      return name.isEmpty();
+      return name.isEmpty() || name.equals(MAIN_REPOSITORY_NAME.getName());
     }
 
     /**
