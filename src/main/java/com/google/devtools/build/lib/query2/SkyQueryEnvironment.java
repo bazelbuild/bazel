@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2;
 
 import com.google.common.base.Function;
-import com.google.common.base.Functions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ArrayListMultimap;
@@ -185,10 +184,10 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   private Map<Target, Collection<Target>> makeTargetsMap(Map<SkyKey, Iterable<SkyKey>> input) {
     ImmutableMap.Builder<Target, Collection<Target>> result = ImmutableMap.builder();
     
-    Map<SkyKey, Target> allTargets = makeTargetsWithAssociations(
-        Sets.newHashSet(Iterables.concat(input.values())));
+    Map<SkyKey, Target> allTargets =
+        makeTargetsFromSkyKeys(Sets.newHashSet(Iterables.concat(input.values())));
 
-    for (Map.Entry<SkyKey, Target> entry : makeTargetsWithAssociations(input.keySet()).entrySet()) {
+    for (Map.Entry<SkyKey, Target> entry : makeTargetsFromSkyKeys(input.keySet()).entrySet()) {
       Iterable<SkyKey> skyKeys = input.get(entry.getKey());
       Set<Target> targets = CompactHashSet.createWithExpectedSize(Iterables.size(skyKeys));
       for (SkyKey key : skyKeys) {
@@ -316,14 +315,18 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     aggregator.processLastPending();
   }
 
-  @Override
-  public Uniquifier<Target> createUniquifier() {
+  private static Uniquifier<Target> uniquifier() {
     return new AbstractUniquifier<Target, Label>() {
       @Override
       protected Label extractKey(Target target) {
         return target.getLabel();
       }
     };
+  }
+
+  @Override
+  public Uniquifier<Target> createUniquifier() {
+    return uniquifier();
   }
 
   /**
@@ -366,7 +369,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       Set<Label> labels = precomputedPatterns.get(pattern);
       if (labels != null) {
         try {
-          callback.process(ImmutableSet.copyOf(makeTargetsFromLabels(labels)));
+          makeTargetsFromLabels(labels, callback);
         } catch (InterruptedException e) {
           throw new QueryException(owner, e.getMessage());
         }
@@ -626,19 +629,39 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     }
   };
 
-  private Map<SkyKey, Target> makeTargetsWithAssociations(Iterable<SkyKey> keys) {
-    return makeTargetsWithAssociations(keys, SKYKEY_TO_LABEL);
+  private void makeTargetsFromLabels(Iterable<Label> labels, Callback<Target> callback)
+      throws QueryException, InterruptedException {
+    Multimap<SkyKey, Label> packageKeyToLabelMap = ArrayListMultimap.create();
+    for (Label label : labels) {
+      try {
+        packageKeyToLabelMap.put(getPackageKeyAndValidateLabel(label), label);
+      } catch (QueryException e) {
+        // Skip disallowed labels.
+      }
+    }
+    Uniquifier<Target> uniquifier = createUniquifier();
+    for (List<SkyKey> packageKeys :
+        Iterables.partition(packageKeyToLabelMap.keySet(), BATCH_CALLBACK_SIZE)) {
+      Map<SkyKey, SkyValue> packageMap = graph.getSuccessfulValues(packageKeys);
+      // Conservatively say all our targets are in different packages.
+      List<Target> targets = new ArrayList<>(packageMap.size());
+      for (Map.Entry<SkyKey, SkyValue> entry : packageMap.entrySet()) {
+        for (Label label : packageKeyToLabelMap.get(entry.getKey())) {
+          try {
+            targets.add(((PackageValue) entry.getValue()).getPackage().getTarget(label.getName()));
+          } catch (NoSuchTargetException e) {
+            // Skip missing target.
+          }
+        }
+      }
+      callback.process(uniquifier.unique(targets));
+    }
   }
 
-  private Collection<Target> makeTargetsFromLabels(Iterable<Label> labels) {
-    return makeTargetsWithAssociations(labels, Functions.<Label>identity()).values();
-  }
-
-  private <E> Map<E, Target> makeTargetsWithAssociations(Iterable<E> keys,
-      Function<E, Label> toLabel) {
-    Multimap<SkyKey, E> packageKeyToTargetKeyMap = ArrayListMultimap.create();
-    for (E key : keys) {
-      Label label = toLabel.apply(key);
+  private Map<SkyKey, Target> makeTargetsFromSkyKeys(Iterable<SkyKey> keys) {
+    Multimap<SkyKey, SkyKey> packageKeyToTargetKeyMap = ArrayListMultimap.create();
+    for (SkyKey key : keys) {
+      Label label = SKYKEY_TO_LABEL.apply(key);
       if (label == null) {
         continue;
       }
@@ -648,13 +671,16 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
         // Skip disallowed labels.
       }
     }
-    ImmutableMap.Builder<E, Target> result = ImmutableMap.builder();
+    ImmutableMap.Builder<SkyKey, Target> result = ImmutableMap.builder();
     Map<SkyKey, SkyValue> packageMap = graph.getSuccessfulValues(packageKeyToTargetKeyMap.keySet());
     for (Map.Entry<SkyKey, SkyValue> entry : packageMap.entrySet()) {
-      for (E targetKey : packageKeyToTargetKeyMap.get(entry.getKey())) {
+      for (SkyKey targetKey : packageKeyToTargetKeyMap.get(entry.getKey())) {
         try {
-          result.put(targetKey, ((PackageValue) entry.getValue()).getPackage()
-              .getTarget((toLabel.apply(targetKey)).getName()));
+          result.put(
+              targetKey,
+              ((PackageValue) entry.getValue())
+                  .getPackage()
+                  .getTarget((SKYKEY_TO_LABEL.apply(targetKey)).getName()));
         } catch (NoSuchTargetException e) {
           // Skip missing target.
         }
