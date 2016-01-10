@@ -31,7 +31,7 @@ def _compile(ctx, jars, buildijar):
   for f in ctx.files.resources:
     c_dir, res_path = _adjust_resources_path(f.path)
     change_dir = "-C " + c_dir if c_dir else ""
-    res_cmd = "\njar uf {out} " + change_dir + " " + res_path
+    res_cmd = "\n{jar} uf {out} " + change_dir + " " + res_path
   ijar_cmd = ""
   if buildijar:
     ijar_cmd = "\n{ijar} {out} {ijar_out}".format(
@@ -45,7 +45,7 @@ mkdir -p {out}_tmp
 # Make jar file deterministic by setting the timestamp of files
 find {out}_tmp -exec touch -t 198001010000 {{}} \;
 touch -t 198001010000 {manifest}
-jar cmf {manifest} {out} -C {out}_tmp .
+{jar} cmf {manifest} {out} -C {out}_tmp .
 """ + ijar_cmd + res_cmd
   cmd = cmd.format(
       scalac=ctx.file._scalac.path,
@@ -53,12 +53,19 @@ jar cmf {manifest} {out} -C {out}_tmp .
       jvm_flags=" ".join(["-J" + flag for flag in ctx.attr.jvm_flags]),
       out=ctx.outputs.jar.path,
       manifest=ctx.outputs.manifest.path,
+      jar=ctx.file._jar.path,
+      ijar=ctx.file._ijar.path,
       jars=":".join([j.path for j in jars]),)
   outs = [ctx.outputs.jar]
   if buildijar:
     outs.extend([ctx.outputs.ijar])
   ctx.action(
-      inputs=list(jars) + ctx.files.srcs + [ctx.outputs.manifest],
+      inputs=list(jars) +
+          ctx.files.srcs +
+          ctx.files.resources +
+          ctx.files._jdk +
+          ctx.files._scalasdk +
+          [ctx.outputs.manifest, ctx.file._jar, ctx.file._ijar],
       outputs=outs,
       command=cmd,
       progress_message="scala %s" % ctx.label,
@@ -87,35 +94,6 @@ java -cp {cp} {name} "$@"
   ctx.file_action(
       output=ctx.outputs.executable,
       content=content)
-
-def _write_test_launcher(ctx, jars):
-  content = """#!/bin/bash
-cd $0.runfiles
-java -cp {cp} {name} {args} "$@"
-"""
-  content = content.format(
-      name=ctx.attr.main_class,
-      args=' '.join(_args_for_suites(ctx.attr.suites)),
-      deploy_jar=ctx.outputs.jar.path,
-      cp=":".join([j.short_path for j in jars]))
-  ctx.file_action(
-      output=ctx.outputs.executable,
-      content=content)
-
-def _collect_jars(ctx):
-  jars = set()
-  for target in ctx.attr.deps:
-    if hasattr(target, "jar_files"):
-      jars += target.jar_files
-    elif hasattr(target, "java"):
-      jars += target.java.transitive_runtime_deps
-  return jars
-
-def _args_for_suites(suites):
-  args = ["-o"]
-  for suite in suites:
-    args.extend(["-s", suite])
-  return args
 
 def _collect_comp_run_jars(ctx):
   compile_jars = set()
@@ -177,20 +155,14 @@ def _scala_binary_impl(ctx):
       files=set([ctx.outputs.executable]),
       runfiles=runfiles)
 
-def _scala_test_impl(ctx):
-  (cjars, rjars) = _collect_comp_run_jars(ctx)
-  _write_manifest(ctx)
-  _compile(ctx, cjars, False)
-
-  rjars += [ctx.outputs.jar, ctx.file._scalalib]
-  _write_test_launcher(ctx, rjars)
-
-  runfiles = ctx.runfiles(
-      files = list(rjars) + [ctx.outputs.executable],
-      collect_data = True)
-  return struct(
-      files=set([ctx.outputs.executable]),
-      runfiles=runfiles)
+_implicit_deps = {
+  "_ijar": attr.label(executable=True, default=Label("//tools/defaults:ijar"), single_file=True, allow_files=True),
+  "_scalac": attr.label(executable=True, default=Label("@scala//:bin/scalac"), single_file=True, allow_files=True),
+  "_scalalib": attr.label(default=Label("@scala//:lib/scala-library.jar"), single_file=True, allow_files=True),
+  "_scalasdk": attr.label(default=Label("@scala//:sdk"), allow_files=True),
+  "_jar": attr.label(executable=True, default=Label("@bazel_tools//tools/jdk:jar"), single_file=True, allow_files=True),
+  "_jdk": attr.label(default=Label("//tools/defaults:jdk"), allow_files=True),
+}
 
 scala_library = rule(
   implementation=_scala_library_impl,
@@ -204,10 +176,7 @@ scala_library = rule(
       "resources": attr.label_list(allow_files=True),
       "scalacopts": attr.string_list(),
       "jvm_flags": attr.string_list(),
-      "_ijar": attr.label(executable=True, default=Label("//tools/defaults:ijar"), single_file=True, allow_files=True),
-      "_scalac": attr.label(executable=True, default=Label("@scala//:bin/scalac"), single_file=True, allow_files=True),
-      "_scalalib": attr.label(default=Label("@scala//:lib/scala-library.jar"), single_file=True, allow_files=True),
-      },
+      } + _implicit_deps,
   outputs={
       "jar": "%{name}_deploy.jar",
       "ijar": "%{name}_ijar.jar",
@@ -227,52 +196,30 @@ scala_macro_library = rule(
       "resources": attr.label_list(allow_files=True),
       "scalacopts": attr.string_list(),
       "jvm_flags": attr.string_list(),
-      "_ijar": attr.label(executable=True, default=Label("//tools/defaults:ijar"), single_file=True, allow_files=True),
-      "_scalac": attr.label(executable=True, default=Label("@scala//:bin/scalac"), single_file=True, allow_files=True),
-      "_scalalib": attr.label(default=Label("@scala//:lib/scala-library.jar"), single_file=True, allow_files=True),
       "_scala-reflect": attr.label(default=Label("@scala//:lib/scala-reflect.jar"), single_file=True, allow_files=True),
-      },
+      } + _implicit_deps,
   outputs={
       "jar": "%{name}_deploy.jar",
       "manifest": "%{name}_MANIFEST.MF",
       },
 )
 
-scala_binary_attrs_common = {
-  "srcs": attr.label_list(
-      allow_files=_scala_filetype,
-      non_empty=True),
-  "deps": attr.label_list(),
-  "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
-  "resources": attr.label_list(allow_files=True),
-  "scalacopts":attr.string_list(),
-  "jvm_flags": attr.string_list(),
-  "_scalac": attr.label(executable=True, default=Label("@scala//:bin/scalac"), single_file=True, allow_files=True),
-  "_scalalib": attr.label(default=Label("@scala//:lib/scala-library.jar"), single_file=True, allow_files=True),
-}
-
-scala_binary_outputs = {
- "jar": "%{name}_deploy.jar",
- "manifest": "%{name}_MANIFEST.MF",
-}
-
 scala_binary = rule(
   implementation=_scala_binary_impl,
-  attrs=scala_binary_attrs_common + {
-    "main_class": attr.string(mandatory=True),
-  },
-  outputs=scala_binary_outputs,
+  attrs={
+      "main_class": attr.string(mandatory=True),
+      "srcs": attr.label_list(
+          allow_files=_scala_filetype,
+          non_empty=True),
+      "deps": attr.label_list(),
+      "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
+      "resources": attr.label_list(allow_files=True),
+      "scalacopts":attr.string_list(),
+      "jvm_flags": attr.string_list(),
+      } + _implicit_deps,
+  outputs={
+      "jar": "%{name}_deploy.jar",
+      "manifest": "%{name}_MANIFEST.MF",
+      },
   executable=True,
 )
-
-scala_test = rule(
-  implementation=_scala_test_impl,
-  attrs=scala_binary_attrs_common + {
-    "main_class": attr.string(default="org.scalatest.tools.Runner"),
-    "suites": attr.string_list(),
-  },
-  outputs=scala_binary_outputs,
-  executable=True,
-  test=True
-)
-
