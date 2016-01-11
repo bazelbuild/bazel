@@ -20,7 +20,7 @@
 
 namespace blaze {
 
-class GlobalVariables;
+struct GlobalVariables;
 
 // Returns the exit code to use for when the Blaze server exits abruptly.
 int GetExitCodeForAbruptExit(const GlobalVariables& globals);
