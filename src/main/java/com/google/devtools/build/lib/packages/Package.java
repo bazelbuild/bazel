@@ -1288,8 +1288,6 @@ public class Package {
         return pkg;
       }
 
-      externalPackageData.build(this);
-
       // Freeze targets and distributions.
       targets = ImmutableMap.copyOf(targets);
       defaultDistributionSet =
