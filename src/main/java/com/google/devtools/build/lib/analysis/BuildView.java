@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -775,29 +776,14 @@ public class BuildView {
   public Iterable<ConfiguredTarget> getDirectPrerequisitesForIdeInfo(
       EventHandler eventHandler, ConfiguredTarget ct, BuildConfigurationCollection configurations)
           throws InterruptedException {
-    return getDirectPrerequisitesForTesting(eventHandler, ct, configurations);
-  }
-
-  public Iterable<Dependency> getDirectPrerequisiteDependenciesForIdeInfo(
-      EventHandler eventHandler, ConfiguredTarget ct,
-      @Nullable final LoadingCache<Label, Target> targetCache,
-      BuildConfigurationCollection configurations) throws InterruptedException {
-    return getDirectPrerequisiteDependenciesForTesting(
-        eventHandler, ct, targetCache, configurations);
-  }
-
-  // For testing
-  @VisibleForTesting
-  public Iterable<ConfiguredTarget> getDirectPrerequisitesForTesting(
-      EventHandler eventHandler, ConfiguredTarget ct, BuildConfigurationCollection configurations)
-          throws InterruptedException {
     return skyframeExecutor.getConfiguredTargets(
         eventHandler, ct.getConfiguration(),
-        getDirectPrerequisiteDependenciesForTesting(eventHandler, ct, null, configurations), false);
+        getDirectPrerequisiteDependenciesForIdeInfo(eventHandler, ct, null, configurations),
+        false);
   }
 
   @VisibleForTesting
-  public Iterable<Dependency> getDirectPrerequisiteDependenciesForTesting(
+  public Iterable<Dependency> getDirectPrerequisiteDependenciesForIdeInfo(
       final EventHandler eventHandler, ConfiguredTarget ct,
       @Nullable final LoadingCache<Label, Target> targetCache,
       BuildConfigurationCollection configurations) throws InterruptedException {
@@ -817,10 +803,14 @@ public class BuildView {
       }
 
       @Override
-      protected Target getTarget(Label label) throws NoSuchThingException {
+      protected Target getTarget(Label label) {
         if (targetCache == null) {
-          return LoadedPackageProvider.Bridge.getLoadedTarget(
-              skyframeExecutor.getPackageManager(), eventHandler, label);
+          try {
+            return LoadedPackageProvider.Bridge.getLoadedTarget(
+                skyframeExecutor.getPackageManager(), eventHandler, label);
+          } catch (NoSuchThingException e) {
+            throw new IllegalStateException(e);
+          }
         }
 
         try {
@@ -835,7 +825,58 @@ public class BuildView {
     DependencyResolver dependencyResolver = new SilentDependencyResolver();
     TargetAndConfiguration ctgNode =
         new TargetAndConfiguration(ct.getTarget(), ct.getConfiguration());
-    return dependencyResolver.dependentNodes(ctgNode, configurations.getHostConfiguration(),
+    try {
+      return ImmutableSet.copyOf(dependencyResolver.dependentNodeMap(
+          ctgNode, configurations.getHostConfiguration(), /*aspect=*/ null,
+          getConfigurableAttributeKeysForTesting(eventHandler, ctgNode)).values());
+    } catch (EvalException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  // For testing
+  @VisibleForTesting
+  public Iterable<ConfiguredTarget> getDirectPrerequisitesForTesting(
+      EventHandler eventHandler, ConfiguredTarget ct, BuildConfigurationCollection configurations)
+          throws EvalException, InterruptedException {
+    return skyframeExecutor.getConfiguredTargets(
+        eventHandler, ct.getConfiguration(),
+        ImmutableSet.copyOf(
+            getDirectPrerequisiteDependenciesForTesting(eventHandler, ct, configurations).values()),
+        false);
+  }
+
+  @VisibleForTesting
+  public ListMultimap<Attribute, Dependency> getDirectPrerequisiteDependenciesForTesting(
+      final EventHandler eventHandler, ConfiguredTarget ct,
+      BuildConfigurationCollection configurations) throws EvalException, InterruptedException {
+    if (!(ct.getTarget() instanceof Rule)) {
+      return ArrayListMultimap.create();
+    }
+
+    class SilentDependencyResolver extends DependencyResolver {
+      @Override
+      protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
+        // The error must have been reported already during analysis.
+      }
+
+      @Override
+      protected void invalidPackageGroupReferenceHook(TargetAndConfiguration node, Label label) {
+        // The error must have been reported already during analysis.
+      }
+
+      @Override
+      protected Target getTarget(Label label) throws NoSuchThingException {
+        return LoadedPackageProvider.Bridge.getLoadedTarget(
+            skyframeExecutor.getPackageManager(), eventHandler, label);
+      }
+    }
+
+    DependencyResolver dependencyResolver = new SilentDependencyResolver();
+    TargetAndConfiguration ctgNode =
+        new TargetAndConfiguration(ct.getTarget(), ct.getConfiguration());
+    return dependencyResolver.dependentNodeMap(
+        ctgNode, configurations.getHostConfiguration(), /*aspect=*/ null,
         getConfigurableAttributeKeysForTesting(eventHandler, ctgNode));
   }
 
@@ -866,40 +907,13 @@ public class BuildView {
 
   private ListMultimap<Attribute, ConfiguredTarget> getPrerequisiteMapForTesting(
       final EventHandler eventHandler, ConfiguredTarget target,
-      BuildConfigurationCollection configurations) throws InterruptedException {
-    DependencyResolver resolver = new DependencyResolver() {
-      @Override
-      protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
-        throw new RuntimeException("bad visibility on " + label + " during testing unexpected");
-      }
-
-      @Override
-      protected void invalidPackageGroupReferenceHook(TargetAndConfiguration node, Label label) {
-        throw new RuntimeException("bad package group on " + label + " during testing unexpected");
-      }
-
-      @Override
-      protected Target getTarget(Label label) throws NoSuchThingException {
-        return LoadedPackageProvider.Bridge.getLoadedTarget(
-            skyframeExecutor.getPackageManager(), eventHandler, label);
-      }
-    };
-    TargetAndConfiguration ctNode = new TargetAndConfiguration(target);
-    ListMultimap<Attribute, Dependency> depNodeNames;
-    try {
-      depNodeNames =
-          resolver.dependentNodeMap(
-              ctNode,
-              configurations.getHostConfiguration(),
-              /*aspect=*/ null,
-              getConfigurableAttributeKeysForTesting(eventHandler, ctNode));
-    } catch (EvalException e) {
-      throw new IllegalStateException(e);
-    }
+      BuildConfigurationCollection configurations) throws EvalException, InterruptedException {
+    ListMultimap<Attribute, Dependency> depNodeNames = getDirectPrerequisiteDependenciesForTesting(
+        eventHandler, target, configurations);
 
     ImmutableMap<Dependency, ConfiguredTarget> cts = skyframeExecutor.getConfiguredTargetMap(
         eventHandler,
-        ctNode.getConfiguration(), ImmutableSet.copyOf(depNodeNames.values()), false);
+        target.getConfiguration(), ImmutableSet.copyOf(depNodeNames.values()), false);
 
     ImmutableListMultimap.Builder<Attribute, ConfiguredTarget> builder =
         ImmutableListMultimap.builder();
@@ -925,7 +939,8 @@ public class BuildView {
   @VisibleForTesting
   public RuleContext getRuleContextForTesting(
       ConfiguredTarget target, StoredEventHandler eventHandler,
-      BuildConfigurationCollection configurations, BinTools binTools) throws InterruptedException {
+      BuildConfigurationCollection configurations, BinTools binTools)
+          throws EvalException, InterruptedException {
     BuildConfiguration targetConfig = target.getConfiguration();
     CachingAnalysisEnvironment env =
         new CachingAnalysisEnvironment(getArtifactFactory(),
@@ -942,7 +957,7 @@ public class BuildView {
   @VisibleForTesting
   public RuleContext getRuleContextForTesting(EventHandler eventHandler, ConfiguredTarget target,
       AnalysisEnvironment env, BuildConfigurationCollection configurations)
-          throws InterruptedException {
+          throws EvalException, InterruptedException {
     BuildConfiguration targetConfig = target.getConfiguration();
     return new RuleContext.Builder(
         env, (Rule) target.getTarget(), targetConfig, configurations.getHostConfiguration(),
@@ -964,7 +979,7 @@ public class BuildView {
   public ConfiguredTarget getPrerequisiteConfiguredTargetForTesting(
       EventHandler eventHandler, ConfiguredTarget dependentTarget, Label desiredTarget,
       BuildConfigurationCollection configurations)
-      throws InterruptedException {
+      throws EvalException, InterruptedException {
     Collection<ConfiguredTarget> configuredTargets =
         getPrerequisiteMapForTesting(eventHandler, dependentTarget, configurations).values();
     for (ConfiguredTarget ct : configuredTargets) {

@@ -387,7 +387,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * the action graph.
    */
   protected Iterable<ConfiguredTarget> getDirectPrerequisites(ConfiguredTarget target)
-      throws InterruptedException {
+      throws Exception {
     return view.getDirectPrerequisitesForTesting(reporter, target, masterConfig);
   }
 
@@ -400,7 +400,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   // requesting "//go:two" as a dependency. So the configured targets aren't considered "equal".
   // Once we apply dynamic configs to top-level targets this discrepancy will go away.
   protected void assertDirectPrerequisitesContain(ConfiguredTarget target, ConfiguredTarget dep)
-      throws InterruptedException {
+      throws Exception {
     Iterable<ConfiguredTarget> prereqs = getDirectPrerequisites(target);
     BuildConfiguration depConfig = dep.getConfiguration();
     for (ConfiguredTarget contained : prereqs) {
@@ -437,7 +437,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * Creates and returns a rule context that is equivalent to the one that was used to create the
    * given configured target.
    */
-  protected RuleContext getRuleContext(ConfiguredTarget target) throws InterruptedException {
+  protected RuleContext getRuleContext(ConfiguredTarget target) throws Exception {
     return view.getRuleContextForTesting(
         reporter, target, new StubAnalysisEnvironment(), masterConfig);
   }
@@ -447,7 +447,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * that was used to create the given configured target.
    */
   protected RuleContext getRuleContextForSkylark(ConfiguredTarget target)
-      throws InterruptedException {
+      throws Exception {
     // TODO(bazel-team): we need this horrible workaround because CachingAnalysisEnvironment
     // only works with StoredErrorEventListener despite the fact it accepts the interface
     // ErrorEventListener, so it's not possible to create it with reporter.
@@ -469,7 +469,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * the action graph.
    */
   protected List<? extends TransitiveInfoCollection> getPrerequisites(ConfiguredTarget target,
-      String attributeName) throws InterruptedException {
+      String attributeName) throws Exception {
     return getRuleContext(target).getConfiguredTargetMap().get(attributeName);
   }
 
@@ -480,7 +480,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * the action graph.
    */
   protected <C extends TransitiveInfoProvider> Iterable<C> getPrerequisites(ConfiguredTarget target,
-      String attributeName, Class<C> classType) throws InterruptedException {
+      String attributeName, Class<C> classType) throws Exception {
     return AnalysisUtils.getProviders(getPrerequisites(target, attributeName), classType);
   }
 
@@ -491,7 +491,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * the action graph.
    */
   protected ImmutableList<Artifact> getPrerequisiteArtifacts(
-      ConfiguredTarget target, String attributeName) throws InterruptedException {
+      ConfiguredTarget target, String attributeName) throws Exception {
     Set<Artifact> result = new LinkedHashSet<>();
     for (FileProvider provider : getPrerequisites(target, attributeName, FileProvider.class)) {
       Iterables.addAll(result, provider.getFilesToBuild());
