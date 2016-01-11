@@ -81,7 +81,6 @@ def _write_manifest(ctx):
       output = ctx.outputs.manifest,
       content = manifest)
 
-
 def _write_launcher(ctx, jars):
   content = """#!/bin/bash
 cd $0.runfiles
@@ -89,6 +88,27 @@ java -cp {cp} {name} "$@"
 """
   content = content.format(
       name=ctx.attr.main_class,
+      deploy_jar=ctx.outputs.jar.path,
+      cp=":".join([j.short_path for j in jars]))
+  ctx.file_action(
+      output=ctx.outputs.executable,
+      content=content)
+
+def _args_for_suites(suites):
+  args = ["-o"]
+  for suite in suites:
+    args.extend(["-s", suite])
+  return args
+
+def _write_test_launcher(ctx, jars):
+  content = """#!/bin/bash
+cd $0.runfiles
+java -cp {cp} {name} {args} "$@"
+"""
+  content = content.format(
+      name=ctx.attr.main_class,
+      # TODO(dinowernli): merge this with the write_launcher above.
+      args=' '.join(_args_for_suites(ctx.attr.suites)),
       deploy_jar=ctx.outputs.jar.path,
       cp=":".join([j.short_path for j in jars]))
   ctx.file_action(
@@ -147,6 +167,22 @@ def _scala_binary_impl(ctx):
 
   rjars += [ctx.outputs.jar, ctx.file._scalalib]
   _write_launcher(ctx, rjars)
+
+  runfiles = ctx.runfiles(
+      files = list(rjars) + [ctx.outputs.executable],
+      collect_data = True)
+  return struct(
+      files=set([ctx.outputs.executable]),
+      runfiles=runfiles)
+
+def _scala_test_impl(ctx):
+  (cjars, rjars) = _collect_comp_run_jars(ctx)
+  _write_manifest(ctx)
+  _compile(ctx, cjars, False)
+
+  rjars += [ctx.outputs.jar, ctx.file._scalalib]
+  # TODO(dinowernli): This is the only difference to scala_binary_impl, merge.
+  _write_test_launcher(ctx, rjars)
 
   runfiles = ctx.runfiles(
       files = list(rjars) + [ctx.outputs.executable],
@@ -222,4 +258,26 @@ scala_binary = rule(
       "manifest": "%{name}_MANIFEST.MF",
       },
   executable=True,
+)
+
+scala_test = rule(
+  implementation=_scala_test_impl,
+  attrs={
+      "main_class": attr.string(default="org.scalatest.tools.Runner"),
+      "suites": attr.string_list(),
+      "srcs": attr.label_list(
+          allow_files=_scala_filetype,
+          non_empty=True),
+      "deps": attr.label_list(),
+      "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
+      "resources": attr.label_list(allow_files=True),
+      "scalacopts":attr.string_list(),
+      "jvm_flags": attr.string_list(),
+      } + _implicit_deps,
+  outputs={
+      "jar": "%{name}_deploy.jar",
+      "manifest": "%{name}_MANIFEST.MF",
+      },
+  executable=True,
+  test=True,
 )

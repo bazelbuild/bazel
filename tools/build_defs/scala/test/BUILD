@@ -1,4 +1,5 @@
 load("/tools/build_defs/scala/scala", "scala_binary", "scala_library", "scala_test")
+#load("/tools/build_defs/scala/scala", "scala_binary", "scala_library")
 
 # The examples below show how to combine Scala and Java rules.  # ScalaBinary is the Scala equivalent of JavaBinary.  
 java_binary(
