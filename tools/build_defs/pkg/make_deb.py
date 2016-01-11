@@ -23,6 +23,12 @@ import time
 
 from third_party.py import gflags
 
+# TODO (ajorgensen): Wrapping does not take into account - characters and can split
+# dependencies rendering the control file invalid. The wrapping
+# should be fixed to take this into account for Depends,
+# Recommends, Suggests, and Enhances. The wrapping has been
+# temporarily turned off for these.
+
 # list of debian fields : (name, mandatory, wrap[, default])
 # see http://www.debian.org/doc/debian-policy/ch-controlfields.html
 DEBIAN_FIELDS = [
@@ -32,9 +38,9 @@ DEBIAN_FIELDS = [
     ('Priority', False, False, 'optional'),
     ('Architecture', True, False, 'all'),
     ('Depends', False, False, []),
-    ('Recommends', False, True, []),
-    ('Suggests', False, True, []),
-    ('Enhances', False, True, []),
+    ('Recommends', False, False, []),
+    ('Suggests', False, False, []),
+    ('Enhances', False, False, []),
     ('Pre-Depends', False, True, []),
     ('Installed-Size', False, False),
     ('Maintainer', True, False),
