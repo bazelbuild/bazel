@@ -83,7 +83,8 @@ ${ATTRIBUTE_DEFINITION}
 <p>
 See the section on <a href="#java_binary_args">java_binary()</a> arguments, with the <i>caveat</i>
 that there is no <code>main_class</code> argument. This rule also supports all
-<a href="#common-attributes-tests">attributes common to all test rules (*_test)</a>.
+<a href="common-definitions.html#common-attributes-tests">attributes common to all test rules
+(*_test)</a>.
 </p>
 
 <h4 id="java_test_examples">Examples</h4>

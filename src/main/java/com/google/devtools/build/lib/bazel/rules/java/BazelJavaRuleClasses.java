@@ -141,8 +141,9 @@ public class BazelJavaRuleClasses {
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the target.
           ${SYNOPSIS}
-          See general comments about <code>deps</code> at <a href="#common-attributes">Attributes
-          common to all build rules</a>.
+          See general comments about <code>deps</code> at
+          <a href="common-definitions.html#common-attributes">Attributes common to all build rules
+          </a>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .override(builder.copy("deps")
               .allowedFileTypes(JavaSemantics.JAR)
@@ -245,8 +246,8 @@ public class BazelJavaRuleClasses {
           /* <!-- #BLAZE_RULE($java_rule).ATTRIBUTE(javacopts) -->
           Extra compiler options for this library.
           ${SYNOPSIS}
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
+          <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>These compiler options are passed to javac after the global compiler options.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("javacopts", STRING_LIST))
@@ -284,8 +285,8 @@ public class BazelJavaRuleClasses {
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(jvm_flags) -->
           A list of flags to embed in the wrapper script generated for running this binary.
           ${SYNOPSIS}
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
+          <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>
             The wrapper script for a Java binary includes a <code>CLASSPATH</code> definition (to
             find all the dependent jars) and invokes the right Java interpreter. The command line
@@ -325,7 +326,7 @@ public class BazelJavaRuleClasses {
           ${SYNOPSIS}
           A list of lines to add to the <code>META-INF/manifest.mf</code> file generated for the
           <code>*_deploy.jar</code> target. The contents of this attribute are <em>not</em> subject
-          to <a href="#make_variables">"Make variable"</a> substitution.
+          to <a href="make-variables.html">"Make variable"</a> substitution.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("deploy_manifest_lines", STRING_LIST))
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(stamp) -->
@@ -339,7 +340,7 @@ public class BazelJavaRuleClasses {
             <li><code>stamp = 0</code>: Always replace build information by constant values. This
               gives good build result caching.</li>
             <li><code>stamp = -1</code>: Embedding of build information is controlled by the
-              <a href="blaze-user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
+              <a href="../blaze-user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           // TODO(bazel-team): describe how to access this data at runtime

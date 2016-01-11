@@ -56,8 +56,9 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(java_library).ATTRIBUTE(data) -->
         The list of files needed by this library at runtime.
         ${SYNOPSIS}
-        See general comments about <code>data</code> at <a href="#common-attributes">Attributes
-        common to all build rules</a>.
+        See general comments about <code>data</code> at
+        <a href="common-definitions.html#common-attributes">Attributes common to all build rules
+        </a>.
         <p>
           When building a <code>java_library</code>, Bazel doesn't put these files anywhere; if the
           <code>data</code> files are generated files then Bazel generates them. When building a
@@ -69,8 +70,9 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(java_library).ATTRIBUTE(deps) -->
         The list of libraries to link into this library.
         ${SYNOPSIS}
-        See general comments about <code>deps</code> at <a href="#common-attributes">Attributes
-        common to all build rules</a>.
+        See general comments about <code>deps</code> at
+        <a href="common-definitions.html#common-attributes">Attributes common to all build rules
+        </a>.
         <p>
           The jars built by <code>java_library</code> rules listed in <code>deps</code> will be on
           the compile-time classpath of this rule. Furthermore the transitive closure of their
