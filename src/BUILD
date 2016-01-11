@@ -103,6 +103,7 @@ genrule(
         "//src/java_tools/singlejar:SingleJar_deploy.jar",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//third_party/ijar",
+        "//third_party/java/apkbuilder:embedded_tools",
     ] + select({
         ":darwin": [":darwin_tools"],
         ":darwin_x86_64": [":darwin_tools"],

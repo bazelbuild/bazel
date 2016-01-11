@@ -117,7 +117,7 @@ android_sdk(
     shrinked_android_jar = "platforms/android-%api_level%/android.jar",
     annotations_jar = "tools/support/annotations.jar",
     main_dex_classes = "build-tools/%build_tools_version%/mainDexClasses.rules",
-    apkbuilder = ":apkbuilder_binary",
+    apkbuilder = ":apkbuilder_wrapper",
     zipalign = ":zipalign_binary",
     android_jack = ":empty",
     jack = ":fail",
@@ -223,14 +223,12 @@ java_import(
 )
 
 genrule(
-    name = "apkbuilder_source",
+    name = "gen_apkbuilder_wrapper_source",
     srcs = [],
-    outs = ["apkbuilder_binary.sh"],
+    outs = ["apkbuilder_wrapper.sh"],
     cmd = "\n".join(["cat > $@ << 'EOF'",
         "#!/bin/bash -eu",
-        "BINARY=$${0##*-out/host/bin/}",
-        "DIRNAME=$$(dirname $$BINARY)",
-        "APKBUILDER=$${0}.runfiles/$${DIRNAME}/apkbuilder",
+        "APKBUILDER=$${0}.runfiles/external/bazel_tools/third_party/java/apkbuilder/embedded_apkbuilder",
         "if [[ -n \"$${KEYSTORE-}\" ]]; then",
         "  mkdir -p /tmp/keystore/.android",
         "  cp $$KEYSTORE /tmp/keystore/.android/debug.keystore",
@@ -241,19 +239,10 @@ genrule(
 )
 
 sh_binary(
-    name = "apkbuilder_binary",
-    srcs = ["apkbuilder_binary.sh"],
-    data = [":apkbuilder"],
+    name = "apkbuilder_wrapper",
+    srcs = ["apkbuilder_wrapper.sh"],
+    data = ["@bazel_tools//third_party/java/apkbuilder:embedded_apkbuilder"],
 )
-
-java_binary(
-    name = "apkbuilder",
-    runtime_deps = [":sdklib"],
-    main_class = "com.android.sdklib.build.ApkBuilderMain")
-
-java_import(
-    name = "sdklib",
-    jars = ["tools/lib/sdklib.jar", "tools/lib/common.jar", "tools/lib/guava-17.0.jar"])
 
 GOOGLE_PLAY_SERVICES_DIR = "extras/google/google_play_services/libproject/google-play-services_lib"
 
