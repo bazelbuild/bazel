@@ -32,7 +32,6 @@ function usage() {
   echo "  General purpose commands:" >&2
   echo "     build       = compile,tools,init (default)" >&2
   echo "     compile     = compile a Bazel binary for usage" >&2
-  echo "     tools       = compile and install tooling for Bazel" >&2
   echo "     init        = initialize the base workspace" >&2
   echo "  Commands for developers:" >&2
   echo "     all         = build,determinism,test" >&2
@@ -42,17 +41,15 @@ function usage() {
 }
 
 function parse_options() {
-  local keywords="(build|compile|tools|init|all|determinism|bootstrap|test)"
+  local keywords="(build|compile|init|all|determinism|bootstrap|test)"
   COMMANDS="${1:-build}"
   [[ "${COMMANDS}" =~ ^$keywords(,$keywords)*$ ]] || usage "$@"
   DO_COMPILE=
-  DO_TOOLS_COMPILATION=
   DO_CHECKSUM=
   DO_FULL_CHECKSUM=1
   DO_TESTS=
   DO_BASE_WORKSPACE_INIT=
   [[ "${COMMANDS}" =~ (compile|build|all) ]] && DO_COMPILE=1
-  [[ "${COMMANDS}" =~ (tools|build|all) ]] && DO_TOOLS_COMPILATION=1
   [[ "${COMMANDS}" =~ (init|build|all) ]] && DO_BASE_WORKSPACE_INIT=1
   [[ "${COMMANDS}" =~ (bootstrap|determinism|all) ]] && DO_CHECKSUM=1
   [[ "${COMMANDS}" =~ (bootstrap) ]] && DO_FULL_CHECKSUM=
@@ -88,29 +85,11 @@ if [ "${EMBED_LABEL-x}" = "x" ]; then
   EMBED_LABEL="head (@${git_sha1:-non-git})"
 fi
 
-source scripts/bootstrap/bootstrap.sh
-if [ $DO_TOOLS_COMPILATION ]; then
-  if [[ $PLATFORM == "darwin" ]]; then
-    bazel_bootstrap //src/tools/xcode/actoolwrapper:actoolwrapper tools/objc/actoolwrapper.sh 0755
-    bazel_bootstrap //src/tools/xcode/ibtoolwrapper:ibtoolwrapper tools/objc/ibtoolwrapper.sh 0755
-    bazel_bootstrap //src/tools/xcode/momcwrapper:momcwrapper tools/objc/momcwrapper.sh 0755
-    bazel_bootstrap //src/tools/xcode/swiftstdlibtoolwrapper:swiftstdlibtoolwrapper tools/objc/swiftstdlibtoolzip.sh 0755
-    bazel_bootstrap //src/tools/xcode/xcrunwrapper:xcrunwrapper tools/objc/xcrunwrapper.sh 0755
-    bazel_bootstrap //src/objc_tools/bundlemerge:bundlemerge_deploy.jar \
-        tools/objc/precomp_bundlemerge_deploy.jar
-    bazel_bootstrap //src/objc_tools/plmerge:plmerge_deploy.jar \
-        tools/objc/precomp_plmerge_deploy.jar
-    bazel_bootstrap //src/objc_tools/xcodegen:xcodegen_deploy.jar \
-        tools/objc/precomp_xcodegen_deploy.jar
-    if xcodebuild -showsdks 2> /dev/null | grep -q '\-sdk iphonesimulator'; then
-        bazel_bootstrap //src/tools/xcode/stdredirect:StdRedirect.dylib \
-            tools/objc/StdRedirect.dylib 0755
-    fi
-    bazel_bootstrap //src/tools/xcode/realpath:realpath tools/objc/realpath 0755
-    bazel_bootstrap //src/tools/xcode/environment:environment_plist \
-        tools/objc/environment_plist.sh 0755
-  fi
+if [[ $PLATFORM == "darwin" ]] && \
+    xcodebuild -showsdks 2> /dev/null | grep -q '\-sdk iphonesimulator'; then
+  EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --define IPHONE_SDK=1"
 fi
+source scripts/bootstrap/bootstrap.sh
 
 if [ $DO_COMPILE ]; then
   new_step 'Building Bazel with Bazel'
@@ -172,6 +151,7 @@ if [ $DO_TESTS ]; then
   $BAZEL --bazelrc=${BAZELRC} --nomaster_bazelrc test \
       --test_tag_filters="${BAZEL_TEST_FILTERS-}" \
       --build_tests_only \
+      ${EXTRA_BAZEL_ARGS} \
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
       -k --test_output=errors //src/... //third_party/ijar/... //scripts/... \
       || fail "Tests failed"

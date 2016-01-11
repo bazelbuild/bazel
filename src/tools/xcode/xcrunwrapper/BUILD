@@ -1,4 +1,4 @@
-package(default_visibility = ["//src/test:__subpackages__"])
+package(default_visibility = ["//src:__subpackages__"])
 
 filegroup(
     name = "srcs",
