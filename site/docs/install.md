@@ -80,8 +80,8 @@ your operating system.
 Run the installer:
 
 <pre>
-$ chmod +x install-<em>version</em>-<em>os</em>.sh
-$ ./install-<em>version</em>-<em>os</em>.sh --user
+$ chmod +x bazel-<em>version</em>-installer-<em>os</em>.sh
+$ ./bazel-<em>version</em>-installer-<em>os</em>.sh --user
 </pre>
 
 The `--user` flag installs Bazel to the `$HOME/bin` directory on your
