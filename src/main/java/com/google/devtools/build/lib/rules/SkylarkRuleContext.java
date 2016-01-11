@@ -324,6 +324,7 @@ public final class SkylarkRuleContext {
     }
 
     return new SkylarkRuleAttributesCollection(
+        ruleContext.getRule().getRuleClass(),
         attrBuilder.build(),
         executableBuilder.build(),
         fileBuilder.build(),
@@ -341,13 +342,15 @@ public final class SkylarkRuleContext {
     private final SkylarkClassObject fileObject;
     private final SkylarkClassObject filesObject;
     private final ImmutableMap<Artifact, FilesToRunProvider> executableRunfilesMap;
+    private final String ruleClassName;
 
     private SkylarkRuleAttributesCollection(
-        ImmutableMap<String, Object> attrs,
+        String ruleClassName, ImmutableMap<String, Object> attrs,
         ImmutableMap<String, Object> executables,
         ImmutableMap<String, Object> singleFiles,
         ImmutableMap<String, Object> files,
         ImmutableMap<Artifact, FilesToRunProvider> executableRunfilesMap) {
+      this.ruleClassName = ruleClassName;
       attrObject =
           new SkylarkClassObject(
               attrs,
@@ -389,6 +392,13 @@ public final class SkylarkRuleContext {
     public SkylarkClassObject getFiles() {
       return filesObject;
     }
+
+    @SkylarkCallable(name = "kind", structField = true, doc =
+        "The kind of a rule, such as 'cc_library'")
+    public String getRuleClassName() {
+      return ruleClassName;
+    }
+
 
     public ImmutableMap<Artifact, FilesToRunProvider> getExecutableRunfilesMap() {
       return executableRunfilesMap;
@@ -494,10 +504,13 @@ public final class SkylarkRuleContext {
     return outputsObject;
   }
 
-  @SkylarkCallable(structField = true, doc = "Returns rule attributes descriptor")
+  @SkylarkCallable(structField = true,
+      doc = "Returns rule attributes descriptor for the rule that aspect is applied to."
+          + " Only avaliable in aspect implementation functions.")
   public SkylarkRuleAttributesCollection rule() throws EvalException {
     if (ruleAttributesCollection == null) {
-      throw new EvalException(Location.BUILTIN, "'rule' is not defined");
+      throw new EvalException(
+          Location.BUILTIN, "'rule' is only available in aspect implementations");
     }
     return ruleAttributesCollection;
   }
