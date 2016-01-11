@@ -45,7 +45,6 @@ filegroup(
         "testenv.sh",
         "testing_server.py",
         ":langtools-copy",
-        ":objc-deps",
         "//examples:srcs",
         "//external:bootclasspath",
         "//external:extdir",
@@ -71,7 +70,10 @@ sh_test(
     name = "bazel_example_test",
     size = "large",
     srcs = ["bazel_example_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":objc-deps",
+        ":test-deps",
+    ],
     shard_count = 3,
 )
 
@@ -109,7 +111,10 @@ sh_test(
 sh_test(
     name = "bazel_objc_test",
     srcs = ["bazel_objc_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":objc-deps",
+        ":test-deps",
+    ],
 )
 
 sh_test(
