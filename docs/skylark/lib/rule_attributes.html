@@ -13,6 +13,7 @@ Information about attributes of a rule an aspect is applied to.
               <li><a href="#executable">executable</a></li>
               <li><a href="#file">file</a></li>
               <li><a href="#files">files</a></li>
+              <li><a href="#kind">kind</a></li>
         </ul>
 </div>
 
@@ -38,6 +39,12 @@ Information about attributes of a rule an aspect is applied to.
         <p><pre><a class="anchor" href="struct.html">struct</a> rule_attributes.files</pre></p>
 
     A <code>struct</code> containing files defined in label or label list type attributes. The struct fields correspond to the attribute names. The struct values are <code>list</code> of <code>file</code>s. If an optional attribute is not specified in the rule, an empty list is generated.It is a shortcut for:<pre class=language-python>[f for t in ctx.attr.<ATTR> for f in t.files]</pre>
+
+
+        <h2 id="kind">kind</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> rule_attributes.kind</pre></p>
+
+    The kind of a rule, such as 'cc_library'
 
 
 

@@ -157,8 +157,9 @@ java_binary(
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of other libraries to be linked in to the target.
 
-          See general comments about <code>deps</code> at <a href="#common-attributes">Attributes
-          common to all build rules</a>.
+          See general comments about <code>deps</code> at
+          <a href="common-definitions.html#common-attributes">Attributes common to all build rules
+          </a>.
 
         </td>
       </tr>
@@ -262,7 +263,7 @@ java_binary(
 
           A list of lines to add to the <code>META-INF/manifest.mf</code> file generated for the
           <code>*_deploy.jar</code> target. The contents of this attribute are <em>not</em> subject
-          to <a href="#make_variables">"Make variable"</a> substitution.
+          to <a href="make-variables.html">"Make variable"</a> substitution.
 
         </td>
       </tr>
@@ -274,8 +275,8 @@ java_binary(
                     <p><code>List of strings; optional</code></p>
                               Extra compiler options for this library.
 
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
+          <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>These compiler options are passed to javac after the global compiler options.</p>
 
         </td>
@@ -288,8 +289,8 @@ java_binary(
                     <p><code>List of strings; optional</code></p>
                               A list of flags to embed in the wrapper script generated for running this binary.
 
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
+          <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>
             The wrapper script for a Java binary includes a <code>CLASSPATH</code> definition (to
             find all the dependent jars) and invokes the right Java interpreter. The command line
@@ -387,7 +388,7 @@ java_binary(
             <li><code>stamp = 0</code>: Always replace build information by constant values. This
               gives good build result caching.</li>
             <li><code>stamp = -1</code>: Embedding of build information is controlled by the
-              <a href="bazel-user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
+              <a href="../bazel-user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
           </ul>
 
         </td>
@@ -599,8 +600,9 @@ java_binary(
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of libraries to link into this library.
 
-        See general comments about <code>deps</code> at <a href="#common-attributes">Attributes
-        common to all build rules</a>.
+        See general comments about <code>deps</code> at
+        <a href="common-definitions.html#common-attributes">Attributes common to all build rules
+        </a>.
         <p>
           The jars built by <code>java_library</code> rules listed in <code>deps</code> will be on
           the compile-time classpath of this rule. Furthermore the transitive closure of their
@@ -658,8 +660,9 @@ java_binary(
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of files needed by this library at runtime.
 
-        See general comments about <code>data</code> at <a href="#common-attributes">Attributes
-        common to all build rules</a>.
+        See general comments about <code>data</code> at
+        <a href="common-definitions.html#common-attributes">Attributes common to all build rules
+        </a>.
         <p>
           When building a <code>java_library</code>, Bazel doesn't put these files anywhere; if the
           <code>data</code> files are generated files then Bazel generates them. When building a
@@ -758,8 +761,8 @@ java_binary(
                     <p><code>List of strings; optional</code></p>
                               Extra compiler options for this library.
 
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
+          <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>These compiler options are passed to javac after the global compiler options.</p>
 
         </td>
@@ -884,7 +887,8 @@ test code. The test runner's main method is invoked instead of the main class be
 <p>
 See the section on <a href="#java_binary_args">java_binary()</a> arguments, with the <i>caveat</i>
 that there is no <code>main_class</code> argument. This rule also supports all
-<a href="#common-attributes-tests">attributes common to all test rules (*_test)</a>.
+<a href="common-definitions.html#common-attributes-tests">attributes common to all test rules
+(*_test)</a>.
 </p>
 
 <h4 id="java_test_examples">Examples</h4>
@@ -939,8 +943,9 @@ java_test(
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of other libraries to be linked in to the target.
 
-          See general comments about <code>deps</code> at <a href="#common-attributes">Attributes
-          common to all build rules</a>.
+          See general comments about <code>deps</code> at
+          <a href="common-definitions.html#common-attributes">Attributes common to all build rules
+          </a>.
 
         </td>
       </tr>
@@ -1044,7 +1049,7 @@ java_test(
 
           A list of lines to add to the <code>META-INF/manifest.mf</code> file generated for the
           <code>*_deploy.jar</code> target. The contents of this attribute are <em>not</em> subject
-          to <a href="#make_variables">"Make variable"</a> substitution.
+          to <a href="make-variables.html">"Make variable"</a> substitution.
 
         </td>
       </tr>
@@ -1056,8 +1061,8 @@ java_test(
                     <p><code>List of strings; optional</code></p>
                               Extra compiler options for this library.
 
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
+          <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>These compiler options are passed to javac after the global compiler options.</p>
 
         </td>
@@ -1070,8 +1075,8 @@ java_test(
                     <p><code>List of strings; optional</code></p>
                               A list of flags to embed in the wrapper script generated for running this binary.
 
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
+          <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>
             The wrapper script for a Java binary includes a <code>CLASSPATH</code> definition (to
             find all the dependent jars) and invokes the right Java interpreter. The command line
@@ -1169,7 +1174,7 @@ java_test(
             <li><code>stamp = 0</code>: Always replace build information by constant values. This
               gives good build result caching.</li>
             <li><code>stamp = -1</code>: Embedding of build information is controlled by the
-              <a href="bazel-user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
+              <a href="../bazel-user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
           </ul>
 
         </td>
@@ -1237,8 +1242,9 @@ java_test(
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of libraries to link into this library.
 
-        See general comments about <code>deps</code> at <a href="#common-attributes">Attributes
-        common to all build rules</a>.
+        See general comments about <code>deps</code> at
+        <a href="common-definitions.html#common-attributes">Attributes common to all build rules
+        </a>.
         <p>
           The jars built by <code>java_library</code> rules listed in <code>deps</code> will be on
           the compile-time classpath of this rule. Furthermore the transitive closure of their
@@ -1296,8 +1302,9 @@ java_test(
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of files needed by this library at runtime.
 
-        See general comments about <code>data</code> at <a href="#common-attributes">Attributes
-        common to all build rules</a>.
+        See general comments about <code>data</code> at
+        <a href="common-definitions.html#common-attributes">Attributes common to all build rules
+        </a>.
         <p>
           When building a <code>java_library</code>, Bazel doesn't put these files anywhere; if the
           <code>data</code> files are generated files then Bazel generates them. When building a
@@ -1340,8 +1347,8 @@ java_test(
                     <p><code>List of strings; optional</code></p>
                               Extra compiler options for this library.
 
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
+          <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>These compiler options are passed to javac after the global compiler options.</p>
 
         </td>
