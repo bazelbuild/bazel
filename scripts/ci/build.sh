@@ -167,10 +167,16 @@ function bazel_build() {
   fi
 
   # Build the packages
+  local ARGS=
+  if [[ $PLATFORM == "darwin" ]] && \
+      xcodebuild -showsdks 2> /dev/null | grep -q '\-sdk iphonesimulator'; then
+    ARGS="--define IPHONE_SDK=1"
+  fi
   ./output/bazel --bazelrc=${BAZELRC:-/dev/null} --nomaster_bazelrc build \
       --embed_label=${release_label} --stamp \
       --workspace_status_command=scripts/ci/build_status_command.sh \
       --define JAVA_VERSION=${JAVA_VERSION} \
+      ${ARGS} \
       //scripts/packages/... || exit $?
 
   if [ -n "${1-}" ]; then
