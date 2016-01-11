@@ -1175,7 +1175,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .addInput(javaResourceFile);
       }
 
-      semantics.addSigningArguments(ruleContext, sign, actionBuilder);
+      if (sign) {
+        Artifact signingKey = semantics.getApkDebugSigningKey(ruleContext);
+        actionBuilder.addArgument("-ks").addArgument(signingKey.getExecPathString());
+        actionBuilder.addInput(signingKey);
+      } else {
+        actionBuilder.addArgument("-u");
+      }
 
       actionBuilder
           .addArgument("-z")

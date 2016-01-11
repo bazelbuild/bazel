@@ -117,7 +117,7 @@ android_sdk(
     shrinked_android_jar = "platforms/android-%api_level%/android.jar",
     annotations_jar = "tools/support/annotations.jar",
     main_dex_classes = "build-tools/%build_tools_version%/mainDexClasses.rules",
-    apkbuilder = ":apkbuilder_wrapper",
+    apkbuilder = "@bazel_tools//third_party/java/apkbuilder:embedded_apkbuilder",
     zipalign = ":zipalign_binary",
     android_jack = ":empty",
     jack = ":fail",
@@ -220,28 +220,6 @@ filegroup(
 java_import(
     name = "dx_jar_import",
     jars = [":dx_jar"],
-)
-
-genrule(
-    name = "gen_apkbuilder_wrapper_source",
-    srcs = [],
-    outs = ["apkbuilder_wrapper.sh"],
-    cmd = "\n".join(["cat > $@ << 'EOF'",
-        "#!/bin/bash -eu",
-        "APKBUILDER=$${0}.runfiles/external/bazel_tools/third_party/java/apkbuilder/embedded_apkbuilder",
-        "if [[ -n \"$${KEYSTORE-}\" ]]; then",
-        "  mkdir -p /tmp/keystore/.android",
-        "  cp $$KEYSTORE /tmp/keystore/.android/debug.keystore",
-        "  export ANDROID_SDK_HOME=/tmp/keystore",
-        "fi",
-        "exec $$APKBUILDER $$*",
-        "EOF"]),
-)
-
-sh_binary(
-    name = "apkbuilder_wrapper",
-    srcs = ["apkbuilder_wrapper.sh"],
-    data = ["@bazel_tools//third_party/java/apkbuilder:embedded_apkbuilder"],
 )
 
 GOOGLE_PLAY_SERVICES_DIR = "extras/google/google_play_services/libproject/google-play-services_lib"
