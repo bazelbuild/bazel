@@ -146,7 +146,11 @@ genrule(
         "find . -name stable-status.txt -exec cat '{}' ';'" +
         " | grep EMBED_LABEL | cut -d ' ' -f 2-" +
         # Debian package manager does not order our rcs correctly, insert a tilde
-        " | sed -E 's/^([0-9\\.]+)(.+)$$/\\1~\\2/'" +
+        # Non RC version number are not matched by the regex, example translations:
+        # 0.1.2         0.1.2
+        # 0.1.2rc2      0.1.2~rc2
+        # 0.1.2rc2-jdk7 0.1.2~rc2-jdk7
+        " | sed -E 's/^([0-9\\.]+)([^0-9\\.].*)$$/\\1~\\2/'" +
         " > $@\n",
     stamp = 1,
 )
