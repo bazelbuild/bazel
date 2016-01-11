@@ -31,7 +31,7 @@ DEBIAN_FIELDS = [
     ('Section', False, False, 'contrib/devel'),
     ('Priority', False, False, 'optional'),
     ('Architecture', True, False, 'all'),
-    ('Depends', False, True, []),
+    ('Depends', False, False, []),
     ('Recommends', False, True, []),
     ('Suggests', False, True, []),
     ('Enhances', False, True, []),
