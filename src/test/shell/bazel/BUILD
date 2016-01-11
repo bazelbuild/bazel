@@ -161,7 +161,7 @@ sh_test(
 
 sh_test(
     name = "git_repository_test",
-    size = "medium",
+    size = "large",
     srcs = ["git_repository_test.sh"],
     data = [
         ":test-deps",
@@ -253,6 +253,7 @@ sh_test(
 
 sh_test(
     name = "bazel_sandboxing_test",
+    size = "large",
     srcs = ["bazel_sandboxing_test.sh"],
     data = [":test-deps"],
 )
