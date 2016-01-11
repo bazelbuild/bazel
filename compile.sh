@@ -30,7 +30,7 @@ function usage() {
   [ -n "${1:-build}" ] && echo "Invalid command(s): $1" >&2
   echo "syntax: $0 [command[,command]* [BAZEL_BIN [BAZEL_SUM]]]" >&2
   echo "  General purpose commands:" >&2
-  echo "     build       = compile,tools,init (default)" >&2
+  echo "     build       = compile,init (default)" >&2
   echo "     compile     = compile a Bazel binary for usage" >&2
   echo "     init        = initialize the base workspace" >&2
   echo "  Commands for developers:" >&2
