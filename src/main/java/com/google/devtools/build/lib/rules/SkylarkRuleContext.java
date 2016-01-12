@@ -506,7 +506,7 @@ public final class SkylarkRuleContext {
 
   @SkylarkCallable(structField = true,
       doc = "Returns rule attributes descriptor for the rule that aspect is applied to."
-          + " Only avaliable in aspect implementation functions.")
+          + " Only available in aspect implementation functions.")
   public SkylarkRuleAttributesCollection rule() throws EvalException {
     if (ruleAttributesCollection == null) {
       throw new EvalException(
