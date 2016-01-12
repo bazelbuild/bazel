@@ -48,6 +48,13 @@ cc_binary(
 #include "b/b.h"
 ```
 
+You may want to try bazel build like this:
+
+```
+bazel build //b:main
+```
+
+
 Note that the full path from the package root is used. If we want `b/main.cc` to
 also depend on `a/a.h`, we'd add the rule to `a/BUILD`:
 
