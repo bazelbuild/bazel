@@ -257,7 +257,7 @@ public final class JavaLibraryHelper {
         null /* gensrcOutputJar */,
         outputDepsProto,
         null /* outputMetadata */);
-    helper.createCompileTimeJarAction(output, outputDepsProto, artifactsBuilder);
+    helper.createCompileTimeJarAction(output, artifactsBuilder);
     artifactsBuilder.addRuntimeJar(output);
     JavaCompilationArtifacts compilationArtifacts = artifactsBuilder.build();
 
