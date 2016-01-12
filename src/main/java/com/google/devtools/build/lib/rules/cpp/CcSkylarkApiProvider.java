@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
     name = "CcSkylarkApiProvider", doc = "Provides access to information about C++ rules")
 public final class CcSkylarkApiProvider extends SkylarkApiProvider {
   /** The name of the field in Skylark used to access this class. */
-  static final String NAME = "cc";
+  public static final String NAME = "cc";
 
   @SkylarkCallable(
       name = "transitive_headers",
