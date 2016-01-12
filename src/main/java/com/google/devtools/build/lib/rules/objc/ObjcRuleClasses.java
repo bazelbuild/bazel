@@ -239,7 +239,7 @@ public class ObjcRuleClasses {
           Extra flags to pass to the compiler.
           ${SYNOPSIS}
           Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           These flags will only apply to this target, and not those upon which
           it depends, or those which depend on it.
           <p>
@@ -708,7 +708,7 @@ public class ObjcRuleClasses {
            are) but also to all <code>objc_</code> dependers of this target.
            ${SYNOPSIS}
            Subject to <a href="#make_variables">"Make variable"</a> substitution and
-           <a href="#sh-tokenization">Bourne shell tokenization</a>.
+           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
            <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("defines", STRING_LIST))
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(enable_modules) -->

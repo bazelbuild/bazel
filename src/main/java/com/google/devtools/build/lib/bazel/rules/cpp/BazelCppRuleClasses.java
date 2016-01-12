@@ -253,7 +253,8 @@ public class BazelCppRuleClasses {
           Add these options to the C++ compilation command.
           ${SYNOPSIS}
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          <a href="common-definitions.html#sh-tokenization">
+          Bourne shell tokenization</a>.
           <p>Each string in this attribute is added in the given order to <code>COPTS</code>
           before compiling the binary target.
           The flags take effect only for compiling this target, not its dependencies,
@@ -304,7 +305,8 @@ public class BazelCppRuleClasses {
           The list of architecture-specific dependencies that are processed to create the target.
           <i>(Dictionary mapping strings to lists of
              <a href="../build-ref.html#labels">labels</a>; optional)</i>
-          <p><i><a href="#configurable-attributes">Configurable attributes</a> is a generalization
+          <p><i><a href="common-definitions.html#configurable-attributes">
+            Configurable attributes</a> is a generalization
             of the same concept that works for most rules and attributes. It deprecates
             <code>abi_deps</code>, which we intend to ultimately remove. Use configurable
             attributes over <code>abi_deps</code> whenever possible. When not possible, let
@@ -355,7 +357,8 @@ public class BazelCppRuleClasses {
           List of defines to add to the compile line.
           ${SYNOPSIS}
           Subject to <a href="make-variables.html">"Make" variable</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          <a href="common-definitions.html#sh-tokenization">
+          Bourne shell tokenization</a>.
           Each string, which must consist of a single Bourne shell token,
           is prepended with <code>-D</code> and added to
           <code>COPTS</code>.
@@ -470,8 +473,9 @@ public class BazelCppRuleClasses {
           Add these flags to the C++ linker command.
           ${SYNOPSIS}
           Subject to <a href="make-variables.html">"Make" variable</a> substitution,
-          <a href="#sh-tokenization">Bourne shell tokenization</a>
-          and <a href="#label-expansion">label expansion</a>.
+          <a href="common-definitions.html#sh-tokenization">
+          Bourne shell tokenization</a> and
+          <a href="common-definitions.html#label-expansion">label expansion</a>.
           Each string in this attribute is added to <code>LINKOPTS</code> before
           linking the binary target.
           <p>

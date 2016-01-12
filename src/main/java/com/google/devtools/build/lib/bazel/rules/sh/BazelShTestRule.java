@@ -49,7 +49,8 @@ ${ATTRIBUTE_SIGNATURE}
 
 ${ATTRIBUTE_DEFINITION}
 
-<p>See the <a href="#common-attributes-tests">attributes common to all test rules (*_test)</a>.</p>
+<p>See the <a href="common-definitions.html#common-attributes-tests">
+attributes common to all test rules (*_test)</a>.</p>
 
 <h4 id="sh_test_examples">Examples</h4>
 
