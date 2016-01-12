@@ -232,7 +232,7 @@ final class BundleSupport {
       Artifact zipOutput = intermediateArtifacts.compiledStoryboardZip(storyboardInput);
 
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
+          ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
               .setMnemonic("StoryboardCompile")
               .setExecutable(attributes.ibtoolWrapper())
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, storyboardInput))
@@ -276,7 +276,7 @@ final class BundleSupport {
     for (Xcdatamodel datamodel : xcdatamodels) {
       Artifact outputZip = datamodel.getOutputZip();
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
+          ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
               .setMnemonic("MomCompile")
               .setExecutable(attributes.momcWrapper())
               .addOutput(outputZip)
@@ -308,7 +308,7 @@ final class BundleSupport {
           FileSystemUtils.replaceExtension(original.getExecPath(), ".nib"));
 
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
+          ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
               .setMnemonic("XibCompile")
               .setExecutable(attributes.ibtoolWrapper())
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, original))
@@ -327,7 +327,7 @@ final class BundleSupport {
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
     for (Artifact strings : objcProvider.get(ObjcProvider.STRINGS)) {
       Artifact bundled = intermediateArtifacts.convertedStringsFile(strings);
-      ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
+      ruleContext.registerAction(ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
           .setMnemonic("ConvertStringsPlist")
           .setExecutable(new PathFragment("/usr/bin/plutil"))
           .setCommandLine(CustomCommandLine.builder()
@@ -390,7 +390,7 @@ final class BundleSupport {
     // zip file will be rooted at the bundle root, and we have to prepend the bundle root to each
     // entry when merging it with the final .ipa file.
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
+        ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
             .setMnemonic("AssetCatalogCompile")
             .setExecutable(attributes.actoolWrapper())
             .addTransitiveInputs(objcProvider.get(ASSET_CATALOG))

@@ -49,12 +49,14 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * Shared rule classes and associated utility code for Objective-C rules.
@@ -67,8 +69,6 @@ public class ObjcRuleClasses {
   static final String DSYMUTIL = "dsymutil";
   static final String LIPO = "lipo";
   static final String STRIP = "strip";
-
-  private static final PathFragment JAVA = new PathFragment("/usr/bin/java");
 
   private static final DottedVersion MIN_LAUNCH_STORYBOARD_OS_VERSION =
       DottedVersion.fromString("8.0");
@@ -158,27 +158,30 @@ public class ObjcRuleClasses {
       new SdkFramework("Foundation"), new SdkFramework("UIKit"));
 
   /**
-   * Creates a new spawn action builder that requires a darwin architecture to run.
+   * Creates a new spawn action builder that will ultimately use part of the apple toolchain
+   * using the xcrun binary. Such a spawn action is special in that, in order to run, it requires
+   * both a darwin architecture and a collection of environment variables which contain
+   * information about the target and host architectures.
    */
-  static SpawnAction.Builder spawnOnDarwinActionBuilder(RuleContext ruleContext) {
+  static SpawnAction.Builder spawnXcrunActionBuilder(RuleContext ruleContext) {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-    return new SpawnAction.Builder()
-        .setEnvironment(appleConfiguration.getEnvironmentForIosAction())
-        .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""));
+    XcodeConfigProvider xcodeConfigProvider =
+        ruleContext.getPrerequisite(":xcode_config", Mode.HOST, XcodeConfigProvider.class);
+    
+    ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.<String, String>builder()
+        .putAll(appleConfiguration.getEnvironmentForIosAction())
+        .putAll(AppleToolchain.appleHostSystemEnv(xcodeConfigProvider));
+
+    return spawnOnDarwinActionBuilder()
+        .setEnvironment(envBuilder.build());
   }
 
   /**
-   * Creates a new spawn action builder that requires a darwin architecture to run and is executed
-   * with the given jar.
+   * Creates a new spawn action builder that requires a darwin architecture to run.
    */
-  // TODO(bazel-team): Reference a rule target rather than a jar file when Darwin runfiles work
-  // better.
-  static SpawnAction.Builder spawnJavaOnDarwinActionBuilder(RuleContext ruleContext,
-      Artifact deployJarArtifact) {
-    return spawnOnDarwinActionBuilder(ruleContext)
-        .setExecutable(JAVA)
-        .addExecutableArguments("-jar", deployJarArtifact.getExecPathString())
-        .addInput(deployJarArtifact);
+  static SpawnAction.Builder spawnOnDarwinActionBuilder() {
+    return new SpawnAction.Builder()
+        .setExecutionInfo(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, ""));
   }
 
   /**
@@ -188,8 +191,8 @@ public class ObjcRuleClasses {
    * directly, but right now we don't have a buildhelpers package on Macs so we must specify
    * the path to /bin/bash explicitly.
    */
-  static SpawnAction.Builder spawnBashOnDarwinActionBuilder(RuleContext ruleContext, String cmd) {
-    return spawnOnDarwinActionBuilder(ruleContext)
+  static SpawnAction.Builder spawnBashOnDarwinActionBuilder(String cmd) {
+    return spawnOnDarwinActionBuilder()
         .setShellCommand(ImmutableList.of("/bin/bash", "-c", cmd));
   }
 
@@ -870,12 +873,14 @@ public class ObjcRuleClasses {
                           Constants.TOOLS_REPOSITORY + "//tools/objc:swiftstdlibtoolwrapper")))
           .build();
     }
+
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("$objc_bundling_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(OptionsRule.class, ResourceToolsRule.class, XcrunRule.class)
+          .ancestors(OptionsRule.class, ResourceToolsRule.class, XcrunRule.class,
+              AppleToolchain.RequiresXcodeConfigRule.class)
           .build();
     }
   }
@@ -1067,8 +1072,8 @@ public class ObjcRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$objc_xcrun_rule")
           .type(RuleClassType.ABSTRACT)
+          .ancestors(RequiresXcodeConfigRule.class)
           .build();
     }
   }
 }
-

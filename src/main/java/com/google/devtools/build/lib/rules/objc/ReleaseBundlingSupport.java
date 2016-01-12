@@ -384,7 +384,7 @@ public final class ReleaseBundlingSupport {
             configuration.getBundlingPlatform().getLowerCaseNameInPlist(),
             configuration.getIosSdkVersion());
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
+        ObjcRuleClasses.spawnOnDarwinActionBuilder()
             .setMnemonic("EnvironmentPlist")
             .addInput(attributes.environmentPlistScript())
             .setExecutable(attributes.environmentPlistScript())
@@ -627,7 +627,7 @@ public final class ReleaseBundlingSupport {
     Artifact resultingLinkedBinary = intermediateArtifacts.combinedArchitectureBinary();
     NestedSet<Artifact> linkedBinaries = linkedBinaries();
 
-    ruleContext.registerAction(ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
+    ruleContext.registerAction(ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
         .setMnemonic("ObjcCombiningArchitectures")
         .addTransitiveInputs(linkedBinaries)
         .addOutput(resultingLinkedBinary)
@@ -718,7 +718,7 @@ public final class ReleaseBundlingSupport {
         // Using zip since we need to preserve permissions
         + "cd ${t} && /usr/bin/zip -q -r \"${signed_ipa}\" .";
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnBashOnDarwinActionBuilder(ruleContext, shellCommand)
+        ObjcRuleClasses.spawnBashOnDarwinActionBuilder(shellCommand)
             .setMnemonic("IosSignBundle")
             .setProgressMessage("Signing iOS bundle: " + ruleContext.getLabel())
             .addInput(ipaUnsigned)
@@ -810,7 +810,7 @@ public final class ReleaseBundlingSupport {
         + "/usr/libexec/PlistBuddy -c 'Print ApplicationIdentifierPrefix:0' ${PLIST} > "
         + teamPrefixFile.getShellEscapedExecPathString();
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnBashOnDarwinActionBuilder(ruleContext, shellCommand)
+        ObjcRuleClasses.spawnBashOnDarwinActionBuilder(shellCommand)
             .setMnemonic("ExtractIosTeamPrefix")
             .addInput(attributes.provisioningProfile())
             .addOutput(teamPrefixFile)
@@ -829,7 +829,7 @@ public final class ReleaseBundlingSupport {
         + "/usr/libexec/PlistBuddy -x -c 'Print Entitlements' ${PLIST} > "
         + entitlements.getShellEscapedExecPathString();
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnBashOnDarwinActionBuilder(ruleContext, shellCommand)
+        ObjcRuleClasses.spawnBashOnDarwinActionBuilder(shellCommand)
             .setMnemonic("ExtractIosEntitlements")
             .setProgressMessage("Extracting entitlements: " + ruleContext.getLabel())
             .addInput(attributes.provisioningProfile())
@@ -877,7 +877,7 @@ public final class ReleaseBundlingSupport {
         .addExecPath("--scan-executable", intermediateArtifacts.combinedArchitectureBinary());
 
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnOnDarwinActionBuilder(ruleContext)
+        ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
             .setMnemonic("SwiftStdlibCopy")
             .setExecutable(attributes.swiftStdlibToolWrapper())
             .setCommandLine(commandLine.build())

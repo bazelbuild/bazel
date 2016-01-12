@@ -51,6 +51,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final String iosCpu;
   private final Optional<DottedVersion> xcodeVersionOverride;
   private final List<String> iosMultiCpus;
+  private final Label xcodeConfigLabel;
   @Nullable private final Label defaultProvisioningProfileLabel;
 
   AppleConfiguration(AppleCommandLineOptions appleOptions) {
@@ -58,6 +59,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.xcodeVersionOverride = Optional.fromNullable(appleOptions.xcodeVersion);
     this.iosCpu = Preconditions.checkNotNull(appleOptions.iosCpu, "iosCpu");
     this.iosMultiCpus = Preconditions.checkNotNull(appleOptions.iosMultiCpus, "iosMultiCpus");
+    this.xcodeConfigLabel =
+        Preconditions.checkNotNull(appleOptions.xcodeVersionConfig, "xcodeConfigLabel");
     this.defaultProvisioningProfileLabel = appleOptions.defaultProvisioningProfile;
   }
 
@@ -86,29 +89,12 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * their corresponding values.
    */
   // TODO(bazel-team): Repurpose for non-ios platforms.
-  // TODO(bazel-team): Separate host system and target platform environment
   public Map<String, String> getEnvironmentForIosAction() {
     ImmutableMap.Builder<String, String> mapBuilder = ImmutableMap.builder();
     mapBuilder.putAll(appleTargetPlatformEnv(Platform.forIosArch(getIosCpu())));
-    mapBuilder.putAll(appleHostSystemEnv());
     return mapBuilder.build();
   }
 
-  /**
-   * Returns a map of environment variables (derived from configuration) that should be propagated
-   * for actions that build on an apple host system. These environment variables are needed to
-   * by apple toolchain. Keys are variable names and values are their corresponding values.
-   */
-  public Map<String, String> appleHostSystemEnv() {
-    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
-    // TODO(bazel-team): Use the xcode version from transitive target info instead of the flag.
-    if (getXcodeVersionOverrideFlag().isPresent()) {
-      builder.put(AppleConfiguration.XCODE_VERSION_ENV_NAME,
-          getXcodeVersionOverrideFlag().get().toString());
-    }
-    return builder.build();
-  }
-  
   /**
    * Returns a map of environment variables (derived from configuration) that should be propagated
    * for actions pertaining to building applications for apple platforms. These environment
@@ -182,6 +168,13 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    */
   @Nullable public Label getDefaultProvisioningProfileLabel() {
     return defaultProvisioningProfileLabel;
+  }
+
+  /**
+   * Returns the label of the xcode_config rule to use for resolving the host system xcode version.
+   */
+  public Label getXcodeConfigLabel() {
+    return xcodeConfigLabel;
   }
 
   /**

@@ -76,6 +76,21 @@ public class AppleCommandLineOptions extends FragmentOptions {
       category = "undocumented",
       converter = DefaultProvisioningProfileConverter.class)
   public Label defaultProvisioningProfile;
+  
+  @Option(name = "xcode_version_config",
+      defaultValue = "",
+      category = "undocumented",
+      converter = XcodeVersionConfigConverter.class,
+      help = "The label of the xcode_config rule to be used for selecting the xcode version "
+          + "in the build configuration")
+  public Label xcodeVersionConfig;
+
+  /**
+   * The default label of the build-wide {@code xcode_config} configuration rule. This can be
+   * changed from the default using the {@code xcode_version_config} build flag.
+   */
+  static final String DEFAULT_XCODE_VERSION_CONFIG_LABEL =
+      Constants.TOOLS_REPOSITORY + "//tools/objc:host_xcodes";
 
   /** Converter for --default_ios_provisioning_profile. */
   public static class DefaultProvisioningProfileConverter extends DefaultLabelConverter {
@@ -84,6 +99,13 @@ public class AppleCommandLineOptions extends FragmentOptions {
     }
   }
 
+  /** Converter for {@code --xcode_version_config}. */
+  public static class XcodeVersionConfigConverter extends DefaultLabelConverter {
+    public XcodeVersionConfigConverter() {
+      super(DEFAULT_XCODE_VERSION_CONFIG_LABEL);
+    }
+  }
+  
   private Platform getPlatform() {
     for (String architecture : iosMultiCpus) {
       if (Platform.forIosArch(architecture) == Platform.IOS_DEVICE) {
@@ -98,5 +120,15 @@ public class AppleCommandLineOptions extends FragmentOptions {
     if (getPlatform() == Platform.IOS_DEVICE) {
       labelMap.put("default_provisioning_profile", defaultProvisioningProfile);
     }
+  }
+
+  @Override
+  public FragmentOptions getHost(boolean fallback) {
+    AppleCommandLineOptions host = (AppleCommandLineOptions) super.getHost(fallback);
+
+    // Set options needed in the host configuration.
+    host.xcodeVersion = xcodeVersion;
+
+    return host;
   }
 }
