@@ -101,7 +101,9 @@ def MakeDebianControlField(name, value, wrap=False):
     value = ', '.join(value)
   if wrap:
     result += ' '.join(value.split('\n'))
-    result = textwrap.fill(result)
+    result = textwrap.fill(result,
+                           break_on_hyphens=False,
+                           break_long_words=False)
   else:
     result += value
   return result.replace('\n', '\n ') + '\n'
