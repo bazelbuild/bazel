@@ -18,3 +18,9 @@ exports_files([
   "lib/scala-xml_2.11-1.0.4.jar",
   "lib/scalap-2.11.7.jar",
 ])
+
+filegroup(
+    name = "sdk",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)

@@ -14,7 +14,7 @@ java_binary(
 # For now, we have to use a java_import proxy.
 java_import(
     name = "lib_import",
-    jars = [":HelloLib"],
+    jars = [":HelloLib_deploy.jar"],
 )
 
 scala_binary(

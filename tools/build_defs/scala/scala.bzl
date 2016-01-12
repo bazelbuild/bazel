@@ -31,7 +31,7 @@ def _compile(ctx, jars, buildijar):
   for f in ctx.files.resources:
     c_dir, res_path = _adjust_resources_path(f.path)
     change_dir = "-C " + c_dir if c_dir else ""
-    res_cmd = "\njar uf {out} " + change_dir + " " + res_path
+    res_cmd = "\n{jar} uf {out} " + change_dir + " " + res_path
   ijar_cmd = ""
   if buildijar:
     ijar_cmd = "\n{ijar} {out} {ijar_out}".format(
@@ -45,7 +45,7 @@ mkdir -p {out}_tmp
 # Make jar file deterministic by setting the timestamp of files
 find {out}_tmp -exec touch -t 198001010000 {{}} \;
 touch -t 198001010000 {manifest}
-jar cmf {manifest} {out} -C {out}_tmp .
+{jar} cmf {manifest} {out} -C {out}_tmp .
 """ + ijar_cmd + res_cmd
   cmd = cmd.format(
       scalac=ctx.file._scalac.path,
@@ -53,12 +53,19 @@ jar cmf {manifest} {out} -C {out}_tmp .
       jvm_flags=" ".join(["-J" + flag for flag in ctx.attr.jvm_flags]),
       out=ctx.outputs.jar.path,
       manifest=ctx.outputs.manifest.path,
+      jar=ctx.file._jar.path,
+      ijar=ctx.file._ijar.path,
       jars=":".join([j.path for j in jars]),)
   outs = [ctx.outputs.jar]
   if buildijar:
     outs.extend([ctx.outputs.ijar])
   ctx.action(
-      inputs=list(jars) + ctx.files.srcs + [ctx.outputs.manifest],
+      inputs=list(jars) +
+          ctx.files.srcs +
+          ctx.files.resources +
+          ctx.files._jdk +
+          ctx.files._scalasdk +
+          [ctx.outputs.manifest, ctx.file._jar, ctx.file._ijar],
       outputs=outs,
       command=cmd,
       progress_message="scala %s" % ctx.label,
@@ -148,6 +155,14 @@ def _scala_binary_impl(ctx):
       files=set([ctx.outputs.executable]),
       runfiles=runfiles)
 
+_implicit_deps = {
+  "_ijar": attr.label(executable=True, default=Label("//tools/defaults:ijar"), single_file=True, allow_files=True),
+  "_scalac": attr.label(executable=True, default=Label("@scala//:bin/scalac"), single_file=True, allow_files=True),
+  "_scalalib": attr.label(default=Label("@scala//:lib/scala-library.jar"), single_file=True, allow_files=True),
+  "_scalasdk": attr.label(default=Label("@scala//:sdk"), allow_files=True),
+  "_jar": attr.label(executable=True, default=Label("@bazel_tools//tools/jdk:jar"), single_file=True, allow_files=True),
+  "_jdk": attr.label(default=Label("//tools/defaults:jdk"), allow_files=True),
+}
 
 scala_library = rule(
   implementation=_scala_library_impl,
@@ -161,10 +176,7 @@ scala_library = rule(
       "resources": attr.label_list(allow_files=True),
       "scalacopts": attr.string_list(),
       "jvm_flags": attr.string_list(),
-      "_ijar": attr.label(executable=True, default=Label("//tools/defaults:ijar"), single_file=True, allow_files=True),
-      "_scalac": attr.label(executable=True, default=Label("@scala//:bin/scalac"), single_file=True, allow_files=True),
-      "_scalalib": attr.label(default=Label("@scala//:lib/scala-library.jar"), single_file=True, allow_files=True),
-      },
+      } + _implicit_deps,
   outputs={
       "jar": "%{name}_deploy.jar",
       "ijar": "%{name}_ijar.jar",
@@ -184,11 +196,8 @@ scala_macro_library = rule(
       "resources": attr.label_list(allow_files=True),
       "scalacopts": attr.string_list(),
       "jvm_flags": attr.string_list(),
-      "_ijar": attr.label(executable=True, default=Label("//tools/defaults:ijar"), single_file=True, allow_files=True),
-      "_scalac": attr.label(executable=True, default=Label("@scala//:bin/scalac"), single_file=True, allow_files=True),
-      "_scalalib": attr.label(default=Label("@scala//:lib/scala-library.jar"), single_file=True, allow_files=True),
       "_scala-reflect": attr.label(default=Label("@scala//:lib/scala-reflect.jar"), single_file=True, allow_files=True),
-      },
+      } + _implicit_deps,
   outputs={
       "jar": "%{name}_deploy.jar",
       "manifest": "%{name}_MANIFEST.MF",
@@ -207,9 +216,7 @@ scala_binary = rule(
       "resources": attr.label_list(allow_files=True),
       "scalacopts":attr.string_list(),
       "jvm_flags": attr.string_list(),
-      "_scalac": attr.label(executable=True, default=Label("@scala//:bin/scalac"), single_file=True, allow_files=True),
-      "_scalalib": attr.label(default=Label("@scala//:lib/scala-library.jar"), single_file=True, allow_files=True),
-      },
+      } + _implicit_deps,
   outputs={
       "jar": "%{name}_deploy.jar",
       "manifest": "%{name}_MANIFEST.MF",
