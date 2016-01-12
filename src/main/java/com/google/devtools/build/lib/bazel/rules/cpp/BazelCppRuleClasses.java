@@ -252,7 +252,7 @@ public class BazelCppRuleClasses {
           /*<!-- #BLAZE_RULE($cc_base_rule).ATTRIBUTE(copts) -->
           Add these options to the C++ compilation command.
           ${SYNOPSIS}
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="#sh-tokenization">Bourne shell tokenization</a>.
           <p>Each string in this attribute is added in the given order to <code>COPTS</code>
           before compiling the binary target.
@@ -288,7 +288,7 @@ public class BazelCppRuleClasses {
            Platform-specific information string which is used in combination
             with <code>abi_deps</code>.
             ${SYNOPSIS}
-            Subject to <a href="#make_variables">"Make" variable</a> substitution.
+            Subject to <a href="make-variables.html">"Make" variable</a> substitution.
             <p>
               This string typically includes references to one or more "Make" variables of the form
               <code>"$(VAR)"</code>. The default value is <code>"$(ABI)"</code>.
@@ -303,7 +303,7 @@ public class BazelCppRuleClasses {
           /*<!-- #BLAZE_RULE($cc_decl_rule).ATTRIBUTE(abi_deps)[DEPRECATED] -->
           The list of architecture-specific dependencies that are processed to create the target.
           <i>(Dictionary mapping strings to lists of
-             <a href="build-ref.html#labels">labels</a>; optional)</i>
+             <a href="../build-ref.html#labels">labels</a>; optional)</i>
           <p><i><a href="#configurable-attributes">Configurable attributes</a> is a generalization
             of the same concept that works for most rules and attributes. It deprecates
             <code>abi_deps</code>, which we intend to ultimately remove. Use configurable
@@ -336,7 +336,7 @@ public class BazelCppRuleClasses {
              current build.  Such paths are parameterized over "Make" variables
              such as <code>$(ABI)</code>, <code>$(TARGET_CPU)</code>,
              <code>$(C_COMPILER)</code>, etc, but since "Make" variables are not
-             allowed in <a href="build-ref.html#labels">labels</a>, the
+             allowed in <a href="../build-ref.html#labels">labels</a>, the
              architecture-specific files cannot be specified via the normal
              <code>srcs</code> attribute. Instead, this mechanism can be used
              to declare architecture-specific dependent rules for the current
@@ -354,7 +354,7 @@ public class BazelCppRuleClasses {
           /*<!-- #BLAZE_RULE($cc_decl_rule).ATTRIBUTE(defines) -->
           List of defines to add to the compile line.
           ${SYNOPSIS}
-          Subject to <a href="#make_variables">"Make" variable</a> substitution and
+          Subject to <a href="make-variables.html">"Make" variable</a> substitution and
           <a href="#sh-tokenization">Bourne shell tokenization</a>.
           Each string, which must consist of a single Bourne shell token,
           is prepended with <code>-D</code> and added to
@@ -368,7 +368,7 @@ public class BazelCppRuleClasses {
           /*<!-- #BLAZE_RULE($cc_decl_rule).ATTRIBUTE(includes) -->
           List of include dirs to be added to the compile line.
           ${SYNOPSIS}
-          Subject to <a href="#make_variables">"Make variable"</a> substitution.
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution.
           Each string is prepended with <code>-iquote</code> and added to <code>COPTS</code>. Unlike
           <a href="#cc_binary.copts">COPTS</a>, these flags are added for this rule
           and every rule that depends on it. (Note: not the rules it depends upon!) Be
@@ -469,7 +469,7 @@ public class BazelCppRuleClasses {
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(linkopts) -->
           Add these flags to the C++ linker command.
           ${SYNOPSIS}
-          Subject to <a href="#make_variables">"Make" variable</a> substitution,
+          Subject to <a href="make-variables.html">"Make" variable</a> substitution,
           <a href="#sh-tokenization">Bourne shell tokenization</a>
           and <a href="#label-expansion">label expansion</a>.
           Each string in this attribute is added to <code>LINKOPTS</code> before
@@ -486,7 +486,7 @@ public class BazelCppRuleClasses {
           /*<!-- #BLAZE_RULE($cc_rule).ATTRIBUTE(nocopts) -->
           Remove matching options from the C++ compilation command.
           ${SYNOPSIS}
-          Subject to <a href="#make_variables">"Make" variable</a> substitution.
+          Subject to <a href="make-variables.html">"Make" variable</a> substitution.
           The value of this attribute is interpreted as a regular expression.
           Any preexisting <code>COPTS</code> that match this regular expression
           (not including values explicitly specified in the rule's <a
@@ -592,7 +592,7 @@ public class BazelCppRuleClasses {
             <li><code>stamp = 0</code>: Always replace build information by constant
               values. This gives good build result caching.</li>
             <li><code>stamp = -1</code>: Embedding of build information is controlled
-              by the <a href="blaze-user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
+              by the <a href="../blaze-user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           // TODO(bazel-team): document this. Figure out a standard way to access stamp data at

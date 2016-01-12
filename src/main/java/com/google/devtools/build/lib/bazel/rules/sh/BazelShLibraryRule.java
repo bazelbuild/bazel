@@ -67,7 +67,8 @@ ${ATTRIBUTE_SIGNATURE}
 </p>
 
 <p>
-  You can use the <a href="#filegroup"><code>filegroup</code></a> rule to aggregate data files.
+  You can use the <a href="general.html#filegroup"><code>filegroup</code></a> rule to aggregate data
+  files.
 </p>
 
 <p>
