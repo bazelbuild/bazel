@@ -102,7 +102,7 @@ public final class PackageFactory {
 
     private void convertAndProcess(
         Package.LegacyBuilder pkgBuilder, Location location, Object value)
-        throws EvalException, ConversionException {
+        throws EvalException {
       T typedValue = type.convert(value, "'package' argument", pkgBuilder.getBuildFileLabel());
       process(pkgBuilder, location, typedValue);
     }
@@ -180,7 +180,7 @@ public final class PackageFactory {
     @Override
     protected void process(Package.LegacyBuilder pkgBuilder, Location location,
         List<Label> value) {
-      pkgBuilder.setDefaultVisibility(getVisibility(value));
+      pkgBuilder.setDefaultVisibility(getVisibility(pkgBuilder.getBuildFileLabel(), value));
     }
   }
 
@@ -698,7 +698,7 @@ public final class PackageFactory {
 
     RuleVisibility visibility = EvalUtils.isNullOrNone(visibilityO)
         ? ConstantRuleVisibility.PUBLIC
-        : getVisibility(BuildType.LABEL_LIST.convert(
+        : getVisibility(pkgBuilder.getBuildFileLabel(), BuildType.LABEL_LIST.convert(
               visibilityO,
               "'exports_files' operand",
               pkgBuilder.getBuildFileLabel()));
@@ -848,7 +848,7 @@ public final class PackageFactory {
     }
   }
 
-  public static RuleVisibility getVisibility(List<Label> original) {
+  public static RuleVisibility getVisibility(Label ruleLabel, List<Label> original) {
     RuleVisibility result;
 
     result = ConstantRuleVisibility.tryParse(original);
@@ -856,7 +856,7 @@ public final class PackageFactory {
       return result;
     }
 
-    result = PackageGroupsRuleVisibility.tryParse(original);
+    result = PackageGroupsRuleVisibility.tryParse(ruleLabel, original);
     return result;
   }
 
@@ -882,7 +882,7 @@ public final class PackageFactory {
     return new BaseFunction("package", FunctionSignature.namedOnly(0, argumentNames)) {
       @Override
       public Object call(Object[] arguments, FuncallExpression ast, Environment env)
-          throws EvalException, ConversionException {
+          throws EvalException {
 
         Package.LegacyBuilder pkgBuilder = getContext(env, ast).pkgBuilder;
 

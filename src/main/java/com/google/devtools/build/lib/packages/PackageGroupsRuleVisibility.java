@@ -32,17 +32,18 @@ public class PackageGroupsRuleVisibility implements RuleVisibility {
   private final List<PackageSpecification> directPackages;
   private final List<Label> declaredLabels;
 
-  public PackageGroupsRuleVisibility(List<Label> labels) {
+  public PackageGroupsRuleVisibility(Label ruleLabel, List<Label> labels) {
     declaredLabels = ImmutableList.copyOf(labels);
     ImmutableList.Builder<PackageSpecification> directPackageBuilder = ImmutableList.builder();
     ImmutableList.Builder<Label> packageGroupBuilder = ImmutableList.builder();
 
     for (Label label : labels) {
-      PackageSpecification specification = PackageSpecification.fromLabel(label);
+      Label resolved = ruleLabel.resolveRepositoryRelative(label);
+      PackageSpecification specification = PackageSpecification.fromLabel(resolved);
       if (specification != null) {
         directPackageBuilder.add(specification);
       } else {
-        packageGroupBuilder.add(label);
+        packageGroupBuilder.add(resolved);
       }
     }
 
@@ -75,7 +76,7 @@ public class PackageGroupsRuleVisibility implements RuleVisibility {
    * @return The resulting visibility object. A list of labels can always be
    * parsed into a PackageGroupsRuleVisibility.
    */
-  public static PackageGroupsRuleVisibility tryParse(List<Label> labels) {
-    return new PackageGroupsRuleVisibility(labels);
+  public static PackageGroupsRuleVisibility tryParse(Label ruleLabel, List<Label> labels) {
+    return new PackageGroupsRuleVisibility(ruleLabel, labels);
   }
 }

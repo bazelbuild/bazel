@@ -1578,7 +1578,7 @@ public final class RuleClass {
         rule.reportError(rule.getLabel() + ": //visibility:legacy_public only allowed in package "
             + "declaration", eventHandler);
       }
-      rule.setVisibility(PackageFactory.getVisibility(attrList));
+      rule.setVisibility(PackageFactory.getVisibility(rule.getLabel(), attrList));
     }
 
     rule.setAttributeValue(attr, converted, /*explicit=*/true);

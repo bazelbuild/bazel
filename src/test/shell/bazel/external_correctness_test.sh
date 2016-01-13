@@ -179,4 +179,29 @@ EOF
   assert_contains 1.0 bazel-genfiles/external/remote2/x.out
 }
 
+function test_visibility_in_external_repo() {
+  REMOTE=$TEST_TMPDIR/r
+  mkdir -p $REMOTE/v
+
+  cat > $REMOTE/BUILD <<EOF
+package(default_visibility=["//v:v"])
+filegroup(name='fg1')  # Inherits default visibility
+filegroup(name='fg2', visibility=["//v:v"])
+EOF
+
+  cat > $REMOTE/v/BUILD <<EOF
+package_group(name="v", packages=["//"])
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(name = "r", path = "$REMOTE")
+EOF
+
+  cat > BUILD <<EOF
+filegroup(name = "fg", srcs=["@r//:fg1", "@r//:fg2"])
+EOF
+
+  bazel build //:fg || fail "Build failed"
+}
+
 run_suite "//external correctness tests"
