@@ -193,6 +193,7 @@ public class EvaluationResult<T extends SkyValue> {
       result.putAll(otherResult.resultMap);
       errors.putAll(otherResult.errorMap);
       hasError |= otherResult.hasError;
+      catastrophe = otherResult.catastrophe;
       return this;
     }
 
