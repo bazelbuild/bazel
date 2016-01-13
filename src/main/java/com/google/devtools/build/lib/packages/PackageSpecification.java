@@ -26,19 +26,32 @@ public abstract class PackageSpecification {
   private static final String PACKAGE_LABEL = "__pkg__";
   private static final String SUBTREE_LABEL = "__subpackages__";
   private static final String ALL_BENEATH_SUFFIX = "/...";
-  public static final PackageSpecification EVERYTHING = new PackageSpecification() {
-    @Override
-    public boolean containsPackage(PackageIdentifier packageName) {
-      return true;
-    }
-  };
+  public static final PackageSpecification EVERYTHING =
+      new PackageSpecification() {
+        @Override
+        public boolean containsPackage(PackageIdentifier packageName) {
+          return true;
+        }
+
+        @Override
+        protected String asString() {
+          return "//...";
+        }
+      };
 
   public abstract boolean containsPackage(PackageIdentifier packageName);
 
   @Override
   public int hashCode() {
-    return toString().hashCode();
+    return asString().hashCode();
   }
+
+  @Override
+  public final String toString() {
+    return asString();
+  }
+
+  protected abstract String asString();
 
   @Override
   public boolean equals(Object that) {
@@ -50,7 +63,7 @@ public abstract class PackageSpecification {
       return false;
     }
 
-    return this.toString().equals(that.toString());
+    return this.asString().equals(((PackageSpecification) that).asString());
   }
 
   /**
@@ -122,7 +135,7 @@ public abstract class PackageSpecification {
     }
 
     @Override
-    public String toString() {
+    protected String asString() {
       return singlePackageName.toString();
     }
   }
@@ -141,7 +154,7 @@ public abstract class PackageSpecification {
     }
 
     @Override
-    public String toString() {
+    protected String asString() {
       return prefix.equals(new PathFragment("")) ? "..." : prefix + "/...";
     }
   }
