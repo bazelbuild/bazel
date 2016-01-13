@@ -42,7 +42,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
-import com.google.devtools.build.lib.profiler.Profiler;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.query2.engine.AllRdepsFunction;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
@@ -141,14 +141,12 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   }
 
   private void init() throws InterruptedException {
-    long startTime = Profiler.nanoTimeMaybe();
-    EvaluationResult<SkyValue> result =
-        graphFactory.prepareAndGet(universeScope, parserPrefix, loadingPhaseThreads, eventHandler);
-    graph = result.getWalkableGraph();
-    long duration = Profiler.nanoTimeMaybe() - startTime;
-    if (duration > 0) {
-      LOG.info("Spent " + (duration / 1000 / 1000) + " ms on evaluation and walkable graph");
+    EvaluationResult<SkyValue> result;
+    try (AutoProfiler p = AutoProfiler.logged("evaluation and walkable graph", LOG)) {
+      result = graphFactory.prepareAndGet(universeScope, parserPrefix, loadingPhaseThreads,
+          eventHandler);
     }
+    graph = result.getWalkableGraph();
 
     SkyKey universeKey = graphFactory.getUniverseKey(universeScope, parserPrefix);
     universeTargetPatternKeys =
@@ -178,7 +176,9 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     // errors here.
     eventHandler.resetErrors();
     init();
-    return super.evaluateQuery(expr, callback);
+    QueryEvalResult result = super.evaluateQuery(expr, callback);
+    graphFactory.afterUse(graph);
+    return result;
   }
 
   private Map<Target, Collection<Target>> makeTargetsMap(Map<SkyKey, Iterable<SkyKey>> input) {
