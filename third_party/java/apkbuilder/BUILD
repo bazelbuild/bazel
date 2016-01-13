@@ -11,7 +11,7 @@ filegroup(
 
 # This filegroup is necessary so that Bazel finds an apkbuilder during the
 # bootstrap process when this file is used as
-# @bazel_tools/third_party/java/apkbuilder/BUILD. Otherwise, the bootstrap
+# @bazel_tools//third_party/java/apkbuilder/BUILD. Otherwise, the bootstrap
 # would fail if an Android SDK was declared in the WORKSPACE file of Bazel.
 filegroup(name = "embedded_apkbuilder")
 
