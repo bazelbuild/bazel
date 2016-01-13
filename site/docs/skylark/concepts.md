@@ -2,7 +2,7 @@
 
 ## Loading a Skylark extension
 
-Use the `load` statement to import a symbol from a <code>.bzl</code> Skylark
+Use the `load` statement to import a symbol from a `.bzl` Skylark
 extension.
 
 ```python
@@ -129,11 +129,12 @@ Some differences with Python should be noted:
 
 The following Python features are not supported:
 
-* `class` (see `struct` function)
-* `import` (see `load` statement)
+* `class` (see [`struct`](lib/globals.html#struct) function)
+* `import` (see [`load`](#loading-a-skylark-extension) statement)
 * `while`, `yield`
 * `lambda`
-* `try`, `raise`, `except`, `finally` (see `fail` for fatal errors).
+* `try`, `raise`, `except`, `finally` (see [`fail`](lib/globals.html#fail)
+  for fatal errors).
 * most builtin functions, most methods
 
 
