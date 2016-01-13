@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -120,15 +121,17 @@ public class PrepareDepsOfPatternValue implements SkyValue {
     return builder.build();
   }
 
-  private static TargetPatternKey setExcludedDirectories(TargetPatternKey original,
-      ImmutableSet<String> excludedSubdirectories) {
+  private static TargetPatternKey setExcludedDirectories(
+      TargetPatternKey original, ImmutableSet<PathFragment> excludedSubdirectories) {
     return new TargetPatternKey(original.getParsedPattern(), original.getPolicy(),
         original.isNegative(), original.getOffset(), excludedSubdirectories);
   }
 
-  private static ImmutableSet<String> excludedDirectoriesBeneath(TargetPatternKey targetPatternKey,
-      int position, List<TargetPatternSkyKeyOrException> keysMaybe) {
-    ImmutableSet.Builder<String> excludedDirectoriesBuilder = ImmutableSet.builder();
+  private static ImmutableSet<PathFragment> excludedDirectoriesBeneath(
+      TargetPatternKey targetPatternKey,
+      int position,
+      List<TargetPatternSkyKeyOrException> keysMaybe) {
+    ImmutableSet.Builder<PathFragment> excludedDirectoriesBuilder = ImmutableSet.builder();
     for (int j = position + 1; j < keysMaybe.size(); j++) {
       TargetPatternSkyKeyOrException laterPatternMaybe = keysMaybe.get(j);
       SkyKey laterSkyKey;
@@ -142,8 +145,7 @@ public class PrepareDepsOfPatternValue implements SkyValue {
         TargetPattern laterParsedPattern = laterTargetPatternKey.getParsedPattern();
         if (laterTargetPatternKey.isNegative()
             && targetPatternKey.getParsedPattern().containsBelowDirectory(laterParsedPattern)) {
-          excludedDirectoriesBuilder.add(
-              laterParsedPattern.getDirectory().getPackageFragment().getPathString());
+          excludedDirectoriesBuilder.add(laterParsedPattern.getDirectory().getPackageFragment());
         }
       }
     }

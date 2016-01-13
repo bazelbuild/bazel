@@ -167,18 +167,16 @@ public class RecursivePackageProviderBackedTargetPatternResolver
       String originalPattern,
       String directory,
       boolean rulesOnly,
-      ImmutableSet<String> excludedSubdirectories,
+      ImmutableSet<PathFragment> excludedSubdirectories,
       BatchCallback<Target, E> callback)
       throws TargetParsingException, E, InterruptedException {
     FilteringPolicy actualPolicy = rulesOnly
         ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy)
         : policy;
-    ImmutableSet<PathFragment> excludedPathFragments =
-        TargetPatternResolverUtil.getPathFragments(excludedSubdirectories);
     PathFragment pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
     Iterable<PathFragment> packagesUnderDirectory =
         recursivePackageProvider.getPackagesUnderDirectory(
-            repository, pathFragment, excludedPathFragments);
+            repository, pathFragment, excludedSubdirectories);
 
     Iterable<PackageIdentifier> pkgIds = Iterables.transform(packagesUnderDirectory,
             new Function<PathFragment, PackageIdentifier>() {

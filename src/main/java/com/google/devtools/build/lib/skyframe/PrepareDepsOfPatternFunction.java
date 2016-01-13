@@ -81,7 +81,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     try {
       TargetPattern parsedPattern = patternKey.getParsedPattern();
       DepsOfPatternPreparer preparer = new DepsOfPatternPreparer(env, pkgPath.get());
-      ImmutableSet<String> excludedSubdirectories = patternKey.getExcludedSubdirectories();
+      ImmutableSet<PathFragment> excludedSubdirectories = patternKey.getExcludedSubdirectories();
       parsedPattern.<Void, RuntimeException>eval(
           preparer, excludedSubdirectories, NullCallback.<Void>instance());
     } catch (TargetParsingException e) {
@@ -215,13 +215,11 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         String originalPattern,
         String directory,
         boolean rulesOnly,
-        ImmutableSet<String> excludedSubdirectories,
+        ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<Void, E> callback)
         throws TargetParsingException, E, InterruptedException {
       FilteringPolicy policy =
           rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
-      ImmutableSet<PathFragment> excludedPathFragments =
-          TargetPatternResolverUtil.getPathFragments(excludedSubdirectories);
       PathFragment pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
       List<Path> roots = new ArrayList<>();
       if (repository.isDefault()) {
@@ -238,8 +236,10 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
       for (Path root : roots) {
         RootedPath rootedPath = RootedPath.toRootedPath(root, pathFragment);
-        SkyValue token = env.getValue(PrepareDepsOfTargetsUnderDirectoryValue.key(
-            repository, rootedPath, excludedPathFragments, policy));
+        SkyValue token =
+            env.getValue(
+                PrepareDepsOfTargetsUnderDirectoryValue.key(
+                    repository, rootedPath, excludedSubdirectories, policy));
         if (token == null) {
           // A null token value means there is a missing dependency, because RecursivePkgFunction
           // never throws.

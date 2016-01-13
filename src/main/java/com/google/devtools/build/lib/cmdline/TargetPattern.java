@@ -146,7 +146,7 @@ public abstract class TargetPattern implements Serializable {
   public <T, E extends Exception> void eval(
       TargetPatternResolver<T> resolver, BatchCallback<T, E> callback)
       throws TargetParsingException, E, InterruptedException {
-    eval(resolver, ImmutableSet.<String>of(), callback);
+    eval(resolver, ImmutableSet.<PathFragment>of(), callback);
   }
 
   /**
@@ -158,7 +158,7 @@ public abstract class TargetPattern implements Serializable {
    */
   public abstract <T, E extends Exception> void eval(
       TargetPatternResolver<T> resolver,
-      ImmutableSet<String> excludedSubdirectories,
+      ImmutableSet<PathFragment> excludedSubdirectories,
       BatchCallback<T, E> callback)
       throws TargetParsingException, E, InterruptedException;
 
@@ -210,7 +210,7 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
-        ImmutableSet<String> excludedSubdirectories,
+        ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback)
         throws TargetParsingException, E, InterruptedException {
       Preconditions.checkArgument(excludedSubdirectories.isEmpty(),
@@ -264,7 +264,7 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
-        ImmutableSet<String> excludedSubdirectories,
+        ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback)
         throws TargetParsingException, E, InterruptedException {
       Preconditions.checkArgument(excludedSubdirectories.isEmpty(),
@@ -353,7 +353,7 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
-        ImmutableSet<String> excludedSubdirectories,
+        ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback)
         throws TargetParsingException, E, InterruptedException {
       Preconditions.checkArgument(excludedSubdirectories.isEmpty(),
@@ -463,7 +463,7 @@ public abstract class TargetPattern implements Serializable {
     @Override
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
-        ImmutableSet<String> excludedSubdirectories,
+        ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<T, E> callback)
         throws TargetParsingException, E, InterruptedException {
       resolver.findTargetsBeneathDirectory(
