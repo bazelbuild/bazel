@@ -51,7 +51,7 @@ public class PackageGroup implements Target {
     for (String containedPackage : packages) {
       PackageSpecification specification = null;
       try {
-        specification = PackageSpecification.fromString(containedPackage);
+        specification = PackageSpecification.fromString(label, containedPackage);
       } catch (PackageSpecification.InvalidPackageSpecificationException e) {
         containsErrors = true;
         eventHandler.handle(Event.error(location, e.getMessage()));
@@ -74,7 +74,7 @@ public class PackageGroup implements Target {
 
   public boolean contains(Package pkg) {
     for (PackageSpecification specification : packageSpecifications) {
-      if (specification.containsPackage(pkg.getNameFragment())) {
+      if (specification.containsPackage(pkg.getPackageIdentifier())) {
         return true;
       }
     }

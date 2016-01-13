@@ -1215,7 +1215,7 @@ public final class RuleContext extends TargetContext
     // Check visibility attribute
     for (PackageSpecification specification :
       prerequisite.getProvider(VisibilityProvider.class).getVisibility()) {
-      if (specification.containsPackage(rule.getLabel().getPackageFragment())) {
+      if (specification.containsPackage(rule.getLabel().getPackageIdentifier())) {
         return true;
       }
     }

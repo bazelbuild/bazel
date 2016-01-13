@@ -301,7 +301,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
       repo = input.substring(0, packageStartPos);
       packageName = input.substring(packageStartPos + 2);
     } else if (input.startsWith("@")) {
-      throw new LabelSyntaxException("invalid package name '" + input + "'");
+      throw new LabelSyntaxException("starts with a '@' but does not contain '//'");
     } else if (packageStartPos == 0) {
       repo = PackageIdentifier.DEFAULT_REPOSITORY;
       packageName = input.substring(2);

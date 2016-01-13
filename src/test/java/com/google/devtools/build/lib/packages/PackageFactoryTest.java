@@ -811,7 +811,7 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
 
   @Test
   public void testPackageGroupSpecBad() throws Exception {
-    expectEvalError("invalid package label", "package_group(name='skin', packages=['--25:17--'])");
+    expectEvalError("invalid package name", "package_group(name='skin', packages=['--25:17--'])");
   }
 
   @Test

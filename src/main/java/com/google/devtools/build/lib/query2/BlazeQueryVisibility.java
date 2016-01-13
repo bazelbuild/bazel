@@ -29,7 +29,7 @@ public class BlazeQueryVisibility extends QueryVisibility<Target> {
 
   @Override
   public boolean contains(Target target) {
-    return packageSpecification.containsPackage(target.getPackage().getNameFragment());
+    return packageSpecification.containsPackage(target.getLabel().getPackageIdentifier());
   }
 
   @Override

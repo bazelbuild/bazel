@@ -81,7 +81,31 @@ public class PackageGroupTest {
 
     events.setFailFast(false);
     getPackageGroup("fruits", "apple");
-    events.assertContainsError("invalid package label: vegetables");
+    events.assertContainsError("invalid package name 'vegetables'");
+  }
+
+  @Test
+  public void testPackagesWithRepositoryDoNotWork() throws Exception {
+    scratch.file(
+        "fruits/BUILD",
+        "package_group(name = 'banana',",
+        "              packages = ['@veggies//:cucumber'])");
+
+    events.setFailFast(false);
+    getPackageGroup("fruits", "banana");
+    events.assertContainsError("invalid package name '@veggies//:cucumber'");
+  }
+
+  @Test
+  public void testAllPackagesInMainRepositoryDoesNotWork() throws Exception {
+    scratch.file(
+        "fruits/BUILD",
+        "package_group(name = 'apple',",
+        "              packages = ['@//...'])");
+
+    events.setFailFast(false);
+    getPackageGroup("fruits", "apple");
+    events.assertContainsError("invalid package name '@//...'");
   }
 
   @Test
@@ -96,7 +120,7 @@ public class PackageGroupTest {
 
     events.setFailFast(false);
     getPackageGroup("fruits", "apple");
-    events.assertContainsError("invalid package label: //vegetables:carrot");
+    events.assertContainsError("invalid package name '//vegetables:carrot'");
   }
 
   @Test
@@ -109,7 +133,7 @@ public class PackageGroupTest {
 
     events.setFailFast(false);
     getPackageGroup("fruits", "apple");
-    events.assertContainsError("invalid package label: :carrot");
+    events.assertContainsError("invalid package name ':carrot'");
   }
 
   @Test
