@@ -155,7 +155,7 @@ layout: documentation
                                Platform-specific information string which is used in combination
             with <code>abi_deps</code>.
 
-            Subject to <a href="#make_variables">"Make" variable</a> substitution.
+            Subject to <a href="make-variables.html">"Make" variable</a> substitution.
             <p>
               This string typically includes references to one or more "Make" variables of the form
               <code>"$(VAR)"</code>. The default value is <code>"$(ABI)"</code>.
@@ -175,8 +175,9 @@ layout: documentation
                     <p><code>Dictionary mapping strings to lists of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of architecture-specific dependencies that are processed to create the target.
           <i>(Dictionary mapping strings to lists of
-             <a href="build-ref.html#labels">labels</a>; optional)</i>
-          <p><i><a href="#configurable-attributes">Configurable attributes</a> is a generalization
+             <a href="../build-ref.html#labels">labels</a>; optional)</i>
+          <p><i><a href="common-definitions.html#configurable-attributes">
+            Configurable attributes</a> is a generalization
             of the same concept that works for most rules and attributes. It deprecates
             <code>abi_deps</code>, which we intend to ultimately remove. Use configurable
             attributes over <code>abi_deps</code> whenever possible. When not possible, let
@@ -208,7 +209,7 @@ layout: documentation
              current build.  Such paths are parameterized over "Make" variables
              such as <code>$(ABI)</code>, <code>$(TARGET_CPU)</code>,
              <code>$(C_COMPILER)</code>, etc, but since "Make" variables are not
-             allowed in <a href="build-ref.html#labels">labels</a>, the
+             allowed in <a href="../build-ref.html#labels">labels</a>, the
              architecture-specific files cannot be specified via the normal
              <code>srcs</code> attribute. Instead, this mechanism can be used
              to declare architecture-specific dependent rules for the current
@@ -231,8 +232,9 @@ layout: documentation
                     <p><code>List of strings; optional</code></p>
                               Add these options to the C++ compilation command.
 
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
+          <a href="common-definitions.html#sh-tokenization">
+          Bourne shell tokenization</a>.
           <p>Each string in this attribute is added in the given order to <code>COPTS</code>
           before compiling the binary target.
           The flags take effect only for compiling this target, not its dependencies,
@@ -248,8 +250,9 @@ layout: documentation
                     <p><code>List of strings; optional</code></p>
                               List of defines to add to the compile line.
 
-          Subject to <a href="#make_variables">"Make" variable</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="make-variables.html">"Make" variable</a> substitution and
+          <a href="common-definitions.html#sh-tokenization">
+          Bourne shell tokenization</a>.
           Each string, which must consist of a single Bourne shell token,
           is prepended with <code>-D</code> and added to
           <code>COPTS</code>.
@@ -268,7 +271,7 @@ layout: documentation
                     <p><code>List of strings; optional</code></p>
                               List of include dirs to be added to the compile line.
 
-          Subject to <a href="#make_variables">"Make variable"</a> substitution.
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution.
           Each string is prepended with <code>-iquote</code> and added to <code>COPTS</code>. Unlike
           <a href="#cc_binary.copts">COPTS</a>, these flags are added for this rule
           and every rule that depends on it. (Note: not the rules it depends upon!) Be
@@ -285,9 +288,10 @@ layout: documentation
                     <p><code>List of strings; optional</code></p>
                               Add these flags to the C++ linker command.
 
-          Subject to <a href="#make_variables">"Make" variable</a> substitution,
-          <a href="#sh-tokenization">Bourne shell tokenization</a>
-          and <a href="#label-expansion">label expansion</a>.
+          Subject to <a href="make-variables.html">"Make" variable</a> substitution,
+          <a href="common-definitions.html#sh-tokenization">
+          Bourne shell tokenization</a> and
+          <a href="common-definitions.html#label-expansion">label expansion</a>.
           Each string in this attribute is added to <code>LINKOPTS</code> before
           linking the binary target.
           <p>
@@ -400,7 +404,7 @@ layout: documentation
                     <p><code>String; optional</code></p>
                               Remove matching options from the C++ compilation command.
 
-          Subject to <a href="#make_variables">"Make" variable</a> substitution.
+          Subject to <a href="make-variables.html">"Make" variable</a> substitution.
           The value of this attribute is interpreted as a regular expression.
           Any preexisting <code>COPTS</code> that match this regular expression
           (not including values explicitly specified in the rule's <a
@@ -427,7 +431,7 @@ layout: documentation
             <li><code>stamp = 0</code>: Always replace build information by constant
               values. This gives good build result caching.</li>
             <li><code>stamp = -1</code>: Embedding of build information is controlled
-              by the <a href="bazel-user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
+              by the <a href="../bazel-user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
           </ul>
 
         </td>
@@ -672,7 +676,7 @@ cc_library(
                                Platform-specific information string which is used in combination
             with <code>abi_deps</code>.
 
-            Subject to <a href="#make_variables">"Make" variable</a> substitution.
+            Subject to <a href="make-variables.html">"Make" variable</a> substitution.
             <p>
               This string typically includes references to one or more "Make" variables of the form
               <code>"$(VAR)"</code>. The default value is <code>"$(ABI)"</code>.
@@ -692,8 +696,9 @@ cc_library(
                     <p><code>Dictionary mapping strings to lists of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of architecture-specific dependencies that are processed to create the target.
           <i>(Dictionary mapping strings to lists of
-             <a href="build-ref.html#labels">labels</a>; optional)</i>
-          <p><i><a href="#configurable-attributes">Configurable attributes</a> is a generalization
+             <a href="../build-ref.html#labels">labels</a>; optional)</i>
+          <p><i><a href="common-definitions.html#configurable-attributes">
+            Configurable attributes</a> is a generalization
             of the same concept that works for most rules and attributes. It deprecates
             <code>abi_deps</code>, which we intend to ultimately remove. Use configurable
             attributes over <code>abi_deps</code> whenever possible. When not possible, let
@@ -725,7 +730,7 @@ cc_library(
              current build.  Such paths are parameterized over "Make" variables
              such as <code>$(ABI)</code>, <code>$(TARGET_CPU)</code>,
              <code>$(C_COMPILER)</code>, etc, but since "Make" variables are not
-             allowed in <a href="build-ref.html#labels">labels</a>, the
+             allowed in <a href="../build-ref.html#labels">labels</a>, the
              architecture-specific files cannot be specified via the normal
              <code>srcs</code> attribute. Instead, this mechanism can be used
              to declare architecture-specific dependent rules for the current
@@ -764,8 +769,9 @@ cc_library(
                     <p><code>List of strings; optional</code></p>
                               Add these options to the C++ compilation command.
 
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
+          <a href="common-definitions.html#sh-tokenization">
+          Bourne shell tokenization</a>.
           <p>Each string in this attribute is added in the given order to <code>COPTS</code>
           before compiling the binary target.
           The flags take effect only for compiling this target, not its dependencies,
@@ -781,8 +787,9 @@ cc_library(
                     <p><code>List of strings; optional</code></p>
                               List of defines to add to the compile line.
 
-          Subject to <a href="#make_variables">"Make" variable</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="make-variables.html">"Make" variable</a> substitution and
+          <a href="common-definitions.html#sh-tokenization">
+          Bourne shell tokenization</a>.
           Each string, which must consist of a single Bourne shell token,
           is prepended with <code>-D</code> and added to
           <code>COPTS</code>.
@@ -801,7 +808,7 @@ cc_library(
                     <p><code>List of strings; optional</code></p>
                               List of include dirs to be added to the compile line.
 
-          Subject to <a href="#make_variables">"Make variable"</a> substitution.
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution.
           Each string is prepended with <code>-iquote</code> and added to <code>COPTS</code>. Unlike
           <a href="#cc_binary.copts">COPTS</a>, these flags are added for this rule
           and every rule that depends on it. (Note: not the rules it depends upon!) Be
@@ -818,9 +825,10 @@ cc_library(
                     <p><code>List of strings; optional</code></p>
                               Add these flags to the C++ linker command.
 
-          Subject to <a href="#make_variables">"Make" variable</a> substitution,
-          <a href="#sh-tokenization">Bourne shell tokenization</a>
-          and <a href="#label-expansion">label expansion</a>.
+          Subject to <a href="make-variables.html">"Make" variable</a> substitution,
+          <a href="common-definitions.html#sh-tokenization">
+          Bourne shell tokenization</a> and
+          <a href="common-definitions.html#label-expansion">label expansion</a>.
           Each string in this attribute is added to <code>LINKOPTS</code> before
           linking the binary target.
           <p>
@@ -883,7 +891,7 @@ cc_library(
                     <p><code>String; optional</code></p>
                               Remove matching options from the C++ compilation command.
 
-          Subject to <a href="#make_variables">"Make" variable</a> substitution.
+          Subject to <a href="make-variables.html">"Make" variable</a> substitution.
           The value of this attribute is interpreted as a regular expression.
           Any preexisting <code>COPTS</code> that match this regular expression
           (not including values explicitly specified in the rule's <a
@@ -1023,7 +1031,7 @@ cc_library(
                                Platform-specific information string which is used in combination
             with <code>abi_deps</code>.
 
-            Subject to <a href="#make_variables">"Make" variable</a> substitution.
+            Subject to <a href="make-variables.html">"Make" variable</a> substitution.
             <p>
               This string typically includes references to one or more "Make" variables of the form
               <code>"$(VAR)"</code>. The default value is <code>"$(ABI)"</code>.
@@ -1043,8 +1051,9 @@ cc_library(
                     <p><code>Dictionary mapping strings to lists of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of architecture-specific dependencies that are processed to create the target.
           <i>(Dictionary mapping strings to lists of
-             <a href="build-ref.html#labels">labels</a>; optional)</i>
-          <p><i><a href="#configurable-attributes">Configurable attributes</a> is a generalization
+             <a href="../build-ref.html#labels">labels</a>; optional)</i>
+          <p><i><a href="common-definitions.html#configurable-attributes">
+            Configurable attributes</a> is a generalization
             of the same concept that works for most rules and attributes. It deprecates
             <code>abi_deps</code>, which we intend to ultimately remove. Use configurable
             attributes over <code>abi_deps</code> whenever possible. When not possible, let
@@ -1076,7 +1085,7 @@ cc_library(
              current build.  Such paths are parameterized over "Make" variables
              such as <code>$(ABI)</code>, <code>$(TARGET_CPU)</code>,
              <code>$(C_COMPILER)</code>, etc, but since "Make" variables are not
-             allowed in <a href="build-ref.html#labels">labels</a>, the
+             allowed in <a href="../build-ref.html#labels">labels</a>, the
              architecture-specific files cannot be specified via the normal
              <code>srcs</code> attribute. Instead, this mechanism can be used
              to declare architecture-specific dependent rules for the current
@@ -1099,8 +1108,9 @@ cc_library(
                     <p><code>List of strings; optional</code></p>
                               Add these options to the C++ compilation command.
 
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
+          <a href="common-definitions.html#sh-tokenization">
+          Bourne shell tokenization</a>.
           <p>Each string in this attribute is added in the given order to <code>COPTS</code>
           before compiling the binary target.
           The flags take effect only for compiling this target, not its dependencies,
@@ -1116,8 +1126,9 @@ cc_library(
                     <p><code>List of strings; optional</code></p>
                               List of defines to add to the compile line.
 
-          Subject to <a href="#make_variables">"Make" variable</a> substitution and
-          <a href="#sh-tokenization">Bourne shell tokenization</a>.
+          Subject to <a href="make-variables.html">"Make" variable</a> substitution and
+          <a href="common-definitions.html#sh-tokenization">
+          Bourne shell tokenization</a>.
           Each string, which must consist of a single Bourne shell token,
           is prepended with <code>-D</code> and added to
           <code>COPTS</code>.
@@ -1136,7 +1147,7 @@ cc_library(
                     <p><code>List of strings; optional</code></p>
                               List of include dirs to be added to the compile line.
 
-          Subject to <a href="#make_variables">"Make variable"</a> substitution.
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution.
           Each string is prepended with <code>-iquote</code> and added to <code>COPTS</code>. Unlike
           <a href="#cc_binary.copts">COPTS</a>, these flags are added for this rule
           and every rule that depends on it. (Note: not the rules it depends upon!) Be
@@ -1153,9 +1164,10 @@ cc_library(
                     <p><code>List of strings; optional</code></p>
                               Add these flags to the C++ linker command.
 
-          Subject to <a href="#make_variables">"Make" variable</a> substitution,
-          <a href="#sh-tokenization">Bourne shell tokenization</a>
-          and <a href="#label-expansion">label expansion</a>.
+          Subject to <a href="make-variables.html">"Make" variable</a> substitution,
+          <a href="common-definitions.html#sh-tokenization">
+          Bourne shell tokenization</a> and
+          <a href="common-definitions.html#label-expansion">label expansion</a>.
           Each string in this attribute is added to <code>LINKOPTS</code> before
           linking the binary target.
           <p>
@@ -1236,7 +1248,7 @@ cc_library(
                     <p><code>String; optional</code></p>
                               Remove matching options from the C++ compilation command.
 
-          Subject to <a href="#make_variables">"Make" variable</a> substitution.
+          Subject to <a href="make-variables.html">"Make" variable</a> substitution.
           The value of this attribute is interpreted as a regular expression.
           Any preexisting <code>COPTS</code> that match this regular expression
           (not including values explicitly specified in the rule's <a
@@ -1263,7 +1275,7 @@ cc_library(
             <li><code>stamp = 0</code>: Always replace build information by constant
               values. This gives good build result caching.</li>
             <li><code>stamp = -1</code>: Embedding of build information is controlled
-              by the <a href="bazel-user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
+              by the <a href="../bazel-user-manual.html#flag--stamp">--[no]stamp</a> flag.</li>
           </ul>
 
         </td>

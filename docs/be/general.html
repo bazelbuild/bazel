@@ -55,8 +55,8 @@ layout: documentation
   Using <code>filegroup</code> is encouraged instead of referencing directories directly.
   The latter is unsound since the build system does not have full knowledge of all files
   below the directory, so it may not rebuild when these files change. When combined with
-  <a href="#glob">glob</a>, <code>filegroup</code> can ensure that all files are explicitly
-  known to the build system.
+  <a href="functions.html#glob">glob</a>, <code>filegroup</code> can ensure that all files are
+  explicitly known to the build system.
 </p>
 
 
@@ -132,7 +132,8 @@ cc_library(
                             The list of targets that are members of the file group.
 
         <p>
-          It is common to use the result of a <a href="#glob">glob</a> expression for the value
+          It is common to use the result of a <a href="functions.html#glob">glob</a> expression for
+          the value
           of the <code>srcs</code> attribute. If a rule and a source file with the same name both
           exist in the package, the glob will return the outputs of the rule instead of the source
           file.
@@ -153,9 +154,9 @@ cc_library(
           <code>runfiles</code> of this <code>filegroup</code> rule. When the
           <code>filegroup</code> is referenced in the <code>data</code> attribute of
           another rule its <code>runfiles</code> will be added to the <code>runfiles</code>
-          of the depending rule. See the <a href="build-ref.html#data">data dependencies</a>
-          section and <a href="#common.data">general documentation of <code>data</code></a>
-          for more information about how to depend on and use data files.
+          of the depending rule. See the <a href="../build-ref.html#data">data dependencies</a>
+          section and <a href="common-definitions.html#common.data">general documentation of
+          <code>data</code></a> for more information about how to depend on and use data files.
         </p>
 
         </td>
@@ -453,8 +454,8 @@ test_suite(
 <p>
   Matches an expected configuration state (expressed as Bazel flags) for the purpose of triggering
   configurable attributes. See <a href="#select">select</a> for how to consume this rule and
-  <a href="#configurable-attributes">Configurable attributes</a> for an overview of
-  the general feature.
+  <a href="common-definitions.html#configurable-attributes">
+  Configurable attributes</a> for an overview of the general feature.
 
 
 
@@ -501,7 +502,8 @@ config_setting(
 <p>The currently endorsed method for creating custom conditions that can't be expressed through
   dedicated build flags is through the --define flag. Use this flag with caution: it's not ideal
   and only endorsed for lack of a currently better workaround. See the
-  <a href="#configurable-attributes">Configurable attributes</a> section for more discussion.
+  <a href="common-definitions.html#configurable-attributes">
+  Configurable attributes</a> section for more discussion.
 </p>
 
 <p>Try to consolidate <code>config_setting</code> definitions as much as possible. In other words,
@@ -604,7 +606,7 @@ config_setting(
 <h4>Cross-compilation Considerations</h4>
 
 <p>
-  <em>See <a href="bazel-user-manual.html#configurations">the user manual</a> for more info about
+  <em>See <a href="../bazel-user-manual.html#configurations">the user manual</a> for more info about
   cross-compilation.</em>
 </p>
 <p>
@@ -624,7 +626,7 @@ config_setting(
   For genrules, the build system ensures that dependencies are built appropriately:
   <code>srcs</code> are built (if necessary) for the <em>target</em> configuration,
   <code>tools</code> are built for the <em>host</em> configuration, and the output is considered to
-  be for the <em>target</em> configuration. It also provides <a href="#make_variables">"Make"
+  be for the <em>target</em> configuration. It also provides <a href="make-variables.html">"Make"
   variables</a> that genrule commands can pass to the corresponding tools.
 </p>
 <p>
@@ -643,12 +645,13 @@ config_setting(
   host configuration, because that's where the compiler will run in the other genrule. In this case,
   the build system does the right thing automatically: it builds the <code>srcs</code> and
   <code>outs</code> of the first genrule for the host configuration instead of the target
-  configuration. See <a href="bazel-user-manual.html#configurations">the user manual</a> for more
+  configuration. See <a href="../bazel-user-manual.html#configurations">the user manual</a> for more
   info.
 </p>
 <p>
   <i>JDK & C++ Tooling</i>: to use a tool from the JDK or the C++ compiler suite, the build system
-  provides a set of variables to use. See <a href="#make_variables">"Make" variable</a> for details.
+  provides a set of variables to use. See <a href="make-variables.html">"Make" variable</a> for
+  details.
 </p>
 
 <h4>Genrule Environment</h4>
@@ -713,9 +716,9 @@ genrule(
 </pre>
 
 <p>
-  The following example shows how to use a <a href="#filegroup"><code>filegroup</code></a> and
-  the outputs of another <code>genrule</code>. Note that using <code>$(SRCS)</code> instead of
-  explicit <code>$(location)</code> directives would also work; this example uses the latter for
+  The following example shows how to use a <a href="general.html#filegroup"><code>filegroup</code>
+  </a> and the outputs of another <code>genrule</code>. Note that using <code>$(SRCS)</code> instead
+  of explicit <code>$(location)</code> directives would also work; this example uses the latter for
   sake of demonstration.
 </p>
 <pre class="code">
@@ -806,7 +809,7 @@ genrule(
                     <p><code>String; required</code></p>
                             The command to run.
 
-        Subject to <a href="#location">$(location)</a> and <a href="#make_variables">"Make"
+        Subject to <a href="#location">$(location)</a> and <a href="make-variables.html">"Make"
         variable</a> substitution.
         <ol>
           <li>
@@ -823,10 +826,11 @@ genrule(
             </p>
           </li>
           <li>
-            Next, <a href="#make_variables">"Make" variables</a> are expanded. Note that predefined
-            variables <code>$(JAVA)</code>, <code>$(JAVAC)</code> and <code>$(JAVABASE)</code>
-            expand under the <i>host</i> configuration, so Java invocations that run as part of a
-            build step can correctly load shared libraries and other dependencies.
+            Next, <a href="make-variables.html">"Make" variables</a> are expanded. Note that
+            predefined variables <code>$(JAVA)</code>, <code>$(JAVAC)</code> and
+            <code>$(JAVABASE)</code> expand under the <i>host</i> configuration, so Java invocations
+            that run as part of a build step can correctly load shared libraries and other
+            dependencies.
           </li>
           <li>
             Finally, the resulting command is executed using the Bash shell. If its exit code is
@@ -836,10 +840,11 @@ genrule(
         <p>
           The command may refer to binaries that were declared as
           <a href="#genrule.tools"><code>tools</code></a>; it should use a
-          <a href="build-ref.html#labels">label</a> and <code>$(location)</code> expansion for this.
-          The <a href="#predefined_variables">Predefined "Make" Variables</a> and the
-          <a href="#predefined_variables.genrule.cmd">genrule-specific "Make" variables</a> are also
-          available for <code>cmd</code>.
+          <a href="../build-ref.html#labels">label</a> and <code>$(location)</code> expansion for
+          this.
+          The <a href="make-variables.html#predefined_variables">Predefined "Make" Variables</a> and
+          the <a href="make-variables.html#predefined_variables.genrule.cmd">genrule-specific "Make"
+          variables</a> are also available for <code>cmd</code>.
         </p>
 
         </td>
@@ -918,7 +923,7 @@ genrule(
 
         <p>
           The build system ensures these prerequisites are built before running the genrule command;
-          they are built using the <a href='bazel-user-manual.html#configurations'><i>host</i>
+          they are built using the <a href='../bazel-user-manual.html#configurations'><i>host</i>
           configuration</a>, since these tools are executed as part of the build. The path of an
           individual <code>tools</code> target <code>//x:y</code> can be obtained using
           <code>$(location //x:y)</code>.

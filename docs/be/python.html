@@ -118,12 +118,13 @@ java_library(
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of other libraries to be linked in to the binary target.
 
-          See general comments about <code>deps</code>
-          at <a href="#common-attributes">Attributes common to all build rules</a>.
+          See general comments about <code>deps</code> at
+          <a href="common-definitions.html#common-attributes">
+          Attributes common to all build rules</a>.
           These can be
           <a href="#py_binary"><code>py_binary</code></a> rules,
           <a href="#py_library"><code>py_library</code></a> rules or
-          <a href="#cc_library"><code>cc_library</code></a> rules,
+          <a href="c-cpp.html#cc_library"><code>cc_library</code></a> rules,
 
         </td>
       </tr>
@@ -151,8 +152,9 @@ java_library(
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                              The list of files needed by this binary at runtime.
 
-         See general comments about <code>data</code>
-         at <a href="#common-attributes">Attributes common to all build rules</a>.
+         See general comments about <code>data</code> at
+         <a href="common-definitions.html#common-attributes">
+         Attributes common to all build rules</a>.
          Also see the <a href="#py_library.data"><code>data</code></a> argument of
          the <a href="#py_library"><code>py_library</code></a> rule for details.
 
@@ -226,7 +228,7 @@ java_library(
             <li><code>stamp = 0</code>: Always replace build information by constant
               values. This gives good build result caching.</li>
             <li><code>stamp = -1</code>: Embedding of build information is controlled
-              by the <a href="bazel-user-manual.html#flag--stamp">--[no]stamp</a> Bazel
+              by the <a href="../bazel-user-manual.html#flag--stamp">--[no]stamp</a> Bazel
               flag.</li>
           </ul>
 
@@ -275,8 +277,9 @@ java_library(
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of other libraries to be linked in to the library target.
 
-        See general comments about <code>deps</code>
-        at <a href="#common-attributes">Attributes common to all build rules</a>.
+        See general comments about <code>deps</code> at
+        <a href="common-definitions.html#common-attributes">
+        Attributes common to all build rules</a>.
         In practice, these arguments are treated like those in <code>srcs</code>;
         you may move items between these lists willy-nilly.  It's probably more
         readable to keep your <code>.py</code> files in your <code>srcs</code>.
@@ -303,8 +306,9 @@ java_library(
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of files needed by this library at runtime.
 
-        See general comments about <code>data</code>
-        at <a href="#common-attributes">Attributes common to all build rules</a>.
+        See general comments about <code>data</code> at
+        <a href="common-definitions.html#common-attributes">
+        Attributes common to all build rules</a>.
 
         </td>
       </tr>
@@ -404,12 +408,13 @@ py_binary(
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of other libraries to be linked in to the binary target.
 
-          See general comments about <code>deps</code>
-          at <a href="#common-attributes">Attributes common to all build rules</a>.
+          See general comments about <code>deps</code> at
+          <a href="common-definitions.html#common-attributes">
+          Attributes common to all build rules</a>.
           These can be
           <a href="#py_binary"><code>py_binary</code></a> rules,
           <a href="#py_library"><code>py_library</code></a> rules or
-          <a href="#cc_library"><code>cc_library</code></a> rules,
+          <a href="c-cpp.html#cc_library"><code>cc_library</code></a> rules,
 
         </td>
       </tr>
@@ -437,8 +442,9 @@ py_binary(
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                              The list of files needed by this binary at runtime.
 
-         See general comments about <code>data</code>
-         at <a href="#common-attributes">Attributes common to all build rules</a>.
+         See general comments about <code>data</code> at
+         <a href="common-definitions.html#common-attributes">
+         Attributes common to all build rules</a>.
          Also see the <a href="#py_library.data"><code>data</code></a> argument of
          the <a href="#py_library"><code>py_library</code></a> rule for details.
 
