@@ -142,12 +142,16 @@ public final class JavaConfiguration extends Fragment {
   private final ImmutableList<Label> translationTargets;
   private final String javaCpu;
   private final JavaOptimizationMode javaOptimizationMode;
-
+  
   private final Label javaToolchain;
 
+  // TODO(dmarting): remove when we have rolled out the new behavior
+  private final boolean legacyBazelJavaTest;
+  
   JavaConfiguration(boolean generateJavaDeps,
       List<String> defaultJvmFlags, JavaOptions javaOptions, Label javaToolchain, String javaCpu,
-      ImmutableList<String> defaultJavaBuilderJvmOpts) throws InvalidConfigurationException {
+      ImmutableList<String> defaultJavaBuilderJvmOpts)
+          throws InvalidConfigurationException {
     this.commandLineJavacFlags =
         ImmutableList.copyOf(JavaHelper.tokenizeJavaOptions(javaOptions.javacOpts));
     this.javaLauncherLabel = javaOptions.javaLauncher;
@@ -169,6 +173,7 @@ public final class JavaConfiguration extends Fragment {
     this.javaCpu = javaCpu;
     this.javaToolchain = javaToolchain;
     this.javaOptimizationMode = javaOptions.javaOptimizationMode;
+    this.legacyBazelJavaTest = javaOptions.legacyBazelJavaTest;
 
     ImmutableList.Builder<Label> translationsBuilder = ImmutableList.builder();
     for (String s : javaOptions.translationTargets) {
@@ -335,5 +340,13 @@ public final class JavaConfiguration extends Fragment {
    */
   public JavaOptimizationMode getJavaOptimizationMode() {
     return javaOptimizationMode;
+  }
+  
+  /**
+   * Returns true if java_test in Bazel should behave in legacy mode that existed before we
+   * open-sourced our test runner.
+   */
+  public boolean useLegacyBazelJavaTest() {
+    return legacyBazelJavaTest;
   }
 }

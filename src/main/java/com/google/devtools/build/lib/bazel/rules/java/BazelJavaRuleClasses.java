@@ -25,10 +25,13 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
+import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
 import com.google.devtools.build.lib.packages.Rule;
@@ -38,6 +41,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.PackageNameConstraint;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
+import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 import java.util.Set;
@@ -49,6 +53,9 @@ public class BazelJavaRuleClasses {
 
   public static final PredicateWithMessage<Rule> JAVA_PACKAGE_NAMES = new PackageNameConstraint(
       PackageNameConstraint.ANY_SEGMENT, "java", "javatests");
+
+  protected static final String JUNIT_TESTRUNNER =
+      Constants.TOOLS_REPOSITORY + "//tools/jdk:TestRunner_deploy.jar";
 
   public static final ImplicitOutputsFunction JAVA_BINARY_IMPLICIT_OUTPUTS =
       fromFunctions(
@@ -268,6 +275,7 @@ public class BazelJavaRuleClasses {
    * Base class for rule definitions producing Java binaries.
    */
   public static final class BaseJavaBinaryRule implements RuleDefinition {
+
     @Override
     public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
       return builder
@@ -298,6 +306,23 @@ public class BazelJavaRuleClasses {
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("jvm_flags", STRING_LIST))
+          /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(use_testrunner) -->
+          Use the
+          <code>com.google.testing.junit.runner.GoogleTestRunner</code> class as the
+          main entry point for a Java program.
+          ${SYNOPSIS}
+
+          You can use this to override the default
+          behavior, which is to use <code>BazelTestRunner</code> for
+          <code>java_test</code> rules,
+          and not use it for <code>java_binary</code> rules.  It is unlikely
+          you will want to do this.  One use is for <code>AllTest</code>
+          rules that are invoked by another rule (to set up a database
+          before running the tests, for example).  The <code>AllTest</code>
+          rule must be declared as a <code>java_binary</code>, but should
+          still use the test runner as its main entry point.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("use_testrunner", BOOLEAN).value(false))
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(main_class) -->
           Name of class with <code>main()</code> method to use as entry point.
           ${SYNOPSIS}
@@ -322,6 +347,15 @@ public class BazelJavaRuleClasses {
           .add(attr("create_executable", BOOLEAN)
               .nonconfigurable("internal")
               .value(true))
+          .add(attr("$testsupport", LABEL).value(
+              new Attribute.ComputedDefault("use_testrunner") {
+                @Override
+                public Object getDefault(AttributeMap rule) {
+                  return rule.get("use_testrunner", Type.BOOLEAN)
+                    ? env.getLabel(JUNIT_TESTRUNNER)
+                    : null;
+                }
+              }))
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(deploy_manifest_lines) -->
           ${SYNOPSIS}
           A list of lines to add to the <code>META-INF/manifest.mf</code> file generated for the

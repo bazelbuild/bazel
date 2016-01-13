@@ -17,6 +17,16 @@ java_test(
 )
 
 java_test(
+    name = "custom_with_test_class",
+    srcs = glob(["Test*.java"]),
+    test_class = "com.example.myproject.TestCustomGreeting",
+    deps = [
+        "//examples/java-native/src/main/java/com/example/myproject:custom-greeting",
+        "//third_party:junit4",
+    ],
+)
+
+java_test(
     name = "fail",
     srcs = ["Fail.java"],
     deps = ["//third_party:junit4"],
