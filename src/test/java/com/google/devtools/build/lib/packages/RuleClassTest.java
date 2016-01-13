@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.packages.Attribute.ValidityPredicate;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
@@ -685,8 +686,14 @@ public class RuleClassTest extends PackageLoadingTestCase {
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException("Rule has illegal label");
     }
-    return ruleClass.createRuleWithLabel(pkgBuilder, ruleLabel, attributeValues,
-         reporter, null, location);
+    return ruleClass.createRule(
+        pkgBuilder,
+        ruleLabel,
+        new BuildLangTypedAttributeValuesMap(attributeValues),
+        reporter,
+        /*ast=*/ null,
+        location,
+        new AttributeContainer(ruleClass));
   }
 
   @Test

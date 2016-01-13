@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.GlobCache.BadGlobException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.Preprocessor.AstAfterPreprocessing;
+import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.AssignmentStatement;
@@ -923,7 +924,8 @@ public final class PackageFactory {
                               Environment env)
       throws RuleFactory.InvalidRuleException, Package.NameConflictException, InterruptedException {
     RuleClass ruleClass = getBuiltInRuleClass(ruleClassName, ruleFactory);
-    RuleFactory.createAndAddRule(context, ruleClass, kwargs, ast, env);
+    BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
+    RuleFactory.createAndAddRule(context, ruleClass, attributeValues, ast, env);
   }
 
   private static RuleClass getBuiltInRuleClass(String ruleClassName, RuleFactory ruleFactory) {

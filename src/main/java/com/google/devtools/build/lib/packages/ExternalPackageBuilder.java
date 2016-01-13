@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -40,8 +41,10 @@ public class ExternalPackageBuilder {
           InterruptedException {
 
     StoredEventHandler eventHandler = new StoredEventHandler();
+    BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
     Rule tempRule =
-        RuleFactory.createRule(pkg, ruleClass, kwargs, eventHandler, ast, ast.getLocation(), null);
+        RuleFactory.createRule(
+            pkg, ruleClass, attributeValues, eventHandler, ast, ast.getLocation(), /*env=*/ null);
     pkg.addEvents(eventHandler.getEvents());
     overwriteRule(pkg, tempRule);
     for (Map.Entry<String, Label> entry :
@@ -64,8 +67,11 @@ public class ExternalPackageBuilder {
       attributes.put("actual", actual);
     }
     StoredEventHandler handler = new StoredEventHandler();
+    BuildLangTypedAttributeValuesMap attributeValues =
+        new BuildLangTypedAttributeValuesMap(attributes);
     Rule rule =
-        RuleFactory.createRule(pkg, bindRuleClass, attributes, handler, null, location, null);
+        RuleFactory.createRule(
+            pkg, bindRuleClass, attributeValues, handler, /*ast=*/ null, location, /*env=*/ null);
     overwriteRule(pkg, rule);
     rule.setVisibility(ConstantRuleVisibility.PUBLIC);
   }

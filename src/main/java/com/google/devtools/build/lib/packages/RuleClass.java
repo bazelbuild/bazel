@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.packages.RuleFactory.AttributeValuesMap;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
@@ -45,6 +46,7 @@ import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -1273,104 +1275,189 @@ public final class RuleClass {
   }
 
   /**
-   * Helper function for {@link RuleFactory#createAndAddRule}.
+   * Creates a new {@link Rule} {@code r} where {@code r.getPackage()} is the {@link Package}
+   * associated with {@code pkgBuilder}.
+   *
+   * <p>The created {@link Rule} will be populated with attribute values from {@code
+   * attributeValues} or the default attribute values associated with this {@link RuleClass} and
+   * {@code pkgBuilder}.
+   *
+   * <p>The created {@link Rule} will also be populated with output files. These output files
+   * will have been collected from the explicitly provided values of type {@link BuildType#OUTPUT}
+   * and {@link BuildType#OUTPUT_LIST} as well as from the implicit outputs determined by this
+   * {@link RuleClass} and the values in {@code attributeValues}.
+   *
+   * <p>This performs several validity checks. Invalid output file labels result in a thrown {@link
+   * LabelSyntaxException}. All other errors are reported on {@code eventHandler}.
    */
-  Rule createRuleWithLabel(Package.Builder pkgBuilder, Label ruleLabel,
-      Map<String, Object> attributeValues, EventHandler eventHandler, FuncallExpression ast,
-      Location location) throws LabelSyntaxException, InterruptedException {
-    Rule rule = pkgBuilder.newRuleWithLabel(ruleLabel, this, location);
-    createRuleCommon(rule, pkgBuilder, attributeValues, eventHandler, ast);
-    return rule;
-  }
-
-  private void createRuleCommon(Rule rule, Package.Builder pkgBuilder,
-      Map<String, Object> attributeValues, EventHandler eventHandler, FuncallExpression ast)
+  Rule createRule(
+      Package.Builder pkgBuilder,
+      Label ruleLabel,
+      AttributeValuesMap attributeValues,
+      EventHandler eventHandler,
+      @Nullable FuncallExpression ast,
+      Location location,
+      AttributeContainer attributeContainer)
       throws LabelSyntaxException, InterruptedException {
-    populateRuleAttributeValues(
-        rule, pkgBuilder, attributeValues, eventHandler, ast);
+    Rule rule = pkgBuilder.createRule(ruleLabel, this, location, attributeContainer);
+    populateRuleAttributeValues(rule, pkgBuilder, attributeValues, eventHandler);
     rule.populateOutputFiles(eventHandler, pkgBuilder);
-    rule.checkForNullLabels();
-    rule.checkValidityPredicate(eventHandler);
-  }
-
-  /**
-   * Populates the attributes table of new rule "rule" from the
-   * "attributeValues" mapping from attribute names to values in the build
-   * language.  Errors are reported on "reporter".  "ast" is used to associate
-   * location information with each rule attribute.
-   */
-  private void populateRuleAttributeValues(Rule rule,
-                                           Package.Builder pkgBuilder,
-                                           Map<String, Object> attributeValues,
-                                           EventHandler eventHandler,
-                                           FuncallExpression ast)
-                                               throws InterruptedException {
-    BitSet definedAttrs = new BitSet(); //  set of attr indices
-
-    for (Map.Entry<String, Object> entry : attributeValues.entrySet()) {
-      String attributeName = entry.getKey();
-      Object attributeValue = entry.getValue();
-      if (attributeValue == Runtime.NONE) {  // Ignore all None values.
-        continue;
-      }
-      Integer attrIndex = setRuleAttributeValue(rule, eventHandler, attributeName, attributeValue);
-      if (attrIndex != null) {
-        definedAttrs.set(attrIndex);
-        checkAttrValNonEmpty(rule, eventHandler, attributeValue, attrIndex);
-      }
-    }
-
-    // Save the location of each non-default attribute definition:
     if (ast != null) {
-      for (Argument.Passed arg : ast.getArguments()) {
-        if (arg.isKeyword()) {
-          String name = arg.getName();
-          Integer attrIndex = getAttributeIndex(name);
-          if (attrIndex != null) {
-            rule.setAttributeLocation(attrIndex, arg.getValue().getLocation());
-          }
-        }
-      }
+      populateAttributeLocations(rule, ast);
     }
-
-    List<Attribute> attrsWithComputedDefaults = new ArrayList<>();
-
-    // Set defaults; ensure that every mandatory attribute has a value.  Use
-    // the default if none is specified.
-    int numAttributes = getAttributeCount();
-    for (int attrIndex = 0; attrIndex < numAttributes; ++attrIndex) {
-      if (!definedAttrs.get(attrIndex)) {
-        Attribute attr = getAttribute(attrIndex);
-        if (attr.isMandatory()) {
-          rule.reportError(rule.getLabel() + ": missing value for mandatory "
-                           + "attribute '" + attr.getName() + "' in '"
-                           + name + "' rule", eventHandler);
-        }
-
-        if (attr.hasComputedDefault()) {
-          attrsWithComputedDefaults.add(attr);
-        } else {
-          Object defaultValue = getAttributeNoncomputedDefaultValue(attr, pkgBuilder);
-          checkAttrValNonEmpty(rule, eventHandler, defaultValue, attrIndex);
-          rule.setAttributeValue(attr, defaultValue, /*explicit=*/false);
-          checkAllowedValues(rule, attr, eventHandler);
-        }
-      }
-    }
-
-    // Evaluate and set any computed defaults now that all non-computed
-    // TODO(bazel-team): remove this special casing. Thanks to configurable attributes refactoring,
-    // computed defaults don't get bound to their final values at this point, so we no longer
-    // have to wait until regular attributes have been initialized.
-    for (Attribute attr : attrsWithComputedDefaults) {
-      rule.setAttributeValue(attr, attr.getDefaultValue(rule), /*explicit=*/false);
-    }
-
-    // Now that all attributes are bound to values, collect and store configurable attribute keys.
-    populateConfigDependenciesAttribute(rule);
     checkForDuplicateLabels(rule, eventHandler);
     checkThirdPartyRuleHasLicense(rule, pkgBuilder, eventHandler);
     checkForValidSizeAndTimeoutValues(rule, eventHandler);
+    rule.checkForNullLabels();
+    rule.checkValidityPredicate(eventHandler);
+    return rule;
+  }
+
+  /**
+   * Populates the attributes table of the new {@link Rule} with the values in the {@code
+   * attributeValues} map and with default values provided by this {@link RuleClass} and the {@code
+   * pkgBuilder}.
+   *
+   * <p>Errors are reported on {@code eventHandler}.
+   */
+  private void populateRuleAttributeValues(
+      Rule rule,
+      Package.Builder pkgBuilder,
+      AttributeValuesMap attributeValues,
+      EventHandler eventHandler) {
+    BitSet definedAttrIndices =
+        populateDefinedRuleAttributeValues(rule, attributeValues, eventHandler);
+    populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices, eventHandler);
+    // Now that all attributes are bound to values, collect and store configurable attribute keys.
+    populateConfigDependenciesAttribute(rule);
+  }
+
+  /**
+   * Populates the attributes table of the new {@link Rule} with the values in the {@code
+   * attributeValues} map.
+   *
+   * <p>Handles the special cases of the attribute named {@code "name"} and attributes with value
+   * {@link Runtime#NONE}.
+   *
+   * <p>Returns a bitset {@code b} where {@code b.get(i)} is {@code true} if this method set a
+   * value for the attribute with index {@code i} in this {@link RuleClass}. Errors are reported
+   * on {@code eventHandler}.
+   */
+  private BitSet populateDefinedRuleAttributeValues(
+      Rule rule, AttributeValuesMap attributeValues, EventHandler eventHandler) {
+    BitSet definedAttrIndices = new BitSet();
+    for (String attributeName : attributeValues.getAttributeNames()) {
+      // The attribute named "name" was handled in a special way already.
+      if (attributeName.equals("name")) {
+        continue;
+      }
+
+      Object attributeValue = attributeValues.getAttributeValue(attributeName);
+      // Ignore all None values.
+      if (attributeValue == Runtime.NONE) {
+        continue;
+      }
+
+      // Check that the attribute's name belongs to a valid attribute for this rule class.
+      Integer attrIndex = getAttributeIndex(attributeName);
+      if (attrIndex == null) {
+        rule.reportError(
+            String.format(
+                "%s: no such attribute '%s' in '%s' rule", rule.getLabel(), attributeName, name),
+            eventHandler);
+        continue;
+      }
+      Attribute attr = getAttribute(attrIndex);
+
+      // Convert the build-lang value to a native value, if necessary.
+      Object nativeAttributeValue;
+      if (attributeValues.valuesAreBuildLanguageTyped()) {
+        try {
+          nativeAttributeValue = convertFromBuildLangType(rule, attr, attributeValue);
+        } catch (ConversionException e) {
+          rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
+          continue;
+        }
+      } else {
+        nativeAttributeValue = attributeValue;
+      }
+
+      boolean explicit = attributeValues.isAttributeExplicitlySpecified(attributeName);
+      setRuleAttributeValue(rule, eventHandler, attr, nativeAttributeValue, explicit);
+      definedAttrIndices.set(attrIndex);
+      checkAttrValNonEmpty(rule, eventHandler, attributeValue, attr);
+    }
+    return definedAttrIndices;
+  }
+
+  /** Populates attribute locations for attributes defined in {@code ast}. */
+  private void populateAttributeLocations(Rule rule, FuncallExpression ast) {
+    for (Argument.Passed arg : ast.getArguments()) {
+      if (arg.isKeyword()) {
+        String name = arg.getName();
+        Integer attrIndex = getAttributeIndex(name);
+        if (attrIndex != null) {
+          rule.setAttributeLocation(attrIndex, arg.getValue().getLocation());
+        }
+      }
+    }
+  }
+
+  /**
+   * Populates the attributes table of the new {@link Rule} with default values provided by this
+   * {@link RuleClass} and the {@code pkgBuilder}. This will only provide values for attributes
+   * that haven't already been populated, using {@code definedAttrIndices} to determine whether an
+   * attribute was populated.
+   *
+   * <p>Errors are reported on {@code eventHandler}.
+   */
+  private void populateDefaultRuleAttributeValues(
+      Rule rule, Package.Builder pkgBuilder, BitSet definedAttrIndices, EventHandler eventHandler) {
+    // Set defaults; ensure that every mandatory attribute has a value. Use the default if none
+    // is specified.
+    List<Attribute> attrsWithComputedDefaults = new ArrayList<>();
+    int numAttributes = getAttributeCount();
+    for (int attrIndex = 0; attrIndex < numAttributes; ++attrIndex) {
+      if (definedAttrIndices.get(attrIndex)) {
+        continue;
+      }
+      Attribute attr = getAttribute(attrIndex);
+      if (attr.isMandatory()) {
+        rule.reportError(
+            String.format(
+                "%s: missing value for mandatory attribute '%s' in '%s' rule",
+                rule.getLabel(),
+                attr.getName(),
+                name),
+            eventHandler);
+      }
+
+      if (attr.hasComputedDefault()) {
+        // Note that it is necessary to set all non-computed default values before calling
+        // Attribute#getDefaultValue for computed default attributes. Computed default attributes
+        // may have a condition predicate (i.e. the predicate returned by Attribute#getCondition)
+        // that depends on non-computed default attribute values, and that condition predicate is
+        // evaluated by the call to Attribute#getDefaultValue.
+        attrsWithComputedDefaults.add(attr);
+      } else {
+        Object defaultValue = getAttributeNoncomputedDefaultValue(attr, pkgBuilder);
+        checkAttrValNonEmpty(rule, eventHandler, defaultValue, attr);
+        rule.setAttributeValue(attr, defaultValue, /*explicit=*/ false);
+        checkAllowedValues(rule, attr, eventHandler);
+      }
+    }
+
+    // Set computed default attribute values now that all other (i.e. non-computed) default values
+    // have been set.
+    for (Attribute attr : attrsWithComputedDefaults) {
+      // If Attribute#hasComputedDefault is true, Attribute#getDefaultValue returns the computed
+      // default function object. Note that we don't evaluate the computed default function here
+      // because it may depend on other attribute values that are configurable (i.e. they came
+      // from select({..}) expressions in the build language, and they require configuration data
+      // from the analysis phase to be resolved). We're setting the attribute value to a
+      // reference to the computed default function.
+      rule.setAttributeValue(attr, attr.getDefaultValue(rule), /*explicit=*/ false);
+    }
   }
 
   /**
@@ -1398,9 +1485,7 @@ public final class RuleClass {
   }
 
   private void checkAttrValNonEmpty(
-      Rule rule, EventHandler eventHandler, Object attributeValue, Integer attrIndex) {
-
-    Attribute attr = getAttribute(attrIndex);
+      Rule rule, EventHandler eventHandler, Object attributeValue, Attribute attr) {
     if (!attr.isNonEmpty()) {
       return;
     }
@@ -1525,65 +1610,64 @@ public final class RuleClass {
   }
 
   /**
-   * Sets the value of attribute "attrName" in rule "rule", by converting the
-   * build-language value "attrVal" to the appropriate type for the attribute.
-   * Returns the attribute index iff successful, null otherwise.
+   * Sets the value of attribute {@code attr} in {@code rule} to the native value {@code
+   * nativeAttrVal}, and sets the value's explicitness to {@code explicit}.
    *
-   * <p>In case of failure, error messages are reported on "handler", and "rule"
-   * is marked as containing errors.
+   * <p>Handles the special case of the "visibility" attribute by also setting the rule's
+   * visibility with {@link Rule#setVisibility}.
+   *
+   * <p>Checks that {@code nativeAttrVal} is an allowed value via {@link #checkAllowedValues}.
    */
-  @SuppressWarnings("unchecked")
-  private Integer setRuleAttributeValue(Rule rule,
-                                        EventHandler eventHandler,
-                                        String attrName,
-                                        Object attrVal) {
-    if (attrName.equals("name")) {
-      return null; // "name" is handled specially
-    }
-
-    Integer attrIndex = getAttributeIndex(attrName);
-    if (attrIndex == null) {
-      rule.reportError(rule.getLabel() + ": no such attribute '" + attrName
-          + "' in '" + name + "' rule", eventHandler);
-      return null;
-    }
-
-    Attribute attr = getAttribute(attrIndex);
-    Object converted;
-    try {
-      String what = "attribute '" + attrName + "' in '" + name + "' rule";
-      converted = BuildType.selectableConvert(attr.getType(), attrVal, what, rule.getLabel());
-
-      if ((converted instanceof SelectorList<?>) && !attr.isConfigurable()) {
-        rule.reportError(rule.getLabel() + ": attribute \"" + attr.getName()
-            + "\" is not configurable", eventHandler);
-        return null;
-      }
-
-      if ((converted instanceof List<?>) && !(converted instanceof GlobList<?>)) {
-        if (attr.isOrderIndependent()) {
-          converted = Ordering.natural().sortedCopy((List<? extends Comparable<?>>) converted);
-        }
-        converted = ImmutableList.copyOf((List<?>) converted);
-      }
-    } catch (Type.ConversionException e) {
-      rule.reportError(rule.getLabel() + ": " + e.getMessage(), eventHandler);
-      return null;
-    }
-
-    if (attrName.equals("visibility")) {
-      List<Label> attrList = (List<Label>) converted;
+  private static void setRuleAttributeValue(
+      Rule rule,
+      EventHandler eventHandler,
+      Attribute attr,
+      Object nativeAttrVal,
+      boolean explicit) {
+    if (attr.getName().equals("visibility")) {
+      @SuppressWarnings("unchecked")
+      List<Label> attrList = (List<Label>) nativeAttrVal;
       if (!attrList.isEmpty()
           && ConstantRuleVisibility.LEGACY_PUBLIC_LABEL.equals(attrList.get(0))) {
-        rule.reportError(rule.getLabel() + ": //visibility:legacy_public only allowed in package "
-            + "declaration", eventHandler);
+        rule.reportError(
+            rule.getLabel() + ": //visibility:legacy_public only allowed in package declaration",
+            eventHandler);
       }
       rule.setVisibility(PackageFactory.getVisibility(rule.getLabel(), attrList));
     }
-
-    rule.setAttributeValue(attr, converted, /*explicit=*/true);
+    rule.setAttributeValue(attr, nativeAttrVal, explicit);
     checkAllowedValues(rule, attr, eventHandler);
-    return attrIndex;
+  }
+
+  /**
+   * Converts the build-language-typed {@code buildLangValue} to a native value via {@link
+   * BuildType#selectableConvert}. Canonicalizes the value's order if it is a {@link List} type
+   * (but not a {@link GlobList}) and {@code attr.isOrderIndependent()} returns {@code true}.
+   *
+   * <p>Throws {@link ConversionException} if the conversion fails, or if {@code buildLangValue}
+   * is a selector expression but {@code attr.isConfigurable()} is {@code false}.
+   */
+  private static Object convertFromBuildLangType(Rule rule, Attribute attr, Object buildLangValue)
+      throws ConversionException {
+    String what = String.format("attribute '%s' in '%s' rule", attr.getName(), rule.getRuleClass());
+    Object converted =
+        BuildType.selectableConvert(attr.getType(), buildLangValue, what, rule.getLabel());
+
+    if ((converted instanceof SelectorList<?>) && !attr.isConfigurable()) {
+      throw new ConversionException(
+          String.format("attribute \"%s\" is not configurable", attr.getName()));
+    }
+
+    if ((converted instanceof List<?>) && !(converted instanceof GlobList<?>)) {
+      if (attr.isOrderIndependent()) {
+        @SuppressWarnings("unchecked")
+        List<? extends Comparable<?>> list = (List<? extends Comparable<?>>) converted;
+        converted = Ordering.natural().sortedCopy(list);
+      }
+      converted = ImmutableList.copyOf((List<?>) converted);
+    }
+
+    return converted;
   }
 
   /**
@@ -1595,7 +1679,8 @@ public final class RuleClass {
    * <p>If the rule is configurable, all of its potential values are evaluated, and errors for each
    * of the invalid values are reported.
    */
-  void checkAllowedValues(Rule rule, Attribute attribute, EventHandler eventHandler) {
+  private static void checkAllowedValues(
+      Rule rule, Attribute attribute, EventHandler eventHandler) {
     if (attribute.checkAllowedValues()) {
       PredicateWithMessage<Object> allowedValues = attribute.getAllowedValues();
       Iterable<?> values =
@@ -1603,9 +1688,13 @@ public final class RuleClass {
               attribute.getName(), attribute.getType());
       for (Object value : values) {
         if (!allowedValues.apply(value)) {
-          rule.reportError(String.format(rule.getLabel() + ": invalid value in '%s' attribute: %s",
-              attribute.getName(),
-              allowedValues.getErrorReason(value)), eventHandler);
+          rule.reportError(
+              String.format(
+                  "%s: invalid value in '%s' attribute: %s",
+                  rule.getLabel(),
+                  attribute.getName(),
+                  allowedValues.getErrorReason(value)),
+              eventHandler);
         }
       }
     }

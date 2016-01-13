@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory;
+import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -466,8 +467,9 @@ public class SkylarkRuleClassFunctions {
               "Invalid rule class hasn't been exported by a Skylark file");
         }
         PackageContext pkgContext = (PackageContext) env.lookup(PackageFactory.PKG_CONTEXT);
-        return RuleFactory.createAndAddRule(
-            pkgContext, ruleClass, (Map<String, Object>) args[0], ast, env);
+        BuildLangTypedAttributeValuesMap attributeValues =
+            new BuildLangTypedAttributeValuesMap((Map<String, Object>) args[0]);
+        return RuleFactory.createAndAddRule(pkgContext, ruleClass, attributeValues, ast, env);
       } catch (InvalidRuleException | NameConflictException | NoSuchVariableException e) {
         throw new EvalException(ast.getLocation(), e.getMessage());
       }
