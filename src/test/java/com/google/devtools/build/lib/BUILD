@@ -618,6 +618,7 @@ java_test(
         "ideinfo/*.java",
     ]),
     args = ["com.google.devtools.build.lib.AllTests"],
+    resources = ["ideinfo/intellij_info.bzl"],
     tags = ["ideinfo"],
     deps = [
         ":analysis_testutil",
@@ -640,6 +641,7 @@ java_test(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:mockito",
+        "//third_party:protobuf",
         "//third_party:truth",
     ],
 )
