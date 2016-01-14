@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -32,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.collect.CompactHashSet;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -231,10 +231,21 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
         });
   }
 
+  /** Targets may not be in the graph because they are not in the universe or depend on cycles. */
+  private void warnIfMissingTargets(
+      Iterable<Target> targets, Set<Target> result) {
+    if (Iterables.size(targets) != result.size()) {
+      Set<Target> missingTargets = Sets.difference(ImmutableSet.copyOf(targets), result);
+      eventHandler.handle(Event.warn("Targets were missing from graph: " + missingTargets));
+    }
+  }
+
   @Override
   public Collection<Target> getFwdDeps(Iterable<Target> targets) {
     Set<Target> result = new HashSet<>();
-    for (Map.Entry<Target, Collection<Target>> entry : getRawFwdDeps(targets).entrySet()) {
+    Map<Target, Collection<Target>> rawFwdDeps = getRawFwdDeps(targets);
+    warnIfMissingTargets(targets, rawFwdDeps.keySet());
+    for (Map.Entry<Target, Collection<Target>> entry : rawFwdDeps.entrySet()) {
       result.addAll(filterFwdDeps(entry.getKey(), entry.getValue()));
     }
     return result;
@@ -244,6 +255,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   public Collection<Target> getReverseDeps(Iterable<Target> targets) {
     Set<Target> result = CompactHashSet.create();
     Map<Target, Collection<Target>> rawReverseDeps = getRawReverseDeps(targets);
+    warnIfMissingTargets(targets, rawReverseDeps.keySet());
 
     CompactHashSet<Target> visited = CompactHashSet.create();
 
@@ -354,7 +366,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
           targets.add(target);
         }
       }
-      batchStreamedCallback.process(filterTargetsNotInGraph(targets));
+      batchStreamedCallback.process(targets);
     }
 
     private void processLastPending() throws QueryException, InterruptedException {
@@ -547,9 +559,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
         graph.getMissingAndExceptions(unsuccessfulKeys).entrySet();
     for (Map.Entry<SkyKey, Exception> entry : errorEntries) {
       if (entry.getValue() == null) {
-        throw new QueryException(entry.getKey().argument() + " does not exist in graph");
+        // Targets may be in the graph because they are not in the universe or depend on cycles.
+        eventHandler.handle(Event.warn(entry.getKey().argument() + " does not exist in graph"));
+      } else {
+        errorMessagesBuilder.add(entry.getValue().getMessage());
       }
-      errorMessagesBuilder.add(entry.getValue().getMessage());
     }
 
     // Lastly, report all found errors.
@@ -557,16 +571,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     for (String errorMessage : errorMessages) {
       reportBuildFileError(caller, errorMessage);
     }
-  }
-
-  private Set<Target> filterTargetsNotInGraph(Set<Target> targets) {
-    Map<Target, SkyKey> map = Maps.toMap(targets, TARGET_TO_SKY_KEY);
-    Set<SkyKey> present = graph.getSuccessfulValues(map.values()).keySet();
-    if (present.size() == targets.size()) {
-      // Optimize for case of all targets being in graph.
-      return targets;
-    }
-    return Maps.filterValues(map, Predicates.in(present)).keySet();
   }
 
   @Override
