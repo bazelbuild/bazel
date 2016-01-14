@@ -154,6 +154,7 @@ sh_test(
 
 sh_test(
     name = "external_correctness_test",
+    size = "large",
     srcs = ["external_correctness_test.sh"],
     data = [":test-deps"],
 )
