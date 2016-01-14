@@ -36,7 +36,7 @@ Note: You might need to `sudo apt-get install software-properties-common` if you
 **Ubuntu Wily (15.10).** To install OpenJDK 8:
 
 ```
-$ sudo apt-get install openjdk-8-jdk openjdk-8-source
+$ sudo apt-get install openjdk-8-jdk
 ```
 
 #### 2. Install required packages
