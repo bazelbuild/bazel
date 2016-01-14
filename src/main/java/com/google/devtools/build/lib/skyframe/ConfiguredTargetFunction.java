@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-
 import com.google.common.base.Function;
 import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
@@ -23,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Actions;
@@ -44,6 +43,7 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.config.PatchTransition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -51,7 +51,6 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
@@ -70,7 +69,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.ValueOrException;
-import com.google.devtools.build.skyframe.ValueOrException2;
 import com.google.devtools.build.skyframe.ValueOrException3;
 
 import java.util.Collection;
@@ -259,7 +257,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
 
     // Resolve configured target dependencies and handle errors.
     Map<SkyKey, ConfiguredTarget> depValues = resolveConfiguredTargetDependencies(env,
-        depValueNames.values(), ctgValue.getTarget(), transitivePackages);
+        depValueNames.values(), transitivePackages);
     if (depValues == null) {
       return null;
     }
@@ -672,8 +670,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
       configValueNames = staticConfigs.build();
     }
 
-    Map<SkyKey, ConfiguredTarget> configValues =
-        resolveConfiguredTargetDependencies(env, configValueNames, target, transitivePackages);
+    Map<SkyKey, ConfiguredTarget> configValues = resolveConfiguredTargetDependencies(
+        env, configValueNames, transitivePackages);
     if (configValues == null) {
       return null;
     }
@@ -698,76 +696,30 @@ final class ConfiguredTargetFunction implements SkyFunction {
   }
 
   /***
-   * Resolves the targets referenced in depValueNames and returns their ConfiguredTarget
-   * instances.
+   * Resolves the targets referenced in depValueNames and returns their ConfiguredTarget instances.
    *
    * <p>Returns null if not all instances are available yet.
-   *
    */
   @Nullable
   private static Map<SkyKey, ConfiguredTarget> resolveConfiguredTargetDependencies(
-      Environment env, Collection<Dependency> deps, Target target,
-      NestedSetBuilder<Package> transitivePackages)
-      throws DependencyEvaluationException {
+      Environment env, Collection<Dependency> deps, NestedSetBuilder<Package> transitivePackages) {
     boolean ok = !env.valuesMissing();
-    String message = null;
     Iterable<SkyKey> depKeys = Iterables.transform(deps, TO_KEYS);
-    Map<SkyKey, ValueOrException2<NoSuchTargetException,
-        NoSuchPackageException>> depValuesOrExceptions = env.getValuesOrThrow(depKeys,
-            NoSuchTargetException.class, NoSuchPackageException.class);
-    Map<SkyKey, ConfiguredTarget> depValues = new HashMap<>(depValuesOrExceptions.size());
-    SkyKey childKey = null;
-    NoSuchThingException transitiveChildException = null;
-    for (Map.Entry<SkyKey, ValueOrException2<NoSuchTargetException, NoSuchPackageException>> entry
-        : depValuesOrExceptions.entrySet()) {
-      ConfiguredTargetKey depKey = (ConfiguredTargetKey) entry.getKey().argument();
-      LabelAndConfiguration depLabelAndConfiguration = LabelAndConfiguration.of(
-          depKey.getLabel(), depKey.getConfiguration());
-      Label depLabel = depLabelAndConfiguration.getLabel();
-      ConfiguredTargetValue depValue = null;
-      NoSuchThingException directChildException = null;
-      try {
-        depValue = (ConfiguredTargetValue) entry.getValue().get();
-      } catch (NoSuchTargetException e) {
-        if (depLabel.equals(e.getLabel())) {
-          directChildException = e;
-        } else {
-          childKey = entry.getKey();
-          transitiveChildException = e;
-        }
-      } catch (NoSuchPackageException e) {
-        if (depLabel.getPackageIdentifier().equals(e.getPackageId())) {
-          directChildException = e;
-        } else {
-          childKey = entry.getKey();
-          transitiveChildException = e;
-        }
-      }
-      // If an exception wasn't caused by a direct child target value, we'll treat it the same
-      // as any other missing dep by setting ok = false below, and returning null at the end.
-      if (directChildException != null) {
-        // Only update messages for missing targets we depend on directly.
-        message = TargetUtils.formatMissingEdge(target, depLabel, directChildException);
-        env.getListener().handle(Event.error(TargetUtils.getLocationMaybe(target), message));
-      }
-
+    Map<SkyKey, SkyValue> depValues = env.getValues(depKeys);
+    Map<SkyKey, ConfiguredTarget> result = Maps.newHashMapWithExpectedSize(depValues.size());
+    for (Map.Entry<SkyKey, SkyValue> entry : depValues.entrySet()) {
+      ConfiguredTargetValue depValue = (ConfiguredTargetValue) entry.getValue();
       if (depValue == null) {
         ok = false;
       } else {
-        depValues.put(entry.getKey(), depValue.getConfiguredTarget());
+        result.put(entry.getKey(), depValue.getConfiguredTarget());
         transitivePackages.addTransitive(depValue.getTransitivePackages());
       }
-    }
-    if (message != null) {
-      throw new DependencyEvaluationException(new NoSuchTargetException(message));
-    }
-    if (childKey != null) {
-      throw new DependencyEvaluationException(childKey, transitiveChildException);
     }
     if (!ok) {
       return null;
     } else {
-      return depValues;
+      return result;
     }
   }
 
