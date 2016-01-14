@@ -33,7 +33,6 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.ObjectStreamException;
 import java.io.Serializable;
-import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
 
@@ -287,10 +286,9 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
   private final PathFragment pkgName;
 
   private PackageIdentifier(RepositoryName repository, PathFragment pkgName) {
-    Preconditions.checkNotNull(repository);
-    Preconditions.checkNotNull(pkgName);
-    this.repository = repository;
-    this.pkgName = Canonicalizer.fragments().intern(pkgName.normalize());
+    this.repository = Preconditions.checkNotNull(repository);
+    this.pkgName = Canonicalizer.fragments().intern(
+            Preconditions.checkNotNull(pkgName).normalize());
   }
 
   public static PackageIdentifier parse(String input) throws LabelSyntaxException {
@@ -365,7 +363,7 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
 
   @Override
   public int hashCode() {
-    return Objects.hash(repository, pkgName);
+    return 31 * repository.hashCode() + pkgName.hashCode();
   }
 
   @Override
