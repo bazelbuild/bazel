@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.syntax.Runtime.NONE;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -133,7 +134,7 @@ public class WorkspaceFactory {
     buildFileAST = BuildFileAST.parseBuildFile(source, localReporter, false);
     if (buildFileAST.containsErrors()) {
       environmentBuilder = null;
-      throw new IOException("WORKSPACE file could not be parsed");
+      throw new IOException(Joiner.on("\n").join(localReporter.getEvents()));
     }
     environmentBuilder = Environment.builder(mutability)
         .setGlobals(Environment.BUILD)
