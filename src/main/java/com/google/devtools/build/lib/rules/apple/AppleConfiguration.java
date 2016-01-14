@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.List;
@@ -51,6 +52,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final String iosCpu;
   private final Optional<DottedVersion> xcodeVersionOverride;
   private final List<String> iosMultiCpus;
+  private final AppleBitcodeMode bitcodeMode;
   private final Label xcodeConfigLabel;
   @Nullable private final Label defaultProvisioningProfileLabel;
 
@@ -59,6 +61,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.xcodeVersionOverride = Optional.fromNullable(appleOptions.xcodeVersion);
     this.iosCpu = Preconditions.checkNotNull(appleOptions.iosCpu, "iosCpu");
     this.iosMultiCpus = Preconditions.checkNotNull(appleOptions.iosMultiCpus, "iosMultiCpus");
+    this.bitcodeMode = appleOptions.appleBitcodeMode;
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(appleOptions.xcodeVersionConfig, "xcodeConfigLabel");
     this.defaultProvisioningProfileLabel = appleOptions.defaultProvisioningProfile;
@@ -168,6 +171,16 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    */
   @Nullable public Label getDefaultProvisioningProfileLabel() {
     return defaultProvisioningProfileLabel;
+  }
+  
+  /**
+   * Returns the bitcode mode to use for compilation steps. Users can control bitcode
+   * mode using the {@code apple_bitcode} build flag.
+   * 
+   * @see AppleBitcodeMode
+   */
+  public AppleBitcodeMode getBitcodeMode() {
+    return bitcodeMode;
   }
 
   /**

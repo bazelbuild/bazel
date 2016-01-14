@@ -1336,6 +1336,7 @@ public final class CompilationSupport {
     return Iterables.concat(
         AppleToolchain.DEFAULT_WARNINGS.values(),
         platformSpecificCompileFlagsForClang(configuration),
+        configuration.getBitcodeMode().getCompilerFlags(),
         DEFAULT_COMPILER_FLAGS
     );
   }
