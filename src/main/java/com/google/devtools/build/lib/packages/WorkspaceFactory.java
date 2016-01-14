@@ -133,7 +133,7 @@ public class WorkspaceFactory {
     buildFileAST = BuildFileAST.parseBuildFile(source, localReporter, false);
     if (buildFileAST.containsErrors()) {
       environmentBuilder = null;
-      throw new IOException("WORKSPACE file could not be parsed");
+      throw new IOException("Failed to parse " + source.getPath());
     }
     environmentBuilder = Environment.builder(mutability)
         .setGlobals(Environment.BUILD)
@@ -304,5 +304,12 @@ public class WorkspaceFactory {
 
   public static ClassObject newNativeModule(RuleClassProvider ruleClassProvider) {
     return newNativeModule(createWorkspaceFunctions(ruleClassProvider));
+  }
+
+  /**
+   * @return a list of events that have occurred while parsing the WORKSPACE file.
+   */
+  public ImmutableList<Event> getEvents() {
+    return localReporter.getEvents();
   }
 }
