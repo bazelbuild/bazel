@@ -91,11 +91,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "exports_files(['JavaBuilder_deploy.jar','SingleJar_deploy.jar','TestRunner_deploy.jar',",
         "               'JavaBuilderCanary_deploy.jar', 'ijar', 'GenClass_deploy.jar'])");
 
-    config.create(
-        "/bazel_tools_workspace/tools/build_rules/BUILD", "");
-    config.create(
-        "/bazel_tools_workspace/tools/build_rules/prelude_bazel", "");
-
     ImmutableList<String> androidBuildContents = createAndroidBuildContents();
     config.create(
         "/bazel_tools_workspace/tools/android/BUILD",
