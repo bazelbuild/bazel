@@ -176,7 +176,7 @@ public final class RuleContext extends TargetContext
     parseFeatures(getConfiguration().getDefaultFeatures(), globallyEnabled, globallyDisabled);
     for (ImmutableMap.Entry<Class<? extends Fragment>, Fragment> entry :
         getConfiguration().getAllFragments().entrySet()) {
-      if (configurationFragmentPolicy.isLegalConfigurationFragment(entry.getKey())) {
+      if (isLegalFragment(entry.getKey())) {
         globallyEnabled.addAll(entry.getValue().configurationEnabledFeatures(this));
       }
     }

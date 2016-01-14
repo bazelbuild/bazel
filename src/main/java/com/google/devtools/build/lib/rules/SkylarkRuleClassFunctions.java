@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules;
 
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.DATA;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.NONE;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
@@ -33,7 +32,6 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -87,7 +85,6 @@ import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkList;
-import com.google.devtools.build.lib.syntax.SkylarkModuleNameResolver;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.Type;
@@ -95,7 +92,6 @@ import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -308,31 +304,14 @@ public class SkylarkRuleClassFunctions {
         builder.setOutputToGenfiles();
       }
 
-      registerRequiredFragments(fragments, hostFragments, builder);
+      builder.requiresConfigurationFragmentsBySkylarkModuleName(
+          fragments.getContents(String.class, "fragments"));
+      builder.requiresHostConfigurationFragmentsBySkylarkModuleName(
+          hostFragments.getContents(String.class, "host_fragments"));
       builder.setConfiguredTargetFunction(implementation);
       builder.setRuleDefinitionEnvironment(funcallEnv);
       return new RuleFunction(builder, type, attributes, ast.getLocation());
     }
-
-      private void registerRequiredFragments(
-          SkylarkList fragments, SkylarkList hostFragments, RuleClass.Builder builder)
-          throws EvalException {
-        Map<ConfigurationTransition, ImmutableSet<String>> map = new HashMap<>();
-        addFragmentsToMap(map, fragments, NONE); // NONE represents target configuration
-        addFragmentsToMap(map, hostFragments, HOST);
-
-        builder.requiresConfigurationFragments(new SkylarkModuleNameResolver(), map);
-      }
-
-      private void addFragmentsToMap(
-          Map<ConfigurationTransition, ImmutableSet<String>> map,
-          SkylarkList fragments,
-          ConfigurationTransition config)
-          throws EvalException {
-        if (!fragments.isEmpty()) {
-          map.put(config, ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")));
-        }
-      }
     };
 
   protected static ImmutableList<Pair<String, Descriptor>> attrObjectToAttributesList(

@@ -56,7 +56,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.test.TestActionBuilder;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.syntax.SkylarkModuleNameResolver;
 import com.google.devtools.build.lib.util.CPU;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
@@ -1194,7 +1193,7 @@ public final class BuildConfiguration {
     this.actionsEnabled = !actionsDisabled;
     this.fragments = ImmutableSortedMap.copyOf(fragmentsMap, lexicalFragmentSorter);
 
-    this.skylarkVisibleFragments = buildIndexOfVisibleFragments();
+    this.skylarkVisibleFragments = buildIndexOfSkylarkVisibleFragments();
     
     this.buildOptions = buildOptions;
     this.options = buildOptions.get(Options.class);
@@ -1306,12 +1305,11 @@ public final class BuildConfiguration {
 
 
 
-  private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfVisibleFragments() {
+  private ImmutableMap<String, Class<? extends Fragment>> buildIndexOfSkylarkVisibleFragments() {
     ImmutableMap.Builder<String, Class<? extends Fragment>> builder = ImmutableMap.builder();
-    SkylarkModuleNameResolver resolver = new SkylarkModuleNameResolver();
 
     for (Class<? extends Fragment> fragmentClass : fragments.keySet()) {
-      String name = resolver.resolveName(fragmentClass);
+      String name = SkylarkModule.Resolver.resolveName(fragmentClass);
       if (name != null) {
         builder.put(name, fragmentClass);
       }

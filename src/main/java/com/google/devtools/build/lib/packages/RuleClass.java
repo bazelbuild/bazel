@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -40,7 +39,6 @@ import com.google.devtools.build.lib.packages.RuleFactory.AttributeValuesMap;
 import com.google.devtools.build.lib.syntax.Argument;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.FragmentClassNameResolver;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Runtime;
@@ -508,8 +506,8 @@ public final class RuleClass {
         if (parent.preferredDependencyPredicate != Predicates.<String>alwaysFalse()) {
           setPreferredDependencyPredicate(parent.preferredDependencyPredicate);
         }
-        configurationFragmentPolicy.requiresConfigurationFragments(
-            parent.getConfigurationFragmentPolicy().getRequiredConfigurationFragments());
+        configurationFragmentPolicy
+            .includeConfigurationFragmentsFrom(parent.getConfigurationFragmentPolicy());
         configurationFragmentPolicy.setMissingFragmentPolicy(
             parent.getConfigurationFragmentPolicy().getMissingFragmentPolicy());
         supportsConstraintChecking = parent.supportsConstraintChecking;
@@ -580,7 +578,8 @@ public final class RuleClass {
      * <p>The value is inherited by subclasses.
      */
     public Builder requiresConfigurationFragments(Class<?>... configurationFragments) {
-      configurationFragmentPolicy.requiresConfigurationFragments(configurationFragments);
+      configurationFragmentPolicy.requiresConfigurationFragments(
+          ImmutableSet.<Class<?>>copyOf(configurationFragments));
       return this;
     }
 
@@ -591,24 +590,36 @@ public final class RuleClass {
      * <p>The value is inherited by subclasses.
      */
     public Builder requiresHostConfigurationFragments(Class<?>... configurationFragments) {
-      configurationFragmentPolicy
-          .requiresConfigurationFragments(ConfigurationTransition.HOST, configurationFragments);
+      configurationFragmentPolicy.requiresHostConfigurationFragments(
+          ImmutableSet.<Class<?>>copyOf(configurationFragments));
       return this;
     }
 
     /**
-     * Declares the configuration fragments that are required by this rule for the specified
-     * configuration. Valid transition values are HOST for the host configuration and NONE for
-     * the target configuration.
+     * Declares the configuration fragments that are required by this rule for the target
+     * configuration.
      *
      * <p>In contrast to {@link #requiresConfigurationFragments(Class...)}, this method takes the
-     * names of fragments instead of their classes.
+     * Skylark module names of fragments instead of their classes.
      */
-    public Builder requiresConfigurationFragments(
-        FragmentClassNameResolver fragmentNameResolver,
-        Map<ConfigurationTransition, ImmutableSet<String>> configurationFragmentNames) {
-      configurationFragmentPolicy.requiresConfigurationFragments(
-          fragmentNameResolver, configurationFragmentNames);
+    public Builder requiresConfigurationFragmentsBySkylarkModuleName(
+        Collection<String> configurationFragmentNames) {
+      configurationFragmentPolicy
+          .requiresConfigurationFragmentsBySkylarkModuleName(configurationFragmentNames);
+      return this;
+    }
+
+    /**
+     * Declares the configuration fragments that are required by this rule for the host
+     * configuration.
+     *
+     * <p>In contrast to {@link #requiresHostConfigurationFragments(Class...)}, this method takes
+     * Skylark module names of fragments instead of their classes.
+     */
+    public Builder requiresHostConfigurationFragmentsBySkylarkModuleName(
+        Collection<String> configurationFragmentNames) {
+      configurationFragmentPolicy
+          .requiresHostConfigurationFragmentsBySkylarkModuleName(configurationFragmentNames);
       return this;
     }
 
