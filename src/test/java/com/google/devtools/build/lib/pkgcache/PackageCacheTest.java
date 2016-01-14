@@ -79,8 +79,12 @@ public class PackageCacheTest extends FoundationTestCase {
 
   @Before
   public final void initializeSkyframExecutor() throws Exception {
-    ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
     BlazeDirectories directories = new BlazeDirectories(outputBase, outputBase, rootDirectory);
+    AnalysisMock mock = AnalysisMock.get();
+    MockToolsConfig mockToolsConfig = new MockToolsConfig(rootDirectory, false);
+    mock.setupMockClient(mockToolsConfig);
+    mock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
+    ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
             new PackageFactory(ruleClassProvider),
@@ -92,7 +96,7 @@ public class PackageCacheTest extends FoundationTestCase {
             ImmutableList.<DiffAwareness.Factory>of(),
             Predicates.<PathFragment>alwaysFalse(),
             Preprocessor.Factory.Supplier.NullSupplier.INSTANCE,
-            AnalysisMock.get().getSkyFunctions(directories),
+            mock.getSkyFunctions(directories),
             ImmutableList.<PrecomputedValue.Injected>of(),
             ImmutableList.<SkyValueDirtinessChecker>of());
     skyframeExecutor.preparePackageLoading(

@@ -121,12 +121,15 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testInconsistentMissingPackage() throws Exception {
     reporter.removeHandler(failFastHandler);
-    Path root1 = fs.getPath("/root1");
-    scratch.file("/root1/WORKSPACE");
+    Path root1 = scratch.dir("/root1");
+    FileSystemUtils.copyFile(
+        rootDirectory.getRelative("WORKSPACE"), root1.getRelative("WORKSPACE"));
     scratch.file("/root1/foo/sub");
     scratch.file("/root1/pkg/BUILD", "subinclude('//foo:sub')");
 
-    Path root2 = fs.getPath("/root2");
+    Path root2 = scratch.dir("/root2");
+    FileSystemUtils.copyFile(
+        rootDirectory.getRelative("WORKSPACE"), root2.getRelative("WORKSPACE"));
     scratch.file("/root2/foo/BUILD");
     scratch.file("/root2/foo/sub");
 

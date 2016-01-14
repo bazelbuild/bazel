@@ -24,6 +24,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
@@ -460,10 +462,12 @@ public class IncrementalLoadingTest {
             throws IOException {
       this.clock = clock;
       workspace = fs.getPath("/workspace");
-      workspace.createDirectory();
       outputBase = fs.getPath("/output_base");
-      outputBase.createDirectory();
-      addFile("WORKSPACE");
+      BlazeDirectories directories = new BlazeDirectories(outputBase, outputBase, workspace);
+      AnalysisMock mock = AnalysisMock.get();
+      MockToolsConfig mockToolsConfig = new MockToolsConfig(workspace, false);
+      mock.setupMockClient(mockToolsConfig);
+      mock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
 
       skyframeExecutor =
           SequencedSkyframeExecutor.create(
@@ -476,7 +480,7 @@ public class IncrementalLoadingTest {
               ImmutableList.of(new ManualDiffAwarenessFactory()),
               Predicates.<PathFragment>alwaysFalse(),
               supplier,
-              ImmutableMap.<SkyFunctionName, SkyFunction>of(),
+              mock.getSkyFunctions(directories),
               ImmutableList.<PrecomputedValue.Injected>of(),
               ImmutableList.<SkyValueDirtinessChecker>of());
       skyframeExecutor.preparePackageLoading(
