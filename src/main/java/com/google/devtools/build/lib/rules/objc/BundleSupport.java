@@ -242,6 +242,7 @@ final class BundleSupport {
               // https://github.com/bazelbuild/bazel/issues/285 is fixed.
               .addInput(attributes.realpath())
               .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
+              .setVerboseFailuresAndSubcommandsInEnv()
               .build(ruleContext));
     }
   }
@@ -285,6 +286,7 @@ final class BundleSupport {
               // https://github.com/google/bazel/issues/285 is fixed.
               .addInput(attributes.realpath())
               .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
+              .setVerboseFailuresAndSubcommandsInEnv()
              .setCommandLine(CustomCommandLine.builder()
                   .addPath(outputZip.getExecPath())
                   .add(datamodel.archiveRootForMomczip())
@@ -318,6 +320,7 @@ final class BundleSupport {
               // https://github.com/bazelbuild/bazel/issues/285 is fixed.
               .addInput(attributes.realpath())
               .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
+              .setVerboseFailuresAndSubcommandsInEnv()
               .build(ruleContext));
     }
   }
@@ -372,6 +375,7 @@ final class BundleSupport {
             .addInputArgument(plMergeControlArtifact)
             .addTransitiveInputs(mergingContentArtifacts)
             .addOutput(ObjcRuleClasses.intermediateArtifacts(ruleContext).mergedInfoplist())
+            .setVerboseFailuresAndSubcommandsInEnv()
             .build(ruleContext));
   }
 
@@ -400,6 +404,7 @@ final class BundleSupport {
             // https://github.com/google/bazel/issues/285 is fixed.
             .addInput(attributes.realpath())
             .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
+            .setVerboseFailuresAndSubcommandsInEnv()
             .setCommandLine(actoolzipCommandLine(
                 objcProvider,
                 zipOutput,
