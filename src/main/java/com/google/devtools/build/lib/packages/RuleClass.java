@@ -1476,7 +1476,9 @@ public final class RuleClass {
     for (Attribute attr : rule.getAttributes()) {
       SelectorList<?> selectors = attributes.getSelectorList(attr.getName(), attr.getType());
       if (selectors != null) {
-        configLabels.addAll(selectors.getKeyLabels());
+        for (Label key : selectors.getKeyLabels()) {
+          configLabels.add(rule.getLabel().resolveRepositoryRelative(key));
+        }
       }
     }
 

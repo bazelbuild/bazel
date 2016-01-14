@@ -125,10 +125,11 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
       for (Selector<?> selector : selectorList.getSelectors()) {
         for (Map.Entry<Label, ?> selectorEntry : selector.getEntries().entrySet()) {
           if (includeSelectKeys && !BuildType.Selector.isReservedLabel(selectorEntry.getKey())) {
-            observer.acceptLabelAttribute(selectorEntry.getKey(), attribute);
+            observer.acceptLabelAttribute(
+                getLabel().resolveRepositoryRelative(selectorEntry.getKey()), attribute);
           }
           for (Label value : extractLabels(type, selectorEntry.getValue())) {
-            observer.acceptLabelAttribute(value, attribute);
+            observer.acceptLabelAttribute(getLabel().resolveRepositoryRelative(value), attribute);
           }
         }
       }

@@ -645,7 +645,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
       for (Label configLabel : attributeMap.getConfigurabilityKeys(a.getName(), a.getType())) {
         if (!BuildType.Selector.isReservedLabel(configLabel)) {
           configLabelMap.put(a, LabelAndConfiguration.of(
-              configLabel, ctgValue.getConfiguration()));
+              target.getLabel().resolveRepositoryRelative(configLabel),
+              ctgValue.getConfiguration()));
         }
       }
     }

@@ -132,7 +132,8 @@ public class ConfiguredAttributeMapper extends AbstractAttributeMapper {
         continue;
       }
 
-      ConfigMatchingProvider curCondition = Verify.verifyNotNull(configConditions.get(selectorKey));
+      ConfigMatchingProvider curCondition = Verify.verifyNotNull(configConditions.get(
+          rule.getLabel().resolveRepositoryRelative(selectorKey)));
       conditionLabels.add(curCondition.label());
 
       if (curCondition.matches()) {

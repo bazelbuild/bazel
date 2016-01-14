@@ -235,4 +235,40 @@ EOF
 
 }
 
+function test_select_in_external_repo() {
+  REMOTE=$TEST_TMPDIR/r
+  mkdir -p $REMOTE/a $REMOTE/c
+
+  cat > $REMOTE/a/BUILD <<'EOF'
+genrule(
+    name = "gr",
+    srcs = [],
+    outs = ["gro"],
+    cmd = select({
+      "//c:one": "echo one > $@",
+      ":two": "echo two > $@",
+      "//conditions:default": "echo default > $@",
+    }))
+
+config_setting(name = "two", values = { "define": "ARG=two" })
+EOF
+
+  cat > $REMOTE/c/BUILD <<EOF
+package(default_visibility=["//visibility:public"])
+config_setting(name = "one", values = { "define": "ARG=one" })
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(name="r", path="$REMOTE")
+EOF
+
+  bazel build @r//a:gr || fail "build failed"
+  assert_contains "default" bazel-genfiles/external/r/a/gro
+  bazel build @r//a:gr --define=ARG=one|| fail "build failed"
+  assert_contains "one" bazel-genfiles/external/r/a/gro
+  bazel build @r//a:gr --define=ARG=two || fail "build failed"
+  assert_contains "two" bazel-genfiles/external/r/a/gro
+
+}
+
 run_suite "//external correctness tests"
