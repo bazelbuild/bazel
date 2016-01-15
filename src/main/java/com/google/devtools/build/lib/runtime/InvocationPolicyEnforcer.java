@@ -70,6 +70,12 @@ public final class InvocationPolicyEnforcer {
     return new InvocationPolicyEnforcer(parsePolicy(blazeServerStartupOptions.invocationPolicy));
   }
 
+  public static InvocationPolicyEnforcer create(String invocationPolicy)
+      throws OptionsParsingException {
+
+    return new InvocationPolicyEnforcer(parsePolicy(invocationPolicy));
+  }
+
   /**
    * Parses the given InvocationPolicy string, which may be a base64-encoded binary-serialized
    * InvocationPolicy message, or a text formatted InvocationPolicy message. Note that the

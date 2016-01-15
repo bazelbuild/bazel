@@ -38,7 +38,7 @@ import java.util.List;
 @RunWith(JUnit4.class)
 public class InvocationPolicyEnforcerTest {
 
-  private static final String STRING_FLAG_DEFAULT = "test string default";
+  public static final String STRING_FLAG_DEFAULT = "test string default";
   
   public static class TestOptions extends OptionsBase {
 

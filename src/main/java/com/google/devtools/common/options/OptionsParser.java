@@ -114,22 +114,6 @@ public class OptionsParser implements OptionsProvider {
     return new OptionsParser(getOptionsData(ImmutableList.copyOf(optionsClasses)));
   }
 
-  /**
-   * Canonicalizes a list of options using the given option classes. The
-   * contract is that if the returned set of options is passed to an options
-   * parser with the same options classes, then that will have the same effect
-   * as using the original args (which are passed in here), except for cosmetic
-   * differences.
-   */
-  public static List<String> canonicalize(
-      Collection<Class<? extends OptionsBase>> optionsClasses, List<String> args)
-      throws OptionsParsingException {
-    OptionsParser parser = new OptionsParser(optionsClasses);
-    parser.setAllowResidue(false);
-    parser.parse(args);
-    return parser.impl.asCanonicalizedList();
-  }
-
   private final OptionsParserImpl impl;
   private final List<String> residue = new ArrayList<String>();
   private boolean allowResidue = true;
@@ -627,5 +611,10 @@ public class OptionsParser implements OptionsProvider {
   @Override
   public List<OptionValueDescription> asListOfEffectiveOptions() {
     return impl.asListOfEffectiveOptions();
+  }
+
+  @Override
+  public List<String> canonicalize() {
+    return impl.asCanonicalizedList();
   }
 }
