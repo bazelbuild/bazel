@@ -12,6 +12,7 @@ A BUILD target identifier.
           <li><a href="#name">name</a></li>
               <li><a href="#package">package</a></li>
               <li><a href="#relative">relative</a></li>
+              <li><a href="#workspace_root">workspace_root</a></li>
         </ul>
 </div>
 
@@ -34,6 +35,12 @@ A BUILD target identifier.
 Label("//foo/bar:baz").relative(":quux") == Label("//foo/bar:quux")
 Label("//foo/bar:baz").relative("//wiz:quux") == Label("//wiz:quux")
 </pre>
+
+
+        <h2 id="workspace_root">workspace_root</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> Label.workspace_root</pre></p>
+
+    Returns the execution root for the workspace of this label, relative to the execroot. For instance:<br><pre class=language-python>Label("@repo//pkg/foo:abc").workspace_root == "external/repo"</pre>
 
 
 
