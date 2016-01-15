@@ -99,6 +99,7 @@ sh_test(
 
 sh_test(
     name = "bazel_rules_test",
+    size = "large",
     srcs = ["bazel_rules_test.sh"],
     data = [":test-deps"],
 )
@@ -254,6 +255,7 @@ sh_test(
 
 sh_test(
     name = "namespace_runner_test",
+    size = "large",
     srcs = ["namespace-runner_test.sh"],
     data = [":test-deps"],
 )
@@ -284,6 +286,7 @@ sh_test(
 
 sh_test(
     name = "bazel_workspace_status_test",
+    size = "large",
     srcs = ["bazel_workspace_status_test.sh"],
     data = [":test-deps"],
 )
