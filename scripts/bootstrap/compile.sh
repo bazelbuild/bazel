@@ -296,6 +296,10 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
     cp src/main/java/$i ${OUTPUT_DIR}/classes/$i
   done
 
+  # Overwrite tools.WORKSPACE, this is only for the bootstrap binary
+  echo "local_repository(name = 'bazel_tools', path = __workspace_dir__)" \
+       > ${OUTPUT_DIR}/classes/com/google/devtools/build/lib/bazel/rules/tools.WORKSPACE
+
   create_deploy_jar "libblaze" "com.google.devtools.build.lib.bazel.BazelMain" \
       ${OUTPUT_DIR}
 fi
@@ -354,39 +358,6 @@ for i in libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EX
   mkdir -p $(dirname $ARCHIVE_DIR/$i);
   cp $OUTPUT_DIR/$i $ARCHIVE_DIR/$i;
 done
-
-# Build a crude embedded tools directory for the bootstrapped binary.
-# We simple shovel all of third_party and the tools directory into it. It's an
-# over-approximation, but that's fine, because the bootstrap binary is only used
-# for, well, bootstrapping and is never distributed anywhere.
-EMBEDDED_TOOLS=""
-for TOOL_DIR in third_party tools src/tools/android/java/com/google/devtools/build/android \
-  src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper \
-  src/main/protobuf src/main/java/com/google/devtools/common/options; do
-  EMBEDDED_TOOLS="${EMBEDDED_TOOLS} "$(find ${TOOL_DIR} -type f)
-done
-
-for TOOL in ${EMBEDDED_TOOLS}; do
-  mkdir -p $(dirname ${ARCHIVE_DIR}/embedded_tools/${TOOL});
-  cp ${TOOL} ${ARCHIVE_DIR}/embedded_tools/${TOOL}
-done
-
-touch ${ARCHIVE_DIR}/embedded_tools/WORKSPACE
-
-mkdir -p ${ARCHIVE_DIR}/embedded_tools/src/main/java
-cat > ${ARCHIVE_DIR}/embedded_tools/src/main/java/BUILD <<EOF
-java_library(
-    name = "options",
-    srcs = glob([
-        "com/google/devtools/common/options/*.java",
-    ]),
-    visibility = ["//visibility:public"],
-    deps = [
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-EOF
 
 cp ${OUTPUT_DIR}/client ${ARCHIVE_DIR}
 cp ${OUTPUT_DIR}/libblaze.jar ${ARCHIVE_DIR}/A-server.jar
