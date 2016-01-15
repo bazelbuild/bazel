@@ -85,7 +85,6 @@ public class JavaTargetAttributes {
         BuildConfiguration.StrictDepsMode.OFF;
     private final List<Artifact> directJars = new ArrayList<>();
     private final List<Artifact> compileTimeDependencyArtifacts = new ArrayList<>();
-    private final List<Artifact> runtimeDependencyArtifacts = new ArrayList<>();
     private String ruleKind;
     private Label targetLabel;
 
@@ -252,12 +251,6 @@ public class JavaTargetAttributes {
     public Builder addCompileTimeDependencyArtifacts(Iterable<Artifact> dependencyArtifacts) {
       Preconditions.checkArgument(!built);
       Iterables.addAll(this.compileTimeDependencyArtifacts, dependencyArtifacts);
-      return this;
-    }
-
-    public Builder addRuntimeDependencyArtifacts(Iterable<Artifact> dependencyArtifacts) {
-      Preconditions.checkArgument(!built);
-      Iterables.addAll(this.runtimeDependencyArtifacts, dependencyArtifacts);
       return this;
     }
 

@@ -244,7 +244,7 @@ public final class JavaLibraryHelper {
     attributes.setTargetLabel(ruleContext.getLabel());
 
     if (isStrict() && classpathMode != JavaClasspathMode.OFF) {
-      addDependencyArtifactsToAttributes(attributes);
+      JavaCompilationHelper.addDependencyArtifactsToAttributes(attributes, transformDeps());
     }
 
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
@@ -296,17 +296,6 @@ public final class JavaLibraryHelper {
     JavaCompilationArgs.Builder builder = JavaCompilationArgs.builder();
     builder.addTransitiveDependencies(transformDeps(), false);
     return builder.build().getCompileTimeJars();
-  }
-
-  private void addDependencyArtifactsToAttributes(JavaTargetAttributes.Builder attributes) {
-    NestedSetBuilder<Artifact> compileTimeBuilder = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<Artifact> runTimeBuilder = NestedSetBuilder.stableOrder();
-    for (JavaCompilationArgsProvider dep : transformDeps()) {
-      compileTimeBuilder.addTransitive(dep.getCompileTimeJavaDependencyArtifacts());
-      runTimeBuilder.addTransitive(dep.getRunTimeJavaDependencyArtifacts());
-    }
-    attributes.addCompileTimeDependencyArtifacts(compileTimeBuilder.build());
-    attributes.addRuntimeDependencyArtifacts(runTimeBuilder.build());
   }
 
   private Iterable<JavaCompilationArgsProvider> transformDeps() {
