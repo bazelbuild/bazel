@@ -534,7 +534,6 @@ EOF
 }
 
 function test_fetch() {
-  bazel clean --expunge || fail "Clean failed"
   serve_jar
 
   cat > WORKSPACE <<EOF
@@ -550,7 +549,8 @@ EOF
   output_base=$(bazel info output_base)
   external_dir=$output_base/external
   needle=endangered
-  [[ $(ls $external_dir | grep $needle) ]] && fail "$needle already in $external_dir"
+  [[ -d $external_dir/$needle ]] \
+      && fail "$needle already exists in $external_dir" || true
   bazel fetch //zoo:ball-pit >& $TEST_log || fail "Fetch failed"
   [[ $(ls $external_dir | grep $needle) ]] || fail "$needle not added to $external_dir"
 
