@@ -48,40 +48,40 @@ import javax.annotation.Nullable;
  */
 public interface JavaSemantics {
 
-  public static final LibraryLanguage LANGUAGE = new LibraryLanguage("Java");
+  LibraryLanguage LANGUAGE = new LibraryLanguage("Java");
 
-  public static final SafeImplicitOutputsFunction JAVA_LIBRARY_CLASS_JAR =
+  SafeImplicitOutputsFunction JAVA_LIBRARY_CLASS_JAR =
       fromTemplates("lib%{name}.jar");
-  public static final SafeImplicitOutputsFunction JAVA_LIBRARY_SOURCE_JAR =
+  SafeImplicitOutputsFunction JAVA_LIBRARY_SOURCE_JAR =
       fromTemplates("lib%{name}-src.jar");
 
-  public static final SafeImplicitOutputsFunction JAVA_BINARY_CLASS_JAR =
+  SafeImplicitOutputsFunction JAVA_BINARY_CLASS_JAR =
       fromTemplates("%{name}.jar");
-  public static final SafeImplicitOutputsFunction JAVA_BINARY_SOURCE_JAR =
+  SafeImplicitOutputsFunction JAVA_BINARY_SOURCE_JAR =
       fromTemplates("%{name}-src.jar");
 
-  public static final SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_JAR =
+  SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_JAR =
       fromTemplates("%{name}_deploy.jar");
 
-  public static final SafeImplicitOutputsFunction JAVA_UNSTRIPPED_BINARY_DEPLOY_JAR =
+  SafeImplicitOutputsFunction JAVA_UNSTRIPPED_BINARY_DEPLOY_JAR =
       fromTemplates("%{name}_deploy.jar.unstripped");
 
-  public static final SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_SOURCE_JAR =
+  SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_SOURCE_JAR =
       fromTemplates("%{name}_deploy-src.jar");
 
-  public static final FileType JAVA_SOURCE = FileType.of(".java");
-  public static final FileType JAR = FileType.of(".jar");
-  public static final FileType PROPERTIES = FileType.of(".properties");
-  public static final FileType SOURCE_JAR = FileType.of(".srcjar");
+  FileType JAVA_SOURCE = FileType.of(".java");
+  FileType JAR = FileType.of(".jar");
+  FileType PROPERTIES = FileType.of(".properties");
+  FileType SOURCE_JAR = FileType.of(".srcjar");
   // TODO(bazel-team): Rename this metadata extension to something meaningful.
-  public static final FileType COVERAGE_METADATA = FileType.of(".em");
+  FileType COVERAGE_METADATA = FileType.of(".em");
 
   /**
    * Label to the Java Toolchain rule. It is resolved from a label given in the java options.
    */
-  static final String JAVA_TOOLCHAIN_LABEL = "//tools/defaults:java_toolchain";
+  String JAVA_TOOLCHAIN_LABEL = "//tools/defaults:java_toolchain";
 
-  public static final LateBoundLabel<BuildConfiguration> JAVA_TOOLCHAIN =
+  LateBoundLabel<BuildConfiguration> JAVA_TOOLCHAIN =
       new LateBoundLabel<BuildConfiguration>(JAVA_TOOLCHAIN_LABEL, JavaConfiguration.class) {
         @Override
         public Label getDefault(Rule rule, BuildConfiguration configuration) {
@@ -92,53 +92,53 @@ public interface JavaSemantics {
   /**
    * Name of the output group used for source jars.
    */
-  public static final String SOURCE_JARS_OUTPUT_GROUP =
+  String SOURCE_JARS_OUTPUT_GROUP =
       OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "source_jars";
 
   /**
    * Name of the output group used for gen jars (the jars containing the class files for sources
    * generated from annotation processors).
    */
-  public static final String GENERATED_JARS_OUTPUT_GROUP =
+  String GENERATED_JARS_OUTPUT_GROUP =
       OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "gen_jars";
 
   /**
    * Label of a pseudo-filegroup that contains the boot-classpath entries.
    */
-  public static final String JAVAC_BOOTCLASSPATH_LABEL = "//tools/defaults:javac_bootclasspath";
+  String JAVAC_BOOTCLASSPATH_LABEL = "//tools/defaults:javac_bootclasspath";
 
   /**
    * Label of the javac extdir used for compiling Java source code.
    */
-  public static final String JAVAC_EXTDIR_LABEL = "//tools/defaults:javac_extdir";
+  String JAVAC_EXTDIR_LABEL = "//tools/defaults:javac_extdir";
 
   /**
    * Label of the JavaBuilder JAR used for compiling Java source code.
    */
-  public static final String JAVABUILDER_LABEL = "//tools/defaults:javabuilder";
+  String JAVABUILDER_LABEL = "//tools/defaults:javabuilder";
 
   /**
    * Label of the SingleJar JAR used for creating deploy jars.
    */
-  public static final String SINGLEJAR_LABEL = "//tools/defaults:singlejar";
+  String SINGLEJAR_LABEL = "//tools/defaults:singlejar";
 
   /**
    * Label of the GenClass JAR used for creating the jar for classes from sources generated from
    * annotation processors.
    */
-  public static final String GENCLASS_LABEL = "//tools/defaults:genclass";
+  String GENCLASS_LABEL = "//tools/defaults:genclass";
 
   /**
    * Label of pseudo-cc_binary that tells Blaze a java target's JAVABIN is never to be replaced by
    * the contents of --java_launcher; only the JDK's launcher will ever be used.
    */
-  public static final Label JDK_LAUNCHER_LABEL =
+  Label JDK_LAUNCHER_LABEL =
       Label.parseAbsoluteUnchecked("//third_party/java/jdk:jdk_launcher");
 
   /**
    * Implementation for the :jvm attribute.
    */
-  public static final LateBoundLabel<BuildConfiguration> JVM =
+  LateBoundLabel<BuildConfiguration> JVM =
       new LateBoundLabel<BuildConfiguration>(JavaImplicitAttributes.JDK_LABEL, Jvm.class) {
         @Override
         public Label getDefault(Rule rule, BuildConfiguration configuration) {
@@ -149,7 +149,7 @@ public interface JavaSemantics {
   /**
    * Implementation for the :host_jdk attribute.
    */
-  public static final LateBoundLabel<BuildConfiguration> HOST_JDK =
+  LateBoundLabel<BuildConfiguration> HOST_JDK =
       new LateBoundLabel<BuildConfiguration>(JavaImplicitAttributes.JDK_LABEL, Jvm.class) {
         @Override
         public boolean useHostConfiguration() {
@@ -166,7 +166,7 @@ public interface JavaSemantics {
    * Implementation for the :java_launcher attribute. Note that the Java launcher is disabled by
    * default, so it returns null for the configuration-independent default value.
    */
-  public static final LateBoundLabel<BuildConfiguration> JAVA_LAUNCHER =
+  LateBoundLabel<BuildConfiguration> JAVA_LAUNCHER =
       new LateBoundLabel<BuildConfiguration>(JavaConfiguration.class) {
         @Override
         public Label getDefault(Rule rule, BuildConfiguration configuration) {
@@ -174,7 +174,7 @@ public interface JavaSemantics {
         }
       };
 
-  public static final LateBoundLabelList<BuildConfiguration> JAVA_PLUGINS =
+  LateBoundLabelList<BuildConfiguration> JAVA_PLUGINS =
       new LateBoundLabelList<BuildConfiguration>() {
         @Override
         public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
@@ -182,7 +182,7 @@ public interface JavaSemantics {
         }
       };
 
-  public static final LateBoundLabelList<BuildConfiguration> EXTRA_PROGUARD_SPECS =
+  LateBoundLabelList<BuildConfiguration> EXTRA_PROGUARD_SPECS =
       new LateBoundLabelList<BuildConfiguration>() {
         @Override
         public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
@@ -191,7 +191,7 @@ public interface JavaSemantics {
         }
       };
 
-  public static final String IJAR_LABEL = "//tools/defaults:ijar";
+  String IJAR_LABEL = "//tools/defaults:ijar";
 
   /**
    * Verifies if the rule contains and errors.
