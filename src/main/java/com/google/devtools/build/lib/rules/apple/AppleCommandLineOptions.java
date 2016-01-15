@@ -97,7 +97,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
   /** Converter for --default_ios_provisioning_profile. */
   public static class DefaultProvisioningProfileConverter extends DefaultLabelConverter {
     public DefaultProvisioningProfileConverter() {
-      super(Constants.TOOLS_REPOSITORY + "//tools/objc:default_provisioning_profile");
+      super("//tools/objc:default_provisioning_profile");
     }
   }
 
