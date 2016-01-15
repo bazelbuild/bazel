@@ -372,12 +372,17 @@ public class BazelCppRuleClasses {
           /*<!-- #BLAZE_RULE($cc_decl_rule).ATTRIBUTE(includes) -->
           List of include dirs to be added to the compile line.
           ${SYNOPSIS}
-          Subject to <a href="make-variables.html">"Make variable"</a> substitution.
-          Each string is prepended with <code>-iquote</code> and added to <code>COPTS</code>. Unlike
-          <a href="#cc_binary.copts">COPTS</a>, these flags are added for this rule
-          and every rule that depends on it. (Note: not the rules it depends upon!) Be
-          very careful, since this may have far-reaching effects.  When in doubt, add
-          "-I" flags to <a href="#cc_binary.copts">COPTS</a> instead.
+          <p>Subject to <a href="make-variables.html">"Make variable"</a> substitution.
+             Each string is prepended with <code>-isystem</code> and added to <code>COPTS</code>.
+             Unlike <a href="#cc_binary.copts">COPTS</a>, these flags are added for this rule
+             and every rule that depends on it. (Note: not the rules it depends upon!) Be
+             very careful, since this may have far-reaching effects.  When in doubt, add
+             "-I" flags to <a href="#cc_binary.copts">COPTS</a> instead.
+          </p>
+          <p>To use <code>-iquote</code> instead of <code>-isystem</code>, specify
+             <code>--use_isystem_for_includes=false</code> (the flag is undocumented and defaults
+             to <code>true</code>).
+          </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("includes", STRING_LIST))
           .add(attr(":lipo_context_collector", LABEL)
