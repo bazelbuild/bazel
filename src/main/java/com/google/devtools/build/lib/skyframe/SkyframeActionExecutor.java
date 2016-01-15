@@ -953,13 +953,11 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
    */
   private void printError(String message, Action action, FileOutErr actionOutput) {
     synchronized (reporter) {
-      if (actionOutput != null && actionOutput.hasRecordedOutput()) {
-        dumpRecordedOutErr(action, actionOutput);
-      }
       if (keepGoing) {
         message = "Couldn't " + describeAction(action) + ": " + message;
       }
-      reporter.handle(Event.error(action.getOwner().getLocation(), message));
+      Event event = Event.error(action.getOwner().getLocation(), message);
+      dumpRecordedOutErr(event, actionOutput);
       recordExecutionError();
     }
   }
@@ -986,7 +984,17 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     message.append("From ");
     message.append(action.describe());
     message.append(":");
+    Event event = Event.info(message.toString());
+    dumpRecordedOutErr(event, outErrBuffer);
+  }
 
+  /**
+   * Dump the output from the action.
+   *
+   * @param prefixEvent An event to post before dumping the output
+   * @param outErrBuffer The OutErr that recorded the actions output
+   */
+  private void dumpRecordedOutErr(Event prefixEvent, FileOutErr outErrBuffer) {
     // Synchronize this on the reporter, so that the output from multiple
     // actions will not be interleaved.
     synchronized (reporter) {
@@ -994,11 +1002,13 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
       if (isBuilderAborting()) {
         return;
       }
-      reporter.handle(Event.info(message.toString()));
+      reporter.handle(prefixEvent);
 
-      OutErr outErr = this.reporter.getOutErr();
-      outErrBuffer.dumpOutAsLatin1(outErr.getOutputStream());
-      outErrBuffer.dumpErrAsLatin1(outErr.getErrorStream());
+      if (outErrBuffer != null && outErrBuffer.hasRecordedOutput()) {
+        OutErr outErr = this.reporter.getOutErr();
+        outErrBuffer.dumpOutAsLatin1(outErr.getOutputStream());
+        outErrBuffer.dumpErrAsLatin1(outErr.getErrorStream());
+      }
     }
   }
 
