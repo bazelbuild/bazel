@@ -15,6 +15,8 @@
 package com.google.devtools.build.buildjar.javac.plugins.dependency;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Joiner;
+import com.google.common.base.Splitter;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
@@ -26,9 +28,11 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -251,12 +255,14 @@ public final class DependencyModule {
     return strictClasspathMode;
   }
 
+  private static final Splitter CLASSPATH_SPLITTER = Splitter.on(':');
+  private static final Joiner CLASSPATH_JOINER = Joiner.on(':');
+
   /**
    * Computes a reduced compile-time classpath from the union of direct dependencies and their
    * dependencies, as listed in the associated .deps artifacts.
    */
-  public String computeStrictClasspath(String originalClasspath, String classDir)
-      throws IOException {
+  public String computeStrictClasspath(String originalClasspath) throws IOException {
     if (!strictClasspathMode) {
       return originalClasspath;
     }
@@ -268,17 +274,14 @@ public final class DependencyModule {
        collectDependenciesFromArtifact(depsArtifact);
     }
 
-    // Filter the initial classpath and keep the original order, with classDir as the last entry.
-    StringBuilder sb = new StringBuilder();
-    String[] originalClasspathEntries = originalClasspath.split(":");
-
-    for (String entry : originalClasspathEntries) {
+    // Filter the initial classpath and keep the original order
+    List<String> filteredClasspath = new ArrayList<>();
+    for (String entry : CLASSPATH_SPLITTER.split(originalClasspath)) {
       if (requiredClasspath.contains(entry)) {
-        sb.append(entry).append(":");
+        filteredClasspath.add(entry);
       }
     }
-    sb.append(classDir);
-    return sb.toString();
+    return CLASSPATH_JOINER.join(filteredClasspath);
   }
 
   @VisibleForTesting
