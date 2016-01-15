@@ -353,4 +353,12 @@ public class LabelTest {
           "invalid repository name 'foo': workspace names must start with '@'");
     }
   }
+  
+  @Test
+  public void testGetWorkspaceRoot() throws Exception {
+    Label label = Label.parseAbsolute("//bar/baz");
+    assertThat(label.getWorkspaceRoot()).isEmpty();
+    label = Label.parseAbsolute("@repo//bar/baz");
+    assertThat(label.getWorkspaceRoot()).isEqualTo("external/repo");
+  }
 }
