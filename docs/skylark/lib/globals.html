@@ -215,7 +215,7 @@ Objects, functions and modules registered in the global environment.
       </table>
 
         <h2 id="aspect">aspect</h2>
-        <p><pre>SkylarkAspect aspect(implementation, attr_aspects=[], attrs=None)
+        <p><pre>SkylarkAspect aspect(implementation, attr_aspects=[], attrs=None, fragments=[], host_fragments=[])
 </pre></p>
 
     Creates a new aspect. The result of this fucntion must be stored in a global value.
@@ -258,6 +258,24 @@ Objects, functions and modules registered in the global environment.
             <td>
                           <p><code><a class="anchor" href="dict.html">dict</a></code></p>
                           <p>dictionary to declare all the attributes of the aspect.  It maps from an attribute name to an attribute object (see <a href="attr.html">attr</a> module). Aspect attributes are available to implementation function as fields of ctx parameter. All aspect attributes must be private, so their names must start with <code>_</code>. All aspect attributes must be have default values, and be of type <code>label</code> or <code>label_list</code></p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="aspect.fragments">
+              <code>fragments</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p>List of names of configuration fragments that the aspect requires in target configuration.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="aspect.host_fragments">
+              <code>host_fragments</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="string.html">string</a>s</code></p>
+                          <p>List of names of configuration fragments that the aspect requires in host configuration.</p>
             </td>
           </tr>
                 </tbody>

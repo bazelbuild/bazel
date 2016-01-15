@@ -12,6 +12,8 @@ A built-in module to support native rules and other package helper functions. Al
           <li><a href="#exports_files">exports_files</a></li>
               <li><a href="#glob">glob</a></li>
               <li><a href="#package_group">package_group</a></li>
+              <li><a href="#rule">rule</a></li>
+              <li><a href="#rules">rules</a></li>
         </ul>
 </div>
 
@@ -164,5 +166,43 @@ If the <code>exclude_directories</code> argument is enabled (set to <code>1</cod
           </tr>
                 </tbody>
       </table>
+
+        <h2 id="rule">rule</h2>
+        <p><pre>unknown native.rule(name)
+</pre></p>
+
+    Returns a dictionary representing the attributes of a previously defined rule, or None if the rule does not exist.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="rule.name">
+              <code>name</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>The name of the rule.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="rules">rules</h2>
+        <p><pre><a class="anchor" href="dict.html">dict</a> native.rules()
+</pre></p>
+
+    Returns a dict containing all the rules instantiated so far. The map key is the name of the rule. The map value is equivalent to the get_rule output for that rule.
+
 
 
