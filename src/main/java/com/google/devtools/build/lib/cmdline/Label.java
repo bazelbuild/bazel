@@ -263,6 +263,20 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   public String getPackageName() {
     return packageIdentifier.getPackageFragment().getPathString();
   }
+  
+  /**
+   * Returns the execution root for the workspace, relative to the execroot (e.g., for label
+   * {@code @repo//pkg:b}, it will returns {@code external/repo/pkg} and for label {@code //pkg:a},
+   * it will returns an empty string.
+   */
+  @SkylarkCallable(name = "workspace_root", structField = true,
+      doc = "Returns the execution root for the workspace of this label, relative to the execroot. "
+      + "For instance:<br>"
+      + "<pre class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
+      + " \"external/repo\"</pre>")
+  public String getWorkspaceRoot() {
+    return packageIdentifier.getRepository().getPathFragment().toString();
+  }
 
   /**
    * Returns the path fragment of the package in which this rule was declared (e.g. {@code
