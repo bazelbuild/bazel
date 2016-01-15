@@ -66,9 +66,12 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -828,6 +831,112 @@ public final class PackageFactory {
         }
       };
 
+  @Nullable
+  static Map<String, Object> callGetRuleFunction(
+      String name, FuncallExpression ast, Environment env)
+      throws EvalException, ConversionException {
+    PackageContext context = getContext(env, ast);
+    Target target = context.pkgBuilder.getTarget(name);
+
+    return targetDict(target);
+  }
+
+  @Nullable
+  private static Map<String, Object> targetDict(Target target) {
+    if (target == null && !(target instanceof Rule)) {
+      return null;
+    }
+    Map<String, Object> values = new TreeMap<>();
+
+    Rule rule = (Rule) target;
+    AttributeContainer cont = rule.getAttributeContainer();
+    for (Attribute attr : rule.getAttributes()) {
+      if (!Character.isAlphabetic(attr.getName().charAt(0))) {
+        continue;
+      }
+
+      Object val = skylarkifyValue(cont.getAttr(attr.getName()), target.getPackage());
+      if (val == null) {
+        continue;
+      }
+      values.put(attr.getName(), val);
+    }
+
+    values.put("name", rule.getName());
+    values.put("kind", rule.getRuleClass());
+    return values;
+  }
+
+  /**
+   * Converts back to type that will work in BUILD and skylark,
+   * such as string instead of label, SkylarkList instead of List,
+   * Returns null if we don't want to export the value.
+   *
+   * <p>All of the types returned are immutable. If we want, we can change this to
+   * immutable in the future, but this is the safe choice for now.
+   */
+  private static Object skylarkifyValue(Object val, Package pkg) {
+    if (val == null) {
+      return null;
+    }
+    if (val instanceof Integer) {
+      return val;
+    }
+    if (val instanceof String) {
+      return val;
+    }
+    if (val instanceof Label) {
+      Label l = (Label) val;
+      if (l.getPackageName().equals(pkg.getName())) {
+        return ":" + l.getName();
+      }
+      return l.getCanonicalForm();
+    }
+    if (val instanceof List) {
+      List<Object> l = new ArrayList<>();
+      for (Object o : (List) val) {
+        l.add(skylarkifyValue(o, pkg));
+      }
+
+      return SkylarkList.Tuple.copyOf(l);
+    }
+    if (val instanceof Map) {
+      Map<Object, Object> m = new TreeMap<>();
+      for (Map.Entry<?, ?> e : ((Map<?, ?>) val).entrySet()) {
+        m.put(skylarkifyValue(e.getKey(), pkg), skylarkifyValue(e.getValue(), pkg));
+      }
+      return m;
+    }
+    if (val.getClass().isAnonymousClass()) {
+      // Computed defaults. They will be represented as
+      // "deprecation": com.google.devtools.build.lib.analysis.BaseRuleClasses$2@6960884a,
+      // Filter them until we invent something more clever.
+      return null;
+    }
+
+    // Add any types we want to allow through here.
+    return null;
+  }
+
+  static Map callGetRulesFunction(FuncallExpression ast, Environment env) throws EvalException {
+
+    PackageContext context = getContext(env, ast);
+    Collection<Target> targets = context.pkgBuilder.getTargets();
+
+    // Sort by name.
+    Map<String, Map<String, Object>> rules = new TreeMap<>();
+    for (Target t : targets) {
+      if (t instanceof Rule) {
+        Map<String, Object> m = targetDict(t);
+        Preconditions.checkNotNull(m);
+
+        rules.put(t.getName(), m);
+      }
+    }
+
+    return rules;
+  }
+
   static Runtime.NoneType callPackageFunction(String name, Object packagesO, Object includesO,
       FuncallExpression ast, Environment env) throws EvalException, ConversionException {
     PackageContext context = getContext(env, ast);
@@ -1082,7 +1191,7 @@ public final class PackageFactory {
   }
 
   /**
-   * Same as {@link #createPackage}, but does the required validation of "packageName" first,
+   * Same as createPackage, but does the required validation of "packageName" first,
    * throwing a {@link NoSuchPackageException} if the name is invalid.
    */
   @VisibleForTesting

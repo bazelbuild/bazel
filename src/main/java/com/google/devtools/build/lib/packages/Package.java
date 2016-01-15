@@ -49,6 +49,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.annotation.Nullable;
+
 /**
  * A package, which is a container of {@link Rule}s, each of
  * which contains a dictionary of named attributes.
@@ -1043,6 +1045,11 @@ public class Package {
 
     public Collection<Target> getTargets() {
       return Package.getTargets(targets);
+    }
+
+    @Nullable
+    public Target getTarget(String name) {
+      return targets.get(name);
     }
 
     /**

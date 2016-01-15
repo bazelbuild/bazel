@@ -59,6 +59,76 @@ load("/pkg/extension", "macro")
 macro(name = "myrule")
 ```
 
+## <a name="conditional-instantiation"></a>Conditional instantiation.</a>
+
+Macros can look at previously instantiated rules. This is done with
+`native.rule`, which returns information on a single rule defined in the same
+`BUILD` file, eg.,
+
+```python
+native.rule("descriptor_proto")
+```
+
+This is useful to avoid instantiating the same rule twice, which is an
+error. For example, the following rule will simulate a test suite, instantiating
+tests for diverse flavors of the same test.
+
+`extension.bzl`:
+
+```python
+def system_test(test_file, flavor):
+  n = "system_test_%s_%s_test" % (test_file, flavor)
+  if native.rule(n) == None:
+    native.py_test(
+      name = n,
+      srcs = [ "test_driver.py", test_file ],
+      args = [ "--flavor=" + flavor])
+  return n
+
+def system_test_suite(name, flavors=["default"], test_files):
+  ts = []
+  for flavor in flavors:
+    for test in test_files:
+      ts.append(system_test(name, flavor, test))
+  native.test_suite(name = name, tests = ts) 
+```
+
+In the following BUILD file, note how `(fast, basic_test.py)` is emitted for
+both the `smoke` test suite and the `thorough` test suite.
+
+```python
+load("/pkg/extension", "system_test_suite")
+
+# Run all files through the 'fast' flavor.
+system_test_suite("smoke", flavors=["fast"], glob(["*_test.py"]))
+
+# Run the basic test through all flavors.
+system_test_suite("thorough", flavors=["fast", "debug", "opt"], ["basic_test.py"])
+```
+
+
+## <a name="aggregation"></a>Aggregating over the BUILD file.</a>
+
+Macros can collect information from the BUILD file as processed so far.  We call
+this aggregation. The typical example is collecting data from all rules of a
+certain kind.  This is done by calling `native.rules`, which returns a
+dictionary representing all rules defined so far in the current BUILD file. The
+dictionary has entries of the form `name` => `rule`, with the values using the
+same format as `native.rule`.
+
+```python
+def archive_cc_src_files(tag):
+  """Create an archive of all C++ sources that have the given tag."""
+  all_src = []
+  for r in native.rules().values():
+    if tag in r["tags"] and r["kind"] == "cc_library":
+      all_src.append(r["srcs"])
+  native.genrule(cmd = "zip $@ $^", srcs = all_src, outs = ["out.zip"])
+```
+
+Since `native.rules` constructs a potentially large dictionary, you should avoid
+calling it repeatedly within BUILD file.
+
 ## <a name="empty"></a>Empty rule
 
 Minimalist example of a rule that does nothing. If you build it, the target will
