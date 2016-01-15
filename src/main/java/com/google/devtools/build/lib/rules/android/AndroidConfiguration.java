@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -146,14 +145,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
             help = "Specifies Android SDK/platform that is used to build Android applications.")
     public Label sdk;
 
-    @Option(name = "proguard_top",
-        defaultValue = "null",
-        category = "version",
-        converter = LabelConverter.class,
-        help = "Specifies which version of ProGuard to use for code removal when building an "
-            + "Android binary.")
-    public Label proguard;
-
     @Option(name = "legacy_android_native_support",
         defaultValue = "true",
         category = "semantics",
@@ -188,10 +179,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
-      if (proguard != null) {
-        labelMap.put("android_proguard", proguard);
-      }
-
       if (androidCrosstoolTop != null) {
         labelMap.put("android_crosstool_top", androidCrosstoolTop);
       }
@@ -249,7 +236,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean incrementalNativeLibs;
   private final boolean fatApk;
   private final ConfigurationDistinguisher configurationDistinguisher;
-  private final Label proguard;
   private final boolean useJackForDexing;
   private final boolean jackSanityChecks;
 
@@ -261,7 +247,6 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.cpu = options.cpu;
     this.fatApk = !options.realFatApkCpus().isEmpty();
     this.configurationDistinguisher = options.configurationDistinguisher;
-    this.proguard = options.proguard;
     this.useJackForDexing = options.useJackForDexing;
     this.jackSanityChecks = options.jackSanityChecks;
   }
@@ -313,9 +298,5 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   @Override
   public String getOutputDirectoryName() {
     return configurationDistinguisher.suffix;
-  }
-
-  public Label getProguardLabel() {
-    return proguard;
   }
 }

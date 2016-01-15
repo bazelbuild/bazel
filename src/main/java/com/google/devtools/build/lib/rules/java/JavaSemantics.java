@@ -62,9 +62,12 @@ public interface JavaSemantics {
 
   SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_JAR =
       fromTemplates("%{name}_deploy.jar");
-
+  SafeImplicitOutputsFunction JAVA_BINARY_MERGED_JAR =
+      fromTemplates("%{name}_merged.jar");
   SafeImplicitOutputsFunction JAVA_UNSTRIPPED_BINARY_DEPLOY_JAR =
       fromTemplates("%{name}_deploy.jar.unstripped");
+  SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_MAP =
+      fromTemplates("%{name}_proguard.map");
 
   SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_SOURCE_JAR =
       fromTemplates("%{name}_deploy-src.jar");
@@ -179,6 +182,17 @@ public interface JavaSemantics {
         @Override
         public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
           return ImmutableList.copyOf(configuration.getPlugins());
+        }
+      };
+
+  /**
+   * Implementation for the :proguard attribute.
+   */
+  LateBoundLabel<BuildConfiguration> PROGUARD =
+      new LateBoundLabel<BuildConfiguration>(JavaConfiguration.class) {
+        @Override
+        public Label getDefault(Rule rule, BuildConfiguration configuration) {
+          return configuration.getFragment(JavaConfiguration.class).getProguardBinary();
         }
       };
 
