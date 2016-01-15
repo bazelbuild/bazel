@@ -32,6 +32,7 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -369,6 +370,24 @@ public class SkylarkRuleClassFunctions {
         + "All aspect attributes must be private, so their names must start with <code>_</code>. "
         + "All aspect attributes must be have default values, and be of type "
         + "<code>label</code> or <code>label_list</code>"
+      ),
+      @Param(
+        name = "fragments",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        doc =
+            "List of names of configuration fragments that the aspect requires "
+                + "in target configuration."
+      ),
+      @Param(
+        name = "host_fragments",
+        type = SkylarkList.class,
+        generic1 = String.class,
+        defaultValue = "[]",
+        doc =
+            "List of names of configuration fragments that the aspect requires "
+                + "in host configuration."
       )
     },
     useEnvironment = true,
@@ -380,6 +399,8 @@ public class SkylarkRuleClassFunctions {
             BaseFunction implementation,
             SkylarkList attributeAspects,
             Object attrs,
+            SkylarkList fragments,
+            SkylarkList hostFragments,
             FuncallExpression ast,
             Environment funcallEnv)
             throws EvalException {
@@ -409,7 +430,13 @@ public class SkylarkRuleClassFunctions {
             }
           }
 
-          return new SkylarkAspect(implementation, attrAspects.build(), attributes, funcallEnv);
+          return new SkylarkAspect(
+              implementation,
+              attrAspects.build(),
+              attributes,
+              ImmutableSet.copyOf(fragments.getContents(String.class, "fragments")),
+              ImmutableSet.copyOf(hostFragments.getContents(String.class, "host_fragments")),
+              funcallEnv);
         }
       };
 
@@ -675,6 +702,8 @@ public class SkylarkRuleClassFunctions {
     private final BaseFunction implementation;
     private final ImmutableList<String> attributeAspects;
     private final ImmutableList<Pair<String, Descriptor>> attributes;
+    private final ImmutableSet<String> fragments;
+    private final ImmutableSet<String> hostFragments;
     private final Environment funcallEnv;
     private Exported exported;
 
@@ -682,10 +711,14 @@ public class SkylarkRuleClassFunctions {
         BaseFunction implementation,
         ImmutableList<String> attributeAspects,
         ImmutableList<Pair<String, Descriptor>> attributes,
+        ImmutableSet<String> fragments,
+        ImmutableSet<String> hostFragments,
         Environment funcallEnv) {
       this.implementation = implementation;
       this.attributeAspects = attributeAspects;
       this.attributes = attributes;
+      this.fragments = fragments;
+      this.hostFragments = hostFragments;
       this.funcallEnv = funcallEnv;
     }
 
@@ -703,6 +736,20 @@ public class SkylarkRuleClassFunctions {
 
     public ImmutableList<Pair<String, Descriptor>> getAttributes() {
       return attributes;
+    }
+
+    /**
+     * Gets the set of configuration fragment names needed in the target configuration.
+     */
+    public ImmutableSet<String> getFragments() {
+      return fragments;
+    }
+
+    /**
+     * Gets the set of configuration fragment names needed in the host configuration.
+     */
+    public ImmutableSet<String> getHostFragments() {
+      return hostFragments;
     }
 
     @Override
@@ -782,6 +829,9 @@ public class SkylarkRuleClassFunctions {
       for (Pair<String, Descriptor> attribute : attributes) {
         builder.add(attribute.second.getAttributeBuilder().build(attribute.first));
       }
+      builder.requiresConfigurationFragmentsBySkylarkModuleName(skylarkAspect.getFragments());
+      builder.requiresHostConfigurationFragmentsBySkylarkModuleName(
+          skylarkAspect.getHostFragments());
       this.aspectDefinition = builder.build();
     }
 
