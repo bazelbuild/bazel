@@ -398,8 +398,8 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "null",
       converter = LabelConverter.class,
       category = "semantics",
-      help = "By default, the --crosstool_top, --glibc, and --compiler options are also used " +
-          "for the host configuration. If this flag is provided, Blaze uses the default glibc " +
+      help = "By default, the --crosstool_top and --compiler options are also used " +
+          "for the host configuration. If this flag is provided, Blaze uses the default libc " +
           "and compiler for the given crosstool_top.")
   public Label hostCrosstoolTop;
 
@@ -486,12 +486,11 @@ public class CppOptions extends FragmentOptions {
       }
     }
 
-    if (hostLibcTop != null) {
-      host.libcTop = hostLibcTop;
-    } else if (hostCrosstoolTop == null) {
-      // Track libc in the host configuration if no host crosstool is set.
-      host.libcTop = libcTop;
-    }
+    // hostLibcTop doesn't default to the target's libcTop.
+    // Only an explicit command-line option will change it.
+    // The default is whatever the host's crosstool (which might have been specified
+    // by --host_crosstool_top, or --crosstool_top as a fallback) says it should be.
+    host.libcTop = hostLibcTop;
 
     // -g0 is the default, but allowMultiple options cannot have default values so we just pass
     // -g0 first and let the user options override it.
