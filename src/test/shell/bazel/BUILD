@@ -228,6 +228,7 @@ sh_test(
 
 sh_test(
     name = "generate_workspace_test",
+    size = "large",
     srcs = ["generate_workspace_test.sh"],
     data = [
         ":test-deps",
