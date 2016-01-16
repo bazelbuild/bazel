@@ -160,13 +160,10 @@ def _scala_macro_library_impl(ctx):
       interface_jar_files=cjars,
       runfiles=runfiles)
 
-def _scala_binary_impl(ctx):
-  (cjars, rjars) = _collect_comp_run_jars(ctx)
+# Common code shared by all scala binary implementations.
+def _scala_binary_common(ctx, cjars, rjars):
   _write_manifest(ctx)
   _compile(ctx, cjars, False)
-
-  rjars += [ctx.outputs.jar, ctx.file._scalalib]
-  _write_launcher(ctx, rjars)
 
   runfiles = ctx.runfiles(
       files = list(rjars) + [ctx.outputs.executable],
@@ -174,22 +171,18 @@ def _scala_binary_impl(ctx):
   return struct(
       files=set([ctx.outputs.executable]),
       runfiles=runfiles)
+
+def _scala_binary_impl(ctx):
+  (cjars, rjars) = _collect_comp_run_jars(ctx)
+  rjars += [ctx.outputs.jar, ctx.file._scalalib]
+  _write_launcher(ctx, rjars)
+  return _scala_binary_common(ctx, cjars, rjars)
 
 def _scala_test_impl(ctx):
   (cjars, rjars) = _collect_comp_run_jars(ctx)
-  _write_manifest(ctx)
-  _compile(ctx, cjars, False)
-
   rjars += [ctx.outputs.jar, ctx.file._scalalib]
-  # TODO(dinowernli): This is the only difference to scala_binary_impl, merge.
   _write_test_launcher(ctx, rjars)
-
-  runfiles = ctx.runfiles(
-      files = list(rjars) + [ctx.outputs.executable],
-      collect_data = True)
-  return struct(
-      files=set([ctx.outputs.executable]),
-      runfiles=runfiles)
+  return _scala_binary_common(ctx, cjars, rjars)
 
 _implicit_deps = {
   "_ijar": attr.label(executable=True, default=Label("//tools/defaults:ijar"), single_file=True, allow_files=True),
@@ -200,6 +193,7 @@ _implicit_deps = {
   "_jdk": attr.label(default=Label("//tools/defaults:jdk"), allow_files=True),
 }
 
+# Common attributes reused across multiple rules.
 _common_attrs = {
   "srcs": attr.label_list(
       allow_files=_scala_filetype,
