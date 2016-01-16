@@ -113,6 +113,13 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       throws InconsistentFilesystemException, SkylarkImportFailedException, InterruptedException {
     PathFragment filePath = fileLabel.toPathFragment();
 
+    boolean loadingFromDefaultlRepo = fileLabel.getPackageIdentifier().getRepository().isDefault();
+    if (inWorkspace && !loadingFromDefaultlRepo) {
+      // Loads of files in external repos are currently prohibited in a WORKSPACE file to prevent
+      // circular skyframe dependencies.
+      throw SkylarkImportFailedException.noExternalLoadsFromWorkspace(fileLabel);
+    }
+
     // Load the AST corresponding to this file.
     ASTFileLookupValue astLookupValue;
     try {
@@ -422,6 +429,15 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     static SkylarkImportFailedException skylarkErrors(PathFragment file) {
       return new SkylarkImportFailedException(String.format("Extension '%s' has errors", file));
     }
+
+   static final String NO_EXT_WORKSPACE_LOAD_MSG_TEMPLATE =
+       "Extension file '%s' may not be loaded from a WORKSPACE file "
+           + "since the extension file is located in an external repository.";
+   static SkylarkImportFailedException noExternalLoadsFromWorkspace(Label fileLabel) {
+      return new SkylarkImportFailedException(String.format(NO_EXT_WORKSPACE_LOAD_MSG_TEMPLATE,
+          fileLabel));
+    }
+
   }
 
   private static final class SkylarkImportLookupFunctionException extends SkyFunctionException {

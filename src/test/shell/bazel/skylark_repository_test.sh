@@ -140,6 +140,40 @@ EOF
   rm -fr $TEST_TMPDIR/other
 }
 
+# Loading a skylark file located in an external repo from a WORKSPACE file
+# is disallowed.
+function test_external_load_from_workspace_file_invalid() {
+  create_new_workspace
+  external_repo=${new_workspace_dir}
+
+  cat > ${WORKSPACE_DIR}/WORKSPACE <<EOF
+local_repository(name = "external_repo", path = "${external_repo}")
+load("@external_repo//external_pkg:ext.bzl", "CONST")
+EOF
+
+  mkdir ${WORKSPACE_DIR}/local_pkg
+  cat > ${WORKSPACE_DIR}/local_pkg/BUILD <<EOF
+genrule(
+  name = "shouldnt_be_built",
+  cmd = "echo echo"
+)
+EOF
+
+  mkdir ${external_repo}/external_pkg
+  touch ${external_repo}/external_pkg/BUILD
+  cat > ${external_repo}/external_pkg/ext.bzl <<EOF
+CONST = 17
+EOF
+
+  cd ${WORKSPACE_DIR}
+  bazel build local_pkg:shouldnt_be_built >& $TEST_log && \
+    fail "Expected build to fail" || true
+
+  expect_log "Extension file '@external_repo//external_pkg:ext.bzl' may not be \
+loaded from a WORKSPACE file since the extension file is located in an \
+external repository."
+}
+
 function tear_down() {
   true
 }
