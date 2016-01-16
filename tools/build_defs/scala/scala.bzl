@@ -200,19 +200,22 @@ _implicit_deps = {
   "_jdk": attr.label(default=Label("//tools/defaults:jdk"), allow_files=True),
 }
 
+_common_attrs = {
+  "srcs": attr.label_list(
+      allow_files=_scala_filetype,
+      non_empty=True),
+  "deps": attr.label_list(),
+  "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
+  "resources": attr.label_list(allow_files=True),
+  "scalacopts":attr.string_list(),
+  "jvm_flags": attr.string_list(),
+}
+
 scala_library = rule(
   implementation=_scala_library_impl,
   attrs={
       "main_class": attr.string(),
-      "srcs": attr.label_list(
-          allow_files=_scala_filetype,
-          non_empty=True),
-      "deps": attr.label_list(),
-      "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
-      "resources": attr.label_list(allow_files=True),
-      "scalacopts": attr.string_list(),
-      "jvm_flags": attr.string_list(),
-      } + _implicit_deps,
+      } + _implicit_deps + _common_attrs,
   outputs={
       "jar": "%{name}_deploy.jar",
       "ijar": "%{name}_ijar.jar",
@@ -224,16 +227,8 @@ scala_macro_library = rule(
   implementation=_scala_macro_library_impl,
   attrs={
       "main_class": attr.string(),
-      "srcs": attr.label_list(
-          allow_files=_scala_filetype,
-          non_empty=True),
-      "deps": attr.label_list(),
-      "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
-      "resources": attr.label_list(allow_files=True),
-      "scalacopts": attr.string_list(),
-      "jvm_flags": attr.string_list(),
       "_scala-reflect": attr.label(default=Label("@scala//:lib/scala-reflect.jar"), single_file=True, allow_files=True),
-      } + _implicit_deps,
+      } + _implicit_deps + _common_attrs,
   outputs={
       "jar": "%{name}_deploy.jar",
       "manifest": "%{name}_MANIFEST.MF",
@@ -244,15 +239,7 @@ scala_binary = rule(
   implementation=_scala_binary_impl,
   attrs={
       "main_class": attr.string(mandatory=True),
-      "srcs": attr.label_list(
-          allow_files=_scala_filetype,
-          non_empty=True),
-      "deps": attr.label_list(),
-      "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
-      "resources": attr.label_list(allow_files=True),
-      "scalacopts":attr.string_list(),
-      "jvm_flags": attr.string_list(),
-      } + _implicit_deps,
+      } + _implicit_deps + _common_attrs,
   outputs={
       "jar": "%{name}_deploy.jar",
       "manifest": "%{name}_MANIFEST.MF",
@@ -265,15 +252,7 @@ scala_test = rule(
   attrs={
       "main_class": attr.string(default="org.scalatest.tools.Runner"),
       "suites": attr.string_list(),
-      "srcs": attr.label_list(
-          allow_files=_scala_filetype,
-          non_empty=True),
-      "deps": attr.label_list(),
-      "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
-      "resources": attr.label_list(allow_files=True),
-      "scalacopts":attr.string_list(),
-      "jvm_flags": attr.string_list(),
-      } + _implicit_deps,
+      } + _implicit_deps + _common_attrs,
   outputs={
       "jar": "%{name}_deploy.jar",
       "manifest": "%{name}_MANIFEST.MF",
