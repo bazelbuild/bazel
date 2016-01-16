@@ -36,7 +36,7 @@ Note: You might need to `sudo apt-get install software-properties-common` if you
 **Ubuntu Wily (15.10).** To install OpenJDK 8:
 
 ```
-$ sudo apt-get install openjdk-8-jdk openjdk-8-source
+$ sudo apt-get install openjdk-8-jdk
 ```
 
 #### 2. Install required packages
@@ -80,8 +80,8 @@ your operating system.
 Run the installer:
 
 <pre>
-$ chmod +x install-<em>version</em>-<em>os</em>.sh
-$ ./install-<em>version</em>-<em>os</em>.sh --user
+$ chmod +x bazel-<em>version</em>-installer-<em>os</em>.sh
+$ ./bazel-<em>version</em>-installer-<em>os</em>.sh --user
 </pre>
 
 The `--user` flag installs Bazel to the `$HOME/bin` directory on your

@@ -336,8 +336,7 @@ public class AndroidCommon {
         outputDepsProto,
         javaArtifactsBuilder);
     javacHelper.createSourceJarAction(resourceSourceJar, null);
-    resourceIJar = javacHelper.createCompileTimeJarAction(resourceClassJar, outputDepsProto,
-        javaArtifactsBuilder);
+    resourceIJar = javacHelper.createCompileTimeJarAction(resourceClassJar, javaArtifactsBuilder);
   }
 
   private void createJarJarActions(
@@ -540,7 +539,7 @@ public class AndroidCommon {
     filesToBuild = filesBuilder.build();
 
     if ((attributes.hasSourceFiles() || attributes.hasSourceJars()) && jar != null) {
-      iJar = helper.createCompileTimeJarAction(jar, outputDepsProto, javaArtifactsBuilder);
+      iJar = helper.createCompileTimeJarAction(jar, javaArtifactsBuilder);
     }
     javaCommon.setJavaCompilationArtifacts(javaArtifactsBuilder.build());
 

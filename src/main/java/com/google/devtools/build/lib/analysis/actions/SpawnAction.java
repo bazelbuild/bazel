@@ -83,6 +83,9 @@ public class SpawnAction extends AbstractAction {
 
   private static final String GUID = "ebd6fce3-093e-45ee-adb6-bf513b602f0d";
 
+  private static final String VERBOSE_FAILURES_KEY = "BAZEL_VERBOSE_FAILURES";
+  private static final String SUBCOMMANDS_KEY = "BAZEL_SUBCOMMANDS";
+
   private final CommandLine argv;
 
   private final boolean executeUnconditionally;
@@ -92,10 +95,12 @@ public class SpawnAction extends AbstractAction {
   private final ImmutableMap<PathFragment, Artifact> inputManifests;
 
   private final ResourceSet resourceSet;
-  private final ImmutableMap<String, String> environment;
+  private ImmutableMap<String, String> environment;
   private final ImmutableMap<String, String> executionInfo;
 
   private final ExtraActionInfoSupplier<?> extraActionInfoSupplier;
+
+  private final boolean verboseFailuresAndSubcommandsInEnv;
 
   /**
    * Constructs a SpawnAction using direct initialization arguments.
@@ -140,7 +145,8 @@ public class SpawnAction extends AbstractAction {
         ImmutableMap.<PathFragment, Artifact>of(),
         mnemonic,
         false,
-        null);
+        null,
+        false);
   }
 
   /**
@@ -165,6 +171,9 @@ public class SpawnAction extends AbstractAction {
    * @param inputManifests entries in inputs that are symlink manifest files.
    *        These are passed to remote execution in the environment rather than as inputs.
    * @param mnemonic the mnemonic that is reported in the master log.
+   * @param verboseFailuresAndSubcommandsInEnv if the presense of "--verbose_failures" and/or
+   *        "--subcommands" in the execution should be propogated to the environment of the
+   *        action.
    */
   public SpawnAction(
       ActionOwner owner,
@@ -179,7 +188,8 @@ public class SpawnAction extends AbstractAction {
       ImmutableMap<PathFragment, Artifact> inputManifests,
       String mnemonic,
       boolean executeUnconditionally,
-      ExtraActionInfoSupplier<?> extraActionInfoSupplier) {
+      ExtraActionInfoSupplier<?> extraActionInfoSupplier,
+      boolean verboseFailuresAndSubcommandsInEnv) {
     super(owner, tools, inputs, outputs);
     this.resourceSet = resourceSet;
     this.executionInfo = executionInfo;
@@ -190,6 +200,7 @@ public class SpawnAction extends AbstractAction {
     this.mnemonic = mnemonic;
     this.executeUnconditionally = executeUnconditionally;
     this.extraActionInfoSupplier = extraActionInfoSupplier;
+    this.verboseFailuresAndSubcommandsInEnv = verboseFailuresAndSubcommandsInEnv;
   }
 
   /**
@@ -246,6 +257,22 @@ public class SpawnAction extends AbstractAction {
   public void execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
+
+    // Reconstruct environment to communicate if verbose_failures and/or subcommands is set.
+    if (verboseFailuresAndSubcommandsInEnv) {
+      ImmutableMap.Builder<String, String> environmentBuilder =
+          new ImmutableMap.Builder<String, String>().putAll(environment);
+
+      if (executor.getVerboseFailures()) {
+        environmentBuilder.put(VERBOSE_FAILURES_KEY, "true");
+      }
+      if (executor.reportsSubcommands()) {
+        environmentBuilder.put(SUBCOMMANDS_KEY, "true");
+      }
+
+      this.environment = environmentBuilder.build();
+    }
+
     try {
       internalExecute(actionExecutionContext);
     } catch (ExecException e) {
@@ -356,6 +383,11 @@ public class SpawnAction extends AbstractAction {
 
   /**
    * Returns the environment in which to run this action.
+   *
+   * <p>Note that if setVerboseFailuresAndSubcommandsInEnv() is called on the builder, and either
+   * verbose_failures or subcommands is specified in the execution context, corresponding variables
+   * will be added to the environment.  These variables will not be known until execution time,
+   * however, and so are not returned by getEnvironment().
    */
   public Map<String, String> getEnvironment() {
     return environment;
@@ -464,6 +496,8 @@ public class SpawnAction extends AbstractAction {
     private String mnemonic = "Unknown";
     private ExtraActionInfoSupplier<?> extraActionInfoSupplier = null;
 
+    private boolean verboseFailuresAndSubcommandsInEnv = false;
+
     /**
      * Creates a SpawnAction builder.
      */
@@ -492,6 +526,7 @@ public class SpawnAction extends AbstractAction {
       this.progressMessage = other.progressMessage;
       this.paramFileInfo = other.paramFileInfo;
       this.mnemonic = other.mnemonic;
+      this.verboseFailuresAndSubcommandsInEnv = other.verboseFailuresAndSubcommandsInEnv;
     }
 
     /**
@@ -578,7 +613,8 @@ public class SpawnAction extends AbstractAction {
               ImmutableMap.copyOf(inputAndToolManifests),
               mnemonic,
               executeUnconditionally,
-              extraActionInfoSupplier));
+              extraActionInfoSupplier,
+              verboseFailuresAndSubcommandsInEnv));
       return actions.toArray(new Action[actions.size()]);
     }
 
@@ -674,6 +710,17 @@ public class SpawnAction extends AbstractAction {
     public Builder useDefaultShellEnvironment() {
       this.environment = null;
       this.useDefaultShellEnvironment  = true;
+      return this;
+    }
+
+    /**
+     * Sets the environment variable "BAZEL_VERBOSE_FAILURES" to "true" if --verbose_failures is
+     * set in the execution context. Sets the environment variable "BAZEL_SUBCOMMANDS" to "true"
+     * if --subcommands is set in the execution context.
+     *
+     */
+    public Builder setVerboseFailuresAndSubcommandsInEnv() {
+      this.verboseFailuresAndSubcommandsInEnv = true;
       return this;
     }
 

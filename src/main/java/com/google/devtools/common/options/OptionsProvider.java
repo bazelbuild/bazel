@@ -64,4 +64,13 @@ public interface OptionsProvider extends OptionsClassProvider {
    * effective values. There is no guaranteed ordering for the result.
    */
   List<OptionValueDescription> asListOfEffectiveOptions();
+
+  /**
+   * Canonicalizes the list of options that this OptionsParser has parsed. The
+   * contract is that if the returned set of options is passed to an options
+   * parser with the same options classes, then that will have the same effect
+   * as using the original args (which are passed in here), except for cosmetic
+   * differences.
+   */
+  List<String> canonicalize();
 }

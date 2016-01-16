@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
@@ -125,6 +126,12 @@ public final class CcCommon {
         CppHelper.expandAttribute(ruleContext, result, "linkopts", linkopt, true);
       }
     }
+    
+    if (Platform.isApplePlatform(cppConfiguration.getTargetCpu()) && result.contains("-static")) {
+      ruleContext.attributeError(
+          "linkopts", "Apple builds do not support statically linked binaries");
+    }
+    
     return ImmutableList.copyOf(result);
   }
 

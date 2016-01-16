@@ -69,7 +69,7 @@ public final class BazelShRuleClasses {
           The list of "library" targets to be aggregated into this target.
           ${SYNOPSIS}
           See general comments about <code>deps</code>
-          at <a href="#common.deps">Attributes common to all build rules</a>.
+          at <a href="common-definitions.html#common.deps">Attributes common to all build rules</a>.
           <p>
             This attribute should be used to list other <code>sh_library</code> rules that provide
             interpreted program source code depended on by the code in <code>srcs</code>. The files

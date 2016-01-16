@@ -47,19 +47,18 @@ public final class JavaCompilationArtifacts {
   private final ImmutableList<Artifact> compileTimeJars;
   private final ImmutableList<Artifact> instrumentationMetadata;
   private final Artifact compileTimeDependencyArtifact;
-  private final Artifact runTimeDependencyArtifact;
   private final Artifact instrumentedJar;
 
-  private JavaCompilationArtifacts(ImmutableList<Artifact> runtimeJars,
+  private JavaCompilationArtifacts(
+      ImmutableList<Artifact> runtimeJars,
       ImmutableList<Artifact> compileTimeJars,
       ImmutableList<Artifact> instrumentationMetadata,
-      Artifact compileTimeDependencyArtifact, Artifact runTimeDependencyArtifact,
+      Artifact compileTimeDependencyArtifact,
       Artifact instrumentedJar) {
     this.runtimeJars = runtimeJars;
     this.compileTimeJars = compileTimeJars;
     this.instrumentationMetadata = instrumentationMetadata;
     this.compileTimeDependencyArtifact = compileTimeDependencyArtifact;
-    this.runTimeDependencyArtifact = runTimeDependencyArtifact;
     this.instrumentedJar = instrumentedJar;
   }
 
@@ -79,10 +78,6 @@ public final class JavaCompilationArtifacts {
     return compileTimeDependencyArtifact;
   }
 
-  public Artifact getRunTimeDependencyArtifact() {
-    return runTimeDependencyArtifact;
-  }
-
   public Artifact getInstrumentedJar() {
     return instrumentedJar;
   }
@@ -95,14 +90,15 @@ public final class JavaCompilationArtifacts {
     private final Set<Artifact> compileTimeJars = new LinkedHashSet<>();
     private final Set<Artifact> instrumentationMetadata = new LinkedHashSet<>();
     private Artifact compileTimeDependencies;
-    private Artifact runTimeDependencies;
     private Artifact instrumentedJar;
 
     public JavaCompilationArtifacts build() {
-      return new JavaCompilationArtifacts(ImmutableList.copyOf(runtimeJars),
+      return new JavaCompilationArtifacts(
+          ImmutableList.copyOf(runtimeJars),
           ImmutableList.copyOf(compileTimeJars),
           ImmutableList.copyOf(instrumentationMetadata),
-          compileTimeDependencies, runTimeDependencies, instrumentedJar);
+          compileTimeDependencies,
+          instrumentedJar);
     }
 
     public Builder addRuntimeJar(Artifact jar) {
@@ -132,11 +128,6 @@ public final class JavaCompilationArtifacts {
 
     public Builder setCompileTimeDependencies(@Nullable Artifact compileTimeDependencies) {
       this.compileTimeDependencies = compileTimeDependencies;
-      return this;
-    }
-
-    public Builder setRunTimeDependencies(@Nullable Artifact runTimeDependencies) {
-      this.runTimeDependencies = runTimeDependencies;
       return this;
     }
 

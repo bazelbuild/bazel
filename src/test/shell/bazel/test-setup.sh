@@ -36,6 +36,7 @@ function setup_bazelrc() {
   cat >$TEST_TMPDIR/bazelrc <<EOF
 startup --output_user_root=${bazel_root}
 startup --host_javabase=${bazel_javabase}
+build -j 8
 ${EXTRA_BAZELRC:-}
 EOF
 }
@@ -370,6 +371,7 @@ function create_new_workspace() {
   ln -s "${javabuilder_path}" tools/jdk/JavaBuilder_deploy.jar
   ln -s "${singlejar_path}"  tools/jdk/SingleJar_deploy.jar
   ln -s "${genclass_path}" tools/jdk/GenClass_deploy.jar
+  ln -s "${junitrunner_path}" tools/jdk/TestRunner_deploy.jar
   ln -s "${ijar_path}" tools/jdk/ijar
 
   touch WORKSPACE

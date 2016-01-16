@@ -38,6 +38,8 @@ public class XcodeConfigRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(AppleConfiguration.class)
+        .exemptFromConstraintChecking(
+            "this rule refines configuration variables and does not build actual content")
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(version) -->
         The default official version of xcode to use.
         ${SYNOPSIS}

@@ -36,48 +36,34 @@ public class RuleSerializer {
     builder.setName(rule.getLabel().getName());
     builder.setRuleClass(rule.getRuleClass());
     builder.setPublicByDefault(rule.getRuleClassObject().isPublicByDefault());
+
     RawAttributeMapper rawAttributeMapper = RawAttributeMapper.of(rule);
+    boolean isSkylark = rule.getRuleClassObject().isSkylark();
+
     for (Attribute attr : rule.getAttributes()) {
       Object rawAttributeValue = rawAttributeMapper.getRawAttributeValue(rule, attr);
+      boolean isExplicit = rule.isAttributeValueExplicitlySpecified(attr);
+
+      if (!isSkylark && !isExplicit) {
+        // If the rule class is native (i.e. not Skylark-defined), then we can skip serialization
+        // of implicit attribute values. The native rule class can provide the same default value
+        // for the attribute after deserialization.
+        continue;
+      }
 
       Object valueToSerialize;
-      if (rawAttributeValue instanceof ComputedDefault) {
-        if (rule.getRuleClassObject().isSkylark()) {
-          // If the rule class is Skylark-defined (i.e. rule.getRuleClassObject().isSkylark() is
-          // true), and the attribute has a ComputedDefault value, we must serialize it. The
-          // Skylark-defined ComputedDefault function won't be available after deserialization due
-          // to Skylark's non-serializability. Fortunately (from the perspective of rule
-          // serialization), Skylark doesn't support defining rule classes with ComputedDefault
-          // attributes, and so the only ComputedDefault attributes we need to worry about for
-          // Skylark-defined rule classes are those declared in those rule classes' natively
-          // defined base rule classes.
-          //
-          // See the comment for SKYLARK_RULE_CLASS_COMPUTED_DEFAULT_ATTRIBUTES for the locations
-          // of these expected attributes.
-          //
-          // The RawAttributeMapper#get method, inherited from AbstractAttributeMapper, evaluates
-          // the ComputedDefault function, so we use that, after verifying the attribute's name is
-          // expected.
-          Preconditions.checkState(
-              SKYLARK_RULE_CLASS_COMPUTED_DEFAULT_ATTRIBUTES.contains(attr.getName()),
-              "Unexpected ComputedDefault value for %s in %s",
-              attr,
-              rule);
-          valueToSerialize = rawAttributeMapper.get(attr.getName(), attr.getType());
-        } else {
-          // If the rule class is native (i.e. not Skylark-defined), we can skip serialization of
-          // attributes with ComputedDefault values. The native rule class can provide the same
-          // ComputedDefault value for the attribute after deserialization.
-          //
-          // TODO(mschaller): While the native rule class *could* provide it, it doesn't yet. Make
-          // it so! For now, we fall back to flattening the set of all possible values, computed
-          // using AggregatingAttributeMapper.
-          Iterable<Object> possibleValues =
-              AggregatingAttributeMapper.of(rule).getPossibleAttributeValues(rule, attr);
-          valueToSerialize =
-              AggregatingAttributeMapper.flattenAttributeValues(attr.getType(), possibleValues);
-        }
+      if (isExplicit) {
+        valueToSerialize = rawAttributeValue;
+      } else if (rawAttributeValue instanceof ComputedDefault) {
+        // If the rule class is Skylark-defined (i.e. rule.getRuleClassObject().isSkylark() is
+        // true), and the attribute has a ComputedDefault value, then we must serialize what it
+        // evaluates to. The Skylark-defined ComputedDefault function won't be available after
+        // deserialization due to Skylark's non-serializability.
+        valueToSerialize = evaluateSkylarkComputedDefault(rule, rawAttributeMapper, attr);
       } else {
+        // If the rule class is Skylark-defined and the attribute value is implicit, then we
+        // must serialize it. The Skylark-defined rule class won't be available after
+        // deserialization due to Skylark's non-serializability.
         valueToSerialize = rawAttributeValue;
       }
 
@@ -85,11 +71,38 @@ public class RuleSerializer {
           AttributeSerializer.getAttributeProto(
               attr,
               valueToSerialize,
-              rule.isAttributeValueExplicitlySpecified(attr),
+              isExplicit,
               /*includeGlobs=*/ true,
               /*encodeBooleanAndTriStateAsIntegerAndString=*/ false));
     }
     return builder;
+  }
+
+  /**
+   * Evaluates a {@link ComputedDefault} attribute value for a {@link Rule} with a
+   * Skylark-defined {@link RuleClass}.
+   *
+   * <p>Fortunately (from the perspective of rule serialization), Skylark doesn't support defining
+   * rule classes with {@link ComputedDefault} attributes, and so the only {@link
+   * ComputedDefault} attributes we need to worry about for Skylark-defined rule classes are
+   * declared in those rule classes' natively-defined base rule classes.
+   *
+   * <p>See the comment for {@link #SKYLARK_RULE_CLASS_COMPUTED_DEFAULT_ATTRIBUTES} for the
+   * locations of these expected attributes. None of them have dependencies on other attributes
+   * which are configurable, so they can be evaluated here without loss of fidelity.
+   *
+   * <p>The {@link RawAttributeMapper#get} method, inherited from {@link
+   * AbstractAttributeMapper}, evaluates the {@link ComputedDefault} function, so we use that,
+   * after verifying the attribute's name is expected.
+   */
+  private static Object evaluateSkylarkComputedDefault(
+      Rule rule, RawAttributeMapper rawAttributeMapper, Attribute attr) {
+    Preconditions.checkState(
+        SKYLARK_RULE_CLASS_COMPUTED_DEFAULT_ATTRIBUTES.contains(attr.getName()),
+        "Unexpected ComputedDefault value for %s in %s",
+        attr,
+        rule);
+    return rawAttributeMapper.get(attr.getName(), attr.getType());
   }
 }
 

@@ -18,9 +18,9 @@ import com.google.common.base.Verify;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -30,19 +30,6 @@ import java.util.Map;
  * A builder that helps constructing the //external package.
  */
 public class ExternalPackageBuilder {
-
-  private Map<PackageIdentifier.RepositoryName, Rule> repositoryMap = Maps.newLinkedHashMap();
-
-  void build(Package.Builder pkg) {
-    for (Rule rule : repositoryMap.values()) {
-      try {
-        pkg.addRule(rule);
-      } catch (Package.NameConflictException e) {
-        throw new IllegalStateException(
-            "Got a name conflict for " + rule + ", which can't happen: " + e.getMessage(), e);
-      }
-    }
-  }
 
   public ExternalPackageBuilder createAndAddRepositoryRule(
       Package.Builder pkg,
@@ -54,10 +41,12 @@ public class ExternalPackageBuilder {
           InterruptedException {
 
     StoredEventHandler eventHandler = new StoredEventHandler();
+    BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
     Rule tempRule =
-        RuleFactory.createRule(pkg, ruleClass, kwargs, eventHandler, ast, ast.getLocation(), null);
+        RuleFactory.createRule(
+            pkg, ruleClass, attributeValues, eventHandler, ast, ast.getLocation(), /*env=*/ null);
     pkg.addEvents(eventHandler.getEvents());
-    repositoryMap.put(PackageIdentifier.RepositoryName.create("@" + tempRule.getName()), tempRule);
+    overwriteRule(pkg, tempRule);
     for (Map.Entry<String, Label> entry :
         ruleClass.getExternalBindingsFunction().apply(tempRule).entrySet()) {
       Label nameLabel = Label.parseAbsolute("//external:" + entry.getKey());
@@ -78,8 +67,11 @@ public class ExternalPackageBuilder {
       attributes.put("actual", actual);
     }
     StoredEventHandler handler = new StoredEventHandler();
+    BuildLangTypedAttributeValuesMap attributeValues =
+        new BuildLangTypedAttributeValuesMap(attributes);
     Rule rule =
-        RuleFactory.createRule(pkg, bindRuleClass, attributes, handler, null, location, null);
+        RuleFactory.createRule(
+            pkg, bindRuleClass, attributeValues, handler, /*ast=*/ null, location, /*env=*/ null);
     overwriteRule(pkg, rule);
     rule.setVisibility(ConstantRuleVisibility.PUBLIC);
   }

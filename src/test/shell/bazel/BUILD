@@ -45,7 +45,6 @@ filegroup(
         "testenv.sh",
         "testing_server.py",
         ":langtools-copy",
-        ":objc-deps",
         "//examples:srcs",
         "//external:bootclasspath",
         "//external:extdir",
@@ -53,6 +52,7 @@ filegroup(
         "//src:bazel",
         "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
         "//src/java_tools/singlejar:SingleJar_deploy.jar",
         "//src/main/tools:namespace-sandbox",
         "//src/main/tools:process-wrapper",
@@ -71,7 +71,10 @@ sh_test(
     name = "bazel_example_test",
     size = "large",
     srcs = ["bazel_example_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":objc-deps",
+        ":test-deps",
+    ],
     shard_count = 3,
 )
 
@@ -96,6 +99,7 @@ sh_test(
 
 sh_test(
     name = "bazel_rules_test",
+    size = "large",
     srcs = ["bazel_rules_test.sh"],
     data = [":test-deps"],
 )
@@ -109,7 +113,10 @@ sh_test(
 sh_test(
     name = "bazel_objc_test",
     srcs = ["bazel_objc_test.sh"],
-    data = [":test-deps"],
+    data = [
+        ":objc-deps",
+        ":test-deps",
+    ],
 )
 
 sh_test(
@@ -148,6 +155,7 @@ sh_test(
 
 sh_test(
     name = "external_correctness_test",
+    size = "large",
     srcs = ["external_correctness_test.sh"],
     data = [":test-deps"],
 )
@@ -161,7 +169,7 @@ sh_test(
 
 sh_test(
     name = "git_repository_test",
-    size = "medium",
+    size = "large",
     srcs = ["git_repository_test.sh"],
     data = [
         ":test-deps",
@@ -220,6 +228,7 @@ sh_test(
 
 sh_test(
     name = "generate_workspace_test",
+    size = "large",
     srcs = ["generate_workspace_test.sh"],
     data = [
         ":test-deps",
@@ -247,12 +256,14 @@ sh_test(
 
 sh_test(
     name = "namespace_runner_test",
+    size = "large",
     srcs = ["namespace-runner_test.sh"],
     data = [":test-deps"],
 )
 
 sh_test(
     name = "bazel_sandboxing_test",
+    size = "large",
     srcs = ["bazel_sandboxing_test.sh"],
     data = [":test-deps"],
 )
@@ -276,6 +287,7 @@ sh_test(
 
 sh_test(
     name = "bazel_workspace_status_test",
+    size = "large",
     srcs = ["bazel_workspace_status_test.sh"],
     data = [":test-deps"],
 )

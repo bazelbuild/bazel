@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -94,6 +95,9 @@ public class WorkspaceFileFunction implements SkyFunction {
       } catch (PackageFunctionException e) {
         throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
       } catch (IOException e) {
+        for (Event event : parser.getEvents()) {
+          env.getListener().handle(event);
+        }
         throw new WorkspaceFileFunctionException(e, Transience.TRANSIENT);
       }
     }

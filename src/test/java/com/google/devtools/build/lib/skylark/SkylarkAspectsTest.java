@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
@@ -28,7 +29,12 @@ import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.packages.AspectDefinition;
+import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
+import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
+import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 
 import org.junit.Test;
@@ -88,14 +94,55 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testAspectAllowsFragmentsToBeSpecified() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   print('This aspect does nothing')",
+        "   return struct()",
+        "MyAspect = aspect(implementation=_impl, fragments=['jvm'], host_fragments=['cpp'])");
+    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+
+    AnalysisResult analysisResult =
+        update(
+            ImmutableList.of("//test:xxx"),
+            ImmutableList.of("test/aspect.bzl%MyAspect"),
+            false,
+            LOADING_PHASE_THREADS,
+            true,
+            new EventBus());
+    AspectValue aspectValue = Iterables.getOnlyElement(analysisResult.getAspects());
+    AspectKey aspectKey = aspectValue.getKey();
+    AspectDefinition aspectDefinition = aspectKey.getAspect().getDefinition();
+    assertThat(
+        aspectDefinition.getConfigurationFragmentPolicy()
+            .isLegalConfigurationFragment(Jvm.class, ConfigurationTransition.NONE))
+        .isTrue();
+    assertThat(
+        aspectDefinition.getConfigurationFragmentPolicy()
+            .isLegalConfigurationFragment(Jvm.class, ConfigurationTransition.HOST))
+        .isFalse();
+    assertThat(
+        aspectDefinition.getConfigurationFragmentPolicy()
+            .isLegalConfigurationFragment(CppConfiguration.class, ConfigurationTransition.NONE))
+        .isFalse();
+    assertThat(
+        aspectDefinition.getConfigurationFragmentPolicy()
+            .isLegalConfigurationFragment(CppConfiguration.class, ConfigurationTransition.HOST))
+        .isTrue();
+  }
+
+  @Test
   public void testAspectPropagating() throws Exception {
     scratch.file(
         "test/aspect.bzl",
         "def _impl(target, ctx):",
         "   s = set([target.label])",
+        "   c = set([ctx.rule.kind])",
         "   for i in ctx.rule.attr.deps:",
         "       s += i.target_labels",
-        "   return struct(target_labels = s)",
+        "       c += i.rule_kinds",
+        "   return struct(target_labels = s, rule_kinds = c)",
         "",
         "MyAspect = aspect(",
         "   implementation=_impl,",
@@ -149,6 +196,10 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
                   }
                 }))
         .containsExactly("//test:xxx", "//test:yyy");
+    Object ruleKinds = skylarkProviders.getValue("rule_kinds");
+    assertThat(ruleKinds).isInstanceOf(SkylarkNestedSet.class);
+    assertThat((SkylarkNestedSet) ruleKinds).containsExactly("java_library");
+
   }
 
   @Test

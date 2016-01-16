@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 
 import java.util.Map;
 
@@ -36,6 +37,8 @@ import javax.annotation.Nullable;
  * Implementation for the {@code xcode_config} rule.
  */
 public class XcodeConfig implements RuleConfiguredTargetFactory {
+
+  private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION = DottedVersion.fromString("7");
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
@@ -55,10 +58,24 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
       xcodeConfigProvider = new XcodeConfigProvider(targetVersion);
     }
 
+    validateXcodeConfig(ruleContext, configuration, xcodeConfigProvider);
+
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .addProvider(XcodeConfigProvider.class, xcodeConfigProvider)
         .build();
+  }
+
+  private void validateXcodeConfig(RuleContext ruleContext, AppleConfiguration config,
+      XcodeConfigProvider xcodeConfigProvider) {
+    Optional<DottedVersion> xcodeVersion = xcodeConfigProvider.getXcodeVersion();
+    if (config.getBitcodeMode() != AppleBitcodeMode.NONE
+        && xcodeVersion.isPresent()
+        && xcodeVersion.get().compareTo(MINIMUM_BITCODE_XCODE_VERSION) < 0) {
+      ruleContext.ruleError(
+          String.format("apple_bitcode mode '%s' is unsupported for xcode version '%s'",
+              config.getBitcodeMode(), xcodeVersion.get()));
+    }
   }
 
   /**

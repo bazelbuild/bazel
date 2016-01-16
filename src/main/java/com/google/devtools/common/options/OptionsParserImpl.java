@@ -22,9 +22,11 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Multimap;
 import com.google.devtools.common.options.OptionsParser.OptionDescription;
 import com.google.devtools.common.options.OptionsParser.OptionValueDescription;
 import com.google.devtools.common.options.OptionsParser.UnparsedOptionValueDescription;
@@ -227,8 +229,19 @@ class OptionsParserImpl {
    * We use partially preparsed options, which can be different from the original
    * representation, e.g. "--nofoo" becomes "--foo=0".
    */
-  private final List<UnparsedOptionValueDescription> unparsedValues =
-      Lists.newArrayList();
+  private final List<UnparsedOptionValueDescription> unparsedValues = Lists.newArrayList();
+
+  /**
+   * Unparsed values for use with the canonicalize command are stored separately from
+   * unparsedValues so that invocation policy can modify the values for canonicalization (e.g.
+   * override user-specified values with default values) without corrupting the data used to
+   * represent the user's original invocation for {@link #asListOfExplicitOptions()} and
+   * {@link #asListOfUnparsedOptions()}. A LinkedHashMultimap is used so that canonicalization
+   * happens in the correct order and multiple values can be stored for flags that allow multiple
+   * values.
+   */
+  private final Multimap<Field, UnparsedOptionValueDescription> canonicalizeValues
+      = LinkedHashMultimap.create();
 
   private final List<String> warnings = Lists.newArrayList();
   
@@ -313,13 +326,14 @@ class OptionsParserImpl {
    * Implements {@link OptionsParser#canonicalize}.
    */
   List<String> asCanonicalizedList() {
-    List<UnparsedOptionValueDescription> processed = Lists.newArrayList(unparsedValues);
+
+    List<UnparsedOptionValueDescription> processed = Lists.newArrayList(
+        canonicalizeValues.values());
+    // Sort implicit requirement options to the end, keeping their existing order, and sort the
+    // other options alphabetically.
     Collections.sort(processed, new Comparator<UnparsedOptionValueDescription>() {
-      // This Comparator sorts implicit requirement options to the end, keeping their existing
-      // order, and sorts the other options alphabetically.
       @Override
-      public int compare(UnparsedOptionValueDescription o1,
-          UnparsedOptionValueDescription o2) {
+      public int compare(UnparsedOptionValueDescription o1, UnparsedOptionValueDescription o2) {
         if (o1.isImplicitRequirement()) {
           return o2.isImplicitRequirement() ? 0 : 1;
         }
@@ -331,15 +345,7 @@ class OptionsParserImpl {
     });
 
     List<String> result = Lists.newArrayList();
-    for (int i = 0; i < processed.size(); i++) {
-      UnparsedOptionValueDescription value = processed.get(i);
-      // Skip an option if the next option is the same, but only if the option does not allow
-      // multiple values.
-      if (!value.allowMultiple()) {
-        if ((i < processed.size() - 1) && value.getName().equals(processed.get(i + 1).getName())) {
-          continue;
-        }
-      }
+    for (UnparsedOptionValueDescription value : processed) {
 
       // Ignore expansion options.
       if (value.isExpansion()) {
@@ -448,6 +454,8 @@ class OptionsParserImpl {
     if (removed != null) {
       clearedValues.put(optionName, removed.asOptionValueDescription(optionName));
     }
+
+    canonicalizeValues.removeAll(field);
 
     // Recurse to remove any implicit or expansion flags that this flag may have added when
     // originally parsed.
@@ -642,8 +650,20 @@ class OptionsParserImpl {
         // Log explicit options and expanded options in the order they are parsed (can be sorted
         // later). Also remember whether they were expanded or not. This information is needed to
         // correctly canonicalize flags.
-        unparsedValues.add(new UnparsedOptionValueDescription(originalName, field, value,
-            priority, sourceFunction.apply(originalName), expandedFrom == null));
+        UnparsedOptionValueDescription unparsedOptionValueDescription =
+            new UnparsedOptionValueDescription(
+                originalName,
+                field,
+                value,
+                priority,
+                sourceFunction.apply(originalName),
+                expandedFrom == null);
+        unparsedValues.add(unparsedOptionValueDescription);
+        if (option.allowMultiple()) {          
+          canonicalizeValues.put(field, unparsedOptionValueDescription);
+        } else {
+          canonicalizeValues.replaceValues(field, ImmutableList.of(unparsedOptionValueDescription));
+        }
       }
 
       // Handle expansion options.

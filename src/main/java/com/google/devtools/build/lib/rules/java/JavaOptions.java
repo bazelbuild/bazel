@@ -389,6 +389,12 @@ public class JavaOptions extends FragmentOptions {
       help = "Applies desired link-time optimizations to Java binaries and tests.")
   public JavaOptimizationMode javaOptimizationMode;
 
+  @Option(name = "legacy_bazel_java_test",
+      defaultValue = "true",
+      category = "undocumented",
+      help = "Use the legacy mode of Bazel for java_test.")
+  public boolean legacyBazelJavaTest;
+
   @Override
   public FragmentOptions getHost(boolean fallback) {
     JavaOptions host = (JavaOptions) getDefault();

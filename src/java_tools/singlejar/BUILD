@@ -9,6 +9,10 @@ filegroup(
 java_library(
     name = "libSingleJar",
     srcs = glob(["java/**/singlejar/**/*.java"]),
+    visibility = [
+        "//src:__subpackages__",
+        "//third_party/java/apkbuilder:__pkg__",
+    ],
     deps = [
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/build/lib:shell",

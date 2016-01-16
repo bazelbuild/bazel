@@ -34,12 +34,12 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * Given a rule class and a set of attributes, returns a Rule instance. Also
- * performs a number of checks and associates the rule and the owning package
+ * Given a {@link RuleClass} and a set of attribute values, returns a {@link Rule} instance. Also
+ * performs a number of checks and associates the {@link Rule} and the owning {@link Package}
  * with each other.
  *
- * <p>Note: the code that actually populates the RuleClass map has been moved
- * to {@link RuleClassProvider}.
+ * <p>Note: the code that actually populates the RuleClass map has been moved to {@link
+ * RuleClassProvider}.
  */
 public class RuleFactory {
 
@@ -73,20 +73,20 @@ public class RuleFactory {
    * Creates and returns a rule instance.
    *
    * <p>It is the caller's responsibility to add the rule to the package (the caller may choose not
-   * to do so if, for example, the rule has errors).</p>
+   * to do so if, for example, the rule has errors).
    */
   static Rule createRule(
       Package.Builder pkgBuilder,
       RuleClass ruleClass,
-      Map<String, Object> attributeValues,
+      BuildLangTypedAttributeValuesMap attributeValues,
       EventHandler eventHandler,
-      FuncallExpression ast,
+      @Nullable FuncallExpression ast,
       Location location,
       @Nullable Environment env)
       throws InvalidRuleException, InterruptedException {
     Preconditions.checkNotNull(ruleClass);
     String ruleClassName = ruleClass.getName();
-    Object nameObject = attributeValues.get("name");
+    Object nameObject = attributeValues.getAttributeValue("name");
     if (nameObject == null) {
       throw new InvalidRuleException(ruleClassName + " rule has no 'name' attribute");
     } else if (!(nameObject instanceof String)) {
@@ -113,38 +113,48 @@ public class RuleFactory {
     AttributesAndLocation generator =
         generatorAttributesForMacros(attributeValues, env, location, label);
     try {
-      return ruleClass.createRuleWithLabel(
-          pkgBuilder, label, generator.attributes, eventHandler, ast, generator.location);
+      return ruleClass.createRule(
+          pkgBuilder,
+          label,
+          generator.attributes,
+          eventHandler,
+          ast,
+          generator.location,
+          new AttributeContainer(ruleClass));
     } catch (LabelSyntaxException e) {
       throw new RuleFactory.InvalidRuleException(ruleClass + " " + e.getMessage());
     }
   }
 
   /**
-   * Creates a rule instance, adds it to the package and returns it.
+   * Creates a {@link Rule} instance, adds it to the {@link Package.Builder} and returns it.
    *
-   * @param pkgBuilder the under-construction package to which the rule belongs
-   * @param ruleClass the class of the rule; this must not be null
-   * @param attributeValues a map of attribute names to attribute values. Each
-   *        attribute must be defined for this class of rule, and have a value
-   *        of the appropriate type. There must be a map entry for each
-   *        non-optional attribute of this class of rule.
+   * @param pkgBuilder the under-construction {@link Package.Builder} to which the rule belongs
+   * @param ruleClass the {@link RuleClass} of the rule
+   * @param attributeValues a {@link BuildLangTypedAttributeValuesMap} mapping attribute names to
+   *     attribute values of build-language type. Each attribute must be defined for this class of
+   *     rule, and have a build-language-typed value which can be converted to the appropriate
+   *     native type of the attribute (i.e. via {@link BuildType#selectableConvert}). There must
+   *     be a map entry for each non-optional attribute of this class of rule.
    * @param eventHandler a eventHandler on which errors and warnings are reported during
-   *        rule creation
+   *     rule creation
    * @param ast the abstract syntax tree of the rule expression (optional)
    * @param location the location at which this rule was declared
+   * @param env the lexical environment of the function call which declared this rule (optional)
    * @throws InvalidRuleException if the rule could not be constructed for any
-   *         reason (e.g. no <code>name</code> attribute is defined)
-   * @throws InvalidRuleException, NameConflictException
+   *     reason (e.g. no {@code name} attribute is defined)
+   * @throws NameConflictException if the rule's name or output files conflict with others in this
+   *     package
+   * @throws InterruptedException if interrupted
    */
   static Rule createAndAddRule(
       Package.Builder pkgBuilder,
       RuleClass ruleClass,
-      Map<String, Object> attributeValues,
+      BuildLangTypedAttributeValuesMap attributeValues,
       EventHandler eventHandler,
-      FuncallExpression ast,
+      @Nullable FuncallExpression ast,
       Location location,
-      Environment env)
+      @Nullable Environment env)
       throws InvalidRuleException, NameConflictException, InterruptedException {
     Rule rule = createRule(
         pkgBuilder, ruleClass, attributeValues, eventHandler, ast, location, env);
@@ -152,12 +162,31 @@ public class RuleFactory {
     return rule;
   }
 
+  /**
+   * Creates a {@link Rule} instance, adds it to the {@link Package.Builder} and returns it.
+   *
+   * @param context the package-building context in which this rule was declared
+   * @param ruleClass the {@link RuleClass} of the rule
+   * @param attributeValues a {@link BuildLangTypedAttributeValuesMap} mapping attribute names to
+   *     attribute values of build-language type. Each attribute must be defined for this class
+   *     of rule, and have a build-language-typed value which can be converted to the appropriate
+   *     native type of the attribute (i.e. via {@link BuildType#selectableConvert}). There must
+   *     be a map entry for each non-optional attribute of this class of rule.
+   * @param ast the abstract syntax tree of the rule expression (mandatory because this looks up a
+   *     {@link Location} from the {@code ast})
+   * @param env the lexical environment of the function call which declared this rule (optional)
+   * @throws InvalidRuleException if the rule could not be constructed for any reason (e.g. no
+   *     {@code name} attribute is defined)
+   * @throws NameConflictException if the rule's name or output files conflict with others in this
+   *     package
+   * @throws InterruptedException if interrupted
+   */
   public static Rule createAndAddRule(
       PackageContext context,
       RuleClass ruleClass,
-      Map<String, Object> attributeValues,
+      BuildLangTypedAttributeValuesMap attributeValues,
       FuncallExpression ast,
-      Environment env)
+      @Nullable Environment env)
       throws InvalidRuleException, NameConflictException, InterruptedException {
     return createAndAddRule(
         context.pkgBuilder,
@@ -170,8 +199,8 @@ public class RuleFactory {
   }
 
   /**
-   * InvalidRuleException is thrown by createRule() if the Rule could not be
-   * constructed. It contains an error message.
+   * InvalidRuleException is thrown by {@link Rule} creation methods if the {@link Rule} could
+   * not be constructed. It contains an error message.
    */
   public static class InvalidRuleException extends Exception {
     private InvalidRuleException(String message) {
@@ -179,14 +208,68 @@ public class RuleFactory {
     }
   }
 
-  /** Pair of attributes and location */
+  /** A pair of attributes and location. */
   private static final class AttributesAndLocation {
-    final Map<String, Object> attributes;
+    final BuildLangTypedAttributeValuesMap attributes;
     final Location location;
 
-    AttributesAndLocation(Map<String, Object> attributes, Location location) {
+    AttributesAndLocation(BuildLangTypedAttributeValuesMap attributes, Location location) {
       this.attributes = attributes;
       this.location = location;
+    }
+  }
+
+  /**
+   * A wrapper around an map of named attribute values that specifies whether the map's values
+   * are of "build-language" or of "native" types.
+   */
+  public interface AttributeValuesMap {
+    /**
+     * Returns {@code true} if all the map's values are "build-language typed", i.e., resulting
+     * from the evaluation of an expression in the build language. Returns {@code false} if all
+     * the map's values are "natively typed", i.e. of a type returned by {@link
+     * BuildType#selectableConvert}.
+     */
+    boolean valuesAreBuildLanguageTyped();
+
+    Iterable<String> getAttributeNames();
+
+    Object getAttributeValue(String attributeName);
+
+    boolean isAttributeExplicitlySpecified(String attributeName);
+  }
+
+  /** A {@link AttributeValuesMap} of explicit "build-language" values. */
+  public static final class BuildLangTypedAttributeValuesMap implements AttributeValuesMap {
+
+    private final Map<String, Object> attributeValues;
+
+    public BuildLangTypedAttributeValuesMap(Map<String, Object> attributeValues) {
+      this.attributeValues = attributeValues;
+    }
+
+    private boolean containsAttributeNamed(String attributeName) {
+      return attributeValues.containsKey(attributeName);
+    }
+
+    @Override
+    public boolean valuesAreBuildLanguageTyped() {
+      return true;
+    }
+
+    @Override
+    public Iterable<String> getAttributeNames() {
+      return attributeValues.keySet();
+    }
+
+    @Override
+    public Object getAttributeValue(String attributeName) {
+      return attributeValues.get(attributeName);
+    }
+
+    @Override
+    public boolean isAttributeExplicitlySpecified(String attributeName) {
+      return true;
     }
   }
 
@@ -197,14 +280,17 @@ public class RuleFactory {
    * <p>Otherwise, it returns the given attributes without any changes.
    */
   private static AttributesAndLocation generatorAttributesForMacros(
-      Map<String, Object> args, @Nullable Environment env, Location location, Label label) {
+      BuildLangTypedAttributeValuesMap args,
+      @Nullable Environment env,
+      Location location,
+      Label label) {
     // Returns the original arguments if a) there is only the rule itself on the stack
     // trace (=> no macro) or b) the attributes have already been set by Python pre-processing.
     if (env == null) {
       return new AttributesAndLocation(args, location);
     }
-    boolean hasName = args.containsKey("generator_name");
-    boolean hasFunc = args.containsKey("generator_function");
+    boolean hasName = args.containsAttributeNamed("generator_name");
+    boolean hasFunc = args.containsAttributeNamed("generator_function");
     // TODO(bazel-team): resolve cases in our code where hasName && !hasFunc, or hasFunc && !hasName
     if (hasName || hasFunc) {
       return new AttributesAndLocation(args, location);
@@ -217,23 +303,25 @@ public class RuleFactory {
     FuncallExpression generator = topCall.first;
     BaseFunction function = topCall.second;
     String name = generator.getNameArg();
+    
     ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
-
-    builder.putAll(args);
-    builder.put("generator_name", (name == null) ? args.get("name") : name);
+    for (String attributeName : args.getAttributeNames()) {
+      builder.put(attributeName, args.getAttributeValue(attributeName));
+    }
+    builder.put("generator_name", (name == null) ? args.getAttributeValue("name") : name);
     builder.put("generator_function", function.getName());
 
     if (generator.getLocation() != null) {
       location = generator.getLocation();
     }
-
     String relativePath = maybeGetRelativeLocation(location, label);
     if (relativePath != null) {
       builder.put("generator_location", relativePath);
     }
 
     try {
-      return new AttributesAndLocation(builder.build(), location);
+      return new AttributesAndLocation(
+          new BuildLangTypedAttributeValuesMap(builder.build()), location);
     } catch (IllegalArgumentException ex) {
       // We just fall back to the default case and swallow any messages.
       return new AttributesAndLocation(args, location);

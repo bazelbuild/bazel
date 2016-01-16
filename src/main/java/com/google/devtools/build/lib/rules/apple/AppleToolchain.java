@@ -14,11 +14,27 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
+import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
+
+import java.util.Map;
 
 /**
  * Utility class for resolving items for the Apple toolchain (such as common tool flags, and paths).
@@ -151,5 +167,54 @@ public class AppleToolchain {
         return XcodeprojBuildSetting.newBuilder().setName(key).setValue("YES").build();
       }
     });
+  }
+  
+  /**
+   * Returns a map of environment variables (derived from configuration) that should be propagated
+   * for actions that build on an apple host system. These environment variables are needed by
+   * the apple toolchain. Keys are variable names and values are their corresponding values.
+   * 
+   * @param configProvider info derived from the {@code xcode_config} rule targeted by the label
+   *     of the build flag {@code --xcode_config}
+   */
+  public static Map<String, String> appleHostSystemEnv(XcodeConfigProvider configProvider) {
+    Preconditions.checkNotNull(configProvider);
+    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    if (configProvider.getXcodeVersion().isPresent()) {
+      builder.put(AppleConfiguration.XCODE_VERSION_ENV_NAME,
+          configProvider.getXcodeVersion().get().toString());
+    }
+    return builder.build();
+  }
+  
+  /**
+   * Base rule definition to be ancestor for rules which may require an xcode toolchain.
+   */
+  public static class RequiresXcodeConfigRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          .add(attr(":xcode_config", LABEL)
+              .allowedRuleClasses("xcode_config")
+              .checkConstraints()
+              .direct_compile_time_input()
+              .cfg(HOST)
+              .value(new LateBoundLabel<BuildConfiguration>(
+                  AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL,
+                  AppleConfiguration.class) {
+                @Override
+                public Label getDefault(Rule rule, BuildConfiguration configuration) {
+                  return configuration.getFragment(AppleConfiguration.class).getXcodeConfigLabel();
+                }
+              }))
+          .build();
+    }
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$requires_xcode_config")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
   }
 }

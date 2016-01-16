@@ -62,7 +62,7 @@ public class IosTestRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(
             ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
-        /* <!-- #BLAZE_RULE($ios_test_base_rule).ATTRIBUTE(target_device) -->
+        /* <!-- #BLAZE_RULE(ios_test ).ATTRIBUTE(target_device) -->
         The device against which to run the test.
         ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -72,12 +72,12 @@ public class IosTestRule implements RuleDefinition {
                 .allowedRuleClasses("ios_device")
                 .value(
                     env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc/sim_devices:default")))
-        /* <!-- #BLAZE_RULE($ios_test_base_rule).ATTRIBUTE(xctest) -->
+        /* <!-- #BLAZE_RULE(ios_test ).ATTRIBUTE(xctest) -->
         Whether this target contains tests using the XCTest testing framework.
         ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(IosTest.IS_XCTEST, BOOLEAN).value(true))
-        /* <!-- #BLAZE_RULE($ios_test_base_rule).ATTRIBUTE(xctest_app) -->
+        /* <!-- #BLAZE_RULE(ios_test ).ATTRIBUTE(xctest_app) -->
         A <code>objc_binary</code> or <code>ios_application</code> target that contains the
         app bundle to test against in XCTest.
         This attribute is only valid if <code>xctest</code> is true.

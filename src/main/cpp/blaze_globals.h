@@ -15,8 +15,8 @@
 // blaze_globals.h: The global state in the blaze.cc Blaze client.
 //
 
-#ifndef THIRD_PARTY_BAZEL_SRC_MAIN_CPP_BLAZE_H_
-#define THIRD_PARTY_BAZEL_SRC_MAIN_CPP_BLAZE_H_
+#ifndef BAZEL_SRC_MAIN_CPP_BLAZE_GLOBALS_H_
+#define BAZEL_SRC_MAIN_CPP_BLAZE_GLOBALS_H_
 
 #include <signal.h>
 #include <sys/types.h>
@@ -94,4 +94,5 @@ struct GlobalVariables {
 };
 
 }  // namespace blaze
-#endif  // THIRD_PARTY_BAZEL_SRC_MAIN_CPP_BLAZE_H_
+
+#endif  // BAZEL_SRC_MAIN_CPP_BLAZE_GLOBALS_H_

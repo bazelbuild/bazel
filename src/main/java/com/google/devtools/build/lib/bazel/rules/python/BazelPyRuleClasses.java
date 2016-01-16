@@ -54,12 +54,13 @@ public final class BazelPyRuleClasses {
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the binary target.
           ${SYNOPSIS}
-          See general comments about <code>deps</code>
-          at <a href="#common-attributes">Attributes common to all build rules</a>.
+          See general comments about <code>deps</code> at
+          <a href="common-definitions.html#common-attributes">
+          Attributes common to all build rules</a>.
           These can be
           <a href="#py_binary"><code>py_binary</code></a> rules,
           <a href="#py_library"><code>py_library</code></a> rules or
-          <a href="#cc_library"><code>cc_library</code></a> rules,
+          <a href="c-cpp.html#cc_library"><code>cc_library</code></a> rules,
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .override(builder.copy("deps")
               .allowedRuleClasses(ALLOWED_RULES_IN_DEPS)
@@ -110,8 +111,9 @@ public final class BazelPyRuleClasses {
          /* <!-- #BLAZE_RULE($base_py_binary).ATTRIBUTE(data) -->
          The list of files needed by this binary at runtime.
          ${SYNOPSIS}
-         See general comments about <code>data</code>
-         at <a href="#common-attributes">Attributes common to all build rules</a>.
+         See general comments about <code>data</code> at
+         <a href="common-definitions.html#common-attributes">
+         Attributes common to all build rules</a>.
          Also see the <a href="#py_library.data"><code>data</code></a> argument of
          the <a href="#py_library"><code>py_library</code></a> rule for details.
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -161,7 +163,7 @@ public final class BazelPyRuleClasses {
             <li><code>stamp = 0</code>: Always replace build information by constant
               values. This gives good build result caching.</li>
             <li><code>stamp = -1</code>: Embedding of build information is controlled
-              by the <a href="blaze-user-manual.html#flag--stamp">--[no]stamp</a> Blaze
+              by the <a href="../blaze-user-manual.html#flag--stamp">--[no]stamp</a> Blaze
               flag.</li>
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

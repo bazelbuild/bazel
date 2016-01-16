@@ -49,6 +49,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import javax.annotation.Nullable;
+
 /**
  * A package, which is a container of {@link Rule}s, each of
  * which contains a dictionary of named attributes.
@@ -1001,17 +1003,16 @@ public class Package {
     }
 
     /**
-     * Returns a new Rule belonging to this package instance, and uses the given Label.
+     * Creates a new {@link Rule} {@code r} where {@code r.getPackage()} is the {@link Package}
+     * associated with this {@link Builder}.
      *
-     * <p>Useful for RuleClass instantiation, where the rule name is checked by trying to create a
-     * Label. This label can then be used again here.
+     * <p>The created {@link Rule} will have no attribute values, no output files, and therefore
+     * will be in an invalid state.
      */
-    Rule newRuleWithLabel(Label label, RuleClass ruleClass, Location location) {
-      return newRuleWithLabelAndAttrContainer(label, ruleClass, location,
-          new AttributeContainer(ruleClass));
-    }
-
-    Rule newRuleWithLabelAndAttrContainer(Label label, RuleClass ruleClass, Location location,
+    Rule createRule(
+        Label label,
+        RuleClass ruleClass,
+        Location location,
         AttributeContainer attributeContainer) {
       return new Rule(pkg, label, ruleClass, location, attributeContainer);
     }
@@ -1044,6 +1045,11 @@ public class Package {
 
     public Collection<Target> getTargets() {
       return Package.getTargets(targets);
+    }
+
+    @Nullable
+    public Target getTarget(String name) {
+      return targets.get(name);
     }
 
     /**
@@ -1287,8 +1293,6 @@ public class Package {
       if (alreadyBuilt) {
         return pkg;
       }
-
-      externalPackageData.build(this);
 
       // Freeze targets and distributions.
       targets = ImmutableMap.copyOf(targets);

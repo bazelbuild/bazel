@@ -315,7 +315,7 @@ public final class BuildViewTest extends BuildViewTestBase {
     update("//package:top");
     ConfiguredTarget top = getConfiguredTarget("//package:top", getTargetConfiguration());
     Iterable<Dependency> targets = getView().getDirectPrerequisiteDependenciesForTesting(
-        reporter, top, null, getBuildConfigurationCollection());
+        reporter, top, getBuildConfigurationCollection()).values();
 
     Dependency innerDependency;
     Dependency fileDependency;

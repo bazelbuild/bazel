@@ -499,22 +499,6 @@ public abstract class DependencyResolver {
   }
 
   /**
-   * A variant of {@link #dependentNodeMap} that only returns the values of the resulting map, and
-   * also converts any internally thrown {@link EvalException} instances into {@link
-   * IllegalStateException}.
-   */
-  public final Collection<Dependency> dependentNodes(
-      TargetAndConfiguration node, BuildConfiguration hostConfig,
-      Set<ConfigMatchingProvider> configConditions) throws InterruptedException {
-    try {
-      return ImmutableSet.copyOf(
-          dependentNodeMap(node, hostConfig, /*aspect=*/ null, configConditions).values());
-    } catch (EvalException e) {
-      throw new IllegalStateException(e);
-    }
-  }
-
-  /**
    * Converts the given multimap of attributes to labels into a multi map of attributes to
    * {@link Dependency} objects using the proper configuration transition for each attribute.
    *

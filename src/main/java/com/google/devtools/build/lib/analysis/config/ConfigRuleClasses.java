@@ -211,8 +211,8 @@ ${ATTRIBUTE_SIGNATURE}
 <p>
   Matches an expected configuration state (expressed as Blaze flags) for the purpose of triggering
   configurable attributes. See <a href="#select">select</a> for how to consume this rule and
-  <a href="#configurable-attributes">Configurable attributes</a> for an overview of
-  the general feature.
+  <a href="common-definitions.html#configurable-attributes">
+  Configurable attributes</a> for an overview of the general feature.
 
 ${ATTRIBUTE_DEFINITION}
 
@@ -259,7 +259,8 @@ config_setting(
 <p>The currently endorsed method for creating custom conditions that can't be expressed through
   dedicated build flags is through the --define flag. Use this flag with caution: it's not ideal
   and only endorsed for lack of a currently better workaround. See the
-  <a href="#configurable-attributes">Configurable attributes</a> section for more discussion.
+  <a href="common-definitions.html#configurable-attributes">
+  Configurable attributes</a> section for more discussion.
 </p>
 
 <p>Try to consolidate <code>config_setting</code> definitions as much as possible. In other words,

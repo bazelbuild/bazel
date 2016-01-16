@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -79,14 +78,5 @@ public final class TargetPatternResolverUtil {
       throw new TargetParsingException("'" + pathPrefix + "' is not a valid package name");
     }
     return directory;
-  }
-
-  public static ImmutableSet<PathFragment> getPathFragments(ImmutableSet<String> pathPrefixes)
-      throws TargetParsingException {
-    ImmutableSet.Builder<PathFragment> pathFragmentsBuilder = ImmutableSet.builder();
-    for (String pathPrefix : pathPrefixes) {
-      pathFragmentsBuilder.add(TargetPatternResolverUtil.getPathFragment(pathPrefix));
-    }
-    return pathFragmentsBuilder.build();
   }
 }

@@ -48,8 +48,8 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
     // JavaBuilder are only building resource jars).
     String compressedClasspath = build.getClassPath();
     if (!build.getSourceFiles().isEmpty()) {
-      compressedClasspath = build.getDependencyModule()
-          .computeStrictClasspath(build.getClassPath(), build.getClassDir());
+      compressedClasspath =
+          build.getDependencyModule().computeStrictClasspath(build.getClassPath());
     }
     String[] javacArguments = makeJavacArguments(build, compressedClasspath);
 

@@ -15,15 +15,16 @@
 //
 // blaze_abrupt_exit.h: Deals with abrupt exits of the Blaze server.
 //
-#ifndef THIRD_PARTY_BAZEL_SRC_MAIN_CPP_BLAZE_ABRUPT_EXIT_H_
-#define THIRD_PARTY_BAZEL_SRC_MAIN_CPP_BLAZE_ABRUPT_EXIT_H_
+#ifndef BAZEL_SRC_MAIN_CPP_BLAZE_ABRUPT_EXIT_H_
+#define BAZEL_SRC_MAIN_CPP_BLAZE_ABRUPT_EXIT_H_
 
 namespace blaze {
 
-class GlobalVariables;
+struct GlobalVariables;
 
 // Returns the exit code to use for when the Blaze server exits abruptly.
 int GetExitCodeForAbruptExit(const GlobalVariables& globals);
 
 }  // namespace blaze
-#endif  // THIRD_PARTY_BAZEL_SRC_MAIN_CPP_BLAZE_ABRUPT_EXIT_H_
+
+#endif  // BAZEL_SRC_MAIN_CPP_BLAZE_ABRUPT_EXIT_H_

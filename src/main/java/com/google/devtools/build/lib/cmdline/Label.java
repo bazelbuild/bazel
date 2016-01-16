@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.collect.ComparisonChain;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -42,6 +43,18 @@ import java.io.Serializable;
 @Immutable @ThreadSafe
 public final class Label implements Comparable<Label>, Serializable, SkylarkPrintableValue {
   public static final PathFragment EXTERNAL_PACKAGE_NAME = new PathFragment("external");
+
+  /**
+   * Package names that aren't made relative to the current repository because they mean special
+   * things to Bazel.
+   */
+  private static final ImmutableSet<PathFragment> ABSOLUTE_PACKAGE_NAMES = ImmutableSet.of(
+      // dependencies that are a function of the configuration
+      new PathFragment("tools/defaults"),
+      // Visibility is labels aren't actually targets
+      new PathFragment("visibility"),
+      // There is only one //external package
+      Label.EXTERNAL_PACKAGE_NAME);
 
   public static final PackageIdentifier EXTERNAL_PACKAGE_IDENTIFIER =
       PackageIdentifier.createInDefaultRepo(EXTERNAL_PACKAGE_NAME);
@@ -250,6 +263,20 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   public String getPackageName() {
     return packageIdentifier.getPackageFragment().getPathString();
   }
+  
+  /**
+   * Returns the execution root for the workspace, relative to the execroot (e.g., for label
+   * {@code @repo//pkg:b}, it will returns {@code external/repo/pkg} and for label {@code //pkg:a},
+   * it will returns an empty string.
+   */
+  @SkylarkCallable(name = "workspace_root", structField = true,
+      doc = "Returns the execution root for the workspace of this label, relative to the execroot. "
+      + "For instance:<br>"
+      + "<pre class=language-python>Label(\"@repo//pkg/foo:abc\").workspace_root =="
+      + " \"external/repo\"</pre>")
+  public String getWorkspaceRoot() {
+    return packageIdentifier.getRepository().getPathFragment().toString();
+  }
 
   /**
    * Returns the path fragment of the package in which this rule was declared (e.g. {@code
@@ -386,7 +413,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
 
     if (packageIdentifier.getRepository().isDefault()
         || !relative.packageIdentifier.getRepository().isDefault()
-        || relative.packageIdentifier.getPackageFragment().equals(EXTERNAL_PACKAGE_NAME)) {
+        || ABSOLUTE_PACKAGE_NAMES.contains(relative.getPackageIdentifier().getPackageFragment())) {
       return relative;
     } else {
       try {

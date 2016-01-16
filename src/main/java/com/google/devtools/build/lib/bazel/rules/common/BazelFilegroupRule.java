@@ -39,7 +39,8 @@ public final class BazelFilegroupRule implements RuleDefinition {
         The list of targets that are members of the file group.
         ${SYNOPSIS}
         <p>
-          It is common to use the result of a <a href="#glob">glob</a> expression for the value
+          It is common to use the result of a <a href="functions.html#glob">glob</a> expression for
+          the value
           of the <code>srcs</code> attribute. If a rule and a source file with the same name both
           exist in the package, the glob will return the outputs of the rule instead of the source
           file.
@@ -54,9 +55,9 @@ public final class BazelFilegroupRule implements RuleDefinition {
           <code>runfiles</code> of this <code>filegroup</code> rule. When the
           <code>filegroup</code> is referenced in the <code>data</code> attribute of
           another rule its <code>runfiles</code> will be added to the <code>runfiles</code>
-          of the depending rule. See the <a href="build-ref.html#data">data dependencies</a>
-          section and <a href="#common.data">general documentation of <code>data</code></a>
-          for more information about how to depend on and use data files.
+          of the depending rule. See the <a href="../build-ref.html#data">data dependencies</a>
+          section and <a href="common-definitions.html#common.data">general documentation of
+          <code>data</code></a> for more information about how to depend on and use data files.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("data", LABEL_LIST).cfg(DATA).allowedFileTypes(FileTypeSet.ANY_FILE))
@@ -96,8 +97,8 @@ ${ATTRIBUTE_SIGNATURE}
   Using <code>filegroup</code> is encouraged instead of referencing directories directly.
   The latter is unsound since the build system does not have full knowledge of all files
   below the directory, so it may not rebuild when these files change. When combined with
-  <a href="#glob">glob</a>, <code>filegroup</code> can ensure that all files are explicitly
-  known to the build system.
+  <a href="functions.html#glob">glob</a>, <code>filegroup</code> can ensure that all files are
+  explicitly known to the build system.
 </p>
 
 ${ATTRIBUTE_DEFINITION}

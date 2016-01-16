@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.cmdline;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.util.BatchCallback;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
  * A callback interface that is used during the process of converting target patterns (such as
@@ -86,7 +87,7 @@ public interface TargetPatternResolver<T> {
       String originalPattern,
       String directory,
       boolean rulesOnly,
-      ImmutableSet<String> excludedSubdirectories,
+      ImmutableSet<PathFragment> excludedSubdirectories,
       BatchCallback<T, E> callback)
       throws TargetParsingException, E, InterruptedException;
 

@@ -176,7 +176,7 @@ public final class RuleContext extends TargetContext
     parseFeatures(getConfiguration().getDefaultFeatures(), globallyEnabled, globallyDisabled);
     for (ImmutableMap.Entry<Class<? extends Fragment>, Fragment> entry :
         getConfiguration().getAllFragments().entrySet()) {
-      if (configurationFragmentPolicy.isLegalConfigurationFragment(entry.getKey())) {
+      if (isLegalFragment(entry.getKey())) {
         globallyEnabled.addAll(entry.getValue().configurationEnabledFeatures(this));
       }
     }
@@ -1215,7 +1215,7 @@ public final class RuleContext extends TargetContext
     // Check visibility attribute
     for (PackageSpecification specification :
       prerequisite.getProvider(VisibilityProvider.class).getVisibility()) {
-      if (specification.containsPackage(rule.getLabel().getPackageFragment())) {
+      if (specification.containsPackage(rule.getLabel().getPackageIdentifier())) {
         return true;
       }
     }

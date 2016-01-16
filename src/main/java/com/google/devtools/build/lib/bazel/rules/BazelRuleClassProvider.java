@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.rules.android.AndroidLibraryBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
@@ -341,6 +342,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new ObjcRuleClasses.CompileDependencyRule());
     builder.addRuleDefinition(new ObjcRuleClasses.ResourceToolsRule());
     builder.addRuleDefinition(new ObjcRuleClasses.XcrunRule());
+    builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule());
     builder.addRuleDefinition(new IosApplicationRule());
     builder.addRuleDefinition(new IosExtensionBinaryRule());
     builder.addRuleDefinition(new IosExtensionRule());

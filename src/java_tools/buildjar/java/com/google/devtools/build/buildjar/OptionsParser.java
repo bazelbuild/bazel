@@ -61,7 +61,7 @@ public final class OptionsParser {
   private final List<String> resourceJars = new ArrayList<>();
   private final List<String> rootResourceFiles = new ArrayList<>();
 
-  private String classPath;
+  private String classPath = "";
 
   private String extdir;
 

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
@@ -49,12 +50,17 @@ public final class CanonicalizeCommand implements BlazeCommand {
             category = "misc",
             help = "The command for which the options should be canonicalized.")
     public String forCommand;
+
+    @Option(name = "invocation_policy",
+        defaultValue = "null")
+    public String invocationPolicy;
   }
 
   @Override
   public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
     BlazeRuntime runtime = env.getRuntime();
-    String commandName = options.getOptions(Options.class).forCommand;
+    Options canonicalizeOptions = options.getOptions(Options.class);
+    String commandName = canonicalizeOptions.forCommand;
     BlazeCommand command = runtime.getCommandMap().get(commandName);
     if (command == null) {
       env.getReporter().handle(Event.error("Not a valid command: '" + commandName
@@ -65,7 +71,17 @@ public final class CanonicalizeCommand implements BlazeCommand {
         BlazeCommandUtils.getOptions(
             command.getClass(), runtime.getBlazeModules(), runtime.getRuleClassProvider());
     try {
-      List<String> result = OptionsParser.canonicalize(optionsClasses, options.getResidue());
+      
+      OptionsParser parser = OptionsParser.newOptionsParser(optionsClasses);
+      parser.setAllowResidue(false);
+      parser.parse(options.getResidue());
+
+      InvocationPolicyEnforcer invocationPolicyEnforcer = InvocationPolicyEnforcer.create(
+          canonicalizeOptions.invocationPolicy);
+      invocationPolicyEnforcer.enforce(parser, commandName);
+
+      List<String> result = parser.canonicalize();
+
       for (String piece : result) {
         env.getReporter().getOutErr().printOutLn(piece);
       }

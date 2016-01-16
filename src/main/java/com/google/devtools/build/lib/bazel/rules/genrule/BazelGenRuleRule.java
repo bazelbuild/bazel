@@ -74,7 +74,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
         ${SYNOPSIS}
         <p>
           The build system ensures these prerequisites are built before running the genrule command;
-          they are built using the <a href='blaze-user-manual.html#configurations'><i>host</i>
+          they are built using the <a href='../blaze-user-manual.html#configurations'><i>host</i>
           configuration</a>, since these tools are executed as part of the build. The path of an
           individual <code>tools</code> target <code>//x:y</code> can be obtained using
           <code>$(location //x:y)</code>.
@@ -104,7 +104,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(cmd) -->
         The command to run.
         ${SYNOPSIS}
-        Subject to <a href="#location">$(location)</a> and <a href="#make_variables">"Make"
+        Subject to <a href="#location">$(location)</a> and <a href="make-variables.html">"Make"
         variable</a> substitution.
         <ol>
           <li>
@@ -121,10 +121,11 @@ public final class BazelGenRuleRule implements RuleDefinition {
             </p>
           </li>
           <li>
-            Next, <a href="#make_variables">"Make" variables</a> are expanded. Note that predefined
-            variables <code>$(JAVA)</code>, <code>$(JAVAC)</code> and <code>$(JAVABASE)</code>
-            expand under the <i>host</i> configuration, so Java invocations that run as part of a
-            build step can correctly load shared libraries and other dependencies.
+            Next, <a href="make-variables.html">"Make" variables</a> are expanded. Note that
+            predefined variables <code>$(JAVA)</code>, <code>$(JAVAC)</code> and
+            <code>$(JAVABASE)</code> expand under the <i>host</i> configuration, so Java invocations
+            that run as part of a build step can correctly load shared libraries and other
+            dependencies.
           </li>
           <li>
             Finally, the resulting command is executed using the Bash shell. If its exit code is
@@ -134,10 +135,11 @@ public final class BazelGenRuleRule implements RuleDefinition {
         <p>
           The command may refer to binaries that were declared as
           <a href="#genrule.tools"><code>tools</code></a>; it should use a
-          <a href="build-ref.html#labels">label</a> and <code>$(location)</code> expansion for this.
-          The <a href="#predefined_variables">Predefined "Make" Variables</a> and the
-          <a href="#predefined_variables.genrule.cmd">genrule-specific "Make" variables</a> are also
-          available for <code>cmd</code>.
+          <a href="../build-ref.html#labels">label</a> and <code>$(location)</code> expansion for
+          this.
+          The <a href="make-variables.html#predefined_variables">Predefined "Make" Variables</a> and
+          the <a href="make-variables.html#predefined_variables.genrule.cmd">genrule-specific "Make"
+          variables</a> are also available for <code>cmd</code>.
         </p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("cmd", STRING).mandatory())
@@ -242,7 +244,7 @@ ${ATTRIBUTE_SIGNATURE}
 <h4>Cross-compilation Considerations</h4>
 
 <p>
-  <em>See <a href="bazel-user-manual.html#configurations">the user manual</a> for more info about
+  <em>See <a href="../bazel-user-manual.html#configurations">the user manual</a> for more info about
   cross-compilation.</em>
 </p>
 <p>
@@ -262,7 +264,7 @@ ${ATTRIBUTE_SIGNATURE}
   For genrules, the build system ensures that dependencies are built appropriately:
   <code>srcs</code> are built (if necessary) for the <em>target</em> configuration,
   <code>tools</code> are built for the <em>host</em> configuration, and the output is considered to
-  be for the <em>target</em> configuration. It also provides <a href="#make_variables">"Make"
+  be for the <em>target</em> configuration. It also provides <a href="make-variables.html">"Make"
   variables</a> that genrule commands can pass to the corresponding tools.
 </p>
 <p>
@@ -281,12 +283,13 @@ ${ATTRIBUTE_SIGNATURE}
   host configuration, because that's where the compiler will run in the other genrule. In this case,
   the build system does the right thing automatically: it builds the <code>srcs</code> and
   <code>outs</code> of the first genrule for the host configuration instead of the target
-  configuration. See <a href="bazel-user-manual.html#configurations">the user manual</a> for more
+  configuration. See <a href="../bazel-user-manual.html#configurations">the user manual</a> for more
   info.
 </p>
 <p>
   <i>JDK & C++ Tooling</i>: to use a tool from the JDK or the C++ compiler suite, the build system
-  provides a set of variables to use. See <a href="#make_variables">"Make" variable</a> for details.
+  provides a set of variables to use. See <a href="make-variables.html">"Make" variable</a> for
+  details.
 </p>
 
 <h4>Genrule Environment</h4>
@@ -351,9 +354,9 @@ genrule(
 </pre>
 
 <p>
-  The following example shows how to use a <a href="#filegroup"><code>filegroup</code></a> and
-  the outputs of another <code>genrule</code>. Note that using <code>$(SRCS)</code> instead of
-  explicit <code>$(location)</code> directives would also work; this example uses the latter for
+  The following example shows how to use a <a href="general.html#filegroup"><code>filegroup</code>
+  </a> and the outputs of another <code>genrule</code>. Note that using <code>$(SRCS)</code> instead
+  of explicit <code>$(location)</code> directives would also work; this example uses the latter for
   sake of demonstration.
 </p>
 <pre class="code">

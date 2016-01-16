@@ -144,6 +144,30 @@ EOF
     "bazel-genfiles/external/a/b/c/d"
 }
 
+function test_package_group_in_external_repos() {
+  REMOTE=$TEST_TMPDIR/r
+  mkdir -p $REMOTE/v $REMOTE/a v a
+
+  echo 'filegroup(name="rv", srcs=["//:fg"])' > $REMOTE/v/BUILD
+  echo 'filegroup(name="ra", srcs=["//:fg"])' > $REMOTE/a/BUILD
+  echo 'filegroup(name="mv", srcs=["@r//:fg"])' > v/BUILD
+  echo 'filegroup(name="ma", srcs=["@r//:fg"])' > a/BUILD
+  cat > $REMOTE/BUILD <<EOF
+package_group(name="pg", packages=["//v"])
+filegroup(name="fg", visibility=[":pg"])
+EOF
+
+  echo "local_repository(name='r', path='$REMOTE')" > WORKSPACE
+  bazel build @r//v:rv >& $TEST_log || fail "Build failed"
+  bazel build @r//a:ra >& $TEST_log && fail "Build succeeded"
+  expect_log "Target '@r//:fg' is not visible"
+  bazel build //a:ma >& $TEST_log && fail "Build succeeded"
+  expect_log "Target '@r//:fg' is not visible"
+  bazel build //v:mv >& $TEST_log && fail "Build succeeded"
+  expect_log "Target '@r//:fg' is not visible"
+
+}
+
 # Regression test for #517.
 function test_refs_btwn_repos() {
   REMOTE1=$TEST_TMPDIR/remote1
@@ -177,6 +201,74 @@ EOF
 
   bazel build @remote2//:x &> $TEST_log || fail "Build failed"
   assert_contains 1.0 bazel-genfiles/external/remote2/x.out
+}
+
+function test_visibility_attributes_in_external_repos() {
+  REMOTE=$TEST_TMPDIR/r
+  mkdir -p $REMOTE/v $REMOTE/r
+
+  cat > $REMOTE/r/BUILD <<EOF
+package(default_visibility=["//v:v"])
+filegroup(name='fg1')  # Inherits default visibility
+filegroup(name='fg2', visibility=["//v:v"])
+EOF
+
+  cat > $REMOTE/v/BUILD <<EOF
+package_group(name="v", packages=["//"])
+EOF
+
+  cat >$REMOTE/BUILD <<EOF
+filegroup(name="fg", srcs=["//r:fg1", "//r:fg2"])
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(name = "r", path = "$REMOTE")
+EOF
+
+  cat > BUILD <<EOF
+filegroup(name="fg", srcs=["@r//r:fg1", "@r//r:fg2"])
+EOF
+
+  bazel build @r//:fg || fail "Build failed"
+  bazel build //:fg >& $TEST_log && fail "Build succeeded"
+  expect_log "Target '@r//r:fg1' is not visible"
+
+}
+
+function test_select_in_external_repo() {
+  REMOTE=$TEST_TMPDIR/r
+  mkdir -p $REMOTE/a $REMOTE/c
+
+  cat > $REMOTE/a/BUILD <<'EOF'
+genrule(
+    name = "gr",
+    srcs = [],
+    outs = ["gro"],
+    cmd = select({
+      "//c:one": "echo one > $@",
+      ":two": "echo two > $@",
+      "//conditions:default": "echo default > $@",
+    }))
+
+config_setting(name = "two", values = { "define": "ARG=two" })
+EOF
+
+  cat > $REMOTE/c/BUILD <<EOF
+package(default_visibility=["//visibility:public"])
+config_setting(name = "one", values = { "define": "ARG=one" })
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(name="r", path="$REMOTE")
+EOF
+
+  bazel build @r//a:gr || fail "build failed"
+  assert_contains "default" bazel-genfiles/external/r/a/gro
+  bazel build @r//a:gr --define=ARG=one|| fail "build failed"
+  assert_contains "one" bazel-genfiles/external/r/a/gro
+  bazel build @r//a:gr --define=ARG=two || fail "build failed"
+  assert_contains "two" bazel-genfiles/external/r/a/gro
+
 }
 
 run_suite "//external correctness tests"

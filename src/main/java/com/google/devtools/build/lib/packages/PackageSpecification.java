@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.base.Verify;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelValidator;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -25,14 +27,31 @@ public abstract class PackageSpecification {
   private static final String SUBTREE_LABEL = "__subpackages__";
   private static final String ALL_BENEATH_SUFFIX = "/...";
   public static final PackageSpecification EVERYTHING =
-      new AllPackagesBeneath(new PathFragment(""));
+      new PackageSpecification() {
+        @Override
+        public boolean containsPackage(PackageIdentifier packageName) {
+          return true;
+        }
 
-  public abstract boolean containsPackage(PathFragment packageName);
+        @Override
+        protected String asString() {
+          return "//...";
+        }
+      };
+
+  public abstract boolean containsPackage(PackageIdentifier packageName);
 
   @Override
   public int hashCode() {
-    return toString().hashCode();
+    return asString().hashCode();
   }
+
+  @Override
+  public final String toString() {
+    return asString();
+  }
+
+  protected abstract String asString();
 
   @Override
   public boolean equals(Object that) {
@@ -44,7 +63,7 @@ public abstract class PackageSpecification {
       return false;
     }
 
-    return this.toString().equals(that.toString());
+    return this.asString().equals(((PackageSpecification) that).asString());
   }
 
   /**
@@ -53,39 +72,39 @@ public abstract class PackageSpecification {
    *
    * <p>Note that these strings are different from what {@link #fromLabel} understands.
    */
-  public static PackageSpecification fromString(final String spec)
+  public static PackageSpecification fromString(Label context, final String spec)
       throws InvalidPackageSpecificationException {
     String result = spec;
     boolean allBeneath = false;
-
-    if (result.startsWith("//")) {
-      result = spec.substring(2);
-    } else {
-      throw new InvalidPackageSpecificationException("invalid package label: " + spec);
-    }
-
-    if (result.indexOf(':') >= 0) {
-      throw new InvalidPackageSpecificationException("invalid package label: " + spec);
-    }
-
-    if (result.equals("...")) {
-      // Special case: //... will not end in /...
-      return EVERYTHING;
-    }
-
     if (result.endsWith(ALL_BENEATH_SUFFIX)) {
       allBeneath = true;
       result = result.substring(0, result.length() - ALL_BENEATH_SUFFIX.length());
+      if (result.equals("/")) {
+        // Special case: //... will not end in /...
+        return EVERYTHING;
+      }
     }
 
-    String errorMessage = LabelValidator.validatePackageName(result);
-    if (errorMessage == null) {
-      return allBeneath ?
-          new AllPackagesBeneath(new PathFragment(result)) :
-          new SinglePackage(new PathFragment(result));
-    } else {
-      throw new InvalidPackageSpecificationException(errorMessage);
+    if (!spec.startsWith("//")) {
+      throw new InvalidPackageSpecificationException("invalid package name '" + spec
+          + "': must start with '//'");
     }
+
+    PackageIdentifier packageId;
+    try {
+      packageId = PackageIdentifier.parse(result);
+    } catch (LabelSyntaxException e) {
+      throw new InvalidPackageSpecificationException(
+          "invalid package name '" + spec + "': " + e.getMessage());
+    }
+
+    Verify.verify(packageId.getRepository().isDefault());
+    packageId = PackageIdentifier.create(
+        context.getPackageIdentifier().getRepository(), packageId.getPackageFragment());
+
+    return allBeneath ?
+        new AllPackagesBeneath(packageId) :
+        new SinglePackage(packageId);
   }
 
   /**
@@ -95,46 +114,47 @@ public abstract class PackageSpecification {
    */
   public static PackageSpecification fromLabel(Label label) {
     if (label.getName().equals(PACKAGE_LABEL)) {
-      return new SinglePackage(label.getPackageFragment());
+      return new SinglePackage(label.getPackageIdentifier());
     } else if (label.getName().equals(SUBTREE_LABEL)) {
-      return new AllPackagesBeneath(label.getPackageFragment());
+      return new AllPackagesBeneath(label.getPackageIdentifier());
     } else {
       return null;
     }
   }
 
   private static class SinglePackage extends PackageSpecification {
-    private PathFragment singlePackageName;
+    private PackageIdentifier singlePackageName;
 
-    public SinglePackage(PathFragment packageName) {
+    public SinglePackage(PackageIdentifier packageName) {
       this.singlePackageName = packageName;
     }
 
     @Override
-    public boolean containsPackage(PathFragment packageName) {
+    public boolean containsPackage(PackageIdentifier packageName) {
       return this.singlePackageName.equals(packageName);
     }
 
     @Override
-    public String toString() {
+    protected String asString() {
       return singlePackageName.toString();
     }
   }
 
   private static class AllPackagesBeneath extends PackageSpecification {
-    private PathFragment prefix;
+    private PackageIdentifier prefix;
 
-    public AllPackagesBeneath(PathFragment prefix) {
+    public AllPackagesBeneath(PackageIdentifier prefix) {
       this.prefix = prefix;
     }
 
     @Override
-    public boolean containsPackage(PathFragment packageName) {
-      return packageName.startsWith(prefix);
+    public boolean containsPackage(PackageIdentifier packageName) {
+      return packageName.getRepository().equals(prefix.getRepository())
+          && packageName.getPackageFragment().startsWith(prefix.getPackageFragment());
     }
 
     @Override
-    public String toString() {
+    protected String asString() {
       return prefix.equals(new PathFragment("")) ? "..." : prefix + "/...";
     }
   }

@@ -124,7 +124,7 @@ class GenericTypeHelper {
         return Primitives.wrap(toClass).equals(from);
       }
     }
-    return TypeToken.of(to).isAssignableFrom(from);
+    return TypeToken.of(to).isSupertypeOf(from);
   }
 
   private GenericTypeHelper() {

@@ -139,7 +139,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           .setLocation(location);
       for (Attribute attr : rule.getAttributes()) {
         if (!includeDefaultValues && !rule.isAttributeValueExplicitlySpecified(attr)
-            || !includeAttribute(attr)) {
+            || !includeAttribute(rule, attr)) {
           continue;
         }
         Iterable<Object> possibleAttributeValues =
@@ -325,7 +325,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   protected void postProcess(Rule rule, Build.Rule.Builder rulePb) { }
 
   /** Filter out some attributes */
-  protected boolean includeAttribute(Attribute attr) {
+  protected boolean includeAttribute(Rule rule, Attribute attr) {
     return true;
   }
 }

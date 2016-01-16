@@ -435,6 +435,40 @@ EOF
   expect_log "Tra-la!"
 }
 
+function test_empty_file() {
+  rm -f empty
+  touch empty
+  tar czf x.tar.gz empty
+  local sha256=$(sha256sum x.tar.gz | cut -f 1 -d ' ')
+  serve_file x.tar.gz
+
+  cat > WORKSPACE <<EOF
+new_http_archive(
+    name = "x",
+    url = "http://localhost:$nc_port/x.tar.gz",
+    sha256 = "$sha256",
+    build_file = "x.BUILD",
+)
+EOF
+  cat > x.BUILD <<EOF
+exports_files(["empty"])
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+  name = "rule",
+  srcs = ["@x//:empty"],
+  outs = ["timestamp"],
+  cmd = "date > $@",
+)
+EOF
+
+  bazel build //:rule || fail "Build failed"
+  bazel shutdown || fail "Shutdown failed"
+  cp bazel-genfiles/timestamp first_timestamp || fail "No output"
+  sleep 1 # Make sure we're on a different second to avoid false passes.
+  bazel build //:rule || fail "Build failed"
+  diff bazel-genfiles/timestamp first_timestamp || fail "Output was built again"
+}
 
 function test_invalid_rule() {
   # http_jar with missing URL field.
@@ -515,7 +549,8 @@ EOF
   output_base=$(bazel info output_base)
   external_dir=$output_base/external
   needle=endangered
-  [[ $(ls $external_dir | grep $needle) ]] && fail "$needle already in $external_dir"
+  [[ -d $external_dir/$needle ]] \
+      && fail "$needle already exists in $external_dir" || true
   bazel fetch //zoo:ball-pit >& $TEST_log || fail "Fetch failed"
   [[ $(ls $external_dir | grep $needle) ]] || fail "$needle not added to $external_dir"
 

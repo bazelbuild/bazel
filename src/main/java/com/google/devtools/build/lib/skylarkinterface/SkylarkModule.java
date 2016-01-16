@@ -18,6 +18,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+import javax.annotation.Nullable;
+
 /**
  * An annotation to mark Skylark modules or Skylark accessible Java data types.
  * A Skylark modules always corresponds to exactly one Java class.
@@ -33,4 +35,20 @@ public @interface SkylarkModule {
   boolean documented() default true;
 
   boolean namespace() default false;
+
+  /** Helper method to quickly get the SkylarkModule name of a class (if present). */
+  public static final class Resolver {
+    /**
+     * Returns the Skylark name of the given class or null, if the SkylarkModule annotation is not
+     * present.
+     */
+    @Nullable
+    public static String resolveName(Class<?> clazz) {
+      SkylarkModule annotation = clazz.getAnnotation(SkylarkModule.class);
+      return (annotation == null) ? null : annotation.name();
+    }
+
+    /** Utility method only. */
+    private Resolver() {}
+  }
 }

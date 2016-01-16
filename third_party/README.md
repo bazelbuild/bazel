@@ -62,6 +62,14 @@ a minimal set of extra dependencies.
 * License: Apache License 2.0.
 
 
+## apkbuilder
+
+* [apkbuilder](http://search.maven.org/remotecontent?filepath=com/android/tools/sdklib/22.8.4/sdklib-22.8.4-sources.jar)
+* [android common](http://search.maven.org/remotecontent?filepath=com/android/tools/sdk-common/22.8.4/sdk-common-22.8.4-sources.jar)
+* Version: 22.8.4
+* License: Apache License 2.0.
+
+
 ## [asm](https://asm.ow2.org)
 
 * Version: 5.0.4

@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import static org.junit.Assert.assertFalse;
 
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.packages.util.PackageFactoryApparatus;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -50,7 +51,8 @@ public class PackageGroupStaticInitializationTest {
               @Override
               public void run() {
                 try {
-                  groupQueue.put(PackageSpecification.fromString("//fruits/..."));
+                  groupQueue.put(PackageSpecification.fromString(
+                      Label.parseAbsoluteUnchecked("//context"), "//fruits/..."));
                 } catch (Exception e) {
                   // Can't throw from Runnable, but this will cause the test to timeout
                   // when the consumer can't take the object.

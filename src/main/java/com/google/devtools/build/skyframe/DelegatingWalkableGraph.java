@@ -15,7 +15,6 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -52,9 +51,14 @@ public class DelegatingWalkableGraph implements WalkableGraph {
     return entry;
   }
 
+  /**
+   * Returns a map giving the {@link NodeEntry} corresponding to the given {@code keys}. If there is
+   * no node in the graph corresponding to a {@link SkyKey} in {@code keys}, it is silently ignored
+   * and will not be present in the returned map. This tolerance allows callers to avoid
+   * pre-filtering their keys by checking for existence, which can be expensive.
+   */
   private static Map<SkyKey, NodeEntry> getEntries(Iterable<SkyKey> keys, QueryableGraph graph) {
     Map<SkyKey, NodeEntry> result = graph.getBatch(keys);
-    Preconditions.checkState(result.size() == Iterables.size(keys), "%s %s", keys, result);
     for (Map.Entry<SkyKey, NodeEntry> entry : result.entrySet()) {
       Preconditions.checkState(entry.getValue().isDone(), entry);
     }

@@ -18,7 +18,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
@@ -90,12 +89,10 @@ public interface AndroidSemantics {
   ImmutableList<String> getDxJvmArguments();
 
   /**
-   * Adds command line arguments and inputs to a {@code ApkBuilder} invocation to control how to
-   * sign the app.
+   * Returns the artifact for the debug key for signing the APK.
    */
-  void addSigningArguments(
-      RuleContext ruleContext, boolean sign, SpawnAction.Builder actionBuilder);
-
+  Artifact getApkDebugSigningKey(RuleContext ruleContext);
+  
   /**
    * Add coverage instrumentation to the Java compilation of an Android binary.
    * @throws InterruptedException 

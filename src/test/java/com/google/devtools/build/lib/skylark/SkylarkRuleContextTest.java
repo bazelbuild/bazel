@@ -354,6 +354,75 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testGetRule() throws Exception {
+    scratch.file("test/skylark/BUILD");
+    scratch.file(
+        "test/skylark/rulestr.bzl",
+        "def rule_dict(name):",
+        "  return native.rule(name)",
+        "def rules_dict():",
+        "  return native.rules()",
+        "def nop(ctx):",
+        "  pass",
+        "nop_rule = rule(attrs = {'x': attr.label()}, implementation = nop)",
+        "consume_rule = rule(attrs = {'s': attr.string_list()}, implementation = nop)");
+
+    scratch.file(
+        "test/getrule/BUILD",
+        "load('/test/skylark/rulestr', 'rules_dict', 'rule_dict', 'nop_rule', 'consume_rule')",
+        "genrule(name = 'a', outs = ['a.txt'], tools = [ '//test:bla' ], cmd = 'touch $@')",
+        "nop_rule(name = 'c', x = ':a')",
+        "rlist= rules_dict()",
+        "consume_rule(name = 'all_str', s = [rlist['a']['kind'], rlist['a']['name'], ",
+        "                                    rlist['c']['kind'], rlist['c']['name']])",
+        "adict = rule_dict('a')",
+        "cdict = rule_dict('c')",
+        "consume_rule(name = 'a_str', ",
+        "             s = [adict['kind'], adict['name'], adict['outs'][0], adict['tools'][0]])",
+        "consume_rule(name = 'genrule_attr', ",
+        "             s = adict.keys())",
+        "consume_rule(name = 'c_str', s = [cdict['kind'], cdict['name'], cdict['x']])");
+
+    SkylarkRuleContext allContext = createRuleContext("//test/getrule:all_str");
+    Object result = evalRuleContextCode(allContext, "ruleContext.attr.s");
+    assertEquals(
+        new SkylarkList.MutableList(ImmutableList.<String>of("genrule", "a", "nop_rule", "c")),
+        result);
+
+    result = evalRuleContextCode(createRuleContext("//test/getrule:a_str"), "ruleContext.attr.s");
+    assertEquals(
+        new SkylarkList.MutableList(
+            ImmutableList.<String>of("genrule", "a", ":a.txt", "//test:bla")),
+        result);
+
+    result = evalRuleContextCode(createRuleContext("//test/getrule:c_str"), "ruleContext.attr.s");
+    assertEquals(
+        new SkylarkList.MutableList(ImmutableList.<String>of("nop_rule", "c", ":a")), result);
+
+    result =
+        evalRuleContextCode(createRuleContext("//test/getrule:genrule_attr"), "ruleContext.attr.s");
+    assertEquals(
+        new SkylarkList.MutableList(
+            ImmutableList.<String>of(
+                "cmd",
+                "compatible_with",
+                "features",
+                "generator_function",
+                "generator_location",
+                "generator_name",
+                "kind",
+                "message",
+                "name",
+                "outs",
+                "restricted_to",
+                "srcs",
+                "tags",
+                "tools",
+                "visibility")),
+        result);
+  }
+
+  @Test
   public void testGetRuleAttributeListValue() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     Object result = evalRuleContextCode(ruleContext, "ruleContext.attr.outs");

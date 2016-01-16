@@ -15,12 +15,14 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultLabelConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 
 import java.util.List;
@@ -76,14 +78,45 @@ public class AppleCommandLineOptions extends FragmentOptions {
       category = "undocumented",
       converter = DefaultProvisioningProfileConverter.class)
   public Label defaultProvisioningProfile;
+  
+  @Option(name = "xcode_version_config",
+      defaultValue = "",
+      category = "undocumented",
+      converter = XcodeVersionConfigConverter.class,
+      help = "The label of the xcode_config rule to be used for selecting the xcode version "
+          + "in the build configuration")
+  public Label xcodeVersionConfig;
+
+  /**
+   * The default label of the build-wide {@code xcode_config} configuration rule. This can be
+   * changed from the default using the {@code xcode_version_config} build flag.
+   */
+  static final String DEFAULT_XCODE_VERSION_CONFIG_LABEL =
+      Constants.TOOLS_REPOSITORY + "//tools/objc:host_xcodes";
 
   /** Converter for --default_ios_provisioning_profile. */
   public static class DefaultProvisioningProfileConverter extends DefaultLabelConverter {
     public DefaultProvisioningProfileConverter() {
-      super(Constants.TOOLS_REPOSITORY + "//tools/objc:default_provisioning_profile");
+      super("//tools/objc:default_provisioning_profile");
     }
   }
 
+  @Option(name = "apple_bitcode",
+      converter = AppleBitcodeMode.Converter.class,
+      // TODO(blaze-team): Default to embedded_markers when fully implemented.
+      defaultValue = "none",
+      category = "flags",
+      help = "Specify the Apple bitcode mode for compile steps. "
+             + "Values: 'none', 'embedded_markers', 'embedded'.")
+  public AppleBitcodeMode appleBitcodeMode;
+
+  /** Converter for {@code --xcode_version_config}. */
+  public static class XcodeVersionConfigConverter extends DefaultLabelConverter {
+    public XcodeVersionConfigConverter() {
+      super(DEFAULT_XCODE_VERSION_CONFIG_LABEL);
+    }
+  }
+  
   private Platform getPlatform() {
     for (String architecture : iosMultiCpus) {
       if (Platform.forIosArch(architecture) == Platform.IOS_DEVICE) {
@@ -98,5 +131,71 @@ public class AppleCommandLineOptions extends FragmentOptions {
     if (getPlatform() == Platform.IOS_DEVICE) {
       labelMap.put("default_provisioning_profile", defaultProvisioningProfile);
     }
+  }
+  
+  /**
+   * Represents the Apple Bitcode mode for compilation steps.
+   * 
+   * <p>Bitcode is an intermediate representation of a compiled program. For many platforms,
+   * Apple requires app submissions to contain bitcode in order to be uploaded to the app store.
+   * 
+   * <p>This is a build-wide value, as bitcode mode needs to be consistent among a target and
+   * its compiled dependencies.
+   */
+  public enum AppleBitcodeMode {
+
+    /** 
+     * Do not compile bitcode.
+     */
+    NONE("none"),
+    /**
+     * Compile the minimal set of bitcode markers. This is often the best option for
+     * developer/debug builds.
+     */
+    EMBEDDED_MARKERS("embedded_markers", "-fembed-bitcode-marker"),
+    /**
+     * Fully embed bitcode in compiled files. This is often the best option for release builds.
+     */
+    EMBEDDED("embedded", "-fembed-bitcode");
+
+    private final String mode;
+    private final ImmutableList<String> compilerFlags;
+
+    private AppleBitcodeMode(String mode, String... compilerFlags) {
+      this.mode = mode;
+      this.compilerFlags = ImmutableList.copyOf(compilerFlags);
+    }
+
+    @Override
+    public String toString() {
+      return mode;
+    }
+
+    /**
+     * Returns the flags that should be added to compile actions to use this bitcode setting.
+     */
+    public ImmutableList<String> getCompilerFlags() {
+      return compilerFlags;
+    }
+
+    /**
+     * Converts to {@link AppleBitcodeMode}.
+     */
+    public static class Converter extends EnumConverter<AppleBitcodeMode> {
+      public Converter() {
+        super(AppleBitcodeMode.class, "apple bitcode mode");
+      }
+    }
+  }
+
+  @Override
+  public FragmentOptions getHost(boolean fallback) {
+    AppleCommandLineOptions host = (AppleCommandLineOptions) super.getHost(fallback);
+
+    // Set options needed in the host configuration.
+    host.xcodeVersion = xcodeVersion;
+    host.appleBitcodeMode = appleBitcodeMode;
+
+    return host;
   }
 }
