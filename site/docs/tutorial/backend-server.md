@@ -222,6 +222,8 @@ for the `main_class` attribute.
 Add the following to your `BUILD` file:
 
 ```python
+load("/tools/build_rules/appengine/appengine", "appengine_war")
+
 appengine_war(
     name = "backend",
     data = [":webapp"],
