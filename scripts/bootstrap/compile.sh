@@ -92,7 +92,6 @@ PATHSEP=":"
 case "${PLATFORM}" in
 linux)
   LDFLAGS="-lz -lrt $LDFLAGS"
-  JNILIB="libunix.so"
   MD5SUM="md5sum"
   # JAVA_HOME must point to a Java installation.
   JAVA_HOME="${JAVA_HOME:-$(readlink -f $(which javac) | sed 's_/bin/javac__')}"
@@ -109,7 +108,6 @@ linux)
 
 freebsd)
   LDFLAGS="-lprocstat -lz -lrt $LDFLAGS"
-  JNILIB="libunix.so"
   MD5SUM="md5"
   # JAVA_HOME must point to a Java installation.
   JAVA_HOME="${JAVA_HOME:-/usr/local/openjdk8}"
@@ -120,7 +118,6 @@ freebsd)
   ;;
 
 darwin)
-  JNILIB="libunix.dylib"
   MD5SUM="md5"
   LDFLAGS="-lz $LDFLAGS"
   if [[ -z "$JAVA_HOME" ]]; then
@@ -146,7 +143,6 @@ msys*|mingw*)
   # Find the latest available version of the SDK.
   JAVA_HOME="${JAVA_HOME:-$(ls -d /c/Program\ Files/Java/jdk* | sort | tail -n 1)}"
   # We do not use the JNI library on Windows.
-  JNILIB=""
   if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
     PROTOC=${PROTOC:-third_party/protobuf/protoc-windows-x86_64.exe}
   else
@@ -306,28 +302,6 @@ fi
 
 cc_build "client" "objs" "${OUTPUT_DIR}/client" ${BLAZE_CC_FILES[@]}
 
-if [ ! -z "$JNILIB" ] ; then
-  log "Compiling JNI libraries..."
-  for FILE in "${NATIVE_CC_FILES[@]}"; do
-    OUT=$(basename "${FILE}").o
-    run_silent "${CXX}" \
-      -I . \
-      -I "${JAVA_HOME}/include/" \
-      -I "${JAVA_HOME}/include/${PLATFORM}" \
-      -std=$CXXSTD \
-      -fPIC \
-      -c \
-      -D_JNI_IMPLEMENTATION_ \
-      -DBLAZE_JAVA_CPU=\"k8\" \
-      -DBLAZE_OPENSOURCE=1 \
-      -o "${OUTPUT_DIR}/native/${OUT}" \
-      "${FILE}"
-  done
-
-  log "Linking ${JNILIB}..."
-  run_silent "${CXX}" -o ${OUTPUT_DIR}/${JNILIB} $JNI_LD_ARGS -shared ${OUTPUT_DIR}/native/*.o -lstdc++
-fi
-
 # Dummy build-runfiles
 cat <<'EOF' >${OUTPUT_DIR}/build-runfiles${EXE_EXT}
 #!/bin/bash
@@ -336,7 +310,7 @@ cp $1 $2/MANIFEST
 EOF
 chmod 0755 ${OUTPUT_DIR}/build-runfiles${EXE_EXT}
 
-log "Compiling process-wrapper..."
+log "Creating process-wrapper..."
 cat <<'EOF' >${OUTPUT_DIR}/process-wrapper${EXE_EXT}
 #!/bin/bash
 # Dummy process wrapper, does not support timeout
@@ -361,7 +335,7 @@ cp src/main/tools/jdk.* ${OUTPUT_DIR}
 
 log "Creating Bazel self-extracting archive..."
 ARCHIVE_DIR=${OUTPUT_DIR}/archive
-for i in libblaze.jar ${JNILIB} build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} xcode-locator${EXE_EXT} build_interface_so ${MSYS_DLLS} jdk.BUILD; do
+for i in libblaze.jar build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} xcode-locator${EXE_EXT} build_interface_so ${MSYS_DLLS} jdk.BUILD; do
   mkdir -p $(dirname $ARCHIVE_DIR/$i);
   cp $OUTPUT_DIR/$i $ARCHIVE_DIR/$i;
 done

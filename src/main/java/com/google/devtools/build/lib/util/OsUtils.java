@@ -45,6 +45,9 @@ public final class OsUtils {
   }
 
   private static boolean jniLibsAvailable() {
+    if ("0".equals(System.getProperty("io.bazel.UnixFileSystem"))) {
+      return false;
+    }
     // JNI libraries work fine on Windows, but at the moment we are not using any.
     return OS.getCurrent() != OS.WINDOWS;
   }

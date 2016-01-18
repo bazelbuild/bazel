@@ -987,6 +987,10 @@ public final class BlazeRuntime {
   }
 
   private static FileSystem fileSystemImplementation() {
+    if ("0".equals(System.getProperty("io.bazel.UnixFileSystem"))) {
+      // Ignore UnixFileSystem, to be used for bootstrapping.
+      return new JavaIoFileSystem();
+    }
     // The JNI-based UnixFileSystem is faster, but on Windows it is not available.
     return OS.getCurrent() == OS.WINDOWS ? new JavaIoFileSystem() : new UnixFileSystem();
   }

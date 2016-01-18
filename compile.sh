@@ -97,6 +97,7 @@ if [ $DO_COMPILE ]; then
   log "Building output/bazel"
 
   ${BAZEL} --nomaster_bazelrc --bazelrc=${BAZELRC} --batch \
+           --host_jvm_args="-Dio.bazel.UnixFileSystem=0" \
            build \
            --singlejar_top=//src/java_tools/singlejar:bootstrap_deploy.jar \
            --javabuilder_top=//src/java_tools/buildjar:bootstrap_deploy.jar \

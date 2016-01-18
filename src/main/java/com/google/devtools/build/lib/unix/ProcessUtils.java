@@ -24,7 +24,9 @@ public final class ProcessUtils {
   private ProcessUtils() {}
 
   static {
-    UnixJniLoader.loadJni();
+    if (!"0".equals(System.getProperty("io.bazel.UnixFileSystem"))) {
+      UnixJniLoader.loadJni();
+    }
   }
 
   /**
