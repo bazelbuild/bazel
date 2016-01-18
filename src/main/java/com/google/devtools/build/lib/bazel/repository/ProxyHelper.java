@@ -40,12 +40,17 @@ public class ProxyHelper {
     }
 
     final String protocol = matcher.group(1);
-    final String cleanProxyAddress = proxyAddress.replace(matcher.group(2), "");
+    final String idAndPassword = matcher.group(2);
     final String username = matcher.group(3);
     final String password = matcher.group(4);
     final String hostname = matcher.group(5);
-    final String port = matcher.group(6);
+    final String portRaw = matcher.group(6);
     
+    String cleanProxyAddress = proxyAddress;
+    if(idAndPassword != null){
+      cleanProxyAddress = proxyAddress.replace(idAndPassword, ""); // Used to remove id+pwd from logging
+    }
+        
     boolean https;
     switch (protocol) {
       case "https":
@@ -58,11 +63,21 @@ public class ProxyHelper {
         throw new IOException("Invalid proxy protocol for " + cleanProxyAddress);
     }
     
+    int port = https ? 443 : 80; // Default port numbers
+    
+    if(portRaw != null) {
+	  try {
+        port = Integer.parseInt(portRaw);
+      } catch (NumberFormatException e) {
+		throw new IOException("Error parsing proxy port: " + cleanProxyAddress);
+	  }
+    }
+
     // We need to set both of these because we don't know which will be needed by jgit; refactor candidate
     System.setProperty("https.proxyHost", hostname);
-    System.setProperty("https.proxyPort", port);
+    System.setProperty("https.proxyPort", Integer.toString(port));
     System.setProperty("http.proxyHost", hostname);
-    System.setProperty("http.proxyPort", port);
+    System.setProperty("http.proxyPort", Integer.toString(port));
 
     if (username != null) {
       if (password == null) {
@@ -79,16 +94,6 @@ public class ProxyHelper {
           });
     }
 
-    if (port == null) {
-      return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(hostname, https ? 443 : 80));
-    }
-
-    try {
-      return new Proxy(
-          Proxy.Type.HTTP,
-          new InetSocketAddress(hostname, Integer.parseInt(port)));
-    } catch (NumberFormatException e) {
-      throw new IOException("Error parsing proxy port: " + cleanProxyAddress);
-    }
+    return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(hostname, port));
   }
 }
