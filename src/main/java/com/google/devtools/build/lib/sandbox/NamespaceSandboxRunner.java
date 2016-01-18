@@ -79,8 +79,15 @@ public class NamespaceSandboxRunner {
     Path execRoot = runtime.getExecRoot();
     BinTools binTools = runtime.getBinTools();
 
+    PathFragment embeddedTool = binTools.getExecPath(NAMESPACE_SANDBOX);
+    if (embeddedTool == null) {
+      // The embedded tool does not exist, meaning that we don't support sandboxing (e.g., while
+      // bootstrapping).
+      return false;
+    }
+
     List<String> args = new ArrayList<>();
-    args.add(execRoot.getRelative(binTools.getExecPath(NAMESPACE_SANDBOX)).getPathString());
+    args.add(execRoot.getRelative(embeddedTool).getPathString());
     args.add("-C");
 
     ImmutableMap<String, String> env = ImmutableMap.of();
