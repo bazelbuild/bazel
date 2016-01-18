@@ -130,6 +130,15 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
 
     int timeout = getTimeout(spawn);
 
+    ImmutableSet.Builder<PathFragment> outputFiles = ImmutableSet.<PathFragment>builder();
+    for (PathFragment optionalOutput : spawn.getOptionalOutputFiles()) {
+      Preconditions.checkArgument(!optionalOutput.isAbsolute());
+      outputFiles.add(optionalOutput);
+    }
+    for (ActionInput output : spawn.getOutputFiles()) {
+      outputFiles.add(new PathFragment(output.getExecPathString()));
+    }
+
     try {
       final NamespaceSandboxRunner runner =
           new NamespaceSandboxRunner(
@@ -140,7 +149,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
             spawn.getEnvironment(),
             execRoot.getPathFile(),
             outErr,
-            spawn.getOutputFiles(),
+            outputFiles.build(),
             timeout,
             !spawn.getExecutionInfo().containsKey("requires-network"));
       } finally {

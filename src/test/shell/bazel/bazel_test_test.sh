@@ -243,4 +243,29 @@ EOF
   done
 }
 
+# Tests that the test.xml is extracted from the sandbox correctly.
+function test_xml_is_present() {
+  mkdir -p dir
+
+  cat <<'EOF' > dir/test.sh
+#!/bin/sh
+echo HELLO > $XML_OUTPUT_FILE
+exit 0
+EOF
+
+  chmod +x dir/test.sh
+
+  cat <<'EOF' > dir/BUILD
+  sh_test(
+    name = "test",
+    srcs = [ "test.sh" ],
+  )
+EOF
+
+  bazel test -s --test_output=streamed //dir:test &> $TEST_log || fail "expected success"
+
+  xml_log=bazel-testlogs/dir/test/test.xml
+  [ -s $xml_log ] || fail "$xml_log was not present after test"
+}
+
 run_suite "test tests"
