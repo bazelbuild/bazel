@@ -22,14 +22,14 @@
 
 <h2 id="load">load</h2>
 
-<pre>load(path, symbols...)</pre>
+<pre>load(label, symbols...)</pre>
 
 <p><code>load()</code> is a statement that imports definitions from a
   Skylark module (<code>.bzl</code> file). For example:
 </p>
 
 <pre class="code">
-load("/tools/build_rules/build_test", "build_test")
+load("//tools/build_rules:build_test.bzl", "build_test")
 
 build_test(name = ...)
 </pre>
@@ -42,12 +42,32 @@ build_test(name = ...)
   using macros or for sharing values between multiple BUILD files. By
   using more arguments, you can load more symbols at once.</p>
 
-<p>Relative paths are allowed only to load a file from the same directory
-  (not a subdirectory), e.g.</p>
-
 <pre class="code">
 load("build_defs", "COMPILER_FLAGS", "LINKER_FLAGS")
 </pre>
+
+<p>
+  The label must refer to an existing package. For example, for the above
+  statement to work, <code>tools/build_rules/BUILD</code> must exist (an empty
+  file is sufficient) The name of the file must have the suffix
+  <code>.bzl</code>. If the specified label is in the relative label syntax
+  (<code>:a/b.bzl</code>), it will be resolved relative to the package the file
+   the <code>load</code> statement is in.
+</p>
+
+<p>
+  The <code>load</code> statement still supports the legacy syntax that refers
+  to Skylark modules by their paths and not by their labels. This statement is
+  equivalent to the first example:
+</p>
+
+<pre class="code">
+load("/tools/build_rules/build_test", "build_test")
+</pre>
+
+<p>
+  However, this syntax is deprecated and will be removed soon.
+</p>
 
 <!-- =================================================================
                               package()
