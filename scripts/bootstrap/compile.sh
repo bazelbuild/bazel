@@ -20,63 +20,11 @@ PROTO_FILES=$(ls src/main/protobuf/*.proto)
 LIBRARY_JARS=$(find third_party -name '*.jar' | tr "\n" " ")
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} ${OUTPUT_DIR}/src)
 
-case "${PLATFORM}" in
-msys*|mingw*)
-  BLAZE_UTIL_SUFFIX=mingw
-  BLAZE_UTIL_POSIX=""
-  ;;
-*)
-  BLAZE_UTIL_SUFFIX="${PLATFORM}"
-  BLAZE_UTIL_POSIX="src/main/cpp/blaze_util_posix.cc"
-  ;;
-esac
-
-BLAZE_CC_FILES=(
-src/main/cpp/blaze_abrupt_exit.cc
-src/main/cpp/blaze_startup_options.cc
-src/main/cpp/blaze_startup_options_common.cc
-src/main/cpp/blaze_util.cc
-src/main/cpp/blaze_util_${BLAZE_UTIL_SUFFIX}.cc
-${BLAZE_UTIL_POSIX}
-src/main/cpp/blaze.cc
-src/main/cpp/option_processor.cc
-src/main/cpp/util/errors.cc
-src/main/cpp/util/file.cc
-src/main/cpp/util/md5.cc
-src/main/cpp/util/numbers.cc
-src/main/cpp/util/port.cc
-src/main/cpp/util/strings.cc
-third_party/ijar/zip.cc
-)
-
-NATIVE_CC_FILES=(
-src/main/cpp/util/md5.cc
-src/main/native/localsocket.cc
-src/main/native/process.cc
-src/main/native/unix_jni.cc
-src/main/native/unix_jni_${PLATFORM}.cc
-)
-
 mkdir -p ${OUTPUT_DIR}/classes
-mkdir -p ${OUTPUT_DIR}/test_classes
 mkdir -p ${OUTPUT_DIR}/src
-mkdir -p ${OUTPUT_DIR}/objs
-mkdir -p ${OUTPUT_DIR}/native
 
 # May be passed in from outside.
-CXXFLAGS="$CXXFLAGS"
-LDFLAGS="$LDFLAGS"
 ZIPOPTS="$ZIPOPTS"
-
-# TODO: CC target architecture needs to match JAVA_HOME.
-if [ "${PLATFORM}" = "freebsd" ]; then
-  CC=${CC:-clang}
-  CXX=${CXX:-clang++}
-else
-  CC=${CC:-gcc}
-  CXX=${CXX:-g++}
-fi
-CXXSTD="c++0x"
 
 unset JAVA_TOOL_OPTIONS
 unset _JAVA_OPTIONS
@@ -91,8 +39,6 @@ PATHSEP=":"
 
 case "${PLATFORM}" in
 linux)
-  LDFLAGS="-lz -lrt $LDFLAGS"
-  MD5SUM="md5sum"
   # JAVA_HOME must point to a Java installation.
   JAVA_HOME="${JAVA_HOME:-$(readlink -f $(which javac) | sed 's_/bin/javac__')}"
   if [ "${MACHINE_IS_64BIT}" = 'yes' ]; then
@@ -107,8 +53,6 @@ linux)
   ;;
 
 freebsd)
-  LDFLAGS="-lprocstat -lz -lrt $LDFLAGS"
-  MD5SUM="md5"
   # JAVA_HOME must point to a Java installation.
   JAVA_HOME="${JAVA_HOME:-/usr/local/openjdk8}"
   # Note: the linux protoc binary works on freebsd using linux emulation.
@@ -118,8 +62,6 @@ freebsd)
   ;;
 
 darwin)
-  MD5SUM="md5"
-  LDFLAGS="-lz $LDFLAGS"
   if [[ -z "$JAVA_HOME" ]]; then
     JAVA_HOME="$(/usr/libexec/java_home -v ${JAVA_VERSION}+ 2> /dev/null)" \
       || fail "Could not find JAVA_HOME, please ensure a JDK (version ${JAVA_VERSION}+) is installed."
@@ -135,9 +77,6 @@ msys*|mingw*)
   # Use a simplified platform string.
   PLATFORM="mingw"
   # Workaround for msys issue which causes omission of std::to_string.
-  CXXFLAGS="$CXXFLAGS -D_GLIBCXX_USE_C99 -D_GLIBCXX_USE_C99_DYNAMIC"
-  LDFLAGS="-lz $LDFLAGS"
-  MD5SUM="md5sum"
   EXE_EXT=".exe"
   PATHSEP=";"
   # Find the latest available version of the SDK.
@@ -148,21 +87,6 @@ msys*|mingw*)
   else
     PROTOC=${PROTOC:-third_party/protobuf/protoc-windows-x86_32.exe}
   fi
-
-  # The newer version of GCC on msys is stricter and removes some important function
-  # declarations from the environment if using c++0x / c++11.
-  CXXSTD="gnu++11"
-
-  # Ensure that we are using the cygwin gcc, not the mingw64 gcc.
-  ${CC} -v 2>&1 | grep "Target: .*mingw.*" > /dev/null &&
-    fail "mingw gcc detected. Please set CC to point to the msys/Cygwin gcc."
-  ${CXX} -v 2>&1 | grep "Target: .*mingw.*" > /dev/null &&
-    fail "mingw g++ detected. Please set CXX to point to the msys/Cygwin g++."
-
-  MSYS_DLLS="msys-2.0.dll msys-gcc_s-seh-1.dll msys-stdc++-6.dll"
-  for dll in $MSYS_DLLS ; do
-    cp "/usr/bin/$dll" "${OUTPUT_DIR}/$dll"
-  done
 esac
 
 [[ -x "${PROTOC-}" ]] \
@@ -235,49 +159,6 @@ function create_deploy_jar() {
   run_silent "$JAR" cmf $output/MANIFEST.MF $output/$name.jar $packages "$@"
 }
 
-function cc_compile() {
-  local OBJDIR=$1
-  shift
-  mkdir -p "${OUTPUT_DIR}/${OBJDIR}"
-  for FILE in "$@"; do
-    if [[ ! "${FILE}" =~ ^-.*$ ]]; then
-      local OBJ=$(basename "${FILE}").o
-      run_silent "${CXX}" \
-          -I. \
-          ${CFLAGS} \
-          -std=$CXXSTD \
-          -c \
-          -DBLAZE_JAVA_CPU=\"k8\" \
-          -DBLAZE_OPENSOURCE=1 \
-          -o "${OUTPUT_DIR}/${OBJDIR}/${OBJ}" \
-          "${FILE}"
-    fi
-  done
-}
-
-function cc_link() {
-  local OBJDIR=$1
-  local OUTPUT=$2
-  shift 2
-  local FILES=()
-  for FILE in "$@"; do
-    local OBJ=$(basename "${FILE}").o
-    FILES+=("${OUTPUT_DIR}/${OBJDIR}/${OBJ}")
-  done
-  run_silent "${CXX}" -o ${OUTPUT} "${FILES[@]}" ${LDFLAGS}
-}
-
-function cc_build() {
-  local NAME=$1
-  local OBJDIR=$2
-  local OUTPUT=$3
-  shift 3
-  log "Compiling ${NAME} .cc files..."
-  cc_compile "${OBJDIR}" "$@"
-  log "Linking ${NAME}..."
-  cc_link "${OBJDIR}" "${OUTPUT}" "$@"
-}
-
 if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
   log "Compiling Java stubs for protocol buffers..."
   for f in $PROTO_FILES ; do
@@ -300,18 +181,20 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
       ${OUTPUT_DIR}
 fi
 
-cc_build "client" "objs" "${OUTPUT_DIR}/client" ${BLAZE_CC_FILES[@]}
+log "Creating Bazel install base..."
+ARCHIVE_DIR=${OUTPUT_DIR}/archive
+mkdir -p ${ARCHIVE_DIR}/_embedded_binaries
 
 # Dummy build-runfiles
-cat <<'EOF' >${OUTPUT_DIR}/build-runfiles${EXE_EXT}
+cat <<'EOF' >${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
 #!/bin/bash
 mkdir -p $2/MANIFEST
 cp $1 $2/MANIFEST
 EOF
-chmod 0755 ${OUTPUT_DIR}/build-runfiles${EXE_EXT}
+chmod 0755 ${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
 
 log "Creating process-wrapper..."
-cat <<'EOF' >${OUTPUT_DIR}/process-wrapper${EXE_EXT}
+cat <<'EOF' >${ARCHIVE_DIR}/_embedded_binaries/process-wrapper${EXE_EXT}
 #!/bin/bash
 # Dummy process wrapper, does not support timeout
 shift 2
@@ -322,33 +205,38 @@ shift 2
 "$@" 2>"$stderr" >"$stdout"
 exit $?
 EOF
+chmod 0755 ${ARCHIVE_DIR}/_embedded_binaries/process-wrapper${EXE_EXT}
 
-log "Compiling xcode-locator..."
-if [[ $PLATFORM == "darwin" ]]; then
-  run_silent /usr/bin/xcrun clang -fobjc-arc -framework CoreServices -framework Foundation -o ${OUTPUT_DIR}/xcode-locator src/main/tools/xcode_locator.m
-else
-  cp src/main/tools/xcode_locator_stub.sh ${OUTPUT_DIR}/xcode-locator
-fi
+cp src/main/tools/build_interface_so ${ARCHIVE_DIR}/_embedded_binaries/build_interface_so
+cp src/main/tools/jdk.BUILD ${ARCHIVE_DIR}/_embedded_binaries/jdk.BUILD
+cp $OUTPUT_DIR/libblaze.jar ${ARCHIVE_DIR}
+cp src/main/tools/xcode_locator_stub.sh ${ARCHIVE_DIR}/_embedded_binaries/xcode-locator
 
-cp src/main/tools/build_interface_so ${OUTPUT_DIR}/build_interface_so
-cp src/main/tools/jdk.* ${OUTPUT_DIR}
-
-log "Creating Bazel self-extracting archive..."
-ARCHIVE_DIR=${OUTPUT_DIR}/archive
-for i in libblaze.jar build-runfiles${EXE_EXT} process-wrapper${EXE_EXT} xcode-locator${EXE_EXT} build_interface_so ${MSYS_DLLS} jdk.BUILD; do
-  mkdir -p $(dirname $ARCHIVE_DIR/$i);
-  cp $OUTPUT_DIR/$i $ARCHIVE_DIR/$i;
-done
-
-cp ${OUTPUT_DIR}/client ${ARCHIVE_DIR}
-cp ${OUTPUT_DIR}/libblaze.jar ${ARCHIVE_DIR}/A-server.jar
-
-(cd ${ARCHIVE_DIR}/ ; find . -type f | xargs cat | ${MD5SUM} | awk '{ print $1; }' > install_base_key)
-(cd ${ARCHIVE_DIR}/ ; echo "${JAVA_VERSION}" > java.version)
-(cd ${ARCHIVE_DIR}/ ; find . -type f | xargs -P 10 touch -t 198001010000)
-(cd ${ARCHIVE_DIR}/ ; run_silent zip $ZIPOPTS -r -q package.zip * install_base_key java.version)
-cat ${OUTPUT_DIR}/client ${ARCHIVE_DIR}/package.zip > ${OUTPUT_DIR}/bazel
-zip -qA ${OUTPUT_DIR}/bazel \
-  || echo "(Non-critical error, ignore.)"
-
-chmod 755 ${OUTPUT_DIR}/bazel
+# bazel build using bootstrap version
+function bootstrap_build() {
+  $JAVA_HOME/bin/java \
+      -client -Xms256m -XX:NewRatio=4 -XX:+HeapDumpOnOutOfMemoryError -Xverify:none -Dfile.encoding=ISO-8859-1 \
+      -XX:HeapDumpPath=${OUTPUT_DIR} \
+      -Djava.util.logging.config.file=${OUTPUT_DIR}/javalog.properties \
+      -Dio.bazel.UnixFileSystem=0 \
+      -jar ${ARCHIVE_DIR}/libblaze.jar \
+      --batch \
+      --install_base=${ARCHIVE_DIR} \
+      --output_base=${OUTPUT_DIR}/out \
+      --install_md5= \
+      --workspace_directory=${PWD} \
+      --nodeep_execroot --nofatal_event_bus_exceptions \
+      build \
+      --startup_time=329 --extract_data_time=523 \
+      --rc_source=/dev/null --isatty=1 --terminal_columns=97 \
+      --ignore_client_env \
+      --client_cwd=${PWD} \
+      \
+      --singlejar_top=//src/java_tools/singlejar:bootstrap_deploy.jar \
+      --javabuilder_top=//src/java_tools/buildjar:bootstrap_deploy.jar \
+      --genclass_top=//src/java_tools/buildjar:bootstrap_genclass_deploy.jar \
+      --ijar_top=//third_party/ijar \
+      --strategy=Javac=worker --worker_quit_after_build \
+      --genrule_strategy=standalone --spawn_strategy=standalone \
+      "${@}"
+}

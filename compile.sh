@@ -72,8 +72,6 @@ if [ ! -x "${BAZEL}" ]; then
   display "$INFO    $0 ${COMMANDS} /path/to/bazel"
   new_step 'Building Bazel from scratch'
   source scripts/bootstrap/compile.sh
-  cp ${OUTPUT_DIR}/bazel output/bazel
-  BAZEL=$(pwd)/output/bazel
 fi
 
 #
@@ -95,21 +93,7 @@ if [ $DO_COMPILE ]; then
   new_step 'Building Bazel with Bazel'
   display "."
   log "Building output/bazel"
-
-  ${BAZEL} --nomaster_bazelrc --bazelrc=${BAZELRC} --batch \
-           --host_jvm_args="-Dio.bazel.UnixFileSystem=0" \
-           build \
-           --singlejar_top=//src/java_tools/singlejar:bootstrap_deploy.jar \
-           --javabuilder_top=//src/java_tools/buildjar:bootstrap_deploy.jar \
-           --genclass_top=//src/java_tools/buildjar:bootstrap_genclass_deploy.jar \
-           --ijar_top=//third_party/ijar \
-           --strategy=Javac=worker --worker_quit_after_build \
-           --genrule_strategy=standalone --spawn_strategy=standalone \
-           ${EXTRA_BAZEL_ARGS-} \
-           --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
-           "${EMBED_LABEL_ARG[@]}" \
-           //src:bazel
-
+  bazel_build //src:bazel
   cp -f bazel-bin/src/bazel output/bazel
   chmod 0755 output/bazel
   BAZEL=$(pwd)/output/bazel

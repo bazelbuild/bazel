@@ -30,6 +30,25 @@ fi
 
 : ${JAVA_VERSION:="1.8"}
 
+if [ -z "${BAZEL-}" ]; then
+  function bazel_build() {
+    bootstrap_build ${EXTRA_BAZEL_ARGS-} \
+                    --verbose_failures \
+                    --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
+                    "${EMBED_LABEL_ARG[@]}" \
+                    "${@}"
+  }
+else
+  function bazel_build() {
+    ${BAZEL} --bazelrc=${BAZELRC} build \
+           ${EXTRA_BAZEL_ARGS-} \
+           --verbose_failures \
+           --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
+           "${EMBED_LABEL_ARG[@]}" \
+           "${@}"
+  }
+fi
+
 function md5_outputs() {
   [ -n "${BAZEL_TEST_XTRACE:-}" ] && set +x  # Avoid garbage in the output
   # runfiles/MANIFEST & runfiles_manifest contain absolute path, ignore.
