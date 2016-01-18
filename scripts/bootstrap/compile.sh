@@ -328,9 +328,13 @@ if [ ! -z "$JNILIB" ] ; then
   run_silent "${CXX}" -o ${OUTPUT_DIR}/${JNILIB} $JNI_LD_ARGS -shared ${OUTPUT_DIR}/native/*.o -lstdc++
 fi
 
-log "Compiling build-runfiles..."
-# Clang on Linux requires libstdc++
-run_silent "${CXX}" -o ${OUTPUT_DIR}/build-runfiles -std=c++0x src/main/tools/build-runfiles.cc -lstdc++ ${LDFLAGS}
+# Dummy build-runfiles
+cat <<'EOF' >${OUTPUT_DIR}/build-runfiles${EXE_EXT}
+#!/bin/bash
+mkdir -p $2/MANIFEST
+cp $1 $2/MANIFEST
+EOF
+chmod 0755 ${OUTPUT_DIR}/build-runfiles${EXE_EXT}
 
 log "Compiling process-wrapper..."
 run_silent "${CC}" -o ${OUTPUT_DIR}/process-wrapper -std=c99 src/main/tools/process-wrapper.c src/main/tools/process-tools.c -lm ${LDFLAGS}
