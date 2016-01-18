@@ -268,4 +268,45 @@ EOF
   [ -s $xml_log ] || fail "$xml_log was not present after test"
 }
 
+function test_always_xml_output() {
+  mkdir -p dir
+
+  cat <<EOF > dir/success.sh
+#!/bin/sh
+exit 0
+EOF
+  cat <<EOF > dir/fail.sh
+#!/bin/sh
+exit 1
+EOF
+
+  chmod +x dir/{success,fail}.sh
+
+  cat <<EOF > dir/BUILD
+sh_test(
+    name = "success",
+    srcs = [ "success.sh" ],
+)
+sh_test(
+    name = "fail",
+    srcs = [ "fail.sh" ],
+)
+EOF
+
+  bazel test //dir:all &> $TEST_log && fail "should have failed" || true
+  [ -f "bazel-testlogs/dir/success/test.xml" ] \
+    || fail "No xml file for //dir:success"
+  [ -f "bazel-testlogs/dir/fail/test.xml" ] \
+    || fail "No xml file for //dir:fail"
+
+  cat bazel-testlogs/dir/success/test.xml >$TEST_log
+  expect_log "errors=\"0\""
+  expect_log_once "testcase"
+  expect_log "name=\"dir/success\""
+  cat bazel-testlogs/dir/fail/test.xml >$TEST_log
+  expect_log "errors=\"1\""
+  expect_log_once "testcase"
+  expect_log "name=\"dir/fail\""
+}
+
 run_suite "test tests"
