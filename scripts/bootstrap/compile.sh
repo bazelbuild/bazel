@@ -231,12 +231,5 @@ function bootstrap_build() {
       --rc_source=/dev/null --isatty=1 --terminal_columns=97 \
       --ignore_client_env \
       --client_cwd=${PWD} \
-      \
-      --singlejar_top=//src/java_tools/singlejar:bootstrap_deploy.jar \
-      --javabuilder_top=//src/java_tools/buildjar:bootstrap_deploy.jar \
-      --genclass_top=//src/java_tools/buildjar:bootstrap_genclass_deploy.jar \
-      --ijar_top=//third_party/ijar \
-      --strategy=Javac=worker --worker_quit_after_build \
-      --genrule_strategy=standalone --spawn_strategy=standalone \
       "${@}"
 }

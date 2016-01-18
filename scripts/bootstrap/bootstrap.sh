@@ -30,9 +30,17 @@ fi
 
 : ${JAVA_VERSION:="1.8"}
 
+: ${BAZEL_ARGS:=--singlejar_top=//src/java_tools/singlejar:bootstrap_deploy.jar \
+      --javabuilder_top=//src/java_tools/buildjar:bootstrap_deploy.jar \
+      --genclass_top=//src/java_tools/buildjar:bootstrap_genclass_deploy.jar \
+      --ijar_top=//third_party/ijar \
+      --strategy=Javac=worker --worker_quit_after_build \
+      --genrule_strategy=standalone --spawn_strategy=standalone \
+      "${EXTRA_BAZEL_ARGS:-}"}
+
 if [ -z "${BAZEL-}" ]; then
   function bazel_build() {
-    bootstrap_build ${EXTRA_BAZEL_ARGS-} \
+    bootstrap_build ${BAZEL_ARGS-} \
                     --verbose_failures \
                     --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
                     "${EMBED_LABEL_ARG[@]}" \
@@ -41,7 +49,7 @@ if [ -z "${BAZEL-}" ]; then
 else
   function bazel_build() {
     ${BAZEL} --bazelrc=${BAZELRC} build \
-           ${EXTRA_BAZEL_ARGS-} \
+           ${BAZEL_ARGS-} \
            --verbose_failures \
            --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
            "${EMBED_LABEL_ARG[@]}" \
