@@ -337,7 +337,17 @@ EOF
 chmod 0755 ${OUTPUT_DIR}/build-runfiles${EXE_EXT}
 
 log "Compiling process-wrapper..."
-run_silent "${CC}" -o ${OUTPUT_DIR}/process-wrapper -std=c99 src/main/tools/process-wrapper.c src/main/tools/process-tools.c -lm ${LDFLAGS}
+cat <<'EOF' >${OUTPUT_DIR}/process-wrapper${EXE_EXT}
+#!/bin/bash
+# Dummy process wrapper, does not support timeout
+shift 2
+stdout="$1"
+stderr="$2"
+shift 2
+
+"$@" 2>"$stderr" >"$stdout"
+exit $?
+EOF
 
 log "Compiling xcode-locator..."
 if [[ $PLATFORM == "darwin" ]]; then
