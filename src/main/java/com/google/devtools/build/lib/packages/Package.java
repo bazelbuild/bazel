@@ -575,7 +575,7 @@ public class Package {
    * Gets the default header checking mode.
    */
   public String getDefaultHdrsCheck() {
-    return defaultHdrsCheck != null ? defaultHdrsCheck : "loose";
+    return defaultHdrsCheck != null ? defaultHdrsCheck : "strict";
   }
 
   /**
