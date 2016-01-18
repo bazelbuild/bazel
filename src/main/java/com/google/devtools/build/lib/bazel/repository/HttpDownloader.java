@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
@@ -189,10 +187,10 @@ public class HttpDownloader {
         createProxyIfNeeded(url.getProtocol()));
     connection.setInstanceFollowRedirects(true);
     connection.connect();
+    
     if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
       return connection.getInputStream();
     }
-
     InputStream errorStream = connection.getErrorStream();
     throw new IOException(connection.getResponseCode() + ": "
         + new String(ByteStreams.toByteArray(errorStream), StandardCharsets.UTF_8));
@@ -200,71 +198,11 @@ public class HttpDownloader {
 
   private static Proxy createProxyIfNeeded(String protocol) throws IOException {
     if (protocol.equals("https")) {
-      return createProxy(System.getenv("HTTPS_PROXY"));
+      return ProxyHelper.createProxy(System.getenv("HTTPS_PROXY"));
     } else if (protocol.equals("http")) {
-      return createProxy(System.getenv("HTTP_PROXY"));
+      return ProxyHelper.createProxy(System.getenv("HTTP_PROXY"));
     }
     return Proxy.NO_PROXY;
-  }
-
-  @VisibleForTesting
-  static Proxy createProxy(String proxyAddress) throws IOException {
-    if (Strings.isNullOrEmpty(proxyAddress)) {
-      return Proxy.NO_PROXY;
-    }
-
-    // Here there be dragons.
-    Pattern urlPattern =
-        Pattern.compile("^(https?)://(?:([^:@]+?)(?::([^@]+?))?@)?(?:[^:]+)(?::(\\d+))?$");
-    Matcher matcher = urlPattern.matcher(proxyAddress);
-    if (!matcher.matches()) {
-      throw new IOException("Proxy address " + proxyAddress + " is not a valid URL");
-    }
-
-    String protocol = matcher.group(1);
-    final String username = matcher.group(2);
-    final String password = matcher.group(3);
-    String port = matcher.group(4);
-
-    boolean https;
-    switch (protocol) {
-      case "https":
-        https = true;
-        break;
-      case "http":
-        https = false;
-        break;
-      default:
-        throw new IOException("Invalid proxy protocol for " + proxyAddress);
-    }
-
-    if (username != null) {
-      if (password == null) {
-        throw new IOException("No password given for proxy " + proxyAddress);
-      }
-      System.setProperty(protocol + ".proxyUser", username);
-      System.setProperty(protocol + ".proxyPassword", password);
-
-      Authenticator.setDefault(
-          new Authenticator() {
-            public PasswordAuthentication getPasswordAuthentication() {
-              return new PasswordAuthentication(username, password.toCharArray());
-            }
-          });
-    }
-
-    if (port == null) {
-      return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyAddress, https ? 443 : 80));
-    }
-
-    try {
-      return new Proxy(
-          Proxy.Type.HTTP,
-          new InetSocketAddress(
-              proxyAddress.substring(0, proxyAddress.lastIndexOf(':')), Integer.parseInt(port)));
-    } catch (NumberFormatException e) {
-      throw new IOException("Error parsing proxy port: " + proxyAddress);
-    }
   }
 
   public static String getHash(Hasher hasher, Path path) throws IOException {
