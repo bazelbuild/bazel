@@ -43,7 +43,7 @@ build_test(name = ...)
   using more arguments, you can load more symbols at once.</p>
 
 <pre class="code">
-load("build_defs", "COMPILER_FLAGS", "LINKER_FLAGS")
+load(":build_defs.bzl", "COMPILER_FLAGS", "LINKER_FLAGS")
 </pre>
 
 <p>
