@@ -18,7 +18,6 @@
 # Configuration:
 #   BAZEL: path to the bazel binary
 #   EMBED_LABEL: the label to embed in tools using --embed_label (optional)
-#   BAZEL_ARGS: list of other arguments to pass to bazel (optional)
 #   BAZELRC: the rc file to use
 
 : ${BAZELRC:="/dev/null"}
@@ -30,34 +29,6 @@ if [ -n "${EMBED_LABEL}" ]; then
 fi
 
 : ${JAVA_VERSION:="1.8"}
-: ${BAZEL_ARGS="--singlejar_top=//src/java_tools/singlejar:bootstrap_deploy.jar \
-      --javabuilder_top=//src/java_tools/buildjar:bootstrap_deploy.jar \
-      --genclass_top=//src/java_tools/buildjar:bootstrap_genclass_deploy.jar \
-      --ijar_top=//third_party/ijar \
-      --strategy=Javac=worker --worker_quit_after_build \
-      --genrule_strategy=standalone --spawn_strategy=standalone \
-      ${EXTRA_BAZEL_ARGS-}"}
-
-function bazel_bootstrap() {
-  local mode=${3:-"0644"}
-  if [[ ! ${BAZEL_SKIP_TOOL_COMPILATION-} =~ "$2" ]]; then
-    log "Building $2"
-    if [ -n "${4-}" ]; then
-      ${BAZEL} --nomaster_bazelrc --bazelrc=${BAZELRC} --batch \
-          build ${BAZEL_ARGS} \
-          --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
-          "${EMBED_LABEL_ARG[@]}" $1
-    else
-      run_silent ${BAZEL} --nomaster_bazelrc --bazelrc=${BAZELRC} --batch \
-          build ${BAZEL_ARGS} \
-          --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
-          "${EMBED_LABEL_ARG[@]}" $1
-    fi
-    local file=bazel-bin/${1##//}
-    cp -f ${file/:/\/} $2
-    chmod ${mode} $2
-  fi
-}
 
 function md5_outputs() {
   [ -n "${BAZEL_TEST_XTRACE:-}" ] && set +x  # Avoid garbage in the output

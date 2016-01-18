@@ -94,7 +94,23 @@ source scripts/bootstrap/bootstrap.sh
 if [ $DO_COMPILE ]; then
   new_step 'Building Bazel with Bazel'
   display "."
-  bazel_bootstrap //src:bazel output/bazel 0755 1
+  log "Building output/bazel"
+
+  ${BAZEL} --nomaster_bazelrc --bazelrc=${BAZELRC} --batch \
+           build \
+           --singlejar_top=//src/java_tools/singlejar:bootstrap_deploy.jar \
+           --javabuilder_top=//src/java_tools/buildjar:bootstrap_deploy.jar \
+           --genclass_top=//src/java_tools/buildjar:bootstrap_genclass_deploy.jar \
+           --ijar_top=//third_party/ijar \
+           --strategy=Javac=worker --worker_quit_after_build \
+           --genrule_strategy=standalone --spawn_strategy=standalone \
+           ${EXTRA_BAZEL_ARGS-} \
+           --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
+           "${EMBED_LABEL_ARG[@]}" \
+           //src:bazel
+
+  cp -f bazel-bin/src/bazel output/bazel
+  chmod 0755 output/bazel
   BAZEL=$(pwd)/output/bazel
 fi
 
