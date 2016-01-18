@@ -44,18 +44,26 @@ public class ProxyHelperTest {
     Proxy proxy = ProxyHelper.createProxy("http://my.example.com");
     assertEquals(Proxy.Type.HTTP, proxy.type());
     assertThat(proxy.toString()).endsWith(":80");
+    assertEquals(System.getProperty("http.proxyHost"), "my.example.com");
+    assertEquals(System.getProperty("http.proxyPort"), "80");
 
     proxy = ProxyHelper.createProxy("https://my.example.com");
     assertThat(proxy.toString()).endsWith(":443");
+    assertEquals(System.getProperty("https.proxyHost"), "my.example.com");
+    assertEquals(System.getProperty("https.proxyPort"), "443");
   }
 
   @Test
   public void testProxyExplicitPort() throws Exception {
     Proxy proxy = ProxyHelper.createProxy("http://my.example.com:12345");
     assertThat(proxy.toString()).endsWith(":12345");
+    assertEquals(System.getProperty("http.proxyHost"), "my.example.com");
+    assertEquals(System.getProperty("http.proxyPort"), "12345");
 
     proxy = ProxyHelper.createProxy("https://my.example.com:12345");
     assertThat(proxy.toString()).endsWith(":12345");
+    assertEquals(System.getProperty("https.proxyHost"), "my.example.com");
+    assertEquals(System.getProperty("https.proxyPort"), "12345");
   }
 
   @Test
@@ -94,11 +102,15 @@ public class ProxyHelperTest {
     Proxy proxy = ProxyHelper.createProxy("http://foo:barbaz@my.example.com");
     assertEquals(Proxy.Type.HTTP, proxy.type());
     assertThat(proxy.toString()).endsWith(":80");
+    assertEquals(System.getProperty("http.proxyHost"), "my.example.com");
+    assertEquals(System.getProperty("http.proxyPort"), "80");
     assertEquals(System.getProperty("http.proxyUser"), "foo");
     assertEquals(System.getProperty("http.proxyPassword"), "barbaz");
 
     proxy = ProxyHelper.createProxy("https://biz:bat@my.example.com");
     assertThat(proxy.toString()).endsWith(":443");
+    assertEquals(System.getProperty("https.proxyHost"), "my.example.com");
+    assertEquals(System.getProperty("https.proxyPort"), "443");
     assertEquals(System.getProperty("https.proxyUser"), "biz");
     assertEquals(System.getProperty("https.proxyPassword"), "bat");
   }
