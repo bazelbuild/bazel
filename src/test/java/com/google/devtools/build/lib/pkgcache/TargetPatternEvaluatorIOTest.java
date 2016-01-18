@@ -37,7 +37,7 @@ import javax.annotation.Nullable;
 /** TargetPatternEvaluator tests that require a custom filesystem. */
 @RunWith(JUnit4.class)
 public class TargetPatternEvaluatorIOTest extends AbstractTargetPatternEvaluatorTest {
-  private static final String FS_ROOT = "/fsg";
+  private static final String FS_ROOT = "/";
 
   private static class Transformer {
     @SuppressWarnings("unused")

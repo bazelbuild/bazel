@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import org.junit.Before;
@@ -637,7 +638,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "load('/external_rule', 'external_rule')",
         "external_rule(name='r')");
 
-    scratch.overwriteFile("WORKSPACE",
+    FileSystemUtils.appendIsoLatin1(scratch.resolve("WORKSPACE"),
         "local_repository(name='r', path='/r')");
 
     invalidatePackages();

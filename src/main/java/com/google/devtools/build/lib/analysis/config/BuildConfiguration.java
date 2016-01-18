@@ -29,6 +29,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
@@ -837,7 +838,7 @@ public final class BuildConfiguration {
 
     @Option(name = "objc_gcov_binary",
         converter = LabelConverter.class,
-        defaultValue = "//third_party/gcov:gcov_for_xcode",
+        defaultValue = "@bazel_tools//third_party/gcov:gcov_for_xcode",
         category = "undocumented")
     public Label objcGcovBinary;
 
@@ -846,7 +847,7 @@ public final class BuildConfiguration {
     // TODO(bazel-team): Remove this once experimental_ios_test replaces to ios_test.
     @Option(name = "experimental_objc_gcov_binary",
             converter = LabelConverter.class,
-            defaultValue = "//third_party/gcov:gcov_for_xcode_osx",
+            defaultValue = "@bazel_tools//third_party/gcov:gcov_for_xcode_osx",
             category = "undocumented")
     public Label experimentalObjcGcovBinary;
 

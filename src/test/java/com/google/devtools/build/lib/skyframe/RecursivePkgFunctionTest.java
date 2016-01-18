@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -98,10 +99,12 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testPackagesUnderMultipleRoots() throws Exception {
-    Path root1 = rootDirectory.getRelative("root1");
-    Path root2 = rootDirectory.getRelative("root2");
-    scratch.file(root1 + "/WORKSPACE");
-    scratch.file(root2 + "/WORKSPACE");
+    Path root1 = scratch.dir(rootDirectory.getRelative("root1").getPathString());
+    Path root2 = scratch.dir(rootDirectory.getRelative("root2").getPathString());
+    FileSystemUtils.copyFile(
+        rootDirectory.getRelative("WORKSPACE"), root1.getRelative("WORKSPACE"));
+    FileSystemUtils.copyFile(
+        rootDirectory.getRelative("WORKSPACE"), root2.getRelative("WORKSPACE"));
     scratch.file(root1 + "/a/BUILD");
     scratch.file(root2 + "/a/b/BUILD");
     setPackageCacheOptions("--package_path=" + "root1" + ":" + "root2");

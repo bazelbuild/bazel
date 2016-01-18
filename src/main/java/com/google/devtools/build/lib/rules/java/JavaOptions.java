@@ -45,7 +45,8 @@ import java.util.Set;
  * Command-line options for building Java targets
  */
 public class JavaOptions extends FragmentOptions {
-  public static final String DEFAULT_LANGTOOLS = "//tools/jdk:langtools";
+  public static final String DEFAULT_LANGTOOLS =
+      Constants.TOOLS_REPOSITORY + "//tools/jdk:langtools";
 
   /** Converter for --javabase and --host_javabase. */
   public static class JavabaseConverter implements Converter<String> {
@@ -63,7 +64,7 @@ public class JavaOptions extends FragmentOptions {
   /** Converter for --java_langtools. */
   public static class LangtoolsConverter extends DefaultLabelConverter {
     public LangtoolsConverter() {
-      super(Constants.TOOLS_REPOSITORY + DEFAULT_LANGTOOLS);
+      super(DEFAULT_LANGTOOLS);
     }
   }
 

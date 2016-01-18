@@ -51,7 +51,7 @@ import javax.annotation.Nullable;
 @RunWith(JUnit4.class)
 public class IOExceptionsTest extends PackageLoadingTestCase {
 
-  private static final String FS_ROOT = "/fsg";
+  private static final String FS_ROOT = "/";
 
   protected TransitivePackageLoader visitor;
 

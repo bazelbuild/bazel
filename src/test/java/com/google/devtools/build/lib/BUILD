@@ -82,6 +82,7 @@ java_test(
         ":actions_testutil",
         ":analysis_testutil",
         ":foundations_testutil",
+        ":packages_testcase",
         ":packages_testutil",
         ":skyframe_testutil",
         ":testutil",
@@ -518,10 +519,28 @@ java_test(
 )
 
 java_library(
+    name = "packages_testcase",
+    srcs = ["packages/util/PackageLoadingTestCase.java"],
+    deps = [
+        ":analysis_testutil",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
+        "//src/main/java/com/google/devtools/build/lib:clock",
+        "//src/main/java/com/google/devtools/build/lib:cmdline",
+        "//src/main/java/com/google/devtools/build/lib:io",
+        "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/test/java/com/google/devtools/build/lib:packages_testutil",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "packages_testutil",
     srcs = glob([
         "packages/util/*.java",
-    ]),
+    ], exclude = ["packages/util/PackageLoadingTestCase.java"]),
     deps = [
         ":foundations_testutil",
         ":testutil",
@@ -567,6 +586,7 @@ java_test(
         ":actions_testutil",
         ":analysis_testutil",
         ":foundations_testutil",
+        ":packages_testcase",
         ":packages_testutil",
         ":test_runner",
         ":testutil",
@@ -600,6 +620,7 @@ java_test(
     deps = [
         ":analysis_testutil",
         ":packages_testutil",
+        ":packages_testcase",
         ":test_runner",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
