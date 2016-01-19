@@ -184,7 +184,7 @@ public class HttpDownloader {
 
   private InputStream getInputStream(URL url) throws IOException {
     HttpURLConnection connection = (HttpURLConnection) url.openConnection(
-        createProxyIfNeeded(url.getProtocol()));
+        ProxyHelper.createProxyIfNeeded(url));
     connection.setInstanceFollowRedirects(true);
     connection.connect();
     
@@ -194,15 +194,6 @@ public class HttpDownloader {
     InputStream errorStream = connection.getErrorStream();
     throw new IOException(connection.getResponseCode() + ": "
         + new String(ByteStreams.toByteArray(errorStream), StandardCharsets.UTF_8));
-  }
-
-  private static Proxy createProxyIfNeeded(String protocol) throws IOException {
-    if (protocol.equals("https")) {
-      return ProxyHelper.createProxy(System.getenv("HTTPS_PROXY"));
-    } else if (protocol.equals("http")) {
-      return ProxyHelper.createProxy(System.getenv("HTTP_PROXY"));
-    }
-    return Proxy.NO_PROXY;
   }
 
   public static String getHash(Hasher hasher, Path path) throws IOException {
