@@ -21,7 +21,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
-import com.google.common.base.Predicates;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -64,6 +64,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -81,6 +83,14 @@ import java.util.concurrent.atomic.AtomicReference;
 public class ArtifactFunctionTest {
   private static final SkyKey OWNER_KEY = new SkyKey(SkyFunctions.ACTION_LOOKUP, "OWNER");
   private static final ActionLookupKey ALL_OWNER = new SingletonActionLookupKey();
+
+  private PathFragment allowedMissingInput = null;
+  private Predicate<PathFragment> allowedMissingInputsPredicate = new Predicate<PathFragment>() {
+    @Override
+    public boolean apply(PathFragment input) {
+      return input.equals(allowedMissingInput);
+    }
+  };
 
   private Set<Action> actions;
   private boolean fastDigest = false;
@@ -102,8 +112,7 @@ public class ArtifactFunctionTest {
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper))
                 .put(SkyFunctions.FILE, new FileFunction(pkgLocator))
-                .put(SkyFunctions.ARTIFACT,
-                    new ArtifactFunction(Predicates.<PathFragment>alwaysFalse()))
+                .put(SkyFunctions.ARTIFACT, new ArtifactFunction(allowedMissingInputsPredicate))
                 .put(SkyFunctions.ACTION_EXECUTION, new SimpleActionExecutionFunction())
                 .put(SkyFunctions.PACKAGE,
                     new PackageFunction(null, null, null, null, null, null, null))
@@ -149,6 +158,52 @@ public class ArtifactFunctionTest {
   public void testMissingNonMandatoryArtifact() throws Throwable {
     Artifact input = createSourceArtifact("input1");
     assertNotNull(evaluateArtifactValue(input, /*mandatory=*/ false));
+  }
+
+  @Test
+  public void testMissingMandatoryAllowedMissingArtifact() throws Throwable {
+    Artifact input = createSourceArtifact("allowedMissing");
+    allowedMissingInput = input.getRootRelativePath();
+    assertThat(evaluateArtifactValue(input, /*mandatory=*/ true))
+        .isEqualTo(FileArtifactValue.MISSING_FILE_MARKER);
+  }
+
+  @Test
+  public void testUnreadableMandatoryAllowedMissingArtifact() throws Throwable {
+    Artifact input = createSourceArtifact("allowedMissing");
+    file(input.getPath(), "allowedMissing");
+    input.getPath().chmod(0);
+
+    allowedMissingInput = input.getRootRelativePath();
+    assertThat(evaluateArtifactValue(input, /*mandatory=*/ true))
+        .isEqualTo(FileArtifactValue.MISSING_FILE_MARKER);
+  }
+
+  @Test
+  public void testUnreadableInputWithFsWithAvailableDigest() throws Throwable {
+    final byte[] expectedDigest = MessageDigest.getInstance("md5").digest(
+        "someunreadablecontent".getBytes(StandardCharsets.UTF_8));
+    setupRoot(
+        new CustomInMemoryFs() {
+          @Override
+          public byte[] getMD5Digest(Path path) throws IOException {
+            return path.getBaseName().equals("unreadable")
+                ? expectedDigest
+                : super.getMD5Digest(path);
+          }
+        });
+
+    Artifact input = createSourceArtifact("unreadable");
+    Path inputPath = input.getPath();
+    file(inputPath, "dummynotused");
+    inputPath.chmod(0);
+
+    FileArtifactValue value =
+        (FileArtifactValue) evaluateArtifactValue(input, /*mandatory=*/ true);
+
+    FileStatus stat = inputPath.stat();
+    assertThat(value.getSize()).isEqualTo(stat.getSize());
+    assertThat(value.getDigest()).isEqualTo(expectedDigest);
   }
 
   @Test

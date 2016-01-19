@@ -76,6 +76,8 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -434,6 +436,44 @@ public class FileFunctionTest {
     FileSystemUtils.writeContentAsLatin1(p, "content");
     // Same digest, but now non-empty.
     assertThat(valueForPath(p)).isNotEqualTo(a);
+  }
+
+  @Test
+  public void testUnreadableFileWithNoFastDigest() throws Exception {
+    Path p = file("unreadable");
+    p.chmod(0);
+    p.setLastModifiedTime(0L);
+
+    FileValue value = valueForPath(p);
+    assertTrue(value.exists());
+    assertThat(value.getDigest()).isNull();
+
+    p.setLastModifiedTime(10L);
+    assertThat(valueForPath(p)).isNotEqualTo(value);
+
+    p.setLastModifiedTime(0L);
+    assertThat(valueForPath(p)).isEqualTo(value);
+  }
+
+  @Test
+  public void testUnreadableFileWithFastDigest() throws Exception {
+    final byte[] expectedDigest = MessageDigest.getInstance("md5").digest(
+        "blah".getBytes(StandardCharsets.UTF_8));
+
+    createFsAndRoot(
+        new CustomInMemoryFs(manualClock) {
+          @Override
+          protected byte[] getFastDigest(Path path) {
+            return path.getBaseName().equals("unreadable") ? expectedDigest : null;
+          }
+        });
+
+    Path p = file("unreadable");
+    p.chmod(0);
+
+    FileValue value = valueForPath(p);
+    assertThat(value.exists()).isTrue();
+    assertThat(value.getDigest()).isNotNull();
   }
 
   @Test
@@ -880,6 +920,36 @@ public class FileFunctionTest {
     assertThat(errorInfo.getException()).isInstanceOf(InconsistentFilesystemException.class);
     assertThat(errorInfo.getException().getMessage()).contains("encountered error 'nope'");
     assertThat(errorInfo.getException().getMessage()).contains("/root/a is no longer a file");
+  }
+
+  @Test
+  public void testFilesystemInconsistencies_GetFastDigestAndIsReadableFailure() throws Exception {
+    createFsAndRoot(
+        new CustomInMemoryFs(manualClock) {
+          @Override
+          protected boolean isReadable(Path path) throws IOException {
+            if (path.getBaseName().equals("unreadable")) {
+              throw new IOException("isReadable failed");
+            }
+            return super.isReadable(path);
+          }
+        });
+
+    Path p = file("unreadable");
+    p.chmod(0);
+
+    SequentialBuildDriver driver = makeDriver();
+    SkyKey skyKey = skyKey("unreadable");
+    EvaluationResult<FileValue> result =
+        driver.evaluate(
+            ImmutableList.of(skyKey), false, DEFAULT_THREAD_COUNT, NullEventHandler.INSTANCE);
+    assertTrue(result.hasError());
+    ErrorInfo errorInfo = result.getError(skyKey);
+    assertThat(errorInfo.getException()).isInstanceOf(InconsistentFilesystemException.class);
+    assertThat(errorInfo.getException().getMessage())
+        .contains("encountered error 'isReadable failed'");
+    assertThat(errorInfo.getException().getMessage())
+        .contains("/root/unreadable is no longer a file");
   }
 
   private void runTestSymlinkCycle(boolean ancestorCycle, boolean startInCycle) throws Exception {
