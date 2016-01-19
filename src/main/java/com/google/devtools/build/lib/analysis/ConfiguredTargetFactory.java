@@ -243,6 +243,7 @@ public final class ConfiguredTargetFactory {
         ruleContext.ruleError(missingFragmentError(ruleContext, configurationFragmentPolicy));
         return null;
       }
+      // Otherwise missingFragmentPolicy == MissingFragmentPolicy.CREATE_FAIL_ACTIONS:
       return createFailConfiguredTarget(ruleContext);
     }
 

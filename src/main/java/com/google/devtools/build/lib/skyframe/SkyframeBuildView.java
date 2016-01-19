@@ -534,7 +534,6 @@ public final class SkyframeBuildView {
     return trimmedConfig;
   }
 
-  @Nullable
   SkyframeDependencyResolver createDependencyResolver(Environment env) {
     return new SkyframeDependencyResolver(env);
   }

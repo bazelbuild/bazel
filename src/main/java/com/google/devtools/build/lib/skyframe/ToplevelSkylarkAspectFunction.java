@@ -89,7 +89,6 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
    * Exceptions thrown from ToplevelSkylarkAspectFunction.
    */
   public class LoadSkylarkAspectFunctionException extends SkyFunctionException {
-
     public LoadSkylarkAspectFunctionException(Exception cause, SkyKey childKey) {
       super(cause, childKey);
     }

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -159,13 +160,9 @@ public final class AspectFunction implements SkyFunction {
     }
 
     SkyframeDependencyResolver resolver = view.createDependencyResolver(env);
-    if (resolver == null) {
-      return null;
-    }
 
     TargetAndConfiguration ctgValue =
         new TargetAndConfiguration(target, key.getConfiguration());
-
     try {
       // Get the configuration targets that trigger this rule's configurable attributes.
       Set<ConfigMatchingProvider> configConditions = ConfiguredTargetFunction.getConfigConditions(
@@ -276,7 +273,7 @@ public final class AspectFunction implements SkyFunction {
    * Used to indicate errors during the computation of an {@link AspectValue}.
    */
   private static final class AspectFunctionException extends SkyFunctionException {
-    public AspectFunctionException(Exception e) {
+    public AspectFunctionException(AspectCreationException e) {
       super(e, Transience.PERSISTENT);
     }
 
@@ -284,6 +281,10 @@ public final class AspectFunction implements SkyFunction {
     public AspectFunctionException(SkyKey childKey, Exception transitiveError) {
       super(transitiveError, childKey);
     }
-  }
 
+    /** Used to rethrow a child error that we cannot handle. */
+    public AspectFunctionException(SkyKey childKey, NoSuchThingException e) {
+      super(e, childKey);
+    }
+  }
 }

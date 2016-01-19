@@ -75,8 +75,6 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     ImmutableMap<Action, ConflictException> badActions = PrecomputedValue.BAD_ACTIONS.get(env);
     ConfiguredTargetValue ctValue = (ConfiguredTargetValue)
         env.getValue(ConfiguredTargetValue.key((ConfiguredTargetKey) skyKey.argument()));
-    SkyframeDependencyResolver resolver =
-        buildViewProvider.getSkyframeBuildView().createDependencyResolver(env);
     if (env.valuesMissing()) {
       return null;
     }
@@ -101,6 +99,8 @@ public class PostConfiguredTargetFunction implements SkyFunction {
     try {
       BuildConfiguration hostConfiguration =
           buildViewProvider.getSkyframeBuildView().getHostConfiguration(ct.getConfiguration());
+      SkyframeDependencyResolver resolver =
+          buildViewProvider.getSkyframeBuildView().createDependencyResolver(env);
       deps =
           resolver.dependentNodeMap(
               ctgValue, hostConfiguration, /*aspect=*/ null, configConditions);
