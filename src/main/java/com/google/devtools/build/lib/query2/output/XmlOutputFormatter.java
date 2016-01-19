@@ -127,7 +127,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
    * - 'name' attribute is target's label.
    * - 'location' attribute is consistent with output of --output location.
    * - rule attributes are represented in the DOM structure.
-   * @throws InterruptedException 
+   * @throws InterruptedException
    */
   private Element createTargetElement(Document doc, Target target)
       throws InterruptedException {
@@ -346,8 +346,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       // Fileset entries: not configurable.
       FilesetEntry filesetEntry = (FilesetEntry) Iterables.getOnlyElement(values);
       elem = doc.createElement("fileset-entry");
-      elem.setAttribute("srcdir",  filesetEntry.getSrcLabel().toString());
-      elem.setAttribute("destdir",  filesetEntry.getDestDir().toString());
+      elem.setAttribute("srcdir", filesetEntry.getSrcLabel().toString());
+      elem.setAttribute("destdir", filesetEntry.getDestDir().toString());
       elem.setAttribute("symlinks", filesetEntry.getSymlinkBehavior().toString());
       elem.setAttribute("strip_prefix", filesetEntry.getStripPrefix());
 
