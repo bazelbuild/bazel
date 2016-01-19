@@ -142,10 +142,10 @@ fi
 mkdir -p ${bin} ${base} ${base}/bin ${base}/etc ${base}/base_workspace
 echo -n .
 
-unzip -q "${BASH_SOURCE[0]}" bazel bazel-complete.bash -d "${base}/bin"
+unzip -q "${BASH_SOURCE[0]}" bazel bazel-real bazel-complete.bash -d "${base}/bin"
 echo -n .
-chmod 0755 "${base}/bin/bazel"
-unzip -q "${BASH_SOURCE[0]}" -x bazel bazel-complete.bash -d "${base}/base_workspace"
+chmod 0755 "${base}/bin/bazel" "${base}/bin/bazel-real"
+unzip -q "${BASH_SOURCE[0]}" -x bazel bazel-real bazel-complete.bash -d "${base}/base_workspace"
 echo -n .
 cat >"${base}/etc/bazel.bazelrc" <<EO
 build --package_path %workspace%:${base}/base_workspace

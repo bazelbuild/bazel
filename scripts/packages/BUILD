@@ -25,13 +25,28 @@ genrule(
         """,
 )
 
+genrule(
+    name = "rename-bazel-bin",
+    srcs = ["//src:bazel"],
+    outs = ["bazel-real"],
+    cmd = "cp $< $@",
+)
+
+genrule(
+    name = "rename-bazel-sh",
+    srcs = ["bazel.sh"],
+    outs = ["bazel"],
+    cmd = "cp $< $@",
+)
+
 load("self_extract_binary", "self_extract_binary")
 
 self_extract_binary(
     name = "install.sh",
     empty_files = ["tools/defaults/BUILD"],
     flatten_resources = [
-        "//src:bazel",
+        ":bazel-real",
+        ":bazel",
         "//scripts:bash_completion",
     ],
     launcher = ":launcher_bin.sh",
@@ -46,10 +61,13 @@ load("/tools/build_defs/pkg/pkg", "pkg_tar", "pkg_deb")
 
 pkg_tar(
     name = "bazel-bin",
-    files = ["//src:bazel"],
+    files = [
+        ":bazel",
+        ":bazel-real",
+    ],
     mode = "0755",
     package_dir = "/usr/bin",
-    strip_prefix = "/src",
+    strip_prefix = ".",
 )
 
 pkg_tar(
