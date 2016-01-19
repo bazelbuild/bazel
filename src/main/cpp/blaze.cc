@@ -348,7 +348,6 @@ static void AddLoggingArgs(vector<string>* args) {
       string("--binary_path=") + globals->binary_path);
 }
 
-
 // Join the elements of the specified array with NUL's (\0's), akin to the
 // format of /proc/$PID/cmdline.
 static string GetArgumentString(const vector<string>& argument_array) {
@@ -698,17 +697,15 @@ static void KillRunningServer(pid_t server_pid) {
   pdie(blaze_exit_code::INTERNAL_ERROR, "SIGKILL unsuccessful after 10s");
 }
 
-
 // Kills the running Blaze server, if any.  Finds the pid from the socket.
 static bool KillRunningServerIfAny() {
-  int socket = ConnectToServer(false);
+  int socket = ConnectToServer(/*start=*/false);
   if (socket != -1) {
     KillRunningServer(globals->server_pid);
     return true;
   }
   return false;
 }
-
 
 // Calls fsync() on the file (or directory) specified in 'file_path'.
 // pdie()'s if syncing fails.
@@ -975,8 +972,7 @@ static bool ServerNeedsToBeKilled(const vector<string>& args1,
 
 // Kills the running Blaze server, if any, if the startup options do not match.
 static void KillRunningServerIfDifferentStartupOptions() {
-  int socket = ConnectToServer(false);
-
+  int socket = ConnectToServer(/*start=*/false);
   if (socket == -1) {
     return;
   }
@@ -1143,11 +1139,10 @@ static string BuildServerRequest() {
 
 // Performs all I/O for a single client request to the server, and
 // shuts down the client (by exit or signal).
-static void SendServerRequest(void) ATTRIBUTE_NORETURN;
-static void SendServerRequest(void) {
+static ATTRIBUTE_NORETURN void SendServerRequest() {
   int socket = -1;
   while (true) {
-    socket = ConnectToServer(true);
+    socket = ConnectToServer(/*start=*/true);
     // Check for deleted server cwd:
     string server_cwd = GetProcessCWD(globals->server_pid);
     // TODO(bazel-team): Is this check even necessary? If someone deletes or
