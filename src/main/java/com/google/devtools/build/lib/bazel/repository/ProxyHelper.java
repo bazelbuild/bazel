@@ -1,12 +1,26 @@
+// Copyright 2014 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import java.io.IOException;
 import java.net.Authenticator;
 import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
 import java.net.Proxy;
+import java.net.URL;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -18,14 +32,30 @@ import java.util.regex.Pattern;
 public class ProxyHelper {
 
   /**
-   * This method takes a proxyAddress as a String (ex. http://userId:password@proxyhost.domain.com:8000)
-   * and sets JVM arguments for http and https proxy as well as returns a java.net.Proxy object for optional use.
-   * 
-   * @param proxyAddress
+   * This method takes a java.net.URL object for the resource being requested and sets up a proxy to make
+   * the request if HTTP_PROXY and/or HTTPS_PROXY environment variables are set.
+   * @param requestedUrl The URL for the remote resource that may need to be retrieved through a proxy
    * @return Proxy
    * @throws IOException
    */
-  @VisibleForTesting
+  public static Proxy createProxyIfNeeded(URL requestedUrl) throws IOException {
+	String protocol = requestedUrl.getProtocol();
+    if (protocol.equals("https")) {
+      return ProxyHelper.createProxy(System.getenv("HTTPS_PROXY"));
+    } else if (protocol.equals("http")) {
+      return ProxyHelper.createProxy(System.getenv("HTTP_PROXY"));
+    }
+    return Proxy.NO_PROXY;
+  }
+
+  /**
+   * This method takes a proxyAddress as a String (ex. http://userId:password@proxyhost.domain.com:8000)
+   * and sets JVM arguments for http and https proxy as well as returns a java.net.Proxy object for optional use.
+   * 
+   * @param proxyAddress The fully qualified address of the proxy server
+   * @return Proxy
+   * @throws IOException
+   */
   public static Proxy createProxy(String proxyAddress) throws IOException {
     if (Strings.isNullOrEmpty(proxyAddress)) {
       return Proxy.NO_PROXY;
@@ -47,7 +77,7 @@ public class ProxyHelper {
     final String portRaw = matcher.group(6);
     
     String cleanProxyAddress = proxyAddress;
-    if(idAndPassword != null){
+    if (idAndPassword != null) {
       cleanProxyAddress = proxyAddress.replace(idAndPassword, ""); // Used to remove id+pwd from logging
     }
         
@@ -65,15 +95,15 @@ public class ProxyHelper {
     
     int port = https ? 443 : 80; // Default port numbers
     
-    if(portRaw != null) {
-	  try {
+    if (portRaw != null) {
+      try {
         port = Integer.parseInt(portRaw);
       } catch (NumberFormatException e) {
-		throw new IOException("Error parsing proxy port: " + cleanProxyAddress);
-	  }
+        throw new IOException("Error parsing proxy port: " + cleanProxyAddress);
+      }
     }
 
-    // We need to set both of these because we don't know which will be needed by jgit; refactor candidate
+    // We need to set both of these because jgit uses whichever the resource dictates
     System.setProperty("https.proxyHost", hostname);
     System.setProperty("https.proxyPort", Integer.toString(port));
     System.setProperty("http.proxyHost", hostname);
