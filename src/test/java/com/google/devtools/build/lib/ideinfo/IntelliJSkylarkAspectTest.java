@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo.Builder;
@@ -42,12 +41,14 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Tests for Skylark implementation of Android Studio info aspect
  */
 @RunWith(JUnit4.class)
-public class IntelliJSkylarkAspectTest extends BuildViewTestCase {
+public class IntelliJSkylarkAspectTest extends AndroidStudioInfoAspectTestBase {
   @Before
   public void setupBzl() throws Exception {
     InputStream stream = IntelliJSkylarkAspectTest.class
@@ -73,8 +74,53 @@ public class IntelliJSkylarkAspectTest extends BuildViewTestCase {
         "    name = 'simple',",
         "    srcs = ['simple/Simple.java']",
         ")");
+    String target = "//com/google/example:simple";
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo(target);
+
+    RuleIdeInfo ruleIdeInfo =
+        getRuleInfoAndVerifyLabel("//com/google/example:simple", ruleIdeInfos);
+    assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.JAVA_LIBRARY);
+    assertThat(ruleIdeInfo.getDependenciesCount()).isEqualTo(0);
+    assertThat(relativePathsForSourcesOf(ruleIdeInfo))
+        .containsExactly("com/google/example/simple/Simple.java");
+  }
+
+  @Test
+  public void testJavaLibraryWithTransitiveDependencies() throws Exception {
+    scratch.file(
+        "com/google/example/BUILD",
+        "java_library(",
+        "    name = 'simple',",
+        "    srcs = ['simple/Simple.java']",
+        ")",
+        "java_library(",
+        "    name = 'complex',",
+        "    srcs = ['complex/Complex.java'],",
+        "    deps = [':simple']",
+        ")",
+        "java_library(",
+        "    name = 'extracomplex',",
+        "    srcs = ['extracomplex/ExtraComplex.java'],",
+        "    deps = [':complex']",
+        ")");
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:extracomplex");
+    assertThat(ruleIdeInfos.size()).isEqualTo(3);
+
+    getRuleInfoAndVerifyLabel("//com/google/example:simple", ruleIdeInfos);
+    getRuleInfoAndVerifyLabel("//com/google/example:complex", ruleIdeInfos);
+
+    RuleIdeInfo extraComplexRuleIdeInfo = getRuleInfoAndVerifyLabel(
+        "//com/google/example:extracomplex", ruleIdeInfos);
+
+    assertThat(relativePathsForSourcesOf(extraComplexRuleIdeInfo))
+        .containsExactly("com/google/example/extracomplex/ExtraComplex.java");
+    assertThat(extraComplexRuleIdeInfo.getDependenciesList())
+        .containsExactly("//com/google/example:complex");
+  }
+
+  protected Map<String, RuleIdeInfo> buildRuleIdeInfo(String target) throws Exception {
     AnalysisResult analysisResult = update(
-        ImmutableList.of("//com/google/example:simple"),
+        ImmutableList.of(target),
         ImmutableList.of("intellij_tools/intellij_info.bzl%intellij_info_aspect"),
         false,
         LOADING_PHASE_THREADS,
@@ -84,20 +130,19 @@ public class IntelliJSkylarkAspectTest extends BuildViewTestCase {
     Collection<AspectValue> aspects = analysisResult.getAspects();
     assertThat(aspects).hasSize(1);
     AspectValue aspectValue = aspects.iterator().next();
-    OutputGroupProvider provider = aspectValue.getConfiguredAspect()
-        .getProvider(OutputGroupProvider.class);
+    this.configuredAspect = aspectValue.getConfiguredAspect();
+    OutputGroupProvider provider = configuredAspect.getProvider(OutputGroupProvider.class);
     NestedSet<Artifact> outputGroup = provider.getOutputGroup("ide-info-text");
-    assertThat(outputGroup.toList()).hasSize(1);
+    Map<String, RuleIdeInfo> ruleIdeInfos = new HashMap<>();
     for (Artifact artifact : outputGroup) {
       Action generatingAction = getGeneratingAction(artifact);
       assertThat(generatingAction).isInstanceOf(FileWriteAction.class);
       String fileContents = ((FileWriteAction) generatingAction).getFileContents();
       Builder builder = RuleIdeInfo.newBuilder();
       TextFormat.getParser().merge(fileContents, builder);
-      RuleIdeInfo build = builder.build();
-      assertThat(build.getLabel()).isEqualTo("//com/google/example:simple");
-      assertThat(build.getKind()).isEqualTo(Kind.JAVA_LIBRARY);
+      RuleIdeInfo ruleIdeInfo = builder.build();
+      ruleIdeInfos.put(ruleIdeInfo.getLabel(), ruleIdeInfo);
     }
-
+    return ruleIdeInfos;
   }
 }

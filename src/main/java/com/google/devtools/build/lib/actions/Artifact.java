@@ -271,6 +271,9 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
    * package-path entries (for source Artifacts), or one of the bin, genfiles or includes dirs
    * (for derived Artifacts). It will always be an ancestor of getPath().
    */
+  @SkylarkCallable(name = "root", structField = true,
+      doc = "The root beneath which this file resides."
+  )
   public final Root getRoot() {
     return root;
   }
@@ -289,6 +292,8 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
    * root relationships. Note that this will report all Artifacts in the output
    * tree, including in the include symlink tree, as non-source.
    */
+  @SkylarkCallable(name = "is_source", structField =  true,
+      doc = "Returns true if this is a source file, i.e. it is not generated")
   public final boolean isSourceArtifact() {
     return execPath == rootRelativePath;
   }

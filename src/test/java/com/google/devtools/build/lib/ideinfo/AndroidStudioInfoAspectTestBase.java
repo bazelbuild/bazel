@@ -81,8 +81,7 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
         }
       };
 
-  private AnalysisResult analysisResult;
-  private ConfiguredAspect configuredAspect;
+  protected ConfiguredAspect configuredAspect;
 
   /**
    * Constructs a string that matches OutputJar#toString for comparison testing.
@@ -114,7 +113,7 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
   }
 
   protected void buildTarget(String target) throws Exception {
-    this.analysisResult =
+    AnalysisResult analysisResult =
         update(
             ImmutableList.of(target),
             ImmutableList.of(AndroidStudioInfoAspect.NAME),
