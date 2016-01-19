@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.common.base.Strings;
+
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -39,6 +41,7 @@ import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.transport.NetRCCredentialsProvider;
 
 import java.io.IOException;
+import java.net.URL;
 import java.util.Objects;
 import java.util.Set;
 
@@ -93,14 +96,7 @@ public class GitCloner {
 
   public static SkyValue clone(Rule rule, Path outputDirectory, EventHandler eventHandler)
       throws RepositoryFunctionException {
-		  
-	// Setup proxy
-	try {
-	  setProxyIfNeeded();
-	} catch (IOException ie){
-	  throw new RepositoryFunctionException(ie, Transience.TRANSIENT);
-	}
-	
+		  	
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     if ((mapper.has("commit", Type.STRING) == mapper.has("tag", Type.STRING))
         && (mapper.get("commit", Type.STRING).isEmpty()
@@ -122,6 +118,15 @@ public class GitCloner {
         startingPoint,
         mapper.get("init_submodules", Type.BOOLEAN),
         outputDirectory);
+
+	// Setup proxy if remote is http or https
+    if (descriptor.remote != null && descriptor.remote.startsWith("http")) {
+      try {
+        ProxyHelper.createProxyIfNeeded(new URL(descriptor.remote));
+      } catch (IOException ie) {
+        throw new RepositoryFunctionException(ie, Transience.TRANSIENT);
+      }    	
+    }
 
     Git git = null;
     try {
@@ -187,15 +192,6 @@ public class GitCloner {
       }
     }
     return new HttpDownloadValue(descriptor.directory);
-  }
-
-  private static void setProxyIfNeeded() throws IOException {
-	if(!"".equalsIgnoreCase(System.getenv("HTTP_PROXY"))){
-	  ProxyHelper.createProxy(System.getenv("HTTP_PROXY"));
-	}
-	if(!"".equalsIgnoreCase(System.getenv("HTTPS_PROXY"))){
-	  ProxyHelper.createProxy(System.getenv("HTTPS_PROXY"));
-	}
   }
   
   private static final class GitRepositoryDescriptor {
