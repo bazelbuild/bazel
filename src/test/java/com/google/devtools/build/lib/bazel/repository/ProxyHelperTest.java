@@ -30,6 +30,27 @@ import java.net.Proxy;
  */
 @RunWith(JUnit4.class)
 public class ProxyHelperTest {
+
+  @Test
+  public void testCreateProxyIfNeededNo() throws Exception {
+    Proxy proxy = ProxyHelper.createProxyIfNeeded(new URL("ftp:/my.example.com"));
+    assertEquals(Proxy.NO_PROXY, proxy); 
+  }
+
+  @Test
+  public void testCreateProxyIfNeededHttp() throws Exception {
+    Proxy proxy = ProxyHelper.createProxyIfNeeded(new URL("http:/my.example.com"));
+    assertEquals(Proxy.Type.HTTP, proxy.type());
+    assertThat(proxy.toString()).endsWith(":80");
+  }
+
+  @Test
+  public void testCreateProxyIfNeededHttps() throws Exception {
+    Proxy proxy = ProxyHelper.createProxyIfNeeded(new URL("https:/my.example.com"));
+    assertEquals(Proxy.Type.HTTP, proxy.type());
+    assertThat(proxy.toString()).endsWith(":443");
+  }
+
   @Test
   public void testNoProxy() throws Exception {
     // Empty address.
