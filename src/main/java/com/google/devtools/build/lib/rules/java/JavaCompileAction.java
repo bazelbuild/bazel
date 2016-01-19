@@ -380,8 +380,35 @@ public class JavaCompileAction extends AbstractAction {
 
   @Override
   protected String getRawProgressMessage() {
-    int count = sourceFiles.size() + resources.size() + classpathResources.size() + messages.size();
-    return "Building " + outputJar.prettyPrint() + " (" + count + " files)";
+    StringBuilder sb = new StringBuilder("Building ");
+    sb.append(outputJar.prettyPrint());
+    sb.append(" (");
+    boolean first = true;
+    first = appendCount(sb, first, sourceFiles.size(), "source file");
+    first = appendCount(sb, first, sourceJars.size(), "source jar");
+    int resourceCount = resources.size() + classpathResources.size() + messages.size();
+    first = appendCount(sb, first, resourceCount, "resource");
+    sb.append(")");
+    return sb.toString();
+  }
+
+  /**
+   * Append an input count to the progress message, e.g. "2 source jars". If an input
+   * count has already been appended, prefix with ", ".
+   */
+  private static boolean appendCount(StringBuilder sb, boolean first, int count, String name) {
+    if (count > 0) {
+      if (!first) {
+        sb.append(", ");
+      } else {
+        first = false;
+      }
+      sb.append(count).append(' ').append(name);
+      if (count > 1) {
+        sb.append('s');
+      }
+    }
+    return first;
   }
 
   @Override
