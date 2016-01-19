@@ -15,18 +15,18 @@ package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
-import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -47,7 +47,7 @@ import javax.annotation.Nullable;
  * Tests for Skylark aspects
  */
 @RunWith(JUnit4.class)
-public class SkylarkAspectsTest extends BuildViewTestCase {
+public class SkylarkAspectsTest extends AnalysisTestCase {
   @Test
   public void testAspect() throws Exception {
     scratch.file(
@@ -59,13 +59,7 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
-        update(
-            ImmutableList.of("//test:xxx"),
-            ImmutableList.of("test/aspect.bzl%MyAspect"),
-            false,
-            LOADING_PHASE_THREADS,
-            true,
-            new EventBus());
+        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
     assertThat(
             transform(
                 analysisResult.getTargetsToBuild(),
@@ -104,13 +98,7 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
     scratch.file("test/BUILD", "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
-        update(
-            ImmutableList.of("//test:xxx"),
-            ImmutableList.of("test/aspect.bzl%MyAspect"),
-            false,
-            LOADING_PHASE_THREADS,
-            true,
-            new EventBus());
+        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
     AspectValue aspectValue = Iterables.getOnlyElement(analysisResult.getAspects());
     AspectKey aspectKey = aspectValue.getKey();
     AspectDefinition aspectDefinition = aspectKey.getAspect().getDefinition();
@@ -160,13 +148,7 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
         ")");
 
     AnalysisResult analysisResult =
-        update(
-            ImmutableList.of("//test:xxx"),
-            ImmutableList.of("test/aspect.bzl%MyAspect"),
-            false,
-            LOADING_PHASE_THREADS,
-            true,
-            new EventBus());
+        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
     assertThat(
             transform(
                 analysisResult.getTargetsToBuild(),
@@ -222,13 +204,7 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
         ")");
 
     AnalysisResult analysisResult =
-        update(
-            ImmutableList.of("//test:xxx"),
-            ImmutableList.of("test/aspect.bzl%MyAspect"),
-            false,
-            LOADING_PHASE_THREADS,
-            true,
-            new EventBus());
+        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
     assertThat(
         transform(
             analysisResult.getTargetsToBuild(),
@@ -251,7 +227,6 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
         .getOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL);
     assertThat(names).containsExactlyElementsIn(expectedSet);
   }
-
 
   @Test
   public void testAspectsFromSkylarkRules() throws Exception {
@@ -290,14 +265,7 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
         "     attr = [':yyy'],",
         ")");
 
-    AnalysisResult analysisResult =
-        update(
-            ImmutableList.of("//test:xxx"),
-            ImmutableList.<String>of(),
-            false,
-            LOADING_PHASE_THREADS,
-            true,
-            new EventBus());
+    AnalysisResult analysisResult = update("//test:xxx");
     assertThat(
         transform(
             analysisResult.getTargetsToBuild(),
@@ -340,13 +308,8 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      update(
-          ImmutableList.of("//test:xxx"),
-          ImmutableList.of("test/aspect.bzl%MyAspect"),
-          false,
-          LOADING_PHASE_THREADS,
-          true,
-          new EventBus());
+      update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+      fail();
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
@@ -372,13 +335,8 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      update(
-          ImmutableList.of("//test:xxx"),
-          ImmutableList.of("test/aspect.bzl%MyAspect"),
-          false,
-          LOADING_PHASE_THREADS,
-          true,
-          new EventBus());
+      update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+      fail();
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
@@ -399,13 +357,8 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      update(
-          ImmutableList.of("//test:xxx"),
-          ImmutableList.of("test/aspect.bzl%MyAspect"),
-          false,
-          LOADING_PHASE_THREADS,
-          true,
-          new EventBus());
+      update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+      fail();
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
@@ -429,13 +382,8 @@ public class SkylarkAspectsTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      update(
-          ImmutableList.of("//test:xxx"),
-          ImmutableList.of("test/aspect.bzl%MyAspect"),
-          false,
-          LOADING_PHASE_THREADS,
-          true,
-          new EventBus());
+      update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+      fail();
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }

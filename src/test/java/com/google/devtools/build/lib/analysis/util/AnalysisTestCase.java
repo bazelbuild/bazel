@@ -226,7 +226,9 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   /**
    * Update the BuildView: syncs the package cache; loads and analyzes the given labels.
    */
-  protected void update(EventBus eventBus, FlagBuilder config, String... labels) throws Exception {
+  protected AnalysisResult update(
+      EventBus eventBus, FlagBuilder config, ImmutableList<String> aspects, String... labels)
+          throws Exception {
     Set<Flag> flags = config.flags;
 
     LoadingOptions loadingOptions = Options.getDefaults(LoadingOptions.class);
@@ -259,23 +261,34 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         buildView.update(
             loadingResult,
             masterConfig,
-            ImmutableList.<String>of(),
+            aspects,
             viewOptions,
             AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
             reporter,
             eventBus,
             isLoadingEnabled());
+    return analysisResult;
   }
 
-  protected void update(FlagBuilder config, String... labels) throws Exception {
-    update(new EventBus(), config, labels);
+  protected AnalysisResult update(EventBus eventBus, FlagBuilder config, String... labels)
+      throws Exception {
+    return update(eventBus, config, /*aspects=*/ImmutableList.<String>of(), labels);
+  }
+
+  protected AnalysisResult update(FlagBuilder config, String... labels) throws Exception {
+    return update(new EventBus(), config, /*aspects=*/ImmutableList.<String>of(), labels);
   }
 
   /**
    * Update the BuildView: syncs the package cache; loads and analyzes the given labels.
    */
-  protected void update(String... labels) throws Exception {
-    update(new EventBus(), defaultFlags(), labels);
+  protected AnalysisResult update(String... labels) throws Exception {
+    return update(new EventBus(), defaultFlags(), /*aspects=*/ImmutableList.<String>of(), labels);
+  }
+
+  protected AnalysisResult update(ImmutableList<String> aspects, String... labels)
+      throws Exception {
+    return update(new EventBus(), defaultFlags(), aspects, labels);
   }
 
   protected Target getTarget(String label) {

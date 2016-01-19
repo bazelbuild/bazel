@@ -249,6 +249,7 @@ public class TestAspects {
       return builder.build();
     }
 
+    @Override
     public ConfiguredAspect create(
         ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
       StringBuilder information = new StringBuilder("aspect " + ruleContext.getLabel());
