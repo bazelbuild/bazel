@@ -248,9 +248,15 @@ public class BuiltinFunction extends BaseFunction {
     int arguments = signature.getSignature().getShape().getArguments();
     innerArgumentCount = arguments + (extraArgs == null ? 0 : extraArgs.length);
     Class<?>[] parameterTypes = invokeMethod.getParameterTypes();
-    Preconditions.checkArgument(innerArgumentCount == parameterTypes.length,
-        "bad argument count for %s: method has %s arguments, type list has %s",
-        getName(), innerArgumentCount, parameterTypes.length);
+    if (innerArgumentCount != parameterTypes.length) {
+      // Guard message construction by check to avoid autoboxing two integers.
+      throw new IllegalStateException(
+          String.format(
+              "bad argument count for %s: method has %s arguments, type list has %s",
+              getName(),
+              innerArgumentCount,
+              parameterTypes.length));
+    }
 
     if (enforcedArgumentTypes != null) {
       for (int i = 0; i < arguments; i++) {
