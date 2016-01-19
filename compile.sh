@@ -152,6 +152,7 @@ if [ $DO_TESTS ]; then
   $BAZEL --bazelrc=${BAZELRC} --nomaster_bazelrc test \
       --test_tag_filters="${BAZEL_TEST_FILTERS-}" \
       --build_tests_only \
+      --nolegacy_bazel_java_test \
       ${EXTRA_BAZEL_ARGS} \
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
       -k --test_output=errors //src/... //third_party/ijar/... //scripts/... \
