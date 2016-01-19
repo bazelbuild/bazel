@@ -135,7 +135,6 @@ java_test(
         "IjarTests.java",
         "StripVerifyingVisitor.java",
     ],
-    args = ["IjarTests"],
     data = [
         "PrivateNestedClass.java",
         "UseDeprecatedParts.java",
@@ -144,6 +143,7 @@ java_test(
         ":interface_ijar_testlib",
     ],
     tags = ["zip"],
+    test_class = "IjarTests",
     deps = [
         "//src/java_tools/buildjar:BazelJavaCompiler",
         "//third_party:asm",
