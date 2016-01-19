@@ -39,11 +39,11 @@ public class ProxyHelper {
    * @throws IOException
    */
   public static Proxy createProxyIfNeeded(URL requestedUrl) throws IOException {
-	String protocol = requestedUrl.getProtocol();
-    if (protocol.equals("https")) {
-      return ProxyHelper.createProxy(System.getenv("HTTPS_PROXY"));
-    } else if (protocol.equals("http")) {
-      return ProxyHelper.createProxy(System.getenv("HTTP_PROXY"));
+    String protocol = requestedUrl.getProtocol();
+    if (protocol.equalsIgnoreCase("https")) {
+      return createProxy(System.getenv("HTTPS_PROXY"));
+    } else if (protocol.equalsIgnoreCase("http")) {
+      return createProxy(System.getenv("HTTP_PROXY"));
     }
     return Proxy.NO_PROXY;
   }
