@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
 import com.google.devtools.build.lib.skyframe.PrepareDepsOfTargetsUnderDirectoryValue.PrepareDepsOfTargetsUnderDirectoryKey;
+import com.google.devtools.build.lib.skyframe.RecursivePkgValue.RecursivePkgKey;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -32,8 +33,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -44,72 +43,78 @@ import javax.annotation.Nullable;
  * after a successful evaluation.
  */
 public class PrepareDepsOfTargetsUnderDirectoryFunction implements SkyFunction {
+  private final BlazeDirectories directories;
+
+  public PrepareDepsOfTargetsUnderDirectoryFunction(BlazeDirectories directories) {
+    this.directories = directories;
+  }
+
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) {
     PrepareDepsOfTargetsUnderDirectoryKey argument =
         (PrepareDepsOfTargetsUnderDirectoryKey) skyKey.argument();
     FilteringPolicy filteringPolicy = argument.getFilteringPolicy();
-    CollectPackagesUnderDirectoryValue collectPackagesUnderDirectoryValue =
-        (CollectPackagesUnderDirectoryValue)
-            env.getValue(CollectPackagesUnderDirectoryValue.key(argument.getRecursivePkgKey()));
-    if (env.valuesMissing()) {
-      return null;
-    }
-    Map<RootedPath, Boolean> subdirMap =
-        collectPackagesUnderDirectoryValue.getSubdirectoryTransitivelyContainsPackages();
-    List<SkyKey> subdirKeys = new ArrayList<>(subdirMap.size());
-    RepositoryName repositoryName = argument.getRecursivePkgKey().getRepository();
-    ImmutableSet<PathFragment> excludedPaths = argument.getRecursivePkgKey().getExcludedPaths();
-
-    PathFragment baseDir = argument.getRecursivePkgKey().getRootedPath().getRelativePath();
-    for (Map.Entry<RootedPath, Boolean> subdirEntry : subdirMap.entrySet()) {
-      if (subdirEntry.getValue()) {
-        // Keep in rough sync with the logic in RecursiveDirectoryTraversalFunction#visitDirectory.
-        RootedPath subdir = subdirEntry.getKey();
-        PathFragment subdirRelativePath = subdir.getRelativePath().relativeTo(baseDir);
-        ImmutableSet<PathFragment> excludedSubdirectoriesBeneathThisSubdirectory =
-            PathFragment.filterPathsStartingWith(excludedPaths, subdirRelativePath);
-
-        subdirKeys.add(
-            PrepareDepsOfTargetsUnderDirectoryValue.key(
-                repositoryName,
-                subdir,
-                excludedSubdirectoriesBeneathThisSubdirectory,
-                filteringPolicy));
-      }
-    }
-    if (collectPackagesUnderDirectoryValue.isDirectoryPackage()) {
-      PackageIdentifier packageIdentifier =
-          PackageIdentifier.create(
-              argument.getRecursivePkgKey().getRepository(),
-              argument.getRecursivePkgKey().getRootedPath().getRelativePath());
-      PackageValue pkgValue =
-          (PackageValue)
-              Preconditions.checkNotNull(
-                  env.getValue(PackageValue.key(packageIdentifier)),
-                  collectPackagesUnderDirectoryValue);
-      loadTransitiveTargets(env, pkgValue.getPackage(), filteringPolicy, subdirKeys);
-    } else {
-      env.getValues(subdirKeys);
-    }
-    return env.valuesMissing() ? null : PrepareDepsOfTargetsUnderDirectoryValue.INSTANCE;
+    RecursivePkgKey recursivePkgKey = argument.getRecursivePkgKey();
+    return new MyTraversalFunction(filteringPolicy).visitDirectory(recursivePkgKey, env);
   }
 
-  // The additionalKeysToRequest argument allows us to batch skyframe dependencies a little more
-  // aggressively. Since the keys computed in this method are independent from any other keys, we
-  // can request our keys together with any other keys that are needed, possibly avoiding a restart.
+  private class MyTraversalFunction
+      extends RecursiveDirectoryTraversalFunction<
+          MyVisitor, PrepareDepsOfTargetsUnderDirectoryValue> {
+    private final FilteringPolicy filteringPolicy;
+
+    private MyTraversalFunction(FilteringPolicy filteringPolicy) {
+      super(directories);
+      this.filteringPolicy = filteringPolicy;
+    }
+
+    @Override
+    protected PrepareDepsOfTargetsUnderDirectoryValue getEmptyReturn() {
+      return PrepareDepsOfTargetsUnderDirectoryValue.INSTANCE;
+    }
+
+    @Override
+    protected MyVisitor getInitialVisitor() {
+      return new MyVisitor(filteringPolicy);
+    }
+
+    @Override
+    protected SkyKey getSkyKeyForSubdirectory(
+        RepositoryName repository,
+        RootedPath subdirectory,
+        ImmutableSet<PathFragment> excludedSubdirectoriesBeneathSubdirectory) {
+      return PrepareDepsOfTargetsUnderDirectoryValue.key(
+          repository, subdirectory, excludedSubdirectoriesBeneathSubdirectory, filteringPolicy);
+    }
+
+    @Override
+    protected PrepareDepsOfTargetsUnderDirectoryValue aggregateWithSubdirectorySkyValues(
+        MyVisitor visitor, Map<SkyKey, SkyValue> subdirectorySkyValues) {
+      return PrepareDepsOfTargetsUnderDirectoryValue.INSTANCE;
+    }
+  }
+
+  private static class MyVisitor implements RecursiveDirectoryTraversalFunction.Visitor {
+    private final FilteringPolicy filteringPolicy;
+
+    private MyVisitor(FilteringPolicy filteringPolicy) {
+      this.filteringPolicy = Preconditions.checkNotNull(filteringPolicy);
+    }
+
+    @Override
+    public void visitPackageValue(Package pkg, Environment env) {
+      loadTransitiveTargets(env, pkg, filteringPolicy);
+    }
+  }
+
   private static void loadTransitiveTargets(
-      Environment env,
-      Package pkg,
-      FilteringPolicy filteringPolicy,
-      Iterable<SkyKey> additionalKeysToRequest) {
+      Environment env, Package pkg, FilteringPolicy filteringPolicy) {
     ResolvedTargets<Target> packageTargets =
         TargetPatternResolverUtil.resolvePackageTargets(pkg, filteringPolicy);
     ImmutableList.Builder<SkyKey> builder = ImmutableList.builder();
     for (Target target : packageTargets.getTargets()) {
       builder.add(TransitiveTraversalValue.key(target.getLabel()));
     }
-    builder.addAll(additionalKeysToRequest);
     ImmutableList<SkyKey> skyKeys = builder.build();
     env.getValuesOrThrow(skyKeys, NoSuchPackageException.class, NoSuchTargetException.class);
   }
