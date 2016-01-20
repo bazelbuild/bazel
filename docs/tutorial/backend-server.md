@@ -1,5 +1,6 @@
 ---
 layout: documentation
+title: Tutorial - Build the Backend Server
 ---
 
 # Tutorial - Build the Backend Server
@@ -319,4 +320,4 @@ Your application URL will be `http://<project-id>.appspot.com`.
 
 ## What's next
 
-Now let's [review](review.html) the tutorial steps.
+Now let's [review](review.md) the tutorial steps.

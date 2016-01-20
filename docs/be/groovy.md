@@ -1,7 +1,7 @@
 ---
 layout: documentation
+title: Groovy Rules
 ---
-
 # Groovy Rules
 
 <div class="toc">

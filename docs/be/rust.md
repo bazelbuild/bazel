@@ -1,7 +1,7 @@
 ---
 layout: documentation
+title: Rust Rules
 ---
-
 # Rust Rules
 
 <div class="toc">

@@ -1,7 +1,7 @@
 ---
 layout: documentation
+title: Closure Tools Rules
 ---
-
 # Closure Tools for Bazel
 
 ## Overview

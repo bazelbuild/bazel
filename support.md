@@ -1,5 +1,6 @@
 ---
 layout: community
+title: Support Policy
 ---
 
 # Support Policy

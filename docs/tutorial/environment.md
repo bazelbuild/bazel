@@ -1,5 +1,6 @@
 ---
 layout: documentation
+title: Tutorial - Set Up Your Environment
 ---
 
 # Tutorial - Set Up Your Environment
@@ -15,7 +16,7 @@ Here, you'll do the following:
 
 ## Install Bazel
 
-Follow the [installation instructions](/docs/install.html) to install Bazel and
+Follow the [installation instructions](/docs/install.md) to install Bazel and
 its dependencies.
 
 ## Install the Android SDK tools
@@ -87,4 +88,4 @@ tutorial are in `$HOME/examples/tutorial`.
 ## What's next
 
 Now that you have set up your environment, you can
-[set up a Bazel workspace](workspace.html).
+[set up a Bazel workspace](workspace.md).

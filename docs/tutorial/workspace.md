@@ -1,5 +1,6 @@
 ---
 layout: documentation
+title: Tutorial - Set Up a Workspace
 ---
 
 # Tutorial - Set Up a Workspace
@@ -49,4 +50,4 @@ This creates the empty `WORKSPACE` file.
 ## What's next
 
 Now that you've set up your workspace, you can
-[build the Android app](android-app.html).
+[build the Android app](android-app.md).

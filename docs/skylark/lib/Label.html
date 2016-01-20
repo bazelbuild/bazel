@@ -1,7 +1,7 @@
 ---
 layout: documentation
+title: Label
 ---
-
 <h1 id="modules.Label">Label</h1>
 
 A BUILD target identifier.
@@ -31,7 +31,7 @@ A BUILD target identifier.
         <h2 id="relative">relative</h2>
         <p><pre><a class="anchor" href="Label.html">Label</a> Label.relative(<a class="anchor" href="string.html">string</a>)</pre></p>
 
-    Resolves a label that is either absolute (starts with <code>//</code>) or relative to the current package.<br>For example:<br><ul><pre class=language-python>
+    Resolves a label that is either absolute (starts with <code>//</code>) or relative to the current package.<br>For example:<br><pre class=language-python>
 Label("//foo/bar:baz").relative(":quux") == Label("//foo/bar:quux")
 Label("//foo/bar:baz").relative("//wiz:quux") == Label("//wiz:quux")
 </pre>

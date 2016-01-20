@@ -1,5 +1,6 @@
 ---
 layout: documentation
+title: Installing Bazel
 ---
 
 # Installing Bazel

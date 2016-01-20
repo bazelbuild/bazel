@@ -1,7 +1,7 @@
 ---
 layout: documentation
+title: Jsonnet Rules
 ---
-
 # Jsonnet Rules
 
 <div class="toc">

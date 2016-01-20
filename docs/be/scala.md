@@ -1,7 +1,7 @@
 ---
 layout: documentation
+title: Scala Rules
 ---
-
 # Scala Rules for Bazel
 
 <div class="toc">

@@ -1,5 +1,6 @@
 ---
 layout: documentation
+title: Skyframe
 ---
 
 # Skyframe

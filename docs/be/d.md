@@ -1,7 +1,7 @@
 ---
 layout: documentation
+title: D Rules
 ---
-
 # D rules
 
 ## Rules

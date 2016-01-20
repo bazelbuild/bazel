@@ -1,7 +1,7 @@
 ---
 layout: documentation
+title: Java AppEngine Rules
 ---
-
 # Java App Engine Rules for Bazel
 
 <div class="toc">

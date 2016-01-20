@@ -1,7 +1,7 @@
 ---
 layout: documentation
+title: Skylark - Concepts
 ---
-
 # Concepts
 
 ## Loading a Skylark extension
@@ -41,13 +41,13 @@ a Skylark file visible.
 
 ## Macros and rules
 
-A [macro](macros.html) in Skylark is a function that instantiates rules. The
+A [macro](macros.md) in Skylark is a function that instantiates rules. The
 function is evaluated as soon as the BUILD file is read. Bazel has little
 information about macros: if your macro generates a `genrule`, Bazel will behave
 as if you wrote the `genrule`. As a result, `bazel query` will only list the
 generated genrule.
 
-A [rule](rules.html) in Skylark is more powerful than a macro, as it can access
+A [rule](rules.md) in Skylark is more powerful than a macro, as it can access
 Bazel internals and have full control over what is going on. It may for example
 pass information to other rules. A rule defined in Skylark will behave in a
 similar way as a native rule.

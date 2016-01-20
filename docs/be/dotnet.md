@@ -1,7 +1,7 @@
 ---
 layout: documentation
+title: C# Rules
 ---
-
 # C# Rules
 
 ## Rules

@@ -1,7 +1,7 @@
 ---
 layout: documentation
+title: Sass Rules
 ---
-
 # Sass Rules for Bazel
 
 <div class="toc">

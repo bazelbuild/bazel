@@ -1,7 +1,7 @@
 ---
 layout: documentation
+title: Docker Rules
 ---
-
 # Docker support for Bazel
 
 <div class="toc">

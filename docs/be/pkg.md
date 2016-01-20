@@ -1,7 +1,7 @@
 ---
 layout: documentation
+title: Packaging Rules
 ---
-
 # Packaging for Bazel
 
 <div class="toc">

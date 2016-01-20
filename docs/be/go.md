@@ -1,7 +1,7 @@
 ---
 layout: documentation
+title: Go Rules
 ---
-
 # Go rules
 
 <div class="toc">
