@@ -1208,18 +1208,18 @@ public final class BlazeRuntime {
         new Handler() {
           @Override
           public void publish(LogRecord record) {
+            System.err.println("Remote logging disabled for testing, forcing abrupt shutdown.");
+            System.err.printf("%s#%s: %s\n",
+                record.getSourceClassName(),
+                record.getSourceMethodName(),
+                record.getMessage());
+
             Throwable e = record.getThrown();
-            String message =
-                record.getSourceClassName()
-                    + "#"
-                    + record.getSourceMethodName()
-                    + ": "
-                    + record.getMessage();
-            if (e == null) {
-              throw new IllegalStateException(message);
-            } else {
-              throw new IllegalStateException(message, e);
+            if (e != null) {
+              e.printStackTrace();
             }
+
+            Runtime.getRuntime().halt(ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode());
           }
 
           @Override
