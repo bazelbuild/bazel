@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.SkylarkAspe
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.DependencyEvaluationException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
+import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -72,11 +73,11 @@ public final class AspectFunction implements SkyFunction {
   @Nullable
   public static SkylarkAspect loadSkylarkAspect(
       Environment env, Label extensionLabel, String skylarkValueName)
-      throws ConversionException {
-    
+      throws ConversionException, SkylarkImportFailedException {
     SkyKey importFileKey = SkylarkImportLookupValue.key(extensionLabel, false);
     SkylarkImportLookupValue skylarkImportLookupValue =
-        (SkylarkImportLookupValue) env.getValue(importFileKey);
+        (SkylarkImportLookupValue) env.getValueOrThrow(
+            importFileKey, SkylarkImportFailedException.class);
     if (skylarkImportLookupValue == null) {
       return null;
     }
@@ -107,6 +108,8 @@ public final class AspectFunction implements SkyFunction {
         skylarkAspect =
             loadSkylarkAspect(
                 env, skylarkAspectClass.getExtensionLabel(), skylarkAspectClass.getExportedName());
+      } catch (SkylarkImportFailedException e) {
+        throw new AspectFunctionException(skyKey, e);
       } catch (ConversionException e) {
         throw new AspectFunctionException(skyKey, e);
       }

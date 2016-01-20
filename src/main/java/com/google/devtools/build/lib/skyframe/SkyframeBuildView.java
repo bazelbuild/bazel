@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
+import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -425,8 +426,10 @@ public final class SkyframeBuildView {
       // that the only errors should be analysis errors.
       Preconditions.checkState(
           cause instanceof ConfiguredValueCreationException
-              || cause instanceof AspectCreationException // for top-level aspects
-              || cause instanceof ActionConflictException,
+              || cause instanceof ActionConflictException
+              // For top-level aspects
+              || cause instanceof AspectCreationException
+              || cause instanceof SkylarkImportFailedException,
           "%s -> %s",
           key,
           errorInfo);

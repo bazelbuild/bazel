@@ -394,4 +394,67 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
             + "The following files have no generating action:\n"
             + "test/missing_in_action.txt\n");
   }
+
+  @Test
+  public void topLevelAspectIsNotAnAspect() throws Exception {
+    scratch.file("test/aspect.bzl", "MyAspect = 4");
+    scratch.file("test/BUILD", "java_library(name = 'xxx')");
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+      fail();
+    } catch (ViewCreationFailedException e) {
+      // expect to fail.
+    }
+    assertContainsEvent("MyAspect from //test:aspect.bzl is not an aspect");
+  }
+
+  @Test
+  public void topLevelAspectDoesNotExist() throws Exception {
+    scratch.file("test/aspect.bzl", "");
+    scratch.file("test/BUILD", "java_library(name = 'xxx')");
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+      fail();
+    } catch (ViewCreationFailedException e) {
+      // expect to fail.
+    }
+    assertContainsEvent("MyAspect from //test:aspect.bzl is not an aspect");
+  }
+
+  @Test
+  public void topLevelAspectDoesNotExist2() throws Exception {
+    scratch.file("test/BUILD", "java_library(name = 'xxx')");
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+      fail();
+    } catch (ViewCreationFailedException e) {
+      // expect to fail.
+    }
+    assertContainsEvent(
+        "Extension file not found. Unable to load file '//test:aspect.bzl': "
+        + "file doesn't exist or isn't a file");
+  }
+
+  @Test
+  public void topLevelAspectDoesNotExistNoBuildFile() throws Exception {
+    scratch.file("test/BUILD", "java_library(name = 'xxx')");
+
+    reporter.removeHandler(failFastHandler);
+    try {
+      update(ImmutableList.of("foo/aspect.bzl%MyAspect"), "//test:xxx");
+      fail();
+    } catch (ViewCreationFailedException e) {
+      // expect to fail.
+    }
+    assertContainsEvent(
+        "Every .bzl file must have a corresponding package, but 'foo' does not have one. "
+        + "Please create a BUILD file in the same or any parent directory. "
+        + "Note that this BUILD file does not need to do anything except exist.");
+  }
 }
