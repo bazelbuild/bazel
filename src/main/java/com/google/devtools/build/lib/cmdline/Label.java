@@ -371,7 +371,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
   @SkylarkCallable(name = "relative", doc =
         "Resolves a label that is either absolute (starts with <code>//</code>) or relative to the"
       + " current package.<br>"
-      + "For example:<br><ul>"
+      + "For example:<br>"
       + "<pre class=language-python>\n"
       + "Label(\"//foo/bar:baz\").relative(\":quux\") == Label(\"//foo/bar:quux\")\n"
       + "Label(\"//foo/bar:baz\").relative(\"//wiz:quux\") == Label(\"//wiz:quux\")\n"
