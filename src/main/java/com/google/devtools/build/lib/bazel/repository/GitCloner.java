@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.common.base.Strings;
-
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -96,7 +94,6 @@ public class GitCloner {
 
   public static SkyValue clone(Rule rule, Path outputDirectory, EventHandler eventHandler)
       throws RepositoryFunctionException {
-		  	
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     if ((mapper.has("commit", Type.STRING) == mapper.has("tag", Type.STRING))
         && (mapper.get("commit", Type.STRING).isEmpty()
