@@ -39,16 +39,22 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain;
+import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * An implementation of genrule.
  */
 public class GenRule implements RuleConfiguredTargetFactory {
+
+  private static final Pattern DEVELOPER_DIR_MAKE_VARIABLE =
+      Pattern.compile("\\$\\((DEVELOPER_DIR)\\)");
 
   private Artifact getExecutable(RuleContext ruleContext, NestedSet<Artifact> filesToBuild) {
     if (Iterables.size(filesToBuild) == 1) {
@@ -99,6 +105,15 @@ public class GenRule implements RuleConfiguredTargetFactory {
     String command = String.format("source %s; %s",
         ruleContext.getPrerequisiteArtifact("$genrule_setup", Mode.HOST).getExecPath(),
         baseCommand);
+    
+    ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.<String, String>builder()
+        .putAll(ruleContext.getConfiguration().getLocalShellEnvironment());
+    
+    if (DEVELOPER_DIR_MAKE_VARIABLE.matcher(command).find()) {
+      XcodeConfigProvider xcodeConfigProvider =
+          ruleContext.getPrerequisite(":xcode_config", Mode.HOST, XcodeConfigProvider.class);
+      envBuilder.putAll(AppleToolchain.appleHostSystemEnv(xcodeConfigProvider));
+    }
 
     command = resolveCommand(ruleContext, command, resolvedSrcs, filesToBuild);
 
@@ -106,8 +121,6 @@ public class GenRule implements RuleConfiguredTargetFactory {
     if (message.isEmpty()) {
       message = "Executing genrule";
     }
-
-    ImmutableMap<String, String> env = ruleContext.getConfiguration().getLocalShellEnvironment();
 
     Map<String, String> executionInfo = Maps.newLinkedHashMap();
     executionInfo.putAll(TargetUtils.getExecutionInfo(ruleContext.getRule()));
@@ -136,7 +149,7 @@ public class GenRule implements RuleConfiguredTargetFactory {
             inputs.build(),
             filesToBuild,
             argv,
-            env,
+            envBuilder.build(),
             ImmutableMap.copyOf(executionInfo),
             commandHelper.getRemoteRunfileManifestMap(),
             message + ' ' + ruleContext.getLabel()));
@@ -198,6 +211,8 @@ public class GenRule implements RuleConfiguredTargetFactory {
                 PathFragment relPath = ruleContext.getRule().getLabel().getPackageFragment();
                 return dir.getRelative(relPath).getPathString();
               }
+            } else if (DEVELOPER_DIR_MAKE_VARIABLE.matcher("$(" + name + ")").find()) {
+              return "$${DEVELOPER_DIR}";
             } else {
               return super.lookupMakeVariable(name);
             }

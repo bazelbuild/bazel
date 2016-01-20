@@ -219,10 +219,24 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
         ConstantRuleVisibility.PUBLIC, true, 7, "",
         UUID.randomUUID());
+    // The below call evaluates and caches the build graph. If any modifications are made to
+    // packages which have already been set up, they will not be in the current cached build graph
+    // view. Call {@link #invalidateAllFiles} to clear this cache.
     useConfiguration();
     setUpSkyframe();
     // Also initializes ResourceManager.
     ResourceManager.instance().setAvailableResources(getStartingResources());
+  }
+
+  /**
+   * Clears the current build graph cache by invalidating all files.
+   */
+  protected void invalidateAllFiles() throws InterruptedException {
+    // This is necessary as the build graph may have already been evaluated and cached. If so,
+    // the previous setup steps in this method would not be taken into account in any of the
+    // build graphs for this class's tests.
+    getSkyframeExecutor().invalidateFilesUnderPathForTesting(reporter,
+        ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
   }
 
   protected AnalysisMock getAnalysisMock() {
