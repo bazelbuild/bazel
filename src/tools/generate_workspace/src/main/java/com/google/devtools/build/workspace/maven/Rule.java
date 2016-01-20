@@ -16,11 +16,12 @@ package com.google.devtools.build.workspace.maven;
 
 import com.google.common.collect.Sets;
 import com.google.common.io.CharStreams;
-
 import com.google.devtools.build.lib.bazel.repository.MavenConnector;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+
 import org.apache.maven.model.Dependency;
+import org.apache.maven.model.Exclusion;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 
@@ -28,16 +29,19 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * A struct representing the fields of maven_jar to be written to the WORKSPACE file.
  */
-public final class Rule {
+public final class Rule implements Comparable<Rule> {
   private final Artifact artifact;
   private final Set<String> parents;
   private String repository;
   private String sha1;
+  private Set<String> exclusions;
+  private Set<Rule> dependencies;
 
   public Rule(String artifactStr) throws InvalidRuleException {
     try {
@@ -46,19 +50,37 @@ public final class Rule {
       throw new InvalidRuleException(e.getMessage());
     }
     this.parents = Sets.newHashSet();
+    this.dependencies = Sets.newTreeSet();
+    this.exclusions = Sets.newHashSet();
   }
 
   public Rule(Dependency dependency) throws InvalidRuleException {
     this(dependency.getGroupId() + ":" + dependency.getArtifactId() + ":"
         + dependency.getVersion());
+
+    for (Exclusion exclusion : dependency.getExclusions()) {
+      exclusions.add(String.format("%s:%s", exclusion.getGroupId(), exclusion.getArtifactId()));
+    }
   }
 
   public void addParent(String parent) {
     parents.add(parent);
   }
 
+  public void addDependency(Rule dependency) {
+    dependencies.add(dependency);
+  }
+
+  public Set<Rule> getDependencies() {
+    return dependencies;
+  }
+
   public String artifactId() {
     return artifact.getArtifactId();
+  }
+
+  public Set<String> getExclusions() {
+    return exclusions;
   }
 
   public String groupId() {
@@ -143,6 +165,31 @@ public final class Rule {
 
   private boolean hasCustomRepository() {
     return repository != null && !repository.equals(MavenConnector.getMavenCentral().getUrl());
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    Rule rule = (Rule) o;
+
+    return Objects.equals(groupId(), rule.groupId())
+        && Objects.equals(artifactId(), rule.artifactId());
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(groupId(), artifactId());
+  }
+
+  @Override
+  public int compareTo(Rule o) {
+    return name().compareTo(o.name());
   }
 
   /**
