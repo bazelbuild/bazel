@@ -314,7 +314,8 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
       // expect to fail.
     }
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:1:1: in java_library rule //test:xxx: \n"
+        "ERROR /workspace/test/BUILD:1:1: in "
+            + "//test:aspect.bzl%MyAspect aspect on java_library rule //test:xxx: \n"
             + "Traceback (most recent call last):\n"
             + "\tFile \"/workspace/test/BUILD\", line 1\n"
             + "\t\t//test:aspect.bzl%MyAspect(...)\n"
@@ -363,7 +364,8 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
       // expect to fail.
     }
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:1:1: in java_library rule //test:xxx: \n"
+        "ERROR /workspace/test/BUILD:1:1: in //test:aspect.bzl%MyAspect aspect on java_library rule"
+        + " //test:xxx: \n"
         + "\n"
         + "\n"
         + "/workspace/test/aspect.bzl:4:11: Value of provider 'x' is of an illegal type: function");
@@ -388,7 +390,8 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
       // expect to fail.
     }
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:1:1: in java_library rule //test:xxx: \n"
+        "ERROR /workspace/test/BUILD:1:1: in "
+            + "//test:aspect.bzl%MyAspect aspect on java_library rule //test:xxx: \n"
             + "\n"
             + "\n"
             + "The following files have no generating action:\n"
@@ -456,5 +459,116 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "Every .bzl file must have a corresponding package, but 'foo' does not have one. "
         + "Please create a BUILD file in the same or any parent directory. "
         + "Note that this BUILD file does not need to do anything except exist.");
+  }
+
+  @Test
+  public void testAspectFragmentAccessSuccess() throws Exception {
+    getConfiguredTargetForAspectFragment(
+        "ctx.fragments.cpp.compiler", "'cpp'", "", "", "");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testAspectHostFragmentAccessSuccess() throws Exception {
+    getConfiguredTargetForAspectFragment(
+        "ctx.host_fragments.cpp.compiler", "", "'cpp'", "", "");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testAspectFragmentAccessError() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    try {
+      getConfiguredTargetForAspectFragment(
+          "ctx.fragments.cpp.compiler", "'java'", "'cpp'", "'cpp'", "");
+      fail("update() should have failed");
+    } catch (ViewCreationFailedException e) {
+      // expected
+    }
+    assertContainsEvent(
+        "//test:aspect.bzl%MyAspect aspect on my_rule has to declare 'cpp' as a "
+            + "required fragment in target configuration in order to access it. Please update the "
+            + "'fragments' argument of the rule definition "
+            + "(for example: fragments = [\"cpp\"])");
+  }
+
+  @Test
+  public void testAspectHostFragmentAccessError() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    try {
+      getConfiguredTargetForAspectFragment(
+          "ctx.host_fragments.cpp.compiler", "'cpp'", "'java'", "", "'cpp'");
+      fail("update() should have failed");
+    } catch (ViewCreationFailedException e) {
+      // expected
+    }
+    assertContainsEvent(
+        "//test:aspect.bzl%MyAspect aspect on my_rule has to declare 'cpp' as a "
+            + "required fragment in host configuration in order to access it. Please update the "
+            + "'host_fragments' argument of the rule definition "
+            + "(for example: host_fragments = [\"cpp\"])");
+  }
+
+  @Test
+  public void testAspectFragmentFallback() throws Exception {
+    // TODO(mstaib): Remove this test when rule fragment fallback is no longer permitted.
+    getConfiguredTargetForAspectFragment(
+        "ctx.fragments.cpp.compiler", "", "", "'cpp'", "");
+    assertNoEvents();
+  }
+
+  @Test
+  public void testAspectHostFragmentFallback() throws Exception {
+    // TODO(mstaib): Remove this test when rule fragment fallback is no longer permitted.
+    getConfiguredTargetForAspectFragment(
+        "ctx.host_fragments.cpp.compiler", "", "", "", "'cpp'");
+    assertNoEvents();
+  }
+
+
+  private ConfiguredTarget getConfiguredTargetForAspectFragment(
+      String fullFieldName,
+      String fragments,
+      String hostFragments,
+      String ruleFragments,
+      String ruleHostFragments)
+      throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _aspect_impl(target, ctx):",
+        "   return struct(result = str(" + fullFieldName + "))",
+        "",
+        "def _rule_impl(ctx):",
+        "   return struct(stuff = '...')",
+        "",
+        "MyAspect = aspect(",
+        "   implementation=_aspect_impl,",
+        "   attr_aspects=['deps'],",
+        "   fragments=[" + fragments + "],",
+        "   host_fragments=[" + hostFragments + "],",
+        ")",
+        "my_rule = rule(",
+        "   implementation=_rule_impl,",
+        "   attrs = { 'attr' : ",
+        "             attr.label_list(mandatory=True, allow_files=True, aspects = [MyAspect]) },",
+        "   fragments=[" + ruleFragments + "],",
+        "   host_fragments=[" + ruleHostFragments + "],",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('/test/aspect', 'my_rule')",
+        "exports_files(['zzz'])",
+        "my_rule(",
+        "     name = 'yyy',",
+        "     attr = ['zzz'],",
+        ")",
+        "my_rule(",
+        "     name = 'xxx',",
+        "     attr = ['yyy'],",
+        ")");
+
+    update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+
+    return getConfiguredTarget("//test:xxx");
   }
 }

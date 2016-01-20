@@ -960,8 +960,9 @@ public class BuildView {
           throws EvalException, InterruptedException {
     BuildConfiguration targetConfig = target.getConfiguration();
     return new RuleContext.Builder(
-        env, (Rule) target.getTarget(), targetConfig, configurations.getHostConfiguration(),
-        ruleClassProvider.getPrerequisiteValidator())
+        env, (Rule) target.getTarget(), null, targetConfig, configurations.getHostConfiguration(),
+        ruleClassProvider.getPrerequisiteValidator(),
+        ((Rule) target.getTarget()).getRuleClassObject().getConfigurationFragmentPolicy())
             .setVisibility(NestedSetBuilder.<PackageSpecification>create(
                 Order.STABLE_ORDER, PackageSpecification.EVERYTHING))
             .setPrerequisites(getPrerequisiteMapForTesting(eventHandler, target, configurations))
