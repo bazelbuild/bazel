@@ -93,57 +93,6 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "bazel-tools",
-    files = [
-        "//third_party:srcs",
-        "//third_party/java/jdk/langtools:srcs",
-        "//tools:package-srcs",
-    ],
-    mode = "0644",
-    modes = {f: "0755" for f in [
-        # List made out of `find -type f -executable`
-        "third_party/iossim/iossim",
-        "third_party/ijar/test/zip_test.sh",
-        "third_party/ijar/test/ijar_test.sh",
-        "third_party/ijar/test/testenv.sh",
-        "third_party/protobuf/protoc-osx-x86_32.exe",
-        "third_party/protobuf/protoc-linux-x86_64.exe",
-        "third_party/protobuf/protoc-osx-x86_64.exe",
-        "third_party/protobuf/protoc-linux-x86_32.exe",
-        "third_party/protobuf/protoc-windows-x86_32.exe",
-        "third_party/protobuf/protoc-windows-x86_64.exe",
-        "third_party/py/gflags/tests/flags_modules_for_testing/module_bar.py",
-        "third_party/py/gflags/tests/flags_modules_for_testing/module_baz.py",
-        "third_party/py/gflags/tests/flags_modules_for_testing/module_foo.py",
-        "third_party/py/gflags/tests/gflags_helpxml_test.py",
-        "third_party/py/gflags/tests/gflags_unittest.py",
-        "third_party/py/gflags/tests/gflags_validators_test.py",
-        "third_party/py/gflags/gflags2man.py",
-        "third_party/py/gflags/setup.py",
-        "third_party/py/gflags/debian/rules",
-        "third_party/py/gflags/gflags_validators.py",
-        "third_party/py/mock/setup.py",
-        "tools/android/jack/fail.sh",
-        "tools/android/shuffle_jars.sh",
-        "tools/android/merge_dexzips.sh",
-        "tools/android/idlclass.sh",
-        "tools/android/aar_generator.sh",
-        "tools/android/resources_processor.sh",
-        "tools/j2objc/j2objc_wrapper.py",
-        "tools/genrule/genrule-setup.sh",
-        "tools/objc/j2objc_dead_code_pruner.py",
-        "tools/python/2to3.sh",
-        "tools/cpp/osx_gcc_wrapper.sh",
-        "tools/test/test-setup.sh",
-        "tools/jdk/ijar",
-        "tools/build_defs/docker/testenv.sh",
-        "tools/build_defs/docker/build_test.sh",
-    ]},
-    package_dir = "/usr/share/lib/bazel/tools",
-    strip_prefix = "/",
-)
-
-pkg_tar(
     name = "debian-data",
     extension = "tar.gz",
     deps = [

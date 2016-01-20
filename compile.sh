@@ -27,30 +27,26 @@ cd "$(dirname "$0")"
 source scripts/bootstrap/buildenv.sh
 
 function usage() {
-  [ -n "${1:-build}" ] && echo "Invalid command(s): $1" >&2
+  [ -n "${1:-compile}" ] && echo "Invalid command(s): $1" >&2
   echo "syntax: $0 [command[,command]* [BAZEL_BIN [BAZEL_SUM]]]" >&2
   echo "  General purpose commands:" >&2
-  echo "     build       = compile,init (default)" >&2
-  echo "     compile     = compile a Bazel binary for usage" >&2
-  echo "     init        = initialize the base workspace" >&2
+  echo "     compile       = compile the bazel binary (default)" >&2
   echo "  Commands for developers:" >&2
-  echo "     all         = build,determinism,test" >&2
+  echo "     all         = compile,determinism,test" >&2
   echo "     determinism = test for stability of Bazel builds" >&2
   echo "     test        = run the full test suite of Bazel" >&2
   exit 1
 }
 
 function parse_options() {
-  local keywords="(build|compile|init|all|determinism|bootstrap|test)"
-  COMMANDS="${1:-build}"
+  local keywords="(compile|all|determinism|bootstrap|test)"
+  COMMANDS="${1:-compile}"
   [[ "${COMMANDS}" =~ ^$keywords(,$keywords)*$ ]] || usage "$@"
   DO_COMPILE=
   DO_CHECKSUM=
   DO_FULL_CHECKSUM=1
   DO_TESTS=
-  DO_BASE_WORKSPACE_INIT=
-  [[ "${COMMANDS}" =~ (compile|build|all) ]] && DO_COMPILE=1
-  [[ "${COMMANDS}" =~ (init|build|all) ]] && DO_BASE_WORKSPACE_INIT=1
+  [[ "${COMMANDS}" =~ (compile|all) ]] && DO_COMPILE=1
   [[ "${COMMANDS}" =~ (bootstrap|determinism|all) ]] && DO_CHECKSUM=1
   [[ "${COMMANDS}" =~ (bootstrap) ]] && DO_FULL_CHECKSUM=
   [[ "${COMMANDS}" =~ (test|all) ]] && DO_TESTS=1
@@ -157,15 +153,6 @@ if [ $DO_TESTS ]; then
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
       -k --test_output=errors //src/... //third_party/ijar/... //scripts/... \
       || fail "Tests failed"
-fi
-
-#
-# Setup the base workspace
-#
-if [ $DO_BASE_WORKSPACE_INIT ]; then
-  new_step 'Setting up base workspace'
-  display "."
-  source scripts/bootstrap/init_workspace.sh
 fi
 
 clear_log
