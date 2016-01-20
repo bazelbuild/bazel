@@ -29,6 +29,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
@@ -836,19 +837,20 @@ public final class BuildConfiguration {
     public List<Label> targetEnvironments;
 
     @Option(name = "objc_gcov_binary",
-        converter = LabelConverter.class,
-        defaultValue = "//third_party/gcov:gcov_for_xcode",
+        converter = ToolsLabelConverter.class,
+        defaultValue = "//third_party/gcov:gcov_for_xcode_osx",
         category = "undocumented")
     public Label objcGcovBinary;
 
-    // This performs the same function as objc_gcov_binary but applies to experminental_ios_test
-    // rather than ios_test.
-    // TODO(bazel-team): Remove this once experimental_ios_test replaces to ios_test.
-    @Option(name = "experimental_objc_gcov_binary",
-            converter = LabelConverter.class,
-            defaultValue = "//third_party/gcov:gcov_for_xcode_osx",
-            category = "undocumented")
-    public Label experimentalObjcGcovBinary;
+    /** Converter for labels in the @bazel_tools repository. The @Options' defaultValues can't
+     * prepend TOOLS_REPOSITORY, unfortunately, because then the compiler thinks they're not
+     * constant. */
+    public static class ToolsLabelConverter extends LabelConverter {
+      @Override
+      public Label convert(String input) throws OptionsParsingException {
+        return convertLabel(Constants.TOOLS_REPOSITORY + input);
+      }
+    }
 
     @Option(name = "experimental_dynamic_configs",
         defaultValue = "false",
@@ -913,7 +915,6 @@ public final class BuildConfiguration {
       }
       if (collectCodeCoverage) {
         labelMap.put("objc_gcov", objcGcovBinary);
-        labelMap.put("experimental_objc_gcov", experimentalObjcGcovBinary);
       }
     }
   }
