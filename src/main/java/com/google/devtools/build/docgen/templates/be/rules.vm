@@ -1,3 +1,7 @@
+---
+layout: documentation
+title: ${ruleFamily.name} Rules
+---
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
 
 <h1>${ruleFamily.name} Rules</h1>

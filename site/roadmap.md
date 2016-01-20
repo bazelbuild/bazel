@@ -1,5 +1,6 @@
 ---
 layout: community
+title: Roadmap
 ---
 
 # Bazel Feature Roadmap

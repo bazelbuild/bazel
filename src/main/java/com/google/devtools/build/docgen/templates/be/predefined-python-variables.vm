@@ -1,3 +1,7 @@
+---
+layout: documentation
+title: Predefined Python Variables
+---
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
 
 <h2 id="predefined-python-variables">Predefined Python Variables</h2>

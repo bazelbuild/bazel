@@ -1,3 +1,7 @@
+---
+layout: documentation
+title: Build Encyclopedia
+---
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
 
 <h1>Bazel BUILD Encyclopedia of Functions</h1>

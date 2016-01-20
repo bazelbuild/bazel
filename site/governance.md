@@ -1,5 +1,6 @@
 ---
 layout: community
+title: Governance
 ---
 
 # Governance

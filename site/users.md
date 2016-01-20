@@ -1,5 +1,6 @@
 ---
 layout: community
+title: Bazel Users
 ---
 
 # Corporate users of Bazel

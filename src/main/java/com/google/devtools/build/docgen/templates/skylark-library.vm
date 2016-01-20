@@ -1,3 +1,7 @@
+---
+layout: documentation
+title: ${module.title}
+---
 <h1 id="modules.${module.name}">${module.title}</h1>
 
 ${module.documentation}

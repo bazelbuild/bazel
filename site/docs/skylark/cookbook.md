@@ -1,3 +1,7 @@
+---
+layout: documentation
+title: Skylark Cookbook
+---
 Skylark cookbook
 ================
 
@@ -90,7 +94,7 @@ def system_test_suite(name, flavors=["default"], test_files):
   for flavor in flavors:
     for test in test_files:
       ts.append(system_test(name, flavor, test))
-  native.test_suite(name = name, tests = ts) 
+  native.test_suite(name = name, tests = ts)
 ```
 
 In the following BUILD file, note how `(fast, basic_test.py)` is emitted for

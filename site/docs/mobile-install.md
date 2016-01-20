@@ -1,5 +1,6 @@
 ---
 layout: documentation
+title: mobile-install
 ---
 
 # bazel mobile-install

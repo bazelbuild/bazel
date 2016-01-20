@@ -1,3 +1,8 @@
+---
+layout: documentation
+title: Tutorial - Introduction
+---
+
 # Tutorial - Introduction
 
 You can use Bazel to build a variety of software outputs, including

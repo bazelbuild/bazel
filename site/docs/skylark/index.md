@@ -1,3 +1,7 @@
+---
+layout: documentation
+title: Custom Rules
+---
 # Custom rules
 
 Skylark is the code name of the extension mechanism for Bazel. It lets you write

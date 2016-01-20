@@ -1,3 +1,7 @@
+---
+layout: documentation
+title: Functions
+---
 #parse("com/google/devtools/build/docgen/templates/be/header.vm")
 
 <h1>Functions</h1>

@@ -1,5 +1,6 @@
 ---
 layout: documentation
+title: External Dependencies
 ---
 
 # Working with external dependencies
