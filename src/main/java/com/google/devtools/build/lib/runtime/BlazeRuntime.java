@@ -1147,6 +1147,14 @@ public final class BlazeRuntime {
       workspaceDirectoryPath = fs.getPath(workspaceDirectory);
     }
 
+    if (fs instanceof UnixFileSystem) {
+      ((UnixFileSystem) fs).setRootsWithAllowedHardlinks(
+          // Some tests pass nulls for these paths, so remove these from the list
+          Iterables.filter(
+              Arrays.asList(installBasePath, outputBasePath, workspaceDirectoryPath),
+              Predicates.notNull()));
+    }
+
     BlazeDirectories directories =
         new BlazeDirectories(installBasePath, outputBasePath, workspaceDirectoryPath,
                              startupOptions.deepExecRoot, startupOptions.installMD5);

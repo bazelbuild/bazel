@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.vfs;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -25,6 +26,14 @@ import com.google.devtools.build.lib.unix.FilesystemUtils.ReadTypes;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.RandomAccessFile;
+import java.io.StringWriter;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.FileLock;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -36,8 +45,56 @@ import java.util.List;
 // Not final only for testing.
 @ThreadSafe
 public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
+  /**
+   * What to do with requests to create symbolic links.
+   *
+   * Currently supports one value: SYMLINK, which simply calls symlink() . It obviously does not
+   * work on Windows.
+   */
+  public enum SymlinkStrategy {
+    /**
+     * Use symlink(). Does not work on Windows, obviously.
+     */
+    SYMLINK,
 
-  public static final UnixFileSystem INSTANCE = new UnixFileSystem();
+    /**
+     * Write a log message for symlinks that won't be compatible with how we are planning to pretend
+     * that they exist on Windows.
+     */
+    WINDOWS_COMPATIBLE,
+  }
+
+  private final SymlinkStrategy symlinkStrategy;
+  private final String symlinkLogFile;
+
+  /**
+   * Directories where Bazel tries to hardlink files from instead of copying them.
+   *
+   * <p>These must be writable to the user.
+   */
+  private ImmutableList<Path> rootsWithAllowedHardlinks;
+
+  public UnixFileSystem() {
+    SymlinkStrategy symlinkStrategy = SymlinkStrategy.SYMLINK;
+    String strategyString = System.getProperty("io.bazel.SymlinkStrategy");
+    symlinkLogFile = System.getProperty("io.bazel.SymlinkLogFile");
+    if (strategyString != null && symlinkLogFile != null) {
+      try {
+        symlinkStrategy = SymlinkStrategy.valueOf(strategyString.toUpperCase());
+      } catch (IllegalArgumentException e) {
+        // We just go with the default, this is just an experimental option so it's fine.
+      }
+    }
+
+    this.symlinkStrategy = symlinkStrategy;
+    rootsWithAllowedHardlinks = ImmutableList.of();
+  }
+
+  // This method is a little ugly, but it's only for testing for now.
+  public void setRootsWithAllowedHardlinks(Iterable<Path> roots) {
+    this.rootsWithAllowedHardlinks = ImmutableList.copyOf(roots);
+  }
+
   /**
    * Eager implementation of FileStatus for file systems that have an atomic
    * stat(2) syscall. A proxy for {@link com.google.devtools.build.lib.unix.FileStatus}.
@@ -311,9 +368,70 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   @Override
   protected void createSymbolicLink(Path linkPath, PathFragment targetFragment)
       throws IOException {
+    checkForWindowsCompatibility(linkPath, targetFragment);
+
     synchronized (linkPath) {
       FilesystemUtils.symlink(targetFragment.toString(), linkPath.toString());
     }
+  }
+
+  private boolean isHardLinkAllowed(Path path) {
+    for (Path root : rootsWithAllowedHardlinks) {
+      if (path.startsWith(root)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private void emitSymlinkCompatibilityMessage(
+      String reason, Path linkPath, PathFragment targetFragment)
+      throws  IOException {
+    // FileLock does not work for synchronization between threads in the same JVM as per its Javadoc
+    synchronized (symlinkLogFile) {
+      Exception e = new Exception();
+      e.fillInStackTrace();
+      StringWriter sw = new StringWriter();
+      e.printStackTrace(new PrintWriter(sw));
+      String msg = String.format("ILLEGAL (%s): %s -> %s\nStack:\n%s",
+          reason, linkPath.getPathString(), targetFragment.getPathString(), sw.toString());
+
+      try (FileChannel channel = new RandomAccessFile(symlinkLogFile, "rwd").getChannel()) {
+        try (FileLock lock = channel.lock()) {
+          channel.position(channel.size());
+          ByteBuffer data = Charset.forName("UTF-8").newEncoder().encode(CharBuffer.wrap(msg));
+          channel.write(data);
+        }
+      }
+    }
+  }
+
+  private void checkForWindowsCompatibility(Path linkPath, PathFragment targetFragment)
+      throws IOException {
+    if (symlinkStrategy != SymlinkStrategy.WINDOWS_COMPATIBLE) {
+      return;
+    }
+
+    Path targetPath = linkPath.getRelative(targetFragment);
+    if (!targetPath.exists(Symlinks.FOLLOW)) {
+      // On Windows, one needs to know if the target is a directory or a file.
+      emitSymlinkCompatibilityMessage("Target does not exist", linkPath, targetFragment);
+      return;
+    }
+
+    targetPath = targetPath.resolveSymbolicLinks();
+    if (targetPath.isDirectory()) {
+      // We can use a junction
+      return;
+    }
+
+    if (isHardLinkAllowed(targetPath)) {
+      // We can use a hard link
+      return;
+    }
+
+    emitSymlinkCompatibilityMessage("Link to non-writable file", linkPath, targetFragment);
   }
 
   @Override

@@ -1057,7 +1057,7 @@ public class FileFunctionTest {
 
     FileSystem oldFileSystem = Path.getFileSystemForSerialization();
     try {
-      FileSystem fs = UnixFileSystem.INSTANCE; // InMemoryFS is not supported for serialization.
+      FileSystem fs = new UnixFileSystem(); // InMemoryFS is not supported for serialization.
       Path.setFileSystemForSerialization(fs);
       pkgRoot = fs.getRootDirectory();
 
