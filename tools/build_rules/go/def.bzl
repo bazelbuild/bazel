@@ -49,7 +49,7 @@ def _go_prefix_impl(ctx):
 def _go_prefix(ctx):
   """slash terminated go-prefix"""
   prefix = ctx.attr.go_prefix.go_prefix
-  if not prefix.endswith("/"):
+  if prefix != "" and not prefix.endswith("/"):
     prefix = prefix + "/"
   return prefix
 
