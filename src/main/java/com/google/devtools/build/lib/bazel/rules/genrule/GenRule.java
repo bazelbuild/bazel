@@ -107,8 +107,7 @@ public class GenRule implements RuleConfiguredTargetFactory {
       message = "Executing genrule";
     }
 
-    ImmutableMap<String, String> env =
-            ruleContext.getConfiguration().getDefaultShellEnvironment();
+    ImmutableMap<String, String> env = ruleContext.getConfiguration().getLocalShellEnvironment();
 
     Map<String, String> executionInfo = Maps.newLinkedHashMap();
     executionInfo.putAll(TargetUtils.getExecutionInfo(ruleContext.getRule()));

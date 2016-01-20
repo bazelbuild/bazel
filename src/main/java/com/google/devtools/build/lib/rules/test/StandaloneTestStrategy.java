@@ -155,7 +155,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     Map<String, String> vars = getDefaultTestEnvironment(action);
     BuildConfiguration config = action.getConfiguration();
 
-    vars.putAll(config.getDefaultShellEnvironment());
+    vars.putAll(config.getLocalShellEnvironment());
     vars.putAll(action.getTestEnv());
 
     /*

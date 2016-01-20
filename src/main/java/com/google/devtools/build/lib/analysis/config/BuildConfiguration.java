@@ -1038,7 +1038,7 @@ public final class BuildConfiguration {
    */
   private final ImmutableMap<String, String> globalMakeEnv;
 
-  private final ImmutableMap<String, String> defaultShellEnvironment;
+  private final ImmutableMap<String, String> localShellEnvironment;
   private final BuildOptions buildOptions;
   private final Options options;
 
@@ -1231,7 +1231,7 @@ public final class BuildConfiguration {
     this.coverageReportGeneratorLabels = coverageReportGeneratorLabelsBuilder.build();
     this.gcovLabels = gcovLabelsBuilder.build();
 
-    this.defaultShellEnvironment = setupShellEnvironment();
+    this.localShellEnvironment = setupShellEnvironment();
 
     this.transitiveOptionsMap = computeOptionsMap(buildOptions, fragments.values());
 
@@ -2029,14 +2029,16 @@ public final class BuildConfiguration {
     return checksum();
   }
 
-  /**
-   * Returns the default shell environment
-   */
-  @SkylarkCallable(name = "default_shell_env", structField = true,
-      doc = "A dictionary representing the default environment. It maps variables "
-      + "to their values (strings).")
-  public ImmutableMap<String, String> getDefaultShellEnvironment() {
-    return defaultShellEnvironment;
+  @SkylarkCallable(
+    name = "default_shell_env",
+    structField = true,
+    doc =
+        "A dictionary representing the local shell environment. It maps variables "
+            + "to their values (strings).  The local shell environment contains settings that are "
+            + "machine specific, therefore its use should be avoided in rules meant to be hermetic."
+  )
+  public ImmutableMap<String, String> getLocalShellEnvironment() {
+    return localShellEnvironment;
   }
 
   /**

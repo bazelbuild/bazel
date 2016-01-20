@@ -168,7 +168,7 @@ public abstract class TestStrategy implements TestActionContext {
   protected Map<String, String> getDefaultTestEnvironment(TestRunnerAction action) {
     Map<String, String> env = new HashMap<>();
 
-    env.putAll(action.getConfiguration().getDefaultShellEnvironment());
+    env.putAll(action.getConfiguration().getLocalShellEnvironment());
     env.remove("LANG");
     env.put("TZ", "UTC");
     env.put("TEST_SIZE", action.getTestProperties().getSize().toString());

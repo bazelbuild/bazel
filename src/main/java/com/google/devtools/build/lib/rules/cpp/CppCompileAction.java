@@ -600,8 +600,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * provided to the C++ compiler.
    */
   public ImmutableMap<String, String> getEnvironment() {
-    Map<String, String> environment =
-        new LinkedHashMap<>(configuration.getDefaultShellEnvironment());
+    Map<String, String> environment = new LinkedHashMap<>(configuration.getLocalShellEnvironment());
     if (configuration.isCodeCoverageEnabled()) {
       environment.put("PWD", "/proc/self/cwd");
     }

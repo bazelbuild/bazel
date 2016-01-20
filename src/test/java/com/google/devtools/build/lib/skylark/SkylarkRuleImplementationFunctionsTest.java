@@ -238,7 +238,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     MoreAsserts.assertContainsSublist(action.getArguments(), "-c", "dummy_command", "", "--a", "--b");
     assertEquals("DummyMnemonic", action.getMnemonic());
     assertEquals("dummy_message", action.getProgressMessage());
-    assertEquals(targetConfig.getDefaultShellEnvironment(), action.getEnvironment());
+    assertEquals(targetConfig.getLocalShellEnvironment(), action.getEnvironment());
   }
 
   @Test
