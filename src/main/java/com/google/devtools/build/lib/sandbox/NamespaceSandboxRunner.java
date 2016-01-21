@@ -200,9 +200,9 @@ public class NamespaceSandboxRunner {
           CommandFailureUtils.describeCommandFailure(
               verboseFailures, spawnArguments, env, cwd.getPath());
       throw new UserExecException(message, e, timedOut);
+    } finally {
+      copyOutputs(outputs);
     }
-
-    copyOutputs(outputs);
   }
 
   private void createFileSystem(Collection<PathFragment> outputs) throws IOException {
