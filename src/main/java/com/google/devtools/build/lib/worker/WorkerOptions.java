@@ -28,7 +28,12 @@ public class WorkerOptions extends OptionsBase {
     defaultValue = "null",
     category = "strategy",
     help = "Enable the experimental persistent Java compiler.",
-    expansion = {"--strategy=Javac=worker", "--strategy=JavaIjar=local"}
+    expansion = {
+      "--strategy=Javac=worker",
+      "--strategy=JavaIjar=local",
+      "--strategy=JavaDeployJar=local",
+      "--strategy=JavaSourceJar=local"
+    }
   )
   public Void experimentalPersistentJavac;
 
