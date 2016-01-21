@@ -157,7 +157,10 @@ public class OutputDirectoryLinksUtils {
    */
   private static boolean createLink(Path base, String name, Path target, List<String> failures) {
     try {
-      FileSystemUtils.ensureSymbolicLink(base.getRelative(name), target);
+      if (target.exists()) {
+        // Do not create a symlink to non-existent directories
+        FileSystemUtils.ensureSymbolicLink(base.getRelative(name), target);
+      }
       return true;
     } catch (IOException e) {
       failures.add(String.format("%s -> %s:  %s", name, target.getPathString(), e.getMessage()));
