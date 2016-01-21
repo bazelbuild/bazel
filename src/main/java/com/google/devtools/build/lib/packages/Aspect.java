@@ -22,7 +22,7 @@ import java.util.Objects;
  * created with help of aspect factory instances and parameters are used to configure them, so we
  * have to keep them together.
  */
-public final class Aspect {
+public final class Aspect implements DependencyFilter.AttributeInfoProvider {
   // TODO(bazel-team): class objects are not really hashable or comparable for equality other than
   // by reference. We should identify the aspect here in a way that does not rely on comparison
   // by reference so that keys can be serialized and deserialized properly.
@@ -79,5 +79,11 @@ public final class Aspect {
 
   public AspectDefinition getDefinition() {
     return aspectClass.getDefinition(parameters);
+  }
+
+  @Override
+  public boolean isAttributeValueExplicitlySpecified(Attribute attribute) {
+    // All aspect attributes are implicit.
+    return false;
   }
 }

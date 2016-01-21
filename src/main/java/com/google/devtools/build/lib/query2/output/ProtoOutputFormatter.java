@@ -177,7 +177,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
       }
 
       ImmutableMultimap<Attribute, Label> aspectsDependencies =
-          aspectResolver.computeAspectDependencies(target);
+          aspectResolver.computeAspectDependencies(target, dependencyFilter);
       // Add information about additional attributes from aspects.
       for (Entry<Attribute, Collection<Label>> entry : aspectsDependencies.asMap().entrySet()) {
         Attribute attribute = entry.getKey();

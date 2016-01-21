@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.NativeAspectClass.NativeAspectFactory;
-import com.google.devtools.build.lib.util.BinaryPredicate;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Collection;
@@ -141,21 +140,23 @@ public final class AspectDefinition {
    * Returns the attribute -&gt; set of labels that are provided by aspects of attribute.
    */
   public static ImmutableMultimap<Attribute, Label> visitAspectsIfRequired(
-      Target from, Attribute attribute, Target to) {
+      Target from, Attribute attribute, Target to,
+      DependencyFilter dependencyFilter) {
     // Aspect can be declared only for Rules.
     if (!(from instanceof Rule) || !(to instanceof Rule)) {
       return ImmutableMultimap.of();
     }
     RuleClass ruleClass = ((Rule) to).getRuleClassObject();
     ImmutableSet<Class<?>> providers = ruleClass.getAdvertisedProviders();
-    return visitAspectsIfRequired((Rule) from, attribute, toStringSet(providers));
+    return visitAspectsIfRequired((Rule) from, attribute, toStringSet(providers), dependencyFilter);
   }
 
   /**
    * Returns the attribute -&gt; set of labels that are provided by aspects of attribute.
    */
   public static ImmutableMultimap<Attribute, Label> visitAspectsIfRequired(
-      Rule from, Attribute attribute, Set<String> advertisedProviders) {
+      Rule from, Attribute attribute, Set<String> advertisedProviders,
+      DependencyFilter dependencyFilter) {
     if (advertisedProviders.isEmpty()) {
       return ImmutableMultimap.of();
     }
@@ -168,8 +169,7 @@ public final class AspectDefinition {
           candidateClass.getDefinition().getRequiredProviderNames())) {
         continue;
       }
-      addAllAttributesOfAspect(
-          from, result, candidateClass.getDefinition(), DependencyFilter.ALL_DEPS);
+      addAllAttributesOfAspect(from, result, candidateClass, dependencyFilter);
     }
     return ImmutableMultimap.copyOf(result);
   }
@@ -188,11 +188,11 @@ public final class AspectDefinition {
   public static void addAllAttributesOfAspect(
       Rule from,
       Multimap<Attribute, Label> labelBuilder,
-      AspectDefinition aspectDefinition,
-      BinaryPredicate<? super Rule, Attribute> predicate) {
-    ImmutableMap<String, Attribute> attributes = aspectDefinition.getAttributes();
+      Aspect aspect,
+      DependencyFilter dependencyFilter) {
+    ImmutableMap<String, Attribute> attributes = aspect.getDefinition().getAttributes();
     for (Attribute aspectAttribute : attributes.values()) {
-      if (!predicate.apply(from, aspectAttribute)) {
+      if (!dependencyFilter.apply(aspect, aspectAttribute)) {
         continue;
       }
       if (aspectAttribute.getType() == BuildType.LABEL) {

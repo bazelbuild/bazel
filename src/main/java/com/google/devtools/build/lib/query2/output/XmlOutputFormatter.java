@@ -155,7 +155,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         inputElem.setAttribute("name", label.toString());
         elem.appendChild(inputElem);
       }
-      for (Label label : aspectResolver.computeAspectDependencies(target).values()) {
+      for (Label label :
+          aspectResolver.computeAspectDependencies(target, dependencyFilter).values()) {
         Element inputElem = doc.createElement("rule-input");
         inputElem.setAttribute("name", label.toString());
         elem.appendChild(inputElem);

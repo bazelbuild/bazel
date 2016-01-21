@@ -326,10 +326,6 @@ final class LabelVisitor {
       // Don't perform the targetProvider lookup if at the maximum depth already.
       if (depth >= maxDepth) {
         return;
-      } else if (attr != null && from instanceof Rule) {
-        if (!edgeFilter.apply((Rule) from, attr)) {
-          return;
-        }
       }
 
       // Avoid thread-related overhead when not crossing packages.
@@ -366,11 +362,15 @@ final class LabelVisitor {
     private void visitTargetVisibility(Target target, int depth, int count) {
       Attribute attribute = null;
       if (target instanceof Rule) {
-        RuleClass ruleClass = ((Rule) target).getRuleClassObject();
+        Rule rule = (Rule) target;
+        RuleClass ruleClass = rule.getRuleClassObject();
         if (!ruleClass.hasAttr("visibility", BuildType.NODEP_LABEL_LIST)) {
           return;
         }
         attribute = ruleClass.getAttributeByName("visibility");
+        if (!edgeFilter.apply(rule, attribute)) {
+          return;
+        }
       }
 
       for (Label label : target.getVisibility().getDependencyLabels()) {
@@ -391,6 +391,9 @@ final class LabelVisitor {
       AggregatingAttributeMapper.of(rule).visitLabels(new AttributeMap.AcceptsLabelAttribute() {
         @Override
         public void acceptLabelAttribute(Label label, Attribute attribute) {
+          if (!edgeFilter.apply(rule, attribute)) {
+            return;
+          }
           enqueueTarget(rule, attribute, label, depth, count);
         }
       });
@@ -427,7 +430,7 @@ final class LabelVisitor {
     private void visitAspectsIfRequired(
         Target from, Attribute attribute, final Target to, int depth, int count) {
       ImmutableMultimap<Attribute, Label> labelsFromAspects =
-          AspectDefinition.visitAspectsIfRequired(from, attribute, to);
+          AspectDefinition.visitAspectsIfRequired(from, attribute, to, edgeFilter);
       // Create an edge from target to the attribute value.
       for (Entry<Attribute, Label> entry : labelsFromAspects.entries()) {
         enqueueTarget(from, entry.getKey(), entry.getValue(), depth, count);

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
@@ -86,7 +87,8 @@ public interface AspectResolver {
    * Compute additional dependencies of target from aspects. This method may load the direct deps
    * of target to determine their types. Returns map of attributes and corresponding label values.
    */
-  ImmutableMultimap<Attribute, Label> computeAspectDependencies(Target target)
+  ImmutableMultimap<Attribute, Label> computeAspectDependencies(Target target,
+      DependencyFilter dependencyFilter)
       throws InterruptedException;
 
   /**

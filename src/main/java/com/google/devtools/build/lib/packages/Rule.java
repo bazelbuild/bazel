@@ -664,8 +664,7 @@ public final class Rule implements Target, DependencyFilter.AttributeInfoProvide
     LinkedHashMultimap<Attribute, Label> labels = LinkedHashMultimap.create();
     for (Attribute attribute : this.getAttributes()) {
       for (Aspect candidateClass : attribute.getAspects(this)) {
-        AspectDefinition.addAllAttributesOfAspect(
-            Rule.this, labels, candidateClass.getDefinition(), predicate);
+        AspectDefinition.addAllAttributesOfAspect(Rule.this, labels, candidateClass, predicate);
       }
     }
     return labels.values();
