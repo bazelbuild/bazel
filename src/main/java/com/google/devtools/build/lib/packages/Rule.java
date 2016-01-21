@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.BinaryPredicate;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Collection;
@@ -58,7 +59,7 @@ import java.util.Set;
  *            deps = ['bar'])
  * </pre>
  */
-public final class Rule implements Target {
+public final class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   /** Label predicate that allows every label. */
   public static final Predicate<Label> ALL_LABELS = Predicates.alwaysTrue();
@@ -305,11 +306,7 @@ public final class Rule implements Target {
     return ruleClass.hasAttr(attrName, type);
   }
 
-  /**
-   * Returns true iff the value of the specified attribute is explicitly set in
-   * the BUILD file (as opposed to its default value). This also returns true if
-   * the value from the BUILD file is the same as the default value.
-   */
+  @Override
   public boolean isAttributeValueExplicitlySpecified(Attribute attribute) {
     return attributes.isAttributeValueExplicitlySpecified(attribute);
   }
@@ -399,7 +396,7 @@ public final class Rule implements Target {
    *     the attribute that contains the label. The label will be contained in the
    *     result iff (the predicate returned {@code true} and the labels are not outputs)
    */
-  public Collection<Label> getLabels(DependencyFilter predicate) {
+  public Collection<Label> getLabels(BinaryPredicate<? super Rule, Attribute> predicate) {
     return ImmutableSortedSet.copyOf(getTransitions(predicate).values());
   }
 
@@ -412,7 +409,8 @@ public final class Rule implements Target {
    *     the attribute that contains the label. The label will be contained in the
    *     result iff (the predicate returned {@code true} and the labels are not outputs)
    */
-  public Multimap<Attribute, Label> getTransitions(final DependencyFilter predicate) {
+  public Multimap<Attribute, Label> getTransitions(
+      final BinaryPredicate<? super Rule, Attribute> predicate) {
     final Multimap<Attribute, Label> transitions = HashMultimap.create();
     // TODO(bazel-team): move this to AttributeMap, too. Just like visitLabels, which labels should
     // be visited may depend on the calling context. We shouldn't implicitly decide this for

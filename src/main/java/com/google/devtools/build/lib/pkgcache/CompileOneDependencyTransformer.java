@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.util.Collections;
 import java.util.Comparator;
@@ -117,8 +118,8 @@ final class CompileOneDependencyTransformer {
 
     // For each rule, see if it has directCompileTimeInputAttribute,
     // and if so check the targets listed in that attribute match the label.
-    DependencyFilter directCompileTimeInput =
-        new DependencyFilter() {
+    BinaryPredicate<Rule, Attribute> directCompileTimeInput =
+        new BinaryPredicate<Rule, Attribute>() {
           @Override
           public boolean apply(Rule rule, Attribute attribute) {
             return DependencyFilter.DIRECT_COMPILE_TIME_INPUT.apply(rule, attribute)

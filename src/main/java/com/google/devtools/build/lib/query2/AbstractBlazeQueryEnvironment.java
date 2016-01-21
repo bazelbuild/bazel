@@ -83,7 +83,8 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
     this.extraFunctions = ImmutableList.copyOf(extraFunctions);
   }
 
-  private static DependencyFilter constructDependencyFilter(Set<Setting> settings) {
+  private static DependencyFilter constructDependencyFilter(
+      Set<Setting> settings) {
     DependencyFilter specifiedFilter =
         settings.contains(Setting.NO_HOST_DEPS)
             ? DependencyFilter.NO_HOST_DEPS

@@ -203,7 +203,8 @@ final class LabelVisitor {
    * @param packageProvider how to resolve labels to targets.
    * @param edgeFilter which edges may be traversed.
    */
-  public LabelVisitor(PackageProvider packageProvider, DependencyFilter edgeFilter) {
+  public LabelVisitor(
+      PackageProvider packageProvider, DependencyFilter edgeFilter) {
     this.packageProvider = packageProvider;
     this.lastVisitation = new VisitationAttributes();
     this.edgeFilter = edgeFilter;

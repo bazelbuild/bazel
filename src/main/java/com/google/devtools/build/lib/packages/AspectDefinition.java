@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.NativeAspectClass.NativeAspectFactory;
+import com.google.devtools.build.lib.util.BinaryPredicate;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Collection;
@@ -188,7 +189,7 @@ public final class AspectDefinition {
       Rule from,
       Multimap<Attribute, Label> labelBuilder,
       AspectDefinition aspectDefinition,
-      DependencyFilter predicate) {
+      BinaryPredicate<? super Rule, Attribute> predicate) {
     ImmutableMap<String, Attribute> attributes = aspectDefinition.getAttributes();
     for (Attribute aspectAttribute : attributes.values()) {
       if (!predicate.apply(from, aspectAttribute)) {

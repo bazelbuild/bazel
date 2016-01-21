@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
+import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.util.LinkedHashSet;
 import java.util.Map.Entry;
@@ -92,7 +93,7 @@ public class PreciseAspectResolver implements AspectResolver {
       Multimap<Attribute, Label> depsWithPossibleAspects =
           ((Rule) target)
               .getTransitions(
-                  new DependencyFilter() {
+                  new BinaryPredicate<Rule, Attribute>() {
                     @Override
                     public boolean apply(@Nullable Rule rule, Attribute attribute) {
                       for (Aspect aspectWithParameters : attribute.getAspects(rule)) {

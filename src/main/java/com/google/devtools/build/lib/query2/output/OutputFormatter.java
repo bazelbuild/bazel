@@ -140,7 +140,8 @@ public abstract class OutputFormatter implements Serializable {
    * Given a set of query options, returns a BinaryPredicate suitable for
    * passing to {@link Rule#getLabels()}, {@link XmlOutputFormatter}, etc.
    */
-  public static DependencyFilter getDependencyFilter(QueryOptions queryOptions) {
+  public static DependencyFilter getDependencyFilter(
+      QueryOptions queryOptions) {
     // TODO(bazel-team): Optimize: and(ALL_DEPS, x) -> x, etc.
     return DependencyFilter.and(
         queryOptions.includeHostDeps ? DependencyFilter.ALL_DEPS : DependencyFilter.NO_HOST_DEPS,
