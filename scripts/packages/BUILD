@@ -99,7 +99,6 @@ pkg_tar(
         ":bazel-bin",
         ":bazel-completion",
         ":bazel-rc",
-        ":bazel-tools",
     ],
 )
 
