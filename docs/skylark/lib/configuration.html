@@ -32,7 +32,7 @@ Data required for the analysis of a target that comes from targets that depend o
         <h2 id="default_shell_env">default_shell_env</h2>
         <p><pre><a class="anchor" href="dict.html">dict</a> configuration.default_shell_env</pre></p>
 
-    A dictionary representing the default environment. It maps variables to their values (strings).
+    A dictionary representing the local shell environment. It maps variables to their values (strings).  The local shell environment contains settings that are machine specific, therefore its use should be avoided in rules meant to be hermetic.
 
 
         <h2 id="genfiles_dir">genfiles_dir</h2>
