@@ -1000,4 +1000,37 @@ EOF
   bazel build @r//:a || fail "build failed"
 }
 
+# Regression test for https://github.com/bazelbuild/bazel/issues/792
+function test_build_all() {
+  local r=$TEST_TMPDIR/r
+  mkdir -p $r
+  touch $r/WORKSPACE
+  cat > $r/BUILD <<'EOF'
+genrule(
+  name = "dummy1",
+  outs = ["dummy.txt"],
+  cmd = "echo 1 >$@",
+  visibility = ["//visibility:public"],
+)
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name="r",
+    path="$r",
+)
+EOF
+
+  cat > BUILD <<'EOF'
+genrule(
+  name = "dummy2",
+  srcs = ["@r//:dummy1"],
+  outs = ["dummy.txt"],
+  cmd = "cat $(SRCS) > $@",
+)
+EOF
+
+  bazel build :* || fail "build failed"
+}
+
 run_suite "local repository tests"
