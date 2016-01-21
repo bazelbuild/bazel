@@ -31,12 +31,10 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.GlobList;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.BinaryPredicate;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Collection;
@@ -61,77 +59,9 @@ import java.util.Set;
  * </pre>
  */
 public final class Rule implements Target {
-  /** Dependency predicate that includes all dependencies */
-  public static final BinaryPredicate<Rule, Attribute> ALL_DEPS =
-      new BinaryPredicate<Rule, Attribute>() {
-        @Override
-        public boolean apply(Rule x, Attribute y) {
-          return true;
-        }
-      };
-
-  /** Dependency predicate that excludes host dependencies */
-  public static final BinaryPredicate<Rule, Attribute> NO_HOST_DEPS =
-      new BinaryPredicate<Rule, Attribute>() {
-    @Override
-    public boolean apply(Rule rule, Attribute attribute) {
-      // isHostConfiguration() is only defined for labels and label lists.
-      if (attribute.getType() != BuildType.LABEL && attribute.getType() != BuildType.LABEL_LIST) {
-        return true;
-      }
-
-      return attribute.getConfigurationTransition() != ConfigurationTransition.HOST;
-    }
-  };
-
-  /** Dependency predicate that excludes implicit dependencies */
-  public static final BinaryPredicate<Rule, Attribute> NO_IMPLICIT_DEPS =
-      new BinaryPredicate<Rule, Attribute>() {
-    @Override
-    public boolean apply(Rule rule, Attribute attribute) {
-      return rule.isAttributeValueExplicitlySpecified(attribute);
-    }
-  };
-
-  /**
-   * Dependency predicate that excludes those edges that are not present in the
-   * configured target graph.
-   */
-  public static final BinaryPredicate<Rule, Attribute> NO_NODEP_ATTRIBUTES =
-      new BinaryPredicate<Rule, Attribute>() {
-    @Override
-    public boolean apply(Rule rule, Attribute attribute) {
-      return attribute.getType() != BuildType.NODEP_LABEL
-          && attribute.getType() != BuildType.NODEP_LABEL_LIST;
-    }
-  };
 
   /** Label predicate that allows every label. */
   public static final Predicate<Label> ALL_LABELS = Predicates.alwaysTrue();
-
-  /**
-   * Checks to see if the attribute has the isDirectCompileTimeInput property.
-   */
-  public static final BinaryPredicate<Rule, Attribute> DIRECT_COMPILE_TIME_INPUT =
-      new BinaryPredicate<Rule, Attribute>() {
-    @Override
-    public boolean apply(Rule rule, Attribute attribute) {
-      return attribute.isDirectCompileTimeInput();
-    }
-  };
-
-  /**
-   * Returns a predicate that computes the logical and of the two given predicates.
-   */
-  public static <X, Y> BinaryPredicate<X, Y> and(
-      final BinaryPredicate<X, Y> a, final BinaryPredicate<X, Y> b) {
-    return new BinaryPredicate<X, Y>() {
-      @Override
-      public boolean apply(X x, Y y) {
-        return a.apply(x, y) && b.apply(x, y);
-      }
-    };
-  }
 
   private final Label label;
 
@@ -457,7 +387,7 @@ public final class Rule implements Target {
    * Returns a new List instance containing all direct dependencies (all types).
    */
   public Collection<Label> getLabels() {
-    return getLabels(Rule.ALL_DEPS);
+    return getLabels(DependencyFilter.ALL_DEPS);
   }
 
   /**
@@ -469,7 +399,7 @@ public final class Rule implements Target {
    *     the attribute that contains the label. The label will be contained in the
    *     result iff (the predicate returned {@code true} and the labels are not outputs)
    */
-  public Collection<Label> getLabels(final BinaryPredicate<Rule, Attribute> predicate) {
+  public Collection<Label> getLabels(DependencyFilter predicate) {
     return ImmutableSortedSet.copyOf(getTransitions(predicate).values());
   }
 
@@ -482,8 +412,7 @@ public final class Rule implements Target {
    *     the attribute that contains the label. The label will be contained in the
    *     result iff (the predicate returned {@code true} and the labels are not outputs)
    */
-  public Multimap<Attribute, Label> getTransitions(
-      final BinaryPredicate<Rule, Attribute> predicate) {
+  public Multimap<Attribute, Label> getTransitions(final DependencyFilter predicate) {
     final Multimap<Attribute, Label> transitions = HashMultimap.create();
     // TODO(bazel-team): move this to AttributeMap, too. Just like visitLabels, which labels should
     // be visited may depend on the calling context. We shouldn't implicitly decide this for
@@ -733,8 +662,7 @@ public final class Rule implements Target {
    * Computes labels of additional dependencies that can be provided by aspects that this rule
    * can require from its direct dependencies.
    */
-  public Collection<? extends Label> getAspectLabelsSuperset(
-      BinaryPredicate<Rule, Attribute> predicate) {
+  public Collection<? extends Label> getAspectLabelsSuperset(DependencyFilter predicate) {
     LinkedHashMultimap<Attribute, Label> labels = LinkedHashMultimap.create();
     for (Attribute attribute : this.getAttributes()) {
       for (Aspect candidateClass : attribute.getAspects(this)) {

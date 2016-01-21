@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.NativeAspectClass.NativeAspectFactory;
-import com.google.devtools.build.lib.util.BinaryPredicate;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Collection;
@@ -168,7 +167,8 @@ public final class AspectDefinition {
           candidateClass.getDefinition().getRequiredProviderNames())) {
         continue;
       }
-      addAllAttributesOfAspect(from, result, candidateClass.getDefinition(), Rule.ALL_DEPS);
+      addAllAttributesOfAspect(
+          from, result, candidateClass.getDefinition(), DependencyFilter.ALL_DEPS);
     }
     return ImmutableMultimap.copyOf(result);
   }
@@ -184,9 +184,11 @@ public final class AspectDefinition {
   /**
    * Collects all attribute labels from the specified aspectDefinition.
    */
-  public static void addAllAttributesOfAspect(Rule from,
-      Multimap<Attribute, Label> labelBuilder, AspectDefinition aspectDefinition,
-      BinaryPredicate<Rule, Attribute> predicate) {
+  public static void addAllAttributesOfAspect(
+      Rule from,
+      Multimap<Attribute, Label> labelBuilder,
+      AspectDefinition aspectDefinition,
+      DependencyFilter predicate) {
     ImmutableMap<String, Attribute> attributes = aspectDefinition.getAttributes();
     for (Attribute aspectAttribute : attributes.values()) {
       if (!predicate.apply(from, aspectAttribute)) {

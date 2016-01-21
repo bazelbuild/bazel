@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -30,7 +31,6 @@ import com.google.devtools.build.lib.query2.FakeSubincludeTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.AspectResolver.BuildFileDependencyMode;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.AbstractUnorderedFormatter;
-import com.google.devtools.build.lib.util.BinaryPredicate;
 import com.google.devtools.build.lib.util.Pair;
 
 import org.w3c.dom.DOMException;
@@ -61,7 +61,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
   private QueryOptions options;
   private AspectResolver aspectResolver;
-  private BinaryPredicate<Rule, Attribute> dependencyFilter;
+  private DependencyFilter dependencyFilter;
 
   @Override
   public String getName() {

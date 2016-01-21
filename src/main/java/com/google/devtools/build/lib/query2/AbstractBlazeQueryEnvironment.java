@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.query2.engine.QueryEvalResult;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
-import com.google.devtools.build.lib.util.BinaryPredicate;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 
@@ -61,7 +60,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
   protected final boolean keepGoing;
   protected final boolean strictScope;
 
-  protected final BinaryPredicate<Rule, Attribute> dependencyFilter;
+  protected final DependencyFilter dependencyFilter;
   private final Predicate<Label> labelFilter;
 
   private final Set<Setting> settings;
@@ -84,14 +83,16 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
     this.extraFunctions = ImmutableList.copyOf(extraFunctions);
   }
 
-  private static BinaryPredicate<Rule, Attribute> constructDependencyFilter(Set<Setting> settings) {
-    BinaryPredicate<Rule, Attribute> specifiedFilter =
-        settings.contains(Setting.NO_HOST_DEPS) ? Rule.NO_HOST_DEPS : Rule.ALL_DEPS;
+  private static DependencyFilter constructDependencyFilter(Set<Setting> settings) {
+    DependencyFilter specifiedFilter =
+        settings.contains(Setting.NO_HOST_DEPS)
+            ? DependencyFilter.NO_HOST_DEPS
+            : DependencyFilter.ALL_DEPS;
     if (settings.contains(Setting.NO_IMPLICIT_DEPS)) {
-      specifiedFilter = Rule.and(specifiedFilter, Rule.NO_IMPLICIT_DEPS);
+      specifiedFilter = DependencyFilter.and(specifiedFilter, DependencyFilter.NO_IMPLICIT_DEPS);
     }
     if (settings.contains(Setting.NO_NODEP_DEPS)) {
-      specifiedFilter = Rule.and(specifiedFilter, Rule.NO_NODEP_ATTRIBUTES);
+      specifiedFilter = DependencyFilter.and(specifiedFilter, DependencyFilter.NO_NODEP_ATTRIBUTES);
     }
     return specifiedFilter;
   }

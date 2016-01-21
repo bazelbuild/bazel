@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeSerializer;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -45,7 +46,6 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.GeneratedFile;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult.Builder;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
 import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.io.IOException;
 import java.io.PrintStream;
@@ -67,7 +67,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
    */
   public static final String RULE_IMPLEMENTATION_HASH_ATTR_NAME = "$rule_implementation_hash";
 
-  private transient BinaryPredicate<Rule, Attribute> dependencyFilter;
+  private transient DependencyFilter dependencyFilter;
   protected transient AspectResolver aspectResolver;
 
   private boolean relativeLocations = false;

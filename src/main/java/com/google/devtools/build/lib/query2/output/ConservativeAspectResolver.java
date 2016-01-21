@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 
@@ -44,7 +45,7 @@ public class ConservativeAspectResolver implements AspectResolver {
     for (Attribute attribute : rule.getAttributes()) {
       for (Aspect aspect : attribute.getAspects(rule)) {
         AspectDefinition.addAllAttributesOfAspect(
-            rule, result, aspect.getDefinition(), Rule.ALL_DEPS);
+            rule, result, aspect.getDefinition(), DependencyFilter.ALL_DEPS);
       }
     }
 

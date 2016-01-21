@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
@@ -27,7 +28,6 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.util.Collections;
 import java.util.Comparator;
@@ -117,11 +117,11 @@ final class CompileOneDependencyTransformer {
 
     // For each rule, see if it has directCompileTimeInputAttribute,
     // and if so check the targets listed in that attribute match the label.
-    final BinaryPredicate<Rule, Attribute> directCompileTimeInput =
-        new BinaryPredicate<Rule, Attribute>() {
+    DependencyFilter directCompileTimeInput =
+        new DependencyFilter() {
           @Override
           public boolean apply(Rule rule, Attribute attribute) {
-            return Rule.DIRECT_COMPILE_TIME_INPUT.apply(rule, attribute)
+            return DependencyFilter.DIRECT_COMPILE_TIME_INPUT.apply(rule, attribute)
                 // We don't know which path to follow for configurable attributes, so skip them.
                 && !rule.isConfigurableAttribute(attribute.getName());
           }

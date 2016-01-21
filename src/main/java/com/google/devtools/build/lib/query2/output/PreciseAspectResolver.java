@@ -23,13 +23,13 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
-import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.util.LinkedHashSet;
 import java.util.Map.Entry;
@@ -58,7 +58,7 @@ public class PreciseAspectResolver implements AspectResolver {
     Multimap<Attribute, Label> result = LinkedListMultimap.create();
     if (target instanceof Rule) {
       Multimap<Attribute, Label> transitions =
-          ((Rule) target).getTransitions(Rule.NO_NODEP_ATTRIBUTES);
+          ((Rule) target).getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
       for (Entry<Attribute, Label> entry : transitions.entries()) {
         Target toTarget;
         try {
@@ -92,7 +92,7 @@ public class PreciseAspectResolver implements AspectResolver {
       Multimap<Attribute, Label> depsWithPossibleAspects =
           ((Rule) target)
               .getTransitions(
-                  new BinaryPredicate<Rule, Attribute>() {
+                  new DependencyFilter() {
                     @Override
                     public boolean apply(@Nullable Rule rule, Attribute attribute) {
                       for (Aspect aspectWithParameters : attribute.getAspects(rule)) {

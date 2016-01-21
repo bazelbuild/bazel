@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -41,7 +42,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PackageProvider;
 import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
-import com.google.devtools.build.lib.util.BinaryPredicate;
 
 import java.util.Collection;
 import java.util.Map.Entry;
@@ -185,7 +185,7 @@ final class LabelVisitor {
    * Life is not simple.
    */
   private final PackageProvider packageProvider;
-  private final BinaryPredicate<Rule, Attribute> edgeFilter;
+  private final DependencyFilter edgeFilter;
   private final SetMultimap<Package, Target> visitedMap =
       Multimaps.synchronizedSetMultimap(HashMultimap.<Package, Target>create());
   private final ConcurrentMap<Label, Integer> visitedTargets = new MapMaker().makeMap();
@@ -203,8 +203,7 @@ final class LabelVisitor {
    * @param packageProvider how to resolve labels to targets.
    * @param edgeFilter which edges may be traversed.
    */
-  public LabelVisitor(PackageProvider packageProvider,
-                      BinaryPredicate<Rule, Attribute> edgeFilter) {
+  public LabelVisitor(PackageProvider packageProvider, DependencyFilter edgeFilter) {
     this.packageProvider = packageProvider;
     this.lastVisitation = new VisitationAttributes();
     this.edgeFilter = edgeFilter;

@@ -26,13 +26,13 @@ import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.QueryOptions.OrderOutput;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
-import com.google.devtools.build.lib.util.BinaryPredicate;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.common.options.EnumConverter;
 
@@ -140,11 +140,13 @@ public abstract class OutputFormatter implements Serializable {
    * Given a set of query options, returns a BinaryPredicate suitable for
    * passing to {@link Rule#getLabels()}, {@link XmlOutputFormatter}, etc.
    */
-  public static BinaryPredicate<Rule, Attribute> getDependencyFilter(QueryOptions queryOptions) {
+  public static DependencyFilter getDependencyFilter(QueryOptions queryOptions) {
     // TODO(bazel-team): Optimize: and(ALL_DEPS, x) -> x, etc.
-    return Rule.and(
-          queryOptions.includeHostDeps ? Rule.ALL_DEPS : Rule.NO_HOST_DEPS,
-          queryOptions.includeImplicitDeps ? Rule.ALL_DEPS : Rule.NO_IMPLICIT_DEPS);
+    return DependencyFilter.and(
+        queryOptions.includeHostDeps ? DependencyFilter.ALL_DEPS : DependencyFilter.NO_HOST_DEPS,
+        queryOptions.includeImplicitDeps
+            ? DependencyFilter.ALL_DEPS
+            : DependencyFilter.NO_IMPLICIT_DEPS);
   }
 
   /**
