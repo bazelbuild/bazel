@@ -352,8 +352,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     }
 
     @Override
-    public Entry createEntry(String key) {
-      return new ActionCache.Entry(key);
+    public Entry createEntry(String key, boolean discoversInputs) {
+      return new ActionCache.Entry(key, discoversInputs);
     }
 
     public synchronized void reset() {
