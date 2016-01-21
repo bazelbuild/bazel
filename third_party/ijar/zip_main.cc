@@ -20,14 +20,14 @@
 // CRC-32 of all files in the zip file will be set to 0.
 //
 
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <limits.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <sys/mman.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <memory>
 
 #include "third_party/ijar/zip.h"
@@ -152,6 +152,22 @@ void basename(const char *path, char *output, size_t output_size) {
   output[output_size-1] = 0;
 }
 
+// copy size bytes from file descriptor fd into buffer.
+int copy_file_to_buffer(int fd, size_t size, void *buffer) {
+  size_t nb_read = 0;
+  while (nb_read < size) {
+    size_t to_read = size - nb_read;
+    if (to_read > 16384 /* 16K */) {
+      to_read = 16384;
+    }
+    ssize_t r = read(fd, static_cast<uint8_t *>(buffer) + nb_read, to_read);
+    if (r < 0) {
+      return -1;
+    }
+    nb_read += r;
+  }
+  return 0;
+}
 
 // Execute the extraction (or just listing if just v is provided)
 int extract(char *zipfile, bool verbose, bool extract) {
@@ -174,10 +190,122 @@ int extract(char *zipfile, bool verbose, bool extract) {
   return 0;
 }
 
+// add a file to the zip
+int add_file(std::unique_ptr<ZipBuilder> const &builder, char *file,
+             bool flatten, bool verbose, bool compress) {
+  struct stat statst;
+  if (stat(file, &statst) < 0) {
+    fprintf(stderr, "Cannot stat file %s: %s.\n", file, strerror(errno));
+    return -1;
+  }
+  bool isdir = (statst.st_mode & S_IFDIR) != 0;
+
+  if (flatten && isdir) {
+    return 0;
+  }
+
+  // Compute the path, flattening it if requested
+  char path[PATH_MAX];
+  size_t len = strlen(file);
+  if (len > PATH_MAX) {
+    fprintf(stderr, "Path too long: %s.\n", file);
+    return -1;
+  }
+  if (flatten) {
+    basename(file, path, PATH_MAX);
+  } else {
+    strncpy(path, file, PATH_MAX);
+    path[PATH_MAX - 1] = 0;
+    if (isdir && len < PATH_MAX - 1) {
+      // Add the trailing slash for folders
+      path[len] = '/';
+      path[len + 1] = 0;
+    }
+  }
+
+  if (verbose) {
+    mode_t perm = statst.st_mode & 0777;
+    printf("%c %o %s\n", isdir ? 'd' : 'f', perm, path);
+  }
+
+  u1 *buffer = builder->NewFile(path, mode_to_zipattr(statst.st_mode));
+  if (isdir || statst.st_size == 0) {
+    builder->FinishFile(0);
+  } else {
+    // read the input file
+    int fd = open(file, O_RDONLY);
+    if (fd < 0) {
+      fprintf(stderr, "Can't open file %s for reading: %s.\n", file,
+              strerror(errno));
+      return -1;
+    }
+    if (copy_file_to_buffer(fd, statst.st_size, buffer) < 0) {
+      fprintf(stderr, "Can't read file %s: %s.\n", file, strerror(errno));
+      close(fd);
+      return -1;
+    }
+    close(fd);
+    builder->FinishFile(statst.st_size, compress, true);
+  }
+  return 0;
+}
+
+// Read a list of files separated by newlines. The resulting array can be
+// freed using the free method.
+char **read_filelist(char *filename) {
+  struct stat statst;
+  int fd = open(filename, O_RDONLY);
+  if (fd < 0) {
+    fprintf(stderr, "Can't open file %s for reading: %s.\n", filename,
+            strerror(errno));
+    return NULL;
+  }
+  if (fstat(fd, &statst) < 0) {
+    fprintf(stderr, "Cannot stat file %s: %s.\n", filename, strerror(errno));
+    return NULL;
+  }
+
+  char *data = static_cast<char *>(malloc(statst.st_size));
+  if (copy_file_to_buffer(fd, statst.st_size, data) < 0) {
+    fprintf(stderr, "Can't read file %s: %s.\n", filename, strerror(errno));
+    close(fd);
+    return NULL;
+  }
+  close(fd);
+
+  int nb_entries = 1;
+  for (int i = 0; i < statst.st_size; i++) {
+    if (data[i] == '\n') {
+      nb_entries++;
+    }
+  }
+
+  size_t sizeof_array = sizeof(char *) * (nb_entries + 1);
+  void *result = malloc(sizeof_array + statst.st_size);
+  // copy the content
+  char **filelist = static_cast<char **>(result);
+  char *content = static_cast<char *>(result) + sizeof_array;
+  memcpy(content, data, statst.st_size);
+  free(data);
+  // Create the corresponding array
+  int j = 1;
+  filelist[0] = content;
+  for (int i = 0; i < statst.st_size; i++) {
+    if (content[i] == '\n') {
+      content[i] = 0;
+      if (i + 1 < statst.st_size) {
+        filelist[j] = content + i + 1;
+        j++;
+      }
+    }
+  }
+  filelist[j] = NULL;
+  return filelist;
+}
+
 // Execute the create operation
 int create(char *zipfile, char **files, bool flatten, bool verbose,
            bool compress) {
-  struct stat statst;
   u8 size = ZipBuilder::EstimateSize(files);
   if (size == 0) {
     return -1;
@@ -189,53 +317,8 @@ int create(char *zipfile, char **files, bool flatten, bool verbose,
     return -1;
   }
   for (int i = 0; files[i] != NULL; i++) {
-    stat(files[i], &statst);
-    char path[PATH_MAX];
-    bool isdir = (statst.st_mode & S_IFDIR) != 0;
-
-    if (flatten && isdir) {
-      continue;
-    }
-
-    // Compute the path, flattening it if requested
-    if (flatten) {
-      basename(files[i], path, PATH_MAX);
-    } else {
-      strncpy(path, files[i], PATH_MAX);
-      path[PATH_MAX-1] = 0;
-      size_t len = strlen(path);
-      if (isdir && len < PATH_MAX - 1) {
-        // Add the trailing slash for folders
-        path[len] = '/';
-        path[len+1] = 0;
-      }
-    }
-
-    if (verbose) {
-      mode_t perm = statst.st_mode & 0777;
-      printf("%c %o %s\n", isdir ? 'd' : 'f', perm, path);
-    }
-
-    u1 *buffer = builder->NewFile(path, mode_to_zipattr(statst.st_mode));
-    if (isdir || statst.st_size == 0) {
-      builder->FinishFile(0);
-    } else {
-      // mmap the input file and memcpy
-      int fd = open(files[i], O_RDONLY);
-      if (fd < 0) {
-        fprintf(stderr, "Can't open file %s for reading: %s.\n",
-                files[i], strerror(errno));
-        return -1;
-      }
-      void *data = mmap(NULL, statst.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-      if (data == MAP_FAILED) {
-        fprintf(stderr, "Can't mmap file %s for reading: %s.\n",
-                files[i], strerror(errno));
-        return -1;
-      }
-      memcpy(buffer, data, statst.st_size);
-      munmap(data, statst.st_size);
-      builder->FinishFile(statst.st_size, compress, true);
+    if (add_file(builder, files[i], flatten, verbose, compress) < 0) {
+      return -1;
     }
   }
   if (builder->Finish() < 0) {
@@ -299,7 +382,16 @@ int main(int argc, char **argv) {
       usage(argv[0]);
     }
     // Create a zip
-    return devtools_ijar::create(argv[2], argv + 3, flatten, verbose, compress);
+    char **filelist = argv + 3;
+    if (argc == 4 && argv[3][0] == '@') {
+      // We never free that list because it needs to be allocated during the
+      // whole execution, the system will reclaim memory.
+      filelist = devtools_ijar::read_filelist(argv[3] + 1);
+      if (filelist == NULL) {
+        return -1;
+      }
+    }
+    return devtools_ijar::create(argv[2], filelist, flatten, verbose, compress);
   } else {
     if (flatten) {
       usage(argv[0]);
