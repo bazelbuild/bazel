@@ -1,3 +1,31 @@
+## Release 0.1.4 (2016-01-15)
+
+```
+Baseline: e933d5e
+   + 3d796fe: Rollback of commit
+              ac6ed79e1a3fa6b0ca91657b28e2a35f7e49758c.
+   + 7a02e5d: Fix installer under OS X
+   + 848740c: Fix bazel version for debian package
+   + 7751d43: Add a method for getting the root of a rule workspace
+              to the Label method
+```
+
+Important changes:
+
+  - add loadfiles() query operator, to find skylark files loaded by
+    targets.
+  - Added ability to declare and use aspects in Skylark.
+  - Skylark load statements may now reference .bzl files via build
+    labels, in addition to paths. In particular, such labels can be
+    used to reference Skylark files in external repositories; e.g.,
+    load("@my_external_repo//some_pkg:some_file.bzl", ...).
+    Path-based loads are now deprecated and may be disabled in the
+    future. Caveats: Skylark files currently do not respect package
+    visibility; i.e., all Skylark files are effectively public. Also,
+    loads may not reference the special //external package.
+  - Relative paths can now be used for 'path' with
+    new_local_repository and local_repository.
+
 ## Release 0.1.3 (2016-01-07)
 
 ```
