@@ -41,9 +41,7 @@ public class GitRepositoryFunction extends RepositoryFunction {
   public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
       throws SkyFunctionException {
     createDirectory(outputDirectory, rule);
-
     GitCloner.clone(rule, outputDirectory, env.getListener());
-
     return RepositoryValue.create(outputDirectory);
   }
 

@@ -58,11 +58,10 @@ public class GitCloner {
     }
     Repository repository = null;
     try {
-      repository =
-          new FileRepositoryBuilder()
-              .setGitDir(descriptor.directory.getChild(Constants.DOT_GIT).getPathFile())
-              .setMustExist(true)
-              .build();
+      repository = new FileRepositoryBuilder()
+          .setGitDir(descriptor.directory.getChild(Constants.DOT_GIT).getPathFile())
+          .setMustExist(true)
+          .build();
       ObjectId head = repository.resolve(Constants.HEAD);
       ObjectId checkout = repository.resolve(descriptor.checkout);
       if (head != null && checkout != null && head.equals(checkout)) {
@@ -127,16 +126,14 @@ public class GitCloner {
           throw new RepositoryFunctionException(e, Transience.TRANSIENT);
         }
       }
-      git =
-          Git.cloneRepository()
-              .setURI(descriptor.remote)
-              .setCredentialsProvider(new NetRCCredentialsProvider())
-              .setDirectory(descriptor.directory.getPathFile())
-              .setCloneSubmodules(false)
-              .setNoCheckout(true)
-              .setProgressMonitor(
-                  new GitProgressMonitor("Cloning " + descriptor.remote, eventHandler))
-              .call();
+      git = Git.cloneRepository()
+          .setURI(descriptor.remote)
+          .setCredentialsProvider(new NetRCCredentialsProvider())
+          .setDirectory(descriptor.directory.getPathFile())
+          .setCloneSubmodules(false)
+          .setNoCheckout(true)
+          .setProgressMonitor(new GitProgressMonitor("Cloning " + descriptor.remote, eventHandler))
+          .call();
       git.checkout()
           .setCreateBranch(true)
           .setName("bazel-checkout")
@@ -150,29 +147,27 @@ public class GitCloner {
       // loop if submodules are cloned recursively. For now, limit submodules to only
       // the first level.
       if (descriptor.initSubmodules && !git.submoduleInit().call().isEmpty()) {
-        git
-            .submoduleUpdate()
+        git.submoduleUpdate()
             .setProgressMonitor(
-                new GitProgressMonitor("Cloning submodules for " + descriptor.remote, eventHandler))
+                new GitProgressMonitor(
+                    "Cloning submodules for " + descriptor.remote, eventHandler))
             .call();
       }
     } catch (InvalidRemoteException e) {
       throw new RepositoryFunctionException(
-          new IOException("Invalid Git repository URI: " + e.getMessage()),
-          Transience.PERSISTENT);
+          new IOException("Invalid Git repository URI: " + e.getMessage()), Transience.PERSISTENT);
     } catch (RefNotFoundException | InvalidRefNameException e) {
       throw new RepositoryFunctionException(
           new IOException("Invalid branch, tag, or commit: " + e.getMessage()),
           Transience.PERSISTENT);
     } catch (GitAPIException e) {
       throw new RepositoryFunctionException(
-          new IOException(e.getMessage()), Transience.TRANSIENT);
+          new IOException("Error cloning repository: " + e.getMessage()), Transience.PERSISTENT);
     } catch (JGitInternalException e) {
       // This is a lame catch-all for jgit throwing RuntimeExceptions all over the place because,
       // as the docs put it, "a lot of exceptions are so low-level that is is unlikely that the
       // caller of the command can handle them effectively." Thanks, jgit.
-      throw new RepositoryFunctionException(
-          new IOException(e.getMessage()), Transience.PERSISTENT);
+      throw new RepositoryFunctionException(new IOException(e.getMessage()), Transience.PERSISTENT);
     } finally {
       if (git != null) {
         git.close();
