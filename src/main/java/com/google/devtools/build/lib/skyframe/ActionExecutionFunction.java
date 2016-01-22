@@ -576,7 +576,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         throw firstActionExecutionException;
       }
       throw new ActionExecutionException(firstActionExecutionException.getMessage(),
-          firstActionExecutionException.getCause(), action, rootCauses.build(), catastrophe);
+          firstActionExecutionException.getCause(), action, rootCauses.build(), catastrophe,
+          firstActionExecutionException.getExitCode());
     }
 
     if (missingCount > 0) {

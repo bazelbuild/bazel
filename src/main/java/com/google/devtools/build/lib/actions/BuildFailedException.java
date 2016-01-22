@@ -17,6 +17,9 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.util.ExitCode;
+
+import javax.annotation.Nullable;
 
 /**
  * This exception gets thrown if there were errors during the execution phase of
@@ -29,6 +32,11 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
  * actions failing, but since those actions' failures will be reported
  * separately, the exception carries no message and is just used for control
  * flow.)
+ *
+ * <p>This exception typically leads to Bazel termination with exit code
+ * {@link ExitCode#BUILD_FAILURE}. However, if a more specific exit code is
+ * appropriate, it can be propagated by specifying the exit code to the
+ * constructor.
  */
 @ThreadSafe
 public class BuildFailedException extends Exception {
@@ -36,6 +44,7 @@ public class BuildFailedException extends Exception {
   private final Action action;
   private final Iterable<Label> rootCauses;
   private final boolean errorAlreadyShown;
+  @Nullable private final ExitCode exitCode;
 
   public BuildFailedException() {
     this(null);
@@ -56,11 +65,18 @@ public class BuildFailedException extends Exception {
 
   public BuildFailedException(String message, boolean catastrophic,
       Action action, Iterable<Label> rootCauses, boolean errorAlreadyShown) {
+    this(message, catastrophic, action, rootCauses, errorAlreadyShown, null);
+  }
+
+  public BuildFailedException(String message, boolean catastrophic,
+      Action action, Iterable<Label> rootCauses, boolean errorAlreadyShown,
+      ExitCode exitCode) {
     super(message);
     this.catastrophic = catastrophic;
     this.rootCauses = ImmutableList.copyOf(rootCauses);
     this.action = action;
     this.errorAlreadyShown = errorAlreadyShown;
+    this.exitCode = exitCode;
   }
 
   public boolean isCatastrophic() {
@@ -77,5 +93,9 @@ public class BuildFailedException extends Exception {
 
   public boolean isErrorAlreadyShown() {
     return errorAlreadyShown || getMessage() == null;
+  }
+
+  @Nullable public ExitCode getExitCode() {
+    return exitCode;
   }
 }

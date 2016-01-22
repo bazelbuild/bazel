@@ -30,7 +30,7 @@ public class AlreadyReportedActionExecutionException extends ActionExecutionExce
 
   public AlreadyReportedActionExecutionException(ActionExecutionException cause) {
     super(cause.getMessage(), cause.getCause(), cause.getAction(), cause.getRootCauses(),
-        cause.isCatastrophe());
+        cause.isCatastrophe(), cause.getExitCode());
   }
 
   @Override

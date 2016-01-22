@@ -267,7 +267,8 @@ public class SkyframeBuilder implements Builder {
           actionExecutionCause.isCatastrophe(),
           actionExecutionCause.getAction(),
           actionExecutionCause.getRootCauses(),
-          /*errorAlreadyShown=*/ !actionExecutionCause.showError());
+          /*errorAlreadyShown=*/ !actionExecutionCause.showError(),
+          actionExecutionCause.getExitCode());
     } else if (cause instanceof MissingInputFileException) {
       throw new BuildFailedException(cause.getMessage());
     } else if (cause instanceof BuildFileNotFoundException) {
