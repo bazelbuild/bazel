@@ -402,6 +402,7 @@ public abstract class DependencyResolver {
     // their values from somewhere else. This incidentally means that aspects attributes are not
     // configurable. It would be nice if that wasn't the case, but we'd have to revamp how
     // attribute mapping works, which is a large chunk of work.
+    Label ruleLabel = rule.getLabel();
     ImmutableSet<String> mappedAttributes = ImmutableSet.copyOf(attributeMap.getAttributeNames());
     for (Attribute attribute : attributes) {
       if (!attribute.isImplicit() || !attribute.getCondition().apply(attributeMap)) {
@@ -417,9 +418,32 @@ public abstract class DependencyResolver {
           builder.put(attribute, LabelAndConfiguration.of(label, configuration));
         }
       } else if (attribute.getType() == BuildType.LABEL_LIST) {
-        List<Label> labelList = mappedAttributes.contains(attribute.getName())
-            ? attributeMap.get(attribute.getName(), BuildType.LABEL_LIST)
-            : BuildType.LABEL_LIST.cast(attribute.getDefaultValue(rule));
+        List<Label> labelList;
+        if (mappedAttributes.contains(attribute.getName())) {
+          labelList = new ArrayList<>();
+          for (Label label : attributeMap.get(attribute.getName(), BuildType.LABEL_LIST)) {
+            if (attribute.getName().equals("$config_dependencies")) {
+              // This is a hack necessary due to the confluence of the following circumstances:
+              //   - We need to call ruleLabel.resolveRepositoryRelative() on every label except
+              //     implicit ones so that the implicit labels specified in rule class definitions
+              //     work as expected
+              //   - The way dependencies for selectors is loaded is through the
+              //     $config_dependencies attribute, and thus the labels there need to be a verbatim
+              //     copy of those in the BUILD file (because
+              //     AggregatingAttributeMapper#visitLabels() calls
+              //     Label#resolveRepositoryRelative() on them, and calling it twice would be wrong
+              // Thus, we are stuck with the situation where the only implicit attribute on which
+              // Label#resolveRepositoryRelative needs to be called here is $config_dependencies.
+              //
+              // This is a bad state of affairs and the proper fix would be not to use labels in the
+              // default repository to signal configured targets in the main repository in SkyKeys.
+              label = ruleLabel.resolveRepositoryRelative(label);
+            }
+            labelList.add(label);
+          }
+        } else {
+          labelList = BuildType.LABEL_LIST.cast(attribute.getDefaultValue(rule));
+        }
 
         for (Label label : labelList) {
           builder.put(attribute, LabelAndConfiguration.of(label, configuration));
