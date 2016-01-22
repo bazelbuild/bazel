@@ -351,6 +351,18 @@ public class ExecutionTool {
       startLocalOutputBuild(); // TODO(bazel-team): this could be just another OutputService
     }
 
+    if (getWorkspace().getFileSystem().supportsSymbolicLinks()) {
+      List<BuildConfiguration> targetConfigurations = configurations.getTargetConfigurations();
+      BuildConfiguration targetConfiguration = targetConfigurations.size() == 1
+          ? targetConfigurations.get(0) : null;
+      if (targetConfigurations.size() == 1) {
+        OutputDirectoryLinksUtils.createOutputDirectoryLinks(
+            runtime.getWorkspaceName(), getWorkspace(), getExecRoot(),
+            runtime.getOutputPath(), getReporter(), targetConfiguration,
+            request.getBuildOptions().getSymlinkPrefix());
+      }
+    }
+
     ActionCache actionCache = getActionCache();
     SkyframeExecutor skyframeExecutor = env.getSkyframeExecutor();
     Builder builder =
@@ -435,21 +447,6 @@ public class ExecutionTool {
       }
       if (buildCompleted) {
         getReporter().handle(Event.progress("Building complete."));
-
-        // Create symlinks only after we've actually built something so that we don't create
-        // dangling symlinks.
-        if (getWorkspace().getFileSystem().supportsSymbolicLinks()) {
-          List<BuildConfiguration> targetConfigurations = configurations.getTargetConfigurations();
-          // TODO(bazel-team): This is not optimal - we retain backwards compatibility in the case
-          // where there's only a single configuration, but we don't create any symlinks in the
-          // multi-config case. Can we do better? [multi-config]
-          if (targetConfigurations.size() == 1) {
-            OutputDirectoryLinksUtils.createOutputDirectoryLinks(
-                runtime.getWorkspaceName(), getWorkspace(), getExecRoot(),
-                runtime.getOutputPath(), getReporter(), targetConfigurations.get(0),
-                request.getBuildOptions().getSymlinkPrefix());
-          }
-        }
       }
 
       env.getEventBus().post(new ExecutionFinishedEvent(ImmutableMap.<String, Long> of(), 0L,
