@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
@@ -71,6 +72,7 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppRunfilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -106,7 +108,11 @@ public final class ObjcCommon {
       if (!ruleContext.attributes().has("hdrs", BuildType.LABEL_LIST)) {
         return ImmutableList.of();
       }
-      return ImmutableList.copyOf(CcCommon.getHeaders(ruleContext));
+      ImmutableList.Builder<Artifact> headers = ImmutableList.builder();
+      for (Pair<Artifact, Label> header : CcCommon.getHeaders(ruleContext)) {
+        headers.add(header.first);
+      }
+      return headers.build();
     }
 
     /**

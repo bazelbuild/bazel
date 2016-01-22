@@ -668,6 +668,17 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testDoNotCompileSourceFilesInHeaders() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_PROCESSING_FEATURE_CONFIGURATION);
+    useConfiguration("--features=parse_headers");
+    ConfiguredTarget x =
+        scratchConfiguredTarget("x", "x", "cc_library(name = 'x', hdrs = ['x.cc'])");
+    assertThat(getGeneratingAction(getBinArtifact("_objs/x/x/x.pic.o", x))).isNull();
+  }
+
+  @Test
   public void testIncludePathOrder() throws Exception {
     scratch.file("foo/BUILD",
         "cc_library(",
