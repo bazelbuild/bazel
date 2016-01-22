@@ -113,6 +113,8 @@ public class FilesystemValueCheckerTest {
         new PackageFunction(null, null, null, null, null, null, null));
     skyFunctions.put(SkyFunctions.PACKAGE_LOOKUP,
         new PackageLookupFunction(new AtomicReference<>(ImmutableSet.<PackageIdentifier>of())));
+    skyFunctions.put(SkyFunctions.WORKSPACE_AST,
+        new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()));
     skyFunctions.put(SkyFunctions.WORKSPACE_FILE,
         new WorkspaceFileFunction(TestRuleClassProvider.getRuleClassProvider(),
             new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),

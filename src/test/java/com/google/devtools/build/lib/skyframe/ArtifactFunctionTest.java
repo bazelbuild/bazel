@@ -117,6 +117,8 @@ public class ArtifactFunctionTest {
                 .put(SkyFunctions.PACKAGE,
                     new PackageFunction(null, null, null, null, null, null, null))
                 .put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(null))
+                .put(SkyFunctions.WORKSPACE_AST,
+                    new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
                 .put(SkyFunctions.WORKSPACE_FILE,
                     new WorkspaceFileFunction(TestRuleClassProvider.getRuleClassProvider(),
                         new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),

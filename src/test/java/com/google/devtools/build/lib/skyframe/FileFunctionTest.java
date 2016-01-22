@@ -140,6 +140,8 @@ public class FileFunctionTest {
                 .put(SkyFunctions.PACKAGE_LOOKUP,
                     new PackageLookupFunction(new AtomicReference<>(
                         ImmutableSet.<PackageIdentifier>of())))
+                .put(SkyFunctions.WORKSPACE_AST,
+                    new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
                 .put(SkyFunctions.WORKSPACE_FILE,
                     new WorkspaceFileFunction(TestRuleClassProvider.getRuleClassProvider(),
                         new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),

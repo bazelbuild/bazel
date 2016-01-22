@@ -32,14 +32,20 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 
+import org.hamcrest.BaseMatcher;
+import org.hamcrest.Description;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Matchers;
 import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 import java.io.IOException;
 
@@ -50,6 +56,7 @@ import java.io.IOException;
 public class WorkspaceFileFunctionTest extends BuildViewTestCase {
 
   private WorkspaceFileFunction skyFunc;
+  private WorkspaceASTFunction astSkyFunc;
   private FakeFileValue fakeWorkspaceFileValue;
 
   private static class FakeFileValue extends FileValue {
@@ -94,13 +101,13 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   @Before
   public final void setUp() throws Exception {
     ConfiguredRuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
-    skyFunc =
+    skyFunc = 
         new WorkspaceFileFunction(
             ruleClassProvider,
-            new PackageFactory(
-                TestRuleClassProvider.getRuleClassProvider(),
+            new PackageFactory(ruleClassProvider,
                 new BazelRulesModule().getPackageEnvironmentExtension()),
             directories);
+    astSkyFunc = new WorkspaceASTFunction(ruleClassProvider);
     fakeWorkspaceFileValue = new FakeFileValue();
   }
 
@@ -115,9 +122,37 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
         workspacePath.getParentDirectory(), new PathFragment(workspacePath.getBaseName()));
   }
 
+  // Dummy harmcrest matcher that match the function name of a skykey
+  private static class SkyKeyMatchers extends BaseMatcher<SkyKey> {
+    private final SkyFunctionName functionName;
+    
+    public SkyKeyMatchers(SkyFunctionName functionName) {
+      this.functionName = functionName;
+    }
+    @Override
+    public boolean matches(Object item) {
+      if (item instanceof SkyKey) {
+        return ((SkyKey) item).functionName().equals(functionName);
+      }
+      return false;
+    }
+    
+    @Override
+    public void describeTo(Description description) {}
+  }
+  
   private SkyFunction.Environment getEnv() {
     SkyFunction.Environment env = Mockito.mock(SkyFunction.Environment.class);
-    Mockito.when(env.getValue(Matchers.<SkyKey>any())).thenReturn(fakeWorkspaceFileValue);
+    Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(SkyFunctions.FILE))))
+        .thenReturn(fakeWorkspaceFileValue);
+    Mockito.when(env.getValue(Matchers.argThat(new SkyKeyMatchers(SkyFunctions.WORKSPACE_AST))))
+    .then(new Answer<SkyValue>() {
+      @Override
+      public SkyValue answer(InvocationOnMock invocation) throws Throwable {
+        SkyKey key = (SkyKey) invocation.getArguments()[0];
+        return astSkyFunc.compute(key, getEnv());
+      }
+    });
     return env;
   }
 
