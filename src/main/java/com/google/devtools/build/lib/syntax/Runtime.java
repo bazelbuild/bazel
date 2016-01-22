@@ -141,16 +141,19 @@ public final class Runtime {
    * <p>Currently, this is only necessary for mapping the different subclasses of {@link
    * java.util.Map} to the interface.
    */
+  // TODO(bazel-team): make everything a SkylarkValue, and remove this function.
   public static Class<?> getCanonicalRepresentation(Class<?> clazz) {
+    if (SkylarkValue.class.isAssignableFrom(clazz)) {
+      return clazz;
+    }
     if (Map.class.isAssignableFrom(clazz)) {
       return MethodLibrary.DictModule.class;
     }
     if (String.class.isAssignableFrom(clazz)) {
       return MethodLibrary.StringModule.class;
     }
-    if (List.class.isAssignableFrom(clazz)) {
-      return List.class;
-    }
+    Preconditions.checkArgument(
+        !List.class.isAssignableFrom(clazz), "invalid non-SkylarkList list class");
     return clazz;
   }
 

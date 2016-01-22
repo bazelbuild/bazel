@@ -19,14 +19,14 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
-import com.google.devtools.build.lib.syntax.Mutability.Freezable;
-import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
+import com.google.devtools.build.lib.syntax.SkylarkMutable.MutableCollection;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
+import java.util.RandomAccess;
 
 import javax.annotation.Nullable;
 
@@ -35,13 +35,8 @@ import javax.annotation.Nullable;
  */
 @SkylarkModule(name = "sequence", documented = false,
     doc = "common type of lists and tuples")
-public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
-
-  /**
-   * Returns the List object underlying this SkylarkList.
-   * Mutating it (if mutable) will actually mutate the contents of the list.
-   */
-  protected abstract List<Object> getList();
+  public abstract class SkylarkList
+    extends MutableCollection<Object> implements List<Object>, RandomAccess {
 
   /**
    * Returns an ImmutableList object with the current underlying contents of this SkylarkList.
@@ -50,64 +45,104 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
 
   /**
    * Returns a List object with the current underlying contents of this SkylarkList.
-   * This object must not be modified, but may not be an ImmutableList.
-   * It may notably be a GlobList, where appropriate.
+   * This object must not be mutated, but need not be an {@link ImmutableList}.
+   * Indeed it can sometimes be a {@link GlobList}.
    */
-  // TODO(bazel-team): move GlobList out of Skylark, into an extension,
-  // and maybe get rid of this method?
-  protected abstract List<Object> getContents();
+  // TODO(bazel-team): move GlobList out of Skylark, into an extension.
+  @Override
+  public abstract List<Object> getContents();
+
+  /**
+   * The underlying contents are a (usually) mutable data structure.
+   * Read access is forwarded to these contents.
+   * This object must not be modified outside an {@link Environment}
+   * with a correct matching {@link Mutability},
+   * which should be checked beforehand using {@link #checkMutable}.
+   * it need not be an instance of {@link com.google.common.collect.ImmutableList}.
+   */
+  @Override
+  protected abstract List<Object> getContentsUnsafe();
 
   /**
    * Returns true if this list is a tuple.
    */
   public abstract boolean isTuple();
 
-  /**
-   * The size of the list.
-   */
-  public final int size() {
-    return getList().size();
-  }
-
-  /**
-   * Returns true if the list is empty.
-   */
-  public final boolean isEmpty() {
-    return getList().isEmpty();
-  }
-
-  /**
-   * Returns the i-th element of the list.
-   */
+  // A SkylarkList forwards all read-only access to the getContentsUnsafe().
+  @Override
   public final Object get(int i) {
-    return getList().get(i);
+    return getContentsUnsafe().get(i);
   }
 
+  @Override
+  public int indexOf(Object element) {
+    return getContentsUnsafe().indexOf(element);
+  }
+
+  @Override
+  public int lastIndexOf(Object element) {
+    return getContentsUnsafe().lastIndexOf(element);
+  }
+
+  @Override
+  public ListIterator<Object> listIterator() {
+    return getContentsUnsafe().listIterator();
+  }
+
+  @Override
+  public ListIterator<Object> listIterator(int index) {
+    return getContentsUnsafe().listIterator(index);
+  }
+
+  // For subList, use the immutable getContents() rather than getContentsUnsafe,
+  // to prevent subsequent mutation. To get a mutable SkylarkList,
+  // use a method that takes an Environment into account.
+  @Override
+  public List<Object> subList(int fromIndex, int toIndex) {
+    return getContents().subList(fromIndex, toIndex);
+  }
+
+  // A SkylarkList disables all direct mutation methods.
+  @Override
+  public void add(int index, Object element) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public boolean addAll(int index, Collection<?> elements) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public Object remove(int index) {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public Object set(int index, Object element) {
+    throw new UnsupportedOperationException();
+  }
+
+  // Other methods
   @Override
   public void write(Appendable buffer, char quotationMark) {
-    Printer.printList(buffer, getList(), isTuple(), quotationMark);
+    Printer.printList(buffer, getContentsUnsafe(), isTuple(), quotationMark);
   }
 
-  @Override
-  public final Iterator<Object> iterator() {
-    return getList().iterator();
-  }
-
-  @Override
-  public String toString() {
-    return Printer.repr(this);
-  }
-
+  // Note that the following two functions slightly violate the Java List protocol,
+  // in that it does NOT consider that a SkylarkList .equals() an arbitrary List with same contents.
+  // This is because we use .equals() to model skylark equality, which like Python
+  // distinguishes a MutableList from a Tuple.
   @Override
   public boolean equals(Object object) {
     return (this == object)
         || ((this.getClass() == object.getClass())
-            && getList().equals(((SkylarkList) object).getList()));
+            && getContentsUnsafe().equals(((SkylarkList) object).getContentsUnsafe()));
   }
 
   @Override
   public int hashCode() {
-    return getClass().hashCode() + 31 * getList().hashCode();
+    return getClass().hashCode() + 31 * getContentsUnsafe().hashCode();
   }
 
   /**
@@ -160,9 +195,8 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
    */
   public <TYPE> List<TYPE> getContents(Class<TYPE> type, @Nullable String description)
       throws EvalException {
-    return castList(getContents(), type, description);
+    return castList(getContentsUnsafe(), type, description);
   }
-
 
   /**
    * A class for mutable lists.
@@ -184,7 +218,7 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
             + "['a', 'b', 'c', 'd'][3:0:-1]  # ['d', 'c', 'b']</pre>"
             + "Lists are mutable, as in Python."
   )
-  public static final class MutableList extends SkylarkList implements Freezable {
+  public static final class MutableList extends SkylarkList {
 
     private final ArrayList<Object> contents = new ArrayList<>();
 
@@ -204,7 +238,7 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
      */
     MutableList(Iterable<?> contents, Mutability mutability) {
       super();
-      addAll(contents);
+      addAllUnsafe(contents);
       if (contents instanceof GlobList<?>) {
         globList = (GlobList<?>) contents;
       }
@@ -248,29 +282,19 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
     }
 
     /**
-     * Adds one element at the end of the MutableList.
-     * @param element the element to add
-     */
-    private void add(Object element) {
-      this.contents.add(element);
-    }
-
-    /**
      * Adds all the elements at the end of the MutableList.
      * @param elements the elements to add
+     * Assumes that you already checked for Mutability.
      */
-    private void addAll(Iterable<?> elements) {
+    private void addAllUnsafe(Iterable<?> elements) {
       for (Object elem : elements) {
-        add(elem);
+        contents.add(elem);
       }
     }
 
-    private void checkMutable(Location loc, Environment env) throws EvalException {
-      try {
-        Mutability.checkMutable(this, env);
-      } catch (MutabilityException ex) {
-        throw new EvalException(loc, ex);
-      }
+    @Override
+    protected void checkMutable(Location loc, Environment env) throws EvalException {
+      super.checkMutable(loc, env);
       globList = null; // If you're going to mutate it, invalidate the underlying GlobList.
     }
 
@@ -290,10 +314,15 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
       return getImmutableList();
     }
 
+    @Override
+    protected List<Object> getContentsUnsafe() {
+      return contents;
+    }
+
     /**
      * @return the GlobList if there is one, otherwise the regular contents.
      */
-    private List<?> getContentsUnsafe() {
+    private List<?> getGlobListOrContentsUnsafe() {
       if (globList != null) {
         return globList;
       }
@@ -312,7 +341,7 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
         return new MutableList(Iterables.concat(left, right), env);
       }
       return new MutableList(GlobList.concat(
-          left.getContentsUnsafe(), right.getContentsUnsafe()), env);
+          left.getGlobListOrContentsUnsafe(), right.getGlobListOrContentsUnsafe()), env);
     }
 
     /**
@@ -323,7 +352,7 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
      */
     public void add(Object element, Location loc, Environment env) throws EvalException {
       checkMutable(loc, env);
-      add(element);
+      contents.add(element);
     }
 
     public void remove(int index, Location loc, Environment env) throws EvalException {
@@ -339,13 +368,7 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
      */
     public void addAll(Iterable<?> elements, Location loc, Environment env) throws EvalException {
       checkMutable(loc, env);
-      addAll(elements);
-    }
-
-
-    @Override
-    public List<Object> getList() {
-      return contents;
+      addAllUnsafe(elements);
     }
 
     @Override
@@ -404,6 +427,11 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
       this.contents = contents;
     }
 
+    @Override
+    public Mutability mutability() {
+      return Mutability.IMMUTABLE;
+    }
+
     /**
      * THE empty Skylark tuple.
      */
@@ -437,17 +465,17 @@ public abstract class SkylarkList implements Iterable<Object>, SkylarkValue {
     }
 
     @Override
-    public List<Object> getList() {
-      return contents;
-    }
-
-    @Override
     public ImmutableList<Object> getImmutableList() {
       return contents;
     }
 
     @Override
     public List<Object> getContents() {
+      return contents;
+    }
+
+    @Override
+    protected List<Object> getContentsUnsafe() {
       return contents;
     }
 

@@ -13,9 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.syntax;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,7 +38,10 @@ import java.util.List;
  *   )
  * </pre>
  */
-public final class SelectorList {
+@SkylarkModule(name = "select",
+    doc = "A selector between configuration-dependent entities.",
+    documented = false)
+public final class SelectorList implements SkylarkValue {
   // TODO(build-team): Selectors are currently split between .packages and .syntax . They should
   // really all be in .packages, but then we'd need to figure out a way how to extend binary
   // operators, which is a non-trivial problem.
@@ -129,6 +133,16 @@ public final class SelectorList {
 
   @Override
   public String toString() {
-    return Joiner.on(" + ").join(elements);
+    return Printer.repr(this);
+  }
+
+  @Override
+  public void write(Appendable buffer, char quotationMark) {
+    Printer.printList(buffer, elements, "", " + ", "", null, quotationMark);
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return false;
   }
 }

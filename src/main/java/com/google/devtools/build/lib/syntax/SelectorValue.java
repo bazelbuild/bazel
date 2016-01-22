@@ -15,6 +15,9 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 
 import java.util.Map;
 import java.util.TreeMap;
@@ -31,7 +34,10 @@ import java.util.TreeMap;
  *       })
  * </pre>
  */
-public final class SelectorValue {
+@SkylarkModule(name = "selector",
+    doc = "A selector between configuration-dependent entities.",
+    documented = false)
+public final class SelectorValue implements SkylarkValue {
   // TODO(bazel-team): Selectors are currently split between .packages and .syntax . They should
   // really all be in .packages, but then we'd need to figure out a way how to extend binary
   // operators, which is a non-trivial problem.
@@ -58,6 +64,16 @@ public final class SelectorValue {
 
   @Override
   public String toString() {
-    return "selector({...})";
+    return Printer.repr(this);
+  }
+
+  @Override
+  public void write(Appendable buffer, char quotationMark) {
+    Printer.formatTo(buffer, "selector(%r)", Tuple.of(dictionary));
+  }
+
+  @Override
+  public boolean isImmutable() {
+    return false;
   }
 }

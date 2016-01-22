@@ -235,7 +235,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertArtifactFilenames(action.getInputs(), "a.txt", "b.img");
     assertArtifactFilenames(action.getOutputs(), "a.txt", "b.img");
-    MoreAsserts.assertContainsSublist(action.getArguments(), "-c", "dummy_command", "", "--a", "--b");
+    MoreAsserts.assertContainsSublist(action.getArguments(),
+        "-c", "dummy_command", "", "--a", "--b");
     assertEquals("DummyMnemonic", action.getMnemonic());
     assertEquals("dummy_message", action.getProgressMessage());
     assertEquals(targetConfig.getLocalShellEnvironment(), action.getEnvironment());
@@ -502,7 +503,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "  command='I got the $(HELLO) on a $(DAVE)', ",
         "  make_variables={'HELLO': 'World', 'DAVE': type('')})");
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) ((MutableList) lookup("argv")).getList();
+    List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
     assertThat(argv).hasSize(3);
     assertMatches("argv[0]", "^.*/bash$", argv.get(0));
     assertThat(argv.get(1)).isEqualTo("-c");
@@ -516,7 +517,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "inputs, argv, manifests = ruleContext.resolve_command(",
         "   tools=ruleContext.attr.tools)");
     @SuppressWarnings("unchecked")
-    List<Artifact> inputs = (List<Artifact>) (List<?>) ((MutableList) lookup("inputs")).getList();
+    List<Artifact> inputs = (List<Artifact>) (List<?>) (MutableList) lookup("inputs");
     assertArtifactFilenames(inputs, "mytool.sh", "mytool", "foo_Smytool-runfiles", "t.exe");
     Map<?, ?> manifests = (Map<?, ?>) lookup("manifests");
     assertThat(manifests).hasSize(1);
@@ -537,7 +538,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "    attribute='cmd', expand_locations=True, label_dict=label_dict)",
         "inputs, argv, manifests = foo()");
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) ((MutableList) lookup("argv")).getList();
+    List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
     assertThat(argv).hasSize(3);
     assertMatches("argv[0]", "^.*/bash$", argv.get(0));
     assertThat(argv.get(1)).isEqualTo("-c");
@@ -555,7 +556,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         "    command=s)",
         "argv = foo()[1]");
     @SuppressWarnings("unchecked")
-    List<String> argv = (List<String>) (List<?>) ((MutableList) lookup("argv")).getList();
+    List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
     assertThat(argv).hasSize(2);
     assertMatches("argv[0]", "^.*/bash$", argv.get(0));
     assertMatches("argv[1]", "^.*/resolve_me[.]script[.]sh$", argv.get(1));
