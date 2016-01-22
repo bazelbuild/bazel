@@ -1296,7 +1296,6 @@ static ATTRIBUTE_NORETURN void SendServerRequest() {
 }
 
 // Parse the options, storing parsed values in globals.
-// Returns the index of the first non-option argument.
 static void ParseOptions(int argc, const char *argv[]) {
   string error;
   blaze_exit_code::ExitCode parse_exit_code =
