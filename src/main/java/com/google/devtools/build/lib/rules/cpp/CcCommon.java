@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
@@ -458,14 +457,6 @@ public final class CcCommon {
   Iterable<Artifact> getLinkerScripts() {
     return FileType.filter(ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET).list(),
         CppFileTypes.LINKER_SCRIPT);
-  }
-
-  NestedSet<Artifact> getFilesToCompile(CcCompilationOutputs compilationOutputs) {
-    if (cppConfiguration.isLipoContextCollector()) {
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-    return NestedSetBuilder.wrap(Order.STABLE_ORDER,
-        compilationOutputs.getObjectFiles(CppHelper.usePic(ruleContext, false)));
   }
 
   InstrumentedFilesProvider getInstrumentedFilesProvider(Iterable<Artifact> files,
