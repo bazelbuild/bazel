@@ -239,7 +239,11 @@ public class SkyframeBuilder implements Builder {
         return false;
       }
       if (hasCycles || result.errorMap().isEmpty()) {
-        // error map may be empty in the case of a catastrophe.
+        // error map may be empty in the case of a catastrophe, but the
+        // catastrophe-causing exception may be available.
+        if (result.getCatastrophe() != null) {
+          rethrow(result.getCatastrophe());
+        }
         throw new BuildFailedException(null, hasCatastrophe);
       } else {
         rethrow(Preconditions.checkNotNull(result.getError().getException()));
