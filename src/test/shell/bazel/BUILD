@@ -120,14 +120,6 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_mac_genrule_test",
-    srcs = ["bazel_mac_genrule_test.sh"],
-    data = [
-        ":test-deps",
-    ],
-)
-
-sh_test(
     name = "bazel_execute_testlog",
     srcs = ["bazel_execute_testlog.sh"],
     data = [":test-deps"],
