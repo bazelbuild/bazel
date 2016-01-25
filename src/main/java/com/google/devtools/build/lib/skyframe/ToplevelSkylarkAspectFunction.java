@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.SkylarkAspe
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectValue.SkylarkAspectLoadingKey;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
-import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -56,7 +55,8 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
           SkylarkImportLookupFunction.labelsForAbsoluteImports(ImmutableSet.of(extensionFile), env);
     } catch (SkylarkImportFailedException e) {
       env.getListener().handle(Event.error(e.getMessage()));
-      throw new LoadSkylarkAspectFunctionException(e, skyKey);
+      throw new LoadSkylarkAspectFunctionException(
+          new AspectCreationException(e.getMessage()), skyKey);
     }
     if (labelLookupMap == null) {
       return null;
@@ -66,14 +66,8 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
     try {
       skylarkAspect = AspectFunction.loadSkylarkAspect(
           env, labelLookupMap.get(extensionFile), skylarkValueName);
-    } catch (SkylarkImportFailedException e) {
-      env.getListener().handle(Event.error(e.getMessage()));
-      throw new LoadSkylarkAspectFunctionException(
-          new AspectCreationException(e.getMessage()), skyKey);
-    } catch (ConversionException e) {
-      env.getListener().handle(Event.error(e.getMessage()));
-      throw new LoadSkylarkAspectFunctionException(
-          new AspectCreationException(e.getMessage()), skyKey);
+    } catch (AspectCreationException e) {
+      throw new LoadSkylarkAspectFunctionException(e, skyKey);
     }
     if (skylarkAspect == null) {
       return null;
@@ -98,12 +92,8 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
    * Exceptions thrown from ToplevelSkylarkAspectFunction.
    */
   public class LoadSkylarkAspectFunctionException extends SkyFunctionException {
-    public LoadSkylarkAspectFunctionException(Exception cause, SkyKey childKey) {
+    public LoadSkylarkAspectFunctionException(AspectCreationException cause, SkyKey childKey) {
       super(cause, childKey);
-    }
-
-    public LoadSkylarkAspectFunctionException(Exception cause) {
-      super(cause, Transience.PERSISTENT);
     }
   }
 }
