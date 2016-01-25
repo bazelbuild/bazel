@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
@@ -28,7 +29,6 @@ import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.Path;
 
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -42,38 +42,95 @@ import java.util.List;
 @RunWith(JUnit4.class)
 public class WorkspaceFactoryTest {
 
-  private Scratch scratch;
-  private Path root;
-
-  @Before
-  public void setUpFileSystem() throws Exception {
-    scratch = new Scratch("/");
-    root = scratch.dir("/workspace");
-  }
-
   @Test
   public void testLoadError() throws Exception {
     // WS with a syntax error: '//a' should end with .bzl.
-    Path workspaceFilePath = scratch.file("/workspace/WORKSPACE", "load('//a', 'a')");
-    LegacyBuilder builder = Package.newExternalPackageBuilder(workspaceFilePath, "");
-    WorkspaceFactory factory =
-        new WorkspaceFactory(
-            builder,
-            TestRuleClassProvider.getRuleClassProvider(),
-            ImmutableList.<PackageFactory.EnvironmentExtension>of(),
-            Mutability.create("test"),
-            root,
-            root);
-    StoredEventHandler localReporter = new StoredEventHandler();
-    try {
-      factory.parse(ParserInputSource.create(workspaceFilePath), localReporter);
-      fail("Parsing " + workspaceFilePath + " should have failed");
-    } catch (IOException e) {
-      assertThat(e.getMessage()).contains("Failed to parse " + workspaceFilePath);
-    }
-    List<Event> events = localReporter.getEvents();
-    assertEquals("Incorrect size for " + events, 1, events.size());
-    assertThat(events.get(0).getMessage())
+    WorkspaceFactoryHelper helper = parse("load('//a', 'a')");
+    helper.assertLexingExceptionThrown();
+    assertThat(helper.getLexerError())
         .contains("The label must reference a file with extension '.bzl'");
+  }
+
+  @Test
+  public void testWorkspaceName() throws Exception {
+    WorkspaceFactoryHelper helper = parse("workspace(name = 'my_ws')");
+    assertEquals("my_ws", helper.getPackage().getWorkspaceName());
+  }
+
+  @Test
+  public void testWorkspaceStartsWithNumber() throws Exception {
+    WorkspaceFactoryHelper helper = parse("workspace(name = '123abc')");
+    assertThat(helper.getParserError()).contains("123abc is not a legal workspace name");
+  }
+
+  @Test
+  public void testWorkspaceWithIllegalCharacters() throws Exception {
+    WorkspaceFactoryHelper helper = parse("workspace(name = 'a.b.c')");
+    assertThat(helper.getParserError()).contains("a.b.c is not a legal workspace name");
+  }
+
+  private WorkspaceFactoryHelper parse(String... args) {
+    return new WorkspaceFactoryHelper(args);
+  }
+
+  /**
+   * Parses a WORKSPACE file with the given content.
+   */
+  private class WorkspaceFactoryHelper {
+    private final LegacyBuilder builder;
+    private final WorkspaceFactory factory;
+    private final Exception exception;
+    private final ImmutableList<Event> events;
+
+    public WorkspaceFactoryHelper(String... args) {
+      Path root = null;
+      Path workspaceFilePath = null;
+      try {
+        Scratch scratch = new Scratch("/");
+        root = scratch.dir("/workspace");
+        workspaceFilePath = scratch.file("/workspace/WORKSPACE", args);
+      } catch (IOException e) {
+        fail("Shouldn't happen: " + e.getMessage());
+      }
+      StoredEventHandler eventHandler = new StoredEventHandler();
+      builder = Package.newExternalPackageBuilder(workspaceFilePath, "");
+      this.factory = new WorkspaceFactory(
+          builder,
+          TestRuleClassProvider.getRuleClassProvider(),
+          ImmutableList.<PackageFactory.EnvironmentExtension>of(),
+          Mutability.create("test"),
+          root,
+          root);
+      Exception exception = null;
+      try {
+        factory.parse(ParserInputSource.create(workspaceFilePath), eventHandler);
+      } catch (IOException e) {
+        exception = e;
+      } catch (InterruptedException e) {
+        fail("Shouldn't happen: " + e.getMessage());
+      }
+      this.events = eventHandler.getEvents();
+      this.exception = exception;
+    }
+
+    public Package getPackage() {
+      return builder.build();
+    }
+
+    public void assertLexingExceptionThrown() {
+      assertNotNull(exception);
+      assertThat(exception.getMessage()).contains("Failed to parse /workspace/WORKSPACE");
+    }
+
+    public String getLexerError() {
+      assertEquals(1, events.size());
+      return events.get(0).getMessage();
+    }
+
+    public String getParserError() {
+      List<Event> events = builder.getEvents();
+      assertThat(events.size()).isGreaterThan(0);
+      return events.get(0).getMessage();
+    }
   }
 }

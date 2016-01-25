@@ -25,7 +25,7 @@ source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
 # workspace() is specified in the WORKSPACE file.
 function test_runfiles() {
 
-  name=blorp/malorp
+  name=blorp_malorp
   cat > WORKSPACE <<EOF
 workspace(name = "$name")
 
