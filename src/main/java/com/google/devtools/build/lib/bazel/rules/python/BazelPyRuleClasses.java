@@ -60,7 +60,7 @@ public final class BazelPyRuleClasses {
           These can be
           <a href="#py_binary"><code>py_binary</code></a> rules,
           <a href="#py_library"><code>py_library</code></a> rules or
-          <a href="c-cpp.html#cc_library"><code>cc_library</code></a> rules,
+          <a href="c-cpp.html#cc_library"><code>cc_library</code></a> rules.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .override(builder.copy("deps")
               .allowedRuleClasses(ALLOWED_RULES_IN_DEPS)
