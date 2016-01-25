@@ -147,7 +147,6 @@ public class AndroidResourceProcessor {
     for (DependencyAndroidData dataDep : dependencyData) {
       libraries.add(dataDep.asSymbolFileProvider());
     }
-    System.out.println("VariantType " + variantType);
 
     File androidManifest = processManifest(
         variantType == VariantConfiguration.Type.DEFAULT ? applicationId : customPackageForR,
@@ -247,7 +246,6 @@ public class AndroidResourceProcessor {
     XmlDocument xmlDocument = mergingReport.getMergedDocument().get();
     String annotatedDocument = mergingReport.getActions().blame(xmlDocument);
     stdLogger.verbose(annotatedDocument);
-    System.out.println(xmlDocument.prettyPrint().getBytes(StandardCharsets.UTF_8));
     Files.write(
         manifestOut, xmlDocument.prettyPrint().getBytes(StandardCharsets.UTF_8));
   }
