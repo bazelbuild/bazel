@@ -95,6 +95,11 @@ public class DelegateSpawn implements Spawn {
   }
 
   @Override
+  public Collection<PathFragment> getOptionalOutputFiles() {
+    return spawn.getOptionalOutputFiles();
+  }
+
+  @Override
   public ActionMetadata getResourceOwner() {
     return spawn.getResourceOwner();
   }

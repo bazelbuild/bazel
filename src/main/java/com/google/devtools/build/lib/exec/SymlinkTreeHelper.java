@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.AbstractAction;
@@ -120,9 +121,9 @@ public final class SymlinkTreeHelper {
    * Returns the complete argument list build-runfiles has to be called with.
    */
   private List<String> getSpawnArgumentList(Path execRoot, BinTools binTools) {
-    List<String> args = Lists.newArrayList(
-        execRoot.getRelative(binTools.getExecPath(BUILD_RUNFILES))
-            .getPathString());
+    PathFragment path = binTools.getExecPath(BUILD_RUNFILES);
+    Preconditions.checkNotNull(path, BUILD_RUNFILES + " not found in embedded tools");
+    List<String> args = Lists.newArrayList(execRoot.getRelative(path).getPathString());
 
     if (filesetTree) {
       args.add("--allow_relative");

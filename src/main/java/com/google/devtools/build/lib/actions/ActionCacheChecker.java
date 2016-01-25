@@ -202,7 +202,7 @@ public class ActionCacheChecker {
     } else if (validateArtifacts(entry, action, actionInputs, metadataHandler, true)) {
       reportChanged(handler, action);
       return true; // files have changed
-    } else if (!entry.getActionKey().equals(action.getKey())){
+    } else if (!entry.getActionKey().equals(action.getKey())) {
       reportCommand(handler, action);
       return true; // must execute -- action key is different
     }
@@ -219,7 +219,8 @@ public class ActionCacheChecker {
       // This cache entry has already been updated by a shared action. We don't need to do it again.
       return;
     }
-    ActionCache.Entry entry = actionCache.createEntry(action.getKey());
+    ActionCache.Entry entry =
+        actionCache.createEntry(action.getKey(), action.discoversInputs());
     for (Artifact output : action.getOutputs()) {
       // Remove old records from the cache if they used different key.
       String execPath = output.getExecPathString();
@@ -297,7 +298,7 @@ public class ActionCacheChecker {
       // Compute the aggregated middleman digest.
       // Since we never validate action key for middlemen, we should not store
       // it in the cache entry and just use empty string instead.
-      entry = actionCache.createEntry("");
+      entry = actionCache.createEntry("", false);
       for (Artifact input : action.getInputs()) {
         entry.addFile(input.getExecPath(), metadataHandler.getMetadataMaybe(input));
       }

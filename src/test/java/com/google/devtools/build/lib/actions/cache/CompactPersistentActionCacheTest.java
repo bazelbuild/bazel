@@ -94,15 +94,24 @@ public class CompactPersistentActionCacheTest {
   }
 
   @Test
-  public void testSave() throws IOException {
+  public void testSaveDiscoverInputs() throws Exception {
+    assertSave(true);
+  }
+
+  @Test
+  public void testSaveNoDiscoverInputs() throws Exception {
+    assertSave(false);
+  }
+
+  private void assertSave(boolean discoverInputs) throws Exception {
     String key = "key";
-    putKey(key);
+    putKey(key, discoverInputs);
     cache.save();
     assertTrue(mapFile.exists());
     assertFalse(journalFile.exists());
 
     CompactPersistentActionCache newcache =
-      new CompactPersistentActionCache(dataRoot, clock);
+        new CompactPersistentActionCache(dataRoot, clock);
     ActionCache.Entry readentry = newcache.get(key);
     assertNotNull(readentry);
     assertEquals(cache.get(key).toString(), readentry.toString());
@@ -129,7 +138,7 @@ public class CompactPersistentActionCacheTest {
     }
     assertKeyEquals(cache, newcache, "abc");
     assertKeyEquals(cache, newcache, "123");
-    putKey("xyz", newcache);
+    putKey("xyz", newcache, true);
     assertIncrementalSave(newcache);
 
     // Make sure we can see previous journal values after a second incremental save.
@@ -154,7 +163,7 @@ public class CompactPersistentActionCacheTest {
   // Mutations may result in IllegalStateException.
   @Test
   public void testEntryToStringIsIdempotent() throws Exception {
-    ActionCache.Entry entry = new ActionCache.Entry("actionKey");
+    ActionCache.Entry entry = new ActionCache.Entry("actionKey", false);
     entry.toString();
     entry.addFile(new PathFragment("foo/bar"), Metadata.CONSTANT_METADATA);
     entry.toString();
@@ -200,11 +209,15 @@ public class CompactPersistentActionCacheTest {
   }
 
   private void putKey(String key) {
-    putKey(key, cache);
+    putKey(key, cache, false);
   }
 
-  private void putKey(String key, ActionCache ac) {
-    ActionCache.Entry entry = ac.createEntry(key);
+  private void putKey(String key, boolean discoversInputs) {
+    putKey(key, cache, discoversInputs);
+  }
+
+  private void putKey(String key, ActionCache ac, boolean discoversInputs) {
+    ActionCache.Entry entry = ac.createEntry(key, discoversInputs);
     entry.getFileDigest();
     ac.put(key, entry);
   }

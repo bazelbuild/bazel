@@ -48,4 +48,24 @@ echo "--------------------------------------------------------------------------
 # If the test is at the top of the tree, we have to add '.' to $PATH,
 PATH=".:$PATH"
 
-"$@"
+exitCode=0
+"$@" || exitCode=$?
+
+if [ -n "${XML_OUTPUT_FILE-}" -a ! -f "${XML_OUTPUT_FILE-}" ]; then
+  # Create a default XML output file if the test runner hasn't generated it
+  if (( $exitCode != 0 )); then
+    errors=1
+    error_msg="<error message=\"exited with error code $exitCode\"/></error>"
+  else
+    errors=0
+    error_msg=
+  fi
+  cat <<EOF >${XML_OUTPUT_FILE}
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites name="$1" tests="1" failure="0" errors="$errors">
+  <testcase name="$1" status="run">$error_msg</testcase>
+</testsuites>
+EOF
+fi
+
+exit $exitCode

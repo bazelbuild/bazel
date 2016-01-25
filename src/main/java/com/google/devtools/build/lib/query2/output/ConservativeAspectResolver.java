@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 
@@ -33,7 +34,8 @@ import java.util.Set;
  */
 public class ConservativeAspectResolver implements AspectResolver {
   @Override
-  public ImmutableMultimap<Attribute, Label> computeAspectDependencies(Target target)
+  public ImmutableMultimap<Attribute, Label> computeAspectDependencies(Target target,
+      DependencyFilter dependencyFilter)
       throws InterruptedException {
     if (!(target instanceof Rule)) {
       return ImmutableMultimap.of();
@@ -44,7 +46,7 @@ public class ConservativeAspectResolver implements AspectResolver {
     for (Attribute attribute : rule.getAttributes()) {
       for (Aspect aspect : attribute.getAspects(rule)) {
         AspectDefinition.addAllAttributesOfAspect(
-            rule, result, aspect.getDefinition(), Rule.ALL_DEPS);
+            rule, result, aspect, dependencyFilter);
       }
     }
 

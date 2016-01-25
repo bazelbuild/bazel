@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
@@ -53,17 +54,23 @@ public class PreciseAspectResolver implements AspectResolver {
   }
 
   @Override
-  public ImmutableMultimap<Attribute, Label> computeAspectDependencies(Target target)
+  public ImmutableMultimap<Attribute, Label> computeAspectDependencies(Target target,
+      DependencyFilter dependencyFilter)
       throws InterruptedException {
     Multimap<Attribute, Label> result = LinkedListMultimap.create();
     if (target instanceof Rule) {
       Multimap<Attribute, Label> transitions =
-          ((Rule) target).getTransitions(Rule.NO_NODEP_ATTRIBUTES);
+          ((Rule) target).getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
       for (Entry<Attribute, Label> entry : transitions.entries()) {
         Target toTarget;
         try {
           toTarget = packageProvider.getTarget(eventHandler, entry.getValue());
-          result.putAll(AspectDefinition.visitAspectsIfRequired(target, entry.getKey(), toTarget));
+          result.putAll(
+              AspectDefinition.visitAspectsIfRequired(
+                  target,
+                  entry.getKey(),
+                  toTarget,
+                  dependencyFilter));
         } catch (NoSuchThingException e) {
           // Do nothing. One of target direct deps has an error. The dependency on the BUILD file
           // (or one of the files included in it) will be reported in the query result of :BUILD.

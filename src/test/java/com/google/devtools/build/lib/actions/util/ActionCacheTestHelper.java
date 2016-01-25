@@ -33,7 +33,9 @@ public class ActionCacheTestHelper {
       @Override
       public void remove(String key) {}
       @Override
-      public Entry createEntry(String key) { return new ActionCache.Entry(key); }
+      public Entry createEntry(String key, boolean discoversInputs) {
+        return new ActionCache.Entry(key, discoversInputs);
+      }
       @Override
       public long save() { return -1; }
       @Override

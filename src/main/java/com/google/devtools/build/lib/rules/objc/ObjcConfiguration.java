@@ -70,7 +70,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   // configuration, the late bound attribute will fail to be initialized because it hasn't been
   // loaded.
   @Nullable private final Label gcovLabel;
-  @Nullable private final Label experimentalGcovLabel;
   @Nullable private final Label dumpSymsLabel;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
@@ -85,7 +84,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.copts = ImmutableList.copyOf(objcOptions.copts);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
     this.gcovLabel = options.objcGcovBinary;
-    this.experimentalGcovLabel = options.experimentalObjcGcovBinary;
     this.dumpSymsLabel = objcOptions.dumpSyms;
     this.iosSplitCpu = Preconditions.checkNotNull(objcOptions.iosSplitCpu, "iosSplitCpu");
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
@@ -163,14 +161,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   @Nullable public Label getGcovLabel() {
     return gcovLabel;
-  }
-
-  /**
-   * Returns the label of the experimental gcov binary, used to get test coverage data for {@code
-   * experimental_ios_test}. Null iff not in coverage mode.
-   */
-  @Nullable public Label getExperimentalGcovLabel() {
-    return experimentalGcovLabel;
   }
 
   /**

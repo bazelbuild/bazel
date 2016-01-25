@@ -1,5 +1,6 @@
 ---
 layout: blog
+title: Blog
 ---
 
 {% for post in site.categories.blog %}

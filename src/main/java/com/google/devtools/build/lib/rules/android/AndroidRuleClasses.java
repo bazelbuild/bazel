@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -92,8 +93,6 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_deploy.jar");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_JAR =
       fromTemplates("%{name}_proguard.jar");
-  public static final SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_MAP =
-      fromTemplates("%{name}_proguard.map");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_INSTRUMENTED_JAR =
       fromTemplates("%{name}_instrumented.jar");
   public static final SafeImplicitOutputsFunction ANDROID_TEST_FILTERED_JAR =
@@ -149,19 +148,6 @@ public final class AndroidRuleClasses {
           Constants.TOOLS_REPOSITORY + "//tools/android:resources_processor");
   public static final Label DEFAULT_AAR_GENERATOR =
       Label.parseAbsoluteUnchecked(Constants.TOOLS_REPOSITORY + "//tools/android:aar_generator");
-
-  /**
-   * Implementation for the :proguard attribute.
-   */
-  static final LateBoundLabel<BuildConfiguration> PROGUARD =
-      new LateBoundLabel<BuildConfiguration>(AndroidConfiguration.class) {
-    @Override
-    public Label getDefault(Rule rule, BuildConfiguration configuration) {
-      // If --proguard_top is not specified, null is returned. AndroidSdk will take care of using
-      // android_sdk.proguard then.
-      return configuration.getFragment(AndroidConfiguration.class).getProguardLabel();
-    }
-  };
 
   public static final LateBoundLabel<BuildConfiguration> ANDROID_SDK =
       new LateBoundLabel<BuildConfiguration>(DEFAULT_ANDROID_SDK, AndroidConfiguration.class) {
@@ -276,7 +262,7 @@ public final class AndroidRuleClasses {
           if (hasProguardSpecs) {
             functions.add(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_JAR);
             if (mapping) {
-              functions.add(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_MAP);
+              functions.add(JavaSemantics.JAVA_BINARY_PROGUARD_MAP);
             }
           }
           return fromFunctions(functions).getImplicitOutputs(rule);
@@ -315,10 +301,10 @@ public final class AndroidRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
-          .requiresConfigurationFragments(AndroidConfiguration.class)
+          .requiresConfigurationFragments(JavaConfiguration.class, AndroidConfiguration.class)
           .setUndocumented()
           // This is the Proguard that comes from the --proguard_top attribute.
-          .add(attr(":proguard", LABEL).cfg(HOST).value(PROGUARD).exec())
+          .add(attr(":proguard", LABEL).cfg(HOST).value(JavaSemantics.PROGUARD).exec())
           // This is the Proguard in the BUILD file that contains the android_sdk rule. Used when
           // --proguard_top is not specified.
           .add(attr("proguard", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())

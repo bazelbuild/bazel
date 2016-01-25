@@ -22,21 +22,14 @@
 
 set -eu
 
-REALPATH="$0.runfiles/external/bazel_tools/tools/objc/realpath"
-if [ ! -e $REALPATH ]; then
-  REALPATH=tools/objc/realpath
-fi
+REALPATH=$0.runfiles/external/bazel_tools/tools/objc/realpath
+WRAPPER=$0.runfiles/external/bazel_tools/tools/objc/xcrunwrapper.sh
 
 OUTZIP=$($REALPATH "$1")
 NAME="$2"
 shift 2
 TEMPDIR=$(mktemp -d -t momcZippingOutput)
 trap "rm -rf \"$TEMPDIR\"" EXIT
-
-WRAPPER="$0.runfiles/external/bazel_tools/tools/objc/xcrunwrapper.sh"
-if [ ! -e $WRAPPER ]; then
-  WRAPPER=tools/objc/xcrunwrapper.sh
-fi
 
 $WRAPPER momc "$@" "$TEMPDIR/$NAME"
 

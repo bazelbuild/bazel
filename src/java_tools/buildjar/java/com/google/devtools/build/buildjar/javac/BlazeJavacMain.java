@@ -103,9 +103,8 @@ public class BlazeJavacMain {
   public Result compile(String[] argv) {
     // set up a fresh Context with our custom bindings for JavaCompiler
     Context context = new Context();
-    // disable faulty Zip optimizations
+
     Options options = Options.instance(context);
-    options.put("useOptimizedZip", "false");
 
     // enable Java 8-style type inference features
     //

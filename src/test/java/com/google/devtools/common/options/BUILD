@@ -1,7 +1,7 @@
 java_test(
     name = "options_test",
     srcs = glob(["*.java"]),
-    args = ["com.google.devtools.common.options.AllTests"],
+    test_class = "com.google.devtools.common.options.AllTests",
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//src/test/java/com/google/devtools/build/lib:testutil",

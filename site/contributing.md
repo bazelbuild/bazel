@@ -1,5 +1,6 @@
 ---
 layout: community
+title: Contributing to Bazel
 ---
 
 # Contributing to Bazel

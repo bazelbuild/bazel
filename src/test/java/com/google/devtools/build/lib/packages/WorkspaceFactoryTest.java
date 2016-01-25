@@ -20,6 +20,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
@@ -63,14 +64,15 @@ public class WorkspaceFactoryTest {
             Mutability.create("test"),
             root,
             root);
+    StoredEventHandler localReporter = new StoredEventHandler();
     try {
-      factory.parse(ParserInputSource.create(workspaceFilePath));
+      factory.parse(ParserInputSource.create(workspaceFilePath), localReporter);
       fail("Parsing " + workspaceFilePath + " should have failed");
     } catch (IOException e) {
       assertThat(e.getMessage()).contains("Failed to parse " + workspaceFilePath);
     }
-    List<Event> events = factory.getEvents();
-    assertEquals(1, events.size());
+    List<Event> events = localReporter.getEvents();
+    assertEquals("Incorrect size for " + events, 1, events.size());
     assertThat(events.get(0).getMessage())
         .contains("The label must reference a file with extension '.bzl'");
   }

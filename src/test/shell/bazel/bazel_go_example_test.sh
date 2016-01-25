@@ -202,4 +202,53 @@ EOF
   grep "Runfile: 12345" out || fail "binary output suspect"
 }
 
+
+function test_empty_prefix() {
+  setup_go
+
+ cat  <<EOF > BUILD
+load("/tools/build_rules/go/def", "go_prefix")
+go_prefix("")
+EOF
+
+  rm -rf ex
+  mkdir -p ex/
+  cat <<EOF > ex/m.go
+package main
+import (
+  "fmt"
+
+  "library"
+)
+func main() {
+  fmt.Println(library.F())
+}
+EOF
+   cat <<EOF > ex/BUILD
+load("/tools/build_rules/go/def", "go_library", "go_binary")
+go_binary(name = "m",
+  srcs = [ "m.go" ],
+  deps = [ "//library:go_default_library" ])
+EOF
+
+  mkdir -p library
+
+  cat <<EOF > library/BUILD
+package(default_visibility=["//visibility:public"])
+load("/tools/build_rules/go/def", "go_library", "go_binary")
+go_library(name = "go_default_library",
+  srcs = [ "l.go"])
+EOF
+
+   cat <<EOF > library/l.go
+package library
+func F() int { return 42 }
+EOF
+
+  assert_build //ex:m
+  test -x ./bazel-bin/ex/m || fail "binary not found"
+  (./bazel-bin/ex/m > out) || fail "binary does not execute"
+  grep "42" out || fail "binary output suspect"
+}
+
 run_suite "go_examples"

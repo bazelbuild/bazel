@@ -1,3 +1,8 @@
+---
+layout: documentation
+title: Tutorial - Build an Android App
+---
+
 # Tutorial - Build an Android App
 
 The sample Android app in this tutorial is a very simple application that makes

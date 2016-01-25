@@ -63,6 +63,10 @@ function test_extra_action() {
   # a program that parses the proto here.
   cat > mypkg/echoer.sh <<EOF
 #!/bin/bash
+if [[ ! -e \$0.runfiles/mypkg/runfile ]]; then
+  echo "Runfile not found" >&2
+  exit 1
+fi
 echo EXTRA ACTION FILE: \$1
 EOF
   chmod +x mypkg/echoer.sh
@@ -74,6 +78,8 @@ public class Hello {
     }
 }
 EOF
+
+  touch mypkg/runfile
 
   cat > mypkg/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
@@ -93,6 +99,7 @@ action_listener(
 sh_binary(
     name = "echoer",
     srcs = ["echoer.sh"],
+    data = ["runfile"],
 )
 
 java_library(

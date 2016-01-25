@@ -61,7 +61,6 @@ import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Order;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.TrackingAwaiter;
 
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -155,30 +154,35 @@ public final class BuildViewTest extends BuildViewTestBase {
     assertSame(FailAction.class, action.getClass());
   }
 
-  // TODO(bazel-team): this test is bad, it seems to rely on genrule emitting a warning to make the
-  // analysis fail, this needs a proper way to inject errors/warnings
   @Test
-  @Ignore
-  public void disabled_testReportsAnalysisRootCauses() throws Exception {
-    scratch.file("pkg/BUILD",
-        "genrule(name='foo',",
-        "        tools=[:missing],",
-        "        outs=['foofile'],",
-        "        cmd='')",
-        "genrule(name='bar',",
-        "        srcs=['foofile'],",
-        "        outs=['barfile'],",
-        "        cmd='')");
+  public void testReportsAnalysisRootCauses() throws Exception {
+    scratch.file("private/BUILD",
+        "genrule(",
+        "    name='private',",
+        "    outs=['private.out'],",
+        "    cmd='',",
+        "    visibility=['//visibility:private'])");
+    scratch.file("foo/BUILD",
+        "genrule(",
+        "    name='foo',",
+        "    tools=[':bar'],",
+        "    outs=['foo.out'],",
+        "    cmd='')",
+        "genrule(",
+        "    name='bar',",
+        "    tools=['//private'],",
+        "    outs=['bar.out'],",
+        "    cmd='')");
 
     reporter.removeHandler(failFastHandler);
     EventBus eventBus = new EventBus();
     AnalysisFailureRecorder recorder = new AnalysisFailureRecorder();
     eventBus.register(recorder);
-    update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//pkg:bar");
+    update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
     assertThat(recorder.events).hasSize(1);
     AnalysisFailureEvent event = recorder.events.get(0);
-    assertEquals("//pkg:foo", event.getFailureReason().toString());
-    assertEquals("//pkg:bar", event.getFailedTarget().getLabel().toString());
+    assertEquals("//foo:bar", event.getFailureReason().toString());
+    assertEquals("//foo:foo", event.getFailedTarget().getLabel().toString());
   }
 
   @Test

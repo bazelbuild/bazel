@@ -81,12 +81,14 @@ public class CppHelper {
    */
   public static void mergeToolchainDependentContext(RuleContext ruleContext,
       Builder contextBuilder) {
-    TransitiveInfoCollection stl = ruleContext.getPrerequisite(":stl", Mode.TARGET);
-    if (stl != null) {
-      // TODO(bazel-team): Clean this up.
-      contextBuilder.addSystemIncludeDir(
-          stl.getLabel().getPackageIdentifier().getPathFragment().getRelative("gcc3"));
-      contextBuilder.mergeDependentContext(stl.getProvider(CppCompilationContext.class));
+    if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
+      TransitiveInfoCollection stl = ruleContext.getPrerequisite(":stl", Mode.TARGET);
+      if (stl != null) {
+        // TODO(bazel-team): Clean this up.
+        contextBuilder.addSystemIncludeDir(
+            stl.getLabel().getPackageIdentifier().getPathFragment().getRelative("gcc3"));
+        contextBuilder.mergeDependentContext(stl.getProvider(CppCompilationContext.class));
+      }
     }
     CcToolchainProvider toolchain = getToolchain(ruleContext);
     if (toolchain != null) {

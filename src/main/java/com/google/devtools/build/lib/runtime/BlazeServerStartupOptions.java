@@ -169,9 +169,9 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(name = "block_for_lock",
       defaultValue = "true", // NOTE: purely decorative!  See class docstring.
       category = "server startup",
-      help = "If set, Blaze will exit immediately instead of waiting for other " +
-             "Blaze commands holding the server lock to complete.")
-  public boolean noblock_for_lock;
+      help = "If unset with --noblock_for_lock, Blaze will exit immediately instead of "
+            + "waiting for other Blaze commands holding the server lock to complete.")
+  public boolean blockForLock;
 
   @Option(name = "io_nice_level",
       defaultValue = "-1",  // NOTE: purely decorative!

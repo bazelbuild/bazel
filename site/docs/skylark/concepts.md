@@ -1,3 +1,7 @@
+---
+layout: documentation
+title: Skylark - Concepts
+---
 # Concepts
 
 ## Loading a Skylark extension

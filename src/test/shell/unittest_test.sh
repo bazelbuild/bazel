@@ -50,6 +50,7 @@ function test_failure_message() {
   cd $TEST_TMPDIR
   cat > thing.sh <<EOF
 #!/bin/bash
+XML_OUTPUT_FILE=${TEST_TMPDIR}/dummy.xml
 source ${DIR}/unittest.bash
 
 function test_thing() {
@@ -61,13 +62,14 @@ EOF
   chmod +x thing.sh
   ./thing.sh &> $TEST_log && fail "thing.sh should fail"
   expect_not_log "__fail: No such file or directory"
-  assert_contains "I'm a failure." $XML_OUTPUT_FILE
+  assert_contains "I'm a failure." ${TEST_TMPDIR}/dummy.xml
 }
 
 function test_no_failure_message() {
   cd $TEST_TMPDIR
   cat > thing.sh <<EOF
 #!/bin/bash
+XML_OUTPUT_FILE=${TEST_TMPDIR}/dummy.xml
 source ${DIR}/unittest.bash
 
 function test_thing() {
@@ -79,13 +81,14 @@ EOF
   chmod +x thing.sh
   ./thing.sh &> $TEST_log && fail "thing.sh should fail"
   expect_not_log "__fail: No such file or directory"
-  assert_contains "No failure message" $XML_OUTPUT_FILE
+  assert_contains "No failure message" ${TEST_TMPDIR}/dummy.xml
 }
 
 function test_errexit_prints_stack_trace() {
   cd $TEST_TMPDIR
   cat > thing.sh <<EOF
 #!/bin/bash
+XML_OUTPUT_FILE=${TEST_TMPDIR}/dummy.xml
 source ${DIR}/unittest.bash
 
 enable_errexit

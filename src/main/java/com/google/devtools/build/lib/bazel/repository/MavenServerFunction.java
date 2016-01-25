@@ -19,10 +19,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenServerRule;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryNotFoundException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -66,15 +66,19 @@ public class MavenServerFunction implements SkyFunction {
   }
 
   @Nullable
+  @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException {
     String repository = (String) skyKey.argument();
-    Package externalPackage = RepositoryFunction.getExternalPackage(env);
-    if (externalPackage == null) {
-      return null;
+    Rule repositoryRule;
+    try {
+       repositoryRule = RepositoryFunction.getRule(repository, env);
+       if (repositoryRule == null) {
+         return null;
+       }
+    } catch (RepositoryNotFoundException ex) {
+      repositoryRule = null;
     }
-    Rule repositoryRule = externalPackage.getRule(repository);
-
     String serverName;
     String url;
     Map<String, FileValue> settingsFiles;

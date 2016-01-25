@@ -35,7 +35,7 @@ java_test(
         ["*.java"],
         exclude = TESTUTIL_FILES,
     ),
-    args = ["com.google.devtools.build.skyframe.AllTests"],
+    test_class = "com.google.devtools.build.skyframe.AllTests",
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:collect",

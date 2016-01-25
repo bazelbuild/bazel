@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.packages.Preprocessor.AstAfterPreprocessing
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature.Param;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.AssignmentStatement;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
@@ -842,7 +843,7 @@ public final class PackageFactory {
   }
 
   @Nullable
-  private static Map<String, Object> targetDict(Target target) {
+  private static Map<String, Object> targetDict(Target target) throws NotRepresentableException {
     if (target == null && !(target instanceof Rule)) {
       return null;
     }
@@ -855,11 +856,23 @@ public final class PackageFactory {
         continue;
       }
 
-      Object val = skylarkifyValue(cont.getAttr(attr.getName()), target.getPackage());
-      if (val == null) {
+      if (attr.getName().equals("distribs")) {
+        // attribute distribs: cannot represent type class java.util.Collections$SingletonSet
+        // in Skylark: [INTERNAL].
         continue;
       }
-      values.put(attr.getName(), val);
+
+      try {
+        Object val = skylarkifyValue(cont.getAttr(attr.getName()), target.getPackage());
+        if (val == null) {
+          continue;
+        }
+        values.put(attr.getName(), val);
+      } catch (NotRepresentableException e) {
+        throw new NotRepresentableException(
+            String.format(
+                "target %s, attribute %s: %s", target.getName(), attr.getName(), e.getMessage()));
+      }
     }
 
     values.put("name", rule.getName());
@@ -867,17 +880,27 @@ public final class PackageFactory {
     return values;
   }
 
+  static class NotRepresentableException extends EvalException {
+    NotRepresentableException(String msg) {
+      super(null, msg);
+    }
+  };
+
   /**
    * Converts back to type that will work in BUILD and skylark,
    * such as string instead of label, SkylarkList instead of List,
    * Returns null if we don't want to export the value.
    *
    * <p>All of the types returned are immutable. If we want, we can change this to
-   * immutable in the future, but this is the safe choice for now.
+   * immutable in the future, but this is the safe choice for now.o
    */
-  private static Object skylarkifyValue(Object val, Package pkg) {
+  @Nullable
+  private static Object skylarkifyValue(Object val, Package pkg) throws NotRepresentableException {
     if (val == null) {
       return null;
+    }
+    if (val instanceof Boolean) {
+      return val;
     }
     if (val instanceof Integer) {
       return val;
@@ -885,6 +908,19 @@ public final class PackageFactory {
     if (val instanceof String) {
       return val;
     }
+
+    // Maybe we should have an interface for types so they can represent themselves to skylark?
+    if (val instanceof TriState) {
+      switch ((TriState) val) {
+        case AUTO:
+          return new Integer(-1);
+        case YES:
+          return new Integer(1);
+        case NO:
+          return new Integer(0);
+      }
+    }
+
     if (val instanceof Label) {
       Label l = (Label) val;
       if (l.getPackageName().equals(pkg.getName())) {
@@ -892,10 +928,16 @@ public final class PackageFactory {
       }
       return l.getCanonicalForm();
     }
+
     if (val instanceof List) {
       List<Object> l = new ArrayList<>();
       for (Object o : (List) val) {
-        l.add(skylarkifyValue(o, pkg));
+        Object elt = skylarkifyValue(o, pkg);
+        if (elt == null) {
+          continue;
+        }
+
+        l.add(elt);
       }
 
       return SkylarkList.Tuple.copyOf(l);
@@ -903,7 +945,14 @@ public final class PackageFactory {
     if (val instanceof Map) {
       Map<Object, Object> m = new TreeMap<>();
       for (Map.Entry<?, ?> e : ((Map<?, ?>) val).entrySet()) {
-        m.put(skylarkifyValue(e.getKey(), pkg), skylarkifyValue(e.getValue(), pkg));
+        Object key = skylarkifyValue(e.getKey(), pkg);
+        Object mapVal = skylarkifyValue(e.getValue(), pkg);
+
+        if (key == null || mapVal == null) {
+          continue;
+        }
+
+        m.put(key, mapVal);
       }
       return m;
     }
@@ -914,12 +963,24 @@ public final class PackageFactory {
       return null;
     }
 
-    // Add any types we want to allow through here.
-    return null;
+    if (val instanceof SkylarkValue) {
+      return val;
+    }
+
+    if (val instanceof License) {
+      // TODO(bazel-team): convert License.getLicenseTypes() to a list of strings.
+      return null;
+    }
+
+    // We are explicit about types we don't understand so we minimize changes to existing callers
+    // if we add more types that we can represent.
+    throw new NotRepresentableException(
+        String.format(
+            "cannot represent %s (%s) in skylark", val.toString(), val.getClass().toString()));
   }
 
-  static Map callGetRulesFunction(FuncallExpression ast, Environment env) throws EvalException {
 
+  static Map callGetRulesFunction(FuncallExpression ast, Environment env) throws EvalException {
     PackageContext context = getContext(env, ast);
     Collection<Target> targets = context.pkgBuilder.getTargets();
 

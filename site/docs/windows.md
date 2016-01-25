@@ -1,5 +1,6 @@
 ---
 layout: documentation
+title: Windows
 ---
 
 Building Bazel on Windows

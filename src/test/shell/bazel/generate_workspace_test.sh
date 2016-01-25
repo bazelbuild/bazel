@@ -43,23 +43,44 @@ function generate_workspace() {
   ${bazel_data}/src/tools/generate_workspace/generate_workspace $@
 }
 
-# Takes: groupId, artifactId, and version.
+# Takes: groupId, artifactId, and version, extra arguments are dependencies.
 function make_artifact() {
-  local groupId=$1
-  local artifactId=$2
-  local version=$3
+  local groupId=$1;
+  local artifactId=$2;
+  local version=$3;
 
-  local pkg_dir=$m2/$groupId/$artifactId/$version
-  mkdir -p $pkg_dir
+  shift; shift; shift;
+
+  local pkg_dir=${m2}/${groupId}/${artifactId}/${version}
+  local pom_file=${pkg_dir}/${artifactId}-${version}.pom
+  mkdir -p ${pkg_dir}
   # Make the pom.xml.
-  cat > $pkg_dir/$artifactId-$version.pom <<EOF
+  cat > ${pom_file} <<EOF
 <project>
   <modelVersion>4.0.0</modelVersion>
-  <groupId>$artifactId</groupId>
-  <artifactId>$artifactId</artifactId>
-  <version>$version</version>
-</project>
+  <groupId>${groupId}</groupId>
+  <artifactId>${artifactId}</artifactId>
+  <version>${version}</version>
 EOF
+
+  if [[ ${#@} > 0 ]]; then
+    echo '  <dependencies>' >> ${pom_file}
+
+    for artifact in $@; do
+      IFS=':' read -r -a dep <<< "$artifact"
+      cat >> ${pom_file} << EOF
+    <dependency>
+      <groupId>${dep[0]}</groupId>
+      <artifactId>${dep[1]}</artifactId>
+      <version>${dep[2]}</version>
+    </dependency>
+EOF
+    done
+
+    echo '  </dependencies>' >> ${pom_file}
+  fi
+
+  echo "</project>" >> ${pom_file}
 
   # Make the jar with one class (we use the groupId for the classname).
   cat > $TEST_TMPDIR/$groupId.java <<EOF
@@ -125,6 +146,71 @@ EOF
   assert_contains "repository = \"http://localhost:$fileserver_port/\"," ws
   assert_contains "sha1 = \"$sha1\"," ws
   assert_contains "\"@blorp_glorp//jar\"," build
+  assert_contains "name = \"blorp_glorp\"," build
+}
+
+function test_pom_exclusions() {
+  # Create a maven repo
+  local sha1_guppy=$(make_artifact fish guppy 2.0)
+  local sha1_trout=$(make_artifact fish trout 4.2)
+
+  local sha1_glorp=$(make_artifact blorp glorp 1.2.3 fish:guppy:2.0)
+  local sha1_mlorp=$(make_artifact blorp mlorp 3.2.1 fish:trout:4.2)
+
+  # Create a pom that references the artifacts.
+  cat > $TEST_TMPDIR/pom.xml <<EOF
+<project>
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>my</groupId>
+  <artifactId>thing</artifactId>
+  <version>1.0</version>
+  <repositories>
+    <repository>
+      <id>my-repo1</id>
+      <name>a custom repo</name>
+      <url>http://localhost:$fileserver_port/</url>
+    </repository>
+  </repositories>
+
+  <dependencies>
+    <dependency>
+      <groupId>blorp</groupId>
+      <artifactId>glorp</artifactId>
+      <version>1.2.3</version>
+    </dependency>
+    <dependency>
+      <groupId>blorp</groupId>
+      <artifactId>mlorp</artifactId>
+      <version>3.2.1</version>
+      <exclusions>
+        <exclusion>
+          <groupId>fish</groupId>
+          <artifactId>trout</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+  </dependencies>
+</project>
+EOF
+
+  generate_workspace --maven_project=$TEST_TMPDIR &> $TEST_log \
+    || fail "generating workspace failed"
+
+  cat $(cat $TEST_log | tail -n 2 | head -n 1) > ws
+  cat $(cat $TEST_log | tail -n 1) > build
+
+  assert_contains "artifact = \"blorp:glorp:1.2.3\"," ws
+  assert_contains "repository = \"http://localhost:$fileserver_port/\"," ws
+  assert_contains "sha1 = \"$sha1_glorp\"," ws
+  assert_contains "sha1 = \"$sha1_mlorp\"," ws
+  assert_contains "sha1 = \"$sha1_guppy\"," ws
+  assert_not_contains "sha1 = \"$sha1_trout\"," ws
+  assert_contains "\"@blorp_glorp//jar\"," build
+  assert_contains "\"@blorp_mlorp//jar\"," build
+  assert_contains "name = \"blorp_glorp\"," build
+  assert_contains "name = \"blorp_mlorp\"," build
+  assert_contains "\"@fish_guppy//jar\"," build
+  assert_not_contains "\"@fish_trout//jar\"," build
 }
 
 function test_invalid_pom() {

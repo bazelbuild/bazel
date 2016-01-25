@@ -59,6 +59,7 @@ public final class AntXmlResultWriter implements XmlResultWriter {
 
   private int testSuiteId;
 
+  @Override
   public void writeTestSuites(XmlWriter writer, TestResult result) throws IOException {
     testSuiteId = 0;
     writer.startDocument();
@@ -151,6 +152,10 @@ public final class AntXmlResultWriter implements XmlResultWriter {
       Iterable<Throwable> parentFailures)
       throws IOException {
     writer.startElement(JUNIT_ELEMENT_TESTCASE);
+    writer.writeAttribute(JUNIT_ATTR_TESTCASE_NAME, result.getName());
+    writer.writeAttribute(JUNIT_ATTR_TESTCASE_CLASSNAME, result.getClassName());
+    writer.writeAttribute(JUNIT_ATTR_TESTCASE_TIME, getFormattedRunTime(
+            result.getRunTimeInterval()));
 
     for (Throwable failure : Iterables.concat(parentFailures, result.getFailures())) {
       writer.startElement(JUNIT_ELEMENT_FAILURE);
@@ -160,10 +165,6 @@ public final class AntXmlResultWriter implements XmlResultWriter {
       writer.endElement();
     }
 
-    writer.writeAttribute(JUNIT_ATTR_TESTCASE_NAME, result.getName());
-    writer.writeAttribute(JUNIT_ATTR_TESTCASE_CLASSNAME, result.getClassName());
-    writer.writeAttribute(JUNIT_ATTR_TESTCASE_TIME, getFormattedRunTime(
-        result.getRunTimeInterval()));
     writer.endElement();
   }
 

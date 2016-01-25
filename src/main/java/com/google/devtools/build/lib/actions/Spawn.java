@@ -121,6 +121,12 @@ public interface Spawn {
   Collection<? extends ActionInput> getOutputFiles();
 
   /**
+   * Instructs the spawn strategy to try to fetch these optional output files in addition to the
+   * usual output artifacts. The PathFragments should be relative to the exec root.
+   */
+  Collection<PathFragment> getOptionalOutputFiles();
+
+  /**
    * Returns the resource owner for local fallback.
    */
   ActionMetadata getResourceOwner();

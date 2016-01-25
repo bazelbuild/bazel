@@ -15,13 +15,13 @@
 package com.google.devtools.build.lib.analysis.config;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -128,13 +128,16 @@ public final class BinTools {
   }
 
   public PathFragment getExecPath(String embedPath) {
-    Preconditions.checkState(embeddedTools.contains(embedPath), "%s not in %s", embedPath,
-        embeddedTools);
+    if (!embeddedTools.contains(embedPath)) {
+      return null;
+    }
     return new PathFragment("_bin").getRelative(new PathFragment(embedPath).getBaseName());
   }
 
   public Artifact getEmbeddedArtifact(String embedPath, ArtifactFactory artifactFactory) {
-    return artifactFactory.getDerivedArtifact(getExecPath(embedPath));
+    PathFragment path = getExecPath(embedPath);
+    Preconditions.checkNotNull(path, embedPath + " not found in embedded tools");
+    return artifactFactory.getDerivedArtifact(path);
   }
 
   public ImmutableList<Artifact> getAllEmbeddedArtifacts(ArtifactFactory artifactFactory) {

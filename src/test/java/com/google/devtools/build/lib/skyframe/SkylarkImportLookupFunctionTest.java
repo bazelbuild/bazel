@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -212,5 +213,32 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
     String errorMessage = errorInfo.getException().getMessage();
     assertEquals("invalid target name 'oops<?>.bzl': "
         + "target names may not contain non-printable characters: '\\x00'", errorMessage);
+  }
+
+  @Test
+  public void testLoadFromExternalRepoInWorkspaceFileDisallowed() throws Exception {
+    scratch.deleteFile("tools/build_rules/prelude_blaze");
+    scratch.overwriteFile("WORKSPACE",
+        "local_repository(",
+        "    name = 'a_remote_repo',",
+        "    path = '/a_remote_repo'",
+        ")");
+    scratch.file("/a_remote_repo/remote_pkg/BUILD");
+    scratch.file("/a_remote_repo/remote_pkg/ext.bzl",
+        "CONST = 17");
+
+    SkyKey skylarkImportLookupKey =
+        SkylarkImportLookupValue.key(Label.parseAbsoluteUnchecked(
+            "@a_remote_repo//remote_pkg:ext.bzl"), /*inWorkspace=*/ true);
+    EvaluationResult<SkylarkImportLookupValue> result =
+        SkyframeExecutorTestUtils.evaluate(
+            getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
+
+    assertTrue(result.hasError());
+    ErrorInfo errorInfo = result.getError(skylarkImportLookupKey);
+    String errorMessage = errorInfo.getException().getMessage();
+    String expectedMsgTemplate = SkylarkImportFailedException.NO_EXT_WORKSPACE_LOAD_MSG_TEMPLATE;
+    assertEquals(String.format(expectedMsgTemplate, "@a_remote_repo//remote_pkg:ext.bzl"),
+        errorMessage);
   }
 }

@@ -1,3 +1,7 @@
+---
+layout: documentation
+title: Skylark Cookbook
+---
 Skylark cookbook
 ================
 
@@ -59,7 +63,7 @@ load("/pkg/extension", "macro")
 macro(name = "myrule")
 ```
 
-## <a name="conditional-instantiation"></a>Conditional instantiation.</a>
+## <a name="conditional-instantiation"></a>Conditional instantiation.
 
 Macros can look at previously instantiated rules. This is done with
 `native.rule`, which returns information on a single rule defined in the same
@@ -90,7 +94,7 @@ def system_test_suite(name, flavors=["default"], test_files):
   for flavor in flavors:
     for test in test_files:
       ts.append(system_test(name, flavor, test))
-  native.test_suite(name = name, tests = ts) 
+  native.test_suite(name = name, tests = ts)
 ```
 
 In the following BUILD file, note how `(fast, basic_test.py)` is emitted for
@@ -107,7 +111,7 @@ system_test_suite("thorough", flavors=["fast", "debug", "opt"], ["basic_test.py"
 ```
 
 
-## <a name="aggregation"></a>Aggregating over the BUILD file.</a>
+## <a name="aggregation"></a>Aggregating over the BUILD file.
 
 Macros can collect information from the BUILD file as processed so far.  We call
 this aggregation. The typical example is collecting data from all rules of a

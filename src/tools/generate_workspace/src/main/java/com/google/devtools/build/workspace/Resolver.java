@@ -15,6 +15,7 @@
 package com.google.devtools.build.workspace;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.BazelMain;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -139,7 +140,8 @@ public class Resolver {
               "Could not resolve model for " + target + ": " + e.getMessage()));
           continue;
         }
-        resolver.resolveEffectiveModel(modelSource);
+        resolver.addRootDependency(rule);
+        resolver.resolveEffectiveModel(modelSource, Sets.<String>newHashSet(), rule);
       } else {
         handler.handle(Event.warn(location, "Cannot fetch transitive dependencies for " + target
             + " yet, skipping"));

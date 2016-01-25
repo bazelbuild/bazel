@@ -1,3 +1,8 @@
+---
+layout: documentation
+title: Tutorial - Set Up a Workspace
+---
+
 # Tutorial - Set Up a Workspace
 
 A [workspace](/docs/build-ref.html#workspaces) is a directory that contains the

@@ -56,7 +56,9 @@ public class CompactPersistentActionCache implements ActionCache {
   // cache records.
   private static final int VALIDATION_KEY = -10;
 
-  private static final int VERSION = 10;
+  private static final int NO_INPUT_DISCOVERY_COUNT = -1;
+
+  private static final int VERSION = 11;
 
   private final class ActionMap extends PersistentMap<Integer, byte[]> {
     private final Clock clock;
@@ -136,7 +138,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
   private final PersistentMap<Integer, byte[]> map;
   private final PersistentStringIndexer indexer;
-  static final ActionCache.Entry CORRUPTED = new ActionCache.Entry(null);
+  static final ActionCache.Entry CORRUPTED = new ActionCache.Entry(null, false);
 
   public CompactPersistentActionCache(Path cacheRoot, Clock clock) throws IOException {
     Path cacheFile = cacheFile(cacheRoot);
@@ -222,8 +224,8 @@ public class CompactPersistentActionCache implements ActionCache {
   }
 
   @Override
-  public ActionCache.Entry createEntry(String key) {
-    return new ActionCache.Entry(key);
+  public ActionCache.Entry createEntry(String key, boolean discoversInputs) {
+    return new ActionCache.Entry(key, discoversInputs);
   }
 
   @Override
@@ -349,7 +351,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
       entry.getFileDigest().write(sink);
 
-      VarInt.putVarInt(files.size(), sink);
+      VarInt.putVarInt(entry.discoversInputs() ? files.size() : NO_INPUT_DISCOVERY_COUNT, sink);
       for (String file : files) {
         VarInt.putVarInt(indexer.getOrCreateIndex(file), sink);
       }
@@ -388,7 +390,8 @@ public class CompactPersistentActionCache implements ActionCache {
       if (source.remaining() > 0) {
         throw new IOException("serialized entry data has not been fully decoded");
       }
-      return new Entry(actionKey, builder.build(), digest);
+      return new Entry(actionKey,
+          count == NO_INPUT_DISCOVERY_COUNT ? null : builder.build(), digest);
     } catch (BufferUnderflowException e) {
       throw new IOException("encoded entry data is incomplete", e);
     }

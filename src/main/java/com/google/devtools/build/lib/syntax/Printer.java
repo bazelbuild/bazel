@@ -143,7 +143,7 @@ public final class Printer {
 
     } else if (o instanceof List<?>) {
       List<?> seq = (List<?>) o;
-      printList(buffer, seq, EvalUtils.isTuple(seq), quotationMark);
+      printList(buffer, seq, false, quotationMark);
 
     } else if (o instanceof Map<?, ?>) {
       Map<?, ?> dict = (Map<?, ?>) o;

@@ -326,7 +326,7 @@ public class ExecutionTool {
    * @param buildId UUID of the build id
    * @param analysisResult the analysis phase output
    * @param buildResult the mutable build result
-   * @param packageRoots package roots collected from loading phase and BuildConfigutaionCollection
+   * @param packageRoots package roots collected from loading phase and BuildConfigurationCollection
    * creation
    */
   void executeBuild(UUID buildId, AnalysisResult analysisResult,
@@ -342,21 +342,6 @@ public class ExecutionTool {
     // Get top-level artifacts.
     ImmutableSet<Artifact> additionalArtifacts = analysisResult.getAdditionalArtifactsToBuild();
 
-    // Create symlinks only after we've verified that we're actually
-    // supposed to build something.
-    if (getWorkspace().getFileSystem().supportsSymbolicLinks()) {
-      List<BuildConfiguration> targetConfigurations = configurations.getTargetConfigurations();
-      // TODO(bazel-team): This is not optimal - we retain backwards compatibility in the case where
-      // there's only a single configuration, but we don't create any symlinks in the multi-config
-      // case. Can we do better? [multi-config]
-      if (targetConfigurations.size() == 1) {
-        OutputDirectoryLinksUtils.createOutputDirectoryLinks(
-            runtime.getWorkspaceName(), getWorkspace(), getExecRoot(),
-            runtime.getOutputPath(), getReporter(), targetConfigurations.get(0),
-            request.getBuildOptions().getSymlinkPrefix());
-      }
-    }
-
     OutputService outputService = env.getOutputService();
     ModifiedFileSet modifiedOutputFiles = ModifiedFileSet.EVERYTHING_MODIFIED;
     if (outputService != null) {
@@ -364,6 +349,18 @@ public class ExecutionTool {
               request.getBuildOptions().finalizeActions);
     } else {
       startLocalOutputBuild(); // TODO(bazel-team): this could be just another OutputService
+    }
+
+    if (getWorkspace().getFileSystem().supportsSymbolicLinks()) {
+      List<BuildConfiguration> targetConfigurations = configurations.getTargetConfigurations();
+      BuildConfiguration targetConfiguration = targetConfigurations.size() == 1
+          ? targetConfigurations.get(0) : null;
+      if (targetConfigurations.size() == 1) {
+        OutputDirectoryLinksUtils.createOutputDirectoryLinks(
+            runtime.getWorkspaceName(), getWorkspace(), getExecRoot(),
+            runtime.getOutputPath(), getReporter(), targetConfiguration,
+            request.getBuildOptions().getSymlinkPrefix());
+      }
     }
 
     ActionCache actionCache = getActionCache();

@@ -65,7 +65,6 @@ public class FileDeDuplicator implements DirectoryModifier {
       Files.createDirectories(newRoot.resolve(workingDir.relativize(dir)));
       return super.preVisitDirectory(dir, attrs);
     }
-    
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
       Path relativePath = workingDir.relativize(file);
@@ -120,7 +119,8 @@ public class FileDeDuplicator implements DirectoryModifier {
             new ConditionalCopyVisitor(newRoot, root, seen, hashFunction));
         builder.add(newRoot);
       } else {
-        LOGGER.warning(String.format("Duplicated directory %s", root));
+        // Duplicated directories are ok -- multiple files from different libraries
+        // can reside in the same directory, but duplicate files should not be seen mulitple times.
       }
     }
     return builder.build();

@@ -485,7 +485,7 @@ public abstract class DependencyResolver {
                     "Late bound attribute '%s' is not a label or a label list",
                     attribute.getName()));
           }
-        } catch (ClassCastException e) {
+        } catch (ClassCastException e) { // From either of the cast calls above.
           throw new EvalException(
               rule.getLocation(),
               String.format(

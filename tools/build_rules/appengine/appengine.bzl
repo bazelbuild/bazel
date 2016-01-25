@@ -182,39 +182,49 @@ def _war_impl(ctxt):
 
 appengine_war = rule(
     _war_impl,
-    executable = True,
     attrs = {
         "_java": attr.label(
-            default=Label("@bazel_tools//tools/jdk:java"),
-            single_file=True),
+            default = Label("@bazel_tools//tools/jdk:java"),
+            single_file = True,
+        ),
         "_zipper": attr.label(
-            default=Label("@bazel_tools//third_party/ijar:zipper"),
-            single_file=True),
+            default = Label("@bazel_tools//third_party/ijar:zipper"),
+            single_file = True,
+        ),
         "_runner_template": attr.label(
-            default=Label("//tools/build_rules/appengine:runner_template"),
-            single_file=True),
+            default = Label("@bazel_tools//tools/build_rules/appengine:runner_template"),
+            single_file = True,
+        ),
         "_deploy_template": attr.label(
-            default=Label("//tools/build_rules/appengine:deploy_template"),
-            single_file=True),
+            default = Label("@bazel_tools//tools/build_rules/appengine:deploy_template"),
+            single_file = True,
+        ),
         "_appengine_sdk": attr.label(
-            default=Label("//external:appengine/java/sdk")),
+            default = Label("//external:appengine/java/sdk"),
+        ),
         "_appengine_jars": attr.label(
-            default=Label("//external:appengine/java/jars")),
+            default = Label("//external:appengine/java/jars"),
+        ),
         "_appengine_deps": attr.label_list(
-            default=[
+            default = [
                 Label("@appengine-java//:api"),
                 Label("@commons-lang//jar"),
-                Label("//third_party:apache_commons_collections"),
-                ]
-            ),
-        "jars": attr.label_list(allow_files=jar_filetype, mandatory=True),
-        "data": attr.label_list(allow_files=True),
+                Label("@commons-collections//jar"),
+            ],
+        ),
+        "jars": attr.label_list(
+            allow_files = jar_filetype,
+            mandatory = True,
+        ),
+        "data": attr.label_list(allow_files = True),
         "data_path": attr.string(),
     },
+    executable = True,
     outputs = {
         "war": "%{name}.war",
         "deploy": "%{name}.deploy",
-    })
+    },
+)
 
 def java_war(name, data=[], data_path=None, **kwargs):
   native.java_library(name = "lib%s" % name, **kwargs)
@@ -253,10 +263,15 @@ def appengine_repositories():
 
   native.bind(
       name = "javax/servlet/api",
-      actual = "//tools/build_rules/appengine:javax.servlet.api",
+      actual = "@bazel_tools//tools/build_rules/appengine:javax.servlet.api",
   )
 
   native.maven_jar(
       name = "commons-lang",
       artifact = "commons-lang:commons-lang:2.6",
+  )
+
+  native.maven_jar(
+      name = "commons-collections",
+      artifact = "commons-collections:commons-collections:3.2.1",
   )

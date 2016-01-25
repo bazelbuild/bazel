@@ -184,15 +184,7 @@ public class ResourceShrinker {
    * Remove resources (already identified by {@link #shrink(Path)}).
    *
    * <p>This task will copy all remaining used resources over from the full resource directory to a
-   * new reduced resource directory. However, it can't just delete the resources, because it has no
-   * way to tell aapt to continue to use the same id's for the resources. When we re-run aapt on the
-   * stripped resource directory, it will assign new id's to some of the resources (to fill the
-   * gaps) which means the resource id's no longer match the constants compiled into the dex files,
-   * and as a result, the app crashes at runtime. <p> Therefore, it needs to preserve all id's by
-   * actually keeping all the resource names. It can still save a lot of space by making these
-   * resources tiny; e.g. all strings are set to empty, all styles, arrays and plurals are set to
-   * not contain any children, and most importantly, all file based resources like bitmaps and
-   * layouts are replaced by simple resource aliases which just point to @null.
+   * new reduced resource directory and removes unused values from all value xml files.
    *
    * @param destination directory to copy resources into; if null, delete resources in place
    */
@@ -208,7 +200,7 @@ public class ResourceShrinker {
           String folder = file.getParentFile().getName();
           ResourceFolderType folderType = ResourceFolderType.getFolderType(folder);
           if (folderType != null && folderType != ResourceFolderType.VALUES) {
-            logger.fine("Deleted unused resource " + file);
+            logger.info("Deleted unused resource " + file);
             assert skip != null;
             skip.add(file);
           } else {
@@ -240,37 +232,6 @@ public class ResourceShrinker {
         String formatted = XmlPrettyPrinter.prettyPrint(document, xml.endsWith("\n"));
         rewritten.put(file, formatted);
       }
-    }
-    if (valuesExists) {
-      String xml = rewritten.get(values);
-      if (xml == null) {
-        xml = Files.toString(values, UTF_8);
-      }
-      Document document = XmlUtils.parseDocument(xml, true);
-      Element root = document.getDocumentElement();
-      for (Resource resource : resources) {
-        if (resource.type == ResourceType.ID && !resource.hasDefault) {
-          Element item = document.createElement(TAG_ITEM);
-          item.setAttribute(ATTR_TYPE, resource.type.getName());
-          item.setAttribute(ATTR_NAME, resource.name);
-          root.appendChild(item);
-        } else if (!resource.reachable
-            && !resource.hasDefault
-            && resource.type != ResourceType.DECLARE_STYLEABLE
-            && resource.type != ResourceType.STYLE
-            && resource.type != ResourceType.PLURALS
-            && resource.type != ResourceType.ARRAY
-            && resource.isRelevantType()) {
-          Element item = document.createElement(TAG_ITEM);
-          item.setAttribute(ATTR_TYPE, resource.type.getName());
-          item.setAttribute(ATTR_NAME, resource.name);
-          root.appendChild(item);
-          String s = "@null";
-          item.appendChild(document.createTextNode(s));
-        }
-      }
-      String formatted = XmlPrettyPrinter.prettyPrint(document, xml.endsWith("\n"));
-      rewritten.put(values, formatted);
     }
     filteredCopy(mergedResourceDir.toFile(), destination, skip, rewritten);
   }

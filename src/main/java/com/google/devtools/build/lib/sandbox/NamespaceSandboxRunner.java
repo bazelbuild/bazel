@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
-import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BinTools;
@@ -79,8 +78,15 @@ public class NamespaceSandboxRunner {
     Path execRoot = runtime.getExecRoot();
     BinTools binTools = runtime.getBinTools();
 
+    PathFragment embeddedTool = binTools.getExecPath(NAMESPACE_SANDBOX);
+    if (embeddedTool == null) {
+      // The embedded tool does not exist, meaning that we don't support sandboxing (e.g., while
+      // bootstrapping).
+      return false;
+    }
+
     List<String> args = new ArrayList<>();
-    args.add(execRoot.getRelative(binTools.getExecPath(NAMESPACE_SANDBOX)).getPathString());
+    args.add(execRoot.getRelative(embeddedTool).getPathString());
     args.add("-C");
 
     ImmutableMap<String, String> env = ImmutableMap.of();
@@ -108,6 +114,7 @@ public class NamespaceSandboxRunner {
    * @param env - environment to run sandbox in
    * @param cwd - current working directory
    * @param outErr - error output to capture sandbox's and command's stderr
+   * @param outputs - files to extract from the sandbox, paths are relative to the exec root
    * @throws ExecException
    */
   public void run(
@@ -115,7 +122,7 @@ public class NamespaceSandboxRunner {
       ImmutableMap<String, String> env,
       File cwd,
       FileOutErr outErr,
-      Collection<? extends ActionInput> outputs,
+      Collection<PathFragment> outputs,
       int timeout,
       boolean blockNetwork)
       throws IOException, ExecException {
@@ -193,26 +200,25 @@ public class NamespaceSandboxRunner {
           CommandFailureUtils.describeCommandFailure(
               verboseFailures, spawnArguments, env, cwd.getPath());
       throw new UserExecException(message, e, timedOut);
+    } finally {
+      copyOutputs(outputs);
     }
-
-    copyOutputs(outputs);
   }
 
-  private void createFileSystem(Collection<? extends ActionInput> outputs) throws IOException {
+  private void createFileSystem(Collection<PathFragment> outputs) throws IOException {
     FileSystemUtils.createDirectoryAndParents(sandboxPath);
 
     // Prepare the output directories in the sandbox.
-    for (ActionInput output : outputs) {
-      PathFragment parentDirectory =
-          new PathFragment(output.getExecPathString()).getParentDirectory();
-      FileSystemUtils.createDirectoryAndParents(sandboxExecRoot.getRelative(parentDirectory));
+    for (PathFragment output : outputs) {
+      FileSystemUtils.createDirectoryAndParents(
+          sandboxExecRoot.getRelative(output.getParentDirectory()));
     }
   }
 
-  private void copyOutputs(Collection<? extends ActionInput> outputs) throws IOException {
-    for (ActionInput output : outputs) {
-      Path source = sandboxExecRoot.getRelative(output.getExecPathString());
-      Path target = execRoot.getRelative(output.getExecPathString());
+  private void copyOutputs(Collection<PathFragment> outputs) throws IOException {
+    for (PathFragment output : outputs) {
+      Path source = sandboxExecRoot.getRelative(output);
+      Path target = execRoot.getRelative(output);
       FileSystemUtils.createDirectoryAndParents(target.getParentDirectory());
       if (source.isFile() || source.isSymbolicLink()) {
         Files.move(source.getPathFile(), target.getPathFile());

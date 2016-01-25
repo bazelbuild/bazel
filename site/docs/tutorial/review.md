@@ -1,3 +1,8 @@
+---
+layout: documentation
+title: Tutorial - Review
+---
+
 # Tutorial - Review
 
 In this tutorial, you used Bazel to build an [Android app](android-app.md),
