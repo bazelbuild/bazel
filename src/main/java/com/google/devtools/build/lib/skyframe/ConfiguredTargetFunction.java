@@ -135,7 +135,6 @@ final class ConfiguredTargetFunction implements SkyFunction {
     if (packageValue == null) {
       return null;
     }
-
     Package pkg = packageValue.getPackage();
     if (pkg.containsErrors()) {
       throw new ConfiguredTargetFunctionException(
@@ -147,6 +146,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     } catch (NoSuchTargetException e) {
       throw new ConfiguredTargetFunctionException(e);
     }
+
     transitivePackages.add(packageValue.getPackage());
     // TODO(bazel-team): This is problematic - we create the right key, but then end up with a value
     // that doesn't match; we can even have the same value multiple times. However, I think it's
