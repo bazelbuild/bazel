@@ -208,7 +208,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           ruleContext.attributes().get("application_id", Type.STRING),
           getExpandedMakeVarsForAttr(ruleContext, "version_code"),
           getExpandedMakeVarsForAttr(ruleContext, "version_name"),
-          false, ProguardHelper.getProguardConfigArtifact(ruleContext, ""));
+          false, /* incremental */
+          ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
+          null /* manifestOut */);
       if (ruleContext.hasErrors()) {
         return null;
       }
@@ -225,7 +227,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               ruleContext.attributes().get("application_id", Type.STRING),
               getExpandedMakeVarsForAttr(ruleContext, "version_code"),
               getExpandedMakeVarsForAttr(ruleContext, "version_name"),
-              true, ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"));
+              true, /* incremental */
+              ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"),
+              null /* manifestOut */);
       if (ruleContext.hasErrors()) {
         return null;
       }
@@ -242,7 +246,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               ruleContext.attributes().get("application_id", Type.STRING),
               getExpandedMakeVarsForAttr(ruleContext, "version_code"),
               getExpandedMakeVarsForAttr(ruleContext, "version_name"),
-              true, ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"));
+              true,
+              ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"),
+              null /* manifestOut */);
       if (ruleContext.hasErrors()) {
         return null;
       }

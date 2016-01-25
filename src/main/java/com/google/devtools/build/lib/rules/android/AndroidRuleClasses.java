@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -101,6 +102,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_symbols/R.txt");
   public static final SafeImplicitOutputsFunction ANDROID_SYMBOLS_TXT =
       fromTemplates("%{name}_symbols/local-R.txt");
+  public static final ImplicitOutputsFunction ANDROID_LIBRARY_MANIFEST =
+      fromTemplates("%{name}_library_manifest/AndroidManifest.xml");
   public static final SafeImplicitOutputsFunction STUB_APPLICATON_MANIFEST =
       fromTemplates("%{name}_files/stub/AndroidManifest.xml");
   public static final SafeImplicitOutputsFunction FULL_DEPLOY_MARKER =

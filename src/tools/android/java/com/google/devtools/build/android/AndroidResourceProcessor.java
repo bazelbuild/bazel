@@ -18,12 +18,10 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Joiner;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import com.android.annotations.Nullable;
 import com.android.builder.core.AndroidBuilder;
 import com.android.builder.core.VariantConfiguration;
-import com.android.builder.dependency.ManifestDependency;
 import com.android.builder.dependency.SymbolFileProvider;
 import com.android.builder.model.AaptOptions;
 import com.android.ide.common.internal.LoggedErrorException;
@@ -36,7 +34,14 @@ import com.android.ide.common.res2.MergingException;
 import com.android.ide.common.res2.ResourceMerger;
 import com.android.ide.common.res2.ResourceSet;
 import com.android.manifmerger.ManifestMerger2;
+import com.android.manifmerger.ManifestMerger2.Invoker;
+import com.android.manifmerger.ManifestMerger2.MergeFailureException;
+import com.android.manifmerger.ManifestMerger2.SystemProperty;
+import com.android.manifmerger.MergingReport;
+import com.android.manifmerger.XmlDocument;
 import com.android.utils.StdLogger;
+
+import org.xml.sax.SAXException;
 
 import java.io.File;
 import java.io.IOException;
@@ -57,6 +62,8 @@ import java.util.regex.Pattern;
 import java.util.zip.CRC32;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+
+import javax.xml.parsers.ParserConfigurationException;
 
 /**
  * Provides a wrapper around the AOSP build tools for resource processing.
@@ -101,7 +108,6 @@ public class AndroidResourceProcessor {
 
   /**
    * Creates a zip archive from all found R.java files.
-   * @param staticIds TODO(corysmith):
    */
   public void createSrcJar(Path generatedSourcesRoot, Path srcJar, boolean staticIds) {
     try {
@@ -118,6 +124,7 @@ public class AndroidResourceProcessor {
 
   /**
    * Processes resources for generated sources, configs and packaging resources.
+   * @param manifestOut TODO(corysmith):
    */
   public void processResources(
       AndroidBuilder builder,
@@ -134,19 +141,22 @@ public class AndroidResourceProcessor {
       Path workingDirectory,
       @Nullable Path sourceOut,
       @Nullable Path packageOut,
-      @Nullable Path proguardOut) throws IOException, InterruptedException, LoggedErrorException {
+      @Nullable Path proguardOut,
+      @Nullable Path manifestOut) throws IOException, InterruptedException, LoggedErrorException {
     ImmutableList.Builder<SymbolFileProvider> libraries = ImmutableList.builder();
     for (DependencyAndroidData dataDep : dependencyData) {
       libraries.add(dataDep.asSymbolFileProvider());
     }
+    System.out.println("VariantType " + variantType);
 
     File androidManifest = processManifest(
-        applicationId,
+        variantType == VariantConfiguration.Type.DEFAULT ? applicationId : customPackageForR,
         versionCode,
         versionName,
         primaryData,
         workingDirectory,
-        builder);
+        variantType == VariantConfiguration.Type.DEFAULT
+            ? ManifestMerger2.MergeType.APPLICATION : ManifestMerger2.MergeType.LIBRARY);
 
     builder.processResources(
         androidManifest,
@@ -170,35 +180,76 @@ public class AndroidResourceProcessor {
     if (packageOut != null) {
       Files.setLastModifiedTime(packageOut, FileTime.fromMillis(0L));
     }
+    if (manifestOut != null) {
+      Files.copy(androidManifest.toPath(), manifestOut);
+      Files.setLastModifiedTime(manifestOut, FileTime.fromMillis(0L));
+    }
   }
 
   private File processManifest(
-      String applicationId,
+      String newManifestPackage,
       int versionCode,
       String versionName,
       MergedAndroidData primaryData,
       Path workingDirectory,
-      AndroidBuilder builder) throws IOException {
-    if (versionCode != -1 || versionName != null || applicationId != null) {
+      ManifestMerger2.MergeType mergeType) throws IOException {
+    if (versionCode != -1 || versionName != null || newManifestPackage != null) {
       Path androidManifest =
           Files.createDirectories(workingDirectory).resolve("AndroidManifest.xml");
-      // stamp version and applicationId (if provided) into the manifest
-      builder.mergeManifests(
-          primaryData.getManifestFile(), // mainManifest,
-          ImmutableList.<File>of(),
-          ImmutableList.<ManifestDependency>of(),
-          applicationId,
-          versionCode,
-          versionName,
-          null, // String minSdkVersion
-          null, // String targetSdkVersion
-          null, // int maxSdkVersion
-          androidManifest.toString(),
-          ManifestMerger2.MergeType.APPLICATION,
-          ImmutableMap.<String, String>of());
+
+      // The generics on Invoker don't make sense, so ignore them.
+      @SuppressWarnings("unchecked")
+      Invoker<?> manifestMergerInvoker =
+          ManifestMerger2.newMerger(primaryData.getManifestFile(), stdLogger, mergeType);
+      // Stamp new package
+      if (newManifestPackage != null) {
+        manifestMergerInvoker.setOverride(SystemProperty.PACKAGE, newManifestPackage);
+      }
+      // Stamp version and applicationId (if provided) into the manifest
+      if (versionCode > 0) {
+        manifestMergerInvoker.setOverride(SystemProperty.VERSION_CODE, String.valueOf(versionCode));
+      }
+      if (versionName != null) {
+        manifestMergerInvoker.setOverride(SystemProperty.VERSION_NAME, versionName);
+      }
+
+      if (mergeType == ManifestMerger2.MergeType.APPLICATION) {
+        manifestMergerInvoker.withFeatures(Invoker.Feature.REMOVE_TOOLS_DECLARATIONS);
+      }
+
+      try {
+        MergingReport mergingReport = manifestMergerInvoker.merge();
+        switch (mergingReport.getResult()) {
+          case WARNING:
+            mergingReport.log(stdLogger);
+            writeMergedManifest(mergingReport, androidManifest);
+            break;
+          case SUCCESS:
+            writeMergedManifest(mergingReport, androidManifest);
+            break;
+          case ERROR:
+            mergingReport.log(stdLogger);
+            throw new RuntimeException(mergingReport.getReportString());
+          default:
+            throw new RuntimeException("Unhandled result type : " + mergingReport.getResult());
+        }
+      } catch (
+          IOException | SAXException | ParserConfigurationException | MergeFailureException e) {
+        Throwables.propagate(e);
+      }
       return androidManifest.toFile();
     }
     return primaryData.getManifestFile();
+  }
+
+  private void writeMergedManifest(MergingReport mergingReport,
+      Path manifestOut) throws IOException, SAXException, ParserConfigurationException {
+    XmlDocument xmlDocument = mergingReport.getMergedDocument().get();
+    String annotatedDocument = mergingReport.getActions().blame(xmlDocument);
+    stdLogger.verbose(annotatedDocument);
+    System.out.println(xmlDocument.prettyPrint().getBytes(StandardCharsets.UTF_8));
+    Files.write(
+        manifestOut, xmlDocument.prettyPrint().getBytes(StandardCharsets.UTF_8));
   }
 
   /**

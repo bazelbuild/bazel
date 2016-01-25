@@ -92,7 +92,9 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
           null /* versionCode */,
           null /* versionName */,
           false,
-          null /* proguardCfgOut */);
+          null /* proguardCfgOut */,
+          ruleContext.getImplicitOutputArtifact(
+                  AndroidRuleClasses.ANDROID_LIBRARY_MANIFEST));
       if (ruleContext.hasErrors()) {
         return null;
       }
@@ -151,6 +153,9 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       primaryResources = new AndroidResourcesProcessorBuilder(ruleContext)
               .setApkOut(apk)
               .setRTxtOut(resourceContainer.getRTxt())
+              .setManifestOut(
+                  ruleContext.getImplicitOutputArtifact(
+                      AndroidRuleClasses.ANDROID_LIBRARY_MANIFEST))
               .setSourceJarOut(resourceContainer.getJavaSourceJar())
               .setJavaPackage(resourceContainer.getJavaPackage())
               .withPrimary(resourceContainer)
