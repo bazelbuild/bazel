@@ -69,8 +69,6 @@ public class IosExtensionRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = ios_extension, TYPE = BINARY, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule produces a bundled binary for an iOS app extension from a compiled binary and bundle
 metadata.</p>
 
@@ -102,7 +100,5 @@ between how each thing is processed:
 </ul>
 
 ${IMPLICIT_OUTPUTS}
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

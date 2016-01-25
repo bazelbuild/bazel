@@ -133,8 +133,6 @@ public final class BazelExtraActionRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = extra_action, TYPE = LIBRARY, FAMILY = Extra Actions)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
   An <code>extra_action</code> rule doesn't produce any meaningful output
   when specified as a regular build target. Instead, it allows tool developers
@@ -152,7 +150,5 @@ ${ATTRIBUTE_SIGNATURE}
   with detailed information on the original action it is shadowing.
   It also has access to all the input files the original action has access to.
 </p>
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

@@ -112,16 +112,12 @@ public final class BazelJavaTestRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = java_test, TYPE = TEST, FAMILY = Java) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
 A <code>java_test()</code> rule compiles a Java test. A test is a binary wrapper around your
 test code. The test runner's main method is invoked instead of the main class being compiled.
 </p>
 
 ${IMPLICIT_OUTPUTS}
-
-${ATTRIBUTE_DEFINITION}
 
 <p>
 See the section on <a href="#java_binary_args">java_binary()</a> arguments. This rule also

@@ -43,11 +43,7 @@ public final class BazelShTestRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = sh_test, TYPE = TEST, FAMILY = Shell) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>A <code>sh_test()</code> rule creates a test written as a Bourne shell script.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <p>See the <a href="common-definitions.html#common-attributes-tests">
 attributes common to all test rules (*_test)</a>.</p>

@@ -103,15 +103,11 @@ public class NewHttpArchiveRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = new_http_archive, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>Downloads a compressed archive file, decompresses it, and creates a Bazel repository by
 combining the archive with the provided BUILD file.</p>
 
 <p>It supports Zip-formatted archives (with the .zip extension) and
 tarballs (.tar.gz and .tgz extensions).</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="new_http_archive_examples">Examples</h4>
 

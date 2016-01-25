@@ -92,8 +92,6 @@ public final class BazelJavaBinaryRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = java_binary, TYPE = BINARY, FAMILY = Java) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
   Builds a Java archive ("jar file"), plus a wrapper shell script with the same name as the rule.
   The wrapper shell script uses a classpath that includes, among other things, a jar file for each
@@ -138,7 +136,5 @@ java_binary(
     ],
 )
 </pre>
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

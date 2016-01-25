@@ -73,8 +73,4 @@ public final class BazelPyLibraryRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = py_library, TYPE = LIBRARY, FAMILY = Python) -->
 
-${ATTRIBUTE_SIGNATURE}
-
-${ATTRIBUTE_DEFINITION}
-
 <!-- #END_BLAZE_RULE -->*/

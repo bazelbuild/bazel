@@ -114,11 +114,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = objc_proto_library, TYPE = LIBRARY, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule produces a static library from the given proto_library dependencies, after applying an
 options file.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

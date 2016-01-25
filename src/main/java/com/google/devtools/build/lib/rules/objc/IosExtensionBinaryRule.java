@@ -54,13 +54,9 @@ public class IosExtensionBinaryRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = ios_extension_binary, TYPE = BINARY, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule produces a binary for an iOS app extension by linking one or more
 Objective-C libraries.</p>
 
 ${IMPLICIT_OUTPUTS}
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

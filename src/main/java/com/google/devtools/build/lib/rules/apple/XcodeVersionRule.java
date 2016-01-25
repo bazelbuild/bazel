@@ -64,11 +64,7 @@ public class XcodeVersionRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = xcode_version, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>Represents a single official xcode version with acceptable aliases for that xcode version.
 See the <code>xcode_config</code> rule.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

@@ -62,11 +62,7 @@ public final class IosDeviceRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = ios_device, TYPE = BINARY, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule defines an iOS device profile that defines a simulator against
 which to run tests.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

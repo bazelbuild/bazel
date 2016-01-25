@@ -56,11 +56,7 @@ public class ObjcFrameworkRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = objc_framework, TYPE = LIBRARY, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule encapsulates an already-built framework. It is defined by a list
 of files in one or more <code>.framework</code> directories.
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

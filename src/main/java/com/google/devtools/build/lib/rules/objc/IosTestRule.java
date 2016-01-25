@@ -189,12 +189,8 @@ public class IosTestRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = ios_test, TYPE = TEST, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule provides a way to build iOS unit tests written in KIF, GTM and XCTest test frameworks
 on both iOS simulator and real devices.
 </p>
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

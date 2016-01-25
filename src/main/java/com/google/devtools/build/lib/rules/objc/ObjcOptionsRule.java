@@ -61,11 +61,7 @@ public class ObjcOptionsRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = objc_options, TYPE = OTHER, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule provides a nameable set of build settings to use when building
 Objective-C targets.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

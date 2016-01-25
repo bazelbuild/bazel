@@ -67,8 +67,6 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = j2objc_library, TYPE = LIBRARY, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p> This rule uses <a href="https://github.com/google/j2objc">J2ObjC</a> to translate Java source
 files to Objective-C, which then can be used used as dependencies of objc_library and objc_binary
 rules. Detailed information about J2ObjC itself can be found at  <a href="http://j2objc.org">the
@@ -87,7 +85,5 @@ at link time. The correct way to resolve this issue is to move the shared Java s
 separate common target that can be depended upon.
 </p>
 
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

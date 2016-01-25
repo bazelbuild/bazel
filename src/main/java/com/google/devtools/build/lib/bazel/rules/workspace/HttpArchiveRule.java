@@ -98,8 +98,6 @@ public class HttpArchiveRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = http_archive, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>Downloads a Bazel repository as a compressed archive file,
   decompresses it, and makes its targets available for binding. The
   repository should already contain a BUILD file. If it does not, use
@@ -107,8 +105,6 @@ ${ATTRIBUTE_SIGNATURE}
 
 <p>It supports Zip-formatted archives (with the .zip extension) and
 tarballs (.tar.gz and .tgz extensions).</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="http_archive_examples">Examples</h4>
 

@@ -87,8 +87,6 @@ public class IosApplicationRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = ios_application, TYPE = BINARY, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule produces an application bundle for iOS.</p>
 <p>When running an iOS application using the <code>run</code> command, environment variables that
 are prefixed with <code>IOS_</code> will be passed to the launched application, with the prefix
@@ -96,7 +94,5 @@ stripped. For example, if you export <code>IOS_ENV=foo</code>, <code>ENV=foo</co
 passed to the application.</p>
 
 ${IMPLICIT_OUTPUTS}
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

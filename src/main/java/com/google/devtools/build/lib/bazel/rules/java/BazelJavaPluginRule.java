@@ -67,8 +67,6 @@ public final class BazelJavaPluginRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = java_plugin, TYPE = OTHER, FAMILY = Java) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
   <code>java_plugin</code> defines plugins for the Java compiler run by Bazel. At the moment, the
   only supported kind of plugins are annotation processors. A <code>java_library</code> or
@@ -79,8 +77,6 @@ ${ATTRIBUTE_SIGNATURE}
 </p>
 
 ${IMPLICIT_OUTPUTS}
-
-${ATTRIBUTE_DEFINITION}
 
 <p>
   Arguments are identical to <a href="#java_library"><code>java_library</code></a>, except for the

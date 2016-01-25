@@ -62,8 +62,6 @@ public class BazelAndroidLibraryRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = android_library, TYPE = LIBRARY, FAMILY = Android) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule compiles and archives its sources into a <code>.jar</code> file.
   The Android runtime library <code>android.jar</code> is implicitly put on
   the compilation class path.
@@ -74,8 +72,6 @@ ${ATTRIBUTE_SIGNATURE}
 in the <code>deps</code> attribute.
 </p>
 ${IMPLICIT_OUTPUTS}
-
-${ATTRIBUTE_DEFINITION}
 
 
 <h4 id="android_library_examples">Examples</h4>

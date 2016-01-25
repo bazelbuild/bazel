@@ -73,11 +73,7 @@ public class HttpFileRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = http_file, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
- ${ATTRIBUTE_SIGNATURE}
-
  <p>Downloads a file from a URL and makes it available to be used as a file group.</p>
-
- ${ATTRIBUTE_DEFINITION}
 
  <h4 id="http_file_examples">Examples</h4>
 

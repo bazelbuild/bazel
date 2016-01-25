@@ -66,11 +66,7 @@ public class MavenServerRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = maven_server, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>How to access a Maven repository.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <p>This is a combination of a &lt;repository&gt; definition from a pom.xml file and a
 &lt;server&lt; definition from a settings.xml file.</p>

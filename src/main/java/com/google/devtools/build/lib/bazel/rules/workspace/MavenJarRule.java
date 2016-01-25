@@ -84,11 +84,7 @@ public class MavenJarRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = maven_jar, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>Downloads a jar from Maven and makes it available to be used as a Java dependency.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="maven_jar_examples">Examples</h4>
 

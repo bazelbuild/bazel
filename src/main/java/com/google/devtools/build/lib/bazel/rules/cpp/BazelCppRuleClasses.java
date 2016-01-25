@@ -802,20 +802,12 @@ public class BazelCppRuleClasses {
 
 /*<!-- #BLAZE_RULE (NAME = cc_binary, TYPE = BINARY, FAMILY = C / C++) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 ${IMPLICIT_OUTPUTS}
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/
 
 
 /*<!-- #BLAZE_RULE (NAME = cc_library, TYPE = LIBRARY, FAMILY = C / C++) -->
-
-${ATTRIBUTE_SIGNATURE}
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="hdrs">Header inclusion checking</h4>
 
@@ -927,9 +919,5 @@ cc_library(
 
 
 /*<!-- #BLAZE_RULE (NAME = cc_test, TYPE = TEST, FAMILY = C / C++) -->
-
-${ATTRIBUTE_SIGNATURE}
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/
