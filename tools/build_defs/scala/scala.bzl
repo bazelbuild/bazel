@@ -174,13 +174,15 @@ def _scala_binary_common(ctx, cjars, rjars):
 
 def _scala_binary_impl(ctx):
   (cjars, rjars) = _collect_comp_run_jars(ctx)
-  rjars += [ctx.outputs.jar, ctx.file._scalalib]
+  cjars += [ctx.file._scalareflect]
+  rjars += [ctx.outputs.jar, ctx.file._scalalib, ctx.file._scalareflect]
   _write_launcher(ctx, rjars)
   return _scala_binary_common(ctx, cjars, rjars)
 
 def _scala_test_impl(ctx):
   (cjars, rjars) = _collect_comp_run_jars(ctx)
-  rjars += [ctx.outputs.jar, ctx.file._scalalib]
+  cjars += [ctx.file._scalareflect]
+  rjars += [ctx.outputs.jar, ctx.file._scalalib, ctx.file._scalareflect]
   _write_test_launcher(ctx, rjars)
   return _scala_binary_common(ctx, cjars, rjars)
 
@@ -189,6 +191,7 @@ _implicit_deps = {
   "_scalac": attr.label(executable=True, default=Label("@scala//:bin/scalac"), single_file=True, allow_files=True),
   "_scalalib": attr.label(default=Label("@scala//:lib/scala-library.jar"), single_file=True, allow_files=True),
   "_scalasdk": attr.label(default=Label("@scala//:sdk"), allow_files=True),
+  "_scalareflect": attr.label(default=Label("@scala//:lib/scala-reflect.jar"), single_file=True, allow_files=True),
   "_jar": attr.label(executable=True, default=Label("@bazel_tools//tools/jdk:jar"), single_file=True, allow_files=True),
   "_jdk": attr.label(default=Label("//tools/defaults:jdk"), allow_files=True),
 }

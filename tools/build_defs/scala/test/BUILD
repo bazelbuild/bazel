@@ -40,6 +40,7 @@ scala_test(
         ":HelloLib",
         "@scalatest//jar",
         "@scala-xml//jar",
+        #"@scala//:lib/scala-reflect.jar",
     ],
 )
 
