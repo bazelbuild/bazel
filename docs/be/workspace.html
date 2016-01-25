@@ -76,11 +76,7 @@ title: Workspace Rules
   <pre class="rule-signature">bind(<a href="#bind.name">name</a>, <a href="#bind.actual">actual</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>Gives a target an alias in the <code>//external</code> package.</p>
-
-
 
 <p>The <code>//external</code> package is not a "normal" package: there is no external/ directory,
   so it can be thought of as a "virtual package" that contains all bound targets.</p>
@@ -197,12 +193,8 @@ cc_library(
   <pre class="rule-signature">git_repository(<a href="#git_repository.name">name</a>, <a href="#git_repository.commit">commit</a>, <a href="#git_repository.init_submodules">init_submodules</a>, <a href="#git_repository.remote">remote</a>, <a href="#git_repository.tag">tag</a>)</pre>
 
 
-
-
 <p>Clones a Git repository, checks out the specified tag, or commit, and makes its targets
 available for binding.</p>
-
-
 
 <h4 id="git_repository_examples">Examples</h4>
 
@@ -327,8 +319,6 @@ git_repository(
   <pre class="rule-signature">http_archive(<a href="#http_archive.name">name</a>, <a href="#http_archive.sha256">sha256</a>, <a href="#http_archive.strip_prefix">strip_prefix</a>, <a href="#http_archive.type">type</a>, <a href="#http_archive.url">url</a>)</pre>
 
 
-
-
 <p>Downloads a Bazel repository as a compressed archive file,
   decompresses it, and makes its targets available for binding. The
   repository should already contain a BUILD file. If it does not, use
@@ -336,8 +326,6 @@ git_repository(
 
 <p>It supports Zip-formatted archives (with the .zip extension) and
 tarballs (.tar.gz and .tgz extensions).</p>
-
-
 
 <h4 id="http_archive_examples">Examples</h4>
 
@@ -478,11 +466,7 @@ http_archive(
   <pre class="rule-signature">http_file(<a href="#http_file.name">name</a>, <a href="#http_file.executable">executable</a>, <a href="#http_file.sha256">sha256</a>, <a href="#http_file.url">url</a>)</pre>
 
 
-
-
  <p>Downloads a file from a URL and makes it available to be used as a file group.</p>
-
-
 
  <h4 id="http_file_examples">Examples</h4>
 
@@ -569,13 +553,9 @@ http_archive(
   <pre class="rule-signature">http_jar(<a href="#http_jar.name">name</a>, <a href="#http_jar.sha256">sha256</a>, <a href="#http_jar.url">url</a>)</pre>
 
 
-
-
 <p>Downloads a jar from a URL and makes it available to be used as a Java dependency.</p>
 
 <p>Downloaded files must have a .jar extension.</p>
-
-
 
 <h4 id="http_jar_examples">Examples</h4>
 
@@ -653,13 +633,9 @@ http_jar(
   <pre class="rule-signature">local_repository(<a href="#local_repository.name">name</a>, <a href="#local_repository.path">path</a>)</pre>
 
 
-
-
 <p>Allows targets from a local directory to be bound. This means that the current repository can
   use targets defined in this other directory. See the <a href="#bind_examples">bind section</a>
   for more details.</p>
-
-
 
 <h4 id="local_repository_examples">Examples</h4>
 
@@ -725,11 +701,7 @@ library.</p>
   <pre class="rule-signature">maven_jar(<a href="#maven_jar.name">name</a>, <a href="#maven_jar.artifact">artifact</a>, <a href="#maven_jar.repository">repository</a>, <a href="#maven_jar.server">server</a>, <a href="#maven_jar.sha1">sha1</a>)</pre>
 
 
-
-
 <p>Downloads a jar from Maven and makes it available to be used as a Java dependency.</p>
-
-
 
 <h4 id="maven_jar_examples">Examples</h4>
 
@@ -841,11 +813,7 @@ maven_jar(
   <pre class="rule-signature">maven_server(<a href="#maven_server.name">name</a>, <a href="#maven_server.settings_file">settings_file</a>, <a href="#maven_server.url">url</a>)</pre>
 
 
-
-
 <p>How to access a Maven repository.</p>
-
-
 
 <p>This is a combination of a &lt;repository&gt; definition from a pom.xml file and a
 &lt;server&lt; definition from a settings.xml file.</p>
@@ -937,12 +905,8 @@ default will be fetching from Maven Central with no authentication enabled.</p>
   <pre class="rule-signature">new_git_repository(<a href="#new_git_repository.name">name</a>, <a href="#new_git_repository.build_file">build_file</a>, <a href="#new_git_repository.init_submodules">init_submodules</a>, <a href="#new_git_repository.remote">remote</a>)</pre>
 
 
-
-
 <p>Clones a Git repository, checks out the specified tag, or commit, and makes its targets
 available for binding.</p>
-
-
 
 <h4 id="git_repository_examples">Examples</h4>
 
@@ -1056,15 +1020,11 @@ new_git_repository(
   <pre class="rule-signature">new_http_archive(<a href="#new_http_archive.name">name</a>, <a href="#new_http_archive.build_file">build_file</a>, <a href="#new_http_archive.sha256">sha256</a>, <a href="#new_http_archive.strip_prefix">strip_prefix</a>, <a href="#new_http_archive.type">type</a>, <a href="#new_http_archive.url">url</a>)</pre>
 
 
-
-
 <p>Downloads a compressed archive file, decompresses it, and creates a Bazel repository by
 combining the archive with the provided BUILD file.</p>
 
 <p>It supports Zip-formatted archives (with the .zip extension) and
 tarballs (.tar.gz and .tgz extensions).</p>
-
-
 
 <h4 id="new_http_archive_examples">Examples</h4>
 
@@ -1220,16 +1180,12 @@ new_http_archive(
   <pre class="rule-signature">new_local_repository(<a href="#new_local_repository.name">name</a>, <a href="#new_local_repository.build_file">build_file</a>, <a href="#new_local_repository.path">path</a>)</pre>
 
 
-
-
 <p>Allows a local directory to be turned into a Bazel repository. This means that the current
   repository can define and use targets from anywhere on the filesystem.</p>
 
 <p>This rule creates a Bazel repository by creating a WORKSPACE file and subdirectory containing
 symlinks to the BUILD file and path given.  The build file should create targets relative to the
 <code>path</code>.
-
-
 
 <h4 id="new_local_repository_examples">Examples</h4>
 
@@ -1344,13 +1300,9 @@ Then targets can depend on <code>@piano//:play-music</code> to use piano.jar.
   <pre class="rule-signature">xcode_config(<a href="#xcode_config.name">name</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>A single target of this rule can be referenced by the <code>--xcode_config</code> build flag to
 translate the <code>--xcode_version</code> flag into an accepted official xcode version. This
 allows selection of a an official xcode version from a number of registered aliases.</p>
-
-
 
 
 
@@ -1383,12 +1335,8 @@ allows selection of a an official xcode version from a number of registered alia
   <pre class="rule-signature">xcode_version(<a href="#xcode_version.name">name</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>Represents a single official xcode version with acceptable aliases for that xcode version.
 See the <code>xcode_config</code> rule.</p>
-
-
 
 
 

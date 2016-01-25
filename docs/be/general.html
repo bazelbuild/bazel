@@ -44,8 +44,6 @@ title: General Rules
   <pre class="rule-signature">filegroup(<a href="#filegroup.name">name</a>, <a href="#filegroup.srcs">srcs</a>, <a href="#filegroup.data">data</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#binary.output_licenses">output_licenses</a>, <a href="#filegroup.path">path</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>
   Use <code>filegroup</code> to give a convenient name to a collection of targets.
   These can then be referenced from other rules.
@@ -58,8 +56,6 @@ title: General Rules
   <a href="functions.html#glob">glob</a>, <code>filegroup</code> can ensure that all files are
   explicitly known to the build system.
 </p>
-
-
 
 <h4 id="filegroup_example">Examples</h4>
 
@@ -185,11 +181,9 @@ cc_library(
   <pre class="rule-signature">genquery(<a href="#genquery.name">name</a>, <a href="common-definitions.html#common.deps">deps</a>, <a href="common-definitions.html#common.data">data</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#genquery.expression">expression</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#genquery.opts">opts</a>, <a href="#genquery.scope">scope</a>, <a href="#genquery.strict">strict</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
   <p>
   <code>genquery()</code> runs a query specified in the
-    <a href="bazel-query-v2.html">Bazel query language</a> and dumps the result
+    <a href="../bazel-query-v2.html">Bazel query language</a> and dumps the result
     into a file.
   </p>
   <p>
@@ -210,8 +204,6 @@ cc_library(
   <p>
     The name of the output file is the name of the rule.
   </p>
-
-
 
 <h4 id="genquery_examples">Examples</h4>
   <p>
@@ -309,15 +301,11 @@ genquery(
   <pre class="rule-signature">test_suite(<a href="#test_suite.name">name</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#test_suite.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#test_suite.tests">tests</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>
 A <code>test_suite</code> defines a set of tests that are considered "useful" to humans.  This
 allows projects to define sets of tests, such as "tests you must run before checkin", "our
 project's stress tests" or "all small tests."
 </p>
-
-
 
 <h4 id="test_suite_examples">Examples</h4>
 
@@ -449,15 +437,11 @@ test_suite(
   <pre class="rule-signature">config_setting(<a href="#config_setting.name">name</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#config_setting.values">values</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>
   Matches an expected configuration state (expressed as Bazel flags) for the purpose of triggering
-  configurable attributes. See <a href="#select">select</a> for how to consume this rule and
-  <a href="common-definitions.html#configurable-attributes">
+  configurable attributes. See <a href="functions.html#select">select</a> for how to consume this
+  rule and <a href="common-definitions.html#configurable-attributes">
   Configurable attributes</a> for an overview of the general feature.
-
-
 
 <h4 id="config_setting_examples">Examples</h4>
 
@@ -490,8 +474,8 @@ config_setting(
 
 <h4 id="config_setting_notes">Notes</h4>
 
-<p>See <a href="#select">select</a> for policies on what happens depending on how many rules match
-   an invocation.
+<p>See <a href="functions.html#select">select</a> for policies on what happens depending on how
+   many rules match an invocation.
 </p>
 
 <p>For flags that support shorthand forms (e.g. <code>--compilation_mode</code> vs.
@@ -583,8 +567,6 @@ config_setting(
   </h2>
 
   <pre class="rule-signature">genrule(<a href="#genrule.name">name</a>, <a href="#genrule.srcs">srcs</a>, <a href="#genrule.outs">outs</a>, <a href="#genrule.cmd">cmd</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#genrule.executable">executable</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#genrule.local">local</a>, <a href="#genrule.message">message</a>, <a href="#genrule.output_to_bindir">output_to_bindir</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#genrule.tools">tools</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
-
-
 
 
 <p>A <code>genrule</code> generates one or more files using a user-defined Bash command.</p>
@@ -696,8 +678,6 @@ config_setting(
     unintentionally picking up other outputs of the genrule, but can be tedious if the genrule
     produces many outputs.</li>
 </ul>
-
-
 
 <h4 id="genrule_examples">Examples</h4>
 

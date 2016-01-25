@@ -48,8 +48,6 @@ title: Java Rules
   <pre class="rule-signature">java_binary(<a href="#java_binary.name">name</a>, <a href="#java_binary.deps">deps</a>, <a href="#java_binary.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#java_binary.resources">resources</a>, <a href="common-definitions.html#binary.args">args</a>, <a href="#java_binary.classpath_resources">classpath_resources</a>, <a href="#java_binary.create_executable">create_executable</a>, <a href="#java_binary.deploy_manifest_lines">deploy_manifest_lines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#java_binary.javacopts">javacopts</a>, <a href="#java_binary.jvm_flags">jvm_flags</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#java_binary.main_class">main_class</a>, <a href="common-definitions.html#binary.output_licenses">output_licenses</a>, <a href="#java_binary.plugins">plugins</a>, <a href="#java_binary.resource_strip_prefix">resource_strip_prefix</a>, <a href="#java_binary.runtime_deps">runtime_deps</a>, <a href="#java_binary.stamp">stamp</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#java_binary.use_testrunner">use_testrunner</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>
   Builds a Java archive ("jar file"), plus a wrapper shell script with the same name as the rule.
   The wrapper shell script uses a classpath that includes, among other things, a jar file for each
@@ -121,8 +119,6 @@ java_binary(
     ],
 )
 </pre>
-
-
 
 
 
@@ -425,14 +421,10 @@ java_binary(
   <pre class="rule-signature">java_import(<a href="#java_import.name">name</a>, <a href="#java_import.deps">deps</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#java_import.constraints">constraints</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#java_import.exports">exports</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#java_import.jars">jars</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#java_import.neverlink">neverlink</a>, <a href="#java_import.proguard_specs">proguard_specs</a>, <a href="#java_import.runtime_deps">runtime_deps</a>, <a href="#java_import.srcjar">srcjar</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>
   This rule allows the use of precompiled JAR files as libraries for
   <code><a href="#java_library">java_library</a></code> rules.
 </p>
-
-
 
 <h4 id="java_import_examples">Examples</h4>
 
@@ -579,8 +571,6 @@ java_binary(
   <pre class="rule-signature">java_library(<a href="#java_library.name">name</a>, <a href="#java_library.deps">deps</a>, <a href="#java_library.srcs">srcs</a>, <a href="#java_library.data">data</a>, <a href="#java_library.resources">resources</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#java_library.exported_plugins">exported_plugins</a>, <a href="#java_library.exports">exports</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#java_library.javacopts">javacopts</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#java_library.neverlink">neverlink</a>, <a href="#java_library.plugins">plugins</a>, <a href="#java_library.proguard_specs">proguard_specs</a>, <a href="#java_library.resource_strip_prefix">resource_strip_prefix</a>, <a href="#java_library.runtime_deps">runtime_deps</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>This rule compiles and links sources into a <code>.jar</code> file.</p>
 
 <h4 id="java_library_implicit_outputs">Implicit output targets</h4>
@@ -589,8 +579,6 @@ java_binary(
           <li><code>lib<var>name</var>-src.jar</code>: An archive containing the sources ("source
             jar").</li>
         </ul>
-
-
 
 
 
@@ -890,8 +878,6 @@ java_binary(
   <pre class="rule-signature">java_test(<a href="#java_test.name">name</a>, <a href="#java_test.deps">deps</a>, <a href="#java_test.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#java_test.resources">resources</a>, <a href="common-definitions.html#test.args">args</a>, <a href="#java_test.classpath_resources">classpath_resources</a>, <a href="#java_test.create_executable">create_executable</a>, <a href="#java_test.deploy_manifest_lines">deploy_manifest_lines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="#java_test.javacopts">javacopts</a>, <a href="#java_test.jvm_flags">jvm_flags</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="#java_test.main_class">main_class</a>, <a href="#java_test.plugins">plugins</a>, <a href="#java_test.resource_strip_prefix">resource_strip_prefix</a>, <a href="#java_test.runtime_deps">runtime_deps</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="#java_test.stamp">stamp</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="#java_test.test_class">test_class</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="#java_test.use_testrunner">use_testrunner</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>
 A <code>java_test()</code> rule compiles a Java test. A test is a binary wrapper around your
 test code. The test runner's main method is invoked instead of the main class being compiled.
@@ -903,8 +889,6 @@ test code. The test runner's main method is invoked instead of the main class be
       <li><code><var>name</var>_deploy.jar</code>: A Java archive suitable for deployment. (Only
         built if explicitly requested.)</li>
     </ul>
-
-
 
 
 <p>
@@ -1273,8 +1257,6 @@ java_test(
   <pre class="rule-signature">java_plugin(<a href="#java_plugin.name">name</a>, <a href="#java_plugin.deps">deps</a>, <a href="#java_plugin.srcs">srcs</a>, <a href="#java_plugin.data">data</a>, <a href="#java_plugin.resources">resources</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#java_plugin.javacopts">javacopts</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#java_plugin.neverlink">neverlink</a>, <a href="#java_plugin.plugins">plugins</a>, <a href="#java_plugin.processor_class">processor_class</a>, <a href="#java_plugin.proguard_specs">proguard_specs</a>, <a href="#java_plugin.resource_strip_prefix">resource_strip_prefix</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>
   <code>java_plugin</code> defines plugins for the Java compiler run by Bazel. At the moment, the
   only supported kind of plugins are annotation processors. A <code>java_library</code> or
@@ -1288,8 +1270,6 @@ java_test(
         <ul>
           <li><code><var>libname</var>.jar</code>: A Java archive.</li>
         </ul>
-
-
 
 
 <p>
@@ -1540,15 +1520,11 @@ java_test(
   <pre class="rule-signature">java_toolchain(<a href="#java_toolchain.name">name</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#java_toolchain.encoding">encoding</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#java_toolchain.jvm_opts">jvm_opts</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#java_toolchain.misc">misc</a>, <a href="#java_toolchain.source_version">source_version</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="#java_toolchain.target_version">target_version</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#java_toolchain.xlint">xlint</a>)</pre>
 
 
-
-
 <p>
 Specifies the configuration for the Java compiler. Which toolchain to be used can be changed through
 the --java_toolchain argument. Normally you should not write those kind of rules unless you want to
 tune your Java compiler.
 </p>
-
-
 
 <h4 id="java_binary_examples">Examples</h4>
 

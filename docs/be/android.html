@@ -32,8 +32,6 @@ title: Android Rules
   <pre class="rule-signature">android_binary(<a href="#android_binary.name">name</a>, <a href="#android_binary.deps">deps</a>, <a href="#android_binary.srcs">srcs</a>, <a href="#android_binary.assets">assets</a>, <a href="#android_binary.assets_dir">assets_dir</a>, <a href="#android_binary.custom_package">custom_package</a>, <a href="#android_binary.densities">densities</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="#android_binary.dex_shards">dex_shards</a>, <a href="#android_binary.dexopts">dexopts</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#android_binary.exports_manifest">exports_manifest</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#android_binary.inline_constants">inline_constants</a>, <a href="#android_binary.javacopts">javacopts</a>, <a href="#android_binary.legacy_native_support">legacy_native_support</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#android_binary.main_dex_list">main_dex_list</a>, <a href="#android_binary.main_dex_list_opts">main_dex_list_opts</a>, <a href="#android_binary.main_dex_proguard_specs">main_dex_proguard_specs</a>, <a href="#android_binary.manifest">manifest</a>, <a href="#android_binary.multidex">multidex</a>, <a href="#android_binary.nocompress_extensions">nocompress_extensions</a>, <a href="#android_binary.plugins">plugins</a>, <a href="#android_binary.proguard_apply_mapping">proguard_apply_mapping</a>, <a href="#android_binary.proguard_generate_mapping">proguard_generate_mapping</a>, <a href="#android_binary.proguard_specs">proguard_specs</a>, <a href="#android_binary.resource_configuration_filters">resource_configuration_filters</a>, <a href="#android_binary.resource_files">resource_files</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>
   Produces Android application package files (.apk).
 </p>
@@ -71,8 +69,6 @@ title: Android Rules
             is set.
           </li>
         </ul>
-
-
 
 
 <h4 id="android_binary_examples">Examples</h4>
@@ -222,7 +218,7 @@ Bazel source tree.
                     <p><code>List of strings; optional</code></p>
                               Additional command-line flags for the dx tool when generating classes.dex.
 
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
 
         </td>
@@ -262,7 +258,7 @@ Bazel source tree.
                     <p><code>List of strings; optional</code></p>
                               Extra compiler options for this target.
 
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>
           These compiler options are passed to javac after the global compiler options.</p>
@@ -292,7 +288,7 @@ Bazel source tree.
                 //base will be loaded into memory. This lib[ruleName].so can be loaded
                 via System.loadLibrary as normal.</li>
               <li><code>legacy_native_support = -1</code>: Linking is controlled by the
-                <a href="bazel-user-manual.html#flag--legacy_android_native_support">
+                <a href="../bazel-user-manual.html#flag--legacy_android_native_support">
                 --[no]legacy_android_native_support</a> Bazel flag.</li>
             </ul>
 
@@ -490,8 +486,6 @@ com/google/common/base/Objects.class
   <pre class="rule-signature">android_library(<a href="#android_library.name">name</a>, <a href="#android_library.deps">deps</a>, <a href="#android_library.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#android_library.assets">assets</a>, <a href="#android_library.assets_dir">assets_dir</a>, <a href="#android_library.custom_package">custom_package</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#android_library.exports">exports</a>, <a href="#android_library.exports_manifest">exports_manifest</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#android_library.idl_import_root">idl_import_root</a>, <a href="#android_library.idl_parcelables">idl_parcelables</a>, <a href="#android_library.idl_srcs">idl_srcs</a>, <a href="#android_library.inline_constants">inline_constants</a>, <a href="#android_library.javacopts">javacopts</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#android_library.manifest">manifest</a>, <a href="#android_library.neverlink">neverlink</a>, <a href="#android_library.plugins">plugins</a>, <a href="#android_library.proguard_specs">proguard_specs</a>, <a href="#android_library.resource_files">resource_files</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>This rule compiles and archives its sources into a <code>.jar</code> file.
   The Android runtime library <code>android.jar</code> is implicitly put on
   the compilation class path.
@@ -509,8 +503,6 @@ in the <code>deps</code> attribute.
           <li><code><var>name</var>.aar</code>: An android 'aar' bundle containing the java archive
           and resources of this target. It does not contain the transitive closure.</li>
         </ul>
-
-
 
 
 
@@ -578,7 +570,7 @@ Bazel source tree.
         </p>
         <p>If <code>srcs</code> is omitted, then any dependency specified in
         <code>deps</code> is exported from this rule (see
-        <a href="#java_library.exports">java_library's exports</a> for more
+        <a href="java.html#java_library.exports">java_library's exports</a> for more
         information about exporting dependencies). However, this behavior will be
         deprecated soon; try not to rely on it.
         </p>
@@ -727,7 +719,7 @@ Bazel source tree.
                     <p><code>List of strings; optional</code></p>
                               Extra compiler options for this target.
 
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>
           These compiler options are passed to javac after the global compiler options.</p>

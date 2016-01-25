@@ -44,10 +44,6 @@ title: Shell Rules
   the extension (e.g. <code>.sh</code>); do not give the rule and the file the same name.
 </p>
 
-
-
-
-
 <h4 id="sh_binary_examples">Example</h4>
 
 <p>For a simple shell script with no dependencies or data:
@@ -127,8 +123,6 @@ sh_binary(
   <pre class="rule-signature">sh_library(<a href="#sh_library.name">name</a>, <a href="#sh_library.deps">deps</a>, <a href="#sh_library.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>
   The main use for this rule is to aggregate together a logical
   "library" consisting of related scripts&mdash;programs in an
@@ -154,8 +148,6 @@ sh_binary(
   All three attributes accept rules, source files and generated files.
   It is however good practice to use the attributes for their usual purpose (as with other rules).
 </p>
-
-
 
 <h4 id="sh_library_examples">Examples</h4>
 
@@ -234,11 +226,7 @@ sh_library(
   <pre class="rule-signature">sh_test(<a href="#sh_test.name">name</a>, <a href="#sh_test.deps">deps</a>, <a href="#sh_test.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="common-definitions.html#test.args">args</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>A <code>sh_test()</code> rule creates a test written as a Bourne shell script.</p>
-
-
 
 <p>See the <a href="common-definitions.html#common-attributes-tests">
 attributes common to all test rules (*_test)</a>.</p>

@@ -38,8 +38,6 @@ title: Extra Actions Rules
   implementing an <code>action_listener</code>/<code>extra_action</code>.
 </p>
 
-
-
 <p>
   An <code>action_listener</code> rule doesn't produce any output itself.
   Instead, it allows tool developers to insert
@@ -58,8 +56,6 @@ title: Extra Actions Rules
   the build will use the specified <code>action_listener</code> to insert
   <a href="#extra_action"><code>extra_action</code></a>s into the build graph.
 </p>
-
-
 
 <h4 id="action_listener_example">Example</h4>
 <pre>
@@ -146,8 +142,6 @@ extra_action(
   <pre class="rule-signature">extra_action(<a href="#extra_action.name">name</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#extra_action.cmd">cmd</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#extra_action.out_templates">out_templates</a>, <a href="#extra_action.requires_action_output">requires_action_output</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#extra_action.tools">tools</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>
   An <code>extra_action</code> rule doesn't produce any meaningful output
   when specified as a regular build target. Instead, it allows tool developers
@@ -165,8 +159,6 @@ extra_action(
   with detailed information on the original action it is shadowing.
   It also has access to all the input files the original action has access to.
 </p>
-
-
 
 
 

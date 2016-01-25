@@ -36,8 +36,6 @@ title: Python Rules
   <pre class="rule-signature">py_binary(<a href="#py_binary.name">name</a>, <a href="#py_binary.deps">deps</a>, <a href="#py_binary.srcs">srcs</a>, <a href="#py_binary.data">data</a>, <a href="common-definitions.html#binary.args">args</a>, <a href="#py_binary.default_python_version">default_python_version</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#py_binary.main">main</a>, <a href="common-definitions.html#binary.output_licenses">output_licenses</a>, <a href="#py_binary.srcs_version">srcs_version</a>, <a href="#py_binary.stamp">stamp</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>
   A <code>py_binary</code> is an executable Python program consisting
   of a collection of <code>.py</code> source files (possibly belonging
@@ -46,8 +44,6 @@ title: Python Rules
   program at run-time, and a stub script that starts up the program with
   the correct initial environment and data.
 </p>
-
-
 
 <h4 id="py_binary_examples">Examples</h4>
 
@@ -245,10 +241,6 @@ java_library(
 
 
 
-
-
-
-
   <h3 id="py_library_args">Arguments</h3>
   <table class="table table-condensed table-bordered table-params">
     <colgroup>
@@ -344,13 +336,9 @@ java_library(
   <pre class="rule-signature">py_test(<a href="#py_test.name">name</a>, <a href="#py_test.deps">deps</a>, <a href="#py_test.srcs">srcs</a>, <a href="#py_test.data">data</a>, <a href="common-definitions.html#test.args">args</a>, <a href="#py_test.default_python_version">default_python_version</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="#py_test.main">main</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="#py_test.srcs_version">srcs_version</a>, <a href="#py_test.stamp">stamp</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
-
-
 <p>
 A <code>py_test()</code> rule compiles a test.  A test is a binary wrapper
  around some test code.</p>
-
-
 
 <h4 id="py_test_examples">Examples</h4>
 
