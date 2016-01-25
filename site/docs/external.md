@@ -52,7 +52,11 @@ at version 1.0 and another include `C` at 2.0.
 Bazel provides a tool to help generate these expansive `WORKSPACE` files, called
 `generate_workspace`. This is not included with the binary installer, so you'll
 need to clone the [GitHub repo](https://github.com/bazelbuild/bazel) to use it.
-`cd` to the GitHub clone and run the following to build the tool and see usage:
+We recommend using the tag corresponding to your current version of bazel, which
+you can check by running `bazel version`.
+
+`cd` to the GitHub clone, `git checkout` the appropriate tag, and run the
+following to build the tool and see usage:
 
 ```
 bazel run //src/tools/generate_workspace
