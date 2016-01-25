@@ -167,7 +167,7 @@ public class ObjcRuleClasses {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     XcodeConfigProvider xcodeConfigProvider =
         ruleContext.getPrerequisite(":xcode_config", Mode.HOST, XcodeConfigProvider.class);
-    
+
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.<String, String>builder()
         .putAll(appleConfiguration.getEnvironmentForIosAction())
         .putAll(AppleToolchain.appleHostSystemEnv(xcodeConfigProvider));
@@ -241,7 +241,7 @@ public class ObjcRuleClasses {
           /* <!-- #BLAZE_RULE($objc_opts_rule).ATTRIBUTE(copts) -->
           Extra flags to pass to the compiler.
           ${SYNOPSIS}
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           These flags will only apply to this target, and not those upon which
           it depends, or those which depend on it.
@@ -710,7 +710,7 @@ public class ObjcRuleClasses {
            passed not only the compiler for this target (as <code>copts</code>
            are) but also to all <code>objc_</code> dependers of this target.
            ${SYNOPSIS}
-           Subject to <a href="#make_variables">"Make variable"</a> substitution and
+           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
            <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
            <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("defines", STRING_LIST))

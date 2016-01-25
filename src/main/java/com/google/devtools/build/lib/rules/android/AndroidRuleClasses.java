@@ -494,7 +494,7 @@ public final class AndroidRuleClasses {
           /* <!-- #BLAZE_RULE($android_base).ATTRIBUTE(javacopts) -->
           Extra compiler options for this target.
           ${SYNOPSIS}
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>
           These compiler options are passed to javac after the global compiler options.</p>
@@ -581,7 +581,7 @@ public final class AndroidRuleClasses {
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
           Additional command-line flags for the dx tool when generating classes.dex.
           ${SYNOPSIS}
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("dexopts", STRING_LIST))
@@ -665,7 +665,7 @@ com/google/common/base/Objects.class
                 //base will be loaded into memory. This lib[ruleName].so can be loaded
                 via System.loadLibrary as normal.</li>
               <li><code>legacy_native_support = -1</code>: Linking is controlled by the
-                <a href="blaze-user-manual.html#flag--legacy_android_native_support">
+                <a href="../blaze-user-manual.html#flag--legacy_android_native_support">
                 --[no]legacy_android_native_support</a> Blaze flag.</li>
             </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

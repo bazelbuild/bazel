@@ -56,7 +56,7 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         </p>
         <p>If <code>srcs</code> is omitted, then any dependency specified in
         <code>deps</code> is exported from this rule (see
-        <a href="#java_library.exports">java_library's exports</a> for more
+        <a href="java.html#java_library.exports">java_library's exports</a> for more
         information about exporting dependencies). However, this behavior will be
         deprecated soon; try not to rely on it.
         </p>

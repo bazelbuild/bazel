@@ -42,7 +42,7 @@ public class ObjcOptionsRule implements RuleDefinition {
         infoplist files to merge with the final binary's infoplist. This
         corresponds to a single file <i>appname</i>-Info.plist in Xcode
         projects.
-        <i>(List of <a href="build-ref.html#labels">labels</a>; optional)</i>
+        <i>(List of <a href="../build-ref.html#labels">labels</a>; optional)</i>
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("infoplists", BuildType.LABEL_LIST)
             .allowedFileTypes(PLIST_TYPE))
