@@ -17,9 +17,7 @@ package com.google.devtools.build.lib.cmdline;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
-import static org.junit.Assert.fail;
 
-import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import org.junit.Test;
@@ -52,34 +50,6 @@ public class PackageIdentifierTest {
 
     PackageIdentifier mainA = PackageIdentifier.parse("@//a");
     assertThat(mainA.getRepository()).isEqualTo(PackageIdentifier.MAIN_REPOSITORY_NAME);
-  }
-
-  public void assertNotValid(String name, String expectedMessage) {
-    try {
-      RepositoryName.create(name);
-      fail();
-    } catch (LabelSyntaxException expected) {
-      assertThat(expected.getMessage()).contains(expectedMessage);
-    }
-  }
-
-  @Test
-  public void testValidateRepositoryName() throws Exception {
-    assertEquals("@foo", RepositoryName.create("@foo").toString());
-    assertThat(RepositoryName.create("").toString()).isEmpty();
-    assertEquals("@foo_bar", RepositoryName.create("@foo_bar").toString());
-    assertEquals("@foo-bar", RepositoryName.create("@foo-bar").toString());
-    assertEquals("@foo.bar", RepositoryName.create("@foo.bar").toString());
-    assertEquals("@..foo", RepositoryName.create("@..foo").toString());
-    assertEquals("@foo..", RepositoryName.create("@foo..").toString());
-    assertEquals("@.foo", RepositoryName.create("@.foo").toString());
-
-    assertNotValid("x", "workspace names must start with '@'");
-    assertNotValid("@.", "workspace names are not allowed to be '@.'");
-    assertNotValid("@..", "workspace names are not allowed to be '@..'");
-    assertNotValid("@foo/bar", "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
-    assertNotValid("@foo@", "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
-    assertNotValid("@foo\0", "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
   }
 
   @Test

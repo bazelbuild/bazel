@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
