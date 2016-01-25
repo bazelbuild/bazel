@@ -56,7 +56,7 @@ public final class NativeAspectClass<T extends NativeAspectClass.NativeAspectFac
     if (!(obj instanceof NativeAspectClass)) {
       return false;
     }
-    return nativeClass.equals(((NativeAspectClass) obj).nativeClass);
+    return nativeClass.equals(((NativeAspectClass<?>) obj).nativeClass);
   }
 
   /**
