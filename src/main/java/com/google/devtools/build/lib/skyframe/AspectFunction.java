@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.SkylarkAspect;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.DependencyEvaluationException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
@@ -195,7 +197,16 @@ public final class AspectFunction implements SkyFunction {
           depValueMap,
           transitivePackages);
     } catch (DependencyEvaluationException e) {
-      throw new AspectFunctionException(e.getRootCauseSkyKey(), e.getCause());
+      if (e.getCause() instanceof ConfiguredValueCreationException) {
+        ConfiguredValueCreationException cause = (ConfiguredValueCreationException) e.getCause();
+        throw new AspectFunctionException(new AspectCreationException(
+            cause.getMessage(), cause.getAnalysisRootCause()));
+      } else {
+        // Cast to InvalidConfigurationException as a consistency check. If you add any
+        // DependencyEvaluationException constructors, you may need to change this code, too.
+        InvalidConfigurationException cause = (InvalidConfigurationException) e.getCause();
+        throw new AspectFunctionException(new AspectCreationException(cause.getMessage()));
+      }
     } catch (AspectCreationException e) {
       throw new AspectFunctionException(e);
     }
@@ -267,8 +278,23 @@ public final class AspectFunction implements SkyFunction {
    * An exception indicating that there was a problem creating an aspect.
    */
   public static final class AspectCreationException extends Exception {
-    public AspectCreationException(String message) {
+    /**
+     * The target for which analysis failed, if any. We can't represent aspects with labels, so if
+     * the aspect analysis fails, this will be {@code null}.
+     */
+    @Nullable private final Label analysisRootCause;
+
+    public AspectCreationException(String message, Label analysisRootCause) {
       super(message);
+      this.analysisRootCause = analysisRootCause;
+    }
+
+    public AspectCreationException(String message) {
+      this(message, null);
+    }
+
+    @Nullable public Label getAnalysisRootCause() {
+      return analysisRootCause;
     }
   }
 
