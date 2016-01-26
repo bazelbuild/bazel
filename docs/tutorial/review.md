@@ -5,13 +5,13 @@ title: Tutorial - Review
 
 # Tutorial - Review
 
-In this tutorial, you used Bazel to build an [Android app](android-app.md),
-an [iOS app](ios-app.md) and a [backend server](backend-server.md) that runs on
+In this tutorial, you used Bazel to build an [Android app](android-app.html),
+an [iOS app](ios-app.html) and a [backend server](backend-server.html) that runs on
 Google App Engine.
 
 To build these software outputs, you:
 
-*   Set up a Bazel [workspace](workspace.md) that contained the source code
+*   Set up a Bazel [workspace](workspace.html) that contained the source code
     for the components and a `WORKSPACE` that identifies the top level of the
     workspace directory
 *   Created a `BUILD` file for each component

@@ -42,4 +42,4 @@ You'll grab the sample project files in the next step in this tutorial.
 
 ## What's next
 
-Let's start off by [setting up](environment.md) the tutorial environment.
+Let's start off by [setting up](environment.html) the tutorial environment.

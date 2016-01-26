@@ -64,4 +64,4 @@ to fetch the various base image for the web and we are working on providing a
 `docker_pull` rule to interact more fluently with existing images.
 
 You can learn more about this docker support
-[here](https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/docker/README.md).
+[here](https://github.com/bazelbuild/bazel/blob/master/tools/build_defs/docker/README.html).

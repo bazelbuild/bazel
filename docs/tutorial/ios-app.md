@@ -5,9 +5,9 @@ title: Tutorial - Build an iOS App
 
 # Tutorial - Build an iOS App
 
-Like the [Android app](android-app.md) you built in the previous step, the iOS
+Like the [Android app](android-app.html) you built in the previous step, the iOS
 app is a simple mobile app that communicates with the
-[backend server](backend-server.md).
+[backend server](backend-server.html).
 
 Here, you'll do the following:
 
@@ -22,7 +22,7 @@ Note that, unlike with the Android app, you don't have to modify your
 
 If you're following the steps in this tutorial on Mac OS X, you can go ahead
 and build the sample iOS app as described below. If you are on Linux, skip ahead
-to the [next step](backend-server.md).
+to the [next step](backend-server.html).
 
 ## Review the source files
 
@@ -153,5 +153,5 @@ rebuild the app using Bazel and then re-open the project.
 
 ## What's next
 
-The next step is to build a [backend server](backend-server.md) for the two
+The next step is to build a [backend server](backend-server.html) for the two
 mobile apps you built in this tutorial.

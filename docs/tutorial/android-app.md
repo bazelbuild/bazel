@@ -6,7 +6,7 @@ title: Tutorial - Build an Android App
 # Tutorial - Build an Android App
 
 The sample Android app in this tutorial is a very simple application that makes
-an HTTP connection to the [backend server](backend-server.md) and displays the
+an HTTP connection to the [backend server](backend-server.html) and displays the
 resulting response.
 
 Here, you'll do the following:
@@ -192,7 +192,7 @@ You use the
 [`bazel`](/docs/bazel-user-manual.html) command-line tool to run builds, execute
 unit tests and perform other operations in Bazel. This tool is located in the
 `output` subdirectory of the location where you installed Bazel. During
-[installation](/docs/install.md), you probably added this location to your
+[installation](/docs/install.html), you probably added this location to your
 path.
 
 Before you build the sample app, make sure that your current working directory
@@ -277,4 +277,4 @@ since the last deployment.
 ## What's next
 
 Now that you've built a sample app for Android, it's time to do the same for
-the [iOS app](ios-app.md).
+the [iOS app](ios-app.html).
