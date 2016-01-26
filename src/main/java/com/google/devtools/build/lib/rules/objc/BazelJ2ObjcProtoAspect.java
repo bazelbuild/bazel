@@ -52,7 +52,7 @@ public class BazelJ2ObjcProtoAspect extends AbstractJ2ObjcProtoAspect {
             .cfg(HOST)
             .exec()
             .value(parseLabel(
-                "//third_party/java/j2objc:proto_plugin")));
+                Constants.TOOLS_REPOSITORY + "//third_party/java/j2objc:proto_plugin")));
   }
 
     @Override

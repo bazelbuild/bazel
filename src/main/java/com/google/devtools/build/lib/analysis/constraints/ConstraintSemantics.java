@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -529,7 +530,7 @@ public class ConstraintSemantics {
             || attr.equals("visibility")
             // Use the same implicit deps check that query uses. This facilitates running queries to
             // determine exactly which rules need to be constraint-annotated for depot migrations.
-            || !Rule.NO_IMPLICIT_DEPS.apply(ruleContext.getRule(), attrDef)
+            || !DependencyFilter.NO_IMPLICIT_DEPS.apply(ruleContext.getRule(), attrDef)
             // We can't identify host deps by calling BuildConfiguration.isHostConfiguration()
             // because --nodistinct_host_configuration subverts that call.
             || attrDef.getConfigurationTransition() == Attribute.ConfigurationTransition.HOST) {

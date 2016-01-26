@@ -223,8 +223,6 @@ public final class BazelGenRuleRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = genrule, TYPE = OTHER, FAMILY = General)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>A <code>genrule</code> generates one or more files using a user-defined Bash command.</p>
 
 <p>
@@ -334,8 +332,6 @@ ${ATTRIBUTE_SIGNATURE}
     unintentionally picking up other outputs of the genrule, but can be tedious if the genrule
     produces many outputs.</li>
 </ul>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="genrule_examples">Examples</h4>
 

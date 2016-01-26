@@ -64,6 +64,19 @@ public final class Preconditions {
 
   /**
    * Conditionally forwards to the {@link com.google.common.base.Preconditions} method of the same
+   * name, avoiding autoboxing in the unexceptional case.
+   *
+   * <p>See {@link com.google.common.base.Preconditions#checkArgument(boolean, String, Object...)}.
+   */
+  public static void checkArgument(
+      boolean expression, @Nullable String errorMessageTemplate, int arg0) {
+    if (!expression) {
+      com.google.common.base.Preconditions.checkArgument(false, errorMessageTemplate, arg0);
+    }
+  }
+
+  /**
+   * Conditionally forwards to the {@link com.google.common.base.Preconditions} method of the same
    * name, avoiding varargs-based array creation in the unexceptional case.
    *
    * <p>See {@link com.google.common.base.Preconditions#checkArgument(boolean, String, Object...)}.

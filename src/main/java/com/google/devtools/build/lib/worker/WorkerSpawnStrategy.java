@@ -69,6 +69,7 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
   public static final String REASON_NO_TOOLS =
       "Not using worker strategy, because the action has no tools";
 
+  private final Path execRoot;
   private final WorkerPool workers;
   private final IncrementalHeuristic incrementalHeuristic;
   private final StandaloneSpawnStrategy standaloneStrategy;
@@ -89,6 +90,7 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
     eventBus.register(incrementalHeuristic);
     this.workers = Preconditions.checkNotNull(workers);
     this.standaloneStrategy = new StandaloneSpawnStrategy(blazeDirs.getExecRoot(), verboseFailures);
+    this.execRoot = blazeDirs.getExecRoot();
     this.verboseFailures = verboseFailures;
     this.maxRetries = maxRetries;
   }
@@ -143,13 +145,12 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
         .add("--persistent_worker")
         .build();
     ImmutableMap<String, String> env = spawn.getEnvironment();
-    Path workDir = actionExecutionContext.getExecutor().getExecRoot();
 
     try {
       ActionInputFileCache inputFileCache = actionExecutionContext.getActionInputFileCache();
 
       HashCode workerFilesHash = combineActionInputHashes(spawn.getToolFiles(), inputFileCache);
-      WorkerKey key = new WorkerKey(args, env, workDir, spawn.getMnemonic(), workerFilesHash);
+      WorkerKey key = new WorkerKey(args, env, execRoot, spawn.getMnemonic(), workerFilesHash);
 
       WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
       expandArgument(requestBuilder, Iterables.getLast(spawn.getArguments()));
@@ -183,7 +184,7 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
     } catch (Exception e) {
       String message =
           CommandFailureUtils.describeCommandFailure(
-              verboseFailures, spawn.getArguments(), env, workDir.getPathString());
+              verboseFailures, spawn.getArguments(), env, execRoot.getPathString());
       throw new UserExecException(message, e);
     }
   }
@@ -198,7 +199,8 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
    */
   private void expandArgument(WorkRequest.Builder requestBuilder, String arg) throws IOException {
     if (arg.startsWith("@") && !arg.startsWith("@@")) {
-      for (String line : Files.readAllLines(Paths.get(arg.substring(1)), UTF_8)) {
+      for (String line : Files.readAllLines(
+          Paths.get(execRoot.getRelative(arg.substring(1)).getPathString()), UTF_8)) {
         if (line.length() > 0) {
           expandArgument(requestBuilder, line);
         }

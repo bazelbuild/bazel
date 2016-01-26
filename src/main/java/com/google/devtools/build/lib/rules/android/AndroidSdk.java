@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 
 /**
  * Implementation of the {@code android_sdk} rule.
@@ -33,7 +34,7 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
     // If the user didn't specify --proguard_top, go with the proguard attribute in the android_sdk
     // rule. Otherwise, use what she told us to.
     FilesToRunProvider proguard =
-        ruleContext.getFragment(AndroidConfiguration.class).getProguardLabel() == null
+        ruleContext.getFragment(JavaConfiguration.class).getProguardBinary() == null
             ? ruleContext.getExecutablePrerequisite("proguard", Mode.HOST)
             : ruleContext.getExecutablePrerequisite(":proguard", Mode.HOST);
 

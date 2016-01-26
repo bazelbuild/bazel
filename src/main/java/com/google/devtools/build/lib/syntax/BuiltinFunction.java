@@ -198,17 +198,31 @@ public class BuiltinFunction extends BaseFunction {
     }
   }
 
-  private IllegalStateException badCallException(Location loc, Throwable e, Object... args) {
-    // If this happens, it's a bug in our code.
-    return new IllegalStateException(String.format("%s%s (%s)\n"
-            + "while calling %s with args %s\nJava parameter types: %s\nSkylark type checks: %s",
-            (loc == null) ? "" : loc + ": ",
-            e.getClass().getName(), e.getMessage(), this,
-            Arrays.asList(args),
-            Arrays.asList(invokeMethod.getParameterTypes()),
-            signature.getTypes()), e);
+  private static String stacktraceToString(StackTraceElement[] elts) {
+    StringBuilder b = new StringBuilder();
+    for (StackTraceElement e : elts) {
+      b.append(e.toString());
+      b.append("\n");
+    }
+    return b.toString();
   }
 
+  private IllegalStateException badCallException(Location loc, Throwable e, Object... args) {
+    // If this happens, it's a bug in our code.
+    return new IllegalStateException(
+        String.format(
+            "%s%s (%s)\n"
+                + "while calling %s with args %s\n"
+                + "Java parameter types: %s\nSkylark type checks: %s",
+            (loc == null) ? "" : loc + ": ",
+            Arrays.asList(args),
+            e.getClass().getName(),
+            stacktraceToString(e.getStackTrace()),
+            this,
+            Arrays.asList(invokeMethod.getParameterTypes()),
+            signature.getTypes()),
+        e);
+  }
 
   /** Configure the reflection mechanism */
   @Override
@@ -248,9 +262,15 @@ public class BuiltinFunction extends BaseFunction {
     int arguments = signature.getSignature().getShape().getArguments();
     innerArgumentCount = arguments + (extraArgs == null ? 0 : extraArgs.length);
     Class<?>[] parameterTypes = invokeMethod.getParameterTypes();
-    Preconditions.checkArgument(innerArgumentCount == parameterTypes.length,
-        "bad argument count for %s: method has %s arguments, type list has %s",
-        getName(), innerArgumentCount, parameterTypes.length);
+    if (innerArgumentCount != parameterTypes.length) {
+      // Guard message construction by check to avoid autoboxing two integers.
+      throw new IllegalStateException(
+          String.format(
+              "bad argument count for %s: method has %s arguments, type list has %s",
+              getName(),
+              innerArgumentCount,
+              parameterTypes.length));
+    }
 
     if (enforcedArgumentTypes != null) {
       for (int i = 0; i < arguments; i++) {

@@ -16,6 +16,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.common.options.OptionsClassProvider;
 
 import javax.annotation.Nullable;
 
@@ -35,7 +36,9 @@ public interface BuildDriver {
    * Retrieve metadata about the computation over the given roots. Data returned is specific to the
    * underlying evaluator implementation.
    */
-  String meta(Iterable<SkyKey> roots) throws AbruptExitException, InterruptedException;
+  String meta(Iterable<SkyKey> roots, OptionsClassProvider options)
+      throws AbruptExitException, InterruptedException;
+
 
   MemoizingEvaluator getGraphForTesting();
 

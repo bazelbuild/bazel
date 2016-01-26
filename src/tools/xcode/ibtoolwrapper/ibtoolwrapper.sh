@@ -25,10 +25,8 @@
 
 set -eu
 
-REALPATH="$0.runfiles/external/bazel_tools/tools/objc/realpath"
-if [ ! -e $REALPATH ]; then
-  REALPATH=tools/objc/realpath
-fi
+REALPATH=$0.runfiles/external/bazel_tools/tools/objc/realpath
+WRAPPER=$0.runfiles/external/bazel_tools/tools/objc/xcrunwrapper.sh
 
 OUTZIP=$($REALPATH "$1")
 ARCHIVEROOT="$2"
@@ -53,11 +51,6 @@ for i in $@; do
     TOOLARGS+=("$i")
   fi
 done
-
-WRAPPER="$0.runfiles/external/bazel_tools/tools/objc/xcrunwrapper.sh"
-if [ ! -e $WRAPPER ]; then
-  WRAPPER=tools/objc/xcrunwrapper.sh
-fi
 
 # If we are running into problems figuring out ibtool issues, there are a couple
 # of env variables that may help. Both of the following must be set to work.

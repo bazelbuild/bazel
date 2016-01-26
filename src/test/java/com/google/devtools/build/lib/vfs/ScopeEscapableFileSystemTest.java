@@ -74,8 +74,13 @@ public abstract class ScopeEscapableFileSystemTest extends SymlinkAwareFileSyste
       return ans != null ? ans.asFragment() : null;
     }
 
-    @Override public boolean supportsModifications() { return true; }
-    @Override public boolean supportsSymbolicLinks() { return true; }
+    @Override public boolean supportsModifications() {
+      return true;
+    }
+
+    @Override public boolean supportsSymbolicLinksNatively() {
+      return true;
+    }
 
     private static RuntimeException re() {
       return new RuntimeException("This method should not be called in this context");

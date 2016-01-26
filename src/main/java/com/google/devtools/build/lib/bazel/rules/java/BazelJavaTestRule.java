@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.bazel.rules.java;
 
+import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
@@ -51,6 +53,10 @@ public final class BazelJavaTestRule implements RuleDefinition {
     return builder
         .requiresConfigurationFragments(JavaConfiguration.class, Jvm.class)
         .setImplicitOutputsFunction(BazelJavaRuleClasses.JAVA_BINARY_IMPLICIT_OUTPUTS)
+        // Proguard can be run over java_test targets using the --java_optimization_mode flag.
+        // Primarily this is intended to help test changes to Proguard.
+        .add(attr(":proguard", LABEL).cfg(HOST).value(JavaSemantics.PROGUARD).exec())
+        .add(attr(":extra_proguard_specs", LABEL_LIST).value(JavaSemantics.EXTRA_PROGUARD_SPECS))
         .override(attr("stamp", TRISTATE).value(TriState.NO))
         .override(attr("use_testrunner", BOOLEAN).value(true))
         .override(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER))
@@ -106,16 +112,12 @@ public final class BazelJavaTestRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = java_test, TYPE = TEST, FAMILY = Java) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
 A <code>java_test()</code> rule compiles a Java test. A test is a binary wrapper around your
 test code. The test runner's main method is invoked instead of the main class being compiled.
 </p>
 
 ${IMPLICIT_OUTPUTS}
-
-${ATTRIBUTE_DEFINITION}
 
 <p>
 See the section on <a href="#java_binary_args">java_binary()</a> arguments. This rule also

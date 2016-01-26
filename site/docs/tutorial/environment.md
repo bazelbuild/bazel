@@ -1,3 +1,8 @@
+---
+layout: documentation
+title: Tutorial - Set Up Your Environment
+---
+
 # Tutorial - Set Up Your Environment
 
 The first step in this tutorial is to set up your environment.

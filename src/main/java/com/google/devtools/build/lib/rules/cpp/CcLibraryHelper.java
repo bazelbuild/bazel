@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
+import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -67,6 +69,14 @@ import javax.annotation.Nullable;
  * methods.
  */
 public final class CcLibraryHelper {
+  static final FileTypeSet SOURCE_TYPES =
+      FileTypeSet.of(
+          CppFileTypes.CPP_SOURCE,
+          CppFileTypes.CPP_HEADER,
+          CppFileTypes.C_SOURCE,
+          CppFileTypes.ASSEMBLER,
+          CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR);
+  
   /** Function for extracting module maps from CppCompilationDependencies. */
   public static final Function<TransitiveInfoCollection, CppModuleMap> CPP_DEPS_TO_MODULES =
     new Function<TransitiveInfoCollection, CppModuleMap>() {
@@ -155,7 +165,7 @@ public final class CcLibraryHelper {
   private final List<Artifact> publicTextualHeaders = new ArrayList<>();
   private final List<Artifact> privateHeaders = new ArrayList<>();
   private final List<PathFragment> additionalExportedHeaders = new ArrayList<>();
-  private final List<Pair<Artifact, Label>> sources = new ArrayList<>();
+  private final List<Pair<Artifact, Label>> compilationUnitSources = new ArrayList<>();
   private final List<Artifact> objectFiles = new ArrayList<>();
   private final List<Artifact> picObjectFiles = new ArrayList<>();
   private final List<String> copts = new ArrayList<>();
@@ -214,31 +224,39 @@ public final class CcLibraryHelper {
   }
 
   /**
-   * Add the corresponding files as header files, i.e., these files will not be compiled, but are
-   * made visible as includes to dependent rules.
+   * Adds {@code headers} as public header files. These files will be made visible to dependent
+   * rules. They may be parsed/preprocessed or compiled into a header module depending on the
+   * configuration.
    */
   public CcLibraryHelper addPublicHeaders(Collection<Artifact> headers) {
-    this.publicHeaders.addAll(headers);
+    for (Artifact header : headers) {
+      addHeader(header, ruleContext.getLabel());
+    }
     return this;
   }
-
+  
   /**
-   * Add the corresponding files as public header files, i.e., these files will not be compiled, but
-   * are made visible as includes to dependent rules in module maps.
+   * Adds {@code headers} as public header files. These files will be made visible to dependent
+   * rules. They may be parsed/preprocessed or compiled into a header module depending on the
+   * configuration.
    */
   public CcLibraryHelper addPublicHeaders(Artifact... headers) {
-    return addPublicHeaders(Arrays.asList(headers));
-  }
-
-  /**
-   * Add the corresponding files as private header files, i.e., these files will not be compiled,
-   * but are not made visible as includes to dependent rules in module maps.
-   */
-  public CcLibraryHelper addPrivateHeaders(Iterable<Artifact> privateHeaders) {
-    Iterables.addAll(this.privateHeaders, privateHeaders);
+    addPublicHeaders(Arrays.asList(headers));
     return this;
   }
-
+  
+  /**
+   * Adds {@code headers} as public header files. These files will be made visible to dependent
+   * rules. They may be parsed/preprocessed or compiled into a header module depending on the
+   * configuration.
+   */
+  public CcLibraryHelper addPublicHeaders(Iterable<Pair<Artifact, Label>> headers) {
+    for (Pair<Artifact, Label> header : headers) {
+      addHeader(header.first, header.second);
+    }
+    return this;
+  }
+  
   /**
    * Add the corresponding files as public header files, i.e., these files will not be compiled, but
    * are made visible as includes to dependent rules in module maps.
@@ -265,10 +283,9 @@ public final class CcLibraryHelper {
    * Add the corresponding files as source files. These may also be header files, in which case
    * they will not be compiled, but also not made visible as includes to dependent rules.
    */
-  // TODO(bazel-team): This is inconsistent with the documentation on CppModel.
   public CcLibraryHelper addSources(Collection<Artifact> sources) {
     for (Artifact source : sources) {
-      this.sources.add(Pair.of(source, ruleContext.getLabel()));
+      addSource(source, ruleContext.getLabel());
     }
     return this;
   }
@@ -277,9 +294,10 @@ public final class CcLibraryHelper {
    * Add the corresponding files as source files. These may also be header files, in which case
    * they will not be compiled, but also not made visible as includes to dependent rules.
    */
-  // TODO(bazel-team): This is inconsistent with the documentation on CppModel.
   public CcLibraryHelper addSources(Iterable<Pair<Artifact, Label>> sources) {
-    Iterables.addAll(this.sources, sources);
+    for (Pair<Artifact, Label> source : sources) {
+      addSource(source.first, source.second);
+    }
     return this;
   }
 
@@ -289,6 +307,50 @@ public final class CcLibraryHelper {
    */
   public CcLibraryHelper addSources(Artifact... sources) {
     return addSources(Arrays.asList(sources));
+  }
+  
+  /**
+   * Adds a header to {@code publicHeaders} and in case header processing is switched on for the
+   * file type also to compilationUnitSources.
+   */
+  private void addHeader(Artifact header, Label label) {
+    boolean isHeader = CppFileTypes.CPP_HEADER.matches(header.getExecPath());
+    boolean isTextualInclude = CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(header.getExecPath());
+    publicHeaders.add(header);
+    if (isTextualInclude || !isHeader || !shouldProcessHeaders()) {
+      return;
+    }
+    compilationUnitSources.add(Pair.of(header, label));
+  }
+
+  /**
+   * Adds a source to {@code compilationUnitSources} if it is a compiled file type (including
+   * parsed/preprocessed header) and to {@code privateHeaders} if it is a header.
+   */
+  private void addSource(Artifact source, Label label) {
+    boolean isHeader = CppFileTypes.CPP_HEADER.matches(source.getExecPath());
+    boolean isTextualInclude = CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(source.getExecPath());
+    boolean isCompiledSource = SOURCE_TYPES.matches(source.getExecPathString());
+    if (isHeader || isTextualInclude) {
+      privateHeaders.add(source);
+    }
+    if (isTextualInclude || !isCompiledSource || (isHeader && !shouldProcessHeaders())) {
+      return;
+    }
+    compilationUnitSources.add(Pair.of(source, label));
+  }
+
+  private boolean shouldProcessHeaders() {
+    return featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)
+        || featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS);
+  }
+
+  /**
+   * Returns the compilation unit sources. That includes all compiled source files as well
+   * as headers that will be parsed or preprocessed.
+   */
+  public ImmutableList<Pair<Artifact, Label>> getCompilationUnitSources() {
+    return ImmutableList.copyOf(this.compilationUnitSources);
   }
 
   /**
@@ -617,23 +679,8 @@ public final class CcLibraryHelper {
       }
     }
 
-    CppModel model = new CppModel(ruleContext, semantics)
-        .addSources(sources)
-        .addCopts(copts)
-        .setLinkTargetType(linkType)
-        .setNeverLink(neverlink)
-        .setFake(fake)
-        .setAllowInterfaceSharedObjects(emitInterfaceSharedObjects)
-        .setCreateDynamicLibrary(emitDynamicLibrary)
-        // Note: this doesn't actually save the temps, it just makes the CppModel use the
-        // configurations --save_temps setting to decide whether to actually save the temps.
-        .setSaveTemps(true)
-        .setNoCopts(nocopts)
-        .setDynamicLibrary(dynamicLibrary)
-        .addLinkopts(linkopts)
-        .setFeatureConfiguration(featureConfiguration);
-    CppCompilationContext cppCompilationContext =
-        initializeCppCompilationContext(model, featureConfiguration);
+    CppModel model = initializeCppModel();
+    CppCompilationContext cppCompilationContext = initializeCppCompilationContext(model);
     model.setContext(cppCompilationContext);
     boolean compileHeaderModules = featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES);
     Preconditions.checkState(
@@ -697,7 +744,12 @@ public final class CcLibraryHelper {
     Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
     outputGroups.put(OutputGroupProvider.TEMP_FILES, getTemps(ccOutputs));
     if (emitCompileProviders) {
-      outputGroups.put(OutputGroupProvider.FILES_TO_COMPILE, getFilesToCompile(ccOutputs));
+      boolean isLipoCollector =
+          ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector();
+      boolean usePic = CppHelper.usePic(ruleContext, false);
+      outputGroups.put(
+          OutputGroupProvider.FILES_TO_COMPILE,
+          ccOutputs.getFilesToCompile(isLipoCollector, usePic));
       outputGroups.put(OutputGroupProvider.COMPILATION_PREREQUISITES,
           CcCommon.collectCompilationPrerequisites(ruleContext, cppCompilationContext));
     }
@@ -724,10 +776,30 @@ public final class CcLibraryHelper {
   }
 
   /**
+   * Creates the C/C++ compilation action creator.
+   */
+  private CppModel initializeCppModel() {
+    return new CppModel(ruleContext, semantics)
+        .addCompilationUnitSources(compilationUnitSources)
+        .addCopts(copts)
+        .setLinkTargetType(linkType)
+        .setNeverLink(neverlink)
+        .setFake(fake)
+        .setAllowInterfaceSharedObjects(emitInterfaceSharedObjects)
+        .setCreateDynamicLibrary(emitDynamicLibrary)
+        // Note: this doesn't actually save the temps, it just makes the CppModel use the
+        // configurations --save_temps setting to decide whether to actually save the temps.
+        .setSaveTemps(true)
+        .setNoCopts(nocopts)
+        .setDynamicLibrary(dynamicLibrary)
+        .addLinkopts(linkopts)
+        .setFeatureConfiguration(featureConfiguration);
+  }
+
+  /**
    * Create context for cc compile action from generated inputs.
    */
-  private CppCompilationContext initializeCppCompilationContext(CppModel model,
-      FeatureConfiguration featureConfiguration) {
+  private CppCompilationContext initializeCppCompilationContext(CppModel model) {
     CppCompilationContext.Builder contextBuilder =
         new CppCompilationContext.Builder(ruleContext);
 
@@ -820,14 +892,23 @@ public final class CcLibraryHelper {
     return contextBuilder.build();
   }
 
+  /**
+   * Creates context for cc compile action from generated inputs.
+   */
+  public CppCompilationContext initializeCppCompilationContext() {
+    return initializeCppCompilationContext(initializeCppModel());
+  }
+
   private Iterable<CppModuleMap> collectModuleMaps() {
     // Cpp module maps may be null for some rules. We filter the nulls out at the end.
     List<CppModuleMap> result = new ArrayList<>();
     Iterables.addAll(result, Iterables.transform(deps, CPP_DEPS_TO_MODULES));
-    CppCompilationContext stl =
-        ruleContext.getPrerequisite(":stl", Mode.TARGET, CppCompilationContext.class);
-    if (stl != null) {
-      result.add(stl.getCppModuleMap());
+    if (ruleContext.getRule().getAttributeDefinition(":stl") != null) {
+      CppCompilationContext stl =
+          ruleContext.getPrerequisite(":stl", Mode.TARGET, CppCompilationContext.class);
+      if (stl != null) {
+        result.add(stl.getCppModuleMap());
+      }
     }
 
     CcToolchainProvider toolchain = CppHelper.getToolchain(ruleContext);
@@ -926,12 +1007,5 @@ public final class CcLibraryHelper {
     return ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector()
         ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
         : compilationOutputs.getTemps();
-  }
-
-  private NestedSet<Artifact> getFilesToCompile(CcCompilationOutputs compilationOutputs) {
-    return ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector()
-        ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
-        : NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER,
-            compilationOutputs.getObjectFiles(CppHelper.usePic(ruleContext, false)));
   }
 }

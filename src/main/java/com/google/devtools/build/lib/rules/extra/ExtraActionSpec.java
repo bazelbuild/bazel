@@ -116,7 +116,7 @@ public final class ExtraActionSpec implements TransitiveInfoProvider {
     // See {@link #createExpandedCommand} for list of supported variables.
     String command = createExpandedCommand(owningRule, actionToShadow, extraActionInfoFile);
 
-    Map<String, String> env = owningRule.getConfiguration().getDefaultShellEnvironment();
+    Map<String, String> env = owningRule.getConfiguration().getLocalShellEnvironment();
 
     CommandHelper commandHelper =
         new CommandHelper(

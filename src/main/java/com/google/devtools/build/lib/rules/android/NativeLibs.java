@@ -151,8 +151,13 @@ public final class NativeLibs {
             .addRootSymlinks(symlinks)
             .build());
     Artifact outputManifest = AndroidBinary.getDxArtifact(ruleContext, "native_symlinks/MANIFEST");
+    Artifact nativeLibsMiddleman =
+        ruleContext.getAnalysisEnvironment().getMiddlemanFactory().createRunfilesMiddleman(
+            ruleContext.getActionOwner(), null, symlinks.values(),
+            ruleContext.getConfiguration().getMiddlemanDirectory(), "android_native_libs");
+
     ruleContext.registerAction(new SymlinkTreeAction(
-        ruleContext.getActionOwner(), inputManifest, outputManifest, false));
+        ruleContext.getActionOwner(), inputManifest, nativeLibsMiddleman, outputManifest, false));
     return outputManifest;
   }
 

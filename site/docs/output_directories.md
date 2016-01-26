@@ -1,3 +1,8 @@
+---
+layout: documentation
+title: Output Directory Layout
+---
+
 # Output Directory Layout
 
 ## Requirements

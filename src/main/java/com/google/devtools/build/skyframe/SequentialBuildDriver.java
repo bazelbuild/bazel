@@ -15,6 +15,7 @@ package com.google.devtools.build.skyframe;
 
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.common.options.OptionsClassProvider;
 
 import javax.annotation.Nullable;
 
@@ -42,7 +43,7 @@ public class SequentialBuildDriver implements BuildDriver {
   }
 
  @Override
- public String meta(Iterable<SkyKey> of) {
+ public String meta(Iterable<SkyKey> of, OptionsClassProvider options) {
    return "";
  }
 

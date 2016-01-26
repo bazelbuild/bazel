@@ -575,7 +575,7 @@ public class Package {
    * Gets the default header checking mode.
    */
   public String getDefaultHdrsCheck() {
-    return defaultHdrsCheck != null ? defaultHdrsCheck : "loose";
+    return defaultHdrsCheck != null ? defaultHdrsCheck : "strict";
   }
 
   /**
@@ -1331,7 +1331,7 @@ public class Package {
      * an InputFile target.
      */
     void createInputFileMaybe(Label label, Location location) {
-      if (label != null && label.getPackageFragment().equals(pkg.getNameFragment())) {
+      if (label != null && label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
         if (!targets.containsKey(label.getName())) {
           addInputFile(label, location);
         }

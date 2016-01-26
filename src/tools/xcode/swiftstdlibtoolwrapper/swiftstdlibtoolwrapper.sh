@@ -21,10 +21,8 @@
 
 set -eu
 
-REALPATH="$0.runfiles/external/bazel_tools/tools/objc/realpath"
-if [ ! -e $REALPATH ]; then
-  REALPATH=tools/objc/realpath
-fi
+REALPATH=$0.runfiles/external/bazel_tools/tools/objc/realpath
+WRAPPER=$0.runfiles/external/bazel_tools/tools/objc/xcrunwrapper.sh
 
 OUTZIP=$($REALPATH "$1")
 shift 1
@@ -32,11 +30,6 @@ TEMPDIR=$(mktemp -d -t swiftstdlibtoolZippingOutput)
 trap "rm -rf \"$TEMPDIR\"" EXIT
 
 FULLPATH="$TEMPDIR/Frameworks"
-
-WRAPPER="$0.runfiles/external/bazel_tools/tools/objc/xcrunwrapper.sh"
-if [ ! -e $WRAPPER ]; then
-  WRAPPER=tools/objc/xcrunwrapper.sh
-fi
 
 $WRAPPER swift-stdlib-tool --copy --verbose --destination "$FULLPATH" "$@"
 

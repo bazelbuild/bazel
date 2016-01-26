@@ -14,15 +14,16 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.Printer;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
@@ -40,10 +41,18 @@ import javax.annotation.Nullable;
     name = "FilesetEntry",
     doc = "",
     documented = false)
+@Immutable
+@ThreadSafe
 public final class FilesetEntry implements SkylarkValue {
+
+  public static final SymlinkBehavior DEFAULT_SYMLINK_BEHAVIOR = SymlinkBehavior.COPY;
+  public static final String DEFAULT_STRIP_PREFIX = ".";
 
   @Override
   public boolean isImmutable() {
+    // TODO(laszlocsomor): set this to true. I think we could do this right now, but am not sure.
+    // Maybe we have to verify that Skylark recognizes every member's type to be recursively
+    // immutable; as of 15/01/2016 this is not true for enum types in general, to name an example.
     return false;
   }
 
@@ -64,24 +73,26 @@ public final class FilesetEntry implements SkylarkValue {
 
   @Override
   public void write(Appendable buffer, char quotationMark) {
-      Printer.append(buffer, "FilesetEntry(srcdir = ");
-      Printer.write(buffer, getSrcLabel().toString(), quotationMark);
-      Printer.append(buffer, ", files = ");
-      Printer.write(buffer, makeStringList(getFiles()), quotationMark);
-      Printer.append(buffer, ", excludes = ");
-      Printer.write(buffer, makeList(getExcludes()), quotationMark);
-      Printer.append(buffer, ", destdir = ");
-      Printer.write(buffer, getDestDir().getPathString(), quotationMark);
-      Printer.append(buffer, ", strip_prefix = ");
-      Printer.write(buffer, getStripPrefix(), quotationMark);
-      Printer.append(buffer, ", symlinks = ");
-      Printer.append(buffer, quotationMark);
-      Printer.append(buffer, getSymlinkBehavior().toString());
-      Printer.append(buffer, quotationMark);
-      Printer.append(buffer, ")");
+    Printer.append(buffer, "FilesetEntry(srcdir = ");
+    Printer.write(buffer, getSrcLabel().toString(), quotationMark);
+    Printer.append(buffer, ", files = ");
+    Printer.write(buffer, makeStringList(getFiles()), quotationMark);
+    Printer.append(buffer, ", excludes = ");
+    Printer.write(buffer, makeList(getExcludes()), quotationMark);
+    Printer.append(buffer, ", destdir = ");
+    Printer.write(buffer, getDestDir().getPathString(), quotationMark);
+    Printer.append(buffer, ", strip_prefix = ");
+    Printer.write(buffer, getStripPrefix(), quotationMark);
+    Printer.append(buffer, ", symlinks = ");
+    Printer.append(buffer, quotationMark);
+    Printer.append(buffer, getSymlinkBehavior().toString());
+    Printer.append(buffer, quotationMark);
+    Printer.append(buffer, ")");
   }
 
   /** SymlinkBehavior decides what to do when a source file of a FilesetEntry is a symlink. */
+  @Immutable
+  @ThreadSafe
   public enum SymlinkBehavior {
     /** Just copies the symlink as-is. May result in dangling links. */
     COPY,
@@ -117,18 +128,19 @@ public final class FilesetEntry implements SkylarkValue {
    * @param stripPrefix the prefix to strip from the package-relative path. If ".", keep only the
    *        basename.
    */
-  public FilesetEntry(Label srcLabel,
+  public FilesetEntry(
+      Label srcLabel,
       @Nullable List<Label> files,
-      @Nullable List<String> excludes,
-      String destDir,
-      SymlinkBehavior symlinkBehavior,
-      String stripPrefix) {
-    this.srcLabel = checkNotNull(srcLabel);
-    this.destDir = new PathFragment((destDir == null) ? "" : destDir);
+      @Nullable Collection<String> excludes,
+      @Nullable String destDir,
+      @Nullable SymlinkBehavior symlinkBehavior,
+      @Nullable String stripPrefix) {
+    this.srcLabel = Preconditions.checkNotNull(srcLabel);
     this.files = files == null ? null : ImmutableList.copyOf(files);
     this.excludes = (excludes == null || excludes.isEmpty()) ? null : ImmutableSet.copyOf(excludes);
-    this.symlinkBehavior = symlinkBehavior;
-    this.stripPrefix = stripPrefix;
+    this.destDir = new PathFragment((destDir == null) ? "" : destDir);
+    this.symlinkBehavior = symlinkBehavior == null ? DEFAULT_SYMLINK_BEHAVIOR : symlinkBehavior;
+    this.stripPrefix = stripPrefix == null ? DEFAULT_STRIP_PREFIX : stripPrefix;
   }
 
   /**
@@ -206,8 +218,8 @@ public final class FilesetEntry implements SkylarkValue {
       return "Cannot specify files with Fileset label '" + srcLabel + "'";
     } else if (destDir.isAbsolute()) {
       return "Cannot specify absolute destdir '" + destDir + "'";
-    } else if (!stripPrefix.equals(".") && files == null) {
-      return "If the strip prefix is not '.', files must be specified";
+    } else if (!stripPrefix.equals(DEFAULT_STRIP_PREFIX) && files == null) {
+      return "If the strip prefix is not \"" + DEFAULT_STRIP_PREFIX + "\", files must be specified";
     } else if (new PathFragment(stripPrefix).containsUplevelReferences()) {
       return "Strip prefix must not contain uplevel references";
     } else {
@@ -217,8 +229,13 @@ public final class FilesetEntry implements SkylarkValue {
 
   @Override
   public String toString() {
-    return String.format("FilesetEntry(srcdir=%s, destdir=%s, strip_prefix=%s, symlinks=%s, "
-        + "%d file(s) and %d excluded)", srcLabel, destDir, stripPrefix, symlinkBehavior,
+    return String.format(
+        "FilesetEntry(srcdir=%s, destdir=%s, strip_prefix=%s, symlinks=%s, "
+            + "%d file(s) and %d excluded)",
+        srcLabel,
+        destDir,
+        stripPrefix,
+        symlinkBehavior,
         files != null ? files.size() : 0,
         excludes != null ? excludes.size() : 0);
   }

@@ -17,6 +17,7 @@ package com.google.devtools.build.buildjar.javac.plugins.dependency;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
+import com.google.common.base.Verify;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.devtools.build.lib.view.proto.Deps;
 import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
@@ -267,6 +268,18 @@ public final class DependencyModule {
       return originalClasspath;
     }
 
+    return CLASSPATH_JOINER.join(
+        computeStrictClasspath(CLASSPATH_SPLITTER.split(originalClasspath)));
+  }
+
+  /**
+   * Computes a reduced compile-time classpath from the union of direct dependencies and their
+   * dependencies, as listed in the associated .deps artifacts.
+   */
+  public List<String> computeStrictClasspath(Iterable<String> originalClasspath)
+      throws IOException {
+    Verify.verify(strictClasspathMode);
+
     // Classpath = direct deps + runtime direct deps + their .deps
     requiredClasspath = new HashSet<>(directJarsToTargets.keySet());
 
@@ -276,12 +289,12 @@ public final class DependencyModule {
 
     // Filter the initial classpath and keep the original order
     List<String> filteredClasspath = new ArrayList<>();
-    for (String entry : CLASSPATH_SPLITTER.split(originalClasspath)) {
+    for (String entry : originalClasspath) {
       if (requiredClasspath.contains(entry)) {
         filteredClasspath.add(entry);
       }
     }
-    return CLASSPATH_JOINER.join(filteredClasspath);
+    return filteredClasspath;
   }
 
   @VisibleForTesting
@@ -304,6 +317,8 @@ public final class DependencyModule {
           requiredClasspath.add(dep.getPath());
         }
       }
+    } catch (IOException e) {
+      throw new IOException(String.format("error reading deps artifact: %s", path), e);
     }
   }
 
@@ -464,7 +479,7 @@ public final class DependencyModule {
 
     /**
      * Set the message to display when a missing indirect dependency is found.
-     * 
+     *
      * @param fixMessage the fix message
      * @return this Builder instance
      */

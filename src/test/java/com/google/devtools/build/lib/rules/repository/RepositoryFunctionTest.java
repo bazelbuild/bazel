@@ -14,12 +14,14 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -84,5 +86,18 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
         ")");
     assertEquals(new PathFragment("/a/b/c"),
         TestingRepositoryFunction.getTargetPath(rule, rootDirectory));
+  }
+
+  @Test
+  public void testGenerateWorkspaceFile() throws Exception {
+    Rule rule = scratchRule("external", "abc", "local_repository(",
+        "    name = 'abc',",
+        "    path = '/a/b/c',",
+        ")");
+    TestingRepositoryFunction repositoryFunction = new TestingRepositoryFunction();
+    repositoryFunction.createWorkspaceFile(rootDirectory, rule);
+    String workspaceContent = new String(
+        FileSystemUtils.readContentAsLatin1(rootDirectory.getRelative("WORKSPACE")));
+    assertThat(workspaceContent).contains("workspace(name = \"abc\")");
   }
 }

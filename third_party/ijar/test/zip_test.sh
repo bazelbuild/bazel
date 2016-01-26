@@ -39,17 +39,19 @@ function assert_unzip_same_as_zipper() {
 }
 
 function assert_zipper_same_after_unzip() {
+  local dir="$1"
+  shift
   local zipfile=${TEST_TMPDIR}/output.zip
-  (cd $1 && $ZIPPER c ${zipfile} $(find . | sed 's|^./||' | grep -v '^.$'))
+  (cd "${dir}" && $ZIPPER c ${zipfile} "$@")
   local folder=$(mktemp -d ${TEST_TMPDIR}/output.XXXXXXXX)
   (cd $folder && $UNZIP -q ${zipfile} || true)  # ignore CRC32 errors
-  diff -r $1 $folder &> $TEST_log \
+  diff -r "${dir}" $folder &> $TEST_log \
       || fail "Unzip after zipper output differ"
   # Retry with compression
-  (cd $1 && $ZIPPER cC ${zipfile} $(find . | sed 's|^./||' | grep -v '^.$'))
+  (cd "${dir}" && $ZIPPER cC ${zipfile} "$@")
   local folder=$(mktemp -d ${TEST_TMPDIR}/output.XXXXXXXX)
   (cd $folder && $UNZIP -q ${zipfile} || true)  # ignore CRC32 errors
-  diff -r $1 $folder &> $TEST_log \
+  diff -r "${dir}" $folder &> $TEST_log \
       || fail "Unzip after zipper output differ"
 }
 
@@ -63,12 +65,18 @@ function test_zipper() {
   echo "titi" > ${TEST_TMPDIR}/test/path/to/some/other_file
   chmod +x ${TEST_TMPDIR}/test/path/to/some/other_file
   echo "tata" > ${TEST_TMPDIR}/test/file
-  assert_zipper_same_after_unzip ${TEST_TMPDIR}/test
+  filelist="$(cd ${TEST_TMPDIR}/test && find . | sed 's|^./||' | grep -v '^.$')"
+
+  assert_zipper_same_after_unzip ${TEST_TMPDIR}/test ${filelist}
+  assert_unzip_same_as_zipper ${TEST_TMPDIR}/output.zip
+
+  # Test @filelist format
+  echo "${filelist}" >${TEST_TMPDIR}/test.content
+  assert_zipper_same_after_unzip ${TEST_TMPDIR}/test @${TEST_TMPDIR}/test.content
   assert_unzip_same_as_zipper ${TEST_TMPDIR}/output.zip
 
   # Test flatten option
-  (cd ${TEST_TMPDIR}/test && $ZIPPER cf ${TEST_TMPDIR}/output.zip \
-      $(find . | sed 's|^./||' | grep -v '^.$'))
+  (cd ${TEST_TMPDIR}/test && $ZIPPER cf ${TEST_TMPDIR}/output.zip ${filelist})
   $ZIPPER v ${TEST_TMPDIR}/output.zip >$TEST_log
   expect_log "file"
   expect_log "other_file"

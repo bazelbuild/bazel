@@ -53,7 +53,7 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
 //       higher number.
 //       This overrides the value declared in the manifest.
 //
-//       Subject to <a href="#make_variables">"Make" variable</a> substitution.
+//       Subject to <a href="make-variables.html">"Make" variable</a> substitution.
 //       ${SYNOPSIS}
 //       Suggested practice is to declare a varrdef and reference it here so that a particular build
 //       invocation will be used to generate apks for release.
@@ -64,7 +64,7 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
 //       users. The version_code attribute holds the significant version number used internally.
 //       This overrides the value declared in the manifest.
 //
-//       Subject to <a href="#make_variables">"Make" variable</a> substitution.
+//       Subject to <a href="make-variables.html">"Make" variable</a> substitution.
 //       ${SYNOPSIS}
 //       Suggested practice is to declare a varrdef and reference it here so that a particular build
 //       invocation will be used to generate apks for release.

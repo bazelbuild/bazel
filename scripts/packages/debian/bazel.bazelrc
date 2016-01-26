@@ -1,3 +1,0 @@
-build --package_path=%workspace%:/usr/share/lib/bazel/tools
-query --package_path=%workspace%:/usr/share/lib/bazel/tools
-fetch --package_path=%workspace%:/usr/share/lib/bazel/tools

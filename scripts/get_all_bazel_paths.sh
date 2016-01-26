@@ -25,13 +25,7 @@ function query() {
 }
 
 # Compile bazel
-[ -f "output/bazel" ] || ./compile.sh tools,compile >&2 || exit $?
-([ -f "tools/jdk/JavaBuilder_deploy.jar" ] \
-  && [ -f "tools/jdk/ijar" ] \
-  && [ -f "tools/jdk/SingleJar_deploy.jar" ] \
-  && [ -f "tools/jdk/GenClass_deploy.jar" ]) \
-  || ./compile.sh tools,init output/bazel >&2 \
-  || exit $?
+[ -f "output/bazel" ] || ./compile.sh compile >&2 || exit $?
 
 # Build almost everything.
 # //third_party/ijar/test/... is disabled due to #273.

@@ -74,8 +74,6 @@ public final class BazelActionListenerRule implements RuleDefinition {
   implementing an <code>action_listener</code>/<code>extra_action</code>.
 </p>
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
   An <code>action_listener</code> rule doesn't produce any output itself.
   Instead, it allows tool developers to insert
@@ -94,8 +92,6 @@ ${ATTRIBUTE_SIGNATURE}
   the build will use the specified <code>action_listener</code> to insert
   <a href="#extra_action"><code>extra_action</code></a>s into the build graph.
 </p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="action_listener_example">Example</h4>
 <pre>

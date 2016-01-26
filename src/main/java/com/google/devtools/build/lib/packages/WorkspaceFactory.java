@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.syntax.Runtime.NONE;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -27,6 +28,7 @@ import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
@@ -39,11 +41,15 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
@@ -54,8 +60,7 @@ public class WorkspaceFactory {
   public static final String BIND = "bind";
 
   private final LegacyBuilder builder;
-  private final StoredEventHandler localReporter;
-
+  
   private final Path installDir;
   private final Path workspaceDir;
   private final Mutability mutability;
@@ -93,21 +98,12 @@ public class WorkspaceFactory {
       @Nullable Path installDir,
       @Nullable Path workspaceDir) {
     this.builder = builder;
-    this.localReporter = new StoredEventHandler();
     this.mutability = mutability;
     this.installDir = installDir;
     this.workspaceDir = workspaceDir;
     this.environmentExtensions = environmentExtensions;
     this.workspaceFunctions = createWorkspaceFunctions(ruleClassProvider);
   }
-
-  // State while parsing the WORKSPACE file.
-  // We store them so we can pause the parsing and load skylark imports from the
-  // WorkspaceFileFunction. Loading skylark imports require access to the .skyframe package
-  // which this package cannot depend on.
-  private BuildFileAST buildFileAST = null;
-  private Environment.Builder environmentBuilder = null;
-  private ParserInputSource source = null;
 
   /**
    * Parses the given WORKSPACE file without resolving skylark imports.
@@ -116,44 +112,52 @@ public class WorkspaceFactory {
    * //src/tools/generate_workspace.</p>
    */
   public void parse(ParserInputSource source) throws InterruptedException, IOException {
+    parse(source, null);
+  }
+
+  @VisibleForTesting
+  public void parse(ParserInputSource source, @Nullable StoredEventHandler localReporter)
+      throws InterruptedException, IOException {
     // This method is split in 2 so WorkspaceFileFunction can call the two parts separately and
     // do the Skylark load imports in between. We can't load skylark imports from
     // generate_workspace at the moment because it doesn't have access to skyframe, but that's okay
     // because most people are just using it to resolve Maven dependencies.
-    parseWorkspaceFile(source);
-    execute();
-  }
-
-  /**
-   * Parses the WORKSPACE file, generating the AST.
-   * @throws IOException if parsing fails.
-   */
-  public void parseWorkspaceFile(ParserInputSource source) throws IOException {
-    this.source = source;
-    buildFileAST = BuildFileAST.parseBuildFile(source, localReporter, false);
+    if (localReporter == null) {
+      localReporter = new StoredEventHandler();
+    }
+    BuildFileAST buildFileAST = BuildFileAST.parseBuildFile(source, localReporter, false);
     if (buildFileAST.containsErrors()) {
-      environmentBuilder = null;
       throw new IOException("Failed to parse " + source.getPath());
     }
-    environmentBuilder = Environment.builder(mutability)
-        .setGlobals(Environment.BUILD)
-        .setEventHandler(localReporter);
+    execute(buildFileAST, null, localReporter);
   }
+
 
   /**
    * Actually runs through the AST, calling the functions in the WORKSPACE file and adding rules
    * to the //external package.
    */
-  public void execute() throws InterruptedException {
-    Preconditions.checkNotNull(environmentBuilder);
-    Environment workspaceEnv = environmentBuilder.setLoadingPhase().build();
-    addWorkspaceFunctions(workspaceEnv);
-    if (!buildFileAST.exec(workspaceEnv, localReporter)) {
-      localReporter.handle(Event.error("Error evaluating WORKSPACE file " + source.getPath()));
+  public void execute(BuildFileAST ast, Map<String, Extension> importedExtensions)
+      throws InterruptedException {
+    Preconditions.checkNotNull(ast);
+    Preconditions.checkNotNull(importedExtensions);
+    execute(ast, importedExtensions, new StoredEventHandler());
+  }
+  
+  private void execute(BuildFileAST ast, @Nullable Map<String, Extension> importedExtensions,
+      StoredEventHandler localReporter)
+      throws InterruptedException {
+    Environment.Builder environmentBuilder = Environment.builder(mutability)
+        .setGlobals(Environment.BUILD)
+        .setEventHandler(localReporter);
+    if (importedExtensions != null) {
+      environmentBuilder.setImportedExtensions(importedExtensions);
     }
-    environmentBuilder = null;
-    buildFileAST = null;
-    source = null;
+    Environment workspaceEnv = environmentBuilder.setLoadingPhase().build();
+    addWorkspaceFunctions(workspaceEnv, localReporter);
+    if (!ast.exec(workspaceEnv, localReporter)) {
+      localReporter.handle(Event.error("Error evaluating WORKSPACE file"));
+    }
 
     builder.addEvents(localReporter.getEvents());
     if (localReporter.hasErrors()) {
@@ -162,31 +166,38 @@ public class WorkspaceFactory {
     localReporter.clear();
   }
 
-  public BuildFileAST getBuildFileAST() {
-    return buildFileAST;
-  }
-
-  public void setImportedExtensions(Map<String, Extension> importedExtensions) {
-    environmentBuilder.setImportedExtensions(importedExtensions);
-  }
-
-  // TODO(bazel-team): use @SkylarkSignature annotations on a BuiltinFunction.Factory
-  // for signature + documentation of this and other functions in this file.
-  private static BuiltinFunction newWorkspaceNameFunction() {
-    return new BuiltinFunction(
-        "workspace", FunctionSignature.namedOnly("name"), BuiltinFunction.USE_AST_ENV) {
-      public Object invoke(String name, FuncallExpression ast, Environment env)
-          throws EvalException {
-        String errorMessage = LabelValidator.validateTargetName(name);
-        if (errorMessage != null) {
-          throw new EvalException(ast.getLocation(), errorMessage);
+  @SkylarkSignature(name = "workspace", objectType = Object.class, returnType = SkylarkList.class,
+      doc = "Sets the name for this workspace. Workspace names should be a Java-package-style "
+          + "description of the project, using underscores as separators, e.g., "
+          + "github.com/bazelbuild/bazel should use com_github_bazelbuild_bazel. Names must start "
+          + "with a letter and can only contain letters, numbers, and underscores.",
+      mandatoryPositionals = {
+          @SkylarkSignature.Param(name = "name", type = String.class,
+              doc = "the name of the workspace.")},
+      documented = true, useAst = true, useEnvironment = true)
+  private static final BuiltinFunction.Factory newWorkspaceFunction =
+      new BuiltinFunction.Factory("workspace") {
+        public BuiltinFunction create() {
+          return new BuiltinFunction(
+              "workspace", FunctionSignature.namedOnly("name"), BuiltinFunction.USE_AST_ENV) {
+            public Object invoke(String name, FuncallExpression ast, Environment env)
+                throws EvalException {
+              Pattern legalWorkspaceName = Pattern.compile("^\\p{Alpha}\\w*$");
+              Matcher matcher = legalWorkspaceName.matcher(name);
+              if (!matcher.matches()) {
+                throw new EvalException(
+                    ast.getLocation(), name + " is not a legal workspace name");
+              }
+              String errorMessage = LabelValidator.validateTargetName(name);
+              if (errorMessage != null) {
+                throw new EvalException(ast.getLocation(), errorMessage);
+              }
+              PackageFactory.getContext(env, ast).pkgBuilder.setWorkspaceName(name);
+              return NONE;
+            }
+          };
         }
-
-        PackageFactory.getContext(env, ast).pkgBuilder.setWorkspaceName(name);
-        return NONE;
-      }
-    };
-  }
+      };
 
   private static BuiltinFunction newBindFunction(final RuleFactory ruleFactory) {
     return new BuiltinFunction(
@@ -263,9 +274,9 @@ public class WorkspaceFactory {
     return mapBuilder.build();
   }
 
-  private void addWorkspaceFunctions(Environment workspaceEnv) {
+  private void addWorkspaceFunctions(Environment workspaceEnv, StoredEventHandler localReporter) {
     try {
-      workspaceEnv.update("workspace", newWorkspaceNameFunction());
+      workspaceEnv.setup("workspace", newWorkspaceFunction.apply());
       for (Map.Entry<String, BaseFunction> function : workspaceFunctions.entrySet()) {
         workspaceEnv.update(function.getKey(), function.getValue());
       }
@@ -306,10 +317,7 @@ public class WorkspaceFactory {
     return newNativeModule(createWorkspaceFunctions(ruleClassProvider));
   }
 
-  /**
-   * @return a list of events that have occurred while parsing the WORKSPACE file.
-   */
-  public ImmutableList<Event> getEvents() {
-    return localReporter.getEvents();
+  static {
+    SkylarkSignatureProcessor.configureSkylarkFunctions(WorkspaceFactory.class);
   }
 }

@@ -348,7 +348,6 @@ static void AddLoggingArgs(vector<string>* args) {
       string("--binary_path=") + globals->binary_path);
 }
 
-
 // Join the elements of the specified array with NUL's (\0's), akin to the
 // format of /proc/$PID/cmdline.
 static string GetArgumentString(const vector<string>& argument_array) {
@@ -532,7 +531,8 @@ static void StartStandalone() {
 // resolving symbolic links.  (The server may make "socket_file" a
 // symlink, to avoid ENAMETOOLONG, in which case the client must
 // resolve it in userspace before connecting.)
-static int Connect(int socket, const string &socket_file) {
+// Returns true on success, false otherwise.
+static bool Connect(int socket, const string &socket_file) {
   struct sockaddr_un addr;
   addr.sun_family = AF_UNIX;
 
@@ -542,14 +542,14 @@ static int Connect(int socket, const string &socket_file) {
     addr.sun_path[sizeof addr.sun_path - 1] = '\0';
     free(resolved_path);
     sockaddr *paddr = reinterpret_cast<sockaddr *>(&addr);
-    return connect(socket, paddr, sizeof addr);
+    return connect(socket, paddr, sizeof addr) == 0;
   } else if (errno == ENOENT) {  // No socket means no server to connect to
     errno = ECONNREFUSED;
-    return -1;
+    return false;
   } else {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
          "realpath('%s') failed", socket_file.c_str());
-    return -1;
+    return false;
   }
 }
 
@@ -613,7 +613,7 @@ static int ConnectToServer(bool start) {
   string pid_file = server_dir + "/server.pid";
 
   globals->server_pid = 0;
-  if (Connect(s, socket_file) == 0) {
+  if (Connect(s, socket_file)) {
     GetServerPid(s, pid_file);
     return s;
   }
@@ -629,13 +629,13 @@ static int ConnectToServer(bool start) {
     // Give the server one minute to start up.
     for (int ii = 0; ii < 600; ++ii) {  // 60s; enough time to connect
                                         // with debugger
-      if (Connect(s, socket_file) == 0) {
-        if (ii) {
-          fputc('\n', stderr);
-          fflush(stderr);
-        }
-        GetServerPid(s, pid_file);
-        return s;
+                                        if (Connect(s, socket_file)) {
+                                          if (ii) {
+                                            fputc('\n', stderr);
+                                            fflush(stderr);
+                                          }
+                                          GetServerPid(s, pid_file);
+                                          return s;
       }
       fputc('.', stderr);
       fflush(stderr);
@@ -698,17 +698,15 @@ static void KillRunningServer(pid_t server_pid) {
   pdie(blaze_exit_code::INTERNAL_ERROR, "SIGKILL unsuccessful after 10s");
 }
 
-
 // Kills the running Blaze server, if any.  Finds the pid from the socket.
 static bool KillRunningServerIfAny() {
-  int socket = ConnectToServer(false);
+  int socket = ConnectToServer(/*start=*/false);
   if (socket != -1) {
     KillRunningServer(globals->server_pid);
     return true;
   }
   return false;
 }
-
 
 // Calls fsync() on the file (or directory) specified in 'file_path'.
 // pdie()'s if syncing fails.
@@ -975,8 +973,7 @@ static bool ServerNeedsToBeKilled(const vector<string>& args1,
 
 // Kills the running Blaze server, if any, if the startup options do not match.
 static void KillRunningServerIfDifferentStartupOptions() {
-  int socket = ConnectToServer(false);
-
+  int socket = ConnectToServer(/*start=*/false);
   if (socket == -1) {
     return;
   }
@@ -1143,11 +1140,10 @@ static string BuildServerRequest() {
 
 // Performs all I/O for a single client request to the server, and
 // shuts down the client (by exit or signal).
-static void SendServerRequest(void) ATTRIBUTE_NORETURN;
-static void SendServerRequest(void) {
+static ATTRIBUTE_NORETURN void SendServerRequest() {
   int socket = -1;
   while (true) {
-    socket = ConnectToServer(true);
+    socket = ConnectToServer(/*start=*/true);
     // Check for deleted server cwd:
     string server_cwd = GetProcessCWD(globals->server_pid);
     // TODO(bazel-team): Is this check even necessary? If someone deletes or
@@ -1301,7 +1297,6 @@ static void SendServerRequest(void) {
 }
 
 // Parse the options, storing parsed values in globals.
-// Returns the index of the first non-option argument.
 static void ParseOptions(int argc, const char *argv[]) {
   string error;
   blaze_exit_code::ExitCode parse_exit_code =

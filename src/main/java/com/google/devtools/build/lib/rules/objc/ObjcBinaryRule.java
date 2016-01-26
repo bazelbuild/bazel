@@ -73,8 +73,6 @@ public class ObjcBinaryRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = objc_binary, TYPE = BINARY, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule produces one or more Objective-C libraries for bundling in an
 <code>ios_application</code>.</p>
 
@@ -86,7 +84,5 @@ you should define them on <code>ios_application</code> instead. They will be rem
 source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</code></p>.
 
 ${IMPLICIT_OUTPUTS}
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

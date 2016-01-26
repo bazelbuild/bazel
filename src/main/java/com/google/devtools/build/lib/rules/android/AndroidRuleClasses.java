@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
+import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -92,8 +94,6 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_deploy.jar");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_JAR =
       fromTemplates("%{name}_proguard.jar");
-  public static final SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_MAP =
-      fromTemplates("%{name}_proguard.map");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_INSTRUMENTED_JAR =
       fromTemplates("%{name}_instrumented.jar");
   public static final SafeImplicitOutputsFunction ANDROID_TEST_FILTERED_JAR =
@@ -102,6 +102,8 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_symbols/R.txt");
   public static final SafeImplicitOutputsFunction ANDROID_SYMBOLS_TXT =
       fromTemplates("%{name}_symbols/local-R.txt");
+  public static final ImplicitOutputsFunction ANDROID_LIBRARY_MANIFEST =
+      fromTemplates("%{name}_library_manifest/AndroidManifest.xml");
   public static final SafeImplicitOutputsFunction STUB_APPLICATON_MANIFEST =
       fromTemplates("%{name}_files/stub/AndroidManifest.xml");
   public static final SafeImplicitOutputsFunction FULL_DEPLOY_MARKER =
@@ -149,19 +151,6 @@ public final class AndroidRuleClasses {
           Constants.TOOLS_REPOSITORY + "//tools/android:resources_processor");
   public static final Label DEFAULT_AAR_GENERATOR =
       Label.parseAbsoluteUnchecked(Constants.TOOLS_REPOSITORY + "//tools/android:aar_generator");
-
-  /**
-   * Implementation for the :proguard attribute.
-   */
-  static final LateBoundLabel<BuildConfiguration> PROGUARD =
-      new LateBoundLabel<BuildConfiguration>(AndroidConfiguration.class) {
-    @Override
-    public Label getDefault(Rule rule, BuildConfiguration configuration) {
-      // If --proguard_top is not specified, null is returned. AndroidSdk will take care of using
-      // android_sdk.proguard then.
-      return configuration.getFragment(AndroidConfiguration.class).getProguardLabel();
-    }
-  };
 
   public static final LateBoundLabel<BuildConfiguration> ANDROID_SDK =
       new LateBoundLabel<BuildConfiguration>(DEFAULT_ANDROID_SDK, AndroidConfiguration.class) {
@@ -276,7 +265,7 @@ public final class AndroidRuleClasses {
           if (hasProguardSpecs) {
             functions.add(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_JAR);
             if (mapping) {
-              functions.add(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_MAP);
+              functions.add(JavaSemantics.JAVA_BINARY_PROGUARD_MAP);
             }
           }
           return fromFunctions(functions).getImplicitOutputs(rule);
@@ -315,10 +304,10 @@ public final class AndroidRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
-          .requiresConfigurationFragments(AndroidConfiguration.class)
+          .requiresConfigurationFragments(JavaConfiguration.class, AndroidConfiguration.class)
           .setUndocumented()
           // This is the Proguard that comes from the --proguard_top attribute.
-          .add(attr(":proguard", LABEL).cfg(HOST).value(PROGUARD).exec())
+          .add(attr(":proguard", LABEL).cfg(HOST).value(JavaSemantics.PROGUARD).exec())
           // This is the Proguard in the BUILD file that contains the android_sdk rule. Used when
           // --proguard_top is not specified.
           .add(attr("proguard", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
@@ -508,7 +497,7 @@ public final class AndroidRuleClasses {
           /* <!-- #BLAZE_RULE($android_base).ATTRIBUTE(javacopts) -->
           Extra compiler options for this target.
           ${SYNOPSIS}
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>
           These compiler options are passed to javac after the global compiler options.</p>
@@ -595,7 +584,7 @@ public final class AndroidRuleClasses {
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
           Additional command-line flags for the dx tool when generating classes.dex.
           ${SYNOPSIS}
-          Subject to <a href="#make_variables">"Make variable"</a> substitution and
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("dexopts", STRING_LIST))
@@ -679,7 +668,7 @@ com/google/common/base/Objects.class
                 //base will be loaded into memory. This lib[ruleName].so can be loaded
                 via System.loadLibrary as normal.</li>
               <li><code>legacy_native_support = -1</code>: Linking is controlled by the
-                <a href="blaze-user-manual.html#flag--legacy_android_native_support">
+                <a href="../blaze-user-manual.html#flag--legacy_android_native_support">
                 --[no]legacy_android_native_support</a> Blaze flag.</li>
             </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

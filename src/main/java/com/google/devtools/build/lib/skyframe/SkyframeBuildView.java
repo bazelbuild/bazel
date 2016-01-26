@@ -61,6 +61,7 @@ import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictException;
+import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.CycleInfo;
@@ -341,18 +342,20 @@ public final class SkyframeBuildView {
 
         skyframeExecutor.getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), errorKey,
             eventHandler);
+        Exception cause = errorInfo.getException();
         // We try to get the root cause key first from ErrorInfo rootCauses. If we don't have one
         // we try to use the cycle culprit if the error is a cycle. Otherwise we use the top-level
         // error key.
-        Label root;
-        if (!Iterables.isEmpty(errorEntry.getValue().getRootCauses())) {
+        Label analysisRootCause;
+        if (cause instanceof ConfiguredValueCreationException) {
+          analysisRootCause = ((ConfiguredValueCreationException) cause).getAnalysisRootCause();
+        } else if (!Iterables.isEmpty(errorEntry.getValue().getRootCauses())) {
           SkyKey culprit = Preconditions.checkNotNull(Iterables.getFirst(
               errorEntry.getValue().getRootCauses(), null));
-          root = ((ConfiguredTargetKey) culprit.argument()).getLabel();
+          analysisRootCause = ((ConfiguredTargetKey) culprit.argument()).getLabel();
         } else {
-          root = maybeGetConfiguredTargetCycleCulprit(errorInfo.getCycleInfo());
+          analysisRootCause = maybeGetConfiguredTargetCycleCulprit(errorInfo.getCycleInfo());
         }
-        Exception cause = errorInfo.getException();
         if (cause instanceof ActionConflictException) {
           ((ActionConflictException) cause).reportTo(eventHandler);
         }
@@ -360,7 +363,8 @@ public final class SkyframeBuildView {
             Event.warn("errors encountered while analyzing target '"
                 + label.getLabel() + "': it will not be built"));
         eventBus.post(new AnalysisFailureEvent(
-            LabelAndConfiguration.of(label.getLabel(), label.getConfiguration()), root));
+            LabelAndConfiguration.of(label.getLabel(), label.getConfiguration()),
+            analysisRootCause));
       }
     }
 
@@ -425,8 +429,10 @@ public final class SkyframeBuildView {
       // that the only errors should be analysis errors.
       Preconditions.checkState(
           cause instanceof ConfiguredValueCreationException
-              || cause instanceof AspectCreationException // for top-level aspects
-              || cause instanceof ActionConflictException,
+              || cause instanceof ActionConflictException
+              // For top-level aspects
+              || cause instanceof AspectCreationException
+              || cause instanceof SkylarkImportFailedException,
           "%s -> %s",
           key,
           errorInfo);
@@ -534,7 +540,6 @@ public final class SkyframeBuildView {
     return trimmedConfig;
   }
 
-  @Nullable
   SkyframeDependencyResolver createDependencyResolver(Environment env) {
     return new SkyframeDependencyResolver(env);
   }

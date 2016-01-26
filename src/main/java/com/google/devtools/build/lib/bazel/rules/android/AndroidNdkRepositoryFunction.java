@@ -85,7 +85,7 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
     }
 
     if (!symlinkLocalRepositoryContents(
-        ndkSymlinkTreeDirectory, getOutputBase().getFileSystem().getPath(pathFragment), env)) {
+        ndkSymlinkTreeDirectory, getOutputBase().getFileSystem().getPath(pathFragment))) {
       return null;
     }
 

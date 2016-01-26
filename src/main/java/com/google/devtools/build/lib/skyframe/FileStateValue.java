@@ -164,11 +164,9 @@ public abstract class FileStateValue implements SkyValue {
                                         @Nullable TimestampGranularityMonitor tsgm)
         throws InconsistentFilesystemException {
       Preconditions.checkState(stat.isFile(), path);
+
       try {
-        byte[] digest = stat.getDigest();
-        if (digest == null) {
-          digest = path.getFastDigest();
-        }
+        byte[] digest = tryGetDigest(path, stat);
         if (digest == null) {
           long mtime = stat.getLastModifiedTime();
           // Note that TimestampGranularityMonitor#notifyDependenceOnFileTime is a thread-safe
@@ -190,6 +188,19 @@ public abstract class FileStateValue implements SkyValue {
         throw new InconsistentFilesystemException("'stat' said " + path + " is a file but then we "
             + "later encountered " + errorMessage + " which indicates that " + path + " is no "
             + "longer a file. Did you delete it during the build?");
+      }
+    }
+
+    @Nullable
+    private static byte[] tryGetDigest(Path path, FileStatusWithDigest stat) throws IOException {
+      try {
+        byte[] digest = stat.getDigest();
+        return digest != null ? digest : path.getFastDigest();
+      } catch (IOException ioe) {
+        if (!path.isReadable()) {
+          return null;
+        }
+        throw ioe;
       }
     }
 

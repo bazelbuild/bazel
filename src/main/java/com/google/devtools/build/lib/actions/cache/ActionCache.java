@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.actions.cache;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -27,6 +28,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import javax.annotation.Nullable;
 
 /**
  * An interface defining a cache of already-executed Actions.
@@ -61,7 +64,7 @@ public interface ActionCache {
    * Returns a new Entry instance. This method allows ActionCache subclasses to
    * define their own Entry implementation.
    */
-  ActionCache.Entry createEntry(String key);
+  ActionCache.Entry createEntry(String key, boolean discoversInputs);
 
   /**
    * An entry in the ActionCache that contains all action input and output
@@ -71,20 +74,22 @@ public interface ActionCache {
    * and getFileDigest() method is called, it becomes logically immutable (all methods
    * will continue to return same result regardless of internal data transformations).
    */
-  public final class Entry {
+  final class Entry {
     private final String actionKey;
+    @Nullable
+    // Null iff the corresponding action does not do input discovery.
     private final List<String> files;
     // If null, digest is non-null and the entry is immutable.
     private Map<String, Metadata> mdMap;
     private Digest digest;
 
-    public Entry(String key) {
+    public Entry(String key, boolean discoversInputs) {
       actionKey = key;
-      files = new ArrayList<>();
+      files = discoversInputs ? new ArrayList<String>() : null;
       mdMap = new HashMap<>();
     }
 
-    public Entry(String key, List<String> files, Digest digest) {
+    public Entry(String key, @Nullable List<String> files, Digest digest) {
       actionKey = key;
       this.files = files;
       this.digest = digest;
@@ -101,7 +106,9 @@ public interface ActionCache {
       Preconditions.checkState(digest == null);
 
       String execPath = relativePath.getPathString();
-      files.add(execPath);
+      if (discoversInputs()) {
+        files.add(execPath);
+      }
       mdMap.put(execPath, md);
     }
 
@@ -134,10 +141,17 @@ public interface ActionCache {
     }
 
     /**
-     * @return stored path strings.
+     * @return stored path strings, or null if the corresponding action does not discover inputs.
      */
     public Collection<String> getPaths() {
-      return files;
+      return discoversInputs() ? files : ImmutableList.<String>of();
+    }
+
+    /**
+     * @return whether the corresponding action discovers input files dynamically.
+     */
+    public boolean discoversInputs() {
+      return files != null;
     }
 
     @Override
@@ -150,11 +164,14 @@ public interface ActionCache {
       } else {
         builder.append(digest).append("\n");
       }
-      List<String> fileInfo = Lists.newArrayListWithCapacity(files.size());
-      fileInfo.addAll(files);
-      Collections.sort(fileInfo);
-      for (String info : fileInfo) {
-        builder.append("      ").append(info).append("\n");
+
+      if (discoversInputs()) {
+        List<String> fileInfo = Lists.newArrayListWithCapacity(files.size());
+        fileInfo.addAll(files);
+        Collections.sort(fileInfo);
+        for (String info : fileInfo) {
+          builder.append("      ").append(info).append("\n");
+        }
       }
       return builder.toString();
     }

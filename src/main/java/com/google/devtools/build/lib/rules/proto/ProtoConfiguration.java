@@ -40,6 +40,14 @@ public class ProtoConfiguration extends Fragment {
         category = "flags",
         help = "Additional options to pass to the protobuf compiler.")
     public List<String> protocOpts;
+
+    @Option(
+      name = "experimental_proto_extra_actions",
+      defaultValue = "false",
+      category = "experimental",
+      help = "Run extra actions for alternative Java api versions in a proto_library."
+    )
+    public boolean experimentalProtoExtraActions;
   }
 
   /**
@@ -71,5 +79,15 @@ public class ProtoConfiguration extends Fragment {
 
   public List<String> protocOpts() {
     return options.protocOpts;
+  }
+
+
+  /**
+   * Returns true if we will run extra actions for actions that are not run by default. If this
+   * is enabled, e.g. all extra_actions for alternative api-versions or language-flavours of a
+   * proto_library target are run.
+   */
+  public boolean runExperimentalProtoExtraActions() {
+    return options.experimentalProtoExtraActions;
   }
 }

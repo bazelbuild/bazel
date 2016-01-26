@@ -206,15 +206,11 @@ public class ConfigRuleClasses {
 
 /*<!-- #BLAZE_RULE (NAME = config_setting, TYPE = OTHER, FAMILY = General)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
   Matches an expected configuration state (expressed as Blaze flags) for the purpose of triggering
-  configurable attributes. See <a href="#select">select</a> for how to consume this rule and
-  <a href="common-definitions.html#configurable-attributes">
+  configurable attributes. See <a href="functions.html#select">select</a> for how to consume this
+  rule and <a href="common-definitions.html#configurable-attributes">
   Configurable attributes</a> for an overview of the general feature.
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="config_setting_examples">Examples</h4>
 
@@ -247,8 +243,8 @@ config_setting(
 
 <h4 id="config_setting_notes">Notes</h4>
 
-<p>See <a href="#select">select</a> for policies on what happens depending on how many rules match
-   an invocation.
+<p>See <a href="functions.html#select">select</a> for policies on what happens depending on how
+   many rules match an invocation.
 </p>
 
 <p>For flags that support shorthand forms (e.g. <code>--compilation_mode</code> vs.

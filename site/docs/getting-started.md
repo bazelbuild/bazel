@@ -1,5 +1,6 @@
 ---
 layout: documentation
+title: Getting Started
 ---
 
 # Getting Started with Bazel

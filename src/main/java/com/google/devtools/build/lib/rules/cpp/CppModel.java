@@ -124,9 +124,9 @@ public final class CppModel {
 
   /**
    * Adds a single source file to be compiled. Note that this should only be called for primary
-   * compilation units, not for header files or files that are otherwise included.
+   * compilation units, including module files or headers to be parsed or preprocessed.
    */
-  public CppModel addSources(Iterable<Artifact> sourceFiles, Label sourceLabel) {
+  public CppModel addCompilationUnitSources(Iterable<Artifact> sourceFiles, Label sourceLabel) {
     for (Artifact sourceFile : sourceFiles) {
       this.sourceFiles.add(Pair.of(sourceFile, sourceLabel));
     }
@@ -134,10 +134,10 @@ public final class CppModel {
   }
 
   /**
-   * Adds all the source files. Note that this should only be called for primary compilation units,
-   * not for header files or files that are otherwise included.
+   * Adds all the source files. Note that this should only be called for primary
+   * compilation units, including module files or headers to be parsed or preprocessed.
    */
-  public CppModel addSources(Iterable<Pair<Artifact, Label>> sources) {
+  public CppModel addCompilationUnitSources(Iterable<Pair<Artifact, Label>> sources) {
     Iterables.addAll(this.sourceFiles, sources);
     return this;
   }

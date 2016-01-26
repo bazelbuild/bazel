@@ -54,11 +54,7 @@ public class ObjcBundleRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = objc_bundle, TYPE = LIBRARY, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule encapsulates an already-built bundle. It is defined by a list of
 files in one or more <code>.bundle</code> directories.
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

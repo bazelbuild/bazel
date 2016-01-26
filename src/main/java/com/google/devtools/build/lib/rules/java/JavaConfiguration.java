@@ -32,6 +32,8 @@ import com.google.devtools.common.options.TriState;
 
 import java.util.List;
 
+import javax.annotation.Nullable;
+
 /**
  * A java compiler configuration containing the flags required for compilation.
  */
@@ -137,17 +139,17 @@ public final class JavaConfiguration extends Fragment {
   private final Label javacBootclasspath;
   private final Label javacExtdir;
   private final ImmutableList<String> javacOpts;
+  private final Label proguardBinary;
   private final ImmutableList<Label> extraProguardSpecs;
   private final TriState bundleTranslations;
   private final ImmutableList<Label> translationTargets;
   private final String javaCpu;
   private final JavaOptimizationMode javaOptimizationMode;
-  
   private final Label javaToolchain;
 
   // TODO(dmarting): remove when we have rolled out the new behavior
   private final boolean legacyBazelJavaTest;
-  
+
   JavaConfiguration(boolean generateJavaDeps,
       List<String> defaultJvmFlags, JavaOptions javaOptions, Label javaToolchain, String javaCpu,
       ImmutableList<String> defaultJavaBuilderJvmOpts)
@@ -168,6 +170,7 @@ public final class JavaConfiguration extends Fragment {
     this.javacBootclasspath = javaOptions.javacBootclasspath;
     this.javacExtdir = javaOptions.javacExtdir;
     this.javacOpts = ImmutableList.copyOf(javaOptions.javacOpts);
+    this.proguardBinary = javaOptions.proguard;
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
     this.bundleTranslations = javaOptions.bundleTranslations;
     this.javaCpu = javaCpu;
@@ -299,6 +302,14 @@ public final class JavaConfiguration extends Fragment {
   }
 
   /**
+   * Returns the label provided with --proguard_top, if any.
+   */
+  @Nullable
+  public Label getProguardBinary() {
+    return proguardBinary;
+  }
+
+  /**
    * Returns all labels provided with --extra_proguard_specs.
    */
   public List<Label> getExtraProguardSpecs() {
@@ -341,7 +352,7 @@ public final class JavaConfiguration extends Fragment {
   public JavaOptimizationMode getJavaOptimizationMode() {
     return javaOptimizationMode;
   }
-  
+
   /**
    * Returns true if java_test in Bazel should behave in legacy mode that existed before we
    * open-sourced our test runner.

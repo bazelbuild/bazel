@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.devtools.build.lib.rules.android.ProguardHelper.PROGUARD_SPECS;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -48,7 +47,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
-import com.google.devtools.build.lib.rules.android.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
@@ -59,6 +57,8 @@ import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaOptimizati
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
+import com.google.devtools.build.lib.rules.java.ProguardHelper;
+import com.google.devtools.build.lib.rules.java.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -131,7 +131,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("proguard_apply_mapping")
-        && ruleContext.attributes().get(PROGUARD_SPECS, BuildType.LABEL_LIST).isEmpty()) {
+        && ruleContext.attributes()
+            .get(ProguardHelper.PROGUARD_SPECS, BuildType.LABEL_LIST)
+            .isEmpty()) {
       ruleContext.attributeError("proguard_apply_mapping",
           "'proguard_apply_mapping' can only be used when 'proguard_specs' is also set");
       return null;
@@ -206,7 +208,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           ruleContext.attributes().get("application_id", Type.STRING),
           getExpandedMakeVarsForAttr(ruleContext, "version_code"),
           getExpandedMakeVarsForAttr(ruleContext, "version_name"),
-          false, ProguardHelper.getProguardConfigArtifact(ruleContext, ""));
+          false, /* incremental */
+          ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
+          null /* manifestOut */);
       if (ruleContext.hasErrors()) {
         return null;
       }
@@ -223,7 +227,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               ruleContext.attributes().get("application_id", Type.STRING),
               getExpandedMakeVarsForAttr(ruleContext, "version_code"),
               getExpandedMakeVarsForAttr(ruleContext, "version_name"),
-              true, ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"));
+              true, /* incremental */
+              ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"),
+              null /* manifestOut */);
       if (ruleContext.hasErrors()) {
         return null;
       }
@@ -240,7 +246,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               ruleContext.attributes().get("application_id", Type.STRING),
               getExpandedMakeVarsForAttr(ruleContext, "version_code"),
               getExpandedMakeVarsForAttr(ruleContext, "version_name"),
-              true, ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"));
+              true,
+              ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"),
+              null /* manifestOut */);
       if (ruleContext.hasErrors()) {
         return null;
       }
@@ -342,7 +350,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ImmutableList<Artifact> apksUnderTest,
       Artifact proguardMapping) throws InterruptedException {
     ImmutableList<Artifact> proguardSpecs = ProguardHelper.collectTransitiveProguardSpecs(
-        ruleContext, resourceApk.getResourceProguardConfig());
+        ruleContext, ImmutableList.of(resourceApk.getResourceProguardConfig()));
 
     ProguardOutput proguardOutput =
         applyProguard(
@@ -731,7 +739,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .getJavaOptimizationMode();
   }
 
-  /** Applies the proguard specifications, and creates a ProguardedJar. */
+  /**
+   * Applies the proguard specifications, and creates a ProguardedJar. Proguard's output artifacts
+   * are added to the given {@code filesBuilder}.
+   */
   private static ProguardOutput applyProguard(
       RuleContext ruleContext,
       AndroidCommon common,
@@ -757,9 +768,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .add(sdk.getAndroidJar())
         .addTransitive(common.getTransitiveNeverLinkLibraries())
         .build();
-    return ProguardHelper.createProguardAction(ruleContext, sdk.getProguard(), deployJarArtifact,
-        proguardSpecs, proguardMapping, libraryJars, proguardOutputJar,
-        ruleContext.attributes().get("proguard_generate_mapping", Type.BOOLEAN), filesBuilder);
+    ProguardOutput result = ProguardHelper.createProguardAction(ruleContext, sdk.getProguard(),
+        deployJarArtifact, proguardSpecs, proguardMapping, libraryJars, proguardOutputJar,
+        ruleContext.attributes().get("proguard_generate_mapping", Type.BOOLEAN));
+    // Since Proguard is being run, add its output artifacts to the given filesBuilder
+    result.addAllToSet(filesBuilder);
+    return result;
   }
 
   private static ProguardOutput createEmptyProguardAction(RuleContext ruleContext,
@@ -767,8 +781,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     ImmutableList.Builder<Artifact> failures =
         ImmutableList.<Artifact>builder().add(proguardOutputJar);
     if (ruleContext.attributes().get("proguard_generate_mapping", Type.BOOLEAN)) {
-      failures.add(
-          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_MAP));
+      failures.add(ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_MAP));
     }
     JavaOptimizationMode optMode = getJavaOptimizationMode(ruleContext);
     ruleContext.registerAction(

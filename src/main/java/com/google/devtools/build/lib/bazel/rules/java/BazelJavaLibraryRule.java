@@ -171,12 +171,8 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = java_library, TYPE = LIBRARY, FAMILY = Java) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule compiles and links sources into a <code>.jar</code> file.</p>
 
 ${IMPLICIT_OUTPUTS}
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

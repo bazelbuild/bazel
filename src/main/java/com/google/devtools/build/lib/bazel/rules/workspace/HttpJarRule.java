@@ -65,13 +65,9 @@ public class HttpJarRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = http_jar, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>Downloads a jar from a URL and makes it available to be used as a Java dependency.</p>
 
 <p>Downloaded files must have a .jar extension.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="http_jar_examples">Examples</h4>
 

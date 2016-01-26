@@ -18,6 +18,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.FilesetEntry;
 import com.google.devtools.build.lib.packages.InputFile;
@@ -30,7 +31,6 @@ import com.google.devtools.build.lib.query2.FakeSubincludeTarget;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
 import com.google.devtools.build.lib.query2.output.AspectResolver.BuildFileDependencyMode;
 import com.google.devtools.build.lib.query2.output.OutputFormatter.AbstractUnorderedFormatter;
-import com.google.devtools.build.lib.util.BinaryPredicate;
 import com.google.devtools.build.lib.util.Pair;
 
 import org.w3c.dom.DOMException;
@@ -61,7 +61,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
 
   private QueryOptions options;
   private AspectResolver aspectResolver;
-  private BinaryPredicate<Rule, Attribute> dependencyFilter;
+  private DependencyFilter dependencyFilter;
 
   @Override
   public String getName() {
@@ -127,7 +127,7 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
    * - 'name' attribute is target's label.
    * - 'location' attribute is consistent with output of --output location.
    * - rule attributes are represented in the DOM structure.
-   * @throws InterruptedException 
+   * @throws InterruptedException
    */
   private Element createTargetElement(Document doc, Target target)
       throws InterruptedException {
@@ -155,7 +155,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
         inputElem.setAttribute("name", label.toString());
         elem.appendChild(inputElem);
       }
-      for (Label label : aspectResolver.computeAspectDependencies(target).values()) {
+      for (Label label :
+          aspectResolver.computeAspectDependencies(target, dependencyFilter).values()) {
         Element inputElem = doc.createElement("rule-input");
         inputElem.setAttribute("name", label.toString());
         elem.appendChild(inputElem);
@@ -346,8 +347,8 @@ class XmlOutputFormatter extends AbstractUnorderedFormatter {
       // Fileset entries: not configurable.
       FilesetEntry filesetEntry = (FilesetEntry) Iterables.getOnlyElement(values);
       elem = doc.createElement("fileset-entry");
-      elem.setAttribute("srcdir",  filesetEntry.getSrcLabel().toString());
-      elem.setAttribute("destdir",  filesetEntry.getDestDir().toString());
+      elem.setAttribute("srcdir", filesetEntry.getSrcLabel().toString());
+      elem.setAttribute("destdir", filesetEntry.getDestDir().toString());
       elem.setAttribute("symlinks", filesetEntry.getSymlinkBehavior().toString());
       elem.setAttribute("strip_prefix", filesetEntry.getStripPrefix());
 

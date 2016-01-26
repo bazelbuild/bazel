@@ -106,7 +106,7 @@ class ArtifactFunction implements SkyFunction {
       return null;
     }
     if (!fileValue.exists()) {
-      if (allowedMissingInputs.apply(((RootedPath) fileSkyKey.argument()).getRelativePath())) {
+      if (isAllowedMissingInput(fileSkyKey)) {
         return FileArtifactValue.MISSING_FILE_MARKER;
       } else {
         return missingInputFile(artifact, mandatory, null, env.getListener());
@@ -115,8 +115,15 @@ class ArtifactFunction implements SkyFunction {
     try {
       return FileArtifactValue.create(artifact, fileValue);
     } catch (IOException e) {
+      if (isAllowedMissingInput(fileSkyKey)) {
+        return FileArtifactValue.MISSING_FILE_MARKER;
+      }
       throw makeMissingInputFileExn(artifact, mandatory, e, env.getListener());
     }
+  }
+
+  private boolean isAllowedMissingInput(SkyKey fileSkyKey) {
+    return allowedMissingInputs.apply(((RootedPath) fileSkyKey.argument()).getRelativePath());
   }
 
   private static ArtifactValue missingInputFile(Artifact artifact, boolean mandatory,

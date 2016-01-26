@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -130,7 +131,9 @@ public class BaseSpawnTest {
         ImmutableMap.<String, String>of(),
         runfilesManifests,
         runfilesSupplier,
-        null, null);
+        null,
+        null,
+        ImmutableSet.<PathFragment>of());
   }
 
   private static Artifact mkArtifact(String path, Root rootDir) {

@@ -454,19 +454,11 @@ public final class BinaryOperatorExpression extends Expression {
 
     // string % tuple, string % dict, string % anything-else
     if (lval instanceof String) {
+      String pattern = (String) lval;
       try {
-        String pattern = (String) lval;
-        if (rval instanceof List<?>) {
-          List<?> rlist = (List<?>) rval;
-          if (EvalUtils.isTuple(rlist)) {
-            return Printer.formatToString(pattern, rlist);
-          }
-          /* string % list: fall thru */
-        }
         if (rval instanceof Tuple) {
-          return Printer.formatToString(pattern, ((Tuple) rval).getList());
+          return Printer.formatToString(pattern, (Tuple) rval);
         }
-
         return Printer.formatToString(pattern, Collections.singletonList(rval));
       } catch (IllegalFormatException e) {
         throw new EvalException(location, e.getMessage());

@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -96,7 +97,8 @@ public class TransitiveTraversalFunction
       // Retrieve the providers of the dep from the TransitiveTraversalValue, so we can avoid
       // issuing a dep on its defining Package.
       Set<String> providers = traversalVal.getProviders();
-      return AspectDefinition.visitAspectsIfRequired(fromRule, attr, providers).values();
+      return AspectDefinition.visitAspectsIfRequired(fromRule, attr, providers,
+          DependencyFilter.ALL_DEPS).values();
     } catch (NoSuchThingException e) {
       // Do nothing. This error was handled when we computed the corresponding
       // TransitiveTargetValue.

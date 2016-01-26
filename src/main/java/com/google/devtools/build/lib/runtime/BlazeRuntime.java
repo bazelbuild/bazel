@@ -987,6 +987,10 @@ public final class BlazeRuntime {
   }
 
   private static FileSystem fileSystemImplementation() {
+    if ("0".equals(System.getProperty("io.bazel.UnixFileSystem"))) {
+      // Ignore UnixFileSystem, to be used for bootstrapping.
+      return new JavaIoFileSystem();
+    }
     // The JNI-based UnixFileSystem is faster, but on Windows it is not available.
     return OS.getCurrent() == OS.WINDOWS ? new JavaIoFileSystem() : new UnixFileSystem();
   }
@@ -1143,6 +1147,14 @@ public final class BlazeRuntime {
       workspaceDirectoryPath = fs.getPath(workspaceDirectory);
     }
 
+    if (fs instanceof UnixFileSystem) {
+      ((UnixFileSystem) fs).setRootsWithAllowedHardlinks(
+          // Some tests pass nulls for these paths, so remove these from the list
+          Iterables.filter(
+              Arrays.asList(installBasePath, outputBasePath, workspaceDirectoryPath),
+              Predicates.notNull()));
+    }
+
     BlazeDirectories directories =
         new BlazeDirectories(installBasePath, outputBasePath, workspaceDirectoryPath,
                              startupOptions.deepExecRoot, startupOptions.installMD5);
@@ -1196,18 +1208,18 @@ public final class BlazeRuntime {
         new Handler() {
           @Override
           public void publish(LogRecord record) {
+            System.err.println("Remote logging disabled for testing, forcing abrupt shutdown.");
+            System.err.printf("%s#%s: %s\n",
+                record.getSourceClassName(),
+                record.getSourceMethodName(),
+                record.getMessage());
+
             Throwable e = record.getThrown();
-            String message =
-                record.getSourceClassName()
-                    + "#"
-                    + record.getSourceMethodName()
-                    + ": "
-                    + record.getMessage();
-            if (e == null) {
-              throw new IllegalStateException(message);
-            } else {
-              throw new IllegalStateException(message, e);
+            if (e != null) {
+              e.printStackTrace();
             }
+
+            Runtime.getRuntime().halt(ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode());
           }
 
           @Override

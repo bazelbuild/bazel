@@ -615,7 +615,7 @@ public class BazelCppRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$cc_binary_base")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(CcRule.class)
+          .ancestors(CcRule.class, RequiresXcodeConfigRule.class)
           .build();
     }
   }
@@ -675,8 +675,7 @@ public class BazelCppRuleClasses {
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
           .name("cc_binary")
-          .ancestors(CcBinaryBaseRule.class, BazelBaseRuleClasses.BinaryBaseRule.class,
-              RequiresXcodeConfigRule.class)
+          .ancestors(CcBinaryBaseRule.class, BazelBaseRuleClasses.BinaryBaseRule.class)
           .factoryClass(BazelCcBinary.class)
           .build();
     }
@@ -803,20 +802,12 @@ public class BazelCppRuleClasses {
 
 /*<!-- #BLAZE_RULE (NAME = cc_binary, TYPE = BINARY, FAMILY = C / C++) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 ${IMPLICIT_OUTPUTS}
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/
 
 
 /*<!-- #BLAZE_RULE (NAME = cc_library, TYPE = LIBRARY, FAMILY = C / C++) -->
-
-${ATTRIBUTE_SIGNATURE}
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="hdrs">Header inclusion checking</h4>
 
@@ -928,9 +919,5 @@ cc_library(
 
 
 /*<!-- #BLAZE_RULE (NAME = cc_test, TYPE = TEST, FAMILY = C / C++) -->
-
-${ATTRIBUTE_SIGNATURE}
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

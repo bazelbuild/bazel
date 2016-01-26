@@ -50,8 +50,6 @@ public final class BazelPyBinaryRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = py_binary, TYPE = BINARY, FAMILY = Python) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
   A <code>py_binary</code> is an executable Python program consisting
   of a collection of <code>.py</code> source files (possibly belonging
@@ -60,8 +58,6 @@ ${ATTRIBUTE_SIGNATURE}
   program at run-time, and a stub script that starts up the program with
   the correct initial environment and data.
 </p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="py_binary_examples">Examples</h4>
 

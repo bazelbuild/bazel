@@ -80,12 +80,14 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
         PackageIdentifier.DEFAULT_REPOSITORY_NAME, rootedPath, excludedPaths, filteringPolicy);
   }
 
-  private EvaluationResult<PrepareDepsOfTargetsUnderDirectoryValue> getEvaluationResult(SkyKey key)
-      throws InterruptedException {
+  private EvaluationResult<?> getEvaluationResult(SkyKey... keys) throws InterruptedException {
     BuildDriver driver = skyframeExecutor.getDriverForTesting();
     EvaluationResult<PrepareDepsOfTargetsUnderDirectoryValue> evaluationResult =
-        driver.evaluate(ImmutableList.of(key), /*keepGoing=*/false,
-            SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT, reporter);
+        driver.evaluate(
+            ImmutableList.copyOf(keys),
+            /*keepGoing=*/ false,
+            SequencedSkyframeExecutor.DEFAULT_THREAD_COUNT,
+            reporter);
     Preconditions.checkState(!evaluationResult.hasError());
     return evaluationResult;
   }
@@ -97,8 +99,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
 
     // When package "a" is evaluated,
     SkyKey key = createPrepDepsKey(rootDirectory, new PathFragment("a"));
-    EvaluationResult<PrepareDepsOfTargetsUnderDirectoryValue> evaluationResult =
-        getEvaluationResult(key);
+    EvaluationResult<?> evaluationResult = getEvaluationResult(key);
     WalkableGraph graph = Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
 
     // Then the TransitiveTraversalValue for "a:a" is evaluated,
@@ -124,8 +125,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
     // When package "a" is evaluated under a test-only filtering policy,
     SkyKey key = createPrepDepsKey(rootDirectory, new PathFragment("a"),
         ImmutableSet.<PathFragment>of(), FilteringPolicies.FILTER_TESTS);
-    EvaluationResult<PrepareDepsOfTargetsUnderDirectoryValue> evaluationResult =
-        getEvaluationResult(key);
+    EvaluationResult<?> evaluationResult = getEvaluationResult(key);
     WalkableGraph graph = Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
 
     // Then the TransitiveTraversalValue for "a:a" is not evaluated,
@@ -161,8 +161,10 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
     PathFragment excludedPathFragment = new PathFragment("a/b");
     SkyKey key = createPrepDepsKey(rootDirectory, new PathFragment("a"),
         ImmutableSet.of(excludedPathFragment));
-    EvaluationResult<PrepareDepsOfTargetsUnderDirectoryValue> evaluationResult =
-        getEvaluationResult(key);
+    SkyKey collectkey =
+        createCollectPackagesKey(
+            rootDirectory, new PathFragment("a"), ImmutableSet.of(excludedPathFragment));
+    EvaluationResult<?> evaluationResult = getEvaluationResult(key, collectkey);
     CollectPackagesUnderDirectoryValue value =
         (CollectPackagesUnderDirectoryValue)
             evaluationResult
@@ -206,8 +208,9 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
     // When the top package is evaluated for recursive package values, and "a/b/c" is excluded,
     ImmutableSet<PathFragment> excludedPaths = ImmutableSet.of(new PathFragment("a/b/c"));
     SkyKey key = createPrepDepsKey(rootDirectory, new PathFragment("a"), excludedPaths);
-    EvaluationResult<PrepareDepsOfTargetsUnderDirectoryValue> evaluationResult =
-        getEvaluationResult(key);
+    SkyKey collectKey =
+        createCollectPackagesKey(rootDirectory, new PathFragment("a"), excludedPaths);
+    EvaluationResult<?> evaluationResult = getEvaluationResult(key, collectKey);
     CollectPackagesUnderDirectoryValue value =
         (CollectPackagesUnderDirectoryValue)
             evaluationResult

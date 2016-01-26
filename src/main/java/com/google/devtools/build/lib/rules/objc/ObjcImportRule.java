@@ -66,12 +66,8 @@ public class ObjcImportRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = objc_import, TYPE = LIBRARY, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule encapsulates an already-compiled static library in the form of an
 <code>.a</code> file. It also allows exporting headers and resources using the same
 attributes supported by <code>objc_library</code>.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

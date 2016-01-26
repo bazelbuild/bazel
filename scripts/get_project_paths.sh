@@ -18,10 +18,10 @@
 set -eu
 
 # Build everything
-bazel build ${TARGET} >&2 || exit $?
+bazel build -- ${TARGET} >&2 || exit $?
 
 function query() {
-    bazel query "$@"
+    bazel query -k -- "$@"
 }
 
 # Find the bazel-workspaceName link
@@ -43,10 +43,12 @@ function query_to_path() {
      | sed 's|^//||' | sort -u
 }
 
+ACTUAL_TARGETS="set($(query $(echo ${TARGET} | sed 's/ \([^-]\)/ +\1/g')))"
+
 # Now for java each targets, find all sources and all jars
 PATHS=$(query_to_path 'filter("\.java$",
                     deps(kind("(java_binary|java_library|java_test|java_plugin)",
-                         deps('"$TARGET"')))
+                         deps('"$ACTUAL_TARGETS"')))
                     except deps(//tools/...))')
 # Java Files:
 JAVA_PATHS=$(echo "$PATHS" | sed 's_\(/java\(tests\)\{0,1\}\)/.*$_\1_' | sort -u)
@@ -55,10 +57,10 @@ JAVA_PATHS=$(echo "$PATHS" | sed 's_\(/java\(tests\)\{0,1\}\)/.*$_\1_' | sort -u
 PLUGIN_PATHS=$(query_to_path 'filter("\.jar$",
                                      deps(kind(java_import,
                                                deps(kind(java_plugin,
-                                                         deps('"$TARGET"')))))
+                                                         deps('"$ACTUAL_TARGETS"')))))
                                      except deps(//tools/...))')
 # Jar Files:
-JAR_FILES=$(query_to_path 'filter("\.jar$", deps(kind(java_import, deps('"$TARGET"')))
+JAR_FILES=$(query_to_path 'filter("\.jar$", deps(kind(java_import, deps('"$ACTUAL_TARGETS"')))
                                             except deps(//tools/...))')
 
 # Generated files are direct dependencies of java rules that are not java rules,
@@ -66,13 +68,13 @@ JAR_FILES=$(query_to_path 'filter("\.jar$", deps(kind(java_import, deps('"$TARGE
 # We also handle genproto separately it is output in bazel-genfiles not in
 # bazel-bin.
 # We suppose that all files are generated in the same package than the library.
-GEN_LIBS=$(query 'let gendeps = kind(rule, deps(kind(java_*, deps('"$TARGET"')), 1))
-                              - kind("(java_.*|filegroup|.*_binary|genproto|bind)", deps('"$TARGET"'))
+GEN_LIBS=$(query 'let gendeps = kind(rule, deps(kind(java_*, deps('"$ACTUAL_TARGETS"')), 1))
+                              - kind("(java_.*|filegroup|.*_binary|genproto|bind)", deps('"$ACTUAL_TARGETS"'))
                               - deps(//tools/...)
-                  in rdeps('"$TARGET"', set($gendeps), 1) - set($gendeps)' \
+                  in rdeps('"$ACTUAL_TARGETS"', set($gendeps), 1) - set($gendeps)' \
     | sed 's|^//\(.*\):\(.*\)|bazel-bin/\1/lib\2.jar:bazel-genfiles/\1|')
 
 # Hack for genproto
-PROTOBUFS=$(query 'kind(genproto, deps('"$TARGET"'))' \
+PROTOBUFS=$(query 'kind(genproto, deps('"$ACTUAL_TARGETS"'))' \
     | sed 's|^//\(.*\):\(.*\)$|bazel-bin/\1/lib\2.jar:bazel-bin/\1/lib\2.jar.proto_output/|')
 LIB_PATHS="${JAR_FILES} ${PROTOBUFS} ${GEN_LIBS}"

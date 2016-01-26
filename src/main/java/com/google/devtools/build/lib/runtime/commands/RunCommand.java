@@ -246,8 +246,11 @@ public class RunCommand implements BlazeCommand  {
             options.getOptions(BuildRequestOptions.class).getSymlinkPrefix());
     List<String> cmdLine = new ArrayList<>();
     if (runOptions.scriptPath == null) {
+      PathFragment processWrapperPath = runtime.getBinTools().getExecPath(PROCESS_WRAPPER);
+      Preconditions.checkNotNull(
+          processWrapperPath, PROCESS_WRAPPER + " not found in embedded tools");
       cmdLine.add(runtime.getDirectories().getExecRoot()
-          .getRelative(runtime.getBinTools().getExecPath(PROCESS_WRAPPER)).getPathString());
+          .getRelative(processWrapperPath).getPathString());
       cmdLine.add("-1");
       cmdLine.add("15");
       cmdLine.add("-");

@@ -162,6 +162,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                 .put(SkyFunctions.PACKAGE,
                     new PackageFunction(null, null, null, null, null, null, null))
                 .put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(null))
+                .put(SkyFunctions.WORKSPACE_AST,
+                    new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
                 .put(SkyFunctions.WORKSPACE_FILE,
                     new WorkspaceFileFunction(TestRuleClassProvider.getRuleClassProvider(),
                         new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),
@@ -352,8 +354,8 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     }
 
     @Override
-    public Entry createEntry(String key) {
-      return new ActionCache.Entry(key);
+    public Entry createEntry(String key, boolean discoversInputs) {
+      return new ActionCache.Entry(key, discoversInputs);
     }
 
     public synchronized void reset() {

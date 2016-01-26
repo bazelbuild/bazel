@@ -14,12 +14,13 @@
 
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.fail;
 
+import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -35,6 +36,8 @@ import org.junit.runners.JUnit4;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -42,14 +45,18 @@ import java.util.Map;
 @RunWith(JUnit4.class)
 @TestSpec(size = Suite.SMALL_TESTS)
 public class SingleBuildFileCacheTest {
-  private FileSystem fs;
-  private ActionInputFileCache cache;
-  private Map<String, Integer> calls;
   private static final String EMPTY_MD5 = "d41d8cd98f00b204e9800998ecf8427e";
+
+  private FileSystem fs;
+  private Map<String, Integer> calls;
+  private Map<String, byte[]> md5Overrides;
+
+  private SingleBuildFileCache underTest;
 
   @Before
   public final void setUp() throws Exception {
     calls = new HashMap<>();
+    md5Overrides = new HashMap<>();
     fs = new InMemoryFileSystem() {
         @Override
         protected InputStream getInputStream(Path path) throws IOException {
@@ -59,8 +66,14 @@ public class SingleBuildFileCacheTest {
           calls.put(path.toString(), c);
           return super.getInputStream(path);
         }
+
+        @Override
+        protected byte[] getMD5Digest(Path path) throws IOException {
+          byte[] override = md5Overrides.get(path.getPathString());
+          return override != null ? override : super.getMD5Digest(path);
+        }
       };
-    cache = new SingleBuildFileCache("/", fs);
+    underTest = new SingleBuildFileCache("/", fs);
     Path root = fs.getRootDirectory();
     Path file = root.getChild("empty");
     file.getOutputStream().close();
@@ -71,13 +84,13 @@ public class SingleBuildFileCacheTest {
     ActionInput empty = ActionInputHelper.fromPath("/noexist");
     IOException caught = null;
     try {
-      cache.getDigest(empty);
+      underTest.getDigest(empty);
       fail("non existent file should raise exception");
     } catch (IOException expected) {
       caught = expected;
     }
     try {
-      cache.getSizeInBytes(empty);
+      underTest.getSizeInBytes(empty);
       fail("non existent file should raise exception.");
     } catch (IOException expected) {
       assertSame(caught, expected);
@@ -87,25 +100,41 @@ public class SingleBuildFileCacheTest {
   @Test
   public void testCache() throws Exception {
     ActionInput empty = ActionInputHelper.fromPath("/empty");
-    cache.getDigest(empty);
+    underTest.getDigest(empty);
     assert(calls.containsKey("/empty"));
     assertEquals(1, (int) calls.get("/empty"));
-    cache.getDigest(empty);
+    underTest.getDigest(empty);
     assertEquals(1, (int) calls.get("/empty"));
   }
 
   @Test
   public void testBasic() throws Exception {
     ActionInput empty = ActionInputHelper.fromPath("/empty");
-    assertEquals(0, cache.getSizeInBytes(empty));
-    ByteString digest = cache.getDigest(empty);
+    assertEquals(0, underTest.getSizeInBytes(empty));
+    ByteString digest = underTest.getDigest(empty);
 
     assertEquals(EMPTY_MD5, digest.toStringUtf8());
-    assertEquals("/empty", cache.getInputFromDigest(digest).getExecPathString());
-    assert(cache.contentsAvailableLocally(digest));
+    assertEquals("/empty", underTest.getInputFromDigest(digest).getExecPathString());
+    assert(underTest.contentsAvailableLocally(digest));
 
     ByteString other = ByteString.copyFrom("f41d8cd98f00b204e9800998ecf8427e", "UTF-16");
-    assert(!cache.contentsAvailableLocally(other));
+    assert(!underTest.contentsAvailableLocally(other));
     assert(calls.containsKey("/empty"));
+  }
+
+  @Test
+  public void testUnreadableFileWhenFileSystemSupportsDigest() throws Exception {
+    byte[] expectedDigestRaw = MessageDigest.getInstance("md5").digest(
+        "randomtext".getBytes(StandardCharsets.UTF_8));
+    ByteString expectedDigestEncoded = ByteString.copyFromUtf8(
+        BaseEncoding.base16().lowerCase().encode(expectedDigestRaw));
+    md5Overrides.put("/unreadable", expectedDigestRaw);
+
+    ActionInput input = ActionInputHelper.fromPath("/unreadable");
+    Path file = fs.getPath("/unreadable");
+    file.getOutputStream().close();
+    file.chmod(0);
+    ByteString actualDigest = underTest.getDigest(input);
+    assertThat(expectedDigestEncoded).isEqualTo(actualDigest);
   }
 }

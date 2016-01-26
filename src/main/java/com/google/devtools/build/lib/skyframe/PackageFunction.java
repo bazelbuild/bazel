@@ -339,10 +339,10 @@ public class PackageFunction implements SkyFunction {
     PackageValue workspace = null;
     try {
       workspace = (PackageValue) env.getValueOrThrow(workspaceKey, IOException.class,
-          FileSymlinkException.class, InconsistentFilesystemException.class,
-          EvalException.class);
+      FileSymlinkException.class, InconsistentFilesystemException.class,
+      EvalException.class, SkylarkImportFailedException.class);
     } catch (IOException | FileSymlinkException | InconsistentFilesystemException
-        | EvalException e) {
+          | EvalException | SkylarkImportFailedException e) {
       throw new PackageFunctionException(new BadWorkspaceFileException(e.getMessage()),
           Transience.PERSISTENT);
     }
@@ -566,7 +566,7 @@ public class PackageFunction implements SkyFunction {
     Map<String, Extension> importMap = Maps.newHashMapWithExpectedSize(imports.size());
     ImmutableList.Builder<SkylarkFileDependency> fileDependencies = ImmutableList.builder();
     ImmutableMap<String, Label> importPathMap;
-    
+
     // Find the labels corresponding to the load statements.
     Label labelForCurrBuildFile;
     try {
@@ -640,12 +640,12 @@ public class PackageFunction implements SkyFunction {
       throw new PackageFunctionException(
           new InternalInconsistentFilesystemException(packageId, e), Transience.PERSISTENT);
     }
-    
+
     if (valuesMissing) {
       // Some imports are unavailable.
       return null;
     }
-    
+
     // Process the loaded imports.
     for (Entry<String, Label> importEntry : importPathMap.entrySet()) {
       String importString = importEntry.getKey();
@@ -656,7 +656,7 @@ public class PackageFunction implements SkyFunction {
       importMap.put(importString, importLookupValue.getEnvironmentExtension());
       fileDependencies.add(importLookupValue.getDependency());
     }
-    
+
     return new SkylarkImportResult(importMap, transitiveClosureOfLabels(fileDependencies.build()));
   }
 

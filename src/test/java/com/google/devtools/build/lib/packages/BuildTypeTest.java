@@ -19,10 +19,10 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
@@ -58,7 +58,13 @@ public class BuildTypeTest {
     Label srcDir = Label.create("foo", "src");
     Label entryLabel = Label.create("foo", "entry");
     FilesetEntry input =
-        new FilesetEntry(srcDir, ImmutableList.of(entryLabel), null, null, null, null);
+        new FilesetEntry(
+            /* srcLabel */ srcDir,
+            /* files */ ImmutableList.of(entryLabel),
+            /* excludes */ null,
+            /* destDir */ null,
+            /* symlinkBehavior */ null,
+            /* stripPrefix */ null);
     assertEquals(input, BuildType.FILESET_ENTRY.convert(input, null, currentRule));
     assertThat(BuildType.FILESET_ENTRY.flatten(input)).containsExactly(entryLabel);
   }
@@ -69,8 +75,20 @@ public class BuildTypeTest {
     Label entry1Label = Label.create("foo", "entry1");
     Label entry2Label = Label.create("foo", "entry");
     List<FilesetEntry> input = ImmutableList.of(
-        new FilesetEntry(srcDir, ImmutableList.of(entry1Label), null, null, null, null),
-        new FilesetEntry(srcDir, ImmutableList.of(entry2Label), null, null, null, null));
+        new FilesetEntry(
+            /* srcLabel */ srcDir,
+            /* files */ ImmutableList.of(entry1Label),
+            /* excludes */ null,
+            /* destDir */ null,
+            /* symlinkBehavior */ null,
+            /* stripPrefix */ null),
+        new FilesetEntry(
+            /* srcLabel */ srcDir,
+            /* files */ ImmutableList.of(entry2Label),
+            /* excludes */ null,
+            /* destDir */ null,
+            /* symlinkBehavior */ null,
+            /* stripPrefix */ null));
     assertEquals(input, BuildType.FILESET_ENTRY_LIST.convert(input, null, currentRule));
     assertThat(BuildType.FILESET_ENTRY_LIST.flatten(input)).containsExactly(entry1Label, entry2Label);
   }
@@ -249,9 +267,13 @@ public class BuildTypeTest {
 
   private static FilesetEntry makeFilesetEntry() {
     try {
-      return new FilesetEntry(Label.parseAbsolute("//foo:bar"),
-                              Lists.<Label>newArrayList(), Lists.newArrayList("xyz"), "",
-                              FilesetEntry.SymlinkBehavior.COPY, ".");
+      return new FilesetEntry(
+          /* srcLabel */ Label.parseAbsolute("//foo:bar"),
+          /* files */ ImmutableList.<Label>of(),
+          /* excludes */ ImmutableSet.of("xyz"),
+          /* destDir */ null,
+          /* symlinkBehavior */ null,
+          /* stripPrefix */ null);
     } catch (LabelSyntaxException e) {
       throw new RuntimeException("Bad label: ", e);
     }
@@ -278,7 +300,12 @@ public class BuildTypeTest {
       throws LabelSyntaxException {
     Label label = Label.parseAbsolute("//x");
     return new FilesetEntry(
-        label, Arrays.asList(label), Arrays.<String>asList(), "", symlinkBehavior, ".");
+        /* srcLabel */ label,
+        /* files */ Arrays.asList(label),
+        /* excludes */ null,
+        /* destDir */ null,
+        /* symlinkBehavior */ symlinkBehavior,
+        /* stripPrefix */ null);
   }
 
   private FilesetEntry createTestFilesetEntry() throws LabelSyntaxException {
@@ -316,12 +343,12 @@ public class BuildTypeTest {
   private FilesetEntry createStripPrefixFilesetEntry(String stripPrefix)  throws Exception {
     Label label = Label.parseAbsolute("//x");
     return new FilesetEntry(
-        label,
-        Arrays.asList(label),
-        Arrays.<String>asList(),
-        "",
-        FilesetEntry.SymlinkBehavior.DEREFERENCE,
-        stripPrefix);
+        /* srcLabel */ label,
+        /* files */ Arrays.asList(label),
+        /* excludes */ null,
+        /* destDir */ null,
+        /* symlinkBehavior */ FilesetEntry.SymlinkBehavior.DEREFERENCE,
+        /* stripPrefix */ stripPrefix);
   }
 
   @Test
@@ -338,10 +365,24 @@ public class BuildTypeTest {
 
   @Test
   public void testPrintFilesetEntry() throws Exception {
-    assertEquals("FilesetEntry(srcdir = \"//foo:bar\", files = [], "
-               + "excludes = [\"xyz\"], destdir = \"\", "
-               + "strip_prefix = \".\", symlinks = \"copy\")",
-                 Printer.repr(makeFilesetEntry()));
+    assertThat(
+        Printer.repr(
+            new FilesetEntry(
+                /* srcLabel */ Label.parseAbsolute("//foo:BUILD"),
+                /* files */ ImmutableList.of(Label.parseAbsolute("//foo:bar")),
+                /* excludes */ ImmutableSet.of("baz"),
+                /* destDir */ "qux",
+                /* symlinkBehavior */ FilesetEntry.SymlinkBehavior.DEREFERENCE,
+                /* stripPrefix */ "blah")))
+        .isEqualTo(
+            Joiner.on(" ").join(
+                ImmutableList.of(
+                    "FilesetEntry(srcdir = \"//foo:BUILD\",",
+                    "files = [\"//foo:bar\"],",
+                    "excludes = [\"baz\"],",
+                    "destdir = \"qux\",",
+                    "strip_prefix = \"blah\",",
+                    "symlinks = \"dereference\")")));
   }
 
   @Test

@@ -78,12 +78,8 @@ public class GitRepositoryRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = git_repository, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>Clones a Git repository, checks out the specified tag, or commit, and makes its targets
 available for binding.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="git_repository_examples">Examples</h4>
 

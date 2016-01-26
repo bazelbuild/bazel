@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -169,7 +170,7 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
       }
 
       Multimap<Attribute, Label> transitions =
-              ((Rule) target).getTransitions(Rule.NO_NODEP_ATTRIBUTES);
+          ((Rule) target).getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES);
       for (Entry<Attribute, Label> entry : transitions.entries()) {
         ValueOrException2<NoSuchPackageException, NoSuchTargetException> value =
             labelDepMap.get(entry.getValue());
@@ -217,7 +218,7 @@ abstract class TransitiveBaseTraversalFunction<TProcessedTargets> implements Sky
   }
 
   private static void visitRule(Target target, Set<Label> labels) {
-    labels.addAll(((Rule) target).getTransitions(Rule.NO_NODEP_ATTRIBUTES).values());
+    labels.addAll(((Rule) target).getTransitions(DependencyFilter.NO_NODEP_ATTRIBUTES).values());
   }
 
   private static void visitTargetVisibility(Target target, Set<Label> labels) {

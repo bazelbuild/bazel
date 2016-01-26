@@ -49,10 +49,6 @@ public final class BazelShBinaryRule implements RuleDefinition {
   the extension (e.g. <code>.sh</code>); do not give the rule and the file the same name.
 </p>
 
-${ATTRIBUTE_SIGNATURE}
-
-${ATTRIBUTE_DEFINITION}
-
 <h4 id="sh_binary_examples">Example</h4>
 
 <p>For a simple shell script with no dependencies or data:

@@ -59,13 +59,9 @@ public final class BazelPyTestRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = py_test, TYPE = TEST, FAMILY = Python) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
 A <code>py_test()</code> rule compiles a test.  A test is a binary wrapper
  around some test code.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="py_test_examples">Examples</h4>
 

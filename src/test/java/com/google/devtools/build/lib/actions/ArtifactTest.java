@@ -337,6 +337,27 @@ public class ArtifactTest {
     assertThat(constructed).isEqualTo("aaa/bbb/ccc/ddd");
   }
 
+  @Test
+  public void testIsSourceArtifact() throws Exception {
+    assertThat(
+        new Artifact(scratch.file("/src/foo.cc"), Root.asSourceRoot(scratch.dir("/")),
+            new PathFragment("src/foo.cc"))
+            .isSourceArtifact())
+        .isTrue();
+    assertThat(
+        new Artifact(scratch.file("/genfiles/aaa/bar.out"),
+            Root.asDerivedRoot(scratch.dir("/genfiles"), scratch.dir("/genfiles/aaa")))
+            .isSourceArtifact())
+        .isFalse();
+
+  }
+
+  @Test
+  public void testGetRoot() throws Exception {
+    Root root = Root.asDerivedRoot(scratch.dir("/newRoot"));
+    assertThat(new Artifact(scratch.file("/newRoot/foo"), root).getRoot()).isEqualTo(root);
+  }
+
   private Artifact createDirNameArtifact() throws Exception {
     return new Artifact(scratch.file("/aaa/bbb/ccc/ddd"), Root.asDerivedRoot(scratch.dir("/")));
   }

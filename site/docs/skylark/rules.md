@@ -1,3 +1,7 @@
+---
+layout: documentation
+title: Skylark Rules
+---
 Rules
 =====
 

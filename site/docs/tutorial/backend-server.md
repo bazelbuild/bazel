@@ -1,3 +1,8 @@
+---
+layout: documentation
+title: Tutorial - Build the Backend Server
+---
+
 # Tutorial - Build the Backend Server
 
 The backend server is a simple web application that runs on Google App Engine
@@ -222,6 +227,8 @@ for the `main_class` attribute.
 Add the following to your `BUILD` file:
 
 ```python
+load("/tools/build_rules/appengine/appengine", "appengine_war")
+
 appengine_war(
     name = "backend",
     data = [":webapp"],

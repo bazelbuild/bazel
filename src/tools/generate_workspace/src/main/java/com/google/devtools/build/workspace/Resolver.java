@@ -15,10 +15,11 @@
 package com.google.devtools.build.workspace;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.bazel.BazelMain;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
@@ -97,9 +98,9 @@ public class Resolver {
           || target.getTargetKind().startsWith("source ")) {
         continue;
       } else if (target.getTargetKind().startsWith("maven_jar ")) {
-        PackageIdentifier.RepositoryName repositoryName;
+        RepositoryName repositoryName;
         try {
-          repositoryName = PackageIdentifier.RepositoryName.create("@" + target.getName());
+          repositoryName = RepositoryName.create("@" + target.getName());
         } catch (LabelSyntaxException e) {
           handler.handle(Event.error(location, "Invalid repository name for " + target + ": "
               + e.getMessage()));
@@ -139,7 +140,8 @@ public class Resolver {
               "Could not resolve model for " + target + ": " + e.getMessage()));
           continue;
         }
-        resolver.resolveEffectiveModel(modelSource);
+        resolver.addRootDependency(rule);
+        resolver.resolveEffectiveModel(modelSource, Sets.<String>newHashSet(), rule);
       } else {
         handler.handle(Event.warn(location, "Cannot fetch transitive dependencies for " + target
             + " yet, skipping"));

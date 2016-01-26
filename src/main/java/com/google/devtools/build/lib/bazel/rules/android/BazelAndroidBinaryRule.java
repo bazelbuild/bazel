@@ -100,15 +100,11 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = android_binary, TYPE = BINARY, FAMILY = Android) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
   Produces Android application package files (.apk).
 </p>
 
 ${IMPLICIT_OUTPUTS}
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="android_binary_examples">Examples</h4>
 <p>Examples of Android rules can be found in the <code>examples/android</code> directory of the

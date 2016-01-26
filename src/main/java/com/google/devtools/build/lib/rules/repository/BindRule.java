@@ -61,11 +61,7 @@ public final class BindRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = bind, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>Gives a target an alias in the <code>//external</code> package.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <p>The <code>//external</code> package is not a "normal" package: there is no external/ directory,
   so it can be thought of as a "virtual package" that contains all bound targets.</p>

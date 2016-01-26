@@ -64,16 +64,12 @@ public class NewLocalRepositoryRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = new_local_repository, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>Allows a local directory to be turned into a Bazel repository. This means that the current
   repository can define and use targets from anywhere on the filesystem.</p>
 
 <p>This rule creates a Bazel repository by creating a WORKSPACE file and subdirectory containing
 symlinks to the BUILD file and path given.  The build file should create targets relative to the
 <code>path</code>.
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="new_local_repository_examples">Examples</h4>
 

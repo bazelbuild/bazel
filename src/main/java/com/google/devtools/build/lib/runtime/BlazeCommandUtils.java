@@ -131,15 +131,19 @@ public class BlazeCommandUtils {
       throw new IllegalStateException("Help template for '" + topic + "' omits %{options}!");
     }
 
-    return template.
-        replace("%{product}", Constants.PRODUCT_NAME).
-        replace("%{command}", topic).
-        replace("%{options}", parser.describeOptions(categoryDescriptions, helpVerbosity)).
-        trim()
+    String optionStr =
+        parser
+            .describeOptions(categoryDescriptions, helpVerbosity)
+            .replace("%{product}", Constants.PRODUCT_NAME);
+    return template
+            .replace("%{product}", Constants.PRODUCT_NAME)
+            .replace("%{command}", topic)
+            .replace("%{options}", optionStr)
+            .trim()
         + "\n\n"
         + (helpVerbosity == OptionsParser.HelpVerbosity.MEDIUM
-           ? "(Use 'help --long' for full details or --short to just enumerate options.)\n"
-           : "");
+            ? "(Use 'help --long' for full details or --short to just enumerate options.)\n"
+            : "");
   }
 
   /**

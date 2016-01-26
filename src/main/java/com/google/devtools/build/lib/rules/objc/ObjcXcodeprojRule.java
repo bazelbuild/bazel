@@ -77,11 +77,7 @@ public class ObjcXcodeprojRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = objc_xcodeproj, TYPE = OTHER, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule combines build information about several objc targets (and all their transitive
 dependencies) into a single Xcode project file, for use in developing on a Mac.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

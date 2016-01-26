@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.extra.EnvironmentVariable;
 import com.google.devtools.build.lib.actions.extra.SpawnInfo;
@@ -41,6 +42,7 @@ public class BaseSpawn implements Spawn {
   private final ImmutableMap<String, String> environment;
   private final ImmutableMap<String, String> executionInfo;
   private final ImmutableMap<PathFragment, Artifact> runfilesManifests;
+  private final ImmutableSet<PathFragment> optionalOutputFiles;
   private final RunfilesSupplier runfilesSupplier;
   private final ActionMetadata action;
   private final ResourceSet localResources;
@@ -49,13 +51,15 @@ public class BaseSpawn implements Spawn {
   // policy on runfilesManifests and runfilesSupplier being non-empty (ie: are overlapping mappings
   // allowed?).
   @VisibleForTesting
-  BaseSpawn(List<String> arguments,
+  BaseSpawn(
+      List<String> arguments,
       Map<String, String> environment,
       Map<String, String> executionInfo,
       Map<PathFragment, Artifact> runfilesManifests,
       RunfilesSupplier runfilesSupplier,
       ActionMetadata action,
-      ResourceSet localResources) {
+      ResourceSet localResources,
+      Collection<PathFragment> optionalOutputFiles) {
     this.arguments = ImmutableList.copyOf(arguments);
     this.environment = ImmutableMap.copyOf(environment);
     this.executionInfo = ImmutableMap.copyOf(executionInfo);
@@ -63,6 +67,7 @@ public class BaseSpawn implements Spawn {
     this.runfilesSupplier = runfilesSupplier;
     this.action = action;
     this.localResources = localResources;
+    this.optionalOutputFiles = ImmutableSet.copyOf(optionalOutputFiles);
   }
 
   /**
@@ -75,8 +80,15 @@ public class BaseSpawn implements Spawn {
      RunfilesSupplier runfilesSupplier,
      ActionMetadata action,
      ResourceSet localResources) {
-    this(arguments, environment, executionInfo, ImmutableMap.<PathFragment, Artifact>of(),
-        runfilesSupplier, action, localResources);
+    this(
+        arguments,
+        environment,
+        executionInfo,
+        ImmutableMap.<PathFragment, Artifact>of(),
+        runfilesSupplier,
+        action,
+        localResources,
+        ImmutableSet.<PathFragment>of());
   }
 
   /**
@@ -89,8 +101,15 @@ public class BaseSpawn implements Spawn {
       Map<PathFragment, Artifact> runfilesManifests,
       ActionMetadata action,
       ResourceSet localResources) {
-    this(arguments, environment, executionInfo, runfilesManifests, EmptyRunfilesSupplier.INSTANCE,
-        action, localResources);
+    this(
+        arguments,
+        environment,
+        executionInfo,
+        runfilesManifests,
+        EmptyRunfilesSupplier.INSTANCE,
+        action,
+        localResources,
+        ImmutableSet.<PathFragment>of());
   }
 
   /**
@@ -101,8 +120,32 @@ public class BaseSpawn implements Spawn {
       Map<String, String> executionInfo,
       ActionMetadata action,
       ResourceSet localResources) {
-    this(arguments, environment, executionInfo,
-        ImmutableMap.<PathFragment, Artifact>of(), action, localResources);
+    this(
+        arguments,
+        environment,
+        executionInfo,
+        ImmutableMap.<PathFragment, Artifact>of(),
+        action,
+        localResources);
+  }
+
+  public BaseSpawn(
+      List<String> arguments,
+      Map<String, String> environment,
+      Map<String, String> executionInfo,
+      RunfilesSupplier runfilesSupplier,
+      ActionMetadata action,
+      ResourceSet localResources,
+      Collection<PathFragment> optionalOutputFiles) {
+    this(
+        arguments,
+        environment,
+        executionInfo,
+        ImmutableMap.<PathFragment, Artifact>of(),
+        runfilesSupplier,
+        action,
+        localResources,
+        optionalOutputFiles);
   }
 
   public static PathFragment runfilesForFragment(PathFragment pathFragment) {
@@ -207,6 +250,11 @@ public class BaseSpawn implements Spawn {
   @Override
   public Collection<? extends ActionInput> getOutputFiles() {
     return action.getOutputs();
+  }
+
+  @Override
+  public Collection<PathFragment> getOptionalOutputFiles() {
+    return optionalOutputFiles;
   }
 
   @Override

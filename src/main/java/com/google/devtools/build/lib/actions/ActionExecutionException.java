@@ -19,6 +19,9 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.util.ExitCode;
+
+import javax.annotation.Nullable;
 
 /**
  * This exception gets thrown if {@link Action#execute(ActionExecutionContext)} is unsuccessful.
@@ -30,12 +33,14 @@ public class ActionExecutionException extends Exception {
   private final Action action;
   private final NestedSet<Label> rootCauses;
   private final boolean catastrophe;
+  @Nullable private final ExitCode exitCode;
 
   public ActionExecutionException(Throwable cause, Action action, boolean catastrophe) {
     super(cause.getMessage(), cause);
     this.action = action;
     this.rootCauses = rootCausesFromAction(action);
     this.catastrophe = catastrophe;
+    this.exitCode = null;
   }
 
   public ActionExecutionException(String message,
@@ -44,6 +49,17 @@ public class ActionExecutionException extends Exception {
     this.action = action;
     this.rootCauses = rootCausesFromAction(action);
     this.catastrophe = catastrophe;
+    this.exitCode = null;
+  }
+
+  public ActionExecutionException(String message,
+                                  Throwable cause, Action action, boolean catastrophe,
+                                  ExitCode exitCode) {
+    super(message + ": " + cause.getMessage(), cause);
+    this.action = action;
+    this.rootCauses = rootCausesFromAction(action);
+    this.catastrophe = catastrophe;
+    this.exitCode = exitCode;
   }
 
   public ActionExecutionException(String message, Action action, boolean catastrophe) {
@@ -51,6 +67,16 @@ public class ActionExecutionException extends Exception {
     this.action = action;
     this.rootCauses = rootCausesFromAction(action);
     this.catastrophe = catastrophe;
+    this.exitCode = null;
+  }
+
+  public ActionExecutionException(String message, Action action, boolean catastrophe,
+                                  ExitCode exitCode) {
+    super(message);
+    this.action = action;
+    this.rootCauses = rootCausesFromAction(action);
+    this.catastrophe = catastrophe;
+    this.exitCode = exitCode;
   }
 
   public ActionExecutionException(String message, Action action,
@@ -59,6 +85,7 @@ public class ActionExecutionException extends Exception {
     this.action = action;
     this.rootCauses = rootCauses;
     this.catastrophe = catastrophe;
+    this.exitCode = null;
   }
 
   public ActionExecutionException(String message, Throwable cause, Action action,
@@ -67,6 +94,16 @@ public class ActionExecutionException extends Exception {
     this.action = action;
     this.rootCauses = rootCauses;
     this.catastrophe = catastrophe;
+    this.exitCode = null;
+  }
+
+  public ActionExecutionException(String message, Throwable cause, Action action,
+      NestedSet<Label> rootCauses, boolean catastrophe, ExitCode exitCode) {
+    super(message, cause);
+    this.action = action;
+    this.rootCauses = rootCauses;
+    this.catastrophe = catastrophe;
+    this.exitCode = exitCode;
   }
 
   static NestedSet<Label> rootCausesFromAction(Action action) {
@@ -102,6 +139,10 @@ public class ActionExecutionException extends Exception {
    */
   public boolean isCatastrophe() {
     return catastrophe;
+  }
+
+  @Nullable public ExitCode getExitCode() {
+    return exitCode;
   }
 
   /**

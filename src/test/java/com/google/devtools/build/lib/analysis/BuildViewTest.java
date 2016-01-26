@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
+import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
@@ -61,7 +62,6 @@ import com.google.devtools.build.skyframe.NotifyingInMemoryGraph.Order;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.TrackingAwaiter;
 
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -155,30 +155,36 @@ public final class BuildViewTest extends BuildViewTestBase {
     assertSame(FailAction.class, action.getClass());
   }
 
-  // TODO(bazel-team): this test is bad, it seems to rely on genrule emitting a warning to make the
-  // analysis fail, this needs a proper way to inject errors/warnings
   @Test
-  @Ignore
-  public void disabled_testReportsAnalysisRootCauses() throws Exception {
-    scratch.file("pkg/BUILD",
-        "genrule(name='foo',",
-        "        tools=[:missing],",
-        "        outs=['foofile'],",
-        "        cmd='')",
-        "genrule(name='bar',",
-        "        srcs=['foofile'],",
-        "        outs=['barfile'],",
-        "        cmd='')");
+  public void testReportsAnalysisRootCauses() throws Exception {
+    scratch.file("private/BUILD",
+        "genrule(",
+        "    name='private',",
+        "    outs=['private.out'],",
+        "    cmd='',",
+        "    visibility=['//visibility:private'])");
+    scratch.file("foo/BUILD",
+        "genrule(",
+        "    name='foo',",
+        "    tools=[':bar'],",
+        "    outs=['foo.out'],",
+        "    cmd='')",
+        "genrule(",
+        "    name='bar',",
+        "    tools=['//private'],",
+        "    outs=['bar.out'],",
+        "    cmd='')");
 
     reporter.removeHandler(failFastHandler);
     EventBus eventBus = new EventBus();
     AnalysisFailureRecorder recorder = new AnalysisFailureRecorder();
     eventBus.register(recorder);
-    update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//pkg:bar");
+    AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//foo");
+    assertThat(result.hasError()).isTrue();
     assertThat(recorder.events).hasSize(1);
     AnalysisFailureEvent event = recorder.events.get(0);
-    assertEquals("//pkg:foo", event.getFailureReason().toString());
-    assertEquals("//pkg:bar", event.getFailedTarget().getLabel().toString());
+    assertEquals("//foo:bar", event.getFailureReason().toString());
+    assertEquals("//foo:foo", event.getFailedTarget().getLabel().toString());
   }
 
   @Test
@@ -193,7 +199,8 @@ public final class BuildViewTest extends BuildViewTestBase {
     LoadingFailureRecorder recorder = new LoadingFailureRecorder();
     eventBus.register(recorder);
     // Note: no need to run analysis for a loading failure.
-    update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//pkg:foo");
+    AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//pkg:foo");
+    assertThat(result.hasError()).isTrue();
     assertThat(recorder.events)
         .contains(
             Pair.of(Label.parseAbsolute("//pkg:foo"), Label.parseAbsolute("//nopackage:missing")));
@@ -225,8 +232,9 @@ public final class BuildViewTest extends BuildViewTestBase {
     LoadingFailureRecorder recorder = new LoadingFailureRecorder();
     eventBus.register(recorder);
     // Note: no need to run analysis for a loading failure.
-    update(eventBus, defaultFlags().with(Flag.KEEP_GOING),
+    AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING),
         "//third_party/first", "//third_party/third");
+    assertThat(result.hasError()).isTrue();
     assertThat(recorder.events).hasSize(2);
     assertTrue(recorder.events.toString(), recorder.events.contains(
         Pair.of(Label.parseAbsolute("//third_party/first"),
@@ -249,7 +257,8 @@ public final class BuildViewTest extends BuildViewTestBase {
     EventBus eventBus = new EventBus();
     LoadingFailureRecorder recorder = new LoadingFailureRecorder();
     eventBus.register(recorder);
-    update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//gp");
+    AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//gp");
+    assertThat(result.hasError()).isTrue();
     assertThat(recorder.events).hasSize(2);
     assertTrue(recorder.events.toString(), recorder.events.contains(
         Pair.of(Label.parseAbsolute("//gp"),
@@ -393,7 +402,8 @@ public final class BuildViewTest extends BuildViewTestBase {
   public void testAnalysisErrorMessageWithKeepGoing() throws Exception {
     scratch.file("a/BUILD", "sh_binary(name='a', srcs=['a1.sh', 'a2.sh'])");
     reporter.removeHandler(failFastHandler);
-    update(defaultFlags().with(Flag.KEEP_GOING), "//a");
+    AnalysisResult result = update(defaultFlags().with(Flag.KEEP_GOING), "//a");
+    assertThat(result.hasError()).isTrue();
     assertContainsEvent("errors encountered while analyzing target '//a:a'");
   }
 
@@ -410,7 +420,9 @@ public final class BuildViewTest extends BuildViewTestBase {
         "sh_library(name = 'rec2', srcs = ['rec2.sh'], deps = [':rec1'])"
     );
     reporter.removeHandler(failFastHandler);
-    update(defaultFlags().with(Flag.KEEP_GOING), "//foo:top1", "//foo:top2");
+    AnalysisResult result =
+        update(defaultFlags().with(Flag.KEEP_GOING), "//foo:top1", "//foo:top2");
+    assertThat(result.hasError()).isTrue();
     assertContainsEvent("in sh_library rule //foo:rec1: cycle in dependency graph:\n");
     assertContainsEvent("in sh_library rule //foo:top");
   }
@@ -466,7 +478,8 @@ public final class BuildViewTest extends BuildViewTestBase {
     scratch.file("y/BUILD",
         "cc_library(name='y', srcs=['y.cc'], deps=['//x:z'])");
 
-    update(defaultFlags().with(Flag.KEEP_GOING), "//y:y");
+    AnalysisResult result = update(defaultFlags().with(Flag.KEEP_GOING), "//y:y");
+    assertThat(result.hasError()).isTrue();
     assertContainsEvent("no such target '//x:z': "
         + "target 'z' not declared in package 'x' "
         + "defined by /workspace/x/BUILD and referenced by '//y:y'");
@@ -704,7 +717,8 @@ public final class BuildViewTest extends BuildViewTestBase {
     EventBus eventBus = new EventBus();
     LoadingFailureRecorder recorder = new LoadingFailureRecorder();
     eventBus.register(recorder);
-    update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//gp");
+    AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//gp");
+    assertThat(result.hasError()).isTrue();
     assertThat(recorder.events).hasSize(2);
     assertTrue(recorder.events.toString(), recorder.events.contains(
         Pair.of(Label.parseAbsolute("//gp"), Label.parseAbsolute("//cycles1"))));
@@ -812,8 +826,12 @@ public final class BuildViewTest extends BuildViewTestBase {
         "config_setting(name = 'a', values = {'test_arg': 'a'})",
         "cc_library(name='x', srcs=select({':a': ['a.cc'], '//conditions:default': ['foo.cc']}))",
         "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
-    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:_objs/x/conflict/foo.pic.o",
+    AnalysisResult result = update(
+        defaultFlags().with(Flag.KEEP_GOING),
+        "//conflict:_objs/x/conflict/foo.pic.o",
         "//conflict:x");
+    // TODO(ulfjack): We print an error message but don't return an error, apparently.
+    //assertThat(result.hasError()).isTrue();
     // Expect to reach this line without a Precondition-triggered NullPointerException.
     assertContainsEvent(
         "file 'conflict/_objs/x/conflict/foo.pic.o' is generated by these conflicting actions");

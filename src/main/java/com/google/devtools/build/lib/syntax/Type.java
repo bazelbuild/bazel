@@ -143,9 +143,9 @@ public abstract class Type<T> {
 
   /**
    * Implementation of concatenation for this type (e.g. "val1 + val2"). Returns null to
-   * designate concatenation isn't supported.
+   * indicate concatenation isn't supported.
    */
-  public T concat(Iterable<T> elements) {
+  public T concat(@SuppressWarnings("unused") Iterable<T> elements) {
     return null;
   }
 

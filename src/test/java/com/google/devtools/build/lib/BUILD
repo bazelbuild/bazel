@@ -76,8 +76,8 @@ java_test(
     srcs = glob([
         "skyframe/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     tags = ["skyframe"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -171,9 +171,9 @@ java_test(
             "vfs/PathWindowsTest.java",
         ],
     ),
-    args = ["com.google.devtools.build.lib.AllTests"],
     data = glob(["vfs/*.zip"]),
     tags = ["foundations"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",
         ":test_runner",
@@ -206,10 +206,8 @@ java_test(
         "vfs/PathFragmentWindowsTest.java",
         "vfs/PathWindowsTest.java",
     ],
-    args = [
-        "com.google.devtools.build.lib.AllTests",
-    ],
     jvm_flags = ["-Dblaze.os=Windows"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",
         ":test_runner",
@@ -263,7 +261,7 @@ java_test(
     srcs = glob([
         "actions/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
         ":foundations_testutil",
@@ -352,8 +350,8 @@ java_test(
     srcs = glob([
         "analysis/actions/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     tags = ["analysis"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -381,8 +379,8 @@ java_test(
     srcs = glob([
         "analysis/config/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     tags = ["analysis"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -415,8 +413,8 @@ java_test(
     srcs = glob([
         "analysis/constraints/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     tags = ["analysis"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -440,8 +438,8 @@ java_test(
     srcs = glob([
         "analysis/select/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     tags = ["analysis"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -465,8 +463,8 @@ java_test(
     srcs = glob([
         "analysis/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     tags = ["analysis"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -501,7 +499,7 @@ java_test(
     srcs = glob([
         "graph/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",
         ":test_runner",
@@ -562,7 +560,7 @@ java_test(
             "packages/BazelDocumentationTest.java",
         ],
     ),
-    args = ["com.google.devtools.build.lib.AllTests"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -596,7 +594,7 @@ java_test(
             "pkgcache/*.java",
         ],
     ),
-    args = ["com.google.devtools.build.lib.AllTests"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":analysis_testutil",
         ":packages_testutil",
@@ -619,9 +617,9 @@ java_test(
     srcs = glob([
         "ideinfo/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     resources = ["ideinfo/intellij_info.bzl"],
     tags = ["ideinfo"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":analysis_testutil",
         ":foundations_testutil",
@@ -658,11 +656,11 @@ java_test(
     srcs = glob([
         "shell/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     data = [
         ":shell/killmyself",
     ],
     tags = ["shell"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",
         ":test_runner",
@@ -684,8 +682,8 @@ java_test(
     srcs = glob([
         "server/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     tags = ["server"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",
         ":test_runner",
@@ -723,7 +721,7 @@ java_test(
     srcs = glob([
         "syntax/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",
         ":syntax_testutil",
@@ -753,7 +751,7 @@ java_test(
     srcs = glob([
         "profiler/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",
         ":syntax_testutil",
@@ -777,6 +775,7 @@ java_test(
     data = [
         "//site:docs/bazel-user-manual.html",
     ],
+    test_class = "com.google.devtools.build.lib.packages.BazelDocumentationTest",
     deps = [
         ":foundations_testutil",
         ":packages_testutil",
@@ -851,7 +850,7 @@ java_test(
     srcs = glob([
         "skylark/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -885,8 +884,8 @@ java_test(
 java_test(
     name = "filegroup-rules-tests",
     srcs = glob(["rules/filegroup/*.java"]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     tags = ["rules"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -907,8 +906,8 @@ java_test(
 java_test(
     name = "java-rules-tests",
     srcs = glob(["rules/java/*.java"]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     tags = ["rules"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -928,8 +927,8 @@ java_test(
 java_test(
     name = "cpp-rules-tests",
     srcs = glob(["rules/cpp/*.java"]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     tags = ["rules"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -960,8 +959,8 @@ java_test(
 java_test(
     name = "repository-rules-tests",
     srcs = glob(["rules/repository/*.java"]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     tags = ["rules"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":analysis_testutil",
         ":testutil",
@@ -989,9 +988,9 @@ java_test(
     srcs = glob([
         "bazel/rules/**/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     resources = glob(["bazel/rules/**/*.txt"]),
     tags = ["rules"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",
         ":test_runner",
@@ -1012,8 +1011,8 @@ java_test(
     srcs = glob([
         "bazel/repository/*.java",
     ]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     tags = ["rules"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",
         ":test_runner",
@@ -1035,7 +1034,7 @@ java_test(
 java_test(
     name = "runtime-tests",
     srcs = glob(["runtime/*.java"]),
-    args = ["com.google.devtools.build.lib.AllTests"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":foundations_testutil",
         ":test_runner",
@@ -1061,8 +1060,8 @@ java_test(
 java_test(
     name = "sandbox-tests",
     srcs = glob(["sandbox/*.java"]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     data = [":embedded_scripts"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -1088,8 +1087,8 @@ java_test(
 java_test(
     name = "standalone-tests",
     srcs = glob(["standalone/*.java"]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     data = [":embedded_scripts"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
         ":analysis_testutil",
@@ -1116,8 +1115,8 @@ java_test(
 java_test(
     name = "exec-tests",
     srcs = glob(["exec/*.java"]),
-    args = ["com.google.devtools.build.lib.AllTests"],
     tags = ["exec"],
+    test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
         ":actions_testutil",
         ":analysis_testutil",

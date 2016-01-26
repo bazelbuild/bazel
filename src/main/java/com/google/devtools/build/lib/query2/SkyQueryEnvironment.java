@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
@@ -264,7 +265,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     for (Collection<Target> parentCollection : rawReverseDeps.values()) {
       for (Target parent : parentCollection) {
         if (visited.add(parent)) {
-          if (parent instanceof Rule && dependencyFilter != Rule.ALL_DEPS) {
+          if (parent instanceof Rule && dependencyFilter != DependencyFilter.ALL_DEPS) {
             for (Label label : getAllowedDeps((Rule) parent)) {
               if (keys.contains(label)) {
                 result.add(parent);

@@ -39,7 +39,9 @@ They currently do not support (in order of importance):
     go_repositories()
     ```
 
-* Add a `BUILD` file to the top of your workspace, containing
+* Add a `BUILD` file to the top of your workspace, declaring the name of your
+  workspace using `go_prefix`. It is strongly recommended that the prefix is not
+  empty.
 
     ```python
     load("/tools/build_rules/go/def", "go_prefix")

@@ -24,13 +24,16 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -38,8 +41,10 @@ import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.SkylarkAspect;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.DependencyEvaluationException;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
+import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -71,21 +76,27 @@ public final class AspectFunction implements SkyFunction {
   @Nullable
   public static SkylarkAspect loadSkylarkAspect(
       Environment env, Label extensionLabel, String skylarkValueName)
-      throws ConversionException {
-    
+          throws AspectCreationException {
     SkyKey importFileKey = SkylarkImportLookupValue.key(extensionLabel, false);
-    SkylarkImportLookupValue skylarkImportLookupValue =
-        (SkylarkImportLookupValue) env.getValue(importFileKey);
-    if (skylarkImportLookupValue == null) {
-      return null;
+    try {
+      SkylarkImportLookupValue skylarkImportLookupValue =
+          (SkylarkImportLookupValue) env.getValueOrThrow(
+              importFileKey, SkylarkImportFailedException.class);
+      if (skylarkImportLookupValue == null) {
+        return null;
+      }
+  
+      Object skylarkValue = skylarkImportLookupValue.getEnvironmentExtension()
+          .get(skylarkValueName);
+      if (!(skylarkValue instanceof SkylarkAspect)) {
+        throw new ConversionException(
+            skylarkValueName + " from " + extensionLabel.toString() + " is not an aspect");
+      }
+      return (SkylarkAspect) skylarkValue;
+    } catch (SkylarkImportFailedException | ConversionException e) {
+      env.getListener().handle(Event.error(e.getMessage()));
+      throw new AspectCreationException(e.getMessage());
     }
-
-    Object skylarkValue = skylarkImportLookupValue.getEnvironmentExtension().get(skylarkValueName);
-    if (!(skylarkValue instanceof SkylarkAspect)) {
-      throw new ConversionException(
-          skylarkValueName + " from " + extensionLabel.toString() + " is not an aspect");
-    }
-    return (SkylarkAspect) skylarkValue;
   }
 
   @Nullable
@@ -106,8 +117,8 @@ public final class AspectFunction implements SkyFunction {
         skylarkAspect =
             loadSkylarkAspect(
                 env, skylarkAspectClass.getExtensionLabel(), skylarkAspectClass.getExportedName());
-      } catch (ConversionException e) {
-        throw new AspectFunctionException(skyKey, e);
+      } catch (AspectCreationException e) {
+        throw new AspectFunctionException(e);
       }
       if (skylarkAspect == null) {
         return null;
@@ -118,23 +129,22 @@ public final class AspectFunction implements SkyFunction {
       throw new IllegalStateException();
     }
 
+    // Keep this in sync with the same code in ConfiguredTargetFunction.
     PackageValue packageValue =
         (PackageValue) env.getValue(PackageValue.key(key.getLabel().getPackageIdentifier()));
     if (packageValue == null) {
       return null;
     }
-
     Package pkg = packageValue.getPackage();
     if (pkg.containsErrors()) {
       throw new AspectFunctionException(
-          skyKey, new BuildFileContainsErrorsException(key.getLabel().getPackageIdentifier()));
+          new BuildFileContainsErrorsException(key.getLabel().getPackageIdentifier()));
     }
-
     Target target;
     try {
       target = pkg.getTarget(key.getLabel().getName());
     } catch (NoSuchTargetException e) {
-      throw new AspectFunctionException(skyKey, e);
+      throw new AspectFunctionException(e);
     }
 
     if (!(target instanceof Rule)) {
@@ -159,13 +169,9 @@ public final class AspectFunction implements SkyFunction {
     }
 
     SkyframeDependencyResolver resolver = view.createDependencyResolver(env);
-    if (resolver == null) {
-      return null;
-    }
 
     TargetAndConfiguration ctgValue =
         new TargetAndConfiguration(target, key.getConfiguration());
-
     try {
       // Get the configuration targets that trigger this rule's configurable attributes.
       Set<ConfigMatchingProvider> configConditions = ConfiguredTargetFunction.getConfigConditions(
@@ -195,7 +201,16 @@ public final class AspectFunction implements SkyFunction {
           depValueMap,
           transitivePackages);
     } catch (DependencyEvaluationException e) {
-      throw new AspectFunctionException(e.getRootCauseSkyKey(), e.getCause());
+      if (e.getCause() instanceof ConfiguredValueCreationException) {
+        ConfiguredValueCreationException cause = (ConfiguredValueCreationException) e.getCause();
+        throw new AspectFunctionException(new AspectCreationException(
+            cause.getMessage(), cause.getAnalysisRootCause()));
+      } else {
+        // Cast to InvalidConfigurationException as a consistency check. If you add any
+        // DependencyEvaluationException constructors, you may need to change this code, too.
+        InvalidConfigurationException cause = (InvalidConfigurationException) e.getCause();
+        throw new AspectFunctionException(new AspectCreationException(cause.getMessage()));
+      }
     } catch (AspectCreationException e) {
       throw new AspectFunctionException(e);
     }
@@ -267,8 +282,23 @@ public final class AspectFunction implements SkyFunction {
    * An exception indicating that there was a problem creating an aspect.
    */
   public static final class AspectCreationException extends Exception {
-    public AspectCreationException(String message) {
+    /**
+     * The target for which analysis failed, if any. We can't represent aspects with labels, so if
+     * the aspect analysis fails, this will be {@code null}.
+     */
+    @Nullable private final Label analysisRootCause;
+
+    public AspectCreationException(String message, Label analysisRootCause) {
       super(message);
+      this.analysisRootCause = analysisRootCause;
+    }
+
+    public AspectCreationException(String message) {
+      this(message, null);
+    }
+
+    @Nullable public Label getAnalysisRootCause() {
+      return analysisRootCause;
     }
   }
 
@@ -276,14 +306,12 @@ public final class AspectFunction implements SkyFunction {
    * Used to indicate errors during the computation of an {@link AspectValue}.
    */
   private static final class AspectFunctionException extends SkyFunctionException {
-    public AspectFunctionException(Exception e) {
+    public AspectFunctionException(NoSuchThingException e) {
       super(e, Transience.PERSISTENT);
     }
 
-    /** Used to rethrow a child error that we cannot handle. */
-    public AspectFunctionException(SkyKey childKey, Exception transitiveError) {
-      super(transitiveError, childKey);
+    public AspectFunctionException(AspectCreationException e) {
+      super(e, Transience.PERSISTENT);
     }
   }
-
 }

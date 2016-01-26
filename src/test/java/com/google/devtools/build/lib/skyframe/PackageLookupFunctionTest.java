@@ -88,6 +88,8 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
         new BlacklistedPackagePrefixesFunction());
     RuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
+    skyFunctions.put(SkyFunctions.WORKSPACE_AST,
+        new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()));
     skyFunctions.put(
         SkyFunctions.WORKSPACE_FILE,
         new WorkspaceFileFunction(

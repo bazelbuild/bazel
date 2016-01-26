@@ -1,3 +1,8 @@
+---
+layout: documentation
+title: Tutorial - Build an iOS App
+---
+
 # Tutorial - Build an iOS App
 
 Like the [Android app](android-app.md) you built in the previous step, the iOS

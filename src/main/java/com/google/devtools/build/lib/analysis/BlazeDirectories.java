@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Strings;
 import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.Constants;
@@ -75,7 +76,8 @@ public final class BlazeDirectories {
     this.installBase = installBase;
     this.workspace = workspace;
     this.outputBase = outputBase;
-    this.installMD5 = installMD5 == null ? null : checkMD5(HashCode.fromString(installMD5));
+    this.installMD5 =
+        Strings.isNullOrEmpty(installMD5) ? null : checkMD5(HashCode.fromString(installMD5));
     boolean useDefaultExecRootName = this.workspace == null || this.workspace.isRootDirectory();
     Path execRootBase = deepExecRoot
         ? outputBase.getChild("execroot") : outputBase;

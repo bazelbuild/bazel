@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
-import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -54,6 +53,15 @@ public final class AnalysisIssues extends Exception {
         errors.ruleError(msg);
       } else {
         errors.attributeError(attribute, msg);
+      }
+    }
+
+    private void reportTo(StringBuilder sb) {
+      String msg = String.format(messageTemplate, arguments);
+      if (attribute == null) {
+        sb.append("ERROR: ").append(msg);
+      } else {
+        sb.append("ERROR: in attribute \"").append(attribute).append("\": ").append(msg);
       }
     }
 
@@ -102,8 +110,27 @@ public final class AnalysisIssues extends Exception {
     }
   }
 
+  @Nullable
+  private String asString() {
+    if (entries == null) {
+      return null;
+    }
+
+    StringBuilder sb = new StringBuilder();
+    for (Entry e : entries) {
+      e.reportTo(sb);
+    }
+    return sb.toString();
+  }
+
+  @Override
+  public String getMessage() {
+    return asString();
+  }
+
   @Override
   public String toString() {
-    return "Errors during analysis:\n" + Joiner.on("\n").join(entries);
+    String s = asString();
+    return s == null ? "" : s;
   }
 }

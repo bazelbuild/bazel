@@ -57,13 +57,9 @@ public class IosFrameworkBinaryRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = ios_framework_binary, TYPE = BINARY, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule produces a dynamic library for a framework by linking one or more Objective-C
 libraries.</p>
 
 ${IMPLICIT_OUTPUTS}
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

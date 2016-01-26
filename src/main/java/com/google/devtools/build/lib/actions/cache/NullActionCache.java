@@ -36,8 +36,8 @@ public final class NullActionCache implements ActionCache {
   }
 
   @Override
-  public Entry createEntry(String key) {
-    return new ActionCache.Entry(key);
+  public Entry createEntry(String key, boolean discoversInputs) {
+    return new ActionCache.Entry(key, discoversInputs);
   }
 
   @Override

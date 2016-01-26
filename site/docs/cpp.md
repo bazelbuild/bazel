@@ -1,5 +1,6 @@
 ---
 layout: documentation
+title: C++ Basics
 ---
 
 C++ Basics

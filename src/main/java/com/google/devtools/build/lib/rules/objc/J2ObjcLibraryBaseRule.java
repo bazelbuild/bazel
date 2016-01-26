@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -46,9 +47,11 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("entry_classes", STRING_LIST))
         .add(attr("$jre_emul_lib", LABEL)
-            .value(env.getLabel("//third_party/java/j2objc:jre_emul_lib")))
+            .value(env.getLabel(
+                Constants.TOOLS_REPOSITORY + "//third_party/java/j2objc:jre_emul_lib")))
         .add(attr("$protobuf_lib", LABEL)
-            .value(env.getLabel("//third_party/java/j2objc:proto_runtime")))
+            .value(env.getLabel(
+                Constants.TOOLS_REPOSITORY + "//third_party/java/j2objc:proto_runtime")))
         .build();
   }
 
@@ -63,8 +66,6 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
 }
 
 /*<!-- #BLAZE_RULE (NAME = j2objc_library, TYPE = LIBRARY, FAMILY = Objective-C) -->
-
-${ATTRIBUTE_SIGNATURE}
 
 <p> This rule uses <a href="https://github.com/google/j2objc">J2ObjC</a> to translate Java source
 files to Objective-C, which then can be used used as dependencies of objc_library and objc_binary
@@ -84,7 +85,5 @@ at link time. The correct way to resolve this issue is to move the shared Java s
 separate common target that can be depended upon.
 </p>
 
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/
