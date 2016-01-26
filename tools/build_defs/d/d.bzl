@@ -15,7 +15,11 @@
 """D rules for Bazel."""
 
 A_FILETYPE = FileType([".a"])
-D_FILETYPE = FileType([".d", ".di"])
+
+D_FILETYPE = FileType([
+    ".d",
+    ".di",
+])
 
 ZIP_PATH = "/usr/bin/zip"
 
@@ -402,13 +406,17 @@ _d_compile_attrs = {
     "_d_compiler": attr.label(
         default = Label("//tools/build_defs/d:dmd"),
         executable = True,
-        single_file = True),
+        single_file = True,
+    ),
     "_d_stdlib": attr.label(
-        default = Label("//tools/build_defs/d:libphobos2")),
+        default = Label("//tools/build_defs/d:libphobos2"),
+    ),
     "_d_stdlib_src": attr.label(
-        default = Label("//tools/build_defs/d:phobos-src")),
+        default = Label("//tools/build_defs/d:phobos-src"),
+    ),
     "_d_runtime_import_src": attr.label(
-        default = Label("//tools/build_defs/d:druntime-import-src")),
+        default = Label("//tools/build_defs/d:druntime-import-src"),
+    ),
 }
 
 d_library = rule(
@@ -426,14 +434,14 @@ d_source_library = rule(
 
 d_binary = rule(
     _d_binary_impl,
-    executable = True,
     attrs = _d_common_attrs + _d_compile_attrs,
+    executable = True,
 )
 
 d_test = rule(
     _d_test_impl,
-    executable = True,
     attrs = _d_common_attrs + _d_compile_attrs,
+    executable = True,
     test = True,
 )
 
@@ -451,14 +459,14 @@ d_docs = rule(
 
 def d_repositories():
   native.new_http_archive(
-      name = "dmd-linux-x86_64",
+      name = "dmd_linux_x86_64",
       url = "http://downloads.dlang.org/releases/2.x/2.067.1/dmd.2.067.1.linux.zip",
       sha256 = "a5014886773853b4a42df19ee9591774cf281d33fbc511b265df30ba832926cd",
       build_file = "tools/build_defs/d/dmd.BUILD",
   )
 
   native.new_http_archive(
-      name = "dmd-darwin-x86_64",
+      name = "dmd_darwin_x86_64",
       url = "http://downloads.dlang.org/releases/2.x/2.067.1/dmd.2.067.1.linux.zip",
       sha256 = "aa76bb83c38b3f7495516eb08977fc9700c664d7a945ba3ac3c0004a6a8509f2",
       build_file = "tools/build_defs/d/dmd.BUILD",

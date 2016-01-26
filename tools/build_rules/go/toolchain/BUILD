@@ -15,8 +15,8 @@ config_setting(
 filegroup(
     name = "toolchain",
     srcs = select({
-        ":darwin": ["@golang-darwin-amd64//:toolchain"],
-        ":k8": ["@golang-linux-amd64//:toolchain"],
+        ":darwin": ["@golang_darwin_amd64//:toolchain"],
+        ":k8": ["@golang_linux_amd64//:toolchain"],
     }),
     visibility = ["//visibility:public"],
 )
@@ -24,8 +24,8 @@ filegroup(
 filegroup(
     name = "go_tool",
     srcs = select({
-        ":darwin": ["@golang-darwin-amd64//:go_tool"],
-        ":k8": ["@golang-linux-amd64//:go_tool"],
+        ":darwin": ["@golang_darwin_amd64//:go_tool"],
+        ":k8": ["@golang_linux_amd64//:go_tool"],
     }),
     visibility = ["//visibility:public"],
 )
