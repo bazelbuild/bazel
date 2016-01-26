@@ -531,7 +531,8 @@ static void StartStandalone() {
 // resolving symbolic links.  (The server may make "socket_file" a
 // symlink, to avoid ENAMETOOLONG, in which case the client must
 // resolve it in userspace before connecting.)
-static int Connect(int socket, const string &socket_file) {
+// Returns true on success, false otherwise.
+static bool Connect(int socket, const string &socket_file) {
   struct sockaddr_un addr;
   addr.sun_family = AF_UNIX;
 
@@ -541,14 +542,14 @@ static int Connect(int socket, const string &socket_file) {
     addr.sun_path[sizeof addr.sun_path - 1] = '\0';
     free(resolved_path);
     sockaddr *paddr = reinterpret_cast<sockaddr *>(&addr);
-    return connect(socket, paddr, sizeof addr);
+    return connect(socket, paddr, sizeof addr) == 0;
   } else if (errno == ENOENT) {  // No socket means no server to connect to
     errno = ECONNREFUSED;
-    return -1;
+    return false;
   } else {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
          "realpath('%s') failed", socket_file.c_str());
-    return -1;
+    return false;
   }
 }
 
@@ -612,7 +613,7 @@ static int ConnectToServer(bool start) {
   string pid_file = server_dir + "/server.pid";
 
   globals->server_pid = 0;
-  if (Connect(s, socket_file) == 0) {
+  if (Connect(s, socket_file)) {
     GetServerPid(s, pid_file);
     return s;
   }
@@ -628,13 +629,13 @@ static int ConnectToServer(bool start) {
     // Give the server one minute to start up.
     for (int ii = 0; ii < 600; ++ii) {  // 60s; enough time to connect
                                         // with debugger
-      if (Connect(s, socket_file) == 0) {
-        if (ii) {
-          fputc('\n', stderr);
-          fflush(stderr);
-        }
-        GetServerPid(s, pid_file);
-        return s;
+                                        if (Connect(s, socket_file)) {
+                                          if (ii) {
+                                            fputc('\n', stderr);
+                                            fflush(stderr);
+                                          }
+                                          GetServerPid(s, pid_file);
+                                          return s;
       }
       fputc('.', stderr);
       fflush(stderr);
