@@ -20,7 +20,6 @@ import java.net.Authenticator;
 import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
 import java.net.Proxy;
-import java.net.URL;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,17 +31,17 @@ import java.util.regex.Pattern;
 public class ProxyHelper {
 
   /**
-   * This method takes a java.net.URL object for the resource being requested and sets up a proxy to make
+   * This method takes a String for the resource being requested and sets up a proxy to make
    * the request if HTTP_PROXY and/or HTTPS_PROXY environment variables are set.
-   * @param requestedUrl The URL for the remote resource that may need to be retrieved through a proxy
+   * @param requestedUrl The url for the remote resource that may need to be retrieved through a proxy
    * @return Proxy
    * @throws IOException
    */
-  public static Proxy createProxyIfNeeded(URL requestedUrl) throws IOException {
-    String protocol = requestedUrl.getProtocol();
-    if (protocol.equalsIgnoreCase("https")) {
+  public static Proxy createProxyIfNeeded(String requestedUrl) throws IOException {
+    String lcUrl = requestedUrl.toLowerCase();
+    if (lcUrl.startsWith("https")) {
       return createProxy(System.getenv("HTTPS_PROXY"));
-    } else if (protocol.equalsIgnoreCase("http")) {
+    } else if (lcUrl.startsWith("http")) {
       return createProxy(System.getenv("HTTP_PROXY"));
     }
     return Proxy.NO_PROXY;

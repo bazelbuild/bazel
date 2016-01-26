@@ -25,6 +25,10 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import java.io.IOException;
+import java.util.Objects;
+import java.util.Set;
+
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.Status;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -38,10 +42,6 @@ import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 import org.eclipse.jgit.transport.NetRCCredentialsProvider;
 
-import java.io.IOException;
-import java.net.URL;
-import java.util.Objects;
-import java.util.Set;
 
 /**
  * Clones a Git repository, checks out the provided branch, tag, or commit, and
@@ -119,7 +119,7 @@ public class GitCloner {
 	// Setup proxy if remote is http or https
     if (descriptor.remote != null && descriptor.remote.startsWith("http")) {
       try {
-        ProxyHelper.createProxyIfNeeded(new URL(descriptor.remote));
+        ProxyHelper.createProxyIfNeeded(descriptor.remote);
       } catch (IOException ie) {
         throw new RepositoryFunctionException(ie, Transience.TRANSIENT);
       }    	

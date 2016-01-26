@@ -178,7 +178,7 @@ public class HttpDownloader {
 
   private InputStream getInputStream(URL url) throws IOException {
     HttpURLConnection connection = (HttpURLConnection) url.openConnection(
-        ProxyHelper.createProxyIfNeeded(url));
+        ProxyHelper.createProxyIfNeeded(urlString));
     connection.setInstanceFollowRedirects(true);
     connection.connect();
     
