@@ -633,9 +633,7 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
     Preconditions.checkArgument(middleman.isMiddlemanArtifact());
     List<Artifact> artifacts = new ArrayList<>();
     middlemanExpander.expand(middleman, artifacts);
-    for (Artifact artifact : artifacts) {
-      output.add(outputFormatter.apply(artifact));
-    }
+    addExpandedArtifacts(artifacts, output, outputFormatter, middlemanExpander);
   }
 
   /**

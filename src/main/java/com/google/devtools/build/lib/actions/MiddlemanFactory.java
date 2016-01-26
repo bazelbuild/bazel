@@ -82,14 +82,15 @@ public final class MiddlemanFactory {
    * @param middlemanDir the directory in which to place the middleman.
    */
   public Artifact createRunfilesMiddleman(
-      ActionOwner owner, Artifact owningArtifact, Iterable<Artifact> inputs, Root middlemanDir) {
+      ActionOwner owner, Artifact owningArtifact, Iterable<Artifact> inputs, Root middlemanDir,
+      String tag) {
     if (hasExactlyOneInput(inputs)) { // Optimization: No middleman for just one input.
       return Iterables.getOnlyElement(inputs);
     }
     String middlemanPath = owningArtifact == null
        ? Label.print(owner.getLabel())
        : owningArtifact.getRootRelativePath().getPathString();
-    return createMiddleman(owner, middlemanPath, "runfiles", inputs, middlemanDir,
+    return createMiddleman(owner, middlemanPath, tag, inputs, middlemanDir,
         MiddlemanType.RUNFILES_MIDDLEMAN).getFirst();
   }
 
