@@ -122,10 +122,11 @@ public abstract class FileSystem {
    * <li>{@link #readSymbolicLink(Path)} where the link points to a non-existent file</li>
    * </ul>
    *
-   * The above calls will result in an {@link UnsupportedOperationException} on
-   * a FileSystem where this method returns {@code false}.
+   * The above calls may result in an {@link UnsupportedOperationException} on
+   * a FileSystem where this method returns {@code false}. The implementation can try to emulate
+   * these calls at its own discretion.
    */
-  public abstract boolean supportsSymbolicLinks();
+  public abstract boolean supportsSymbolicLinksNatively();
 
   /**
    * Returns the type of the file system path belongs to.
@@ -176,7 +177,7 @@ public abstract class FileSystem {
    * Returns the size in bytes of the file denoted by {@code path}. See
    * {@link Path#getFileSize(Symlinks)} for specification.
    *
-   * <p>Note: for <@link FileSystem>s where {@link #supportsSymbolicLinks()}
+   * <p>Note: for <@link FileSystem>s where {@link #supportsSymbolicLinksNatively()}
    * returns false, this method will throw an
    * {@link UnsupportedOperationException} if {@code followSymLinks=false}.
    */
@@ -192,7 +193,7 @@ public abstract class FileSystem {
    * Returns the last modification time of the file denoted by {@code path}.
    * See {@link Path#getLastModifiedTime(Symlinks)} for specification.
    *
-   * Note: for {@link FileSystem}s where {@link #supportsSymbolicLinks()} returns
+   * Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively()} returns
    * false, this method will throw an {@link UnsupportedOperationException} if
    * {@code followSymLinks=false}.
    */
@@ -471,7 +472,7 @@ public abstract class FileSystem {
    * Creates a symbolic link. See {@link Path#createSymbolicLink(Path)} for
    * specification.
    *
-   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinks()}
+   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively()}
    * returns false, this method will throw an
    * {@link UnsupportedOperationException}
    */
@@ -482,7 +483,7 @@ public abstract class FileSystem {
    * Returns the target of a symbolic link. See {@link Path#readSymbolicLink}
    * for specification.
    *
-   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinks()}
+   * <p>Note: for {@link FileSystem}s where {@link #supportsSymbolicLinksNatively()}
    * returns false, this method will throw an
    * {@link UnsupportedOperationException} if the link points to a non-existent
    * file.

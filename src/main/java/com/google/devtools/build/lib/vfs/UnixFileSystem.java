@@ -347,8 +347,8 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   @Override
-  public boolean supportsSymbolicLinks() {
-    return true;
+  public boolean supportsSymbolicLinksNatively() {
+    return symlinkStrategy != SymlinkStrategy.WINDOWS_COMPATIBLE;
   }
 
   @Override

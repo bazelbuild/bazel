@@ -65,7 +65,7 @@ public abstract class FileSystemTest {
     testFS = getFreshFileSystem();
     workingDir = testFS.getPath(getTestTmpDir());
     cleanUpWorkingDirectory(workingDir);
-    supportsSymlinks = testFS.supportsSymbolicLinks();
+    supportsSymlinks = testFS.supportsSymbolicLinksNatively();
 
     // % ls -lR
     // -rw-rw-r-- xFile

@@ -71,7 +71,7 @@ public abstract class ReadonlyFileSystem extends AbstractFileSystem {
   }
 
   @Override
-  public boolean supportsSymbolicLinks() {
+  public boolean supportsSymbolicLinksNatively() {
     return false;
   }
 

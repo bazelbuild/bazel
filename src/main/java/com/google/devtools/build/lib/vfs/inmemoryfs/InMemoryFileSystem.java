@@ -650,7 +650,7 @@ public class InMemoryFileSystem extends ScopeEscapableFileSystem {
   }
 
   @Override
-  public boolean supportsSymbolicLinks() {
+  public boolean supportsSymbolicLinksNatively() {
     return true;
   }
 
