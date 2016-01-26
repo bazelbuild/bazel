@@ -42,7 +42,7 @@ public final class ConcatenateStrategy implements CustomMergeStrategy {
   private byte lastByteCopied = '\n';
   private final boolean appendNewLine;
 
-  ConcatenateStrategy() {
+  public ConcatenateStrategy() {
     this(true);
   }
 
@@ -50,7 +50,7 @@ public final class ConcatenateStrategy implements CustomMergeStrategy {
    * @param appendNewLine Whether to add a newline character between files if
    *                      the previous file did not end with one.
    */
-  ConcatenateStrategy(boolean appendNewLine) {
+  public ConcatenateStrategy(boolean appendNewLine) {
     this.appendNewLine = appendNewLine;
   }
 
