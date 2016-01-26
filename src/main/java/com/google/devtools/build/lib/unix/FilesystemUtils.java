@@ -167,6 +167,16 @@ public final class FilesystemUtils {
       throws IOException;
 
   /**
+   * Native wrapper around POSIX link(2) syscall.
+   *
+   * @param oldpath the file to link to
+   * @param newpath the new path for the link
+   * @throws IOException iff the link() syscall failed.
+   */
+  public static native void link(String oldpath, String newpath)
+    throws IOException;
+
+  /**
    * Native wrapper around POSIX stat(2) syscall.
    *
    * @param path the file to stat.

@@ -27,8 +27,11 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
 import com.google.devtools.build.lib.util.OsUtils;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.UnixFileSystem;
+import com.google.devtools.build.lib.vfs.UnixFileSystem.SymlinkStrategy;
 
 import java.util.List;
 
@@ -128,6 +131,12 @@ public final class SymlinkTreeHelper {
     if (filesetTree) {
       args.add("--allow_relative");
       args.add("--use_metadata");
+    }
+
+    FileSystem fs = execRoot.getFileSystem();
+    if (fs instanceof UnixFileSystem
+        && ((UnixFileSystem) fs).getSymlinkStrategy() == SymlinkStrategy.WINDOWS_COMPATIBLE) {
+      args.add("--windows_compatible");
     }
 
     args.add(inputManifest.getPathString());

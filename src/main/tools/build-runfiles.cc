@@ -88,6 +88,12 @@ enum FileType {
   FILE_TYPE_SYMLINK
 };
 
+enum LinkAlgorithm {
+  LINK_ALGORITHM_SYMLINK,
+  LINK_ALGORITHM_HARDLINK,
+  LINK_ALGORITHM_JUNCTION,
+};
+
 struct FileInfo {
   FileType type;
   std::string symlink_target;
@@ -105,8 +111,9 @@ typedef std::map<std::string, FileInfo> FileInfoMap;
 
 class RunfilesCreator {
  public:
-  explicit RunfilesCreator(const std::string &output_base)
+  explicit RunfilesCreator(const std::string &output_base, bool windows_compatible)
       : output_base_(output_base),
+        windows_compatible_(windows_compatible),
         output_filename_("MANIFEST"),
         temp_filename_(output_filename_ + ".tmp") {
     SetupOutputBase();
@@ -155,7 +162,8 @@ class RunfilesCreator {
       if (!s) {
         DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);
       } else if (strchr(s+1, ' ')) {
-        DIE("link or target filename contains space on line %d: '%s'\n", lineno, buf);
+        DIE("link or target filename contains space on line %d: '%s'\n",
+            lineno, buf);
       }
       std::string link(buf, s-buf);
       const char *target = s+1;
@@ -290,9 +298,29 @@ class RunfilesCreator {
           }
           break;
         case FILE_TYPE_SYMLINK:
-          if (symlink(it->second.symlink_target.c_str(), path.c_str()) != 0) {
-            PDIE("symlinking '%s' -> '%s'", path.c_str(),
-                 it->second.symlink_target.c_str());
+          {
+            LinkAlgorithm algorithm;
+            const std::string& target = it->second.symlink_target;
+            if (windows_compatible_) {
+              struct stat st;
+              StatOrDie(target.c_str(), &st);
+              algorithm = S_ISDIR(st.st_mode)
+                  ? LINK_ALGORITHM_JUNCTION : LINK_ALGORITHM_HARDLINK;
+            } else {
+              algorithm = LINK_ALGORITHM_SYMLINK;
+            }
+
+            int (*link_function)(const char *oldpath, const char *newpath);
+
+            switch (algorithm) {
+              case LINK_ALGORITHM_JUNCTION:  // Emulated using symlinks
+              case LINK_ALGORITHM_SYMLINK: link_function = symlink; break;
+              case LINK_ALGORITHM_HARDLINK: link_function = link; break;
+              default: PDIE("Unknown link algoritm for '%s'", target.c_str());
+            }
+            if (link_function(target.c_str(), path.c_str()) != 0) {
+              PDIE("symlinking '%s' -> '%s'", path.c_str(), target.c_str());
+            }
           }
           break;
       }
@@ -321,6 +349,12 @@ class RunfilesCreator {
 
   void LStatOrDie(const std::string &path, struct stat *st) {
     if (lstat(path.c_str(), st) != 0) {
+      PDIE("lstating file '%s'", path.c_str());
+    }
+  }
+
+  void StatOrDie(const std::string &path, struct stat *st) {
+    if (stat(path.c_str(), st) != 0) {
       PDIE("stating file '%s'", path.c_str());
     }
   }
@@ -381,6 +415,7 @@ class RunfilesCreator {
 
  private:
   std::string output_base_;
+  bool windows_compatible_;
   std::string output_filename_;
   std::string temp_filename_;
 
@@ -393,6 +428,7 @@ int main(int argc, char **argv) {
   argc--; argv++;
   bool allow_relative = false;
   bool use_metadata = false;
+  bool windows_compatible = false;
 
   while (argc >= 1) {
     if (strcmp(argv[0], "--allow_relative") == 0) {
@@ -401,13 +437,18 @@ int main(int argc, char **argv) {
     } else if (strcmp(argv[0], "--use_metadata") == 0) {
       use_metadata = true;
       argc--; argv++;
+    } else if (strcmp(argv[0], "--windows_compatible") == 0) {
+      windows_compatible = true;
+      argc--; argv++;
     } else {
       break;
     }
   }
 
   if (argc != 2) {
-    fprintf(stderr, "usage: %s [--allow_relative] INPUT RUNFILES\n",
+    fprintf(stderr, "usage: %s "
+            "[--allow_relative] [--use_metadata] [--windows_compatible] "
+            "INPUT RUNFILES\n",
             argv0);
     return 1;
   }
@@ -424,7 +465,7 @@ int main(int argc, char **argv) {
     manifest_file = std::string(cwd_buf) + '/' + manifest_file;
   }
 
-  RunfilesCreator runfiles_creator(output_base_dir);
+  RunfilesCreator runfiles_creator(output_base_dir, windows_compatible);
   runfiles_creator.ReadManifest(manifest_file, allow_relative, use_metadata);
   runfiles_creator.CreateRunfiles();
 
