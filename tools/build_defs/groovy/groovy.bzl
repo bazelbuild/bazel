@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 def _groovy_jar_impl(ctx):
   """Creates a .jar file from Groovy sources. Users should rely on
   groovy_library instead of using this rule directly.
@@ -30,7 +29,7 @@ def _groovy_jar_impl(ctx):
   # Set up the output directory and set JAVA_HOME
   cmd = "rm -rf %s\n" % build_output
   cmd += "mkdir -p %s\n" % build_output
-  cmd += "export JAVA_HOME=external/local-jdk\n"
+  cmd += "export JAVA_HOME=external/local_jdk\n"
 
   # Set GROOVY_HOME by scanning through the groovy SDK to find the license file,
   # which should be at the root of the SDK.
@@ -76,26 +75,31 @@ def _groovy_jar_impl(ctx):
   )
 
 _groovy_jar = rule(
-    implementation = _groovy_jar_impl,
     attrs = {
         "srcs": attr.label_list(
-            non_empty=True,
-            allow_files=FileType([".groovy"])),
+            non_empty = True,
+            allow_files = FileType([".groovy"]),
+        ),
         "deps": attr.label_list(
-            mandatory=False,
-            allow_files=FileType([".jar"])),
+            mandatory = False,
+            allow_files = FileType([".jar"]),
+        ),
         "_groovysdk": attr.label(
-            default=Label("//external:groovy-sdk")),
+            default = Label("//external:groovy-sdk"),
+        ),
         "_jdk": attr.label(
-            default=Label("//tools/defaults:jdk")),
+            default = Label("//tools/defaults:jdk"),
+        ),
         "_zipper": attr.label(
-            default=Label("//third_party/ijar:zipper"),
-            executable=True,
-            single_file=True),
+            default = Label("//third_party/ijar:zipper"),
+            executable = True,
+            single_file = True,
+        ),
     },
     outputs = {
         "class_jar": "lib%{name}.jar",
     },
+    implementation = _groovy_jar_impl,
 )
 
 def groovy_library(name, srcs=[], deps=[], **kwargs):
@@ -113,7 +117,6 @@ def groovy_library(name, srcs=[], deps=[], **kwargs):
       jars = [name + "-impl"],
       **kwargs
   )
-
 
 def groovy_and_java_library(name, srcs=[], deps=[], **kwargs):
   """Accepts .groovy and .java srcs to create a groovy_library and a
@@ -212,21 +215,26 @@ def _groovy_test_impl(ctx):
   )
 
 _groovy_test = rule(
-  implementation = _groovy_test_impl,
-  attrs = {
-    "srcs": attr.label_list(mandatory=True, allow_files=FileType([".groovy"])),
-    "deps": attr.label_list(allow_files=FileType([".jar"])),
-    "data": attr.label_list(allow_files=True),
-    "jvm_flags": attr.string_list(),
-    "_groovysdk": attr.label(
-      default=Label("//external:groovy-sdk")),
-    "_jdk": attr.label(
-      default=Label("//tools/defaults:jdk")),
-    "_implicit_deps": attr.label_list(default=[
-      Label("//external:junit"),
-    ]),
-  },
-  test = True,
+    attrs = {
+        "srcs": attr.label_list(
+            mandatory = True,
+            allow_files = FileType([".groovy"]),
+        ),
+        "deps": attr.label_list(allow_files = FileType([".jar"])),
+        "data": attr.label_list(allow_files = True),
+        "jvm_flags": attr.string_list(),
+        "_groovysdk": attr.label(
+            default = Label("//external:groovy-sdk"),
+        ),
+        "_jdk": attr.label(
+            default = Label("//tools/defaults:jdk"),
+        ),
+        "_implicit_deps": attr.label_list(default = [
+            Label("//external:junit"),
+        ]),
+    },
+    test = True,
+    implementation = _groovy_test_impl,
 )
 
 def groovy_test(
