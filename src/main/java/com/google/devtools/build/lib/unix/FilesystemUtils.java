@@ -66,8 +66,8 @@ public final class FilesystemUtils {
       return false;
     }
   }
-    
-  
+
+
   /**
    * Marks the file or directory {@code path} as executable. (Non-atomic)
    *
@@ -173,8 +173,7 @@ public final class FilesystemUtils {
    * @param newpath the new path for the link
    * @throws IOException iff the link() syscall failed.
    */
-  public static native void link(String oldpath, String newpath)
-    throws IOException;
+  public static native void link(String oldpath, String newpath) throws IOException;
 
   /**
    * Native wrapper around POSIX stat(2) syscall.
@@ -442,14 +441,14 @@ public final class FilesystemUtils {
   public static HashCode md5sum(String path) throws IOException {
     return HashCode.fromBytes(md5sumAsBytes(path));
   }
-  
+
   /**
    * Removes entire directory tree. Doesn't follow symlinks.
    *
    * @param path the file or directory to remove.
    * @throws IOException if the remove failed.
    */
-  public static void rmTree(String path) throws IOException { 
+  public static void rmTree(String path) throws IOException {
     if (isDirectory(path)) {
       String[] contents = readdir(path);
       for (String entry : contents) {
