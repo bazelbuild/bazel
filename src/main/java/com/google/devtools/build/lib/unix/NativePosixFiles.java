@@ -30,9 +30,9 @@ import java.util.logging.Logger;
  * SDK. Exception messages are selected to be consistent with those generated
  * by the java.io package where appropriate--see package javadoc for details.
  */
-public final class FilesystemUtils {
+public final class NativePosixFiles {
 
-  private FilesystemUtils() {}
+  private NativePosixFiles() {}
 
   /**
    * Returns true iff the file identified by 'path' is a symbolic link. Has
@@ -107,10 +107,10 @@ public final class FilesystemUtils {
    * @throws IOException if the chmod() syscall failed.
    */
   public static void chmod(File path, int mode) throws IOException {
-    int mask = FileStatus.S_ISUID |
-               FileStatus.S_ISGID |
-               FileStatus.S_ISVTX |
-               FileStatus.S_IRWXA;
+    int mask = FileStatus.S_ISUID
+               | FileStatus.S_ISGID
+               | FileStatus.S_ISVTX
+               | FileStatus.S_IRWXA;
     chmod(path.toString(), mode & mask);
   }
 
@@ -128,9 +128,9 @@ public final class FilesystemUtils {
           // wait (if necessary) until the logging system is initialized
           synchronized (LogManager.getLogManager()) {}
           Logger.getLogger("com.google.devtools.build.lib.unix.FilesystemUtils").log(Level.FINE,
-              "WARNING: Default character set is not latin1; java.io.File and " +
-              "com.google.devtools.build.lib.unix.FilesystemUtils will represent some filenames " +
-              "differently.");
+              "WARNING: Default character set is not latin1; java.io.File and "
+              + "com.google.devtools.build.lib.unix.FilesystemUtils will represent some filenames "
+              + "differently.");
         }
       }.start();
     }

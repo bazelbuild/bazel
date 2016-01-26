@@ -36,7 +36,7 @@ import java.io.FileNotFoundException;
  * This class tests the FilesystemUtils class.
  */
 @RunWith(JUnit4.class)
-public class FilesystemUtilsTest {
+public class NativePosixFilesTest {
   private FileSystem testFS;
   private Path workingDir;
   private Path testFile;
@@ -71,7 +71,7 @@ public class FilesystemUtilsTest {
 
     for (String testInput : testVectors.keySet()) {
       FileSystemUtils.writeContentAsLatin1(testFile, testInput);
-      HashCode result = FilesystemUtils.md5sum(testFile.getPathString());
+      HashCode result = NativePosixFiles.md5sum(testFile.getPathString());
       assertThat(testVectors).containsEntry(testInput, result.toString());
     }
   }
@@ -79,10 +79,10 @@ public class FilesystemUtilsTest {
   @Test
   public void throwsFileAccessException() throws Exception {
     FileSystemUtils.createEmptyFile(testFile);
-    FilesystemUtils.chmod(testFile.getPathString(), 0200);
+    NativePosixFiles.chmod(testFile.getPathString(), 0200);
 
     try {
-      FilesystemUtils.md5sum(testFile.getPathString());
+      NativePosixFiles.md5sum(testFile.getPathString());
       fail("Expected FileAccessException, but wasn't thrown.");
     } catch (FileAccessException e) {
       assertThat(e).hasMessage(testFile + " (Permission denied)");
@@ -92,7 +92,7 @@ public class FilesystemUtilsTest {
   @Test
   public void throwsFileNotFoundException() throws Exception {
     try {
-      FilesystemUtils.md5sum(testFile.getPathString());
+      NativePosixFiles.md5sum(testFile.getPathString());
       fail("Expected FileNotFoundException, but wasn't thrown.");
     } catch (FileNotFoundException e) {
       assertThat(e).hasMessage(testFile + " (No such file or directory)");
@@ -103,7 +103,7 @@ public class FilesystemUtilsTest {
   public void throwsFilePermissionException() throws Exception {
     File foo = new File("/bin");
     try {
-      FilesystemUtils.setWritable(foo);
+      NativePosixFiles.setWritable(foo);
       fail("Expected FilePermissionException, but wasn't thrown.");
     } catch (FilePermissionException e) {
       assertThat(e).hasMessage(foo + " (Operation not permitted)");
