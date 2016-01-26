@@ -23,6 +23,8 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Iterator;
 
+import javax.annotation.Nullable;
+
 /**
  * A factory to create middleman objects.
  */
@@ -82,8 +84,8 @@ public final class MiddlemanFactory {
    * @param middlemanDir the directory in which to place the middleman.
    */
   public Artifact createRunfilesMiddleman(
-      ActionOwner owner, Artifact owningArtifact, Iterable<Artifact> inputs, Root middlemanDir,
-      String tag) {
+      ActionOwner owner, @Nullable Artifact owningArtifact, Iterable<Artifact> inputs,
+      Root middlemanDir, String tag) {
     if (hasExactlyOneInput(inputs)) { // Optimization: No middleman for just one input.
       return Iterables.getOnlyElement(inputs);
     }

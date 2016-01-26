@@ -113,7 +113,7 @@ public class RunfilesSupport {
 
     Artifact artifactsMiddleman = createArtifactsMiddleman(ruleContext, runfiles.getAllArtifacts());
     runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext);
-    this.runfilesManifest = createRunfilesAction(ruleContext, runfiles);
+    this.runfilesManifest = createRunfilesAction(ruleContext, runfiles, artifactsMiddleman);
     this.runfilesMiddleman = createRunfilesMiddleman(
         ruleContext, artifactsMiddleman, runfilesManifest);
     sourcesManifest = createSourceManifest(ruleContext, runfiles);
@@ -272,7 +272,8 @@ public class RunfilesSupport {
    * generated files, etc.) into a single tree, so that programs can access them
    * using the workspace-relative name.
    */
-  private Artifact createRunfilesAction(ActionConstructionContext context, Runfiles runfiles) {
+  private Artifact createRunfilesAction(ActionConstructionContext context, Runfiles runfiles,
+      Artifact artifactsMiddleman) {
     // Compute the names of the runfiles directory and its MANIFEST file.
     Artifact inputManifest = getRunfilesInputManifest();
     context.getAnalysisEnvironment().registerAction(
@@ -292,7 +293,8 @@ public class RunfilesSupport {
     Artifact outputManifest = context.getDerivedArtifact(
         outputManifestPath, config.getBinDirectory());
     context.getAnalysisEnvironment().registerAction(new SymlinkTreeAction(
-        context.getActionOwner(), inputManifest, outputManifest, /*filesetTree=*/false));
+        context.getActionOwner(), inputManifest, artifactsMiddleman, outputManifest,
+        /*filesetTree=*/false));
     return outputManifest;
   }
 
