@@ -82,6 +82,7 @@ public final class DependencyModule {
   private final Map<String, Deps.Dependency> implicitDependenciesMap;
   Set<String> requiredClasspath;
   private final String fixMessage;
+  private final Set<String> exemptGenerators;
 
   DependencyModule(StrictJavaDeps strictJavaDeps,
                    Map<String, String> directJarsToTargets,
@@ -92,7 +93,8 @@ public final class DependencyModule {
                    String targetLabel,
                    String outputDepsFile,
                    String outputDepsProtoFile,
-                   String fixMessage) {
+                   String fixMessage,
+                   Set<String> exemptGenerators) {
     this.strictJavaDeps = strictJavaDeps;
     this.directJarsToTargets = directJarsToTargets;
     this.indirectJarsToTargets = indirectJarsToTargets;
@@ -106,6 +108,7 @@ public final class DependencyModule {
     this.implicitDependenciesMap = new HashMap<>();
     this.usedClasspath = new HashSet<>();
     this.fixMessage = fixMessage;
+    this.exemptGenerators = exemptGenerators;
   }
 
   /**
@@ -250,6 +253,13 @@ public final class DependencyModule {
   }
 
   /**
+   * Return a set of generator values that are exempt from strict dependencies.
+   */
+  public Set<String> getExemptGenerators() {
+    return exemptGenerators;
+  }
+
+  /**
    * Returns whether classpath reduction is enabled for this invocation.
    */
   public boolean reduceClasspath() {
@@ -338,6 +348,7 @@ public final class DependencyModule {
     private boolean strictClasspathMode = false;
     private String fixMessage = "%s** Please add the following dependencies:%s\n"
         + "  %s to %s\n\n";
+    private final Set<String> exemptGenerators = new HashSet<>();
 
     /**
      * Constructs the DependencyModule, guaranteeing that the maps are
@@ -349,7 +360,7 @@ public final class DependencyModule {
     public DependencyModule build() {
       return new DependencyModule(strictJavaDeps, directJarsToTargets, indirectJarsToTargets,
           strictClasspathMode, depsArtifacts, ruleKind, targetLabel, outputDepsFile,
-          outputDepsProtoFile, fixMessage);
+          outputDepsProtoFile, fixMessage, exemptGenerators);
     }
 
     /**
@@ -485,6 +496,17 @@ public final class DependencyModule {
      */
     public Builder setFixMessage(String fixMessage) {
       this.fixMessage = fixMessage;
+      return this;
+    }
+
+    /**
+     * Add a generator to the exempt set.
+     *
+     * @param exemptGenerator the generator class name
+     * @return this Builder instance
+     */
+    public Builder addExemptGenerator(String exemptGenerator) {
+      exemptGenerators.add(exemptGenerator);
       return this;
     }
   }
