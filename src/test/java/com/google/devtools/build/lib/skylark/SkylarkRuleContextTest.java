@@ -354,6 +354,23 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testGetRuleSelect() throws Exception {
+    scratch.file("test/skylark/BUILD");
+    scratch.file("test/skylark/rulestr.bzl", "def rule_dict(name):", "  return native.rule(name)");
+
+    scratch.file(
+        "test/getrule/BUILD",
+        "load('/test/skylark/rulestr', 'rule_dict')",
+        "cc_library(name ='x', ",
+        "  srcs = select({'//conditions:default': []})",
+        ")",
+        "rule_dict('x')");
+
+    // Parse the BUILD file, to make sure select() makes it out of native.rule().
+    createRuleContext("//test/getrule:x");
+  }
+
+  @Test
   public void testGetRule() throws Exception {
     scratch.file("test/skylark/BUILD");
     scratch.file(

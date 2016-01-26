@@ -892,10 +892,12 @@ public final class PackageFactory {
    * Returns null if we don't want to export the value.
    *
    * <p>All of the types returned are immutable. If we want, we can change this to
-   * immutable in the future, but this is the safe choice for now.o
+   * immutable in the future, but this is the safe choice for now.
    */
   @Nullable
   private static Object skylarkifyValue(Object val, Package pkg) throws NotRepresentableException {
+    // TODO(bazel-team): the location of this function is ad-hoc. Arguably, the conversion
+    // from Java native types to Skylark types should be part of the Type class hierarchy,
     if (val == null) {
       return null;
     }
@@ -909,7 +911,6 @@ public final class PackageFactory {
       return val;
     }
 
-    // Maybe we should have an interface for types so they can represent themselves to skylark?
     if (val instanceof TriState) {
       switch ((TriState) val) {
         case AUTO:
@@ -970,6 +971,22 @@ public final class PackageFactory {
     if (val instanceof License) {
       // TODO(bazel-team): convert License.getLicenseTypes() to a list of strings.
       return null;
+    }
+
+    if (val instanceof BuildType.SelectorList) {
+      // This is terrible:
+      //  1) this value is opaque, and not a BUILD value, so it cannot be used in rule arguments
+      //  2) its representation has a pointer address, so it breaks hermeticity.
+      //
+      // Even though this is clearly imperfect, we return this value because otherwise
+      // native.rules() fails if there is any rule using a select() in the BUILD file.
+      //
+      // To remedy this, we should return a syntax.SelectorList. To do so, we have to
+      // 1) recurse into the Selector contents of SelectorList, so those values are skylarkified too
+      // 2) get the right Class<?> value. We could probably get at that by looking at
+      //    ((SelectorList)val).getSelectors().first().getEntries().first().getClass().
+
+      return val;
     }
 
     // We are explicit about types we don't understand so we minimize changes to existing callers
