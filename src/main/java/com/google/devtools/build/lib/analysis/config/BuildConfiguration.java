@@ -540,7 +540,7 @@ public final class BuildConfiguration {
     public List<Map.Entry<String, String>> pluginCoptList;
 
     @Option(name = "stamp",
-        defaultValue = "true",
+        defaultValue = "false",
         category = "semantics",
         help = "Stamp binaries with the date, username, hostname, workspace information, etc.")
     public boolean stampBinaries;
