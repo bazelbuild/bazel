@@ -561,7 +561,8 @@ public final class AndroidRuleClasses {
               .cfg(ANDROID_SPLIT_TRANSITION)
               .allowedRuleClasses(ALLOWED_DEPENDENCIES)
               .allowedFileTypes()
-              .aspect(AndroidNeverlinkAspect.class))
+              .aspect(AndroidNeverlinkAspect.class)
+              .aspect(JackAspect.class))
           // Proguard rule specifying master list of classes to keep during legacy multidexing.
           .add(attr("$build_incremental_dexmanifest", LABEL).cfg(HOST).exec()
               .value(env.getLabel(AndroidRuleClasses.BUILD_INCREMENTAL_DEXMANIFEST_LABEL)))

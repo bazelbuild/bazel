@@ -74,7 +74,9 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .override(builder.copy("deps")
             .allowedRuleClasses(AndroidRuleClasses.ALLOWED_DEPENDENCIES)
-            .allowedFileTypes())
+            .allowedFileTypes()
+            .aspect(JackAspect.class)
+            .aspect(AndroidNeverlinkAspect.class))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(exports) -->
         The transitive closure of all rules reached via <code>exports</code> attributes
         are considered direct dependencies of any rule that directly depends on the
@@ -84,7 +86,9 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("exports", LABEL_LIST)
             .allowedRuleClasses(AndroidRuleClasses.ALLOWED_DEPENDENCIES)
-            .allowedFileTypes(/*May not have files in exports!*/))
+            .allowedFileTypes(/*May not have files in exports!*/)
+            .aspect(JackAspect.class)
+            .aspect(AndroidNeverlinkAspect.class))
         .add(attr("alwayslink", BOOLEAN).undocumented("purely informational for now"))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(neverlink) -->
         Only use this library for compilation and not at runtime.
