@@ -18,7 +18,6 @@
 
 # Installation and etc prefix can be overriden from command line
 install_prefix=${1:-"/usr/local"}
-# TODO(kchodorow): delete by April 2016.
 bazelrc=${2:-"/etc/bazel.bazelrc"}
 
 progname="$0"
@@ -34,10 +33,11 @@ function usage() {
   echo "Usage: $progname [options]" >&2
   echo "Options are:" >&2
   echo "  --prefix=/some/path set the prefix path (default=/usr/local)." >&2
+  echo "  --bazelrc= set the bazelrc path (default=/etc/bazel.bazelrc)." >&2
   echo "  --bin= set the binary folder path (default=%prefix%/bin)." >&2
   echo "  --base= set the base install path (default=%prefix%/lib/bazel)." >&2
   echo "  --user configure for user install, expands to" >&2
-  echo '           `--bin=$HOME/bin --base=$HOME/.bazel' >&2
+  echo '           `--bin=$HOME/bin --base=$HOME/.bazel --bazelrc=$HOME/.bazelrc`.' >&2
   exit 1
 }
 
@@ -139,12 +139,19 @@ if [ -d "${base}" -a -x "${base}/bin/bazel" ]; then
   rm -fr "${base}"
 fi
 
-mkdir -p ${bin} ${base} ${base}/bin ${base}/etc
+mkdir -p ${bin} ${base} ${base}/bin ${base}/etc ${base}/base_workspace
 echo -n .
 
 unzip -q "${BASH_SOURCE[0]}" bazel bazel-real bazel-complete.bash -d "${base}/bin"
 echo -n .
 chmod 0755 "${base}/bin/bazel" "${base}/bin/bazel-real"
+unzip -q "${BASH_SOURCE[0]}" -x bazel bazel-real bazel-complete.bash -d "${base}/base_workspace"
+echo -n .
+cat >"${base}/etc/bazel.bazelrc" <<EO
+build --package_path %workspace%:${base}/base_workspace
+fetch --package_path %workspace%:${base}/base_workspace
+query --package_path %workspace%:${base}/base_workspace
+EO
 echo -n .
 chmod -R og-w "${base}"
 chmod -R og+rX "${base}"
@@ -159,13 +166,13 @@ echo -n .
 
 if [ -f "${bazelrc}" ]; then
   echo
-  echo "${bazelrc} already exists, moving it to ${bazelrc}.bak."
-  mv "${bazelrc}" "${bazelrc}.bak"
+  echo "${bazelrc} already exists, ignoring. It is either a link to"
+  echo "${base}/etc/bazel.bazelrc or that it's importing that file with:"
+  echo "  import ${base}/etc/bazel.bazelrc"
+else
+  ln -s "${base}/etc/bazel.bazelrc" "${bazelrc}"
+  echo .
 fi
-
-# Not necessary, but this way it matches the Debian package.
-touch "${bazelrc}"
-echo .
 
 cat <<EOF
 
