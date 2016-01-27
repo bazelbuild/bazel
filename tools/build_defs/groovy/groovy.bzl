@@ -115,6 +115,7 @@ def groovy_library(name, srcs=[], deps=[], **kwargs):
   native.java_import(
       name = name,
       jars = [name + "-impl"],
+      deps = deps,
       **kwargs
   )
 
@@ -151,6 +152,7 @@ def groovy_and_java_library(name, srcs=[], deps=[], **kwargs):
   native.java_import(
       name = name,
       jars = jars,
+      deps = deps,
       **kwargs
   )
 
