@@ -45,6 +45,8 @@ filegroup(
 filegroup(
     name = "embedded_tools_srcs",
     srcs = glob(["**"]) + [
+        "//tools/android/jack:srcs",
+        "//tools/android:srcs",
         "//tools/build_defs/d:srcs",
         "//tools/build_defs/docker:srcs",
         "//tools/build_defs/jsonnet:srcs",
