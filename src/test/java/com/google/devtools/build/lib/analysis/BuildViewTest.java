@@ -37,8 +37,6 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
-import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -330,26 +328,23 @@ public final class BuildViewTest extends BuildViewTestBase {
     Dependency fileDependency;
     if (top.getConfiguration().useDynamicConfigurations()) {
       innerDependency =
-          new Dependency(
+          Dependency.withTransitionAndAspects(
               Label.parseAbsolute("//package:inner"),
               Attribute.ConfigurationTransition.NONE,
               ImmutableSet.<Aspect>of());
       fileDependency =
-          new Dependency(
+          Dependency.withTransitionAndAspects(
               Label.parseAbsolute("//package:file"),
               Attribute.ConfigurationTransition.NONE,
               ImmutableSet.<Aspect>of());
     } else {
       innerDependency =
-          new Dependency(
+          Dependency.withConfiguration(
               Label.parseAbsolute("//package:inner"),
-              getTargetConfiguration(),
-              ImmutableSet.<Aspect>of());
+              getTargetConfiguration());
       fileDependency =
-          new Dependency(
-              Label.parseAbsolute("//package:file"),
-              (BuildConfiguration) null,
-              ImmutableSet.<Aspect>of());
+          Dependency.withNullConfiguration(
+              Label.parseAbsolute("//package:file"));
     }
 
     assertThat(targets).containsExactly(innerDependency, fileDependency);

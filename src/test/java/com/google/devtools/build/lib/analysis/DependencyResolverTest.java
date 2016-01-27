@@ -18,10 +18,6 @@ import static org.junit.Assert.assertNotNull;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
-import com.google.common.testing.EqualsTester;
-import com.google.common.testing.NullPointerTester;
-import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
@@ -166,95 +162,5 @@ public class DependencyResolverTest extends AnalysisTestCase {
     ListMultimap<Attribute, Dependency> map =
         dependentNodeMap("//a:a", TestAspects.ExtraAttributeAspect.class);
     assertDep(map, "$dep", "//extra:extra");
-  }
-
-  @Test
-  public void constructorsForDependencyPassNullableTester() throws Exception {
-    update();
-
-    new NullPointerTester()
-        .setDefault(Label.class, Label.parseAbsolute("//a"))
-        .setDefault(BuildConfiguration.class, getTargetConfiguration())
-        .setDefault(ImmutableSet.class, ImmutableSet.of())
-        .testAllPublicConstructors(Dependency.class);
-  }
-
-  @Test
-  public void equalsOnDependencyPassesEqualsTester() throws Exception {
-    update();
-
-    Label a = Label.parseAbsolute("//a");
-    Label aExplicit = Label.parseAbsolute("//a:a");
-    Label b = Label.parseAbsolute("//b");
-
-    BuildConfiguration host = getHostConfiguration();
-    BuildConfiguration target = getTargetConfiguration();
-
-    ImmutableSet<Aspect> twoAspects =
-        ImmutableSet.of(
-            new Aspect(new NativeAspectClass(TestAspects.SimpleAspect.class)),
-            new Aspect(new NativeAspectClass(TestAspects.AttributeAspect.class)));
-    ImmutableSet<Aspect> inverseAspects =
-        ImmutableSet.of(
-            new Aspect(new NativeAspectClass(TestAspects.AttributeAspect.class)),
-            new Aspect(new NativeAspectClass(TestAspects.SimpleAspect.class)));
-    ImmutableSet<Aspect> differentAspects =
-        ImmutableSet.of(
-            new Aspect(new NativeAspectClass(TestAspects.AttributeAspect.class)),
-            new Aspect(new NativeAspectClass(TestAspects.ErrorAspect.class)));
-
-    new EqualsTester()
-        .addEqualityGroup(
-            // base set: //a, host configuration, normal aspect set
-            new Dependency(a, host, twoAspects),
-            new Dependency(aExplicit, host, twoAspects),
-            new Dependency(a, host, inverseAspects),
-            new Dependency(aExplicit, host, inverseAspects))
-        .addEqualityGroup(
-            // base set but with label //b
-            new Dependency(b, host, twoAspects),
-            new Dependency(b, host, inverseAspects))
-        .addEqualityGroup(
-            // base set but with target configuration
-            new Dependency(a, target, twoAspects),
-            new Dependency(aExplicit, target, twoAspects),
-            new Dependency(a, target, inverseAspects),
-            new Dependency(aExplicit, target, inverseAspects))
-        .addEqualityGroup(
-            // base set but with null configuration
-            new Dependency(a, (BuildConfiguration) null, twoAspects),
-            new Dependency(aExplicit, (BuildConfiguration) null, twoAspects),
-            new Dependency(a, (BuildConfiguration) null, inverseAspects),
-            new Dependency(aExplicit, (BuildConfiguration) null, inverseAspects))
-        .addEqualityGroup(
-            // base set but with different aspects
-            new Dependency(a, host, differentAspects),
-            new Dependency(aExplicit, host, differentAspects))
-        .addEqualityGroup(
-            // base set but with label //b and target configuration
-            new Dependency(b, target, twoAspects),
-            new Dependency(b, target, inverseAspects))
-        .addEqualityGroup(
-            // base set but with label //b and null configuration
-            new Dependency(b, (BuildConfiguration) null, twoAspects),
-            new Dependency(b, (BuildConfiguration) null, inverseAspects))
-        .addEqualityGroup(
-            // base set but with label //b and different aspects
-            new Dependency(b, host, differentAspects))
-        .addEqualityGroup(
-            // base set but with target configuration and different aspects
-            new Dependency(a, target, differentAspects),
-            new Dependency(aExplicit, target, differentAspects))
-        .addEqualityGroup(
-            // base set but with null configuration and different aspects
-            new Dependency(a, (BuildConfiguration) null, differentAspects),
-            new Dependency(aExplicit, (BuildConfiguration) null, differentAspects))
-        .addEqualityGroup(
-            // inverse of base set: //b, target configuration, different aspects
-            new Dependency(b, target, differentAspects))
-        .addEqualityGroup(
-            // inverse of base set: //b, null configuration, different aspects
-            new Dependency(b, (BuildConfiguration) null, differentAspects))
-        .testEquals();
   }
 }

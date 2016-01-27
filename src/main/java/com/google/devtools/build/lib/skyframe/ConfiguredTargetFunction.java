@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictEx
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
+import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
@@ -401,12 +401,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
       if (dep.hasStaticConfiguration()) {
         // Certain targets (like output files) trivially pass their configurations to their deps.
         // So no need to transform them in any way.
-        putOnlyEntry(trimmedDeps, attributeAndLabel,
-            new Dependency(dep.getLabel(), dep.getConfiguration(), dep.getAspects()));
+        putOnlyEntry(trimmedDeps, attributeAndLabel, dep);
         continue;
       } else if (dep.getTransition() == Attribute.ConfigurationTransition.NULL) {
-        putOnlyEntry(trimmedDeps, attributeAndLabel,
-            new Dependency(dep.getLabel(), (BuildConfiguration) null, dep.getAspects()));
+        putOnlyEntry(
+            trimmedDeps, attributeAndLabel, Dependency.withNullConfiguration(dep.getLabel()));
         continue;
       }
 
@@ -428,8 +427,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
       if (sameFragments) {
         if (transition == Attribute.ConfigurationTransition.NONE) {
           // The dep uses the same exact configuration.
-          putOnlyEntry(trimmedDeps, attributeAndLabel,
-              new Dependency(dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
+          putOnlyEntry(
+              trimmedDeps,
+              attributeAndLabel,
+              Dependency.withConfigurationAndAspects(
+                  dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
           continue;
         } else if (transition == HostTransition.INSTANCE) {
           // The current rule's host configuration can also be used for the dep. We short-circuit
@@ -437,8 +439,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
           // uniquely frequent. It's possible, e.g., for every node in the configured target graph
           // to incur multiple host transitions. So we aggressively optimize to avoid hurting
           // analysis time.
-          putOnlyEntry(trimmedDeps, attributeAndLabel,
-              new Dependency(dep.getLabel(), hostConfiguration, dep.getAspects()));
+          putOnlyEntry(
+              trimmedDeps,
+              attributeAndLabel,
+              Dependency.withConfigurationAndAspects(
+                  dep.getLabel(), hostConfiguration, dep.getAspects()));
           continue;
         }
       }
@@ -465,8 +470,11 @@ final class ConfiguredTargetFunction implements SkyFunction {
       // If the transition doesn't change the configuration, trivially re-use the original
       // configuration.
       if (sameFragments && toOptions.equals(ctgOptions)) {
-        putOnlyEntry(trimmedDeps, attributeAndLabel,
-            new Dependency(dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
+        putOnlyEntry(
+            trimmedDeps,
+            attributeAndLabel,
+            Dependency.withConfigurationAndAspects(
+                dep.getLabel(), ctgValue.getConfiguration(), dep.getAspects()));
         continue;
       }
 
@@ -490,7 +498,9 @@ final class ConfiguredTargetFunction implements SkyFunction {
         for (Map.Entry<Attribute, Dependency> info : keysToEntries.get(key)) {
           Dependency originalDep = info.getValue();
           putOnlyEntry(trimmedDeps, new AttributeAndLabel(info.getKey(), originalDep.getLabel()),
-              new Dependency(originalDep.getLabel(), trimmedConfig.getConfiguration(),
+              Dependency.withConfigurationAndAspects(
+                  originalDep.getLabel(),
+                  trimmedConfig.getConfiguration(),
                   originalDep.getAspects()));
         }
       }
@@ -665,7 +675,8 @@ final class ConfiguredTargetFunction implements SkyFunction {
     if (targetConfig != null && targetConfig.useDynamicConfigurations()) {
       ImmutableList.Builder<Dependency> staticConfigs = ImmutableList.builder();
       for (Dependency dep : configValueNames) {
-        staticConfigs.add(new Dependency(dep.getLabel(), targetConfig, dep.getAspects()));
+        staticConfigs.add(
+            Dependency.withConfigurationAndAspects(dep.getLabel(), targetConfig, dep.getAspects()));
       }
       configValueNames = staticConfigs.build();
     }

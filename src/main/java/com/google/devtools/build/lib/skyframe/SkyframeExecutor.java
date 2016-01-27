@@ -53,7 +53,7 @@ import com.google.devtools.build.lib.analysis.BuildView.Options;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
+import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
@@ -1312,7 +1312,10 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         getConfiguredTargets(
             eventHandler,
             configuration,
-            ImmutableList.of(new Dependency(label, configuration)),
+            ImmutableList.of(
+                configuration != null
+                    ? Dependency.withConfiguration(label, configuration)
+                    : Dependency.withNullConfiguration(label)),
             true),
         null);
   }

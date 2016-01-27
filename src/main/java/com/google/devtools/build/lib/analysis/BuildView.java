@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider.ExtraArtifactSet;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -762,7 +761,10 @@ public class BuildView {
         skyframeExecutor.getConfiguredTargets(
             eventHandler,
             configuration,
-            ImmutableList.of(new Dependency(label, configuration)),
+            ImmutableList.of(
+                configuration != null
+                    ? Dependency.withConfiguration(label, configuration)
+                    : Dependency.withNullConfiguration(label)),
             true),
         null);
   }
