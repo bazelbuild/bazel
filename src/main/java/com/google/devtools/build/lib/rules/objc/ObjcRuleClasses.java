@@ -776,18 +776,10 @@ public class ObjcRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr(":dumpsyms", LABEL)
+          .add(attr("$dumpsyms", LABEL)
           .cfg(HOST)
           .singleArtifact()
-          .value(new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
-            @Override
-            public Label getDefault(Rule rule, BuildConfiguration configuration) {
-              if (!configuration.getFragment(ObjcConfiguration.class).generateDebugSymbols()) {
-                return null;
-              }
-              return configuration.getFragment(ObjcConfiguration.class).getDumpSymsLabel();
-            }
-          }))
+          .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:dump_syms")))
           .add(attr("$j2objc_dead_code_pruner", LABEL)
               .allowedFileTypes(FileType.of(".py"))
               .cfg(HOST)

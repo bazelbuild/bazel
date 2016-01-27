@@ -70,7 +70,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   // configuration, the late bound attribute will fail to be initialized because it hasn't been
   // loaded.
   @Nullable private final Label gcovLabel;
-  @Nullable private final Label dumpSymsLabel;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
       @Nullable BlazeDirectories directories) {
@@ -84,7 +83,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.copts = ImmutableList.copyOf(objcOptions.copts);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
     this.gcovLabel = options.objcGcovBinary;
-    this.dumpSymsLabel = objcOptions.dumpSyms;
     this.iosSplitCpu = Preconditions.checkNotNull(objcOptions.iosSplitCpu, "iosSplitCpu");
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
     this.enableBinaryStripping = objcOptions.enableBinaryStripping;
@@ -161,14 +159,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   @Nullable public Label getGcovLabel() {
     return gcovLabel;
-  }
-
-  /**
-   * Returns the label of the dump_syms binary, used to get debug symbols from a binary. Null iff
-   * !{@link #generateDebugSymbols}.
-   */
-  @Nullable public Label getDumpSymsLabel() {
-    return dumpSymsLabel;
   }
 
   /**

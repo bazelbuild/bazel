@@ -16,12 +16,8 @@ package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.Constants;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.DottedVersionConverter;
@@ -36,13 +32,6 @@ import java.util.List;
  * Command-line options for building Objective-C targets.
  */
 public class ObjcCommandLineOptions extends FragmentOptions {
-  /** Converter for --objc_dump_syms_binary. */
-  public static class DumpSymsConverter extends DefaultLabelConverter {
-    public DumpSymsConverter() {
-      super(Constants.TOOLS_REPOSITORY + "//tools/objc:dump_syms");
-    }
-  }
-
   @Option(
     name = "ios_simulator_version",
     defaultValue = "8.4",
@@ -97,12 +86,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       help =
           "Don't set this value from the command line - it is derived from  ios_multi_cpus only.")
   public String iosSplitCpu;
-
-  @Option(name = "objc_dump_syms_binary",
-      defaultValue = "",
-      category = "undocumented",
-      converter = DumpSymsConverter.class)
-  public Label dumpSyms;
 
   @Option(name = "experimental_enable_objc_cc_deps",
       defaultValue = "false",
@@ -180,13 +163,6 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   public String xcodeOverrideWorkspaceRoot;
 
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
-
-  @Override
-  public void addAllLabels(Multimap<String, Label> labelMap) {
-    if (generateDebugSymbols) {
-      labelMap.put("dump_syms", dumpSyms);
-    }
-  }
 
   @Override
   public List<SplitTransition<BuildOptions>> getPotentialSplitTransitions() {
