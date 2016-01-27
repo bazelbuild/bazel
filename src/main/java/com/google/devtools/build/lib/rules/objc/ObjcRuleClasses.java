@@ -1042,7 +1042,7 @@ public class ObjcRuleClasses {
       return builder
           // Needed to run the binary in the simulator.
           .add(attr("$iossim", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//third_party/iossim:iossim")))
+              .value(env.getLabel("//third_party/iossim:iossim")))
           .add(attr("$std_redirect_dylib", LABEL).cfg(HOST).exec()
               .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:StdRedirect.dylib")))
           .build();

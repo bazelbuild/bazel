@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -47,11 +46,9 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("entry_classes", STRING_LIST))
         .add(attr("$jre_emul_lib", LABEL)
-            .value(env.getLabel(
-                Constants.TOOLS_REPOSITORY + "//third_party/java/j2objc:jre_emul_lib")))
+            .value(env.getLabel("//third_party/java/j2objc:jre_emul_lib")))
         .add(attr("$protobuf_lib", LABEL)
-            .value(env.getLabel(
-                Constants.TOOLS_REPOSITORY + "//third_party/java/j2objc:proto_runtime")))
+            .value(env.getLabel("//third_party/java/j2objc:proto_runtime")))
         .build();
   }
 
