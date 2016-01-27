@@ -15,11 +15,13 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.common.base.Strings;
+
 import java.io.IOException;
 import java.net.Authenticator;
 import java.net.InetSocketAddress;
 import java.net.PasswordAuthentication;
 import java.net.Proxy;
+import java.net.URLDecoder;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -112,13 +114,17 @@ public class ProxyHelper {
       if (password == null) {
         throw new IOException("No password given for proxy " + cleanProxyAddress);
       }
+
+      // We need to make sure the proxy password is not url encoded; some special characters in proxy passwords
+      // require url encoding for shells and other tools to properly consume.
+      String decodedPassword = URLDecoder.decode(password, "UTF-8");
       System.setProperty(protocol + ".proxyUser", username);
-      System.setProperty(protocol + ".proxyPassword", password);
+      System.setProperty(protocol + ".proxyPassword", decodedPassword);
 
       Authenticator.setDefault(
           new Authenticator() {
             public PasswordAuthentication getPasswordAuthentication() {
-              return new PasswordAuthentication(username, password.toCharArray());
+              return new PasswordAuthentication(username, decodedPassword.toCharArray());
             }
           });
     }

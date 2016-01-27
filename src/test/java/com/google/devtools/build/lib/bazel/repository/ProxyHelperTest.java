@@ -117,6 +117,17 @@ public class ProxyHelperTest {
   }
 
   @Test
+  public void testEncodedProxyAuth() throws Exception {
+    Proxy proxy = ProxyHelper.createProxy("http://foo:b%40rb%40z@my.example.com");
+    assertEquals(Proxy.Type.HTTP, proxy.type());
+    assertThat(proxy.toString()).endsWith(":80");
+    assertEquals(System.getProperty("http.proxyHost"), "my.example.com");
+    assertEquals(System.getProperty("http.proxyPort"), "80");
+    assertEquals(System.getProperty("http.proxyUser"), "foo");
+    assertEquals(System.getProperty("http.proxyPassword"), "b@rb@z");
+  }
+
+  @Test
   public void testInvalidAuth() throws Exception {
     try {
       ProxyHelper.createProxy("http://foo@my.example.com");
