@@ -58,6 +58,7 @@ import javax.annotation.Nullable;
  */
 public class WorkspaceFactory {
   public static final String BIND = "bind";
+  private static final Pattern LEGAL_WORKSPACE_NAME = Pattern.compile("^\\p{Alpha}\\w*$");
 
   private final LegacyBuilder builder;
   
@@ -166,6 +167,13 @@ public class WorkspaceFactory {
     localReporter.clear();
   }
 
+  private static void checkWorkspaceName(String name, FuncallExpression ast) throws EvalException {
+    Matcher matcher = LEGAL_WORKSPACE_NAME.matcher(name);
+    if (!matcher.matches()) {
+      throw new EvalException(ast.getLocation(), name + " is not a legal workspace name");
+    }
+  }
+
   @SkylarkSignature(name = "workspace", objectType = Object.class, returnType = SkylarkList.class,
       doc = "Sets the name for this workspace. Workspace names should be a Java-package-style "
           + "description of the project, using underscores as separators, e.g., "
@@ -182,12 +190,7 @@ public class WorkspaceFactory {
               "workspace", FunctionSignature.namedOnly("name"), BuiltinFunction.USE_AST_ENV) {
             public Object invoke(String name, FuncallExpression ast, Environment env)
                 throws EvalException {
-              Pattern legalWorkspaceName = Pattern.compile("^\\p{Alpha}\\w*$");
-              Matcher matcher = legalWorkspaceName.matcher(name);
-              if (!matcher.matches()) {
-                throw new EvalException(
-                    ast.getLocation(), name + " is not a legal workspace name");
-              }
+              checkWorkspaceName(name, ast);
               String errorMessage = LabelValidator.validateTargetName(name);
               if (errorMessage != null) {
                 throw new EvalException(ast.getLocation(), errorMessage);
@@ -247,9 +250,10 @@ public class WorkspaceFactory {
           Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
-          builder
+          Rule rule = builder
               .externalPackageData()
               .createAndAddRepositoryRule(builder, ruleClass, bindRuleClass, kwargs, ast);
+          checkWorkspaceName(rule.getName(), ast);
         } catch (
             RuleFactory.InvalidRuleException | Package.NameConflictException | LabelSyntaxException
                 e) {

@@ -31,7 +31,7 @@ import java.util.Map;
  */
 public class ExternalPackageBuilder {
 
-  public ExternalPackageBuilder createAndAddRepositoryRule(
+  public Rule createAndAddRepositoryRule(
       Package.Builder pkg,
       RuleClass ruleClass,
       RuleClass bindRuleClass,
@@ -42,17 +42,17 @@ public class ExternalPackageBuilder {
 
     StoredEventHandler eventHandler = new StoredEventHandler();
     BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
-    Rule tempRule =
+    Rule rule =
         RuleFactory.createRule(
             pkg, ruleClass, attributeValues, eventHandler, ast, ast.getLocation(), /*env=*/ null);
     pkg.addEvents(eventHandler.getEvents());
-    overwriteRule(pkg, tempRule);
+    overwriteRule(pkg, rule);
     for (Map.Entry<String, Label> entry :
-        ruleClass.getExternalBindingsFunction().apply(tempRule).entrySet()) {
+        ruleClass.getExternalBindingsFunction().apply(rule).entrySet()) {
       Label nameLabel = Label.parseAbsolute("//external:" + entry.getKey());
-      addBindRule(pkg, bindRuleClass, nameLabel, entry.getValue(), tempRule.getLocation());
+      addBindRule(pkg, bindRuleClass, nameLabel, entry.getValue(), rule.getLocation());
     }
-    return this;
+    return rule;
   }
 
   public void addBindRule(

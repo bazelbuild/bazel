@@ -41,35 +41,35 @@ public class ExternalPackageTest extends BuildViewTestCase {
   public void testMultipleRulesWithSameName() throws Exception {
     FileSystemUtils.writeIsoLatin1(workspacePath,
         "local_repository(",
-        "    name = 'my-rule',",
+        "    name = 'my_rule',",
         "    path = '/foo/bar',",
         ")",
         "new_local_repository(",
-        "    name = 'my-rule',",
+        "    name = 'my_rule',",
         "    path = '/foo/bar',",
         "    build_file = 'baz',",
         ")");
 
     invalidatePackages();
     // Make sure the second rule "wins."
-    assertEquals("new_local_repository rule", getTarget("//external:my-rule").getTargetKind());
+    assertEquals("new_local_repository rule", getTarget("//external:my_rule").getTargetKind());
   }
 
   @Test
   public void testOverridingBindRules() throws Exception {
     FileSystemUtils.writeIsoLatin1(workspacePath,
         "bind(",
-        "    name = 'my-rule',",
+        "    name = 'my_rule',",
         "    actual = '//foo:bar',",
         ")",
         "new_local_repository(",
-        "    name = 'my-rule',",
+        "    name = 'my_rule',",
         "    path = '/foo/bar',",
         "    build_file = 'baz',",
         ")");
 
     invalidatePackages();
     // Make sure the second rule "wins."
-    assertEquals("new_local_repository rule", getTarget("//external:my-rule").getTargetKind());
+    assertEquals("new_local_repository rule", getTarget("//external:my_rule").getTargetKind());
   }
 }

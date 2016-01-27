@@ -69,6 +69,15 @@ public class WorkspaceFactoryTest {
     assertThat(helper.getParserError()).contains("a.b.c is not a legal workspace name");
   }
 
+  @Test
+  public void testIllegalRepoName() throws Exception {
+    WorkspaceFactoryHelper helper = parse("local_repository(",
+        "    name = 'foo/bar',",
+        "    path = '/foo/bar',",
+        ")");
+    assertThat(helper.getParserError()).contains("foo/bar is not a legal workspace name");
+  }
+
   private WorkspaceFactoryHelper parse(String... args) {
     return new WorkspaceFactoryHelper(args);
   }
