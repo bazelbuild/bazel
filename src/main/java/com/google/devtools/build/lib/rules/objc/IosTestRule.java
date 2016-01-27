@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
@@ -46,6 +46,10 @@ import java.util.List;
  * Rule definition for {@code ios_test} rule in Bazel.
  */
 public class IosTestRule implements RuleDefinition {
+
+  private static final ImmutableList<Label> GCOV =
+      ImmutableList.of(
+          Label.parseAbsoluteUnchecked(Constants.TOOLS_REPOSITORY + "//tools/objc:gcov"));
 
   @Override
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
@@ -86,7 +90,7 @@ public class IosTestRule implements RuleDefinition {
         .add(
             attr(IosTest.XCTEST_APP, LABEL)
                 .value(
-                    new Attribute.ComputedDefault(IosTest.IS_XCTEST) {
+                    new ComputedDefault(IosTest.IS_XCTEST) {
                       @Override
                       public Object getDefault(AttributeMap rule) {
                         return rule.get(IosTest.IS_XCTEST, Type.BOOLEAN)
@@ -103,7 +107,7 @@ public class IosTestRule implements RuleDefinition {
         .override(
             attr("infoplist", LABEL)
                 .value(
-                    new Attribute.ComputedDefault(IosTest.IS_XCTEST) {
+                    new ComputedDefault(IosTest.IS_XCTEST) {
                       @Override
                       public Object getDefault(AttributeMap rule) {
                         return rule.get(IosTest.IS_XCTEST, Type.BOOLEAN)
@@ -154,16 +158,13 @@ public class IosTestRule implements RuleDefinition {
             attr(":gcov", LABEL_LIST)
                 .cfg(HOST)
                 .value(
-                    new LateBoundLabelList<BuildConfiguration>() {
+                    new LateBoundLabelList<BuildConfiguration>(GCOV) {
                       @Override
                       public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
                         if (!configuration.isCodeCoverageEnabled()) {
                           return ImmutableList.of();
                         }
-                        return ImmutableList.of(
-                            configuration
-                                .getFragment(ObjcConfiguration.class)
-                                .getGcovLabel());
+                        return GCOV;
                       }
                     }))
         .build();

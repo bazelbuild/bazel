@@ -100,6 +100,11 @@ sh_binary(
     srcs = [":xcrunwrapper.sh"],
 )
 
+filegroup(
+    name = "gcov",
+    srcs = [":gcov_stub"],
+)
+
 xcode_config(
     name = "host_xcodes",
 )

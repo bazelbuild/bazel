@@ -836,12 +836,6 @@ public final class BuildConfiguration {
     )
     public List<Label> targetEnvironments;
 
-    @Option(name = "objc_gcov_binary",
-        converter = ToolsLabelConverter.class,
-        defaultValue = "//third_party/gcov:gcov_for_xcode_osx",
-        category = "undocumented")
-    public Label objcGcovBinary;
-
     /** Converter for labels in the @bazel_tools repository. The @Options' defaultValues can't
      * prepend TOOLS_REPOSITORY, unfortunately, because then the compiler thinks they're not
      * constant. */
@@ -912,9 +906,6 @@ public final class BuildConfiguration {
       labelMap.putAll("plugins", pluginList);
       if ((runUnder != null) && (runUnder.getLabel() != null)) {
         labelMap.put("RunUnder", runUnder.getLabel());
-      }
-      if (collectCodeCoverage) {
-        labelMap.put("objc_gcov", objcGcovBinary);
       }
     }
   }
