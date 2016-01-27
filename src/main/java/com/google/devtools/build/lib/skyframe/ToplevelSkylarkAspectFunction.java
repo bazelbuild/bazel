@@ -56,7 +56,7 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
     } catch (SkylarkImportFailedException e) {
       env.getListener().handle(Event.error(e.getMessage()));
       throw new LoadSkylarkAspectFunctionException(
-          new AspectCreationException(e.getMessage()), skyKey);
+          new AspectCreationException(e.getMessage()));
     }
     if (labelLookupMap == null) {
       return null;
@@ -67,7 +67,7 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
       skylarkAspect = AspectFunction.loadSkylarkAspect(
           env, labelLookupMap.get(extensionFile), skylarkValueName);
     } catch (AspectCreationException e) {
-      throw new LoadSkylarkAspectFunctionException(e, skyKey);
+      throw new LoadSkylarkAspectFunctionException(e);
     }
     if (skylarkAspect == null) {
       return null;
@@ -92,8 +92,8 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
    * Exceptions thrown from ToplevelSkylarkAspectFunction.
    */
   public class LoadSkylarkAspectFunctionException extends SkyFunctionException {
-    public LoadSkylarkAspectFunctionException(AspectCreationException cause, SkyKey childKey) {
-      super(cause, childKey);
+    public LoadSkylarkAspectFunctionException(AspectCreationException cause) {
+      super(cause, Transience.PERSISTENT);
     }
   }
 }

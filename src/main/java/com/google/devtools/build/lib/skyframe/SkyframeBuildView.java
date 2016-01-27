@@ -280,6 +280,7 @@ public final class SkyframeBuildView {
     if (!result.hasError() && badActions.isEmpty()) {
       setDeserializedArtifactOwners();
       return new SkyframeAnalysisResult(
+          false,
           ImmutableList.copyOf(goodCts),
           result.getWalkableGraph(),
           ImmutableList.copyOf(goodAspects),
@@ -402,6 +403,7 @@ public final class SkyframeBuildView {
     }
     setDeserializedArtifactOwners();
     return new SkyframeAnalysisResult(
+        result.hasError() || !badActions.isEmpty(),
         ImmutableList.copyOf(goodCts),
         result.getWalkableGraph(),
         ImmutableList.copyOf(goodAspects),

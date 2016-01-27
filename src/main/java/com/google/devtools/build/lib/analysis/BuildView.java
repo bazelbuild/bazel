@@ -507,7 +507,6 @@ public class BuildView {
 
     int numTargetsToAnalyze = nodes.size();
     int numSuccessful = skyframeAnalysisResult.getConfiguredTargets().size();
-    boolean analysisSuccessful = (numSuccessful == numTargetsToAnalyze);
     if (0 < numSuccessful && numSuccessful < numTargetsToAnalyze) {
       String msg = String.format("Analysis succeeded for only %d of %d top-level targets",
                                     numSuccessful, numTargetsToAnalyze);
@@ -515,6 +514,7 @@ public class BuildView {
       LOG.info(msg);
     }
 
+    boolean analysisSuccessful = !skyframeAnalysisResult.hasError();
     AnalysisResult result =
         createResult(
             eventHandler,
