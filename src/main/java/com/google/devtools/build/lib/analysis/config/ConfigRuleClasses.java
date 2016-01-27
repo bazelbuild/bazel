@@ -227,7 +227,7 @@ config_setting(
 </pre>
 
 <p>The following matches any Blaze invocation that builds for ARM and applies a custom define
-   (e.g. <code>blaze build --cpu=armeabi --define FOO=bar ...</code>), , when applied to a target
+   (e.g. <code>blaze build --cpu=armeabi --define FOO=bar ...</code>), when applied to a target
    configuration rule:
 </p>
 
