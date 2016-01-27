@@ -19,6 +19,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
+import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -665,11 +666,11 @@ public class ParallelEvaluatorTest {
 
     EvaluationResult<SkyValue> result = eval(/*keepGoing=*/true, ImmutableList.of(recoveryKey));
     assertThat(result.errorMap()).isEmpty();
-    assertTrue(result.hasError());
+    assertThatEvaluationResult(result).hasNoError();
     assertEquals(new StringValue("i recovered"), result.get(recoveryKey));
 
     result = eval(/*keepGoing=*/false, ImmutableList.of(topKey));
-    assertTrue(result.hasError());
+    assertThatEvaluationResult(result).hasError();
     assertThat(result.keyNames()).isEmpty();
     assertEquals(1, result.errorMap().size());
     assertNotNull(result.getError(topKey).getException());
@@ -1552,11 +1553,9 @@ public class ParallelEvaluatorTest {
       assertThat(result.keyNames()).isEmpty();
       assertEquals(topException, result.getError(topKey).getException());
       assertThat(result.getError(topKey).getRootCauses()).containsExactly(topKey);
-      assertTrue(result.hasError());
+      assertThatEvaluationResult(result).hasError();
     } else {
-      // result.hasError() is set to true even if the top-level value returned has recovered from
-      // an error.
-      assertTrue(result.hasError());
+      assertThatEvaluationResult(result).hasNoError();
       assertSame(topValue, result.get(topKey));
     }
   }
