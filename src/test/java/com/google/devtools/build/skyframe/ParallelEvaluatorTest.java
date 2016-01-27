@@ -76,7 +76,7 @@ import javax.annotation.Nullable;
 @RunWith(JUnit4.class)
 public class ParallelEvaluatorTest {
   protected ProcessableGraph graph;
-  protected IntVersion graphVersion = new IntVersion(0);
+  protected IntVersion graphVersion = IntVersion.of(0);
   protected GraphTester tester = new GraphTester();
 
   private EventCollector eventCollector;
