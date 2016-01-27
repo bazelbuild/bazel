@@ -60,6 +60,29 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     /**
      * Write a log message for symlinks that won't be compatible with how we are planning to pretend
      * that they exist on Windows.
+     *
+     * <p>The current plan for emulating symlinks on Windows is that in order to create a "symlink",
+     * the target needs to exist, that is, we don't do dangling symlinks. Then:
+     * </p>
+     *
+     * <ul>
+     *   <li>If the target is a directory, we create a junction. This is good because we don't need
+     *   write access to the target and it Just Works. The link and its target can be on different
+     *   file systems, which is important, because contrary to the popular belief, *can* do a
+     *   mount() on Windows
+     *   </li>
+     *   <li>If the target is a file in the source tree or under the output base, we use a hard
+     *   link. Hard links only work within the same file system and you need write access to the
+     *   target. We assume that the source tree is writable, and we know that the output base is.
+     *   </li>
+     *   <li>If the target is a file not in one of these locations, we raise an error. The only
+     *   places where we need to do this is in the implementation of local repository rules,
+     *   which will be special-cased.</li>
+     * </ul>
+     *
+     * <p>What does <b>not</b> work is using symbolic links: they need local administrator rights,
+     * which would make Bazel only usable as local admin.
+     * </p>
      */
     WINDOWS_COMPATIBLE,
   }
