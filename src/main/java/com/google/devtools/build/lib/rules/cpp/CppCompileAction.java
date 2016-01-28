@@ -1202,15 +1202,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     StringBuilder message = new StringBuilder();
     message.append(getProgressMessage());
     message.append('\n');
-    message.append("  Command: ");
-    message.append(
-        ShellEscaper.escapeString(cppConfiguration.getLdExecutable().getPathString()));
-    message.append('\n');
     // Outputting one argument per line makes it easier to diff the results.
+    // The first element in getArgv() is actually the command to execute.
+    String legend = "  Command: ";
     for (String argument : ShellEscaper.escapeAll(getArgv())) {
-      message.append("  Argument: ");
+      message.append(legend);
       message.append(argument);
       message.append('\n');
+      legend = "  Argument: ";
     }
 
     for (PathFragment path : context.getDeclaredIncludeDirs()) {
