@@ -49,6 +49,8 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    * things to Bazel.
    */
   private static final ImmutableSet<PathFragment> ABSOLUTE_PACKAGE_NAMES = ImmutableSet.of(
+      // Used for select
+      new PathFragment("conditions"),
       // dependencies that are a function of the configuration
       new PathFragment("tools/defaults"),
       // Visibility is labels aren't actually targets
@@ -370,18 +372,26 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    */
   @SkylarkCallable(name = "relative", doc =
         "Resolves a label that is either absolute (starts with <code>//</code>) or relative to the"
-      + " current package.<br>"
+      + " current package. If this label is in a remote repository, the argument will be resolved "
+      + "relative to that repository. If the argument contains a repository, it will be returned "
+      + "as-is. Reserved labels will also be returned as-is.<br>"
       + "For example:<br>"
       + "<pre class=language-python>\n"
       + "Label(\"//foo/bar:baz\").relative(\":quux\") == Label(\"//foo/bar:quux\")\n"
       + "Label(\"//foo/bar:baz\").relative(\"//wiz:quux\") == Label(\"//wiz:quux\")\n"
+      + "Label(\"@repo//foo/bar:baz\").relative(\"//wiz:quux\") == Label(\"@repo//wiz:quux\")\n"
+      + "Label(\"@repo//foo/bar:baz\").relative(\"//visibility:public\") == "
+      + "Label(\"//visibility:public\")\n"
+      + "Label(\"@repo//foo/bar:baz\").relative(\"@other//wiz:quux\") == "
+      + "Label(\"@other//wiz:quux\")\n"
       + "</pre>")
   public Label getRelative(String relName) throws LabelSyntaxException {
     if (relName.length() == 0) {
       throw new LabelSyntaxException("empty package-relative label");
     }
+
     if (LabelValidator.isAbsolute(relName)) {
-      return parseAbsolute(relName);
+      return resolveRepositoryRelative(parseAbsolute(relName));
     } else if (relName.equals(":")) {
       throw new LabelSyntaxException("':' is not a valid package-relative label");
     } else if (relName.charAt(0) == ':') {
@@ -399,18 +409,6 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    * repository would point back to the main repository, which is usually not what is intended.
    */
   public Label resolveRepositoryRelative(Label relative) {
-    if (relative.packageIdentifier.getRepository().getName().equals("@")) {
-      try {
-        return new Label(
-            PackageIdentifier.create(
-                PackageIdentifier.DEFAULT_REPOSITORY_NAME,
-                relative.packageIdentifier.getPackageFragment()),
-            relative.getName());
-      } catch (LabelSyntaxException e) {
-        throw new IllegalStateException(e);
-      }
-    }
-
     if (packageIdentifier.getRepository().isDefault()
         || !relative.packageIdentifier.getRepository().isDefault()
         || ABSOLUTE_PACKAGE_NAMES.contains(relative.getPackageIdentifier().getPackageFragment())) {

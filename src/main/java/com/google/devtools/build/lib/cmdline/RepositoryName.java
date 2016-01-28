@@ -189,7 +189,7 @@ public final class RepositoryName implements Serializable {
    * Returns the path at which this repository is mapped within the exec root.
    */
   public PathFragment getPathFragment() {
-    return isDefault()
+    return isDefault() || this.equals(PackageIdentifier.MAIN_REPOSITORY_NAME)
         ? PathFragment.EMPTY_FRAGMENT
         : new PathFragment(Label.EXTERNAL_PATH_PREFIX).getRelative(strippedName());
   }
