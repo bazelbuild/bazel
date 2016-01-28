@@ -31,9 +31,12 @@ A BUILD target identifier.
         <h2 id="relative">relative</h2>
         <p><pre><a class="anchor" href="Label.html">Label</a> Label.relative(<a class="anchor" href="string.html">string</a>)</pre></p>
 
-    Resolves a label that is either absolute (starts with <code>//</code>) or relative to the current package.<br>For example:<br><pre class=language-python>
+    Resolves a label that is either absolute (starts with <code>//</code>) or relative to the current package. If this label is in a remote repository, the argument will be resolved relative to that repository. If the argument contains a repository, it will be returned as-is. Reserved labels will also be returned as-is.<br>For example:<br><pre class=language-python>
 Label("//foo/bar:baz").relative(":quux") == Label("//foo/bar:quux")
 Label("//foo/bar:baz").relative("//wiz:quux") == Label("//wiz:quux")
+Label("@repo//foo/bar:baz").relative("//wiz:quux") == Label("@repo//wiz:quux")
+Label("@repo//foo/bar:baz").relative("//visibility:public") == Label("//visibility:public")
+Label("@repo//foo/bar:baz").relative("@other//wiz:quux") == Label("@other//wiz:quux")
 </pre>
 
 

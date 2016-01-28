@@ -9,7 +9,9 @@ A built-in module to support native rules and other package helper functions. Al
 <div class="toc">
   <h2>Methods</h2>
   <ul>
-          <li><a href="#exports_files">exports_files</a></li>
+          <li><a href="#existing_rule">existing_rule</a></li>
+              <li><a href="#existing_rules">existing_rules</a></li>
+              <li><a href="#exports_files">exports_files</a></li>
               <li><a href="#glob">glob</a></li>
               <li><a href="#package_group">package_group</a></li>
               <li><a href="#rule">rule</a></li>
@@ -17,7 +19,45 @@ A built-in module to support native rules and other package helper functions. Al
         </ul>
 </div>
 
-      <h2 id="exports_files">exports_files</h2>
+      <h2 id="existing_rule">existing_rule</h2>
+        <p><pre>unknown native.existing_rule(name)
+</pre></p>
+
+    Returns a dictionary representing the attributes of a previously defined rule, or None if the rule does not exist.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="existing_rule.name">
+              <code>name</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="string.html">string</a></code></p>
+                          <p>The name of the rule.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="existing_rules">existing_rules</h2>
+        <p><pre><a class="anchor" href="dict.html">dict</a> native.existing_rules()
+</pre></p>
+
+    Returns a dict containing all the rules instantiated so far. The map key is the name of the rule. The map value is equivalent to the get_rule output for that rule.
+
+
+        <h2 id="exports_files">exports_files</h2>
         <p><pre><a class="anchor" href="globals.html#None">None</a> native.exports_files(srcs, visibility=&hellip;, licenses=&hellip;)
 </pre></p>
 
@@ -171,7 +211,7 @@ If the <code>exclude_directories</code> argument is enabled (set to <code>1</cod
         <p><pre>unknown native.rule(name)
 </pre></p>
 
-    Returns a dictionary representing the attributes of a previously defined rule, or None if the rule does not exist.
+    Deprecated. Use existing_rule instead.
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
@@ -202,7 +242,7 @@ If the <code>exclude_directories</code> argument is enabled (set to <code>1</cod
         <p><pre><a class="anchor" href="dict.html">dict</a> native.rules()
 </pre></p>
 
-    Returns a dict containing all the rules instantiated so far. The map key is the name of the rule. The map value is equivalent to the get_rule output for that rule.
+    Deprecated. Use existing_rules instead.
 
 
 

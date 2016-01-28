@@ -152,7 +152,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of other libraries to be linked in to the target.
-
           See general comments about <code>deps</code> at
           <a href="common-definitions.html#common-attributes">Attributes common to all build rules
           </a>.
@@ -166,7 +165,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of source files that are processed to create the target.
-
           This attribute is almost always required; see exceptions below.
           <p>
             Source files of type <code>.java</code> are compiled. In case of generated
@@ -202,7 +200,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               A list of data files to include in a Java jar.
-
           <p>
             If resources are specified, they will be bundled in the jar along with the usual
             <code>.class</code> files produced by compilation. The location of the resources inside
@@ -226,8 +223,7 @@ java_binary(
         </td>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
-
-          <em class="harmful">DO NOT USE THIS OPTION UNLESS THERE IS NO OTHER WAY)</em>
+                              <em class="harmful">DO NOT USE THIS OPTION UNLESS THERE IS NO OTHER WAY)</em>
           <p>
             A list of resources that must be located at the root of the java tree. This attribute's
             only purpose is to support third-party libraries that require that their resources be
@@ -244,7 +240,6 @@ java_binary(
         <td>
                     <p><code>Boolean; optional; default is 1</code></p>
                               Whether to build the executable wrapper script or not.
-
           If this option is present, no executable wrapper script is built around the
           <code>.jar</code> file. Incompatible with <code>main_class</code> attribute.
 
@@ -256,8 +251,7 @@ java_binary(
         </td>
         <td>
                     <p><code>List of strings; optional</code></p>
-
-          A list of lines to add to the <code>META-INF/manifest.mf</code> file generated for the
+                              A list of lines to add to the <code>META-INF/manifest.mf</code> file generated for the
           <code>*_deploy.jar</code> target. The contents of this attribute are <em>not</em> subject
           to <a href="make-variables.html">"Make variable"</a> substitution.
 
@@ -270,7 +264,6 @@ java_binary(
         <td>
                     <p><code>List of strings; optional</code></p>
                               Extra compiler options for this library.
-
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>These compiler options are passed to javac after the global compiler options.</p>
@@ -284,7 +277,6 @@ java_binary(
         <td>
                     <p><code>List of strings; optional</code></p>
                               A list of flags to embed in the wrapper script generated for running this binary.
-
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>
@@ -306,7 +298,6 @@ java_binary(
         <td>
                     <p><code>String; optional; default is "org.junit.runner.JUnitCore"</code></p>
                               Name of class with <code>main()</code> method to use as entry point.
-
           If a rule uses this option, it does not need a <code>srcs=[...]</code> list.
           Thus, with this attribute one can make an executable from a Java library that already
           contains one or more <code>main()</code> methods.
@@ -327,7 +318,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Java compiler plugins to run at compile-time.
-
           Every <code>java_plugin</code> specified in this attribute will be run whenever this rule
           is built. A library may also inherit plugins from dependencies that use
           <code><a href="#java_library.exported_plugins">exported_plugins</a></code>. Resources
@@ -342,7 +332,6 @@ java_binary(
         <td>
                     <p><code>String; optional</code></p>
                               The path prefix to strip from Java resources.
-
           <p>
             If specified, this path prefix is stripped from every file in the <code>resources</code>
             attribute. It is an error for a resource file not to be under this directory. If not
@@ -360,7 +349,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Libraries to make available to the final binary or test at runtime only.
-
           Like ordinary <code>deps</code>, these will appear on the runtime classpath, but unlike
           them, not on the compile-time classpath. Dependencies needed only at runtime should be
           listed here. Dependency-analysis tools should ignore targets that appear in both
@@ -375,7 +363,6 @@ java_binary(
         <td>
                     <p><code>Integer; optional; default is 0</code></p>
                               Enable link stamping.
-
           Whether to encode build information into the binary. Possible values:
           <ul>
             <li><code>stamp = 1</code>: Stamp the build information into the binary. Stamped
@@ -398,7 +385,6 @@ java_binary(
                               Use the
           <code>com.google.testing.junit.runner.GoogleTestRunner</code> class as the
           main entry point for a Java program.
-
 
           You can use this to override the default
           behavior, which is to use <code>BazelTestRunner</code> for
@@ -468,7 +454,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of other libraries to be linked in to the target.
-
         See <a href="#java_library.deps">java_library.deps</a>.
 
         </td>
@@ -481,7 +466,6 @@ java_binary(
                     <p><code>List of strings; optional</code></p>
                             Extra constraints imposed on this rule as a Java library.
 
-
         </td>
       </tr>
                                           <tr>
@@ -491,7 +475,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             Targets to make available to users of this rule.
-
         See <a href="#java_library.exports">java_library.exports</a>.
 
         </td>
@@ -504,7 +487,6 @@ java_binary(
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; required</code></p>
                             The list of JAR files provided to Java targets that depend on this target.
 
-
         </td>
       </tr>
                                 <tr>
@@ -514,7 +496,6 @@ java_binary(
         <td>
                     <p><code>Boolean; optional; default is 0</code></p>
                             Only use this library for compilation and not at runtime.
-
         Useful if the library will be provided by the runtime environment
         during execution. Examples of libraries like this are IDE APIs
         for IDE plug-ins or <code>tools.jar</code> for anything running on
@@ -529,7 +510,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             Files to be used as Proguard specification.
-
         These will describe the set of specifications to be used by Proguard. If specified,
         they will be added to any <code>android_binary</code> target depending on this library.
 
@@ -546,7 +526,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             Libraries to make available to the final binary or test at runtime only.
-
         See <a href="#java_library.runtime_deps">java_library.runtime_deps</a>.
 
         </td>
@@ -558,7 +537,6 @@ java_binary(
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                             A JAR file that contains source code for the compiled JAR files.
-
 
         </td>
       </tr>
@@ -610,7 +588,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of libraries to link into this library.
-
         See general comments about <code>deps</code> at
         <a href="common-definitions.html#common-attributes">Attributes common to all build rules
         </a>.
@@ -634,7 +611,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of source files that are processed to create the target.
-
           This attribute is almost always required; see exceptions below.
           <p>
             Source files of type <code>.java</code> are compiled. In case of generated
@@ -670,7 +646,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of files needed by this library at runtime.
-
         See general comments about <code>data</code> at
         <a href="common-definitions.html#common-attributes">Attributes common to all build rules
         </a>.
@@ -690,7 +665,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               A list of data files to include in a Java jar.
-
           <p>
             If resources are specified, they will be bundled in the jar along with the usual
             <code>.class</code> files produced by compilation. The location of the resources inside
@@ -716,7 +690,6 @@ java_binary(
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of <code><a href="#java_plugin">java_plugin</a></code>s (e.g. annotation
         processors) to export to libraries that directly depend on this library.
-
         <p>
           The specified list of <code>java_plugin</code>s will be applied to any library which
           directly depends on this library, just as if that library had explicitly declared these
@@ -732,7 +705,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             Exported libraries.
-
         <p>
           Listing rules here will make them available to parent rules, as if the parents explicitly
           depended on these rules. This is not true for regular (non-exported) <code>deps</code>.
@@ -771,7 +743,6 @@ java_binary(
         <td>
                     <p><code>List of strings; optional</code></p>
                               Extra compiler options for this library.
-
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>These compiler options are passed to javac after the global compiler options.</p>
@@ -785,7 +756,6 @@ java_binary(
         <td>
                     <p><code>Boolean; optional; default is 0</code></p>
                             Whether this library should only be used for compilation and not at runtime.
-
         Useful if the library will be provided by the runtime environment during execution. Examples
         of such libraries are the IDE APIs for IDE plug-ins or <code>tools.jar</code> for anything
         running on a standard JDK.
@@ -811,7 +781,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Java compiler plugins to run at compile-time.
-
           Every <code>java_plugin</code> specified in this attribute will be run whenever this rule
           is built. A library may also inherit plugins from dependencies that use
           <code><a href="#java_library.exported_plugins">exported_plugins</a></code>. Resources
@@ -826,7 +795,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             Files to be used as Proguard specification.
-
         These will describe the set of specifications to be used by Proguard. If specified,
         they will be added to any <code>android_binary</code> target depending on this library.
 
@@ -843,7 +811,6 @@ java_binary(
         <td>
                     <p><code>String; optional</code></p>
                               The path prefix to strip from Java resources.
-
           <p>
             If specified, this path prefix is stripped from every file in the <code>resources</code>
             attribute. It is an error for a resource file not to be under this directory. If not
@@ -861,7 +828,6 @@ java_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Libraries to make available to the final binary or test at runtime only.
-
           Like ordinary <code>deps</code>, these will appear on the runtime classpath, but unlike
           them, not on the compile-time classpath. Dependencies needed only at runtime should be
           listed here. Dependency-analysis tools should ignore targets that appear in both
@@ -948,7 +914,6 @@ java_test(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of other libraries to be linked in to the target.
-
           See general comments about <code>deps</code> at
           <a href="common-definitions.html#common-attributes">Attributes common to all build rules
           </a>.
@@ -962,7 +927,6 @@ java_test(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of source files that are processed to create the target.
-
           This attribute is almost always required; see exceptions below.
           <p>
             Source files of type <code>.java</code> are compiled. In case of generated
@@ -998,7 +962,6 @@ java_test(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               A list of data files to include in a Java jar.
-
           <p>
             If resources are specified, they will be bundled in the jar along with the usual
             <code>.class</code> files produced by compilation. The location of the resources inside
@@ -1022,8 +985,7 @@ java_test(
         </td>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
-
-          <em class="harmful">DO NOT USE THIS OPTION UNLESS THERE IS NO OTHER WAY)</em>
+                              <em class="harmful">DO NOT USE THIS OPTION UNLESS THERE IS NO OTHER WAY)</em>
           <p>
             A list of resources that must be located at the root of the java tree. This attribute's
             only purpose is to support third-party libraries that require that their resources be
@@ -1040,7 +1002,6 @@ java_test(
         <td>
                     <p><code>Boolean; optional; default is 1</code></p>
                               Whether to build the executable wrapper script or not.
-
           If this option is present, no executable wrapper script is built around the
           <code>.jar</code> file. Incompatible with <code>main_class</code> attribute.
 
@@ -1052,8 +1013,7 @@ java_test(
         </td>
         <td>
                     <p><code>List of strings; optional</code></p>
-
-          A list of lines to add to the <code>META-INF/manifest.mf</code> file generated for the
+                              A list of lines to add to the <code>META-INF/manifest.mf</code> file generated for the
           <code>*_deploy.jar</code> target. The contents of this attribute are <em>not</em> subject
           to <a href="make-variables.html">"Make variable"</a> substitution.
 
@@ -1066,7 +1026,6 @@ java_test(
         <td>
                     <p><code>List of strings; optional</code></p>
                               Extra compiler options for this library.
-
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>These compiler options are passed to javac after the global compiler options.</p>
@@ -1080,7 +1039,6 @@ java_test(
         <td>
                     <p><code>List of strings; optional</code></p>
                               A list of flags to embed in the wrapper script generated for running this binary.
-
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>
@@ -1102,7 +1060,6 @@ java_test(
         <td>
                     <p><code>String; optional; default is "org.junit.runner.JUnitCore"</code></p>
                               Name of class with <code>main()</code> method to use as entry point.
-
           If a rule uses this option, it does not need a <code>srcs=[...]</code> list.
           Thus, with this attribute one can make an executable from a Java library that already
           contains one or more <code>main()</code> methods.
@@ -1123,7 +1080,6 @@ java_test(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Java compiler plugins to run at compile-time.
-
           Every <code>java_plugin</code> specified in this attribute will be run whenever this rule
           is built. A library may also inherit plugins from dependencies that use
           <code><a href="#java_library.exported_plugins">exported_plugins</a></code>. Resources
@@ -1138,7 +1094,6 @@ java_test(
         <td>
                     <p><code>String; optional</code></p>
                               The path prefix to strip from Java resources.
-
           <p>
             If specified, this path prefix is stripped from every file in the <code>resources</code>
             attribute. It is an error for a resource file not to be under this directory. If not
@@ -1156,7 +1111,6 @@ java_test(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Libraries to make available to the final binary or test at runtime only.
-
           Like ordinary <code>deps</code>, these will appear on the runtime classpath, but unlike
           them, not on the compile-time classpath. Dependencies needed only at runtime should be
           listed here. Dependency-analysis tools should ignore targets that appear in both
@@ -1171,7 +1125,6 @@ java_test(
         <td>
                     <p><code>Integer; optional; default is 0</code></p>
                               Enable link stamping.
-
           Whether to encode build information into the binary. Possible values:
           <ul>
             <li><code>stamp = 1</code>: Stamp the build information into the binary. Stamped
@@ -1192,7 +1145,6 @@ java_test(
         <td>
                     <p><code>String; optional</code></p>
                             The Java class to be loaded by the test runner.<br/>
-
         <p>
           By default, if this argument is not defined then the legacy mode is used and the
           test arguments are used instead. Set the <code>--nolegacy_bazel_java_test</code> flag
@@ -1234,7 +1186,6 @@ java_test(
                               Use the
           <code>com.google.testing.junit.runner.GoogleTestRunner</code> class as the
           main entry point for a Java program.
-
 
           You can use this to override the default
           behavior, which is to use <code>BazelTestRunner</code> for
@@ -1306,7 +1257,6 @@ java_test(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of libraries to link into this library.
-
         See general comments about <code>deps</code> at
         <a href="common-definitions.html#common-attributes">Attributes common to all build rules
         </a>.
@@ -1330,7 +1280,6 @@ java_test(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of source files that are processed to create the target.
-
           This attribute is almost always required; see exceptions below.
           <p>
             Source files of type <code>.java</code> are compiled. In case of generated
@@ -1366,7 +1315,6 @@ java_test(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of files needed by this library at runtime.
-
         See general comments about <code>data</code> at
         <a href="common-definitions.html#common-attributes">Attributes common to all build rules
         </a>.
@@ -1386,7 +1334,6 @@ java_test(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               A list of data files to include in a Java jar.
-
           <p>
             If resources are specified, they will be bundled in the jar along with the usual
             <code>.class</code> files produced by compilation. The location of the resources inside
@@ -1411,7 +1358,6 @@ java_test(
         <td>
                     <p><code>List of strings; optional</code></p>
                               Extra compiler options for this library.
-
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>These compiler options are passed to javac after the global compiler options.</p>
@@ -1425,7 +1371,6 @@ java_test(
         <td>
                     <p><code>Boolean; optional; default is 0</code></p>
                             Whether this library should only be used for compilation and not at runtime.
-
         Useful if the library will be provided by the runtime environment during execution. Examples
         of such libraries are the IDE APIs for IDE plug-ins or <code>tools.jar</code> for anything
         running on a standard JDK.
@@ -1451,7 +1396,6 @@ java_test(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Java compiler plugins to run at compile-time.
-
           Every <code>java_plugin</code> specified in this attribute will be run whenever this rule
           is built. A library may also inherit plugins from dependencies that use
           <code><a href="#java_library.exported_plugins">exported_plugins</a></code>. Resources
@@ -1465,8 +1409,7 @@ java_test(
         </td>
         <td>
                     <p><code>String; optional</code></p>
-
-        The processor class is the fully qualified type of the class that the Java compiler should
+                            The processor class is the fully qualified type of the class that the Java compiler should
         use as entry point to the annotation processor. If not specified, this rule will not
         contribute an annotation processor to the Java compiler's annotation processing, but its
         runtime classpath will still be included on the compiler's annotation processor path. (This
@@ -1483,7 +1426,6 @@ java_test(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             Files to be used as Proguard specification.
-
         These will describe the set of specifications to be used by Proguard. If specified,
         they will be added to any <code>android_binary</code> target depending on this library.
 
@@ -1500,7 +1442,6 @@ java_test(
         <td>
                     <p><code>String; optional</code></p>
                               The path prefix to strip from Java resources.
-
           <p>
             If specified, this path prefix is stripped from every file in the <code>resources</code>
             attribute. It is an error for a resource file not to be under this directory. If not

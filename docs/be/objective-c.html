@@ -133,7 +133,6 @@ passed to the application.</p>
                     <p><code>String; optional</code></p>
                               The name of the application icon.
 
-
           The icon should be in one of the asset catalogs of this target or
           a (transitive) dependency. In a new project, this is initialized
           to "AppIcon" by Xcode.
@@ -151,7 +150,6 @@ passed to the application.</p>
                     <p><code><a href="../build-ref.html#labels">Label</a>; required</code></p>
                             The binary target included in the final bundle.
 
-
         </td>
       </tr>
                       <tr>
@@ -161,7 +159,6 @@ passed to the application.</p>
         <td>
                     <p><code>String; optional</code></p>
                               The bundle ID (reverse-DNS path followed by app name) of the binary.
-
 
           If specified, it will override the bundle ID specified in the associated plist file. If
           no bundle ID is specified on either this attribute or in the plist file, a junk value
@@ -176,7 +173,6 @@ passed to the application.</p>
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               The entitlements file required for device builds of this application.
-
 
           See
           <a href="https://developer.apple.com/library/mac/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/AboutEntitlements.html">the apple documentation</a>
@@ -197,7 +193,6 @@ passed to the application.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             Any extensions to include in the final application.
 
-
         </td>
       </tr>
                       <tr>
@@ -207,7 +202,6 @@ passed to the application.</p>
         <td>
                     <p><code>List of strings; optional</code></p>
                               The device families to which this bundle or binary is targeted.
-
 
           This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
           in Xcode project files. It is a list of one or more of the strings
@@ -225,7 +219,6 @@ passed to the application.</p>
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                                The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
-
            Bazel will perform variable substitution on the plist file for the following values:
            <ul>
              <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
@@ -248,7 +241,6 @@ passed to the application.</p>
            in Xcode projects.  Duplicate keys between infoplist files will cause an error if
            and only if the values conflict.  If both <code>infoplist</code> and
            <code>infoplists</code> are specified, the files defined in both attributes will be used.
-
            Bazel will perform variable substitution on the plist files for the following values:
            <ul>
              <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
@@ -268,7 +260,6 @@ passed to the application.</p>
         <td>
                     <p><code>String; optional</code></p>
                               The name of the launch image.
-
 
           The icon should be in one of the asset catalogs of this target or
           a (transitive) dependency. In a new project, this is initialized
@@ -292,7 +283,6 @@ passed to the application.</p>
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               The location of the launch storyboard (.xib or .storyboard).
-
 
           The provided storyboard will be compiled to the appropriate format
           (.nib or .storyboardc respectively) and placed in the root of the
@@ -319,7 +309,6 @@ passed to the application.</p>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               The provisioning profile (.mobileprovision file) to use when bundling
           the application.
-
 
           This is only used for non-simulator builds.
 
@@ -368,7 +357,6 @@ which to run tests.</p>
                             The operating system version of the device. This corresponds to the
         <code>simctl</code> runtime.
 
-
         </td>
       </tr>
                                                     <tr>
@@ -379,7 +367,6 @@ which to run tests.</p>
                     <p><code>String; required</code></p>
                             The hardware type. This corresponds to the <code>simctl</code> device
         type.
-
 
         </td>
       </tr>
@@ -461,7 +448,6 @@ between how each thing is processed:
                     <p><code>String; optional</code></p>
                               The name of the application icon.
 
-
           The icon should be in one of the asset catalogs of this target or
           a (transitive) dependency. In a new project, this is initialized
           to "AppIcon" by Xcode.
@@ -479,7 +465,6 @@ between how each thing is processed:
                     <p><code><a href="../build-ref.html#labels">Label</a>; required</code></p>
                             The binary target containing the logic for the extension.
 
-
         </td>
       </tr>
                       <tr>
@@ -489,7 +474,6 @@ between how each thing is processed:
         <td>
                     <p><code>String; optional</code></p>
                               The bundle ID (reverse-DNS path followed by app name) of the binary.
-
 
           If specified, it will override the bundle ID specified in the associated plist file. If
           no bundle ID is specified on either this attribute or in the plist file, a junk value
@@ -504,7 +488,6 @@ between how each thing is processed:
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               The entitlements file required for device builds of this application.
-
 
           See
           <a href="https://developer.apple.com/library/mac/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/AboutEntitlements.html">the apple documentation</a>
@@ -525,7 +508,6 @@ between how each thing is processed:
                     <p><code>List of strings; optional</code></p>
                               The device families to which this bundle or binary is targeted.
 
-
           This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
           in Xcode project files. It is a list of one or more of the strings
           <code>"iphone"</code> and <code>"ipad"</code>.
@@ -542,7 +524,6 @@ between how each thing is processed:
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                                The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
-
            Bazel will perform variable substitution on the plist file for the following values:
            <ul>
              <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
@@ -565,7 +546,6 @@ between how each thing is processed:
            in Xcode projects.  Duplicate keys between infoplist files will cause an error if
            and only if the values conflict.  If both <code>infoplist</code> and
            <code>infoplists</code> are specified, the files defined in both attributes will be used.
-
            Bazel will perform variable substitution on the plist files for the following values:
            <ul>
              <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
@@ -585,7 +565,6 @@ between how each thing is processed:
         <td>
                     <p><code>String; optional</code></p>
                               The name of the launch image.
-
 
           The icon should be in one of the asset catalogs of this target or
           a (transitive) dependency. In a new project, this is initialized
@@ -609,7 +588,6 @@ between how each thing is processed:
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               The location of the launch storyboard (.xib or .storyboard).
-
 
           The provided storyboard will be compiled to the appropriate format
           (.nib or .storyboardc respectively) and placed in the root of the
@@ -636,7 +614,6 @@ between how each thing is processed:
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               The provisioning profile (.mobileprovision file) to use when bundling
           the application.
-
 
           This is only used for non-simulator builds.
 
@@ -691,7 +668,6 @@ Objective-C libraries.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of targets that are linked together to form the final bundle.
 
-
         </td>
       </tr>
                       <tr>
@@ -702,7 +678,6 @@ Objective-C libraries.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of C, C++, Objective-C, and Objective-C++ source and header
            files that are processed to create the library target.
-
            These are your checked-in files, plus any generated files.
            Source files are compiled into .o files with Clang. Header files
            may be included/imported by any source or header in the srcs attribute
@@ -718,7 +693,6 @@ Objective-C libraries.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files to include in the final application bundle.
-
 
           They are not processed or compiled in any way besides the processing
           done by the rules that actually generate them. These files are placed
@@ -740,7 +714,6 @@ Objective-C libraries.</p>
           library. These will be compiled separately from the source if modules
           are enabled.
 
-
         </td>
       </tr>
                       <tr>
@@ -750,7 +723,6 @@ Objective-C libraries.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files that comprise the asset catalogs of the final linked binary.
-
 
           Each file must have a containing directory named *.xcassets. This
           containing directory becomes the root of one of the asset catalogs
@@ -767,7 +739,6 @@ Objective-C libraries.</p>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               A header defining the Objective-C interfaces to be exposed in Swift.
 
-
         </td>
       </tr>
                       <tr>
@@ -779,7 +750,6 @@ Objective-C libraries.</p>
                               The list of bundle targets that this target requires to be included
           in the final bundle.
 
-
         </td>
       </tr>
                       <tr>
@@ -789,7 +759,6 @@ Objective-C libraries.</p>
         <td>
                     <p><code>List of strings; optional</code></p>
                               Extra flags to pass to the compiler.
-
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           These flags will only apply to this target, and not those upon which
@@ -809,7 +778,6 @@ Objective-C libraries.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files that comprise the data models of the final linked binary.
 
-
           Each file must have a containing directory named *.xcdatamodel, which
           is usually contained by another *.xcdatamodeld (note the added d)
           directory.
@@ -826,7 +794,6 @@ Objective-C libraries.</p>
            the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
            passed not only the compiler for this target (as <code>copts</code>
            are) but also to all <code>objc_</code> dependers of this target.
-
            Subject to <a href="make-variables.html">"Make variable"</a> substitution and
            <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
 
@@ -839,7 +806,6 @@ Objective-C libraries.</p>
         <td>
                     <p><code>Boolean; optional; default is 0</code></p>
                                Enables clang module support (via -fmodules).
-
            Setting this to 1 will allow you to @import system headers and other targets:
            @import UIKit;
            @import path_to_package_target;
@@ -854,7 +820,6 @@ Objective-C libraries.</p>
                     <p><code>List of strings; optional</code></p>
                               List of <code>#include/#import</code> search paths to add to this target
           and all depending targets.
-
 
           This is to support third party and open-sourced libraries that do not
           specify the entire workspace path in their
@@ -880,7 +845,6 @@ Objective-C libraries.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of Objective-C files that are processed to create the
            library target that DO NOT use ARC.
-
            The files in this attribute are treated very similar to those in the
            srcs attribute, but are compiled without ARC enabled.
 
@@ -894,10 +858,8 @@ Objective-C libraries.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of targets that are required in order to build this target,
            but which are not included in the final bundle.
-
            This attribute should only rarely be used, and probably only for proto
            dependencies.
-
 
         </td>
       </tr>
@@ -909,7 +871,6 @@ Objective-C libraries.</p>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                                Header file to prepend to every source file being compiled (both arc
            and non-arc).
-
            Note that the file will not be precompiled - this is simply a
            convenience, not a build-speed enhancement.
 
@@ -923,7 +884,6 @@ Objective-C libraries.</p>
                     <p><code>List of strings; optional</code></p>
                               Names of SDK .dylib libraries to link with. For instance, "libz" or
           "libarchive".
-
 
           "libc++" is included automatically if the binary has any C++ or
           Objective-C++ sources in its dependency tree. When linking a binary,
@@ -939,7 +899,6 @@ Objective-C libraries.</p>
         <td>
                     <p><code>List of strings; optional</code></p>
                               Names of SDK frameworks to link with.
-
           For instance, "XCTest" or "Cocoa". "UIKit" and "Foundation" are always
           included and do not mean anything if you include them.
 
@@ -960,7 +919,6 @@ Objective-C libraries.</p>
           and all depending targets, where each path is relative to
           <code>$(SDKROOT)/usr/include</code>.
 
-
         </td>
       </tr>
                       <tr>
@@ -970,7 +928,6 @@ Objective-C libraries.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are .storyboard resources, possibly localizable.
-
 
           These files are compiled to .storyboardc directories, which are
           placed in the bundle root of the final package. If the storyboards's
@@ -988,7 +945,6 @@ Objective-C libraries.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are plists of strings, often localizable.
 
-
           These files are converted to binary plists (if they are not already)
           and placed in the bundle root of the final package. If this file's
           immediate containing directory is named *.lproj (e.g. en.lproj,
@@ -1004,7 +960,6 @@ Objective-C libraries.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files to include in the final application bundle.
-
 
           They are not processed or compiled in any way besides the processing
           done by the rules that actually generate them. In differences to
@@ -1030,7 +985,6 @@ Objective-C libraries.</p>
           library. Unlike hdrs, these will not be compiled separately from the
           sources.
 
-
         </td>
       </tr>
                                 <tr>
@@ -1041,7 +995,6 @@ Objective-C libraries.</p>
                     <p><code>List of strings; optional</code></p>
                               Names of SDK frameworks to weakly link with. For instance,
           "MediaAccessibility".
-
 
           In difference to regularly linked SDK frameworks, symbols
           from weakly linked frameworks do not cause an error if they
@@ -1056,7 +1009,6 @@ Objective-C libraries.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are .xib resources, possibly localizable.
-
 
           These files are compiled to .nib files and placed the bundle root of
           the final package. If this file's immediate containing directory is
@@ -1115,7 +1067,6 @@ final app bundle and only used during compilation stage.
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             Public headers to include in the framework bundle.
 
-
         </td>
       </tr>
                       <tr>
@@ -1125,7 +1076,6 @@ final app bundle and only used during compilation stage.
         <td>
                     <p><code>String; optional</code></p>
                               The name of the application icon.
-
 
           The icon should be in one of the asset catalogs of this target or
           a (transitive) dependency. In a new project, this is initialized
@@ -1144,7 +1094,6 @@ final app bundle and only used during compilation stage.
                     <p><code><a href="../build-ref.html#labels">Label</a>; required</code></p>
                             The binary target included in the framework bundle.
 
-
         </td>
       </tr>
                       <tr>
@@ -1154,7 +1103,6 @@ final app bundle and only used during compilation stage.
         <td>
                     <p><code>String; optional</code></p>
                               The bundle ID (reverse-DNS path followed by app name) of the binary.
-
 
           If specified, it will override the bundle ID specified in the associated plist file. If
           no bundle ID is specified on either this attribute or in the plist file, a junk value
@@ -1169,7 +1117,6 @@ final app bundle and only used during compilation stage.
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               The entitlements file required for device builds of this application.
-
 
           See
           <a href="https://developer.apple.com/library/mac/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/AboutEntitlements.html">the apple documentation</a>
@@ -1190,7 +1137,6 @@ final app bundle and only used during compilation stage.
                     <p><code>List of strings; optional</code></p>
                               The device families to which this bundle or binary is targeted.
 
-
           This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
           in Xcode project files. It is a list of one or more of the strings
           <code>"iphone"</code> and <code>"ipad"</code>.
@@ -1207,7 +1153,6 @@ final app bundle and only used during compilation stage.
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                                The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
-
            Bazel will perform variable substitution on the plist file for the following values:
            <ul>
              <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
@@ -1230,7 +1175,6 @@ final app bundle and only used during compilation stage.
            in Xcode projects.  Duplicate keys between infoplist files will cause an error if
            and only if the values conflict.  If both <code>infoplist</code> and
            <code>infoplists</code> are specified, the files defined in both attributes will be used.
-
            Bazel will perform variable substitution on the plist files for the following values:
            <ul>
              <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
@@ -1250,7 +1194,6 @@ final app bundle and only used during compilation stage.
         <td>
                     <p><code>String; optional</code></p>
                               The name of the launch image.
-
 
           The icon should be in one of the asset catalogs of this target or
           a (transitive) dependency. In a new project, this is initialized
@@ -1274,7 +1217,6 @@ final app bundle and only used during compilation stage.
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               The location of the launch storyboard (.xib or .storyboard).
-
 
           The provided storyboard will be compiled to the appropriate format
           (.nib or .storyboardc respectively) and placed in the root of the
@@ -1301,7 +1243,6 @@ final app bundle and only used during compilation stage.
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               The provisioning profile (.mobileprovision file) to use when bundling
           the application.
-
 
           This is only used for non-simulator builds.
 
@@ -1356,7 +1297,6 @@ libraries.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of targets that are linked together to form the final bundle.
 
-
         </td>
       </tr>
                       <tr>
@@ -1367,7 +1307,6 @@ libraries.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of C, C++, Objective-C, and Objective-C++ source and header
            files that are processed to create the library target.
-
            These are your checked-in files, plus any generated files.
            Source files are compiled into .o files with Clang. Header files
            may be included/imported by any source or header in the srcs attribute
@@ -1383,7 +1322,6 @@ libraries.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files to include in the final application bundle.
-
 
           They are not processed or compiled in any way besides the processing
           done by the rules that actually generate them. These files are placed
@@ -1405,7 +1343,6 @@ libraries.</p>
           library. These will be compiled separately from the source if modules
           are enabled.
 
-
         </td>
       </tr>
                       <tr>
@@ -1415,7 +1352,6 @@ libraries.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files that comprise the asset catalogs of the final linked binary.
-
 
           Each file must have a containing directory named *.xcassets. This
           containing directory becomes the root of one of the asset catalogs
@@ -1432,7 +1368,6 @@ libraries.</p>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               A header defining the Objective-C interfaces to be exposed in Swift.
 
-
         </td>
       </tr>
                       <tr>
@@ -1444,7 +1379,6 @@ libraries.</p>
                               The list of bundle targets that this target requires to be included
           in the final bundle.
 
-
         </td>
       </tr>
                       <tr>
@@ -1454,7 +1388,6 @@ libraries.</p>
         <td>
                     <p><code>List of strings; optional</code></p>
                               Extra flags to pass to the compiler.
-
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           These flags will only apply to this target, and not those upon which
@@ -1474,7 +1407,6 @@ libraries.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files that comprise the data models of the final linked binary.
 
-
           Each file must have a containing directory named *.xcdatamodel, which
           is usually contained by another *.xcdatamodeld (note the added d)
           directory.
@@ -1491,7 +1423,6 @@ libraries.</p>
            the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
            passed not only the compiler for this target (as <code>copts</code>
            are) but also to all <code>objc_</code> dependers of this target.
-
            Subject to <a href="make-variables.html">"Make variable"</a> substitution and
            <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
 
@@ -1504,7 +1435,6 @@ libraries.</p>
         <td>
                     <p><code>Boolean; optional; default is 0</code></p>
                                Enables clang module support (via -fmodules).
-
            Setting this to 1 will allow you to @import system headers and other targets:
            @import UIKit;
            @import path_to_package_target;
@@ -1519,7 +1449,6 @@ libraries.</p>
                     <p><code>List of strings; optional</code></p>
                               List of <code>#include/#import</code> search paths to add to this target
           and all depending targets.
-
 
           This is to support third party and open-sourced libraries that do not
           specify the entire workspace path in their
@@ -1545,7 +1474,6 @@ libraries.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of Objective-C files that are processed to create the
            library target that DO NOT use ARC.
-
            The files in this attribute are treated very similar to those in the
            srcs attribute, but are compiled without ARC enabled.
 
@@ -1559,10 +1487,8 @@ libraries.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of targets that are required in order to build this target,
            but which are not included in the final bundle.
-
            This attribute should only rarely be used, and probably only for proto
            dependencies.
-
 
         </td>
       </tr>
@@ -1574,7 +1500,6 @@ libraries.</p>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                                Header file to prepend to every source file being compiled (both arc
            and non-arc).
-
            Note that the file will not be precompiled - this is simply a
            convenience, not a build-speed enhancement.
 
@@ -1588,7 +1513,6 @@ libraries.</p>
                     <p><code>List of strings; optional</code></p>
                               Names of SDK .dylib libraries to link with. For instance, "libz" or
           "libarchive".
-
 
           "libc++" is included automatically if the binary has any C++ or
           Objective-C++ sources in its dependency tree. When linking a binary,
@@ -1604,7 +1528,6 @@ libraries.</p>
         <td>
                     <p><code>List of strings; optional</code></p>
                               Names of SDK frameworks to link with.
-
           For instance, "XCTest" or "Cocoa". "UIKit" and "Foundation" are always
           included and do not mean anything if you include them.
 
@@ -1625,7 +1548,6 @@ libraries.</p>
           and all depending targets, where each path is relative to
           <code>$(SDKROOT)/usr/include</code>.
 
-
         </td>
       </tr>
                       <tr>
@@ -1635,7 +1557,6 @@ libraries.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are .storyboard resources, possibly localizable.
-
 
           These files are compiled to .storyboardc directories, which are
           placed in the bundle root of the final package. If the storyboards's
@@ -1653,7 +1574,6 @@ libraries.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are plists of strings, often localizable.
 
-
           These files are converted to binary plists (if they are not already)
           and placed in the bundle root of the final package. If this file's
           immediate containing directory is named *.lproj (e.g. en.lproj,
@@ -1669,7 +1589,6 @@ libraries.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files to include in the final application bundle.
-
 
           They are not processed or compiled in any way besides the processing
           done by the rules that actually generate them. In differences to
@@ -1695,7 +1614,6 @@ libraries.</p>
           library. Unlike hdrs, these will not be compiled separately from the
           sources.
 
-
         </td>
       </tr>
                                 <tr>
@@ -1706,7 +1624,6 @@ libraries.</p>
                     <p><code>List of strings; optional</code></p>
                               Names of SDK frameworks to weakly link with. For instance,
           "MediaAccessibility".
-
 
           In difference to regularly linked SDK frameworks, symbols
           from weakly linked frameworks do not cause an error if they
@@ -1721,7 +1638,6 @@ libraries.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are .xib resources, possibly localizable.
-
 
           These files are compiled to .nib files and placed the bundle root of
           the final package. If this file's immediate containing directory is
@@ -1789,7 +1705,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of targets that are linked together to form the final bundle.
 
-
         </td>
       </tr>
                       <tr>
@@ -1800,7 +1715,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of C, C++, Objective-C, and Objective-C++ source and header
            files that are processed to create the library target.
-
            These are your checked-in files, plus any generated files.
            Source files are compiled into .o files with Clang. Header files
            may be included/imported by any source or header in the srcs attribute
@@ -1816,7 +1730,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files to include in the final application bundle.
-
 
           They are not processed or compiled in any way besides the processing
           done by the rules that actually generate them. These files are placed
@@ -1838,7 +1751,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           library. These will be compiled separately from the source if modules
           are enabled.
 
-
         </td>
       </tr>
                       <tr>
@@ -1848,7 +1760,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
         <td>
                     <p><code>String; optional</code></p>
                               The name of the application icon.
-
 
           The icon should be in one of the asset catalogs of this target or
           a (transitive) dependency. In a new project, this is initialized
@@ -1867,7 +1778,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files that comprise the asset catalogs of the final linked binary.
 
-
           Each file must have a containing directory named *.xcassets. This
           containing directory becomes the root of one of the asset catalogs
           linked with any binary that depends directly or indirectly on this
@@ -1883,7 +1793,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               A header defining the Objective-C interfaces to be exposed in Swift.
 
-
         </td>
       </tr>
                       <tr>
@@ -1893,7 +1802,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
         <td>
                     <p><code>String; optional</code></p>
                               The bundle ID (reverse-DNS path followed by app name) of the binary.
-
 
           If specified, it will override the bundle ID specified in the associated plist file. If
           no bundle ID is specified on either this attribute or in the plist file, a junk value
@@ -1910,7 +1818,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
                               The list of bundle targets that this target requires to be included
           in the final bundle.
 
-
         </td>
       </tr>
                       <tr>
@@ -1920,7 +1827,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
         <td>
                     <p><code>List of strings; optional</code></p>
                               Extra flags to pass to the compiler.
-
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           These flags will only apply to this target, and not those upon which
@@ -1940,7 +1846,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files that comprise the data models of the final linked binary.
 
-
           Each file must have a containing directory named *.xcdatamodel, which
           is usually contained by another *.xcdatamodeld (note the added d)
           directory.
@@ -1957,7 +1862,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
            the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
            passed not only the compiler for this target (as <code>copts</code>
            are) but also to all <code>objc_</code> dependers of this target.
-
            Subject to <a href="make-variables.html">"Make variable"</a> substitution and
            <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
 
@@ -1970,7 +1874,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
         <td>
                     <p><code>Boolean; optional; default is 0</code></p>
                                Enables clang module support (via -fmodules).
-
            Setting this to 1 will allow you to @import system headers and other targets:
            @import UIKit;
            @import path_to_package_target;
@@ -1984,7 +1887,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               The entitlements file required for device builds of this application.
-
 
           See
           <a href="https://developer.apple.com/library/mac/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/AboutEntitlements.html">the apple documentation</a>
@@ -2005,7 +1907,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
                     <p><code>List of strings; optional</code></p>
                               The device families to which this bundle or binary is targeted.
 
-
           This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
           in Xcode project files. It is a list of one or more of the strings
           <code>"iphone"</code> and <code>"ipad"</code>.
@@ -2023,7 +1924,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
                     <p><code>List of strings; optional</code></p>
                               List of <code>#include/#import</code> search paths to add to this target
           and all depending targets.
-
 
           This is to support third party and open-sourced libraries that do not
           specify the entire workspace path in their
@@ -2048,7 +1948,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                                The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
-
            Bazel will perform variable substitution on the plist file for the following values:
            <ul>
              <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
@@ -2071,7 +1970,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
            in Xcode projects.  Duplicate keys between infoplist files will cause an error if
            and only if the values conflict.  If both <code>infoplist</code> and
            <code>infoplists</code> are specified, the files defined in both attributes will be used.
-
            Bazel will perform variable substitution on the plist files for the following values:
            <ul>
              <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
@@ -2091,7 +1989,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
         <td>
                     <p><code>String; optional</code></p>
                               The name of the launch image.
-
 
           The icon should be in one of the asset catalogs of this target or
           a (transitive) dependency. In a new project, this is initialized
@@ -2115,7 +2012,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               The location of the launch storyboard (.xib or .storyboard).
-
 
           The provided storyboard will be compiled to the appropriate format
           (.nib or .storyboardc respectively) and placed in the root of the
@@ -2142,7 +2038,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of Objective-C files that are processed to create the
            library target that DO NOT use ARC.
-
            The files in this attribute are treated very similar to those in the
            srcs attribute, but are compiled without ARC enabled.
 
@@ -2156,10 +2051,8 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of targets that are required in order to build this target,
            but which are not included in the final bundle.
-
            This attribute should only rarely be used, and probably only for proto
            dependencies.
-
 
         </td>
       </tr>
@@ -2171,7 +2064,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                                Header file to prepend to every source file being compiled (both arc
            and non-arc).
-
            Note that the file will not be precompiled - this is simply a
            convenience, not a build-speed enhancement.
 
@@ -2186,7 +2078,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
                               The provisioning profile (.mobileprovision file) to use when bundling
           the application.
 
-
           This is only used for non-simulator builds.
 
         </td>
@@ -2199,7 +2090,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
                     <p><code>List of strings; optional</code></p>
                               Names of SDK .dylib libraries to link with. For instance, "libz" or
           "libarchive".
-
 
           "libc++" is included automatically if the binary has any C++ or
           Objective-C++ sources in its dependency tree. When linking a binary,
@@ -2215,7 +2105,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
         <td>
                     <p><code>List of strings; optional</code></p>
                               Names of SDK frameworks to link with.
-
           For instance, "XCTest" or "Cocoa". "UIKit" and "Foundation" are always
           included and do not mean anything if you include them.
 
@@ -2236,7 +2125,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           and all depending targets, where each path is relative to
           <code>$(SDKROOT)/usr/include</code>.
 
-
         </td>
       </tr>
                       <tr>
@@ -2246,7 +2134,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are .storyboard resources, possibly localizable.
-
 
           These files are compiled to .storyboardc directories, which are
           placed in the bundle root of the final package. If the storyboards's
@@ -2264,7 +2151,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are plists of strings, often localizable.
 
-
           These files are converted to binary plists (if they are not already)
           and placed in the bundle root of the final package. If this file's
           immediate containing directory is named *.lproj (e.g. en.lproj,
@@ -2280,7 +2166,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files to include in the final application bundle.
-
 
           They are not processed or compiled in any way besides the processing
           done by the rules that actually generate them. In differences to
@@ -2306,7 +2191,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
           library. Unlike hdrs, these will not be compiled separately from the
           sources.
 
-
         </td>
       </tr>
                                 <tr>
@@ -2317,7 +2201,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
                     <p><code>List of strings; optional</code></p>
                               Names of SDK frameworks to weakly link with. For instance,
           "MediaAccessibility".
-
 
           In difference to regularly linked SDK frameworks, symbols
           from weakly linked frameworks do not cause an error if they
@@ -2332,7 +2215,6 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are .xib resources, possibly localizable.
-
 
           These files are compiled to .nib files and placed the bundle root of
           the final package. If this file's immediate containing directory is
@@ -2401,7 +2283,6 @@ separate common target that can be depended upon.
                               A list of <code>j2objc_library</code>, <code>java_library</code>
           and <code>java_import</code> targets that contain
           Java files to be transpiled to Objective-C.
-
           <p>All <code>java_library</code> and <code>java_import</code> targets that can be reached
           transitively through <code>exports</code>, <code>deps</code> and <code>runtime_deps</code>
           will be translated and compiled. Currently there is no support for files generated by Java
@@ -2434,7 +2315,6 @@ separate common target that can be depended upon.
           </code> is on. The Java classes should be specified in their canonical names as defined by
           <a href="http://docs.oracle.com/javase/specs/jls/se8/html/jls-6.html#jls-6.7">the Java
           Language Specification.</a>
-
           When flag <code>--j2objc_dead_code_removal</code> is specified, the list of entry classes
           will be collected transitively and used as entry points to perform dead code analysis.
           Unused classes will then be removed from the final ObjC app bundle.
@@ -2484,7 +2364,6 @@ files in one or more <code>.bundle</code> directories.
                             The list of files under a <code>.bundle</code> directory which are
         provided to Objective-C targets that depend on this target.
 
-
         </td>
       </tr>
                                                                                     </tbody>
@@ -2530,7 +2409,6 @@ the final iOS application.
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files to include in the final application bundle.
 
-
           They are not processed or compiled in any way besides the processing
           done by the rules that actually generate them. These files are placed
           in the root of the bundle (e.g. Payload/foo.app/...) in most cases.
@@ -2548,7 +2426,6 @@ the final iOS application.
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files that comprise the asset catalogs of the final linked binary.
 
-
           Each file must have a containing directory named *.xcassets. This
           containing directory becomes the root of one of the asset catalogs
           linked with any binary that depends directly or indirectly on this
@@ -2565,7 +2442,6 @@ the final iOS application.
                               The list of bundle targets that this target requires to be included
           in the final bundle.
 
-
         </td>
       </tr>
                       <tr>
@@ -2575,7 +2451,6 @@ the final iOS application.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files that comprise the data models of the final linked binary.
-
 
           Each file must have a containing directory named *.xcdatamodel, which
           is usually contained by another *.xcdatamodeld (note the added d)
@@ -2590,7 +2465,6 @@ the final iOS application.
         <td>
                     <p><code>List of strings; optional</code></p>
                               The device families to which this bundle or binary is targeted.
-
 
           This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
           in Xcode project files. It is a list of one or more of the strings
@@ -2608,7 +2482,6 @@ the final iOS application.
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                                The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
-
            Bazel will perform variable substitution on the plist file for the following values:
            <ul>
              <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
@@ -2631,7 +2504,6 @@ the final iOS application.
            in Xcode projects.  Duplicate keys between infoplist files will cause an error if
            and only if the values conflict.  If both <code>infoplist</code> and
            <code>infoplists</code> are specified, the files defined in both attributes will be used.
-
            Bazel will perform variable substitution on the plist files for the following values:
            <ul>
              <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
@@ -2652,7 +2524,6 @@ the final iOS application.
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are .storyboard resources, possibly localizable.
 
-
           These files are compiled to .storyboardc directories, which are
           placed in the bundle root of the final package. If the storyboards's
           immediate containing directory is named *.lproj (e.g. en.lproj,
@@ -2669,7 +2540,6 @@ the final iOS application.
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are plists of strings, often localizable.
 
-
           These files are converted to binary plists (if they are not already)
           and placed in the bundle root of the final package. If this file's
           immediate containing directory is named *.lproj (e.g. en.lproj,
@@ -2685,7 +2555,6 @@ the final iOS application.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files to include in the final application bundle.
-
 
           They are not processed or compiled in any way besides the processing
           done by the rules that actually generate them. In differences to
@@ -2707,7 +2576,6 @@ the final iOS application.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are .xib resources, possibly localizable.
-
 
           These files are compiled to .nib files and placed the bundle root of
           the final package. If this file's immediate containing directory is
@@ -2760,7 +2628,6 @@ of files in one or more <code>.framework</code> directories.
                             The list of files under a <code>.framework</code> directory which are
         provided to Objective-C targets that depend on this target.
 
-
         </td>
       </tr>
                                 <tr>
@@ -2771,7 +2638,6 @@ of files in one or more <code>.framework</code> directories.
                     <p><code>List of strings; optional</code></p>
                               Names of SDK .dylib libraries to link with. For instance, "libz" or
           "libarchive".
-
 
           "libc++" is included automatically if the binary has any C++ or
           Objective-C++ sources in its dependency tree. When linking a binary,
@@ -2787,7 +2653,6 @@ of files in one or more <code>.framework</code> directories.
         <td>
                     <p><code>List of strings; optional</code></p>
                               Names of SDK frameworks to link with.
-
           For instance, "XCTest" or "Cocoa". "UIKit" and "Foundation" are always
           included and do not mean anything if you include them.
 
@@ -2806,7 +2671,6 @@ of files in one or more <code>.framework</code> directories.
                     <p><code>List of strings; optional</code></p>
                               Names of SDK frameworks to weakly link with. For instance,
           "MediaAccessibility".
-
 
           In difference to regularly linked SDK frameworks, symbols
           from weakly linked frameworks do not cause an error if they
@@ -2857,7 +2721,6 @@ attributes supported by <code>objc_library</code>.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files to include in the final application bundle.
 
-
           They are not processed or compiled in any way besides the processing
           done by the rules that actually generate them. These files are placed
           in the root of the bundle (e.g. Payload/foo.app/...) in most cases.
@@ -2878,7 +2741,6 @@ attributes supported by <code>objc_library</code>.</p>
           library. These will be compiled separately from the source if modules
           are enabled.
 
-
         </td>
       </tr>
                       <tr>
@@ -2891,7 +2753,6 @@ attributes supported by <code>objc_library</code>.</p>
           library will link in all the object files for the files listed in
           <code>srcs</code> and <code>non_arc_srcs</code>, even if some contain no
           symbols referenced by the binary.
-
           This is useful if your code isn't explicitly called by code in
           the binary, e.g., if your code registers to receive some callback
           provided by some service.
@@ -2907,7 +2768,6 @@ attributes supported by <code>objc_library</code>.</p>
                             The list of <code>.a</code> files provided to Objective-C targets that
         depend on this target.
 
-
         </td>
       </tr>
                       <tr>
@@ -2917,7 +2777,6 @@ attributes supported by <code>objc_library</code>.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files that comprise the asset catalogs of the final linked binary.
-
 
           Each file must have a containing directory named *.xcassets. This
           containing directory becomes the root of one of the asset catalogs
@@ -2934,7 +2793,6 @@ attributes supported by <code>objc_library</code>.</p>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               A header defining the Objective-C interfaces to be exposed in Swift.
 
-
         </td>
       </tr>
                       <tr>
@@ -2946,7 +2804,6 @@ attributes supported by <code>objc_library</code>.</p>
                               The list of bundle targets that this target requires to be included
           in the final bundle.
 
-
         </td>
       </tr>
                       <tr>
@@ -2956,7 +2813,6 @@ attributes supported by <code>objc_library</code>.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files that comprise the data models of the final linked binary.
-
 
           Each file must have a containing directory named *.xcdatamodel, which
           is usually contained by another *.xcdatamodeld (note the added d)
@@ -2972,7 +2828,6 @@ attributes supported by <code>objc_library</code>.</p>
                     <p><code>List of strings; optional</code></p>
                               List of <code>#include/#import</code> search paths to add to this target
           and all depending targets.
-
 
           This is to support third party and open-sourced libraries that do not
           specify the entire workspace path in their
@@ -2999,7 +2854,6 @@ attributes supported by <code>objc_library</code>.</p>
                               Names of SDK .dylib libraries to link with. For instance, "libz" or
           "libarchive".
 
-
           "libc++" is included automatically if the binary has any C++ or
           Objective-C++ sources in its dependency tree. When linking a binary,
           all libraries named in that binary's transitive dependency graph are
@@ -3014,7 +2868,6 @@ attributes supported by <code>objc_library</code>.</p>
         <td>
                     <p><code>List of strings; optional</code></p>
                               Names of SDK frameworks to link with.
-
           For instance, "XCTest" or "Cocoa". "UIKit" and "Foundation" are always
           included and do not mean anything if you include them.
 
@@ -3035,7 +2888,6 @@ attributes supported by <code>objc_library</code>.</p>
           and all depending targets, where each path is relative to
           <code>$(SDKROOT)/usr/include</code>.
 
-
         </td>
       </tr>
                       <tr>
@@ -3045,7 +2897,6 @@ attributes supported by <code>objc_library</code>.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are .storyboard resources, possibly localizable.
-
 
           These files are compiled to .storyboardc directories, which are
           placed in the bundle root of the final package. If the storyboards's
@@ -3063,7 +2914,6 @@ attributes supported by <code>objc_library</code>.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are plists of strings, often localizable.
 
-
           These files are converted to binary plists (if they are not already)
           and placed in the bundle root of the final package. If this file's
           immediate containing directory is named *.lproj (e.g. en.lproj,
@@ -3079,7 +2929,6 @@ attributes supported by <code>objc_library</code>.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files to include in the final application bundle.
-
 
           They are not processed or compiled in any way besides the processing
           done by the rules that actually generate them. In differences to
@@ -3105,7 +2954,6 @@ attributes supported by <code>objc_library</code>.</p>
           library. Unlike hdrs, these will not be compiled separately from the
           sources.
 
-
         </td>
       </tr>
                                 <tr>
@@ -3116,7 +2964,6 @@ attributes supported by <code>objc_library</code>.</p>
                     <p><code>List of strings; optional</code></p>
                               Names of SDK frameworks to weakly link with. For instance,
           "MediaAccessibility".
-
 
           In difference to regularly linked SDK frameworks, symbols
           from weakly linked frameworks do not cause an error if they
@@ -3131,7 +2978,6 @@ attributes supported by <code>objc_library</code>.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are .xib resources, possibly localizable.
-
 
           These files are compiled to .nib files and placed the bundle root of
           the final package. If this file's immediate containing directory is
@@ -3191,7 +3037,6 @@ attributes supported by <code>objc_library</code>.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of targets that are linked together to form the final bundle.
 
-
         </td>
       </tr>
                       <tr>
@@ -3202,7 +3047,6 @@ attributes supported by <code>objc_library</code>.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of C, C++, Objective-C, and Objective-C++ source and header
            files that are processed to create the library target.
-
            These are your checked-in files, plus any generated files.
            Source files are compiled into .o files with Clang. Header files
            may be included/imported by any source or header in the srcs attribute
@@ -3218,7 +3062,6 @@ attributes supported by <code>objc_library</code>.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files to include in the final application bundle.
-
 
           They are not processed or compiled in any way besides the processing
           done by the rules that actually generate them. These files are placed
@@ -3240,7 +3083,6 @@ attributes supported by <code>objc_library</code>.</p>
           library. These will be compiled separately from the source if modules
           are enabled.
 
-
         </td>
       </tr>
                       <tr>
@@ -3253,7 +3095,6 @@ attributes supported by <code>objc_library</code>.</p>
           library will link in all the object files for the files listed in
           <code>srcs</code> and <code>non_arc_srcs</code>, even if some contain no
           symbols referenced by the binary.
-
           This is useful if your code isn't explicitly called by code in
           the binary, e.g., if your code registers to receive some callback
           provided by some service.
@@ -3267,7 +3108,6 @@ attributes supported by <code>objc_library</code>.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files that comprise the asset catalogs of the final linked binary.
-
 
           Each file must have a containing directory named *.xcassets. This
           containing directory becomes the root of one of the asset catalogs
@@ -3284,7 +3124,6 @@ attributes supported by <code>objc_library</code>.</p>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               A header defining the Objective-C interfaces to be exposed in Swift.
 
-
         </td>
       </tr>
                       <tr>
@@ -3296,7 +3135,6 @@ attributes supported by <code>objc_library</code>.</p>
                               The list of bundle targets that this target requires to be included
           in the final bundle.
 
-
         </td>
       </tr>
                       <tr>
@@ -3306,7 +3144,6 @@ attributes supported by <code>objc_library</code>.</p>
         <td>
                     <p><code>List of strings; optional</code></p>
                               Extra flags to pass to the compiler.
-
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           These flags will only apply to this target, and not those upon which
@@ -3326,7 +3163,6 @@ attributes supported by <code>objc_library</code>.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files that comprise the data models of the final linked binary.
 
-
           Each file must have a containing directory named *.xcdatamodel, which
           is usually contained by another *.xcdatamodeld (note the added d)
           directory.
@@ -3343,7 +3179,6 @@ attributes supported by <code>objc_library</code>.</p>
            the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
            passed not only the compiler for this target (as <code>copts</code>
            are) but also to all <code>objc_</code> dependers of this target.
-
            Subject to <a href="make-variables.html">"Make variable"</a> substitution and
            <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
 
@@ -3356,7 +3191,6 @@ attributes supported by <code>objc_library</code>.</p>
         <td>
                     <p><code>Boolean; optional; default is 0</code></p>
                                Enables clang module support (via -fmodules).
-
            Setting this to 1 will allow you to @import system headers and other targets:
            @import UIKit;
            @import path_to_package_target;
@@ -3371,7 +3205,6 @@ attributes supported by <code>objc_library</code>.</p>
                     <p><code>List of strings; optional</code></p>
                               List of <code>#include/#import</code> search paths to add to this target
           and all depending targets.
-
 
           This is to support third party and open-sourced libraries that do not
           specify the entire workspace path in their
@@ -3397,7 +3230,6 @@ attributes supported by <code>objc_library</code>.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of Objective-C files that are processed to create the
            library target that DO NOT use ARC.
-
            The files in this attribute are treated very similar to those in the
            srcs attribute, but are compiled without ARC enabled.
 
@@ -3411,10 +3243,8 @@ attributes supported by <code>objc_library</code>.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of targets that are required in order to build this target,
            but which are not included in the final bundle.
-
            This attribute should only rarely be used, and probably only for proto
            dependencies.
-
 
         </td>
       </tr>
@@ -3426,7 +3256,6 @@ attributes supported by <code>objc_library</code>.</p>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                                Header file to prepend to every source file being compiled (both arc
            and non-arc).
-
            Note that the file will not be precompiled - this is simply a
            convenience, not a build-speed enhancement.
 
@@ -3440,7 +3269,6 @@ attributes supported by <code>objc_library</code>.</p>
                     <p><code>List of strings; optional</code></p>
                               Names of SDK .dylib libraries to link with. For instance, "libz" or
           "libarchive".
-
 
           "libc++" is included automatically if the binary has any C++ or
           Objective-C++ sources in its dependency tree. When linking a binary,
@@ -3456,7 +3284,6 @@ attributes supported by <code>objc_library</code>.</p>
         <td>
                     <p><code>List of strings; optional</code></p>
                               Names of SDK frameworks to link with.
-
           For instance, "XCTest" or "Cocoa". "UIKit" and "Foundation" are always
           included and do not mean anything if you include them.
 
@@ -3477,7 +3304,6 @@ attributes supported by <code>objc_library</code>.</p>
           and all depending targets, where each path is relative to
           <code>$(SDKROOT)/usr/include</code>.
 
-
         </td>
       </tr>
                       <tr>
@@ -3487,7 +3313,6 @@ attributes supported by <code>objc_library</code>.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are .storyboard resources, possibly localizable.
-
 
           These files are compiled to .storyboardc directories, which are
           placed in the bundle root of the final package. If the storyboards's
@@ -3505,7 +3330,6 @@ attributes supported by <code>objc_library</code>.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are plists of strings, often localizable.
 
-
           These files are converted to binary plists (if they are not already)
           and placed in the bundle root of the final package. If this file's
           immediate containing directory is named *.lproj (e.g. en.lproj,
@@ -3521,7 +3345,6 @@ attributes supported by <code>objc_library</code>.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files to include in the final application bundle.
-
 
           They are not processed or compiled in any way besides the processing
           done by the rules that actually generate them. In differences to
@@ -3547,7 +3370,6 @@ attributes supported by <code>objc_library</code>.</p>
           library. Unlike hdrs, these will not be compiled separately from the
           sources.
 
-
         </td>
       </tr>
                                 <tr>
@@ -3558,7 +3380,6 @@ attributes supported by <code>objc_library</code>.</p>
                     <p><code>List of strings; optional</code></p>
                               Names of SDK frameworks to weakly link with. For instance,
           "MediaAccessibility".
-
 
           In difference to regularly linked SDK frameworks, symbols
           from weakly linked frameworks do not cause an error if they
@@ -3573,7 +3394,6 @@ attributes supported by <code>objc_library</code>.</p>
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are .xib resources, possibly localizable.
-
 
           These files are compiled to .nib files and placed the bundle root of
           the final package. If this file's immediate containing directory is
@@ -3625,7 +3445,6 @@ options file.</p>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The directly depended upon proto_library rules.
 
-
         </td>
       </tr>
                                                                         <tr>
@@ -3637,7 +3456,6 @@ options file.</p>
                             Optional options file to apply to protos which affects compilation (e.g. class
         whitelist/blacklist settings).
 
-
         </td>
       </tr>
                       <tr>
@@ -3647,7 +3465,6 @@ options file.</p>
         <td>
                     <p><code>Boolean; optional; default is 0</code></p>
                             If true, output C++ rather than ObjC.
-
 
         </td>
       </tr>
@@ -3659,7 +3476,6 @@ options file.</p>
                     <p><code>Boolean; optional; default is 0</code></p>
                             If true, always add all directories to objc_library includes,
 
-
         </td>
       </tr>
                                           <tr>
@@ -3669,7 +3485,6 @@ options file.</p>
         <td>
                     <p><code>Boolean; optional; default is 0</code></p>
                             If true, output headers with .pbobjc.h, rather than .pb.h.
-
 
         </td>
       </tr>
@@ -3716,7 +3531,6 @@ on both iOS simulator and real devices.
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of targets that are linked together to form the final bundle.
 
-
         </td>
       </tr>
                       <tr>
@@ -3727,7 +3541,6 @@ on both iOS simulator and real devices.
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of C, C++, Objective-C, and Objective-C++ source and header
            files that are processed to create the library target.
-
            These are your checked-in files, plus any generated files.
            Source files are compiled into .o files with Clang. Header files
            may be included/imported by any source or header in the srcs attribute
@@ -3743,7 +3556,6 @@ on both iOS simulator and real devices.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files to include in the final application bundle.
-
 
           They are not processed or compiled in any way besides the processing
           done by the rules that actually generate them. These files are placed
@@ -3765,7 +3577,6 @@ on both iOS simulator and real devices.
           library. These will be compiled separately from the source if modules
           are enabled.
 
-
         </td>
       </tr>
                       <tr>
@@ -3775,7 +3586,6 @@ on both iOS simulator and real devices.
         <td>
                     <p><code>String; optional</code></p>
                               The name of the application icon.
-
 
           The icon should be in one of the asset catalogs of this target or
           a (transitive) dependency. In a new project, this is initialized
@@ -3794,7 +3604,6 @@ on both iOS simulator and real devices.
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files that comprise the asset catalogs of the final linked binary.
 
-
           Each file must have a containing directory named *.xcassets. This
           containing directory becomes the root of one of the asset catalogs
           linked with any binary that depends directly or indirectly on this
@@ -3810,7 +3619,6 @@ on both iOS simulator and real devices.
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               A header defining the Objective-C interfaces to be exposed in Swift.
 
-
         </td>
       </tr>
                       <tr>
@@ -3820,7 +3628,6 @@ on both iOS simulator and real devices.
         <td>
                     <p><code>String; optional</code></p>
                               The bundle ID (reverse-DNS path followed by app name) of the binary.
-
 
           If specified, it will override the bundle ID specified in the associated plist file. If
           no bundle ID is specified on either this attribute or in the plist file, a junk value
@@ -3837,7 +3644,6 @@ on both iOS simulator and real devices.
                               The list of bundle targets that this target requires to be included
           in the final bundle.
 
-
         </td>
       </tr>
                       <tr>
@@ -3847,7 +3653,6 @@ on both iOS simulator and real devices.
         <td>
                     <p><code>List of strings; optional</code></p>
                               Extra flags to pass to the compiler.
-
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           These flags will only apply to this target, and not those upon which
@@ -3867,7 +3672,6 @@ on both iOS simulator and real devices.
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files that comprise the data models of the final linked binary.
 
-
           Each file must have a containing directory named *.xcdatamodel, which
           is usually contained by another *.xcdatamodeld (note the added d)
           directory.
@@ -3884,7 +3688,6 @@ on both iOS simulator and real devices.
            the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
            passed not only the compiler for this target (as <code>copts</code>
            are) but also to all <code>objc_</code> dependers of this target.
-
            Subject to <a href="make-variables.html">"Make variable"</a> substitution and
            <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
 
@@ -3897,7 +3700,6 @@ on both iOS simulator and real devices.
         <td>
                     <p><code>Boolean; optional; default is 0</code></p>
                                Enables clang module support (via -fmodules).
-
            Setting this to 1 will allow you to @import system headers and other targets:
            @import UIKit;
            @import path_to_package_target;
@@ -3911,7 +3713,6 @@ on both iOS simulator and real devices.
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               The entitlements file required for device builds of this application.
-
 
           See
           <a href="https://developer.apple.com/library/mac/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/AboutEntitlements.html">the apple documentation</a>
@@ -3932,7 +3733,6 @@ on both iOS simulator and real devices.
                     <p><code>List of strings; optional</code></p>
                               The device families to which this bundle or binary is targeted.
 
-
           This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
           in Xcode project files. It is a list of one or more of the strings
           <code>"iphone"</code> and <code>"ipad"</code>.
@@ -3950,7 +3750,6 @@ on both iOS simulator and real devices.
                     <p><code>List of strings; optional</code></p>
                               List of <code>#include/#import</code> search paths to add to this target
           and all depending targets.
-
 
           This is to support third party and open-sourced libraries that do not
           specify the entire workspace path in their
@@ -3975,7 +3774,6 @@ on both iOS simulator and real devices.
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                                The infoplist file. This corresponds to <i>appname</i>-Info.plist in Xcode projects.
-
            Bazel will perform variable substitution on the plist file for the following values:
            <ul>
              <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
@@ -3998,7 +3796,6 @@ on both iOS simulator and real devices.
            in Xcode projects.  Duplicate keys between infoplist files will cause an error if
            and only if the values conflict.  If both <code>infoplist</code> and
            <code>infoplists</code> are specified, the files defined in both attributes will be used.
-
            Bazel will perform variable substitution on the plist files for the following values:
            <ul>
              <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
@@ -4021,7 +3818,6 @@ on both iOS simulator and real devices.
         in the form KEY=VALUE or simply KEY (check your device's documentation for allowed
         parameters).
 
-
         </td>
       </tr>
                       <tr>
@@ -4033,7 +3829,6 @@ on both iOS simulator and real devices.
                             The device against how to run the test. If this attribute is defined, the test will run on
         the lab device. Otherwise, the test will run on simulator.
 
-
         </td>
       </tr>
                       <tr>
@@ -4043,7 +3838,6 @@ on both iOS simulator and real devices.
         <td>
                     <p><code>String; optional</code></p>
                               The name of the launch image.
-
 
           The icon should be in one of the asset catalogs of this target or
           a (transitive) dependency. In a new project, this is initialized
@@ -4067,7 +3861,6 @@ on both iOS simulator and real devices.
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               The location of the launch storyboard (.xib or .storyboard).
-
 
           The provided storyboard will be compiled to the appropriate format
           (.nib or .storyboardc respectively) and placed in the root of the
@@ -4094,7 +3887,6 @@ on both iOS simulator and real devices.
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of Objective-C files that are processed to create the
            library target that DO NOT use ARC.
-
            The files in this attribute are treated very similar to those in the
            srcs attribute, but are compiled without ARC enabled.
 
@@ -4108,10 +3900,8 @@ on both iOS simulator and real devices.
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                                The list of targets that are required in order to build this target,
            but which are not included in the final bundle.
-
            This attribute should only rarely be used, and probably only for proto
            dependencies.
-
 
         </td>
       </tr>
@@ -4123,7 +3913,6 @@ on both iOS simulator and real devices.
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                                Header file to prepend to every source file being compiled (both arc
            and non-arc).
-
            Note that the file will not be precompiled - this is simply a
            convenience, not a build-speed enhancement.
 
@@ -4137,7 +3926,6 @@ on both iOS simulator and real devices.
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             Plugins to pass to the test runner.
 
-
         </td>
       </tr>
                       <tr>
@@ -4148,7 +3936,6 @@ on both iOS simulator and real devices.
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               The provisioning profile (.mobileprovision file) to use when bundling
           the application.
-
 
           This is only used for non-simulator builds.
 
@@ -4162,7 +3949,6 @@ on both iOS simulator and real devices.
                     <p><code>List of strings; optional</code></p>
                               Names of SDK .dylib libraries to link with. For instance, "libz" or
           "libarchive".
-
 
           "libc++" is included automatically if the binary has any C++ or
           Objective-C++ sources in its dependency tree. When linking a binary,
@@ -4178,7 +3964,6 @@ on both iOS simulator and real devices.
         <td>
                     <p><code>List of strings; optional</code></p>
                               Names of SDK frameworks to link with.
-
           For instance, "XCTest" or "Cocoa". "UIKit" and "Foundation" are always
           included and do not mean anything if you include them.
 
@@ -4199,7 +3984,6 @@ on both iOS simulator and real devices.
           and all depending targets, where each path is relative to
           <code>$(SDKROOT)/usr/include</code>.
 
-
         </td>
       </tr>
                                           <tr>
@@ -4209,7 +3993,6 @@ on both iOS simulator and real devices.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are .storyboard resources, possibly localizable.
-
 
           These files are compiled to .storyboardc directories, which are
           placed in the bundle root of the final package. If the storyboards's
@@ -4227,7 +4010,6 @@ on both iOS simulator and real devices.
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are plists of strings, often localizable.
 
-
           These files are converted to binary plists (if they are not already)
           and placed in the bundle root of the final package. If this file's
           immediate containing directory is named *.lproj (e.g. en.lproj,
@@ -4243,7 +4025,6 @@ on both iOS simulator and real devices.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files to include in the final application bundle.
-
 
           They are not processed or compiled in any way besides the processing
           done by the rules that actually generate them. In differences to
@@ -4269,7 +4050,6 @@ on both iOS simulator and real devices.
           library. Unlike hdrs, these will not be compiled separately from the
           sources.
 
-
         </td>
       </tr>
                                           <tr>
@@ -4280,7 +4060,6 @@ on both iOS simulator and real devices.
                     <p><code>List of strings; optional</code></p>
                               Names of SDK frameworks to weakly link with. For instance,
           "MediaAccessibility".
-
 
           In difference to regularly linked SDK frameworks, symbols
           from weakly linked frameworks do not cause an error if they
@@ -4295,7 +4074,6 @@ on both iOS simulator and real devices.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files which are .xib resources, possibly localizable.
-
 
           These files are compiled to .nib files and placed the bundle root of
           the final package. If this file's immediate containing directory is
@@ -4346,7 +4124,6 @@ dependencies) into a single Xcode project file, for use in developing on a Mac.<
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of targets to include in the combined Xcode project file.
-
 
         </td>
       </tr>

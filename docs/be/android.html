@@ -104,7 +104,6 @@ Bazel source tree.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of other libraries to be linked in to the binary target.
-
           Permitted library types are: <code>android_library</code>,
           <code>java_library</code> with <code>android</code> constraint and
           <code>cc_library</code> wrapping or producing <code>.so</code> native libraries for the
@@ -119,7 +118,6 @@ Bazel source tree.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of source files that are processed to create the target.
-
           <p><code>srcs</code> files of type <code>.java</code> are compiled.
           <em>For readability's sake</em>, it is not good to put the name of a
           generated <code>.java</code> source file into the <code>srcs</code>.
@@ -142,7 +140,6 @@ Bazel source tree.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of assets to be packaged.
-
           This is typically a <code>glob</code> of all files under the
           <code>assets</code> directory. You can also reference other rules (any rule that produces
           files) or exported files in the other packages, as long as all those files are under the
@@ -157,7 +154,6 @@ Bazel source tree.
         <td>
                     <p><code>String; optional</code></p>
                               The string giving the path to the files in <code>assets</code>.
-
           The pair <code>assets</code> and <code>assets_dir</code> describe packaged
           assets and either both attributes should be provided or none of them.
 
@@ -170,7 +166,6 @@ Bazel source tree.
         <td>
                     <p><code>String; optional</code></p>
                               Java package for which java sources will be generated.
-
           By default the package is inferred from the directory where the BUILD file
           containing the rule is. You can specify a different package but this is
           highly discouraged since it can introduce classpath conflicts with other
@@ -185,7 +180,6 @@ Bazel source tree.
         <td>
                     <p><code>List of strings; optional</code></p>
                             Densities to filter for when building the apk.
-
         This will strip out raster drawable resources that would not be loaded by a device with
         the specified screen densities, to reduce APK size. A corresponding compatible-screens
         section will also be added to the manifest if it does not already contain a superset
@@ -200,7 +194,6 @@ Bazel source tree.
         <td>
                     <p><code>Integer; optional; default is 1</code></p>
                               Number of shards dexing should be decomposed into.
-
           This is makes dexing much faster at the expense of app installation and startup time. The
           larger the binary, the more shards should be used. 25 is a good value to start
           experimenting with.
@@ -217,7 +210,6 @@ Bazel source tree.
         <td>
                     <p><code>List of strings; optional</code></p>
                               Additional command-line flags for the dx tool when generating classes.dex.
-
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
 
@@ -232,7 +224,6 @@ Bazel source tree.
                               Whether to export manifest entries to <code>android_binary</code> targets
           that depend on this target. <code>uses-permissions</code> attributes are never exported.
 
-
         </td>
       </tr>
                                 <tr>
@@ -242,7 +233,6 @@ Bazel source tree.
         <td>
                     <p><code>Boolean; optional; default is 0</code></p>
                               Let the compiler inline the constants defined in the generated java sources.
-
           This attribute must be set to 0 for all <code>android_library</code> rules
           used directly by an <code>android_binary</code>,
           and for any <code>android_binary</code> that has an <code>android_library</code>
@@ -257,7 +247,6 @@ Bazel source tree.
         <td>
                     <p><code>List of strings; optional</code></p>
                               Extra compiler options for this target.
-
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>
@@ -273,7 +262,6 @@ Bazel source tree.
                     <p><code>Integer; optional; default is -1</code></p>
                               Enables legacy native support, where pre-compiled native libraries are copied
           directly into the APK.
-
           Possible values:
           <ul>
               <li><code>legacy_native_support = 1</code>: Pre-built .so files found in the
@@ -308,7 +296,6 @@ android/support/multidex/MultiDex.class
 android/support/multidex/MultiDexApplication.class
 com/google/common/base/Objects.class
           </pre>
-
           Must be used with <code>multidex="manual_main_dex"</code>.
 
         </td>
@@ -320,7 +307,6 @@ com/google/common/base/Objects.class
         <td>
                     <p><code>List of strings; optional</code></p>
                               Command line options to pass to the main dex list builder.
-
           Use this option to affect the classes included in the main dex list.
 
         </td>
@@ -333,7 +319,6 @@ com/google/common/base/Objects.class
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files to be used as the Proguard specifications to determine classes that must be kept in
           the main dex.
-
           Only allowed if the <code>multidex</code> attribute is set to <code>legacy</code>.
 
         </td>
@@ -347,7 +332,6 @@ com/google/common/base/Objects.class
                               The name of the Android manifest file, normally <code>AndroidManifest.xml</code>.
           Must be defined if resource_files or assets are defined.
 
-
         </td>
       </tr>
                       <tr>
@@ -357,7 +341,6 @@ com/google/common/base/Objects.class
         <td>
                     <p><code>String; optional; default is "off"</code></p>
                             Whether to split code into multiple dex files.
-
         Possible values:
         <ul>
           <li><code>native</code>: Split code into multiple dex files when the
@@ -386,7 +369,6 @@ com/google/common/base/Objects.class
                     <p><code>List of strings; optional</code></p>
                             A list of file extension to leave uncompressed in apk.
 
-
         </td>
       </tr>
                       <tr>
@@ -396,7 +378,6 @@ com/google/common/base/Objects.class
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Java compiler plugins to run at compile-time.
-
           Every <code>java_plugin</code> specified in
           the plugins attribute will be run whenever
           this target is built.  Resources generated by
@@ -412,7 +393,6 @@ com/google/common/base/Objects.class
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               File to be used as a mapping for proguard.
-
           A mapping file generated by <code>proguard_generate_mapping</code> to be
           re-used to apply the same mapping to a new build.
 
@@ -425,7 +405,6 @@ com/google/common/base/Objects.class
         <td>
                     <p><code>Boolean; optional; default is 0</code></p>
                               Whether to generate Proguard mapping file.
-
           The mapping file will be generated only if <code>proguard_specs</code> is
           specified. This file will list the mapping between the original and
           obfuscated class, method, and field names.
@@ -442,7 +421,6 @@ com/google/common/base/Objects.class
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Files to be used as Proguard specification.
-
           This file will describe the set of specifications to be used by Proguard.
 
         </td>
@@ -456,7 +434,6 @@ com/google/common/base/Objects.class
                             A list of resource configuration filters, such 'en' that will limit the resources in the
         apk to only the ones in the 'en' configuration.
 
-
         </td>
       </tr>
                       <tr>
@@ -466,7 +443,6 @@ com/google/common/base/Objects.class
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of resources to be packaged.
-
           This is typically a <code>glob</code> of all files under the
           <code>res</code> directory.
           <br/>
@@ -539,7 +515,6 @@ Bazel source tree.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of other libraries to link against.
-
         Permitted library types are: <code>android_library</code>,
         <code>java_library</code> with <code>android</code> constraint and
         <code>cc_library</code> wrapping or producing <code>.so</code> native libraries
@@ -554,7 +529,6 @@ Bazel source tree.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                              The list of source files that are processed to create the target.
-
         <p><code>srcs</code> files of type <code>.java</code> are compiled.
         <em>For readability's sake</em>, it is not good to put the name of a
         generated <code>.java</code> source file into the <code>srcs</code>.
@@ -584,7 +558,6 @@ Bazel source tree.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of assets to be packaged.
-
           This is typically a <code>glob</code> of all files under the
           <code>assets</code> directory. You can also reference other rules (any rule that produces
           files) or exported files in the other packages, as long as all those files are under the
@@ -599,7 +572,6 @@ Bazel source tree.
         <td>
                     <p><code>String; optional</code></p>
                               The string giving the path to the files in <code>assets</code>.
-
           The pair <code>assets</code> and <code>assets_dir</code> describe packaged
           assets and either both attributes should be provided or none of them.
 
@@ -612,7 +584,6 @@ Bazel source tree.
         <td>
                     <p><code>String; optional</code></p>
                               Java package for which java sources will be generated.
-
           By default the package is inferred from the directory where the BUILD file
           containing the rule is. You can specify a different package but this is
           highly discouraged since it can introduce classpath conflicts with other
@@ -629,7 +600,6 @@ Bazel source tree.
                             The transitive closure of all rules reached via <code>exports</code> attributes
         are considered direct dependencies of any rule that directly depends on the
         target with <code>exports</code>.
-
         <p>The <code>exports</code> are not direct deps of the rule they belong to.</p>
 
         </td>
@@ -643,7 +613,6 @@ Bazel source tree.
                               Whether to export manifest entries to <code>android_binary</code> targets
           that depend on this target. <code>uses-permissions</code> attributes are never exported.
 
-
         </td>
       </tr>
                                 <tr>
@@ -654,7 +623,6 @@ Bazel source tree.
                     <p><code>String; optional</code></p>
                             Package-relative path to the root of the java package tree containing idl
         sources included in this library.
-
         This path will be used as the import root when processing idl sources that
         depend on this library. (See
         <a href="#android_library_examples.idl_import_root">examples</a>.)
@@ -668,7 +636,6 @@ Bazel source tree.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             List of Android IDL definitions to supply as imports.
-
         These files will be made available as imports for any
         <code>android_library</code> target that depends on this library, directly
         or via its transitive closure, but will not be translated to Java
@@ -687,7 +654,6 @@ Bazel source tree.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             List of Android IDL definitions to translate to Java interfaces.
-
         After the Java interfaces are generated, they will be compiled together
         with the contents of <code>srcs</code>.
         <p>These files will be made available as imports for any
@@ -703,7 +669,6 @@ Bazel source tree.
         <td>
                     <p><code>Boolean; optional; default is 0</code></p>
                               Let the compiler inline the constants defined in the generated java sources.
-
           This attribute must be set to 0 for all <code>android_library</code> rules
           used directly by an <code>android_binary</code>,
           and for any <code>android_binary</code> that has an <code>android_library</code>
@@ -718,7 +683,6 @@ Bazel source tree.
         <td>
                     <p><code>List of strings; optional</code></p>
                               Extra compiler options for this target.
-
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>
@@ -735,7 +699,6 @@ Bazel source tree.
                               The name of the Android manifest file, normally <code>AndroidManifest.xml</code>.
           Must be defined if resource_files or assets are defined.
 
-
         </td>
       </tr>
                       <tr>
@@ -745,7 +708,6 @@ Bazel source tree.
         <td>
                     <p><code>Boolean; optional; default is 0</code></p>
                             Only use this library for compilation and not at runtime.
-
         The outputs of a rule marked as <code>neverlink</code> will not be used in
         <code>.apk</code> creation. Useful if the library will be provided by the
         runtime environment during execution.
@@ -759,7 +721,6 @@ Bazel source tree.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               Java compiler plugins to run at compile-time.
-
           Every <code>java_plugin</code> specified in
           the plugins attribute will be run whenever
           this target is built.  Resources generated by
@@ -775,7 +736,6 @@ Bazel source tree.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             Files to be used as Proguard specification.
-
         These will describe the set of specifications to be used by Proguard. If specified,
         they will be added to any <code>android_binary</code> target depending on this library.
 
@@ -792,7 +752,6 @@ Bazel source tree.
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of resources to be packaged.
-
           This is typically a <code>glob</code> of all files under the
           <code>res</code> directory.
           <br/>

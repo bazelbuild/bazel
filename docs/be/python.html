@@ -113,7 +113,6 @@ java_library(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of other libraries to be linked in to the binary target.
-
           See general comments about <code>deps</code> at
           <a href="common-definitions.html#common-attributes">
           Attributes common to all build rules</a>.
@@ -131,7 +130,6 @@ java_library(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; required</code></p>
                               The list of source files that are processed to create the target.
-
           This includes all your checked-in code and any
           generated source files.  The line between <code>srcs</code> and
           <code>deps</code> is loose. The <code>.py</code> files
@@ -147,7 +145,6 @@ java_library(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                              The list of files needed by this binary at runtime.
-
          See general comments about <code>data</code> at
          <a href="common-definitions.html#common-attributes">
          Attributes common to all build rules</a>.
@@ -164,7 +161,6 @@ java_library(
                     <p><code>String; optional; default is "PY2"</code></p>
                               A string specifying the default Python major version to use when building this binary and
           all of its <code>deps</code>.
-
           Valid values are <code>"PY2"</code> (default) or <code>"PY3"</code>.
           Python 3 support is experimental.
 
@@ -177,7 +173,6 @@ java_library(
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               The name of the source file that is the main entry point of the application.
-
           This file must also be listed in <code>srcs</code>. If left unspecified,
           <code>name</code> is used instead (see above). If <code>name</code> does not
           match any filename in <code>srcs</code>, <code>main</code> must be specified.
@@ -192,7 +187,6 @@ java_library(
                     <p><code>String; optional; default is "PY2"</code></p>
                               A string specifying the Python major version(s) that the <code>.py</code> source
           files listed in the <code>srcs</code> of this rule are compatible with.
-
           Valid values are:<br/>
           <code>"PY2ONLY"</code> -
             Python 2 code that is <b>not</b> suitable for <code>2to3</code> conversion.<br/>
@@ -214,7 +208,6 @@ java_library(
         <td>
                     <p><code>Integer; optional; default is -1</code></p>
                               Enable link stamping.
-
           Whether to encode build information into the binary. Possible values:
           <ul>
             <li><code>stamp = 1</code>: Stamp the build information into the
@@ -268,7 +261,6 @@ java_library(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of other libraries to be linked in to the library target.
-
         See general comments about <code>deps</code> at
         <a href="common-definitions.html#common-attributes">
         Attributes common to all build rules</a>.
@@ -285,7 +277,6 @@ java_library(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of source files that are processed to create the target.
-
         This includes all your checked-in code and any generated source files.
 
         </td>
@@ -297,7 +288,6 @@ java_library(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                             The list of files needed by this library at runtime.
-
         See general comments about <code>data</code> at
         <a href="common-definitions.html#common-attributes">
         Attributes common to all build rules</a>.
@@ -312,7 +302,6 @@ java_library(
                     <p><code>String; optional; default is "PY2"</code></p>
                               A string specifying the Python major version(s) that the <code>.py</code> source
           files listed in the <code>srcs</code> of this rule are compatible with.
-
           Valid values are:<br/>
           <code>"PY2ONLY"</code> -
             Python 2 code that is <b>not</b> suitable for <code>2to3</code> conversion.<br/>
@@ -395,7 +384,6 @@ py_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                               The list of other libraries to be linked in to the binary target.
-
           See general comments about <code>deps</code> at
           <a href="common-definitions.html#common-attributes">
           Attributes common to all build rules</a>.
@@ -413,7 +401,6 @@ py_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; required</code></p>
                               The list of source files that are processed to create the target.
-
           This includes all your checked-in code and any
           generated source files.  The line between <code>srcs</code> and
           <code>deps</code> is loose. The <code>.py</code> files
@@ -429,7 +416,6 @@ py_binary(
         <td>
                     <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
                              The list of files needed by this binary at runtime.
-
          See general comments about <code>data</code> at
          <a href="common-definitions.html#common-attributes">
          Attributes common to all build rules</a>.
@@ -446,7 +432,6 @@ py_binary(
                     <p><code>String; optional; default is "PY2"</code></p>
                               A string specifying the default Python major version to use when building this binary and
           all of its <code>deps</code>.
-
           Valid values are <code>"PY2"</code> (default) or <code>"PY3"</code>.
           Python 3 support is experimental.
 
@@ -459,7 +444,6 @@ py_binary(
         <td>
                     <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
                               The name of the source file that is the main entry point of the application.
-
           This file must also be listed in <code>srcs</code>. If left unspecified,
           <code>name</code> is used instead (see above). If <code>name</code> does not
           match any filename in <code>srcs</code>, <code>main</code> must be specified.
@@ -474,7 +458,6 @@ py_binary(
                     <p><code>String; optional; default is "PY2"</code></p>
                               A string specifying the Python major version(s) that the <code>.py</code> source
           files listed in the <code>srcs</code> of this rule are compatible with.
-
           Valid values are:<br/>
           <code>"PY2ONLY"</code> -
             Python 2 code that is <b>not</b> suitable for <code>2to3</code> conversion.<br/>
@@ -495,8 +478,7 @@ py_binary(
         </td>
         <td>
                     <p><code>Integer; optional; default is 0</code></p>
-
-        See the section on <a href="#py_binary_args">py_binary()</a> arguments, except
+                            See the section on <a href="#py_binary_args">py_binary()</a> arguments, except
         that the stamp argument is set to 0 by default for tests.
 
         </td>
