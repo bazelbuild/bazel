@@ -356,7 +356,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testGetRuleSelect() throws Exception {
     scratch.file("test/skylark/BUILD");
-    scratch.file("test/skylark/rulestr.bzl", "def rule_dict(name):", "  return native.rule(name)");
+    scratch.file(
+        "test/skylark/rulestr.bzl", "def rule_dict(name):", "  return native.existing_rule(name)");
 
     scratch.file(
         "test/getrule/BUILD",
@@ -376,9 +377,9 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     scratch.file(
         "test/skylark/rulestr.bzl",
         "def rule_dict(name):",
-        "  return native.rule(name)",
+        "  return native.existing_rule(name)",
         "def rules_dict():",
-        "  return native.rules()",
+        "  return native.existing_rules()",
         "def nop(ctx):",
         "  pass",
         "nop_rule = rule(attrs = {'x': attr.label()}, implementation = nop)",

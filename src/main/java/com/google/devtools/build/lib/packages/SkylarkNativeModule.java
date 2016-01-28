@@ -95,13 +95,12 @@ public class SkylarkNativeModule {
         }
       };
 
+  @Deprecated
   @SkylarkSignature(
     name = "rule",
     objectType = SkylarkNativeModule.class,
     returnType = Object.class,
-    doc =
-        "Returns a dictionary representing the attributes of a previously defined rule, "
-            + "or None if the rule does not exist.",
+    doc = "Deprecated. Use existing_rule instead.",
     mandatoryPositionals = {
       @Param(name = "name", type = String.class, doc = "The name of the rule.")
     },
@@ -122,12 +121,58 @@ public class SkylarkNativeModule {
         }
       };
 
+  @SkylarkSignature(
+    name = "existing_rule",
+    objectType = SkylarkNativeModule.class,
+    returnType = Object.class,
+    doc =
+        "Returns a dictionary representing the attributes of a previously defined rule, "
+            + "or None if the rule does not exist.",
+    mandatoryPositionals = {
+      @Param(name = "name", type = String.class, doc = "The name of the rule.")
+    },
+    useAst = true,
+    useEnvironment = true
+  )
+  private static final BuiltinFunction existingRule =
+      new BuiltinFunction("existing_rule") {
+        public Object invoke(String name, FuncallExpression ast, Environment env)
+            throws EvalException, InterruptedException {
+          env.checkLoadingPhase("native.existing_rule", ast.getLocation());
+          Map<String, Object> rule = PackageFactory.callGetRuleFunction(name, ast, env);
+          if (rule != null) {
+            return rule;
+          }
+
+          return Runtime.NONE;
+        }
+      };
+
+  @Deprecated
+  @SkylarkSignature(
+    name = "rules",
+    objectType = SkylarkNativeModule.class,
+    returnType = Map.class,
+    doc = "Deprecated. Use existing_rules instead.",
+    mandatoryPositionals = {},
+    useAst = true,
+    useEnvironment = true
+  )
+  private static final BuiltinFunction getRules =
+      new BuiltinFunction("rules") {
+        public Map<?, ?> invoke(FuncallExpression ast, Environment env)
+            throws EvalException, InterruptedException {
+          env.checkLoadingPhase("native.rules", ast.getLocation());
+          return PackageFactory.callGetRulesFunction(ast, env);
+        }
+      };
+
   /*
     If necessary, we could allow filtering by tag (anytag, alltags), name (regexp?), kind ?
     For now, we ignore this, since users can implement it in Skylark.
   */
   @SkylarkSignature(
-    name = "rules",
+    name = "existing_rules",
     objectType = SkylarkNativeModule.class,
     returnType = Map.class,
     doc =
@@ -138,11 +183,11 @@ public class SkylarkNativeModule {
     useAst = true,
     useEnvironment = true
   )
-  private static final BuiltinFunction getRules =
-      new BuiltinFunction("rules") {
-        public Map invoke(FuncallExpression ast, Environment env)
+  private static final BuiltinFunction existingRules =
+      new BuiltinFunction("existing_rules") {
+        public Map<?, ?> invoke(FuncallExpression ast, Environment env)
             throws EvalException, InterruptedException {
-          env.checkLoadingPhase("native.rules", ast.getLocation());
+          env.checkLoadingPhase("native.existing_rules", ast.getLocation());
           return PackageFactory.callGetRulesFunction(ast, env);
         }
       };
