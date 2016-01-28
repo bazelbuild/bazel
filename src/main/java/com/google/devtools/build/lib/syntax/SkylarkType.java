@@ -23,6 +23,7 @@ import com.google.common.collect.Interner;
 import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkList.Tuple;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -48,7 +49,7 @@ import javax.annotation.Nullable;
  *  (including the special TOP and BOTTOM types that respectively contain
  *  all the objects (Simple type for Object.class) and no object at all
  *  (Simple type for EmptyType.class, isomorphic to Void.class).
- * <li>a Combination of a generic class (one of LIST, MAP, SET)
+ * <li>a Combination of a generic class (one of SET, selector)
  *  and an argument type (that itself need not be Simple).
  * <li>a Union of a finite set of types
  * <li>a FunctionType associated with a name and a returnType
@@ -713,12 +714,18 @@ public abstract class SkylarkType implements Serializable {
    * Converts an object to a Skylark-compatible type if possible.
    */
   public static Object convertToSkylark(Object object, @Nullable Environment env) {
-    if (object instanceof List<?>) {
-      List<?> list = (List<?>) object;
-      // TODO(bazel-team): shouldn't we convert an ImmutableList into a Tuple?
-      // problem: we treat them sometimes as a tuple, sometimes as a list.
-      return new MutableList(list, env);
+    if (object instanceof SkylarkValue) {
+      return object;
     }
+    if (object instanceof List) {
+      return new MutableList((List<?>) object, env);
+    }
+    // TODO(bazel-team): ensure everything is a SkylarkValue at all times.
+    // Preconditions.checkArgument(EvalUtils.isSkylarkAcceptable(
+    //    object.getClass()),
+    //    "invalid object %s of class %s not convertible to a Skylark value",
+    //    object,
+    //    object.getClass());
     return object;
   }
 }
