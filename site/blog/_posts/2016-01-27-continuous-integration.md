@@ -30,22 +30,22 @@ script, we also run some projects to validate Bazel binaries against: the
 Bazel is reinstalled each time we run the tutorial or TensorFlow, but the Bazel
 cache is maintained across installs. The setup for those jobs is the following:
 
-```
+```bash
 set -e
 
-\# Fetch the Bazel installer
+# Fetch the Bazel installer
 URL=https://github.com/bazelbuild/bazel/releases/download/${BAZEL_VERSION}/bazel-${BAZEL_VERSION}-installer-${INSTALLER_PLATFORM}.sh
 export BAZEL_INSTALLER=${PWD}/bazel-installer/install.sh
 curl -L -o ${BAZEL_INSTALLER} ${URL}
 BASE="${PWD}/bazel-install"
 
-\# Install bazel inside ${BASE}
+# Install bazel inside ${BASE}
 bash "${BAZEL_INSTALLER}" \
   --base="${BASE}" \
   --bazelrc="${BASE}/bin/bazel.bazelrc" \
   --bin="${BASE}/binary"
 
-\# Run the build
+# Run the build
 BAZEL="${BASE}/binary/bazel --bazelrc=${BASE}/bin/bazel.bazelrc"
 ${BAZEL} test //...
 ```
@@ -73,7 +73,7 @@ has some feature that are incompatibles with Docker:
 So the last step of the previous script would look like:
 
 ```bash
-\# Run the build
+# Run the build
 BAZEL="${BASE}/binary/bazel --bazelrc=${BASE}/bin/bazel.bazelrc --batch"
 ${BAZEL} test --genrule_strategy=standalone --spawn_strategy=standalone \
     //...
