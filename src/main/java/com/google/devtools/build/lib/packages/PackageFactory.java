@@ -1586,11 +1586,17 @@ public final class PackageFactory {
       boolean wasPreprocessed, Path buildFilePath, Globber globber,
       RuleVisibility defaultVisibility, MakeEnvironment.Builder pkgMakeEnv)
       throws InterruptedException {
-    if (wasPreprocessed) {
-      // No point in prefetching globs here: preprocessing implies eager evaluation
-      // of all globs.
+    if (wasPreprocessed && preprocessorFactory.considersGlobs()) {
+      // All the globs have either already been evaluated and they aren't in the ast anymore, or
+      // they are in the ast but the globber has been evaluating them lazily and so there is no
+      // point in prefetching them again.
       return;
     }
+    // TODO(bazel-team): It may be wasteful to evaluate the BUILD file here, only to throw away the
+    // result. It may be better to first scan the ast and see if there are even possibly any globs
+    // at all. Additionally, it's wasteful to execute Skylark code that cannot invoke globs. So one
+    // strategy would be to crawl the ast and tag statements whose execution cannot involve globs -
+    // these can be executed and their impact on the resulting package can be saved.
     try (Mutability mutability = Mutability.create("prefetchGlobs for %s", packageId)) {
       Environment pkgEnv = Environment.builder(mutability)
           .setGlobals(Environment.BUILD)

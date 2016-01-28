@@ -894,7 +894,7 @@ public class PackageFunction implements SkyFunction {
         // If the globber was used to evaluate globs during preprocessing, it's important that we
         // reuse that globber during BUILD file evaluation for two reasons: (i) correctness, since
         // Skyframe deps are added after the fact (ii) performance, in the case that globs were
-        // fetched lazily during preprocessing.
+        // fetched lazily during preprocessing. See Preprocessor.Factory#considersGlobs.
         Globber globber = astAfterPreprocessing.globber != null
             ? astAfterPreprocessing.globber
             : packageFactory.createLegacyGlobber(buildFilePath.getParentDirectory(),

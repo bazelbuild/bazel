@@ -68,6 +68,14 @@ public interface Preprocessor {
     boolean isStillValid();
 
     /**
+     * Returns whether all globs encountered during {@link Preprocessor#preprocess} will be passed
+     * along to the {@link Globber} given there (which then executes them asynchronously). If this
+     * is not the case, then e.g. prefetching globs during normal BUILD file evaluation may be
+     * profitable.
+     */
+    boolean considersGlobs();
+
+    /**
      * Returns a Preprocessor instance capable of preprocessing a BUILD file independently (e.g. it
      * ought to be fine to call {@link #getPreprocessor} for each BUILD file).
      */
@@ -84,6 +92,11 @@ public interface Preprocessor {
       @Override
       public boolean isStillValid() {
         return true;
+      }
+
+      @Override
+      public boolean considersGlobs() {
+        return false;
       }
 
       @Override
