@@ -211,13 +211,6 @@ public class CppOptions extends FragmentOptions {
           + " to enable all modes and 'no' to disable all modes.")
   public List<CompilationMode> fissionModes;
 
-  @Option(name = "build_test_dwp",
-          defaultValue = "false",
-          category = "semantics",
-          help = "If enabled, when building C++ tests statically and with fission the .dwp file "
-          + " for the test binary will be automatically built as well.")
-  public boolean buildTestDwp;
-
   @Option(name = "dynamic_mode",
           defaultValue = "default",
           converter = DynamicModeConverter.class,

@@ -1526,7 +1526,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   public boolean skipStaticOutputs() {
     return cppOptions.skipStaticOutputs;
   }
-
+  
   /**
    * Returns whether we are processing headers in dependencies of built C++ targets.
    */
@@ -1539,14 +1539,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean useFission() {
     return cppOptions.fissionModes.contains(compilationMode) && supportsFission();
-  }
-
-  /**
-   * Returns true if Fission is enabled for this build and the user requested automatic building
-   * of .dwp files for C++ test targets.
-   */
-  public boolean shouldBuildTestDwp() {
-    return useFission() && cppOptions.buildTestDwp;
   }
 
   /**
