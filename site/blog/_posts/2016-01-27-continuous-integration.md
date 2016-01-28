@@ -20,8 +20,8 @@ tests that are run using the
 [`./compile.sh`](https://github.com/bazelbuild/bazel/blob/master/compile.sh)
 script, we also run some projects to validate Bazel binaries against: the
 [Bazel Tutorial](https://github.com/bazelbuild/examples/tree/master/tutorial)
-[here](http://ci.bazel.io/job/Bazel-Tutorial/),
-[re](https://github.com/google/re) [here](http://ci.bazel.io/job/re/),
+[here](http://ci.bazel.io/job/Tutorial/),
+[re2](https://github.com/google/re2) [here](http://ci.bazel.io/job/re2/),
 [protobuf](https://github.com/google/protobuf)
 [here](http://ci.bazel.io/job/protobuf/), and
 [TensorFlow](https://www.tensorflow.org)
