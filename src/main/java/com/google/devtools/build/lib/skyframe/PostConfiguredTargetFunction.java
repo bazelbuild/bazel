@@ -101,6 +101,9 @@ public class PostConfiguredTargetFunction implements SkyFunction {
           buildViewProvider.getSkyframeBuildView().getHostConfiguration(ct.getConfiguration());
       SkyframeDependencyResolver resolver =
           buildViewProvider.getSkyframeBuildView().createDependencyResolver(env);
+      // We don't track root causes here - this function is only invoked for successfully analyzed
+      // targets - as long as we redo the exact same steps here as in ConfiguredTargetFunction, this
+      // can never fail.
       deps =
           resolver.dependentNodeMap(
               ctgValue, hostConfiguration, /*aspect=*/ null, configConditions);

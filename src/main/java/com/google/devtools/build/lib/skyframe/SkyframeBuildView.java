@@ -499,6 +499,9 @@ public final class SkyframeBuildView {
       Set<ConfigMatchingProvider> configConditions) throws InterruptedException {
     Preconditions.checkState(enableAnalysis,
         "Already in execution phase %s %s", target, configuration);
+    Preconditions.checkNotNull(analysisEnvironment);
+    Preconditions.checkNotNull(target);
+    Preconditions.checkNotNull(prerequisiteMap);
     return factory.createConfiguredTarget(analysisEnvironment, artifactFactory, target,
         configuration, getHostConfiguration(configuration), prerequisiteMap,
         configConditions);

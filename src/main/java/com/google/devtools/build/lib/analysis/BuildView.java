@@ -804,6 +804,11 @@ public class BuildView {
       }
 
       @Override
+      protected void missingEdgeHook(Target from, Label to, NoSuchThingException e) {
+        // The error must have been reported already during analysis.
+      }
+
+      @Override
       protected Target getTarget(Label label) {
         if (targetCache == null) {
           try {
@@ -858,12 +863,19 @@ public class BuildView {
     class SilentDependencyResolver extends DependencyResolver {
       @Override
       protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
-        // The error must have been reported already during analysis.
+        throw new RuntimeException("bad visibility on " + label + " during testing unexpected");
       }
 
       @Override
       protected void invalidPackageGroupReferenceHook(TargetAndConfiguration node, Label label) {
-        // The error must have been reported already during analysis.
+        throw new RuntimeException("bad package group on " + label + " during testing unexpected");
+      }
+
+      @Override
+      protected void missingEdgeHook(Target from, Label to, NoSuchThingException e) {
+        throw new RuntimeException(
+            "missing dependency from " + from.getLabel() + " to " + to + ": " + e.getMessage(),
+            e);
       }
 
       @Override

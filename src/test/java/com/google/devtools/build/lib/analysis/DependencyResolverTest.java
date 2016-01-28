@@ -64,6 +64,11 @@ public class DependencyResolverTest extends AnalysisTestCase {
         throw new IllegalStateException();
       }
 
+      @Override
+      protected void missingEdgeHook(Target from, Label to, NoSuchThingException e) {
+        throw new IllegalStateException(e);
+      }
+
       @Nullable
       @Override
       protected Target getTarget(Label label) throws NoSuchThingException {
