@@ -25,10 +25,8 @@ import com.google.devtools.build.lib.syntax.compiler.VariableScope;
 
 import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 import net.bytebuddy.implementation.bytecode.Duplication;
-import net.bytebuddy.implementation.bytecode.Removal;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -51,14 +49,14 @@ public class DictComprehension extends AbstractComprehension {
   }
 
   @Override
-  OutputCollector createCollector() {
-    return new DictOutputCollector();
+  OutputCollector createCollector(Environment env) {
+    return new DictOutputCollector(env);
   }
 
   @Override
   InternalVariable compileInitialization(VariableScope scope, List<ByteCodeAppender> code) {
     InternalVariable dict = scope.freshVariable(ImmutableMap.class);
-    append(code, ByteCodeMethodCalls.BCImmutableMap.builder);
+    append(code, scope.loadEnvironment(), ByteCodeMethodCalls.BCSkylarkDict.of);
     code.add(dict.store());
     return dict;
   }
@@ -75,14 +73,16 @@ public class DictComprehension extends AbstractComprehension {
     code.add(keyExpression.compile(scope, debugInfo));
     append(code, Duplication.SINGLE, EvalUtils.checkValidDictKey);
     code.add(valueExpression.compile(scope, debugInfo));
-    append(code, ByteCodeMethodCalls.BCImmutableMap.Builder.put, Removal.SINGLE);
+    append(code,
+        debugInfo.add(this).loadLocation,
+        scope.loadEnvironment(),
+        ByteCodeMethodCalls.BCSkylarkDict.put);
     return ByteCodeUtils.compoundAppender(code);
   }
 
   @Override
   ByteCodeAppender compileBuilding(VariableScope scope, InternalVariable collection) {
-    return new ByteCodeAppender.Simple(
-        collection.load(), ByteCodeMethodCalls.BCImmutableMap.Builder.build);
+    return new ByteCodeAppender.Simple(collection.load());
   }
 
   /**
@@ -90,23 +90,23 @@ public class DictComprehension extends AbstractComprehension {
    * provides access to the resulting {@link Map}.
    */
   private final class DictOutputCollector implements OutputCollector {
-    private final Map<Object, Object> result;
+    private final SkylarkDict<Object, Object> result;
 
-    DictOutputCollector() {
+    DictOutputCollector(Environment env) {
       // We want to keep the iteration order
-      result = new LinkedHashMap<>();
+      result = SkylarkDict.<Object, Object>of(env);
     }
 
     @Override
     public void evaluateAndCollect(Environment env) throws EvalException, InterruptedException {
       Object key = keyExpression.eval(env);
       EvalUtils.checkValidDictKey(key);
-      result.put(key, valueExpression.eval(env));
+      result.put(key, valueExpression.eval(env), getLocation(), env);
     }
 
     @Override
     public Object getResult(Environment env) throws EvalException {
-      return ImmutableMap.copyOf(result);
+      return result;
     }
   }
 }

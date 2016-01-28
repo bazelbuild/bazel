@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature.Param;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
+import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
@@ -68,7 +69,8 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     mandatoryPositionals = {@Param(name = "mandatory", doc = "")},
     optionalPositionals = {@Param(name = "optional", doc = "")},
     mandatoryNamedOnly = {@Param(name = "mandatory_key", doc = "")},
-    optionalNamedOnly = {@Param(name = "optional_key", doc = "", defaultValue = "'x'")}
+    optionalNamedOnly = {@Param(name = "optional_key", doc = "", defaultValue = "'x'")},
+    useEnvironment = true
   )
   private BuiltinFunction mockFunc;
 
@@ -121,8 +123,10 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
         new BuiltinFunction("mock") {
           @SuppressWarnings("unused")
           public Object invoke(
-              Object mandatory, Object optional, Object mandatoryKey, Object optionalKey) {
+              Object mandatory, Object optional, Object mandatoryKey, Object optionalKey,
+              Environment env) {
             return EvalUtils.optionMap(
+                env,
                 "mandatory",
                 mandatory,
                 "optional",

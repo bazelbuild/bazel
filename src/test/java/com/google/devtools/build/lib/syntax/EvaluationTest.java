@@ -259,7 +259,7 @@ public class EvaluationTest extends EvaluationTestCase {
           final Map<String, Object> kwargs,
           FuncallExpression ast,
           Environment env) {
-        return kwargs;
+        return SkylarkDict.copyOf(env, kwargs);
       }
     };
 
