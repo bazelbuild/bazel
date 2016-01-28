@@ -1875,7 +1875,7 @@ cores directly from system configuration and will assume 1.0 I/O resource.
   When tests (or applications) are executed, their
   run-time data dependencies are gathered together in one place, and
   may be accessed by the test using paths of the form
-  <code>$TEST_SRCDIR/base_workspace/<var>packagename</var>/<var>filename</var></code>.
+  <code>$TEST_SRCDIR/workspace/<var>packagename</var>/<var>filename</var></code>.
   The "runfiles" tree ensures that tests have access to all the files
   upon which they have a declared dependence, and nothing more.  By
   default, the runfiles tree is implemented by constructing a set of
@@ -2368,7 +2368,7 @@ either to the terminal, or to additional log files.
       <code class='flag'>--symlink_prefix=/</code> will cause Bazel to not
       create or update any symlinks, including the <code>bazel-out</code> and
 
-      <code>bazel-base_workspace</code>
+      <code>bazel-&lt;workspace&gt;</code>
       symlinks.  Use this option to suppress symlink creation entirely.
     </p>
   </li>
@@ -2959,7 +2959,7 @@ in an environment closer to the current shell environment. Note that none of the
     directory for those commands. If the workspace directory is writable, a
     symlink named
 
-    <code>bazel-base_workspace</code>
+    <code>bazel-&lt;workspace&gt;</code>
     is placed there pointing to this
     directory.
   </li>
@@ -3763,6 +3763,6 @@ Start time: [time elapsed from the profiling session start]       Duration: [tas
 
 <p>
   Since you may not be able to run <code>bazel info</code> if bazel is hung, the
-  <code>output_base</code> directory is usually the parent of the <code>bazel-base_workspace</code>
+  <code>output_base</code> directory is usually the parent of the <code>bazel-&lt;workspace&gt;</code>
   symlink in your workspace directory.
 </p>
