@@ -230,6 +230,7 @@ public class BazelRuleClassProvider {
         .setConfigurationCollectionFactory(new BazelConfigurationCollection())
         .setPrelude("//tools/build_rules:prelude_bazel")
         .setRunfilesPrefix("")
+        .setToolsRepository("@bazel_tools")
         .setPrerequisiteValidator(new BazelPrerequisiteValidator());
 
     builder.addBuildOptions(BUILD_OPTIONS);

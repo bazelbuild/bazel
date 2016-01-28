@@ -85,6 +85,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final StringBuilder defaultWorkspaceFile = new StringBuilder();
     private Label preludeLabel;
     private String runfilesPrefix;
+    private String toolsRepository;
     private final List<ConfigurationFragmentFactory> configurationFragments = new ArrayList<>();
     private final List<BuildInfoFactory> buildInfoFactories = new ArrayList<>();
     private final List<Class<? extends FragmentOptions>> configurationOptions = new ArrayList<>();
@@ -127,6 +128,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     public Builder setRunfilesPrefix(String runfilesPrefix) {
       this.runfilesPrefix = runfilesPrefix;
+      return this;
+    }
+    
+    public Builder setToolsRepository(String toolsRepository) {
+      this.toolsRepository = toolsRepository;
       return this;
     }
 
@@ -246,6 +252,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return new ConfiguredRuleClassProvider(
           preludeLabel,
           runfilesPrefix,
+          toolsRepository,
           ImmutableMap.copyOf(ruleClassMap),
           ImmutableMap.copyOf(ruleDefinitionMap),
           ImmutableMap.copyOf(aspectFactoryMap),
@@ -263,6 +270,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     @Override
     public Label getLabel(String labelValue) {
       return LABELS.getUnchecked(labelValue);
+    }
+    
+    @Override
+    public String getToolsRepository() {
+      return toolsRepository;
     }
   }
 
@@ -297,6 +309,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    * The default runfiles prefix.
    */
   private final String runfilesPrefix;
+  
+  /**
+   * The path to the tools repository.
+   */
+  private final String toolsRepository;
 
   /**
    * Maps rule class name to the metaclass instance for that rule.
@@ -345,6 +362,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private ConfiguredRuleClassProvider(
       Label preludeLabel,
       String runfilesPrefix,
+      String toolsRepository,
       ImmutableMap<String, RuleClass> ruleClassMap,
       ImmutableMap<String, Class<? extends RuleDefinition>> ruleDefinitionMap,
       ImmutableMap<String, Class<? extends NativeAspectFactory>> aspectFactoryMap,
@@ -359,6 +377,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       List<Class<? extends FragmentOptions>> buildOptions) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
+    this.toolsRepository = toolsRepository;
     this.ruleClassMap = ruleClassMap;
     this.ruleDefinitionMap = ruleDefinitionMap;
     this.aspectFactoryMap = aspectFactoryMap;
@@ -385,6 +404,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   @Override
   public String getRunfilesPrefix() {
     return runfilesPrefix;
+  }
+  
+  @Override
+  public String getToolsRepository() {
+    return toolsRepository;
   }
 
   @Override

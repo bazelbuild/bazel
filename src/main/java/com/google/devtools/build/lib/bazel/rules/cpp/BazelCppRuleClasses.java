@@ -39,7 +39,6 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.base.Predicates;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -264,7 +263,7 @@ public class BazelCppRuleClasses {
           .add(attr("copts", STRING_LIST))
           .add(
               attr("$stl_default", LABEL)
-                  .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/cpp:stl")))
+                  .value(env.getLabel(env.getToolsRepository() + "//tools/cpp:stl")))
           .add(attr(":stl", LABEL).value(STL))
           .build();
     }
@@ -551,7 +550,7 @@ public class BazelCppRuleClasses {
                           // sure that the correct headers are used for inclusion.
                           // The only exception is STL itself,
                           // to avoid cycles in the dependency graph.
-                          Label stl = env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/cpp:stl");
+                          Label stl = env.getLabel(env.getToolsRepository() + "//tools/cpp:stl");
                           return rule.getLabel().equals(stl) ? null : stl;
                         }
                       }))
@@ -586,7 +585,7 @@ public class BazelCppRuleClasses {
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("malloc", LABEL)
-              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/cpp:malloc"))
+              .value(env.getLabel(env.getToolsRepository() + "//tools/cpp:malloc"))
               .allowedFileTypes()
               .allowedRuleClasses("cc_library"))
           .add(attr(":default_malloc", LABEL).value(DEFAULT_MALLOC))

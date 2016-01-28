@@ -26,4 +26,9 @@ public interface RuleDefinitionEnvironment {
    * Label#parseAbsolute}. Throws a {@link IllegalArgumentException} if the parsing fails.
    */
   Label getLabel(String labelValue);
+
+  /**
+   * Returns the path to the tools repository. It is different for blaze and bazel.
+   */
+  String getToolsRepository();
 }
