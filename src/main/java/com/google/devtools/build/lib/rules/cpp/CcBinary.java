@@ -271,6 +271,14 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Artifact explicitDwpFile = dwpFile;
     if (!cppConfiguration.useFission()) {
       explicitDwpFile = null;
+    } else {
+      // For cc_test rules, include the dwp in the runfiles if Fission is enabled and the test was
+      // built statically.
+      if (TargetUtils.isTestRule(ruleContext.getRule())
+          && linkStaticness == LinkStaticness.FULLY_STATIC
+          && cppConfiguration.shouldBuildTestDwp()) {
+        filesToBuild = NestedSetBuilder.fromNestedSet(filesToBuild).add(dwpFile).build();
+      }
     }
 
     // TODO(bazel-team): Do we need to put original shared libraries (along with
