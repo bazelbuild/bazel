@@ -42,7 +42,6 @@ public class EnvironmentRule implements RuleDefinition {
             .nonconfigurable("low-level attribute, used in TargetUtils without configurations"))
         /* <!-- #BLAZE_RULE(environment).ATTRIBUTE(fulfills) -->
         The set of environments this one is considered a valid "standin" for.
-        ${SYNOPSIS}
         <p>
           If rule A depends on rule B, A declares compatibility with environment <code>:foo</code>,
           and B declares compatibility with environment <code>:bar</code>, this is normally not

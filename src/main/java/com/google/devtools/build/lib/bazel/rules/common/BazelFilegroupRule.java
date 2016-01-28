@@ -37,7 +37,6 @@ public final class BazelFilegroupRule implements RuleDefinition {
     return builder
         /*<!-- #BLAZE_RULE(filegroup).ATTRIBUTE(srcs) -->
         The list of targets that are members of the file group.
-        ${SYNOPSIS}
         <p>
           It is common to use the result of a <a href="functions.html#glob">glob</a> expression for
           the value
@@ -49,7 +48,6 @@ public final class BazelFilegroupRule implements RuleDefinition {
         .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
         /*<!-- #BLAZE_RULE(filegroup).ATTRIBUTE(data) -->
         The list of files needed by this rule at runtime.
-        ${SYNOPSIS}
         <p>
           Targets named in the <code>data</code> attribute will be added to the
           <code>runfiles</code> of this <code>filegroup</code> rule. When the
@@ -64,7 +62,6 @@ public final class BazelFilegroupRule implements RuleDefinition {
         .add(attr("output_licenses", LICENSE))
         /*<!-- #BLAZE_RULE(filegroup).ATTRIBUTE(path) -->
         An optional string to set a path to the files in the group, relative to the package path.
-        ${SYNOPSIS}
         <p>
           This attribute can be used internally by other rules depending on this
           <code>filegroup</code> to find the name of the directory holding the files.

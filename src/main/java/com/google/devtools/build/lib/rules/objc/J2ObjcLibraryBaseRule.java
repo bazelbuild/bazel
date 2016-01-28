@@ -39,7 +39,6 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
           </code> is on. The Java classes should be specified in their canonical names as defined by
           <a href="http://docs.oracle.com/javase/specs/jls/se8/html/jls-6.html#jls-6.7">the Java
           Language Specification.</a>
-          ${SYNOPSIS}
           When flag <code>--j2objc_dead_code_removal</code> is specified, the list of entry classes
           will be collected transitively and used as entry points to perform dead code analysis.
           Unused classes will then be removed from the final ObjC app bundle.

@@ -50,7 +50,6 @@ public class IosApplicationRule implements RuleDefinition {
             ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
         /* <!-- #BLAZE_RULE(ios_application).ATTRIBUTE(binary) -->
         The binary target included in the final bundle.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("binary", LABEL)
             .allowedRuleClasses("objc_binary")
@@ -60,7 +59,6 @@ public class IosApplicationRule implements RuleDefinition {
             .cfg(IosApplication.SPLIT_ARCH_TRANSITION))
         /* <!-- #BLAZE_RULE(ios_application).ATTRIBUTE(extensions) -->
         Any extensions to include in the final application.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("extensions", LABEL_LIST)
             .allowedRuleClasses("ios_extension")

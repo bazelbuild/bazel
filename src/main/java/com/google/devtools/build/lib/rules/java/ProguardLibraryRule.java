@@ -38,7 +38,6 @@ public final class ProguardLibraryRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE($proguard_library).ATTRIBUTE(proguard_specs) -->
         Files to be used as Proguard specification.
-        ${SYNOPSIS}
         These will describe the set of specifications to be used by Proguard. If specified,
         they will be added to any <code>android_binary</code> target depending on this library.
 

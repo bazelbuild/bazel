@@ -42,7 +42,6 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
 //       and the default task affinity of an activity.
 //
 //       This overrides the value declared in the manifest.
-//       ${SYNOPSIS}
 //       <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("application_id", STRING).undocumented("not ready for production use"))
 //       /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(version_code) -->
@@ -54,7 +53,6 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
 //       This overrides the value declared in the manifest.
 //
 //       Subject to <a href="make-variables.html">"Make" variable</a> substitution.
-//       ${SYNOPSIS}
 //       Suggested practice is to declare a varrdef and reference it here so that a particular build
 //       invocation will be used to generate apks for release.
 //       <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -65,25 +63,21 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
 //       This overrides the value declared in the manifest.
 //
 //       Subject to <a href="make-variables.html">"Make" variable</a> substitution.
-//       ${SYNOPSIS}
 //       Suggested practice is to declare a varrdef and reference it here so that a particular build
 //       invocation will be used to generate apks for release.
 //       <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("version_name", STRING).undocumented("not ready for production use"))
         /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(nocompress_extensions) -->
         A list of file extension to leave uncompressed in apk.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("nocompress_extensions", STRING_LIST))
         /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(resource_configuration_filters) -->
         A list of resource configuration filters, such 'en' that will limit the resources in the
         apk to only the ones in the 'en' configuration.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("resource_configuration_filters", STRING_LIST))
         /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(densities) -->
         Densities to filter for when building the apk.
-        ${SYNOPSIS}
         This will strip out raster drawable resources that would not be loaded by a device with
         the specified screen densities, to reduce APK size. A corresponding compatible-screens
         section will also be added to the manifest if it does not already contain a superset
@@ -97,7 +91,6 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
 
         /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(multidex) -->
         Whether to split code into multiple dex files.
-        ${SYNOPSIS}
         Possible values:
         <ul>
           <li><code>native</code>: Split code into multiple dex files when the

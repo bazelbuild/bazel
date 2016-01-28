@@ -35,28 +35,24 @@ public class GitRepositoryRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE(git_repository).ATTRIBUTE(remote) -->
         The URI of the remote Git repository.
-        ${SYNOPSIS}
 
         <p>This must be a HTTP URL. There is currently no support for authentication.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("remote", STRING).mandatory())
         /* <!-- #BLAZE_RULE(git_repository).ATTRIBUTE(commit) -->
         The commit hash to check out in the repository.
-        ${SYNOPSIS}
 
         <p>Note that one of either <code>commit</code> or <code>tag</code> must be defined.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("commit", STRING))
         /* <!-- #BLAZE_RULE(git_repository).ATTRIBUTE(tag) -->
         The Git tag to check out in the repository.
-        ${SYNOPSIS}
 
         <p>Note that one of either <code>commit</code> or <code>tag</code> must be defined.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("tag", STRING))
         /* <!-- #BLAZE_RULE(git_repository).ATTRIBUTE(init_submodules) -->
         Whether to clone submodules in the repository.
-        ${SYNOPSIS}
 
         <p>Currently, only cloning the top-level submodules is supported</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

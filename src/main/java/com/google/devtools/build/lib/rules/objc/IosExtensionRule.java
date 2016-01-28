@@ -45,7 +45,6 @@ public class IosExtensionRule implements RuleDefinition {
             ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
         /* <!-- #BLAZE_RULE(ios_extension).ATTRIBUTE(binary) -->
         The binary target containing the logic for the extension.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("binary", LABEL)
             .allowedRuleClasses("ios_extension_binary")

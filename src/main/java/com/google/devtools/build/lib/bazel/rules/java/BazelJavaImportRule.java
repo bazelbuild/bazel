@@ -43,7 +43,6 @@ public final class BazelJavaImportRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(deps) -->
         The list of other libraries to be linked in to the target.
-        ${SYNOPSIS}
         See <a href="#java_library.deps">java_library.deps</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("deps", LABEL_LIST)
@@ -52,7 +51,6 @@ public final class BazelJavaImportRule implements RuleDefinition {
             .validityPredicate(ANY_EDGE))
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(exports) -->
         Targets to make available to users of this rule.
-        ${SYNOPSIS}
         See <a href="#java_library.exports">java_library.exports</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("exports", LABEL_LIST)
@@ -61,7 +59,6 @@ public final class BazelJavaImportRule implements RuleDefinition {
             .validityPredicate(ANY_EDGE))
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(runtime_deps) -->
         Libraries to make available to the final binary or test at runtime only.
-        ${SYNOPSIS}
         See <a href="#java_library.runtime_deps">java_library.runtime_deps</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("runtime_deps", LABEL_LIST)

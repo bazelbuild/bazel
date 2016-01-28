@@ -42,7 +42,6 @@ public class ObjcXcodeprojRule implements RuleDefinition {
         .setImplicitOutputsFunction(XcodeSupport.PBXPROJ)
         /* <!-- #BLAZE_RULE(objc_xcodeproj).ATTRIBUTE(deps) -->
         The list of targets to include in the combined Xcode project file.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("deps", LABEL_LIST)
             .nonEmpty()

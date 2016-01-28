@@ -44,7 +44,6 @@ public class XcodeVersionRule implements RuleDefinition {
         .add(attr(VERSION_ATTR_NAME, STRING).mandatory())
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(version) -->
         Accepted aliases for this version of Xcode.
-        ${SYNOPSIS}
         If the value of the <code>xcode_version</code> build flag matches any of the given
         alias strings, this xcode version will be used.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */

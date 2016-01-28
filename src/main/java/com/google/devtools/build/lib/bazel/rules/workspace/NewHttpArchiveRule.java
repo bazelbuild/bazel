@@ -34,7 +34,6 @@ public class NewHttpArchiveRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(url) -->
          A URL referencing an archive file containing a Bazel repository.
-         ${SYNOPSIS}
 
          <p>Archives of type .zip, .jar, .war, .tar.gz or .tgz are supported. There is no support
          for authentication. Redirections are followed.</p>
@@ -42,14 +41,12 @@ public class NewHttpArchiveRule implements RuleDefinition {
         .add(attr("url", STRING).mandatory())
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(sha256) -->
          The expected SHA-256 hash of the file downloaded.
-         ${SYNOPSIS}
 
          <p>This must match the SHA-256 hash of the file downloaded.</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("sha256", STRING).mandatory())
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(build_file) -->
          The file to use as the BUILD file for this repository.
-         ${SYNOPSIS}
 
          <p>This path is relative to the build's workspace. The file does not need to be named
          BUILD, but can be something like BUILD.new-repo-name to distinguish it
@@ -58,7 +55,6 @@ public class NewHttpArchiveRule implements RuleDefinition {
         .add(attr("build_file", STRING).mandatory())
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(type) -->
          The archive type of the downloaded file.
-         ${SYNOPSIS}
 
          <p>By default, the archive type is determined from the file extension of the URL. If the
          file has no extension, you can explicitly specify either "zip", "jar", "tar.gz", or
@@ -67,7 +63,6 @@ public class NewHttpArchiveRule implements RuleDefinition {
         .add(attr("type", STRING))
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(strip_prefix) -->
          A directory prefix to strip from the extracted files.
-         ${SYNOPSIS}
 
          <p>Many archives contain a top-level directory that contains all of the useful files in
          archive. Instead of needing to specify this prefix over and over in the

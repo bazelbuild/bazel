@@ -52,7 +52,6 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         .requiresConfigurationFragments(ObjcConfiguration.class, AppleConfiguration.class)
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(deps) -->
         The directly depended upon proto_library rules.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .override(attr("deps", LABEL_LIST)
             // Support for files in deps is for backwards compatibility.
@@ -61,22 +60,18 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(options_file) -->
         Optional options file to apply to protos which affects compilation (e.g. class
         whitelist/blacklist settings).
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(OPTIONS_FILE_ATTR, LABEL).legacyAllowAnyFileType().singleArtifact().cfg(HOST))
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(output_cpp) -->
         If true, output C++ rather than ObjC.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(OUTPUT_CPP_ATTR, BOOLEAN).value(false))
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(use_objc_header_names) -->
         If true, output headers with .pbobjc.h, rather than .pb.h.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(PER_PROTO_INCLUDES, BOOLEAN).value(false))
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(per_proto_includes) -->
         If true, always add all directories to objc_library includes,
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(COMPILE_PROTOS_ATTR, LABEL)
             .allowedFileTypes(FileType.of(".py"))

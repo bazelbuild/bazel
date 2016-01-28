@@ -34,14 +34,12 @@ public class NewLocalRepositoryRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE(new_local_repository).ATTRIBUTE(path) -->
         A path on the local filesystem.
-        ${SYNOPSIS}
 
         <p>This must be an absolute path to an existing file or a directory.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("path", STRING).mandatory())
         /* <!-- #BLAZE_RULE(new_local_repository).ATTRIBUTE(build_file) -->
         A file to use as a BUILD file for this directory.
-        ${SYNOPSIS}
 
         <p>This path is relative to the build's workspace. The file does not need to be named
         BUILD, but can be (something like BUILD.new-repo-name may work well for distinguishing it

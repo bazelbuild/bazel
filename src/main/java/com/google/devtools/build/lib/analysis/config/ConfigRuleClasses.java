@@ -112,7 +112,6 @@ public class ConfigRuleClasses {
       return builder
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(values) -->
           The set of configuration values that match this rule (expressed as Blaze flags)
-          ${SYNOPSIS}
 
           <i>(Dictionary mapping flags to expected values, both expressed as strings;
              mandatory)</i>
