@@ -1088,6 +1088,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public String computeKey() {
     Fingerprint f = new Fingerprint();
     f.addUUID(actionClassId);
+    f.addStringMap(getEnvironment());
     f.addStrings(getArgv());
 
     /*
