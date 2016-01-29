@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
@@ -55,6 +56,7 @@ import java.util.Set;
  * SkyQueryEnvironment} to look up the packages and targets matching the universe that's been
  * preloaded in {@code graph}.
  */
+@ThreadSafe
 public final class GraphBackedRecursivePackageProvider implements RecursivePackageProvider {
 
   private final WalkableGraph graph;
