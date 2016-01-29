@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -33,7 +34,6 @@ import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.Type;
@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * A helper class to provide Attr module in Skylark.
@@ -105,12 +106,12 @@ public final class SkylarkAttr {
       "the list of allowed values for the attribute. An error is raised if any other "
           + "value is given.";
 
-  private static boolean containsNonNoneKey(SkylarkDict<String, Object> arguments, String key) {
+  private static boolean containsNonNoneKey(Map<String, Object> arguments, String key) {
     return arguments.containsKey(key) && arguments.get(key) != Runtime.NONE;
   }
 
   private static Attribute.Builder<?> createAttribute(
-      Type<?> type, SkylarkDict<String, Object> arguments, FuncallExpression ast, Environment env)
+      Type<?> type, Map<String, Object> arguments, FuncallExpression ast, Environment env)
       throws EvalException, ConversionException {
     // We use an empty name now so that we can set it later.
     // This trick makes sense only in the context of Skylark (builtin rules should not use it).
@@ -191,7 +192,7 @@ public final class SkylarkAttr {
   }
 
   private static Descriptor createAttrDescriptor(
-      SkylarkDict<String, Object> kwargs, Type<?> type, FuncallExpression ast, Environment env)
+      Map<String, Object> kwargs, Type<?> type, FuncallExpression ast, Environment env)
       throws EvalException {
     try {
       return new Descriptor(createAttribute(type, kwargs, ast, env));
@@ -238,7 +239,7 @@ public final class SkylarkAttr {
           env.checkLoadingPhase("attr.int", ast.getLocation());
           return createAttrDescriptor(
               EvalUtils.optionMap(
-                  env, DEFAULT_ARG, defaultInt, MANDATORY_ARG, mandatory, VALUES_ARG, values),
+                  DEFAULT_ARG, defaultInt, MANDATORY_ARG, mandatory, VALUES_ARG, values),
               Type.INTEGER,
               ast,
               env);
@@ -282,7 +283,7 @@ public final class SkylarkAttr {
           env.checkLoadingPhase("attr.string", ast.getLocation());
           return createAttrDescriptor(
               EvalUtils.optionMap(
-                  env, DEFAULT_ARG, defaultString, MANDATORY_ARG, mandatory, VALUES_ARG, values),
+                  DEFAULT_ARG, defaultString, MANDATORY_ARG, mandatory, VALUES_ARG, values),
               Type.STRING,
               ast,
               env);
@@ -370,7 +371,6 @@ public final class SkylarkAttr {
           env.checkLoadingPhase("attr.label", ast.getLocation());
           return createAttrDescriptor(
               EvalUtils.optionMap(
-                  env,
                   DEFAULT_ARG,
                   defaultO,
                   EXECUTABLE_ARG,
@@ -426,13 +426,7 @@ public final class SkylarkAttr {
           env.checkLoadingPhase("attr.string_list", ast.getLocation());
           return createAttrDescriptor(
               EvalUtils.optionMap(
-                  env,
-                  DEFAULT_ARG,
-                  defaultList,
-                  MANDATORY_ARG,
-                  mandatory,
-                  NON_EMPTY_ARG,
-                  nonEmpty),
+                  DEFAULT_ARG, defaultList, MANDATORY_ARG, mandatory, NON_EMPTY_ARG, nonEmpty),
               Type.STRING_LIST,
               ast,
               env);
@@ -472,13 +466,7 @@ public final class SkylarkAttr {
           env.checkLoadingPhase("attr.int_list", ast.getLocation());
           return createAttrDescriptor(
               EvalUtils.optionMap(
-                  env,
-                  DEFAULT_ARG,
-                  defaultList,
-                  MANDATORY_ARG,
-                  mandatory,
-                  NON_EMPTY_ARG,
-                  nonEmpty),
+                  DEFAULT_ARG, defaultList, MANDATORY_ARG, mandatory, NON_EMPTY_ARG, nonEmpty),
               Type.INTEGER_LIST,
               ast,
               env);
@@ -569,10 +557,8 @@ public final class SkylarkAttr {
             Environment env)
             throws EvalException {
           env.checkLoadingPhase("attr.label_list", ast.getLocation());
-          SkylarkDict<String, Object> kwargs = EvalUtils.optionMap(
-              env,
-              DEFAULT_ARG,
-              defaultList,
+          ImmutableMap<String, Object> kwargs = EvalUtils.optionMap(
+              DEFAULT_ARG, defaultList,
               ALLOW_FILES_ARG,
               allowFiles,
               ALLOW_RULES_ARG,
@@ -631,7 +617,7 @@ public final class SkylarkAttr {
             throws EvalException {
           env.checkLoadingPhase("attr.bool", ast.getLocation());
           return createAttrDescriptor(
-              EvalUtils.optionMap(env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
+              EvalUtils.optionMap(DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
               Type.BOOLEAN,
               ast,
               env);
@@ -667,7 +653,7 @@ public final class SkylarkAttr {
             throws EvalException {
           env.checkLoadingPhase("attr.output", ast.getLocation());
           return createAttrDescriptor(
-              EvalUtils.optionMap(env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
+              EvalUtils.optionMap(DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
               BuildType.OUTPUT,
               ast,
               env);
@@ -709,13 +695,7 @@ public final class SkylarkAttr {
           env.checkLoadingPhase("attr.output_list", ast.getLocation());
           return createAttrDescriptor(
               EvalUtils.optionMap(
-                  env,
-                  DEFAULT_ARG,
-                  defaultList,
-                  MANDATORY_ARG,
-                  mandatory,
-                  NON_EMPTY_ARG,
-                  nonEmpty),
+                  DEFAULT_ARG, defaultList, MANDATORY_ARG, mandatory, NON_EMPTY_ARG, nonEmpty),
               BuildType.OUTPUT_LIST,
               ast,
               env);
@@ -730,7 +710,7 @@ public final class SkylarkAttr {
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
     optionalNamedOnly = {
-      @Param(name = DEFAULT_ARG, type = SkylarkDict.class, defaultValue = "{}", doc = DEFAULT_DOC),
+      @Param(name = DEFAULT_ARG, type = Map.class, defaultValue = "{}", doc = DEFAULT_DOC),
       @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
       ),
       @Param(name = NON_EMPTY_ARG, type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC
@@ -742,7 +722,7 @@ public final class SkylarkAttr {
   private static BuiltinFunction stringDict =
       new BuiltinFunction("string_dict") {
         public Descriptor invoke(
-            SkylarkDict<?, ?> defaultO,
+            Map<?, ?> defaultO,
             Boolean mandatory,
             Boolean nonEmpty,
             FuncallExpression ast,
@@ -751,7 +731,7 @@ public final class SkylarkAttr {
           env.checkLoadingPhase("attr.string_dict", ast.getLocation());
           return createAttrDescriptor(
               EvalUtils.optionMap(
-                  env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory, NON_EMPTY_ARG, nonEmpty),
+                  DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory, NON_EMPTY_ARG, nonEmpty),
               Type.STRING_DICT,
               ast,
               env);
@@ -766,7 +746,7 @@ public final class SkylarkAttr {
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
     optionalNamedOnly = {
-      @Param(name = DEFAULT_ARG, type = SkylarkDict.class, defaultValue = "{}", doc = DEFAULT_DOC),
+      @Param(name = DEFAULT_ARG, type = Map.class, defaultValue = "{}", doc = DEFAULT_DOC),
       @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
       ),
       @Param(name = NON_EMPTY_ARG, type = Boolean.class, defaultValue = "False", doc = NON_EMPTY_DOC
@@ -778,7 +758,7 @@ public final class SkylarkAttr {
   private static BuiltinFunction stringListDict =
       new BuiltinFunction("string_list_dict") {
         public Descriptor invoke(
-            SkylarkDict<?, ?> defaultO,
+            Map<?, ?> defaultO,
             Boolean mandatory,
             Boolean nonEmpty,
             FuncallExpression ast,
@@ -787,7 +767,7 @@ public final class SkylarkAttr {
           env.checkLoadingPhase("attr.string_list_dict", ast.getLocation());
           return createAttrDescriptor(
               EvalUtils.optionMap(
-                  env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory, NON_EMPTY_ARG, nonEmpty),
+                  DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory, NON_EMPTY_ARG, nonEmpty),
               Type.STRING_LIST_DICT,
               ast,
               env);
@@ -816,7 +796,7 @@ public final class SkylarkAttr {
             throws EvalException {
           env.checkLoadingPhase("attr.license", ast.getLocation());
           return createAttrDescriptor(
-              EvalUtils.optionMap(env, DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
+              EvalUtils.optionMap(DEFAULT_ARG, defaultO, MANDATORY_ARG, mandatory),
               BuildType.LICENSE,
               ast,
               env);

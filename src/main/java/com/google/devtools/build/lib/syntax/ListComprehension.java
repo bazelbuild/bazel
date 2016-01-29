@@ -48,7 +48,7 @@ public final class ListComprehension extends AbstractComprehension {
   }
 
   @Override
-  OutputCollector createCollector(Environment env) {
+  OutputCollector createCollector() {
     return new ListOutputCollector();
   }
 

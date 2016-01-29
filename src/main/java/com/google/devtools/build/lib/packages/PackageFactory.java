@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.syntax.Identifier;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
@@ -848,23 +847,21 @@ public final class PackageFactory {
       };
 
   @Nullable
-  static SkylarkDict<String, Object> callGetRuleFunction(
+  static Map<String, Object> callGetRuleFunction(
       String name, FuncallExpression ast, Environment env)
       throws EvalException, ConversionException {
     PackageContext context = getContext(env, ast);
     Target target = context.pkgBuilder.getTarget(name);
 
-    return targetDict(target, ast.getLocation(), env);
+    return targetDict(target);
   }
 
   @Nullable
-  private static SkylarkDict<String, Object> targetDict(
-      Target target, Location loc, Environment env)
-      throws NotRepresentableException, EvalException {
+  private static Map<String, Object> targetDict(Target target) throws NotRepresentableException {
     if (target == null && !(target instanceof Rule)) {
       return null;
     }
-    SkylarkDict<String, Object> values = SkylarkDict.<String, Object>of(env);
+    Map<String, Object> values = new TreeMap<>();
 
     Rule rule = (Rule) target;
     AttributeContainer cont = rule.getAttributeContainer();
@@ -884,7 +881,7 @@ public final class PackageFactory {
         if (val == null) {
           continue;
         }
-        values.put(attr.getName(), val, loc, env);
+        values.put(attr.getName(), val);
       } catch (NotRepresentableException e) {
         throw new NotRepresentableException(
             String.format(
@@ -892,8 +889,8 @@ public final class PackageFactory {
       }
     }
 
-    values.put("name", rule.getName(), loc, env);
-    values.put("kind", rule.getRuleClass(), loc, env);
+    values.put("name", rule.getName());
+    values.put("kind", rule.getRuleClass());
     return values;
   }
 
@@ -1014,21 +1011,18 @@ public final class PackageFactory {
   }
 
 
-  static SkylarkDict<String, SkylarkDict<String, Object>> callGetRulesFunction(
-      FuncallExpression ast, Environment env)
-      throws EvalException {
+  static Map callGetRulesFunction(FuncallExpression ast, Environment env) throws EvalException {
     PackageContext context = getContext(env, ast);
     Collection<Target> targets = context.pkgBuilder.getTargets();
-    Location loc = ast.getLocation();
 
     // Sort by name.
-    SkylarkDict<String, SkylarkDict<String, Object>> rules =
-        SkylarkDict.<String, SkylarkDict<String, Object>>of(env);
+    Map<String, Map<String, Object>> rules = new TreeMap<>();
     for (Target t : targets) {
       if (t instanceof Rule) {
-        SkylarkDict<String, Object> m = targetDict(t, loc, env);
+        Map<String, Object> m = targetDict(t);
         Preconditions.checkNotNull(m);
-        rules.put(t.getName(), m, loc, env);
+
+        rules.put(t.getName(), m);
       }
     }
 
@@ -1341,8 +1335,7 @@ public final class PackageFactory {
   public Preprocessor.Result preprocess(
       PackageIdentifier packageId, Path buildFile, CachingPackageLocator locator)
       throws InterruptedException, IOException {
-    byte[] buildFileBytes =
-        FileSystemUtils.readWithKnownFileSize(buildFile, buildFile.getFileSize());
+    byte[] buildFileBytes = FileSystemUtils.readWithKnownFileSize(buildFile, buildFile.getFileSize());
     Globber globber = createLegacyGlobber(buildFile.getParentDirectory(), packageId, locator);
     try {
       return preprocess(buildFile, packageId, buildFileBytes, globber);
@@ -1676,7 +1669,6 @@ public final class PackageFactory {
     SkylarkSignatureProcessor.configureSkylarkFunctions(PackageFactory.class);
   }
 
-  /** Empty EnvironmentExtension */
   public static class EmptyEnvironmentExtension implements EnvironmentExtension {
     @Override
     public void update(Environment environment) {}

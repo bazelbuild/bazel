@@ -85,7 +85,6 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
@@ -225,8 +224,7 @@ public class SkylarkRuleClassFunctions {
             doc = "Whether this rule is a test rule. "
             + "If True, the rule must end with <code>_test</code> (otherwise it must not), "
             + "and there must be an action that generates <code>ctx.outputs.executable</code>."),
-        @Param(name = "attrs", type = SkylarkDict.class, noneable = true, defaultValue = "None",
-            doc =
+        @Param(name = "attrs", type = Map.class, noneable = true, defaultValue = "None", doc =
             "dictionary to declare all the attributes of the rule. It maps from an attribute name "
             + "to an attribute object (see <a href=\"attr.html\">attr</a> module). "
             + "Attributes starting with <code>_</code> are private, and can be used to add "
@@ -235,7 +233,7 @@ public class SkylarkRuleClassFunctions {
             + "<code>deprecation</code>, <code>tags</code>, <code>testonly</code>, and "
             + "<code>features</code> are implicitly added and might be overriden."),
             // TODO(bazel-team): need to give the types of these builtin attributes
-        @Param(name = "outputs", type = SkylarkDict.class, callbackEnabled = true, noneable = true,
+        @Param(name = "outputs", type = Map.class, callbackEnabled = true, noneable = true,
             defaultValue = "None", doc = "outputs of this rule. "
             + "It is a dictionary mapping from string to a template name. "
             + "For example: <code>{\"ext\": \"%{name}.ext\"}</code>. <br>"
@@ -364,7 +362,7 @@ public class SkylarkRuleClassFunctions {
         doc = "List of attribute names.  The aspect propagates along dependencies specified by "
         + " attributes of a target with this name"
       ),
-      @Param(name = "attrs", type = SkylarkDict.class, noneable = true, defaultValue = "None",
+      @Param(name = "attrs", type = Map.class, noneable = true, defaultValue = "None",
         doc = "dictionary to declare all the attributes of the aspect.  "
         + "It maps from an attribute name to an attribute object "
         + "(see <a href=\"attr.html\">attr</a> module). "
@@ -842,12 +840,10 @@ public class SkylarkRuleClassFunctions {
       return aspectDefinition;
     }
 
-    @Override
     public Label getExtensionLabel() {
       return extensionLabel;
     }
 
-    @Override
     public String getExportedName() {
       return exportedName;
     }

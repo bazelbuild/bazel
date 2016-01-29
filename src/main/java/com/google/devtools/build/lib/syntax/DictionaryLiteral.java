@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils.append;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.Location;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.syntax.compiler.ByteCodeMethodCalls;
 import com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils;
 import com.google.devtools.build.lib.syntax.compiler.DebugInfo;
@@ -26,7 +26,9 @@ import net.bytebuddy.implementation.bytecode.ByteCodeAppender;
 import net.bytebuddy.implementation.bytecode.Duplication;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Syntax node for dictionary literals.
@@ -79,17 +81,18 @@ public class DictionaryLiteral extends Expression {
 
   @Override
   Object doEval(Environment env) throws EvalException, InterruptedException {
-    SkylarkDict<Object, Object> dict = SkylarkDict.<Object, Object>of(env);
-    Location loc = getLocation();
+    // We need LinkedHashMap to maintain the order during iteration (e.g. for loops)
+    Map<Object, Object> map = new LinkedHashMap<>();
     for (DictionaryEntryLiteral entry : entries) {
       if (entry == null) {
-        throw new EvalException(loc, "null expression in " + this);
+        throw new EvalException(getLocation(), "null expression in " + this);
       }
       Object key = entry.key.eval(env);
+      EvalUtils.checkValidDictKey(key);
       Object val = entry.value.eval(env);
-      dict.put(key, val, loc, env);
+      map.put(key, val);
     }
-    return dict;
+    return ImmutableMap.copyOf(map);
   }
 
   @Override
@@ -126,18 +129,16 @@ public class DictionaryLiteral extends Expression {
   @Override
   ByteCodeAppender compile(VariableScope scope, DebugInfo debugInfo) throws EvalException {
     List<ByteCodeAppender> code = new ArrayList<>();
-    append(code, scope.loadEnvironment());
-    append(code, ByteCodeMethodCalls.BCSkylarkDict.of);
+    append(code, ByteCodeMethodCalls.BCImmutableMap.builder);
+
     for (DictionaryEntryLiteral entry : entries) {
-      append(code, Duplication.SINGLE); // duplicate the dict
       code.add(entry.key.compile(scope, debugInfo));
       append(code, Duplication.SINGLE, EvalUtils.checkValidDictKey);
       code.add(entry.value.compile(scope, debugInfo));
-      append(code,
-          debugInfo.add(this).loadLocation,
-          scope.loadEnvironment(),
-          ByteCodeMethodCalls.BCSkylarkDict.put);
+      // add it to the builder which is already on the stack and returns itself
+      append(code, ByteCodeMethodCalls.BCImmutableMap.Builder.put);
     }
+    append(code, ByteCodeMethodCalls.BCImmutableMap.Builder.build);
     return ByteCodeUtils.compoundAppender(code);
   }
 }

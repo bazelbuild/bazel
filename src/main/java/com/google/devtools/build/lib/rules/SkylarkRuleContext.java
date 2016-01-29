@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression.FuncallException;
 import com.google.devtools.build.lib.syntax.Runtime;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.SkylarkType;
@@ -153,7 +152,7 @@ public final class SkylarkRuleContext {
 
   private final FragmentCollection hostFragments;
 
-  private final SkylarkDict<String, String> makeVariables;
+  private final ImmutableMap<String, String> makeVariables;
   private final SkylarkRuleAttributesCollection attributesCollection;
   private final SkylarkRuleAttributesCollection ruleAttributesCollection;
 
@@ -518,7 +517,7 @@ public final class SkylarkRuleContext {
 
   @SkylarkCallable(structField = true,
       doc = "Dictionary (String to String) of configuration variables")
-  public SkylarkDict<String, String> var() {
+  public ImmutableMap<String, String> var() {
     return makeVariables;
   }
 
@@ -528,7 +527,7 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(doc = "Splits a shell command to a list of tokens.", documented = false)
-  public MutableList<String> tokenize(String optionString) throws FuncallException {
+  public MutableList tokenize(String optionString) throws FuncallException {
     List<String> options = new ArrayList<>();
     try {
       ShellUtils.tokenize(options, optionString);
@@ -545,8 +544,7 @@ public final class SkylarkRuleContext {
           + "Deprecated.",
     documented = false
   )
-  public String expand(
-      @Nullable String expression, SkylarkList<Object> artifacts, Label labelResolver)
+  public String expand(@Nullable String expression, SkylarkList artifacts, Label labelResolver)
       throws EvalException, FuncallException {
     try {
       Map<Label, Iterable<Artifact>> labelMap = new HashMap<>();
@@ -598,7 +596,7 @@ public final class SkylarkRuleContext {
   }
 
   @SkylarkCallable(documented = false)
-  public boolean checkPlaceholders(String template, SkylarkList<Object> allowedPlaceholders)
+  public boolean checkPlaceholders(String template, SkylarkList allowedPlaceholders)
       throws EvalException {
     List<String> actualPlaceHolders = new LinkedList<>();
     Set<String> allowedPlaceholderSet =

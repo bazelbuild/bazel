@@ -15,9 +15,6 @@ package com.google.devtools.build.lib.syntax.compiler;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.events.Location;
-import com.google.devtools.build.lib.syntax.Environment;
-import com.google.devtools.build.lib.syntax.SkylarkDict;
 
 import net.bytebuddy.implementation.bytecode.StackManipulation;
 
@@ -71,21 +68,6 @@ public class ByteCodeMethodCalls {
       public static final StackManipulation build =
           ByteCodeUtils.invoke(ImmutableMap.Builder.class, "build");
     }
-  }
-
-  /**
-   * Byte code invocations for {@link SkylarkDict}.
-   */
-  public static class BCSkylarkDict {
-    public static final StackManipulation of =
-        ByteCodeUtils.invoke(SkylarkDict.class, "of", Environment.class);
-
-    public static final StackManipulation copyOf =
-        ByteCodeUtils.invoke(SkylarkDict.class, "copyOf", Environment.class, Map.class);
-
-    public static final StackManipulation put =
-        ByteCodeUtils.invoke(SkylarkDict.class, "put",
-            Object.class, Object.class, Location.class, Environment.class);
   }
 
   /**

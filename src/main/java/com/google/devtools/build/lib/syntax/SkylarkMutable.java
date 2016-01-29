@@ -21,8 +21,6 @@ import com.google.devtools.build.lib.syntax.Mutability.MutabilityException;
 
 import java.util.Collection;
 import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -46,11 +44,6 @@ abstract class SkylarkMutable implements Freezable, SkylarkValue {
   }
 
   @Override
-  public boolean isImmutable() {
-    return !mutability().isMutable();
-  }
-
-  @Override
   public String toString() {
     return Printer.repr(this);
   }
@@ -58,6 +51,16 @@ abstract class SkylarkMutable implements Freezable, SkylarkValue {
   abstract static class MutableCollection<E> extends SkylarkMutable implements Collection<E> {
 
     protected MutableCollection() {}
+
+    /**
+     * Return the underlying contents of this collection,
+     * that may be of a more specific class with its own methods.
+     * This object MUST NOT be mutated.
+     * If possible, the implementation should make this object effectively immutable,
+     * by throwing {@link UnsupportedOperationException} if attemptedly mutated;
+     * but it need not be an instance of {@link com.google.common.collect.ImmutableCollection}.
+     */
+    public abstract Collection<Object> getContents();
 
     /**
      * The underlying contents is a (usually) mutable data structure.
@@ -133,97 +136,6 @@ abstract class SkylarkMutable implements Freezable, SkylarkValue {
     @Deprecated
     @Override
     public final boolean retainAll(Collection<?> collection) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Deprecated
-    @Override
-    public final void clear() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      return getContentsUnsafe().equals(o);
-    }
-
-    @Override
-    public int hashCode() {
-      return getContentsUnsafe().hashCode();
-    }
-  }
-
-  abstract static class MutableMap<K, V> extends SkylarkMutable implements Map<K, V> {
-
-    MutableMap() {}
-
-    /**
-     * The underlying contents is a (usually) mutable data structure.
-     * Read access is forwarded to these contents.
-     * This object must not be modified outside an {@link Environment}
-     * with a correct matching {@link Mutability},
-     * which should be checked beforehand using {@link #checkMutable}.
-     */
-    protected abstract Map<K, V> getContentsUnsafe();
-
-    // A SkylarkDict forwards all read-only access to the contents.
-    @Override
-    public final V get(Object key) {
-      return getContentsUnsafe().get(key);
-    }
-
-    @Override
-    public boolean containsKey(Object key) {
-      return getContentsUnsafe().containsKey(key);
-    }
-
-    @Override
-    public boolean containsValue(Object value) {
-      return getContentsUnsafe().containsValue(value);
-    }
-
-    @Override
-      public Set<Map.Entry<K, V>> entrySet() {
-      return getContentsUnsafe().entrySet();
-    }
-
-    @Override
-    public Set<K> keySet() {
-      return getContentsUnsafe().keySet();
-    }
-
-    @Override
-    public Collection<V> values() {
-      return getContentsUnsafe().values();
-    }
-
-    @Override
-    public int size() {
-      return getContentsUnsafe().size();
-    }
-
-    @Override
-    public boolean isEmpty() {
-      return getContentsUnsafe().isEmpty();
-    }
-
-    // Disable all mutation interfaces without a mutation context.
-
-    @Deprecated
-    @Override
-    public final V put(K key, V value) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Deprecated
-    @Override
-    public final void putAll(Map<? extends K, ? extends V> map) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Deprecated
-    @Override
-    public final V remove(Object key) {
       throw new UnsupportedOperationException();
     }
 

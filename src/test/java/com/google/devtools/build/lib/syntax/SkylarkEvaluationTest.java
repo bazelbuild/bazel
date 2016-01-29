@@ -131,7 +131,6 @@ public class SkylarkEvaluationTest extends EvaluationTest {
     }
   }
 
-  @SkylarkModule(name = "MockClassObject", doc = "", documented = false)
   static final class MockClassObject implements ClassObject {
     @Override
     public Object getValue(String name) {
@@ -835,11 +834,11 @@ public class SkylarkEvaluationTest extends EvaluationTest {
   }
 
   @Test
-  public void testDictAssignmentAsLValueSideEffects() throws Exception {
+  public void testDictAssignmentAsLValueNoSideEffects() throws Exception {
     new SkylarkTest().setUp("def func(d):",
         "  d['b'] = 2",
         "d = {'a' : 1}",
-        "func(d)").testLookup("d", SkylarkDict.of(null, "a", 1, "b", 2));
+        "func(d)").testLookup("d", ImmutableMap.of("a", 1));
   }
 
   @Test

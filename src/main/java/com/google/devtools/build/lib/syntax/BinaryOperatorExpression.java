@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.syntax;
 import static com.google.devtools.build.lib.syntax.compiler.ByteCodeUtils.append;
 
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
@@ -36,10 +37,13 @@ import net.bytebuddy.implementation.bytecode.Removal;
 import net.bytebuddy.implementation.bytecode.StackManipulation;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.IllegalFormatException;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Syntax node for a binary operator expression.
@@ -104,8 +108,10 @@ public final class BinaryOperatorExpression extends Expression {
         }
       }
       return false;
-    } else if (rval instanceof SkylarkDict) {
-      return ((SkylarkDict<?, ?>) rval).containsKey(lval);
+    } else if (rval instanceof Collection<?>) {
+      return ((Collection<?>) rval).contains(lval);
+    } else if (rval instanceof Map<?, ?>) {
+      return ((Map<?, ?>) rval).containsKey(lval);
     } else if (rval instanceof SkylarkNestedSet) {
       return ((SkylarkNestedSet) rval).expandedSet().contains(lval);
     } else if (rval instanceof String) {
@@ -334,8 +340,13 @@ public final class BinaryOperatorExpression extends Expression {
       return MutableList.concat((MutableList) lval, (MutableList) rval, env);
     }
 
-    if (lval instanceof SkylarkDict && rval instanceof SkylarkDict) {
-      return SkylarkDict.plus((SkylarkDict<?, ?>) lval, (SkylarkDict<?, ?>) rval, env);
+    if (lval instanceof Map<?, ?> && rval instanceof Map<?, ?>) {
+      Map<?, ?> ldict = (Map<?, ?>) lval;
+      Map<?, ?> rdict = (Map<?, ?>) rval;
+      Map<Object, Object> result = new LinkedHashMap<>(ldict.size() + rdict.size());
+      result.putAll(ldict);
+      result.putAll(rdict);
+      return ImmutableMap.copyOf(result);
     }
 
     if (lval instanceof SkylarkClassObject && rval instanceof SkylarkClassObject) {

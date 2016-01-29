@@ -26,6 +26,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.TreeMap;
 
 /**
@@ -35,8 +37,8 @@ import java.util.TreeMap;
 @RunWith(JUnit4.class)
 public class EvalUtilsTest {
 
-  private static SkylarkDict<Object, Object> makeDict() {
-    return SkylarkDict.<Object, Object>of(null);
+  private static Map<Object, Object> makeDict() {
+    return new LinkedHashMap<>();
   }
 
   @Test
@@ -77,7 +79,7 @@ public class EvalUtilsTest {
     map.put("test", 7);
     map.put(-1, 2);
     map.put("4", 6);
-    map.put(true, 1);
+    map.put(2.0, 1);
     map.put(Runtime.NONE, 0);
 
     int expected = 0;
