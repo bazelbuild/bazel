@@ -235,8 +235,8 @@ public final class ReleaseBundlingSupport {
 
   private void validateLaunchScreen() {
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("launch_storyboard")) {
-      DottedVersion minimumOs = ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs();
-      if (ObjcRuleClasses.useLaunchStoryboard(ruleContext)) {
+      DottedVersion minimumOs = bundling.getMinimumOsVersion();
+      if (ObjcRuleClasses.useLaunchStoryboard(ruleContext, bundling.getMinimumOsVersion())) {
         if (ruleContext.attributes().isAttributeValueExplicitlySpecified("launch_image")) {
           ruleContext.attributeWarning(
               "launch_image",
@@ -301,7 +301,7 @@ public final class ReleaseBundlingSupport {
     registerEnvironmentPlistAction();
     registerAutomaticPlistAction();
 
-    if (ObjcRuleClasses.useLaunchStoryboard(ruleContext)) {
+    if (ObjcRuleClasses.useLaunchStoryboard(ruleContext, bundling.getMinimumOsVersion())) {
       registerLaunchStoryboardPlistAction();
     }
 
@@ -412,7 +412,6 @@ public final class ReleaseBundlingSupport {
         TargetDeviceFamily.UI_DEVICE_FAMILY_VALUES.get(bundleSupport.targetDeviceFamilies());
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     Platform platform = appleConfiguration.getBundlingPlatform();
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
 
     NSDictionary result = new NSDictionary();
 
@@ -424,7 +423,7 @@ public final class ReleaseBundlingSupport {
         "DTSDKName",
         NSObject.wrap(platform.getLowerCaseNameInPlist() + appleConfiguration.getIosSdkVersion()));
     result.put("CFBundleSupportedPlatforms", new NSArray(NSObject.wrap(platform.getNameInPlist())));
-    result.put("MinimumOSVersion", NSObject.wrap(objcConfiguration.getMinimumOs().toString()));
+    result.put("MinimumOSVersion", NSObject.wrap(bundling.getMinimumOsVersion().toString()));
 
     return result;
   }
@@ -568,7 +567,8 @@ public final class ReleaseBundlingSupport {
     if (attributes.appIcon() != null) {
       extraArgs.add("--app-icon", attributes.appIcon());
     }
-    if (attributes.launchImage() != null && !ObjcRuleClasses.useLaunchStoryboard(ruleContext)) {
+    if (attributes.launchImage() != null
+        && !ObjcRuleClasses.useLaunchStoryboard(ruleContext, bundling.getMinimumOsVersion())) {
       extraArgs.add("--launch-image", attributes.launchImage());
     }
     return new ExtraActoolArgs(extraArgs.build());
@@ -616,7 +616,7 @@ public final class ReleaseBundlingSupport {
             .setFallbackBundleId(fallbackBundleId)
             .setMinimumOsVersion(minimumOsVersion);
 
-    if (ObjcRuleClasses.useLaunchStoryboard(ruleContext)) {
+    if (ObjcRuleClasses.useLaunchStoryboard(ruleContext, minimumOsVersion)) {
       bundling.addInfoplistInput(getLaunchStoryboardPlist());
     }
 
@@ -658,7 +658,8 @@ public final class ReleaseBundlingSupport {
           .setValue(attributes.appIcon())
           .build());
     }
-    if (attributes.launchImage() != null && !ObjcRuleClasses.useLaunchStoryboard(ruleContext)) {
+    if (attributes.launchImage() != null
+        && !ObjcRuleClasses.useLaunchStoryboard(ruleContext, bundling.getMinimumOsVersion())) {
       buildSettings.add(XcodeprojBuildSetting.newBuilder()
           .setName("ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME")
           .setValue(attributes.launchImage())
