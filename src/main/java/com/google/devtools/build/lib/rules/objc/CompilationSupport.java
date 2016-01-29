@@ -842,7 +842,8 @@ public final class CompilationSupport {
       ImmutableList<Artifact> ccLibraries) {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-
+    Iterable<String> libraryNames = libraryNames(objcProvider);
+    
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder()
         .addPath(xcrunwrapper(ruleContext).getExecutable().getExecPath());
 
@@ -861,6 +862,10 @@ public final class CompilationSupport {
       commandLine.add("-dead_strip").add("-no_dead_strip_inits_and_terms");
     }
 
+    if (objcConfiguration.shouldPrioritizeSystemLibsOverFrameworks()) {
+      commandLine.addFormatEach("-l%s", libraryNames);
+    }
+
     commandLine
         .add(commonLinkAndCompileFlagsForClang(objcProvider, objcConfiguration, appleConfiguration))
         .add("-Xlinker")
@@ -870,8 +875,13 @@ public final class CompilationSupport {
         .add("-fobjc-link-runtime")
         .add(DEFAULT_LINKER_FLAGS)
         .addBeforeEach("-framework", frameworkNames(objcProvider))
-        .addBeforeEach("-weak_framework", SdkFramework.names(objcProvider.get(WEAK_SDK_FRAMEWORK)))
-        .addFormatEach("-l%s", libraryNames(objcProvider))
+        .addBeforeEach("-weak_framework", SdkFramework.names(objcProvider.get(WEAK_SDK_FRAMEWORK)));
+
+    if (!objcConfiguration.shouldPrioritizeSystemLibsOverFrameworks()) {
+      commandLine.addFormatEach("-l%s", libraryNames);
+    }
+
+    commandLine
         .addExecPath("-o", linkedBinary)
         .addExecPaths(objcProvider.get(LIBRARY))
         .addExecPaths(objcProvider.get(IMPORTED_LIBRARY))

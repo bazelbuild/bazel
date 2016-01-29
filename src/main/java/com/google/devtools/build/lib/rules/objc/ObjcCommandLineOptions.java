@@ -162,6 +162,16 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public String xcodeOverrideWorkspaceRoot;
 
+  @Option(
+    name = "objc_includes_prioritize_system_libs",
+    defaultValue = "false",
+    category = "flags",
+    help =
+        "If set, the linker invocation will contain system library includes before framework"
+        + " includes."
+  )
+  public boolean prioritizeSystemLibsOverFrameworks;
+  
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
 
   @Override

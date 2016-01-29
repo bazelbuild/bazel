@@ -61,7 +61,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @Nullable private final Path clientWorkspaceRoot;
   private final String xcodeOverrideWorkspaceRoot;
   private final boolean useAbsolutePathsForActions;
-
+  private final boolean prioritizeSystemLibsOverFrameworks;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
       @Nullable BlazeDirectories directories) {
@@ -83,6 +83,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.signingCertName = objcOptions.iosSigningCertName;
     this.xcodeOverrideWorkspaceRoot = objcOptions.xcodeOverrideWorkspaceRoot;
     this.useAbsolutePathsForActions = objcOptions.useAbsolutePathsForActions;
+    this.prioritizeSystemLibsOverFrameworks = objcOptions.prioritizeSystemLibsOverFrameworks;
   }
 
   /**
@@ -219,5 +220,13 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @Nullable
   public String getSigningCertName() {
     return this.signingCertName;
+  }
+  
+  /**
+   * Returns true if the linker invocation should contain system library includes before framework
+   * includes.
+   */
+  public boolean shouldPrioritizeSystemLibsOverFrameworks() {
+    return this.prioritizeSystemLibsOverFrameworks;
   }
 }
