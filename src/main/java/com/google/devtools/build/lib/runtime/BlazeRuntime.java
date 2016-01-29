@@ -97,6 +97,7 @@ import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnixFileSystem;
+import com.google.devtools.build.lib.vfs.WindowsFileSystem;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.Option;
@@ -992,7 +993,7 @@ public final class BlazeRuntime {
       return new JavaIoFileSystem();
     }
     // The JNI-based UnixFileSystem is faster, but on Windows it is not available.
-    return OS.getCurrent() == OS.WINDOWS ? new JavaIoFileSystem() : new UnixFileSystem();
+    return OS.getCurrent() == OS.WINDOWS ? new WindowsFileSystem() : new UnixFileSystem();
   }
 
   /**
