@@ -235,18 +235,23 @@ public final class TargetUtils {
     // instanceof returns false if target is null (which is exploited here)
     if (target instanceof Rule) {
       Rule rule = (Rule) target;
-      return !isExplicitDependency(rule, label)
-          ? ("every rule of type " + rule.getRuleClass() + " implicitly depends upon the target '"
-              + label + "',  but this target could not be found. "
-              + "If this is an integration test, maybe you forgot to add a mock for your new tool?")
-              : e.getMessage() + " and referenced by '" + target.getLabel() + "'";
+      if (isExplicitDependency(rule, label)) {
+        return String.format("%s and referenced by '%s'", e.getMessage(), target.getLabel());
+      } else {
+        // N.B. If you see this error message in one of our integration tests during development of
+        // a change that adds a new implicit dependency when running Blaze, maybe you forgot to add
+        // a new mock target to the integration test's setup.
+        return String.format("every rule of type %s implicitly depends upon the target '%s', but "
+            + "this target could not be found because of: %s", rule.getRuleClass(), label,
+            e.getMessage());
+      }
     } else if (target instanceof InputFile) {
       return e.getMessage() + " (this is usually caused by a missing package group in the"
           + " package-level visibility declaration)";
     } else {
       if (target != null) {
-        return "in target '" + target.getLabel() + "', no such label '" + label + "': "
-            + e.getMessage();
+        return String.format("in target '%s', no such label '%s': %s", target.getLabel(), label,
+            e.getMessage());
       }
       return e.getMessage();
     }
