@@ -9,7 +9,7 @@ sh_test(
     size = "enormous",
     srcs = ["ijar_test.sh"],
     args = [
-        "$(JAVAC)",
+        "$(JAVABASE)/bin/javac",
         "$(JAVA)",
         "$(JAVABASE)/bin/jar",
         "$(JAVABASE)/bin/javap",

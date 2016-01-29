@@ -107,6 +107,5 @@ public final class Jvm extends BuildConfiguration.Fragment {
   public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {
     globalMakeEnvBuilder.put("JAVABASE", getJavaHome().getPathString());
     globalMakeEnvBuilder.put("JAVA", getJavaExecutable().getPathString());
-    globalMakeEnvBuilder.put("JAVAC", getJavacExecutable().getPathString());
   }
 }

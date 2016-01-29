@@ -87,9 +87,6 @@ in your genrule's cmd attribute.
     this can be a relative path. If you must change directories before invoking
     <code>java</code>, you need to capture the working directory before changing
     it.</li>
-  <li> <code>JAVAC</code>: The "javac" command (a Java compiler). Note that
-    this can be a relative path. Also, this may not be the same compiler that is
-    used to compile normal Java rules (this may change in the future).</li>
 
   <li> <code>STRIP</code>: The strip command from the same suite as the C
     compiler.</li>

@@ -831,10 +831,10 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Test
   public void testDefinedMakeVariable() throws Exception {
     SkylarkRuleContext ctx = createRuleContext("//foo:baz");
-    String javac = (String) evalRuleContextCode(ctx, "ruleContext.var['JAVAC']");
+    String java = (String) evalRuleContextCode(ctx, "ruleContext.var['JAVA']");
     // Get the last path segment
-    javac = javac.substring(javac.lastIndexOf('/'));
-    assertEquals("/javac", javac);
+    java = java.substring(java.lastIndexOf('/'));
+    assertEquals("/java", java);
   }
 
   @Test
