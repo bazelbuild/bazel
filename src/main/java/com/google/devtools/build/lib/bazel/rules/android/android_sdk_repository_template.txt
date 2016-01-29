@@ -104,6 +104,11 @@ java_import(
     jars = ["extras/android/support/v4/android-support-v4.jar"]
 )
 
+java_import(
+    name = "appcompat_v13",
+    jars = ["extras/android/support/v13/android-support-v13.jar"]
+)
+
 android_sdk(
     name = "sdk",
     proguard = ":proguard_binary",
