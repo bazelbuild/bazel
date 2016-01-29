@@ -35,13 +35,13 @@ import javax.annotation.Nullable;
  */
 @SkylarkModule(name = "sequence", documented = false,
     doc = "common type of lists and tuples")
-  public abstract class SkylarkList
-    extends MutableCollection<Object> implements List<Object>, RandomAccess {
+  public abstract class SkylarkList<E>
+    extends MutableCollection<E> implements List<E>, RandomAccess {
 
   /**
    * Returns an ImmutableList object with the current underlying contents of this SkylarkList.
    */
-  public abstract ImmutableList<Object> getImmutableList();
+  public abstract ImmutableList<E> getImmutableList();
 
   /**
    * Returns a List object with the current underlying contents of this SkylarkList.
@@ -49,8 +49,7 @@ import javax.annotation.Nullable;
    * Indeed it can sometimes be a {@link GlobList}.
    */
   // TODO(bazel-team): move GlobList out of Skylark, into an extension.
-  @Override
-  public abstract List<Object> getContents();
+  public abstract List<E> getContents();
 
   /**
    * The underlying contents are a (usually) mutable data structure.
@@ -61,7 +60,7 @@ import javax.annotation.Nullable;
    * it need not be an instance of {@link com.google.common.collect.ImmutableList}.
    */
   @Override
-  protected abstract List<Object> getContentsUnsafe();
+  protected abstract List<E> getContentsUnsafe();
 
   /**
    * Returns true if this list is a tuple.
@@ -70,7 +69,7 @@ import javax.annotation.Nullable;
 
   // A SkylarkList forwards all read-only access to the getContentsUnsafe().
   @Override
-  public final Object get(int i) {
+  public final E get(int i) {
     return getContentsUnsafe().get(i);
   }
 
@@ -85,12 +84,12 @@ import javax.annotation.Nullable;
   }
 
   @Override
-  public ListIterator<Object> listIterator() {
+  public ListIterator<E> listIterator() {
     return getContentsUnsafe().listIterator();
   }
 
   @Override
-  public ListIterator<Object> listIterator(int index) {
+  public ListIterator<E> listIterator(int index) {
     return getContentsUnsafe().listIterator(index);
   }
 
@@ -98,28 +97,28 @@ import javax.annotation.Nullable;
   // to prevent subsequent mutation. To get a mutable SkylarkList,
   // use a method that takes an Environment into account.
   @Override
-  public List<Object> subList(int fromIndex, int toIndex) {
+  public List<E> subList(int fromIndex, int toIndex) {
     return getContents().subList(fromIndex, toIndex);
   }
 
   // A SkylarkList disables all direct mutation methods.
   @Override
-  public void add(int index, Object element) {
+  public void add(int index, E element) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public boolean addAll(int index, Collection<?> elements) {
+  public boolean addAll(int index, Collection<? extends E> elements) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public Object remove(int index) {
+  public E remove(int index) {
     throw new UnsupportedOperationException();
   }
 
   @Override
-  public Object set(int index, Object element) {
+  public E set(int index, E element) {
     throw new UnsupportedOperationException();
   }
 
@@ -155,14 +154,9 @@ import javax.annotation.Nullable;
   public static <TYPE> List<TYPE> castList(
       List<?> list, Class<TYPE> type, @Nullable String description)
       throws EvalException {
+    Object desc = description == null ? null : Printer.formattable("'%s' element", description);
     for (Object value : list) {
-      if (!type.isInstance(value)) {
-        throw new EvalException(null,
-            Printer.format("Illegal argument: expected type %r %sbut got type %s instead",
-                type,
-                description == null ? "" : String.format("for '%s' element ", description),
-                EvalUtils.getDataTypeName(value)));
-      }
+      SkylarkType.checkType(value, type, desc);
     }
     return (List<TYPE>) list;
   }
@@ -181,7 +175,7 @@ import javax.annotation.Nullable;
       return ImmutableList.of();
     }
     if (obj instanceof SkylarkList) {
-      return ((SkylarkList) obj).getContents(type, description);
+      return ((SkylarkList<?>) obj).getContents(type, description);
     }
     throw new EvalException(null,
         Printer.format("Illegal argument: %s is not of expected type list or NoneType",
@@ -218,15 +212,15 @@ import javax.annotation.Nullable;
             + "['a', 'b', 'c', 'd'][3:0:-1]  # ['d', 'c', 'b']</pre>"
             + "Lists are mutable, as in Python."
   )
-  public static final class MutableList extends SkylarkList {
+  public static final class MutableList<E> extends SkylarkList<E> {
 
-    private final ArrayList<Object> contents = new ArrayList<>();
+    private final ArrayList<E> contents = new ArrayList<>();
 
     // Treat GlobList specially: external code depends on it.
     // TODO(bazel-team): make data structures *and binary operators* extensible
     // (via e.g. interface classes for each binary operator) so that GlobList
     // can be implemented outside of the core of Skylark.
-    @Nullable private GlobList<?> globList;
+    @Nullable private GlobList<E> globList;
 
     private final Mutability mutability;
 
@@ -236,11 +230,12 @@ import javax.annotation.Nullable;
      * @param mutability a Mutability context
      * @return a MutableList containing the elements
      */
-    MutableList(Iterable<?> contents, Mutability mutability) {
+    @SuppressWarnings("unchecked")
+    MutableList(Iterable<? extends E> contents, Mutability mutability) {
       super();
       addAllUnsafe(contents);
-      if (contents instanceof GlobList<?>) {
-        globList = (GlobList<?>) contents;
+      if (contents instanceof GlobList) {
+        globList = (GlobList<E>) contents;
       }
       this.mutability = mutability;
     }
@@ -251,7 +246,7 @@ import javax.annotation.Nullable;
      * @param env an Environment from which to inherit Mutability, or null for immutable
      * @return a MutableList containing the elements
      */
-    public MutableList(Iterable<?> contents, @Nullable Environment env) {
+    public MutableList(Iterable<? extends E> contents, @Nullable Environment env) {
       this(contents, env == null ? Mutability.IMMUTABLE : env.mutability());
     }
 
@@ -260,7 +255,7 @@ import javax.annotation.Nullable;
      * @param contents the contents of the list
      * @return an actually immutable MutableList containing the elements
      */
-    public MutableList(Iterable<?> contents) {
+    public MutableList(Iterable<? extends E> contents) {
       this(contents, Mutability.IMMUTABLE);
     }
 
@@ -277,7 +272,7 @@ import javax.annotation.Nullable;
      * @param contents the contents of the list
      * @return a Skylark list containing the specified arguments as elements.
      */
-    public static MutableList of(@Nullable Environment env, Object... contents) {
+    public static <E> MutableList<E> of(@Nullable Environment env, E... contents) {
       return new MutableList(ImmutableList.copyOf(contents), env);
     }
 
@@ -286,8 +281,8 @@ import javax.annotation.Nullable;
      * @param elements the elements to add
      * Assumes that you already checked for Mutability.
      */
-    private void addAllUnsafe(Iterable<?> elements) {
-      for (Object elem : elements) {
+    private void addAllUnsafe(Iterable<? extends E> elements) {
+      for (E elem : elements) {
         contents.add(elem);
       }
     }
@@ -298,7 +293,7 @@ import javax.annotation.Nullable;
       globList = null; // If you're going to mutate it, invalidate the underlying GlobList.
     }
 
-    @Nullable public GlobList<?> getGlobList() {
+    @Nullable public GlobList<E> getGlobList() {
       return globList;
     }
 
@@ -307,15 +302,15 @@ import javax.annotation.Nullable;
      */
     @Override
     @SuppressWarnings("unchecked")
-    public List<Object> getContents() {
+    public List<E> getContents() {
       if (globList != null) {
-        return (List<Object>) (List<?>) globList;
+        return globList;
       }
       return getImmutableList();
     }
 
     @Override
-    protected List<Object> getContentsUnsafe() {
+    protected List<E> getContentsUnsafe() {
       return contents;
     }
 
@@ -336,7 +331,10 @@ import javax.annotation.Nullable;
      * @param env the Environment in which to create a new list
      * @return a new MutableList
      */
-    public static MutableList concat(MutableList left, MutableList right, Environment env) {
+    public static <E> MutableList<E> concat(
+        MutableList<? extends E> left,
+        MutableList<? extends E> right,
+        Environment env) {
       if (left.getGlobList() == null && right.getGlobList() == null) {
         return new MutableList(Iterables.concat(left, right), env);
       }
@@ -350,7 +348,7 @@ import javax.annotation.Nullable;
      * @param loc the Location at which to report any error
      * @param env the Environment requesting the modification
      */
-    public void add(Object element, Location loc, Environment env) throws EvalException {
+    public void add(E element, Location loc, Environment env) throws EvalException {
       checkMutable(loc, env);
       contents.add(element);
     }
@@ -366,13 +364,14 @@ import javax.annotation.Nullable;
      * @param loc the Location at which to report any error
      * @param env the Environment requesting the modification
      */
-    public void addAll(Iterable<?> elements, Location loc, Environment env) throws EvalException {
+    public void addAll(Iterable<? extends E> elements, Location loc, Environment env)
+        throws EvalException {
       checkMutable(loc, env);
       addAllUnsafe(elements);
     }
 
     @Override
-    public ImmutableList<Object> getImmutableList() {
+    public ImmutableList<E> getImmutableList() {
       return ImmutableList.copyOf(contents);
     }
 
@@ -418,11 +417,11 @@ import javax.annotation.Nullable;
             + "Tuples are immutable, therefore <code>x[1] = \"a\"</code> is not supported."
   )
   @Immutable
-  public static final class Tuple extends SkylarkList {
+  public static final class Tuple<E> extends SkylarkList<E> {
 
-    private final ImmutableList<Object> contents;
+    private final ImmutableList<E> contents;
 
-    private Tuple(ImmutableList<Object> contents) {
+    private Tuple(ImmutableList<E> contents) {
       super();
       this.contents = contents;
     }
@@ -435,14 +434,19 @@ import javax.annotation.Nullable;
     /**
      * THE empty Skylark tuple.
      */
-    public static final Tuple EMPTY = new Tuple(ImmutableList.of());
+    private static final Tuple<?> EMPTY = new Tuple<>(ImmutableList.of());
+
+    @SuppressWarnings("unchecked")
+    public static final <E> Tuple<E> empty() {
+      return (Tuple<E>) EMPTY;
+    }
 
     /**
      * Creates a Tuple from an ImmutableList.
      */
-    public static Tuple create(ImmutableList<Object> contents) {
+    public static<E> Tuple<E> create(ImmutableList<E> contents) {
       if (contents.isEmpty()) {
-        return EMPTY;
+        return empty();
       }
       return new Tuple(contents);
     }
@@ -450,9 +454,8 @@ import javax.annotation.Nullable;
     /**
      * Creates a Tuple from an Iterable.
      */
-    public static Tuple copyOf(Iterable<?> contents) {
-      // Do not remove <Object>: workaround for Java 7 type inference.
-      return create(ImmutableList.<Object>copyOf(contents));
+    public static <E> Tuple<E> copyOf(Iterable<? extends E> contents) {
+      return create(ImmutableList.<E>copyOf(contents));
     }
 
     /**
@@ -460,22 +463,22 @@ import javax.annotation.Nullable;
      * @param elements a variable number of arguments (or an Array of Object-s)
      * @return a Skylark tuple containing the specified arguments as elements.
      */
-    public static Tuple of(Object... elements) {
+    public static <E> Tuple<E> of(E... elements) {
       return Tuple.create(ImmutableList.copyOf(elements));
     }
 
     @Override
-    public ImmutableList<Object> getImmutableList() {
+    public ImmutableList<E> getImmutableList() {
       return contents;
     }
 
     @Override
-    public List<Object> getContents() {
+    public List<E> getContents() {
       return contents;
     }
 
     @Override
-    protected List<Object> getContentsUnsafe() {
+    protected List<E> getContentsUnsafe() {
       return contents;
     }
 

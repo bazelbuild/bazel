@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.syntax;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
@@ -30,7 +29,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import net.bytebuddy.implementation.bytecode.StackManipulation;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -205,7 +203,7 @@ public abstract class BaseFunction implements SkylarkValue {
    */
   public Object[] processArguments(List<Object> args,
       @Nullable Map<String, Object> kwargs,
-      @Nullable Location loc)
+      @Nullable Location loc, @Nullable Environment env)
       throws EvalException {
 
     Object[] arguments = new Object[getArgArraySize()];
@@ -241,7 +239,7 @@ public abstract class BaseFunction implements SkylarkValue {
             Tuple.copyOf(args.subList(numPositionalParams, numPositionalArgs));
         numPositionalArgs = numPositionalParams; // clip numPositionalArgs
       } else {
-        arguments[starParamIndex] = Tuple.EMPTY;
+        arguments[starParamIndex] = Tuple.empty();
       }
     } else if (numPositionalArgs > numPositionalParams) {
       throw new EvalException(loc,
@@ -280,7 +278,7 @@ public abstract class BaseFunction implements SkylarkValue {
       // If there's a kwParam, it's empty.
       if (hasKwParam) {
         // TODO(bazel-team): create a fresh mutable dict, like Python does
-        arguments[kwParamIndex] = ImmutableMap.<String, Object>of();
+        arguments[kwParamIndex] = SkylarkDict.of(env);
       }
     } else if (hasKwParam && numNamedParams == 0) {
       // Easy case (2b): there are no named parameters, but there is a **kwParam.
@@ -288,18 +286,21 @@ public abstract class BaseFunction implements SkylarkValue {
       // Note that *starParam and **kwParam themselves don't count as named.
       // Also note that no named parameters means no mandatory parameters that weren't passed,
       // and no missing optional parameters for which to use a default. Thus, no loops.
-      // TODO(bazel-team): create a fresh mutable dict, like Python does
-      arguments[kwParamIndex] = kwargs; // NB: not 2a means kwarg isn't null
+      // NB: not 2a means kwarg isn't null
+      arguments[kwParamIndex] = SkylarkDict.copyOf(env, kwargs);
     } else {
       // Hard general case (2c): some keyword arguments may correspond to named parameters
-      HashMap<String, Object> kwArg = hasKwParam ? new HashMap<String, Object>() : null;
+      SkylarkDict<String, Object> kwArg = hasKwParam
+          ? SkylarkDict.<String, Object>of(env) : SkylarkDict.<String, Object>empty();
 
       // For nicer stabler error messages, start by checking against
       // an argument being provided both as positional argument and as keyword argument.
       ArrayList<String> bothPosKey = new ArrayList<>();
       for (int i = 0; i < numPositionalArgs; i++) {
         String name = names.get(i);
-        if (kwargs.containsKey(name)) { bothPosKey.add(name); }
+        if (kwargs.containsKey(name)) {
+          bothPosKey.add(name);
+        }
       }
       if (!bothPosKey.isEmpty()) {
         throw new EvalException(loc,
@@ -325,12 +326,12 @@ public abstract class BaseFunction implements SkylarkValue {
             throw new EvalException(loc, String.format(
                 "%s got multiple values for keyword argument '%s'", this, keyword));
           }
-          kwArg.put(keyword, value);
+          kwArg.put(keyword, value, loc, env);
         }
       }
       if (hasKwParam) {
         // TODO(bazel-team): create a fresh mutable dict, like Python does
-        arguments[kwParamIndex] = ImmutableMap.copyOf(kwArg);
+        arguments[kwParamIndex] = SkylarkDict.copyOf(env, kwArg);
       }
 
       // Check that all mandatory parameters were filled in general case 2c.
@@ -436,7 +437,7 @@ public abstract class BaseFunction implements SkylarkValue {
     // ast is null when called from Java (as there's no Skylark call site).
     Location loc = ast == null ? Location.BUILTIN : ast.getLocation();
 
-    Object[] arguments = processArguments(args, kwargs, loc);
+    Object[] arguments = processArguments(args, kwargs, loc, env);
     canonicalizeArguments(arguments, loc);
 
     return call(arguments, ast, env);

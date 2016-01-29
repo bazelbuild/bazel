@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
+import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -72,7 +73,8 @@ import javax.annotation.Nullable;
 @SkylarkModule(name = "File",
     doc = "This type represents a file used by the build system. It can be "
         + "either a source file or a derived file produced by a rule.")
-public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue {
+  public class Artifact
+    implements FileType.HasFilename, ActionInput, SkylarkValue, Comparable<Object> {
 
   /**
    * Compares artifact according to their exec paths. Sorts null values first.
@@ -91,6 +93,15 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
       }
     }
   };
+
+  @Override
+  public int compareTo(Object o) {
+    if (o instanceof Artifact) {
+      return EXEC_PATH_COMPARATOR.compare(this, (Artifact) o);
+    }
+    return EvalUtils.compareByClass(this, o);
+  }
+
 
   /** An object that can expand middleman artifacts. */
   public interface MiddlemanExpander {
