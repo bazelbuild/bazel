@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -122,8 +123,8 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
     if (repository.isDefault()) {
       roots.addAll(packageLocator.getPathEntries());
     } else {
-      RepositoryValue repositoryValue =
-          (RepositoryValue) env.getValue(RepositoryValue.key(repository));
+      RepositoryDirectoryValue repositoryValue =
+          (RepositoryDirectoryValue) env.getValue(RepositoryDirectoryValue.key(repository));
       if (repositoryValue == null) {
         throw new MissingDepException();
       }

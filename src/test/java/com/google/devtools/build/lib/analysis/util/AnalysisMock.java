@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.Path;
@@ -80,9 +81,11 @@ public abstract class AnalysisMock {
     ImmutableMap<String, RepositoryFunction> repositoryHandlers = ImmutableMap.of(
         LocalRepositoryRule.NAME, localRepositoryFunction);
 
-    return ImmutableMap.<SkyFunctionName, SkyFunction>of(
+    return ImmutableMap.of(
+        SkyFunctions.REPOSITORY_DIRECTORY,
+        new RepositoryDelegatorFunction(directories, repositoryHandlers, new AtomicBoolean(true)),
         SkyFunctions.REPOSITORY,
-        new RepositoryDelegatorFunction(directories, repositoryHandlers, new AtomicBoolean(true)));
+        new RepositoryLoaderFunction());
   }
 
   public static class Delegate extends AnalysisMock {

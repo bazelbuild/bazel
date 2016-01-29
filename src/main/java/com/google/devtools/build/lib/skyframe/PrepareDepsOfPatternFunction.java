@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicy;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetPatternResolverUtil;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.util.BatchCallback.NullCallback;
@@ -225,8 +226,8 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
       if (repository.isDefault()) {
         roots.addAll(pkgPath.getPathEntries());
       } else {
-        RepositoryValue repositoryValue =
-            (RepositoryValue) env.getValue(RepositoryValue.key(repository));
+        RepositoryDirectoryValue repositoryValue =
+            (RepositoryDirectoryValue) env.getValue(RepositoryDirectoryValue.key(repository));
         if (repositoryValue == null) {
           throw new MissingDepException();
         }

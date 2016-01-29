@@ -484,7 +484,7 @@ public class Package {
    * <p>Package-private to encourage callers to get their workspace name from a rule, not a
    * package.</p>
    */
-  String getWorkspaceName() {
+  public String getWorkspaceName() {
     return workspaceName;
   }
 

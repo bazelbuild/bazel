@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -142,7 +142,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
         .setTargetName(downloader.getName())
         .setArchivePath(repositoryJar)
         .setRepositoryPath(outputDirectory).build());
-    return RepositoryValue.create(result);
+    return RepositoryDirectoryValue.create(result);
   }
 
   /**

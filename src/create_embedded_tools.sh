@@ -44,7 +44,9 @@ for i in $*; do
   cp "$i" "${PACKAGE_DIR}/${OUTPUT_PATH}"
 done
 
-touch "${PACKAGE_DIR}/WORKSPACE"
+cat > "${PACKAGE_DIR}/WORKSPACE" <<EOF
+workspace(name = "bazel_tools")
+EOF
 mkdir -p "${PACKAGE_DIR}/tools/defaults"
 touch "${PACKAGE_DIR}/tools/defaults/BUILD"
 for i in $(find "${PACKAGE_DIR}" -name BUILD.tools); do

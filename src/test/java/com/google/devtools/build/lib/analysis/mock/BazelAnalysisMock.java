@@ -75,6 +75,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
                 "bind(name = 'tools/python', actual='//tools/python')"));
 
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[workspaceContents.size()]));
+    config.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
     config.create(
         "/bazel_tools_workspace/tools/jdk/BUILD",
         "package(default_visibility=['//visibility:public'])",

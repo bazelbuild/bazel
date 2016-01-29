@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,49 +16,31 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Objects;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 /**
- * A local view of an external repository.
+ * A repository's name and directory.
  */
 public class RepositoryValue implements SkyValue {
-  private final Path path;
-  private final boolean fetchingDelayed;
-
-  private RepositoryValue(Path path, boolean fetchingDelayed) {
-    this.path = path;
-    this.fetchingDelayed = fetchingDelayed;
-  }
+  private final RepositoryName repositoryName;
+  private final RepositoryDirectoryValue repositoryDirectory;
 
   /**
-   * Creates an immutable external repository.
+   * Creates a repository with a given name in a certain directory.
    */
-  public static RepositoryValue create(Path repositoryDirectory) {
-    return new RepositoryValue(repositoryDirectory, false);
+  public RepositoryValue(RepositoryName repositoryName, RepositoryDirectoryValue repository) {
+    this.repositoryName = repositoryName;
+    this.repositoryDirectory = repository;
   }
 
   /**
-   * Creates a value that represents a repository whose fetching has been delayed by a
-   * {@code --nofetch} command line option.
-   */
-  public static RepositoryValue fetchingDelayed(Path repositoryDirectory) {
-    return new RepositoryValue(repositoryDirectory, true);
-  }
-
-  /**
-   * Returns the path to the directory containing the repository's contents. This directory is
-   * guaranteed to exist.  It may contain a full Bazel repository (with a WORKSPACE file,
-   * directories, and BUILD files) or simply contain a file (or set of files) for, say, a jar from
-   * Maven.
+   * Returns the path to the repository.
    */
   public Path getPath() {
-    return path;
-  }
-
-  public boolean isFetchingDelayed() {
-    return fetchingDelayed;
+    return repositoryDirectory.getPath();
   }
 
   @Override
@@ -66,28 +48,21 @@ public class RepositoryValue implements SkyValue {
     if (this == other) {
       return true;
     }
-
-    if (other instanceof RepositoryValue) {
-      RepositoryValue otherValue = (RepositoryValue) other;
-      return path.equals(otherValue.path);
+    if (other == null || getClass() != other.getClass()) {
+      return false;
     }
-    return false;
+
+    RepositoryValue that = (RepositoryValue) other;
+    return Objects.equal(repositoryName, that.repositoryName)
+        && Objects.equal(repositoryDirectory, that.repositoryDirectory);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(path);
+    return Objects.hashCode(repositoryName, repositoryDirectory);
   }
 
-  @Override
-  public String toString() {
-    return path.getPathString();
-  }
-
-  /**
-   * Creates a key from the given repository name.
-   */
-  public static SkyKey key(RepositoryName repository) {
-    return new SkyKey(SkyFunctions.REPOSITORY, repository);
+  static SkyKey key(RepositoryName repositoryName) {
+    return new SkyKey(SkyFunctions.REPOSITORY, repositoryName);
   }
 }

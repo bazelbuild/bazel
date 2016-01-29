@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.bazel.repository;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.rules.workspace.GitRepositoryRule;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -42,7 +42,7 @@ public class GitRepositoryFunction extends RepositoryFunction {
       throws SkyFunctionException {
     createDirectory(outputDirectory, rule);
     GitCloner.clone(rule, outputDirectory, env.getListener());
-    return RepositoryValue.create(outputDirectory);
+    return RepositoryDirectoryValue.create(outputDirectory);
   }
 
   protected void createDirectory(Path path, Rule rule)

@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.FileValue;
-import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -116,7 +115,7 @@ public class RepositoryDelegatorFunction implements SkyFunction {
       // NB: This returns the wrong repository value for non-local new_* repository functions.
       // This should sort itself out automatically once the ExternalFilesHelper refactoring is
       // finally submitted.
-      return RepositoryValue.create(repoRootValue.realRootedPath().asPath());
+      return RepositoryDirectoryValue.create(repoRootValue.realRootedPath().asPath());
     }
 
     if (isFetch.get()) {
@@ -156,7 +155,7 @@ public class RepositoryDelegatorFunction implements SkyFunction {
         + "run the build without the '--nofetch' command line option.",
         rule.getName())));
 
-    return RepositoryValue.fetchingDelayed(repoRootValue.realRootedPath().asPath());
+    return RepositoryDirectoryValue.fetchingDelayed(repoRootValue.realRootedPath().asPath());
   }
 
   @Override

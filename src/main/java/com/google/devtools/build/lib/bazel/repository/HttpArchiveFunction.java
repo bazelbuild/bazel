@@ -18,8 +18,8 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.rules.workspace.HttpArchiveRule;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -61,7 +61,7 @@ public class HttpArchiveFunction extends RepositoryFunction {
     Path downloadedPath = HttpDownloader.download(rule, outputDirectory, env.getListener());
 
     DecompressorValue.decompress(getDescriptor(rule, downloadedPath, outputDirectory));
-    return RepositoryValue.create(outputDirectory);
+    return RepositoryDirectoryValue.create(outputDirectory);
   }
 
   protected DecompressorDescriptor getDescriptor(Rule rule, Path downloadPath, Path outputDirectory)

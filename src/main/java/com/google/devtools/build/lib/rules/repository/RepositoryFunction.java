@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.PackageValue;
-import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -77,11 +76,11 @@ import javax.annotation.Nullable;
  * repository has never been fetched, Bazel errors out for lack of a better option. This is
  * implemented using
  * {@link com.google.devtools.build.lib.bazel.BazelRepositoryModule#REPOSITORY_VALUE_CHECKER} and
- * a flag in {@link RepositoryValue} that tells Bazel whether the value in Skyframe is stale
- * according to the value of {@code --nofetch} or not.
+ * a flag in {@link RepositoryDirectoryValue} that tells Bazel whether the value in Skyframe is
+ * stale according to the value of {@code --nofetch} or not.
  *
- * <p>When a rule in the WORKSPACE file is changed, the corresponding {@link RepositoryValue} is
- * invalidated using the usual Skyframe route.
+ * <p>When a rule in the WORKSPACE file is changed, the corresponding
+ * {@link RepositoryDirectoryValue} is invalidated using the usual Skyframe route.
  */
 public abstract class RepositoryFunction {
   /**
@@ -244,7 +243,7 @@ public abstract class RepositoryFunction {
     }
   }
 
-  protected RepositoryValue writeBuildFile(Path repositoryDirectory, String contents)
+  protected RepositoryDirectoryValue writeBuildFile(Path repositoryDirectory, String contents)
       throws RepositoryFunctionException {
     Path buildFilePath = repositoryDirectory.getRelative("BUILD");
     try {
@@ -253,7 +252,7 @@ public abstract class RepositoryFunction {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 
-    return RepositoryValue.create(repositoryDirectory);
+    return RepositoryDirectoryValue.create(repositoryDirectory);
   }
 
   protected FileValue getBuildFileValue(Rule rule, Environment env)
@@ -307,11 +306,11 @@ public abstract class RepositoryFunction {
    * @throws RepositoryFunctionException if the BUILD file specified does not exist or cannot be
    *         linked.
    */
-  protected RepositoryValue symlinkBuildFile(FileValue buildFileValue, Path outputDirectory)
-      throws RepositoryFunctionException {
+  protected RepositoryDirectoryValue symlinkBuildFile(
+      FileValue buildFileValue, Path outputDirectory) throws RepositoryFunctionException {
     Path buildFilePath = outputDirectory.getRelative("BUILD");
     createSymbolicLink(buildFilePath, buildFileValue.realRootedPath().asPath());
-    return RepositoryValue.create(outputDirectory);
+    return RepositoryDirectoryValue.create(outputDirectory);
   }
 
   @VisibleForTesting
