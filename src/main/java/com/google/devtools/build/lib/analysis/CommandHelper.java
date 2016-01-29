@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -59,9 +60,13 @@ public final class CommandHelper {
    * If the command is very long, then we write the command to a script file,
    * to avoid overflowing any limits on command-line length.
    * For short commands, we just use /bin/bash -c command.
+   *
+   * Maximum command line length on Windows is 32767[1], but for cmd.exe it is 8192[2].
+   * [1] https://msdn.microsoft.com/en-us/library/ms682425(VS.85).aspx
+   * [2] https://support.microsoft.com/en-us/kb/830473.
    */
   @VisibleForTesting
-  public static int maxCommandLength = 64000;
+  public static int maxCommandLength = OS.getCurrent() == OS.WINDOWS ? 8000 : 64000;
 
   /**
    *  A map of remote path prefixes and corresponding runfiles manifests for tools
