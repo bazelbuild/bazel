@@ -627,15 +627,15 @@ static int ConnectToServer(bool start) {
            "Failed: fcntl to enable O_NONBLOCK on pipe");
     }
     // Give the server one minute to start up.
-    for (int ii = 0; ii < 600; ++ii) {  // 60s; enough time to connect
-                                        // with debugger
-                                        if (Connect(s, socket_file)) {
-                                          if (ii) {
-                                            fputc('\n', stderr);
-                                            fflush(stderr);
-                                          }
-                                          GetServerPid(s, pid_file);
-                                          return s;
+    for (int ii = 0; ii < 600; ++ii) {
+      // 60s; enough time to connect with debugger
+      if (Connect(s, socket_file)) {
+        if (ii) {
+          fputc('\n', stderr);
+          fflush(stderr);
+        }
+        GetServerPid(s, pid_file);
+        return s;
       }
       fputc('.', stderr);
       fflush(stderr);
