@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
@@ -267,7 +268,7 @@ public final class DependencyModule {
   }
 
   private static final Splitter CLASSPATH_SPLITTER = Splitter.on(':');
-  private static final Joiner CLASSPATH_JOINER = Joiner.on(':');
+  private static final Joiner CLASSPATH_JOINER = Joiner.on(File.pathSeparator);
 
   /**
    * Computes a reduced compile-time classpath from the union of direct dependencies and their
