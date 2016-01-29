@@ -6,7 +6,7 @@ title: dict
 
 A language built-in type to support dicts. Example of dict literal:<br><pre class="language-python">d = {"a": 2, "b": 5}</pre>Use brackets to access elements:<br><pre class="language-python">e = d["a"]   # e == 2</pre>Dicts support the <code>+</code> operator to concatenate two dicts. In case of multiple keys the second one overrides the first one. Examples:<br><pre class="language-python">d = {"a" : 1} + {"b" : 2}   # d == {"a" : 1, "b" : 2}
 d += {"c" : 3}              # d == {"a" : 1, "b" : 2, "c" : 3}
-d = d + {"c" : 5}           # d == {"a" : 1, "b" : 2, "c" : 5}</pre>Iterating on a dict is equivalent to iterating on its keys (in sorted order).<br>Dicts support the <code>in</code> operator, testing membership in the keyset of the dict. Example:<br><pre class="language-python">"a" in {"a" : 2, "b" : 5}   # evaluates as True</pre>
+d = d + {"c" : 5}           # d == {"a" : 1, "b" : 2, "c" : 5}</pre>Since the language doesn't have mutable objects <code>d["a"] = 5</code> automatically translates to <code>d = d + {"a" : 5}</code>.<br>Iterating on a dict is equivalent to iterating on its keys (in sorted order).<br>Dicts support the <code>in</code> operator, testing membership in the keyset of the dict. Example:<br><pre class="language-python">"a" in {"a" : 2, "b" : 5}   # evaluates as True</pre>
 
 <div class="toc">
   <h2>Methods</h2>
