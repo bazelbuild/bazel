@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.apple.XcodeConfigProvider;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -165,12 +164,10 @@ public class ObjcRuleClasses {
    */
   static SpawnAction.Builder spawnXcrunActionBuilder(RuleContext ruleContext) {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-    XcodeConfigProvider xcodeConfigProvider =
-        ruleContext.getPrerequisite(":xcode_config", Mode.HOST, XcodeConfigProvider.class);
 
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.<String, String>builder()
         .putAll(appleConfiguration.getEnvironmentForIosAction())
-        .putAll(AppleToolchain.appleHostSystemEnv(xcodeConfigProvider));
+        .putAll(appleConfiguration.getAppleHostSystemEnv());
 
     return spawnOnDarwinActionBuilder()
         .setEnvironment(envBuilder.build());

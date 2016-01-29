@@ -41,13 +41,16 @@ public class XcodeVersionRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(version) -->
         The official version number of a version of Xcode.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(VERSION_ATTR_NAME, STRING).mandatory())
+        .add(attr(VERSION_ATTR_NAME, STRING)
+            .mandatory()
+            .nonconfigurable("this rule determines configuration"))
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(version) -->
         Accepted aliases for this version of Xcode.
         If the value of the <code>xcode_version</code> build flag matches any of the given
         alias strings, this xcode version will be used.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr(ALIASES_ATTR_NAME, STRING_LIST))
+        .add(attr(ALIASES_ATTR_NAME, STRING_LIST)
+            .nonconfigurable("this rule determines configuration"))
         .build();
   }
 

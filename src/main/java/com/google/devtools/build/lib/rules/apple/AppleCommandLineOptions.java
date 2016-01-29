@@ -131,6 +131,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     if (getPlatform() == Platform.IOS_DEVICE) {
       labelMap.put("default_provisioning_profile", defaultProvisioningProfile);
     }
+    labelMap.put("xcode_version_config", xcodeVersionConfig);
   }
   
   /**
@@ -193,6 +194,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     AppleCommandLineOptions host = (AppleCommandLineOptions) super.getHost(fallback);
 
     // Set options needed in the host configuration.
+    host.xcodeVersionConfig = xcodeVersionConfig;
     host.xcodeVersion = xcodeVersion;
     host.appleBitcodeMode = appleBitcodeMode;
 

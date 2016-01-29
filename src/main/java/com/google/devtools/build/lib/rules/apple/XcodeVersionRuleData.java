@@ -15,30 +15,35 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.syntax.Type;
 
 import java.util.List;
 
 /**
- * Provides the information in a single {@code xcode_version} target. A single target of this rule
- * contains an official version label decided by Apple and a number of supported aliases one might
- * use to reference this version.
+ * A tuple containing the information in a single target of the {@code xcode_version} rule.
+ * A single target of this rule contains an official version label decided by Apple and a number
+ *  of supported aliases one might use to reference this version.
  *
  * <p>For example, one may want to reference official xcode version 7.0.1 using the "7" or
  * "7.0" aliases.
  */
-@Immutable
-public final class XcodeVersionProvider implements TransitiveInfoProvider {
+public class XcodeVersionRuleData {
   private final Label label;
   private final DottedVersion version;
   private final ImmutableList<String> aliases;
-  
-  XcodeVersionProvider(Label label, DottedVersion version, List<String> aliases) {
+
+  XcodeVersionRuleData(Label label, Rule rule) {
+    NonconfigurableAttributeMapper attrMapper =
+        NonconfigurableAttributeMapper.of(rule);
+
     this.label = label;
-    this.version = version;
-    this.aliases = ImmutableList.copyOf(aliases);
+    this.version = DottedVersion.fromString(
+        attrMapper.get(XcodeVersionRule.VERSION_ATTR_NAME, Type.STRING));
+    this.aliases = ImmutableList.copyOf(
+        attrMapper.get(XcodeVersionRule.ALIASES_ATTR_NAME, Type.STRING_LIST));
   }
 
   /**

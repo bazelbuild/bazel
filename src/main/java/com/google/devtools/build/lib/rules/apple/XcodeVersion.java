@@ -14,16 +14,11 @@
 
 package com.google.devtools.build.lib.rules.apple;
 
-import static com.google.devtools.build.lib.syntax.Type.STRING;
-import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
-
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-
-import java.util.List;
 
 /**
  * Implementation for the {@code xcode_version} rule.
@@ -32,15 +27,8 @@ public class XcodeVersion implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
-    DottedVersion version = DottedVersion.fromString(
-        ruleContext.attributes().get(XcodeVersionRule.VERSION_ATTR_NAME, STRING));
-    List<String> aliases = 
-        ruleContext.attributes().get(XcodeVersionRule.ALIASES_ATTR_NAME, STRING_LIST);
-    
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .addProvider(XcodeVersionProvider.class,
-            new XcodeVersionProvider(ruleContext.getLabel(), version, aliases))
         .build();
   }
 }

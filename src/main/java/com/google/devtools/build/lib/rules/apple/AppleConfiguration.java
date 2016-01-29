@@ -48,17 +48,20 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    **/
   public static final String APPLE_SDK_PLATFORM_ENV_NAME = "APPLE_SDK_PLATFORM";
 
+  private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION = DottedVersion.fromString("7");
+
   private final DottedVersion iosSdkVersion;
   private final String iosCpu;
-  private final Optional<DottedVersion> xcodeVersionOverride;
+  private final Optional<DottedVersion> xcodeVersion;
   private final List<String> iosMultiCpus;
   private final AppleBitcodeMode bitcodeMode;
   private final Label xcodeConfigLabel;
   @Nullable private final Label defaultProvisioningProfileLabel;
 
-  AppleConfiguration(AppleCommandLineOptions appleOptions) {
+  AppleConfiguration(AppleCommandLineOptions appleOptions,
+      Optional<DottedVersion> xcodeVersionOverride) {
     this.iosSdkVersion = Preconditions.checkNotNull(appleOptions.iosSdkVersion, "iosSdkVersion");
-    this.xcodeVersionOverride = Optional.fromNullable(appleOptions.xcodeVersion);
+    this.xcodeVersion = Preconditions.checkNotNull(xcodeVersionOverride);
     this.iosCpu = Preconditions.checkNotNull(appleOptions.iosCpu, "iosCpu");
     this.iosMultiCpus = Preconditions.checkNotNull(appleOptions.iosMultiCpus, "iosMultiCpus");
     this.bitcodeMode = appleOptions.appleBitcodeMode;
@@ -76,14 +79,12 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
-   * Returns the value of the xcode version build flag if available. This is obtained directly from
-   * the {@code --xcode_version} build flag.
-   * 
-   * <p>Most rules should avoid using this flag value, and instead obtain the appropriate xcode
-   * version from {@link XcodeConfigProvider#getXcodeVersion}.
+   * Returns the value of the xcode version, if available. This is determined based on a combination
+   * of the {@code --xcode_version} build flag and the {@code xcode_config} target defined in the
+   * {@code --xcode_version_config} flag.
    */
-  public Optional<DottedVersion> getXcodeVersionOverrideFlag() {
-    return xcodeVersionOverride;
+  public Optional<DottedVersion> getXcodeVersion() {
+    return xcodeVersion;
   }
 
   /**
@@ -96,6 +97,20 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     ImmutableMap.Builder<String, String> mapBuilder = ImmutableMap.builder();
     mapBuilder.putAll(appleTargetPlatformEnv(Platform.forIosArch(getIosCpu())));
     return mapBuilder.build();
+  }
+  
+  /**
+   * Returns a map of environment variables that should be propagated for actions that build on an
+   * apple host system. These environment variables are needed by the apple toolchain. Keys are
+   * variable names and values are their corresponding values.
+   */
+  public Map<String, String> getAppleHostSystemEnv() {
+    Optional<DottedVersion> xcodeVersion = getXcodeVersion();
+    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
+    if (xcodeVersion.isPresent()) {
+      builder.put(AppleConfiguration.XCODE_VERSION_ENV_NAME, xcodeVersion.get().toString());
+    }
+    return builder.build();   
   }
 
   /**
@@ -198,8 +213,23 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     public AppleConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
         throws InvalidConfigurationException {
       AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);
+      Optional<DottedVersion> xcodeVersionFlag = getXcodeVersion(env, appleOptions);
+      AppleConfiguration configuration = new AppleConfiguration(appleOptions, xcodeVersionFlag);
 
-      return new AppleConfiguration(appleOptions);
+      validate(configuration);
+      return configuration;
+    }
+
+    private void validate(AppleConfiguration config)
+        throws InvalidConfigurationException {
+      Optional<DottedVersion> xcodeVersion = config.getXcodeVersion();
+      if (config.getBitcodeMode() != AppleBitcodeMode.NONE
+          && xcodeVersion.isPresent()
+          && xcodeVersion.get().compareTo(MINIMUM_BITCODE_XCODE_VERSION) < 0) {
+        throw new InvalidConfigurationException(
+            String.format("apple_bitcode mode '%s' is unsupported for xcode version '%s'",
+                config.getBitcodeMode(), xcodeVersion.get()));
+      }
     }
 
     @Override
@@ -210,6 +240,27 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     @Override
     public ImmutableSet<Class<? extends FragmentOptions>> requiredOptions() {
       return ImmutableSet.<Class<? extends FragmentOptions>>of(AppleCommandLineOptions.class);
+    }
+    
+    /**
+     * Uses the {@link AppleCommandLineOptions#xcodeVersion} and
+     * {@link AppleCommandLineOptions#xcodeVersionConfig} command line options to determine and
+     * return the effective xcode version. Returns absent if no explicit xcode version is
+     * declared, and host system defaults should be used.
+     *
+     * @param env the current configuration environment
+     * @param appleOptions the command line options
+     * @throws InvalidConfigurationException if the options given (or configuration targets) were
+     *     malformed and thus the xcode version could not be determined
+     */
+    private Optional<DottedVersion> getXcodeVersion(ConfigurationEnvironment env,
+        AppleCommandLineOptions appleOptions) throws InvalidConfigurationException {
+      Optional<DottedVersion> xcodeVersionCommandLineFlag = 
+          Optional.fromNullable(appleOptions.xcodeVersion);
+      Label xcodeVersionConfigLabel = appleOptions.xcodeVersionConfig;
+
+      return XcodeConfig.resolveXcodeVersion(env, xcodeVersionConfigLabel,
+          xcodeVersionCommandLineFlag, "xcode_version_config");
     }
   }
 }
