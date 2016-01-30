@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 
@@ -32,6 +33,7 @@ import java.util.Set;
  * This configuration fragment is used by Java rules that can be transpiled
  * (specifically, J2ObjCAspects thereof).
  */
+@Immutable
 public class J2ObjcConfiguration extends Fragment {
   /**
    * Always-on flags for J2ObjC translation. These flags will always be used for invoking the J2ObjC
@@ -77,7 +79,7 @@ public class J2ObjcConfiguration extends Fragment {
     }
   }
 
-  private final Set<String> translationFlags;
+  private final ImmutableSet<String> translationFlags;
   private final boolean removeDeadCode;
 
   J2ObjcConfiguration(J2ObjcCommandLineOptions j2ObjcOptions) {

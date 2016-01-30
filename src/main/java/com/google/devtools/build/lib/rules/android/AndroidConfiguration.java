@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
@@ -39,6 +40,7 @@ import java.util.List;
 /**
  * Configuration fragment for Android rules.
  */
+@Immutable
 public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   /** Converter for --android_crosstool_top. */

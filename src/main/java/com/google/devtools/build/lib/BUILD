@@ -483,6 +483,7 @@ java_library(
         ":build-info",
         ":collect",
         ":common",
+        ":concurrent",
         ":events",
         ":ideinfo",
         ":java-rules",

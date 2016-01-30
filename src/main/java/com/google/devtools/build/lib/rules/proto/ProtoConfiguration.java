@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -21,6 +22,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.common.options.Option;
 
 import java.util.List;
@@ -28,6 +30,7 @@ import java.util.List;
 /**
  * Configuration for Protocol Buffer Libraries.
  */
+@Immutable
 public class ProtoConfiguration extends Fragment {
 
   /**
@@ -71,16 +74,17 @@ public class ProtoConfiguration extends Fragment {
     }
   }
 
-  private final Options options;
+  private final boolean experimentalProtoExtraActions;
+  private final ImmutableList<String> protocOpts;
 
   public ProtoConfiguration(Options options) {
-    this.options = options;
+    this.experimentalProtoExtraActions = options.experimentalProtoExtraActions;
+    this.protocOpts = ImmutableList.copyOf(options.protocOpts);
   }
 
-  public List<String> protocOpts() {
-    return options.protocOpts;
+  public ImmutableList<String> protocOpts() {
+    return protocOpts;
   }
-
 
   /**
    * Returns true if we will run extra actions for actions that are not run by default. If this
@@ -88,6 +92,6 @@ public class ProtoConfiguration extends Fragment {
    * proto_library target are run.
    */
   public boolean runExperimentalProtoExtraActions() {
-    return options.experimentalProtoExtraActions;
+    return experimentalProtoExtraActions;
   }
 }

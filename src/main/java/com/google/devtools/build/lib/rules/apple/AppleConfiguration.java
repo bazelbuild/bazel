@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -24,10 +25,10 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFragmentFactor
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
 import com.google.devtools.build.lib.util.Preconditions;
 
-import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Nullable;
@@ -35,6 +36,7 @@ import javax.annotation.Nullable;
 /**
  * A configuration containing flags required for Apple platforms and tools.
  */
+@Immutable
 public class AppleConfiguration extends BuildConfiguration.Fragment {
   public static final String XCODE_VERSION_ENV_NAME = "XCODE_VERSION_OVERRIDE";
   /**
@@ -53,7 +55,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private final DottedVersion iosSdkVersion;
   private final String iosCpu;
   private final Optional<DottedVersion> xcodeVersion;
-  private final List<String> iosMultiCpus;
+  private final ImmutableList<String> iosMultiCpus;
   private final AppleBitcodeMode bitcodeMode;
   private final Label xcodeConfigLabel;
   @Nullable private final Label defaultProvisioningProfileLabel;
@@ -63,7 +65,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     this.iosSdkVersion = Preconditions.checkNotNull(appleOptions.iosSdkVersion, "iosSdkVersion");
     this.xcodeVersion = Preconditions.checkNotNull(xcodeVersionOverride);
     this.iosCpu = Preconditions.checkNotNull(appleOptions.iosCpu, "iosCpu");
-    this.iosMultiCpus = Preconditions.checkNotNull(appleOptions.iosMultiCpus, "iosMultiCpus");
+    this.iosMultiCpus = ImmutableList.copyOf(
+        Preconditions.checkNotNull(appleOptions.iosMultiCpus, "iosMultiCpus"));
     this.bitcodeMode = appleOptions.appleBitcodeMode;
     this.xcodeConfigLabel =
         Preconditions.checkNotNull(appleOptions.xcodeVersionConfig, "xcodeConfigLabel");
@@ -175,7 +178,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * List of all CPUs that this invocation is being built for. Different from {@link #getIosCpu()}
    * which is the specific CPU <b>this target</b> is being built for.
    */
-  public List<String> getIosMultiCpus() {
+  public ImmutableList<String> getIosMultiCpus() {
     return iosMultiCpus;
   }
 

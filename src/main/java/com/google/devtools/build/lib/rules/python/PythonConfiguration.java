@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.rules.python;
 
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 /**
  * The configuration fragment containing information about the various pieces of infrastructure
  * needed to run Python compilations.
  */
+@Immutable
 public class PythonConfiguration extends BuildConfiguration.Fragment {
   private final boolean ignorePythonVersionAttribute;
   private final PythonVersion defaultPythonVersion;

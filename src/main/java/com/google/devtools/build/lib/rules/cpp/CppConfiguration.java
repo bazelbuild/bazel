@@ -63,7 +63,6 @@ import com.google.protobuf.TextFormat.ParseException;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
@@ -212,18 +211,19 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   /**
    * Represents an optional flag that can be toggled using the package features mechanism.
    */
+  @Immutable
   @VisibleForTesting
   static class OptionalFlag implements Serializable {
     private final String name;
-    private final List<String> flags;
+    private final ImmutableList<String> flags;
 
     @VisibleForTesting
-    OptionalFlag(String name, List<String> flags) {
+    OptionalFlag(String name, ImmutableList<String> flags) {
       this.name = name;
       this.flags = flags;
     }
 
-    private List<String> getFlags() {
+    private ImmutableList<String> getFlags() {
       return flags;
     }
 
@@ -232,23 +232,24 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
+  @Immutable
   @VisibleForTesting
   static class FlagList implements Serializable {
-    private List<String> prefixFlags;
-    private List<OptionalFlag> optionalFlags;
-    private List<String> suffixFlags;
+    private final ImmutableList<String> prefixFlags;
+    private final ImmutableList<OptionalFlag> optionalFlags;
+    private final ImmutableList<String> suffixFlags;
 
     @VisibleForTesting
-    FlagList(List<String> prefixFlags,
-                      List<OptionalFlag> optionalFlags,
-                      List<String> suffixFlags) {
+    FlagList(ImmutableList<String> prefixFlags,
+        ImmutableList<OptionalFlag> optionalFlags,
+        ImmutableList<String> suffixFlags) {
       this.prefixFlags = prefixFlags;
       this.optionalFlags = optionalFlags;
       this.suffixFlags = suffixFlags;
     }
 
     @VisibleForTesting
-    List<String> evaluate(Iterable<String> features) {
+    ImmutableList<String> evaluate(Iterable<String> features) {
       ImmutableSet<String> featureSet = ImmutableSet.copyOf(features);
       ImmutableList.Builder<String> result = ImmutableList.builder();
       result.addAll(prefixFlags);
@@ -312,7 +313,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final PathFragment ldExecutable;
 
   // Only used during construction.
-  private final List<String> commonLinkOptions;
+  private final ImmutableList<String> commonLinkOptions;
   private final ListMultimap<CompilationMode, String> linkOptionsFromCompilationMode;
   private final ListMultimap<LipoMode, String> linkOptionsFromLipoMode;
   private final ListMultimap<LinkingMode, String> linkOptionsFromLinkingMode;
@@ -320,23 +321,23 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final FlagList compilerFlags;
   private final FlagList cxxFlags;
   private final FlagList unfilteredCompilerFlags;
-  private final List<String> cOptions;
+  private final ImmutableList<String> cOptions;
 
-  private FlagList fullyStaticLinkFlags;
-  private FlagList mostlyStaticLinkFlags;
-  private FlagList mostlyStaticSharedLinkFlags;
-  private FlagList dynamicLinkFlags;
-  private FlagList dynamicLibraryLinkFlags;
-  private final List<String> testOnlyLinkFlags;
+  private final FlagList fullyStaticLinkFlags;
+  private final FlagList mostlyStaticLinkFlags;
+  private final FlagList mostlyStaticSharedLinkFlags;
+  private final FlagList dynamicLinkFlags;
+  private final FlagList dynamicLibraryLinkFlags;
+  private final ImmutableList<String> testOnlyLinkFlags;
 
-  private final List<String> linkOptions;
+  private final ImmutableList<String> linkOptions;
 
-  private final List<String> objcopyOptions;
-  private final List<String> ldOptions;
-  private final List<String> arOptions;
-  private final List<String> arThinArchivesOptions;
+  private final ImmutableList<String> objcopyOptions;
+  private final ImmutableList<String> ldOptions;
+  private final ImmutableList<String> arOptions;
+  private final ImmutableList<String> arThinArchivesOptions;
 
-  private final Map<String, String> additionalMakeVariables;
+  private final ImmutableMap<String, String> additionalMakeVariables;
 
   private final CppOptions cppOptions;
 
@@ -515,7 +516,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     dynamicLibraryLinkFlags = new FlagList(
         ImmutableList.copyOf(toolchain.getDynamicLibraryLinkerFlagList()),
         convertOptionalOptions(toolchain.getOptionalDynamicLibraryLinkerFlagList()),
-        Collections.<String>emptyList());
+        ImmutableList.<String>of());
     this.objcopyOptions = ImmutableList.copyOf(toolchain.getObjcopyEmbedFlagList());
     this.ldOptions = ImmutableList.copyOf(toolchain.getLdEmbedFlagList());
     this.arOptions = copyOrDefaultIfEmpty(toolchain.getArFlagList(), "rcsD");
@@ -582,7 +583,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     unfilteredCompilerFlags = new FlagList(
         unfilteredCoptsBuilder.build(),
         convertOptionalOptions(toolchain.getOptionalUnfilteredCxxFlagList()),
-        Collections.<String>emptyList());
+        ImmutableList.<String>of());
 
     ImmutableList.Builder<String> linkoptsBuilder = ImmutableList.builder();
     linkoptsBuilder.addAll(cppOptions.linkoptList);
@@ -606,7 +607,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.compilerFlags = new FlagList(
         coptsBuilder.build(),
         convertOptionalOptions(toolchain.getOptionalCompilerFlagList()),
-        cppOptions.coptList);
+        ImmutableList.copyOf(cppOptions.coptList));
 
     this.cOptions = ImmutableList.copyOf(cppOptions.conlyoptList);
 
@@ -618,7 +619,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.cxxFlags = new FlagList(
         cxxOptsBuilder.build(),
         convertOptionalOptions(toolchain.getOptionalCxxFlagList()),
-        cppOptions.cxxoptList);
+        ImmutableList.copyOf(cppOptions.cxxoptList));
 
     this.ldExecutable = getToolPathFragment(CppConfiguration.Tool.LD);
 
@@ -631,22 +632,22 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         configureLinkerOptions(compilationMode, lipoMode, LinkingMode.FULLY_STATIC,
                                ldExecutable, stripBinaries),
         convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
-        Collections.<String>emptyList());
+        ImmutableList.<String>of());
     mostlyStaticLinkFlags = new FlagList(
         configureLinkerOptions(compilationMode, lipoMode, LinkingMode.MOSTLY_STATIC,
                                ldExecutable, stripBinaries),
         convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
-        Collections.<String>emptyList());
+        ImmutableList.<String>of());
     mostlyStaticSharedLinkFlags = new FlagList(
         configureLinkerOptions(compilationMode, lipoMode,
                                LinkingMode.MOSTLY_STATIC_LIBRARIES, ldExecutable, stripBinaries),
         convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
-        Collections.<String>emptyList());
+        ImmutableList.<String>of());
     dynamicLinkFlags = new FlagList(
         configureLinkerOptions(compilationMode, lipoMode, LinkingMode.DYNAMIC,
                                ldExecutable, stripBinaries),
         convertOptionalOptions(toolchain.getOptionalLinkerFlagList()),
-        Collections.<String>emptyList());
+        ImmutableList.<String>of());
     testOnlyLinkFlags = ImmutableList.copyOf(toolchain.getTestOnlyLinkerFlagList());
 
     Map<String, String> makeVariablesBuilder = new HashMap<>();
@@ -665,10 +666,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     this.additionalMakeVariables = ImmutableMap.copyOf(makeVariablesBuilder);
   }
 
-  private List<OptionalFlag> convertOptionalOptions(
+  private ImmutableList<OptionalFlag> convertOptionalOptions(
           List<CrosstoolConfig.CToolchain.OptionalFlag> optionalFlagList)
       throws IllegalArgumentException {
-    List<OptionalFlag> result = new ArrayList<>();
+    ImmutableList.Builder<OptionalFlag> result = ImmutableList.builder();
 
     for (CrosstoolConfig.CToolchain.OptionalFlag crosstoolOptionalFlag : optionalFlagList) {
       String name = crosstoolOptionalFlag.getDefaultSettingName();
@@ -677,7 +678,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
           ImmutableList.copyOf(crosstoolOptionalFlag.getFlagList())));
     }
 
-    return result;
+    return result.build();
   }
 
   // TODO(bazel-team): Remove this once bazel supports all crosstool flags through
@@ -928,7 +929,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   @VisibleForTesting
-  List<String> configureLinkerOptions(
+  ImmutableList<String> configureLinkerOptions(
       CompilationMode compilationMode, LipoMode lipoMode, LinkingMode linkingMode,
       PathFragment ldExecutable, boolean stripBinaries) {
     List<String> result = new ArrayList<>();
@@ -1155,7 +1156,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns the ar flags to be used.
    */
-  public List<String> getArFlags(boolean thinArchives) {
+  public ImmutableList<String> getArFlags(boolean thinArchives) {
     return thinArchives ? arThinArchivesOptions : arOptions;
   }
 
@@ -1214,7 +1215,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             + "There may be additional C-specific or C++-specific options that should be used, "
             + "in addition to the ones returned by this method"
   )
-  public List<String> getCompilerOptions(Iterable<String> features) {
+  public ImmutableList<String> getCompilerOptions(Iterable<String> features) {
     return compilerFlags.evaluate(features);
   }
 
@@ -1227,7 +1228,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       doc = "Returns the list of additional C-specific options to use for compiling C. "
       + "These should be go on the command line after the common options returned by "
       + "<code>compiler_options</code>")
-  public List<String> getCOptions() {
+  public ImmutableList<String> getCOptions() {
     return cOptions;
   }
 
@@ -1243,7 +1244,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             + "These should be go on the command line after the common options returned by "
             + "<code>compiler_options</code>"
   )
-  public List<String> getCxxOptions(Iterable<String> features) {
+  public ImmutableList<String> getCxxOptions(Iterable<String> features) {
     return cxxFlags.evaluate(features);
   }
 
@@ -1257,7 +1258,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
         "Returns the default list of options which cannot be filtered by BUILD "
             + "rules. These should be appended to the command line after filtering."
   )
-  public List<String> getUnfilteredCompilerOptions(Iterable<String> features) {
+  public ImmutableList<String> getUnfilteredCompilerOptions(Iterable<String> features) {
     return unfilteredCompilerFlags.evaluate(features);
   }
 
@@ -1271,7 +1272,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   @SkylarkCallable(name = "link_options", structField = true,
       doc = "Returns the set of command-line linker options, including any flags "
       + "inferred from the command-line options.")
-  public List<String> getLinkOptions() {
+  public ImmutableList<String> getLinkOptions() {
     return linkOptions;
   }
 
@@ -1290,7 +1291,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             + "outputs. Does not include command-line options passed via --linkopt or "
             + "--linkopts."
   )
-  public List<String> getFullyStaticLinkOptions(Iterable<String> features, Boolean sharedLib) {
+  public ImmutableList<String> getFullyStaticLinkOptions(Iterable<String> features,
+      Boolean sharedLib) {
     if (sharedLib) {
       return getSharedLibraryLinkOptions(mostlyStaticLinkFlags, features);
     } else {
@@ -1313,7 +1315,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             + "outputs. Does not include command-line options passed via --linkopt or "
             + "--linkopts."
   )
-  public List<String> getMostlyStaticLinkOptions(Iterable<String> features, Boolean sharedLib) {
+  public ImmutableList<String> getMostlyStaticLinkOptions(Iterable<String> features,
+      Boolean sharedLib) {
     if (sharedLib) {
       return getSharedLibraryLinkOptions(
           supportsEmbeddedRuntimes ? mostlyStaticSharedLinkFlags : dynamicLinkFlags,
@@ -1338,7 +1341,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
             + "fully or mostly statically linked. Does not include command-line options "
             + "passed via --linkopt or --linkopts."
   )
-  public List<String> getDynamicLinkOptions(Iterable<String> features, Boolean sharedLib) {
+  public ImmutableList<String> getDynamicLinkOptions(Iterable<String> features, Boolean sharedLib) {
     if (sharedLib) {
       return getSharedLibraryLinkOptions(dynamicLinkFlags, features);
     } else {
@@ -1350,7 +1353,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns link options for the specified flag list, combined with universal options
    * for all shared libraries (regardless of link staticness).
    */
-  private List<String> getSharedLibraryLinkOptions(FlagList flags, Iterable<String> features) {
+  private ImmutableList<String> getSharedLibraryLinkOptions(FlagList flags,
+      Iterable<String> features) {
     return ImmutableList.<String>builder()
         .addAll(flags.evaluate(features))
         .addAll(dynamicLibraryLinkFlags.evaluate(features))
@@ -1361,7 +1365,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns test-only link options such that certain test-specific features can be configured
    * separately (e.g. lazy binding).
    */
-  public List<String> getTestOnlyLinkOptions() {
+  public ImmutableList<String> getTestOnlyLinkOptions() {
     return testOnlyLinkFlags;
   }
 
@@ -1371,7 +1375,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * binary files to object files, or {@code null} if this operation is not
    * supported.
    */
-  public List<String> getObjCopyOptionsForEmbedding() {
+  public ImmutableList<String> getObjCopyOptionsForEmbedding() {
     return objcopyOptions;
   }
 
@@ -1380,7 +1384,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * binary files to object files, or {@code null} if this operation is not
    * supported.
    */
-  public List<String> getLdOptionsForEmbedding() {
+  public ImmutableList<String> getLdOptionsForEmbedding() {
     return ldOptions;
   }
 
@@ -1393,7 +1397,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * though the entry may be an empty string.
    */
   @VisibleForTesting
-  public Map<String, String> getAdditionalMakeVariables() {
+  public ImmutableMap<String, String> getAdditionalMakeVariables() {
     return additionalMakeVariables;
   }
 
@@ -1483,8 +1487,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns the additional options to pass to strip when generating a
    * {@code <name>.stripped} binary by this build.
    */
-  public List<String> getStripOpts() {
-    return cppOptions.stripoptList;
+  public ImmutableList<String> getStripOpts() {
+    return ImmutableList.copyOf(cppOptions.stripoptList);
   }
 
   /**
@@ -1498,8 +1502,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns the {@link PerLabelOptions} to apply to the gcc command line, if
    * the label of the compiled file matches the regular expression.
    */
-  public List<PerLabelOptions> getPerFileCopts() {
-    return cppOptions.perFileCopts;
+  public ImmutableList<PerLabelOptions> getPerFileCopts() {
+    return ImmutableList.copyOf(cppOptions.perFileCopts);
   }
 
   public Label getLipoContextLabel() {
@@ -1516,8 +1520,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns the extra warnings enabled for C compilation.
    */
-  public List<String> getCWarns() {
-    return cppOptions.cWarns;
+  public ImmutableList<String> getCWarns() {
+    return ImmutableList.copyOf(cppOptions.cWarns);
   }
 
   /**

@@ -121,6 +121,10 @@ public final class BuildConfiguration {
 
   /**
    * An interface for language-specific configurations.
+   *
+   * <p>All implementations must be immutable and communicate this as clearly as possible
+   * (e.g. declare {@link ImmutableList} signatures on their interfaces vs. {@link List}).
+   * This is because fragment instances may be shared across configurations.
    */
   public abstract static class Fragment {
     /**
@@ -155,6 +159,8 @@ public final class BuildConfiguration {
      * analysis. During the analysis phase disk I/O operations are disallowed.
      *
      * <p>This hook is called for all configurations after the loading phase is complete.
+     *
+     * <p>Do not use this method to change your fragment's state.
      */
     @SuppressWarnings("unused")
     public void prepareHook(Path execPath, ArtifactFactory artifactFactory,

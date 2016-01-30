@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -34,6 +35,7 @@ import javax.annotation.Nullable;
 /**
  * A compiler configuration containing flags required for Objective-C compilation.
  */
+@Immutable
 public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @VisibleForTesting
   static final ImmutableList<String> DBG_COPTS = ImmutableList.of("-O0", "-DDEBUG=1",
@@ -50,10 +52,10 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final String iosSimulatorDevice;
   private final boolean generateDebugSymbols;
   private final boolean runMemleaks;
-  private final List<String> copts;
+  private final ImmutableList<String> copts;
   private final CompilationMode compilationMode;
   private final String iosSplitCpu;
-  private final List<String> fastbuildOptions;
+  private final ImmutableList<String> fastbuildOptions;
   private final boolean enableBinaryStripping;
   private final boolean moduleMapsEnabled;
   private final ConfigurationDistinguisher configurationDistinguisher;
@@ -124,7 +126,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns the default set of clang options for the current compilation mode.
    */
-  public List<String> getCoptsForCompilationMode() {
+  public ImmutableList<String> getCoptsForCompilationMode() {
     switch (compilationMode) {
       case DBG:
         return DBG_COPTS;
@@ -141,7 +143,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    * Returns options passed to (Apple) clang when compiling Objective C. These options should be
    * applied after any default options but before options specified in the attributes of the rule.
    */
-  public List<String> getCopts() {
+  public ImmutableList<String> getCopts() {
     return copts;
   }
 
