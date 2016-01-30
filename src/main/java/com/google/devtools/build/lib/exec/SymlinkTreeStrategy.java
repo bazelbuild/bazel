@@ -46,7 +46,9 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
       ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
-    try (AutoProfiler p = AutoProfiler.logged("running " + action.prettyPrint(), LOG)) {
+    try (AutoProfiler p =
+            AutoProfiler.logged(
+                "running " + action.prettyPrint(), LOG, /*minTimeForLoggingInMilliseconds=*/ 100)) {
       try {
         SymlinkTreeHelper helper = new SymlinkTreeHelper(
             action.getInputManifest().getExecPath(),

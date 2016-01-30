@@ -48,7 +48,9 @@ public final class FileWriteStrategy implements FileWriteActionContext {
   public void exec(Executor executor, AbstractFileWriteAction action, FileOutErr outErr,
       ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException {
     EventHandler reporter = executor == null ? null : executor.getEventHandler();
-    try (AutoProfiler p = AutoProfiler.logged("running " + action.prettyPrint(), LOG)) {
+    try (AutoProfiler p =
+            AutoProfiler.logged(
+                "running " + action.prettyPrint(), LOG, /*minTimeForLoggingInMilliseconds=*/ 100)) {
       try {
         Path outputPath = Iterables.getOnlyElement(action.getOutputs()).getPath();
         try (OutputStream out = new BufferedOutputStream(outputPath.getOutputStream())) {
