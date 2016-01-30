@@ -714,11 +714,11 @@ public abstract class SkylarkType implements Serializable {
    * Converts an object to a Skylark-compatible type if possible.
    */
   public static Object convertToSkylark(Object object, @Nullable Environment env) {
+    if (object instanceof List && !(object instanceof SkylarkList)) {
+      return new MutableList<>((List<?>) object, env);
+    }
     if (object instanceof SkylarkValue) {
       return object;
-    }
-    if (object instanceof List) {
-      return new MutableList<>((List<?>) object, env);
     }
     if (object instanceof Map) {
       return SkylarkDict.<Object, Object>copyOf(env, (Map<?, ?>) object);
