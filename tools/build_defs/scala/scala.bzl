@@ -168,7 +168,7 @@ def _scala_binary_common(ctx, cjars, rjars):
   _compile(ctx, cjars, False)
 
   runfiles = ctx.runfiles(
-      files = list(rjars) + [ctx.outputs.executable] + [ctx.file._java],
+      files = list(rjars) + [ctx.outputs.executable] + [ctx.file._java] + ctx.files._jdk,
       collect_data = True)
   return struct(
       files=set([ctx.outputs.executable]),
