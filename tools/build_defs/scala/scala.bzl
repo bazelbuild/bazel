@@ -1,4 +1,5 @@
 # Copyright 2015 The Bazel Authors. All rights reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -79,6 +80,7 @@ def _write_manifest(ctx):
   ctx.file_action(
       output = ctx.outputs.manifest,
       content = manifest)
+
 
 def _write_launcher(ctx, jars):
   content = """#!/bin/bash
