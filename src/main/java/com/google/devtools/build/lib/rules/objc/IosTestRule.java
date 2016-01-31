@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
@@ -47,6 +47,10 @@ import java.util.List;
  */
 public class IosTestRule implements RuleDefinition {
 
+  private static final ImmutableList<Label> GCOV =
+      ImmutableList.of(
+          Label.parseAbsoluteUnchecked(Constants.TOOLS_REPOSITORY + "//tools/objc:gcov"));
+
   @Override
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
     return builder
@@ -64,7 +68,6 @@ public class IosTestRule implements RuleDefinition {
             ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
         /* <!-- #BLAZE_RULE(ios_test ).ATTRIBUTE(target_device) -->
         The device against which to run the test.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr(IosTest.TARGET_DEVICE, LABEL)
@@ -74,19 +77,17 @@ public class IosTestRule implements RuleDefinition {
                     env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc/sim_devices:default")))
         /* <!-- #BLAZE_RULE(ios_test ).ATTRIBUTE(xctest) -->
         Whether this target contains tests using the XCTest testing framework.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(IosTest.IS_XCTEST, BOOLEAN).value(true))
         /* <!-- #BLAZE_RULE(ios_test ).ATTRIBUTE(xctest_app) -->
         A <code>objc_binary</code> or <code>ios_application</code> target that contains the
         app bundle to test against in XCTest.
         This attribute is only valid if <code>xctest</code> is true.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr(IosTest.XCTEST_APP, LABEL)
                 .value(
-                    new Attribute.ComputedDefault(IosTest.IS_XCTEST) {
+                    new ComputedDefault(IosTest.IS_XCTEST) {
                       @Override
                       public Object getDefault(AttributeMap rule) {
                         return rule.get(IosTest.IS_XCTEST, Type.BOOLEAN)
@@ -103,7 +104,7 @@ public class IosTestRule implements RuleDefinition {
         .override(
             attr("infoplist", LABEL)
                 .value(
-                    new Attribute.ComputedDefault(IosTest.IS_XCTEST) {
+                    new ComputedDefault(IosTest.IS_XCTEST) {
                       @Override
                       public Object getDefault(AttributeMap rule) {
                         return rule.get(IosTest.IS_XCTEST, Type.BOOLEAN)
@@ -118,7 +119,6 @@ public class IosTestRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(ios_test).ATTRIBUTE(ios_test_target_device) -->
         The device against how to run the test. If this attribute is defined, the test will run on
         the lab device. Otherwise, the test will run on simulator.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr("ios_test_target_device", LABEL)
@@ -128,12 +128,10 @@ public class IosTestRule implements RuleDefinition {
         Extra arguments to pass to the <code>ios_test_target_device</code>'s binary. They should be
         in the form KEY=VALUE or simply KEY (check your device's documentation for allowed
         parameters).
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("ios_device_arg", STRING_LIST))
         /* <!-- #BLAZE_RULE(ios_test).ATTRIBUTE(plugins) -->
         Plugins to pass to the test runner.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("plugins", LABEL_LIST).allowedFileTypes(FileType.of("_deploy.jar")))
         .add(
@@ -154,16 +152,13 @@ public class IosTestRule implements RuleDefinition {
             attr(":gcov", LABEL_LIST)
                 .cfg(HOST)
                 .value(
-                    new LateBoundLabelList<BuildConfiguration>() {
+                    new LateBoundLabelList<BuildConfiguration>(GCOV) {
                       @Override
                       public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
                         if (!configuration.isCodeCoverageEnabled()) {
                           return ImmutableList.of();
                         }
-                        return ImmutableList.of(
-                            configuration
-                                .getFragment(ObjcConfiguration.class)
-                                .getGcovLabel());
+                        return GCOV;
                       }
                     }))
         .build();
@@ -189,12 +184,8 @@ public class IosTestRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = ios_test, TYPE = TEST, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule provides a way to build iOS unit tests written in KIF, GTM and XCTest test frameworks
 on both iOS simulator and real devices.
 </p>
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

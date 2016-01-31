@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.cmdline.LabelValidator.PackageAndTarget;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
 import com.google.devtools.build.lib.util.BatchCallback;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -144,9 +143,9 @@ public abstract class TargetPattern implements Serializable {
    * Evaluates the current target pattern and returns the result.
    */
   public <T, E extends Exception> void eval(
-      TargetPatternResolver<T> resolver, BatchCallback<T, E> callback)
+      TargetPatternResolver<T> resolver, BatchCallback<T, E> callback, Class<E> exceptionClass)
       throws TargetParsingException, E, InterruptedException {
-    eval(resolver, ImmutableSet.<PathFragment>of(), callback);
+    eval(resolver, ImmutableSet.<PathFragment>of(), callback, exceptionClass);
   }
 
   /**
@@ -159,7 +158,7 @@ public abstract class TargetPattern implements Serializable {
   public abstract <T, E extends Exception> void eval(
       TargetPatternResolver<T> resolver,
       ImmutableSet<PathFragment> excludedSubdirectories,
-      BatchCallback<T, E> callback)
+      BatchCallback<T, E> callback, Class<E> exceptionClass)
       throws TargetParsingException, E, InterruptedException;
 
   /**
@@ -211,7 +210,7 @@ public abstract class TargetPattern implements Serializable {
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> excludedSubdirectories,
-        BatchCallback<T, E> callback)
+        BatchCallback<T, E> callback, Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
       Preconditions.checkArgument(excludedSubdirectories.isEmpty(),
           "Target pattern \"%s\" of type %s cannot be evaluated with excluded subdirectories: %s.",
@@ -265,7 +264,7 @@ public abstract class TargetPattern implements Serializable {
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> excludedSubdirectories,
-        BatchCallback<T, E> callback)
+        BatchCallback<T, E> callback, Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
       Preconditions.checkArgument(excludedSubdirectories.isEmpty(),
           "Target pattern \"%s\" of type %s cannot be evaluated with excluded subdirectories: %s.",
@@ -354,7 +353,7 @@ public abstract class TargetPattern implements Serializable {
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> excludedSubdirectories,
-        BatchCallback<T, E> callback)
+        BatchCallback<T, E> callback, Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
       Preconditions.checkArgument(excludedSubdirectories.isEmpty(),
           "Target pattern \"%s\" of type %s cannot be evaluated with excluded subdirectories: %s.",
@@ -464,7 +463,7 @@ public abstract class TargetPattern implements Serializable {
     public <T, E extends Exception> void eval(
         TargetPatternResolver<T> resolver,
         ImmutableSet<PathFragment> excludedSubdirectories,
-        BatchCallback<T, E> callback)
+        BatchCallback<T, E> callback, Class<E> exceptionClass)
         throws TargetParsingException, E, InterruptedException {
       resolver.findTargetsBeneathDirectory(
           directory.getRepository(),
@@ -472,7 +471,8 @@ public abstract class TargetPattern implements Serializable {
           directory.getPackageFragment().getPathString(),
           rulesOnly,
           excludedSubdirectories,
-          callback);
+          callback,
+          exceptionClass);
     }
 
     @Override

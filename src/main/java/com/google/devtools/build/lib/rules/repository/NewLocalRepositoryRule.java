@@ -34,14 +34,12 @@ public class NewLocalRepositoryRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE(new_local_repository).ATTRIBUTE(path) -->
         A path on the local filesystem.
-        ${SYNOPSIS}
 
         <p>This must be an absolute path to an existing file or a directory.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("path", STRING).mandatory())
         /* <!-- #BLAZE_RULE(new_local_repository).ATTRIBUTE(build_file) -->
         A file to use as a BUILD file for this directory.
-        ${SYNOPSIS}
 
         <p>This path is relative to the build's workspace. The file does not need to be named
         BUILD, but can be (something like BUILD.new-repo-name may work well for distinguishing it
@@ -64,16 +62,12 @@ public class NewLocalRepositoryRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = new_local_repository, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>Allows a local directory to be turned into a Bazel repository. This means that the current
   repository can define and use targets from anywhere on the filesystem.</p>
 
 <p>This rule creates a Bazel repository by creating a WORKSPACE file and subdirectory containing
 symlinks to the BUILD file and path given.  The build file should create targets relative to the
 <code>path</code>.
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="new_local_repository_examples">Examples</h4>
 

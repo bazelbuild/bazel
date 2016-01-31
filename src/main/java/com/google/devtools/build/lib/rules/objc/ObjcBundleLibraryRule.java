@@ -52,12 +52,8 @@ public class ObjcBundleLibraryRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = objc_bundle_library, TYPE = LIBRARY, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule encapsulates a library which is provided to dependers as a bundle.
 A <code>objc_bundle_library</code>'s resources are put in a nested bundle in
 the final iOS application.
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

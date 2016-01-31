@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider.ExtraArtifactSet;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -471,17 +470,16 @@ public class BuildView {
                   skylarkFunctionName));
         }
       } else {
-        @SuppressWarnings("unchecked")
         final Class<? extends ConfiguredNativeAspectFactory> aspectFactoryClass =
-            (Class<? extends ConfiguredNativeAspectFactory>)
-                ruleClassProvider.getAspectFactoryMap().get(aspect);
+            ruleClassProvider.getAspectFactoryMap().get(aspect)
+                .asSubclass(ConfiguredNativeAspectFactory.class);
         if (aspectFactoryClass != null) {
           for (ConfiguredTargetKey targetSpec : targetSpecs) {
             aspectKeys.add(
                 AspectValue.createAspectKey(
                     targetSpec.getLabel(),
                     targetSpec.getConfiguration(),
-                    new NativeAspectClass(aspectFactoryClass)));
+                    new NativeAspectClass<ConfiguredNativeAspectFactory>(aspectFactoryClass)));
           }
         } else {
           throw new ViewCreationFailedException("Aspect '" + aspect + "' is unknown");
@@ -509,7 +507,6 @@ public class BuildView {
 
     int numTargetsToAnalyze = nodes.size();
     int numSuccessful = skyframeAnalysisResult.getConfiguredTargets().size();
-    boolean analysisSuccessful = (numSuccessful == numTargetsToAnalyze);
     if (0 < numSuccessful && numSuccessful < numTargetsToAnalyze) {
       String msg = String.format("Analysis succeeded for only %d of %d top-level targets",
                                     numSuccessful, numTargetsToAnalyze);
@@ -517,6 +514,7 @@ public class BuildView {
       LOG.info(msg);
     }
 
+    boolean analysisSuccessful = !skyframeAnalysisResult.hasError();
     AnalysisResult result =
         createResult(
             eventHandler,
@@ -763,7 +761,10 @@ public class BuildView {
         skyframeExecutor.getConfiguredTargets(
             eventHandler,
             configuration,
-            ImmutableList.of(new Dependency(label, configuration)),
+            ImmutableList.of(
+                configuration != null
+                    ? Dependency.withConfiguration(label, configuration)
+                    : Dependency.withNullConfiguration(label)),
             true),
         null);
   }
@@ -799,6 +800,11 @@ public class BuildView {
 
       @Override
       protected void invalidPackageGroupReferenceHook(TargetAndConfiguration node, Label label) {
+        // The error must have been reported already during analysis.
+      }
+
+      @Override
+      protected void missingEdgeHook(Target from, Label to, NoSuchThingException e) {
         // The error must have been reported already during analysis.
       }
 
@@ -857,12 +863,19 @@ public class BuildView {
     class SilentDependencyResolver extends DependencyResolver {
       @Override
       protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
-        // The error must have been reported already during analysis.
+        throw new RuntimeException("bad visibility on " + label + " during testing unexpected");
       }
 
       @Override
       protected void invalidPackageGroupReferenceHook(TargetAndConfiguration node, Label label) {
-        // The error must have been reported already during analysis.
+        throw new RuntimeException("bad package group on " + label + " during testing unexpected");
+      }
+
+      @Override
+      protected void missingEdgeHook(Target from, Label to, NoSuchThingException e) {
+        throw new RuntimeException(
+            "missing dependency from " + from.getLabel() + " to " + to + ": " + e.getMessage(),
+            e);
       }
 
       @Override

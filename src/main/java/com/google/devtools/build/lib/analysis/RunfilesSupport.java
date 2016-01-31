@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
-import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -112,9 +111,11 @@ public class RunfilesSupport {
       throw new IllegalStateException("main program " + executable + " not included in runfiles");
     }
 
+    Artifact artifactsMiddleman = createArtifactsMiddleman(ruleContext, runfiles.getAllArtifacts());
     runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext);
-    this.runfilesManifest = createRunfilesAction(ruleContext, runfiles);
-    this.runfilesMiddleman = createRunfilesMiddleman(ruleContext, runfiles.getAllArtifacts());
+    this.runfilesManifest = createRunfilesAction(ruleContext, runfiles, artifactsMiddleman);
+    this.runfilesMiddleman = createRunfilesMiddleman(
+        ruleContext, artifactsMiddleman, runfilesManifest);
     sourcesManifest = createSourceManifest(ruleContext, runfiles);
 
     args = ImmutableList.<String>builder()
@@ -247,15 +248,19 @@ public class RunfilesSupport {
     return sourcesManifest;
   }
 
-  private Artifact createRunfilesMiddleman(ActionConstructionContext context,
+  private Artifact createArtifactsMiddleman(ActionConstructionContext context,
       Iterable<Artifact> allRunfilesArtifacts) {
-    Iterable<Artifact> inputs = IterablesChain.<Artifact>builder()
-        .add(allRunfilesArtifacts)
-        .addElement(runfilesManifest)
-        .build();
     return context.getAnalysisEnvironment().getMiddlemanFactory().createRunfilesMiddleman(
-        context.getActionOwner(), owningExecutable, inputs,
-        context.getConfiguration().getMiddlemanDirectory());
+        context.getActionOwner(), owningExecutable, allRunfilesArtifacts,
+        context.getConfiguration().getMiddlemanDirectory(), "runfiles_artifacts");
+  }
+
+  private Artifact createRunfilesMiddleman(ActionConstructionContext context,
+      Artifact artifactsMiddleman, Artifact outputManifest) {
+    return context.getAnalysisEnvironment().getMiddlemanFactory().createRunfilesMiddleman(
+        context.getActionOwner(), owningExecutable,
+        ImmutableList.of(artifactsMiddleman, outputManifest),
+        context.getConfiguration().getMiddlemanDirectory(), "runfiles");
   }
 
   /**
@@ -267,7 +272,8 @@ public class RunfilesSupport {
    * generated files, etc.) into a single tree, so that programs can access them
    * using the workspace-relative name.
    */
-  private Artifact createRunfilesAction(ActionConstructionContext context, Runfiles runfiles) {
+  private Artifact createRunfilesAction(ActionConstructionContext context, Runfiles runfiles,
+      Artifact artifactsMiddleman) {
     // Compute the names of the runfiles directory and its MANIFEST file.
     Artifact inputManifest = getRunfilesInputManifest();
     context.getAnalysisEnvironment().registerAction(
@@ -287,7 +293,8 @@ public class RunfilesSupport {
     Artifact outputManifest = context.getDerivedArtifact(
         outputManifestPath, config.getBinDirectory());
     context.getAnalysisEnvironment().registerAction(new SymlinkTreeAction(
-        context.getActionOwner(), inputManifest, outputManifest, /*filesetTree=*/false));
+        context.getActionOwner(), inputManifest, artifactsMiddleman, outputManifest,
+        /*filesetTree=*/false));
     return outputManifest;
   }
 

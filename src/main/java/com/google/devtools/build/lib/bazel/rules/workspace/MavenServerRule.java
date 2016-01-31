@@ -37,7 +37,6 @@ public class MavenServerRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE(maven_server).ATTRIBUTE(url) -->
         A URL for accessing the server.
-        ${SYNOPSIS}
 
         <p>For example, Maven Central (which is the default and does not need to be defined) would
         be specified as <code>url = "http://central.maven.org/maven2/"</code>.</p>
@@ -47,7 +46,6 @@ public class MavenServerRule implements RuleDefinition {
         A path to a settings.xml file.  Used for testing. If unspecified, this defaults to using
         <code>$M2_HOME/conf/settings.xml</code> for the global settings and
         <code>$HOME/.m2/settings.xml</code> for the user settings.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("settings_file", Type.STRING))
         .setWorkspaceOnly()
@@ -66,11 +64,7 @@ public class MavenServerRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = maven_server, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>How to access a Maven repository.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <p>This is a combination of a &lt;repository&gt; definition from a pom.xml file and a
 &lt;server&lt; definition from a settings.xml file.</p>

@@ -267,7 +267,8 @@ public class Package {
 
   private static Path getSourceRoot(Path buildFile, PathFragment packageFragment) {
     Path current = buildFile.getParentDirectory();
-    for (int i = 0, len = packageFragment.segmentCount(); i < len && current != null; i++) {
+    for (int i = 0, len = packageFragment.segmentCount();
+         i < len && !packageFragment.equals(PathFragment.EMPTY_FRAGMENT); i++) {
       current = current.getParentDirectory();
     }
     return current;
@@ -483,7 +484,7 @@ public class Package {
    * <p>Package-private to encourage callers to get their workspace name from a rule, not a
    * package.</p>
    */
-  String getWorkspaceName() {
+  public String getWorkspaceName() {
     return workspaceName;
   }
 

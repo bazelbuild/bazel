@@ -57,7 +57,7 @@ def _pkg_tar_impl(ctx):
   # Compute the relative path
   data_path = _compute_data_path(ctx.outputs.out, ctx.attr.strip_prefix)
 
-  build_tar = ctx.executable._build_tar
+  build_tar = ctx.executable.build_tar
   args = [
       "--output=" + ctx.outputs.out.path,
       "--directory=" + ctx.attr.package_dir,
@@ -153,7 +153,7 @@ def _pkg_deb_impl(ctx):
   args += ["--recommends=" + d for d in ctx.attr.recommends]
 
   ctx.action(
-      executable = ctx.executable._make_deb,
+      executable = ctx.executable.make_deb,
       arguments = args,
       inputs = files,
       outputs = [ctx.outputs.deb, ctx.outputs.changes],
@@ -177,8 +177,8 @@ pkg_tar = rule(
         "extension": attr.string(default="tar"),
         "symlinks": attr.string_dict(),
         # Implicit dependencies.
-        "_build_tar": attr.label(
-            default=Label("//tools/build_defs/pkg:build_tar"),
+        "build_tar": attr.label(
+            default=Label("@bazel_tools//tools/build_defs/pkg:build_tar"),
             cfg=HOST_CFG,
             executable=True,
             allow_files=True)
@@ -216,8 +216,8 @@ pkg_deb = rule(
         "predepends": attr.string_list(default=[]),
         "recommends": attr.string_list(default=[]),
         # Implicit dependencies.
-        "_make_deb": attr.label(
-            default=Label("//tools/build_defs/pkg:make_deb"),
+        "make_deb": attr.label(
+            default=Label("@bazel_tools//tools/build_defs/pkg:make_deb"),
             cfg=HOST_CFG,
             executable=True,
             allow_files=True)

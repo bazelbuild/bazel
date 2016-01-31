@@ -1534,7 +1534,6 @@ public final class ParallelEvaluator implements Evaluator {
         bubbleErrorInfo);
     EvaluationResult.Builder<T> result = EvaluationResult.builder();
     List<SkyKey> cycleRoots = new ArrayList<>();
-    boolean hasError = false;
     for (SkyKey skyKey : skyKeys) {
       ValueWithMetadata valueWithMetadata = getValueMaybeFromError(skyKey, bubbleErrorInfo);
       // Cycle checking: if there is a cycle, evaluation cannot progress, therefore,
@@ -1544,7 +1543,6 @@ public final class ParallelEvaluator implements Evaluator {
         if (bubbleErrorInfo == null) {
           cycleRoots.add(skyKey);
         }
-        hasError = true;
         continue;
       }
       SkyValue value = valueWithMetadata.getValue();
@@ -1555,7 +1553,6 @@ public final class ParallelEvaluator implements Evaluator {
       replayingNestedSetEventVisitor.visit(valueWithMetadata.getTransitiveEvents());
       ErrorInfo errorInfo = valueWithMetadata.getErrorInfo();
       Preconditions.checkState(value != null || errorInfo != null, skyKey);
-      hasError = hasError || (errorInfo != null);
       if (!keepGoing && errorInfo != null) {
         // value will be null here unless the value was already built on a prior keepGoing build.
         result.addError(skyKey, errorInfo);
@@ -1574,9 +1571,6 @@ public final class ParallelEvaluator implements Evaluator {
       Preconditions.checkState(visitor != null, skyKeys);
       checkForCycles(cycleRoots, result, visitor, keepGoing);
     }
-    Preconditions.checkState(bubbleErrorInfo == null || hasError,
-        "If an error bubbled up, some top-level node must be in error", bubbleErrorInfo, skyKeys);
-    result.setHasError(hasError);
     if (catastrophe) {
       // We may not have a top-level node completed. Inform the caller of the catastrophic exception
       // that shut down the evaluation so that it has some context.
@@ -1591,7 +1585,14 @@ public final class ParallelEvaluator implements Evaluator {
           bubbleErrorInfo);
       result.setCatastrophe(errorInfo.getException());
     }
-    return result.build();
+    EvaluationResult<T> builtResult = result.build();
+    Preconditions.checkState(
+        bubbleErrorInfo == null || builtResult.hasError(),
+        "If an error bubbled up, some top-level node must be in error: %s %s %s",
+        bubbleErrorInfo,
+        skyKeys,
+        builtResult);
+    return builtResult;
   }
 
   private <T extends SkyValue> void checkForCycles(

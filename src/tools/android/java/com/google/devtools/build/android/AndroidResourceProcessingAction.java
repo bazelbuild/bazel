@@ -182,6 +182,13 @@ public class AndroidResourceProcessingAction {
         help = "Path for the proguard file.")
     public Path proguardOutput;
 
+    @Option(name = "manifestOutput",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        help = "Path for the modified manifest.")
+    public Path manifestOutput;
+
     @Option(name = "srcJarOutput",
         defaultValue = "null",
         converter = PathConverter.class,
@@ -352,7 +359,8 @@ public class AndroidResourceProcessingAction {
           working.resolve("manifest"),
           generatedSources,
           options.packagePath,
-          options.proguardOutput);
+          options.proguardOutput,
+          options.manifestOutput);
       LOGGER.fine(String.format("appt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       if (options.srcJarOutput != null) {
         resourceProcessor.createSrcJar(generatedSources, options.srcJarOutput,

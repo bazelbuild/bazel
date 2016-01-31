@@ -237,7 +237,7 @@ EOF
 
 function test_select_in_external_repo() {
   REMOTE=$TEST_TMPDIR/r
-  mkdir -p $REMOTE/a $REMOTE/c
+  mkdir -p $REMOTE/a $REMOTE/c d
 
   cat > $REMOTE/a/BUILD <<'EOF'
 genrule(
@@ -247,6 +247,8 @@ genrule(
     cmd = select({
       "//c:one": "echo one > $@",
       ":two": "echo two > $@",
+      "@//d:three": "echo three > $@",
+      "@//:four": "echo four > $@",
       "//conditions:default": "echo default > $@",
     }))
 
@@ -262,12 +264,26 @@ EOF
 local_repository(name="r", path="$REMOTE")
 EOF
 
+  cat > d/BUILD <<EOF
+package(default_visibility=["//visibility:public"])
+config_setting(name = "three", values = { "define": "ARG=three" })
+EOF
+
+  cat > BUILD <<EOF
+package(default_visibility=["//visibility:public"])
+config_setting(name = "four", values = { "define": "ARG=four" })
+EOF
+
   bazel build @r//a:gr || fail "build failed"
   assert_contains "default" bazel-genfiles/external/r/a/gro
   bazel build @r//a:gr --define=ARG=one|| fail "build failed"
   assert_contains "one" bazel-genfiles/external/r/a/gro
   bazel build @r//a:gr --define=ARG=two || fail "build failed"
   assert_contains "two" bazel-genfiles/external/r/a/gro
+  bazel build @r//a:gr --define=ARG=three || fail "build failed"
+  assert_contains "three" bazel-genfiles/external/r/a/gro
+  bazel build @r//a:gr --define=ARG=four || fail "build failed"
+  assert_contains "four" bazel-genfiles/external/r/a/gro
 
 }
 

@@ -185,7 +185,7 @@ function test_new_git_repository_submodules() {
   cd $WORKSPACE_DIR
   cat > WORKSPACE <<EOF
 new_git_repository(
-    name = "outer-planets",
+    name = "outer_planets",
     remote = "$outer_planets_repo_dir",
     tag = "1-submodule",
     init_submodules = 1,
@@ -213,16 +213,16 @@ sh_binary(
     name = "planet-info",
     srcs = ["planet_info.sh"],
     data = [
-        "@outer-planets//:neptune",
-        "@outer-planets//:pluto",
+        "@outer_planets//:neptune",
+        "@outer_planets//:pluto",
     ],
 )
 EOF
 
   cat > planets/planet_info.sh <<EOF
 #!/bin/bash
-cat external/outer-planets/neptune/info
-cat external/outer-planets/pluto/info
+cat external/outer_planets/neptune/info
+cat external/outer_planets/pluto/info
 EOF
   chmod +x planets/planet_info.sh
 

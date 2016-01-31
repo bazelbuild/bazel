@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.bazel.rules.java;
 
+import static com.google.common.base.Strings.isNullOrEmpty;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -109,11 +111,11 @@ public class BazelJavaSemantics implements JavaSemantics {
     boolean createExecutable = ruleContext.attributes().get("create_executable", Type.BOOLEAN);
     String mainClass = getMainClassInternal(ruleContext, javaCommon);
 
-    if (!createExecutable && !mainClass.isEmpty()) {
+    if (!createExecutable && !isNullOrEmpty(mainClass)) {
       ruleContext.ruleError("main class must not be specified when executable is not created");
     }
 
-    if (createExecutable && mainClass.isEmpty()) {
+    if (createExecutable && isNullOrEmpty(mainClass)) {
       if (javaCommon.getSrcsArtifacts().isEmpty()) {
         ruleContext.ruleError("need at least one of 'main_class' or Java source files");
       }

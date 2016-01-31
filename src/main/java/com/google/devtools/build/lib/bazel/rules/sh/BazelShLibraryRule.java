@@ -31,7 +31,6 @@ public final class BazelShLibraryRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE(sh_library).ATTRIBUTE(srcs) -->
         The list of input files.
-        ${SYNOPSIS}
         <p>
           This attribute should be used to list shell script source files that belong to
           this library. Scripts can load other scripts using the shell's <code>source</code>
@@ -53,8 +52,6 @@ public final class BazelShLibraryRule implements RuleDefinition {
 }
 
 /*<!-- #BLAZE_RULE (NAME = sh_library, TYPE = LIBRARY, FAMILY = Shell) -->
-
-${ATTRIBUTE_SIGNATURE}
 
 <p>
   The main use for this rule is to aggregate together a logical
@@ -81,8 +78,6 @@ ${ATTRIBUTE_SIGNATURE}
   All three attributes accept rules, source files and generated files.
   It is however good practice to use the attributes for their usual purpose (as with other rules).
 </p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="sh_library_examples">Examples</h4>
 

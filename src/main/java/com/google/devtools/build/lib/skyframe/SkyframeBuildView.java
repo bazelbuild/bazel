@@ -280,6 +280,7 @@ public final class SkyframeBuildView {
     if (!result.hasError() && badActions.isEmpty()) {
       setDeserializedArtifactOwners();
       return new SkyframeAnalysisResult(
+          false,
           ImmutableList.copyOf(goodCts),
           result.getWalkableGraph(),
           ImmutableList.copyOf(goodAspects),
@@ -334,35 +335,40 @@ public final class SkyframeBuildView {
 
     // --keep_going : We notify the error and return a ConfiguredTargetValue
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
-      if (values.contains(errorEntry.getKey().argument())) {
-        SkyKey errorKey = errorEntry.getKey();
-        ConfiguredTargetKey label = (ConfiguredTargetKey) errorKey.argument();
-        ErrorInfo errorInfo = errorEntry.getValue();
-        assertSaneAnalysisError(errorInfo, errorKey);
-
-        skyframeExecutor.getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), errorKey,
-            eventHandler);
-        // We try to get the root cause key first from ErrorInfo rootCauses. If we don't have one
-        // we try to use the cycle culprit if the error is a cycle. Otherwise we use the top-level
-        // error key.
-        Label root;
-        if (!Iterables.isEmpty(errorEntry.getValue().getRootCauses())) {
-          SkyKey culprit = Preconditions.checkNotNull(Iterables.getFirst(
-              errorEntry.getValue().getRootCauses(), null));
-          root = ((ConfiguredTargetKey) culprit.argument()).getLabel();
-        } else {
-          root = maybeGetConfiguredTargetCycleCulprit(errorInfo.getCycleInfo());
-        }
-        Exception cause = errorInfo.getException();
-        if (cause instanceof ActionConflictException) {
-          ((ActionConflictException) cause).reportTo(eventHandler);
-        }
-        eventHandler.handle(
-            Event.warn("errors encountered while analyzing target '"
-                + label.getLabel() + "': it will not be built"));
-        eventBus.post(new AnalysisFailureEvent(
-            LabelAndConfiguration.of(label.getLabel(), label.getConfiguration()), root));
+      // Only handle errors of configured targets, not errors of top-level aspects.
+      if (!values.contains(errorEntry.getKey().argument())) {
+        continue;
       }
+      SkyKey errorKey = errorEntry.getKey();
+      ConfiguredTargetKey label = (ConfiguredTargetKey) errorKey.argument();
+      ErrorInfo errorInfo = errorEntry.getValue();
+      assertSaneAnalysisError(errorInfo, errorKey);
+
+      skyframeExecutor.getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), errorKey,
+          eventHandler);
+      Exception cause = errorInfo.getException();
+      // We try to get the root cause key first from ErrorInfo rootCauses. If we don't have one
+      // we try to use the cycle culprit if the error is a cycle. Otherwise we use the top-level
+      // error key.
+      Label analysisRootCause;
+      if (cause instanceof ConfiguredValueCreationException) {
+        analysisRootCause = ((ConfiguredValueCreationException) cause).getAnalysisRootCause();
+      } else if (!Iterables.isEmpty(errorEntry.getValue().getRootCauses())) {
+        SkyKey culprit = Preconditions.checkNotNull(Iterables.getFirst(
+            errorEntry.getValue().getRootCauses(), null));
+        analysisRootCause = ((ConfiguredTargetKey) culprit.argument()).getLabel();
+      } else {
+        analysisRootCause = maybeGetConfiguredTargetCycleCulprit(errorInfo.getCycleInfo());
+      }
+      if (cause instanceof ActionConflictException) {
+        ((ActionConflictException) cause).reportTo(eventHandler);
+      }
+      eventHandler.handle(
+          Event.warn("errors encountered while analyzing target '"
+              + label.getLabel() + "': it will not be built"));
+      eventBus.post(new AnalysisFailureEvent(
+          LabelAndConfiguration.of(label.getLabel(), label.getConfiguration()),
+          analysisRootCause));
     }
 
     Collection<Exception> reportedExceptions = Sets.newHashSet();
@@ -399,6 +405,7 @@ public final class SkyframeBuildView {
     }
     setDeserializedArtifactOwners();
     return new SkyframeAnalysisResult(
+        result.hasError() || !badActions.isEmpty(),
         ImmutableList.copyOf(goodCts),
         result.getWalkableGraph(),
         ImmutableList.copyOf(goodAspects),
@@ -406,7 +413,7 @@ public final class SkyframeBuildView {
   }
 
   @Nullable
-  Label maybeGetConfiguredTargetCycleCulprit(Iterable<CycleInfo> cycleInfos) {
+  private Label maybeGetConfiguredTargetCycleCulprit(Iterable<CycleInfo> cycleInfos) {
     for (CycleInfo cycleInfo : cycleInfos) {
       SkyKey culprit = Iterables.getFirst(cycleInfo.getCycle(), null);
       if (culprit == null) {
@@ -494,6 +501,9 @@ public final class SkyframeBuildView {
       Set<ConfigMatchingProvider> configConditions) throws InterruptedException {
     Preconditions.checkState(enableAnalysis,
         "Already in execution phase %s %s", target, configuration);
+    Preconditions.checkNotNull(analysisEnvironment);
+    Preconditions.checkNotNull(target);
+    Preconditions.checkNotNull(prerequisiteMap);
     return factory.createConfiguredTarget(analysisEnvironment, artifactFactory, target,
         configuration, getHostConfiguration(configuration), prerequisiteMap,
         configConditions);

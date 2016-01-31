@@ -163,7 +163,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
         (PackageValue) skyFunc.compute(PackageValue.workspaceKey(workspacePath), getEnv());
     Package pkg = value.getPackage();
     assertTrue(pkg.containsErrors());
-    MoreAsserts.assertContainsEvent(pkg.getEvents(), "target names may not contain '$'");
+    MoreAsserts.assertContainsEvent(pkg.getEvents(), "foo$ is not a legal workspace name");
   }
 
   @Test

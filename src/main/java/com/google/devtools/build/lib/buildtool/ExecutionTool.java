@@ -351,16 +351,14 @@ public class ExecutionTool {
       startLocalOutputBuild(); // TODO(bazel-team): this could be just another OutputService
     }
 
-    if (getWorkspace().getFileSystem().supportsSymbolicLinks()) {
-      List<BuildConfiguration> targetConfigurations = configurations.getTargetConfigurations();
-      BuildConfiguration targetConfiguration = targetConfigurations.size() == 1
-          ? targetConfigurations.get(0) : null;
-      if (targetConfigurations.size() == 1) {
-        OutputDirectoryLinksUtils.createOutputDirectoryLinks(
-            runtime.getWorkspaceName(), getWorkspace(), getExecRoot(),
-            runtime.getOutputPath(), getReporter(), targetConfiguration,
-            request.getBuildOptions().getSymlinkPrefix());
-      }
+    List<BuildConfiguration> targetConfigurations = configurations.getTargetConfigurations();
+    BuildConfiguration targetConfiguration = targetConfigurations.size() == 1
+        ? targetConfigurations.get(0) : null;
+    if (targetConfigurations.size() == 1) {
+      OutputDirectoryLinksUtils.createOutputDirectoryLinks(
+          runtime.getWorkspaceName(), getWorkspace(), getExecRoot(),
+          runtime.getOutputPath(), getReporter(), targetConfiguration,
+          request.getBuildOptions().getSymlinkPrefix());
     }
 
     ActionCache actionCache = getActionCache();

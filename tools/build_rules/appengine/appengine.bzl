@@ -207,9 +207,9 @@ appengine_war = rule(
         ),
         "_appengine_deps": attr.label_list(
             default = [
-                Label("@appengine-java//:api"),
-                Label("@commons-lang//jar"),
-                Label("@commons-collections//jar"),
+                Label("@com_google_appengine_java//:api"),
+                Label("@org_apache_commons_lang//jar"),
+                Label("@org_apache_commons_collections//jar"),
             ],
         ),
         "jars": attr.label_list(
@@ -235,7 +235,7 @@ def java_war(name, data=[], data_path=None, **kwargs):
 
 def appengine_repositories():
   native.new_http_archive(
-      name = "appengine-java",
+      name = "com_google_appengine_java",
       url = "http://central.maven.org/maven2/com/google/appengine/appengine-java-sdk/1.9.23/appengine-java-sdk-1.9.23.zip",
       sha256 = "05e667036e9ef4f999b829fc08f8e5395b33a5a3c30afa9919213088db2b2e89",
       build_file = "tools/build_rules/appengine/appengine.BUILD",
@@ -243,21 +243,21 @@ def appengine_repositories():
 
   native.bind(
       name = "appengine/java/sdk",
-      actual = "@appengine-java//:sdk",
+      actual = "@com_google_appengine_java//:sdk",
   )
 
   native.bind(
       name = "appengine/java/api",
-      actual = "@appengine-java//:api",
+      actual = "@com_google_appengine_java//:api",
   )
 
   native.bind(
       name = "appengine/java/jars",
-      actual = "@appengine-java//:jars",
+      actual = "@com_google_appengine_java//:jars",
   )
 
   native.maven_jar(
-      name = "javax-servlet-api",
+      name = "javax_servlet_api",
       artifact = "javax.servlet:servlet-api:2.5",
   )
 
@@ -267,11 +267,11 @@ def appengine_repositories():
   )
 
   native.maven_jar(
-      name = "commons-lang",
+      name = "org_apache_commons_lang",
       artifact = "commons-lang:commons-lang:2.6",
   )
 
   native.maven_jar(
-      name = "commons-collections",
+      name = "org_apache_commons_collections",
       artifact = "commons-collections:commons-collections:3.2.1",
   )

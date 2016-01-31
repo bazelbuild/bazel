@@ -23,6 +23,7 @@ import static org.junit.Assert.fail;
 
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.unix.NativePosixFiles;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -65,7 +66,7 @@ public abstract class FileSystemTest {
     testFS = getFreshFileSystem();
     workingDir = testFS.getPath(getTestTmpDir());
     cleanUpWorkingDirectory(workingDir);
-    supportsSymlinks = testFS.supportsSymbolicLinks();
+    supportsSymlinks = testFS.supportsSymbolicLinksNatively();
 
     // % ls -lR
     // -rw-rw-r-- xFile
@@ -102,15 +103,15 @@ public abstract class FileSystemTest {
   protected abstract FileSystem getFreshFileSystem() throws IOException;
 
   protected boolean isSymbolicLink(File file) {
-    return com.google.devtools.build.lib.unix.FilesystemUtils.isSymbolicLink(file);
+    return NativePosixFiles.isSymbolicLink(file);
   }
 
   protected void setWritable(File file) throws IOException {
-    com.google.devtools.build.lib.unix.FilesystemUtils.setWritable(file);
+    NativePosixFiles.setWritable(file);
   }
 
   protected void setExecutable(File file) throws IOException {
-    com.google.devtools.build.lib.unix.FilesystemUtils.setExecutable(file);
+    NativePosixFiles.setExecutable(file);
   }
 
   private static final Pattern STAT_SUBDIR_ERROR = Pattern.compile("(.*) \\(Not a directory\\)");

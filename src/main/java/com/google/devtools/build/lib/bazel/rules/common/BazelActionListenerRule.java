@@ -34,7 +34,6 @@ public final class BazelActionListenerRule implements RuleDefinition {
         /*<!-- #BLAZE_RULE(action_listener).ATTRIBUTE(mnemonics) -->
         A list of action mnemonics this <code>action_listener</code> should listen
         for, e.g. <code>[ "Javac" ]</code>.
-        ${SYNOPSIS}
         <p>
           Mnemonics are not a public interface.
           There's no guarantee that the mnemonics and their actions don't change.
@@ -44,7 +43,6 @@ public final class BazelActionListenerRule implements RuleDefinition {
         /*<!-- #BLAZE_RULE(action_listener).ATTRIBUTE(extra_actions) -->
         A list of <code><a href="#extra_action">extra_action</a></code> targets
         this <code>action_listener</code> should add to the build graph.
-        ${SYNOPSIS}
         E.g. <code>[ "//my/tools:analyzer" ]</code>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("extra_actions", LABEL_LIST).mandatory()
@@ -74,8 +72,6 @@ public final class BazelActionListenerRule implements RuleDefinition {
   implementing an <code>action_listener</code>/<code>extra_action</code>.
 </p>
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
   An <code>action_listener</code> rule doesn't produce any output itself.
   Instead, it allows tool developers to insert
@@ -94,8 +90,6 @@ ${ATTRIBUTE_SIGNATURE}
   the build will use the specified <code>action_listener</code> to insert
   <a href="#extra_action"><code>extra_action</code></a>s into the build graph.
 </p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="action_listener_example">Example</h4>
 <pre>

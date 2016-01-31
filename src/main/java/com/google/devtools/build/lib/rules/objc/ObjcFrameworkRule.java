@@ -35,7 +35,6 @@ public class ObjcFrameworkRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(objc_framework).ATTRIBUTE(framework_imports) -->
         The list of files under a <code>.framework</code> directory which are
         provided to Objective-C targets that depend on this target.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("framework_imports", LABEL_LIST)
             .allowedFileTypes(FileTypeSet.ANY_FILE)
@@ -56,11 +55,7 @@ public class ObjcFrameworkRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = objc_framework, TYPE = LIBRARY, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule encapsulates an already-built framework. It is defined by a list
 of files in one or more <code>.framework</code> directories.
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

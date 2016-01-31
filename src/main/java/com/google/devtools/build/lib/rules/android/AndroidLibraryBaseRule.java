@@ -40,7 +40,6 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(srcs) -->
          The list of source files that are processed to create the target.
-        ${SYNOPSIS}
         <p><code>srcs</code> files of type <code>.java</code> are compiled.
         <em>For readability's sake</em>, it is not good to put the name of a
         generated <code>.java</code> source file into the <code>srcs</code>.
@@ -56,7 +55,7 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         </p>
         <p>If <code>srcs</code> is omitted, then any dependency specified in
         <code>deps</code> is exported from this rule (see
-        <a href="#java_library.exports">java_library's exports</a> for more
+        <a href="java.html#java_library.exports">java_library's exports</a> for more
         information about exporting dependencies). However, this behavior will be
         deprecated soon; try not to rely on it.
         </p>
@@ -66,7 +65,6 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
             .allowedFileTypes(JavaSemantics.JAVA_SOURCE, JavaSemantics.SOURCE_JAR))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(deps) -->
         The list of other libraries to link against.
-        ${SYNOPSIS}
         Permitted library types are: <code>android_library</code>,
         <code>java_library</code> with <code>android</code> constraint and
         <code>cc_library</code> wrapping or producing <code>.so</code> native libraries
@@ -74,21 +72,23 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .override(builder.copy("deps")
             .allowedRuleClasses(AndroidRuleClasses.ALLOWED_DEPENDENCIES)
-            .allowedFileTypes())
+            .allowedFileTypes()
+            .aspect(JackAspect.class)
+            .aspect(AndroidNeverlinkAspect.class))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(exports) -->
         The transitive closure of all rules reached via <code>exports</code> attributes
         are considered direct dependencies of any rule that directly depends on the
         target with <code>exports</code>.
-        ${SYNOPSIS}
         <p>The <code>exports</code> are not direct deps of the rule they belong to.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("exports", LABEL_LIST)
             .allowedRuleClasses(AndroidRuleClasses.ALLOWED_DEPENDENCIES)
-            .allowedFileTypes(/*May not have files in exports!*/))
+            .allowedFileTypes(/*May not have files in exports!*/)
+            .aspect(JackAspect.class)
+            .aspect(AndroidNeverlinkAspect.class))
         .add(attr("alwayslink", BOOLEAN).undocumented("purely informational for now"))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(neverlink) -->
         Only use this library for compilation and not at runtime.
-        ${SYNOPSIS}
         The outputs of a rule marked as <code>neverlink</code> will not be used in
         <code>.apk</code> creation. Useful if the library will be provided by the
         runtime environment during execution.
@@ -97,7 +97,6 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(idl_import_root) -->
         Package-relative path to the root of the java package tree containing idl
         sources included in this library.
-        ${SYNOPSIS}
         This path will be used as the import root when processing idl sources that
         depend on this library. (See
         <a href="#android_library_examples.idl_import_root">examples</a>.)
@@ -105,7 +104,6 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         .add(attr("idl_import_root", STRING))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(idl_srcs) -->
         List of Android IDL definitions to translate to Java interfaces.
-        ${SYNOPSIS}
         After the Java interfaces are generated, they will be compiled together
         with the contents of <code>srcs</code>.
         <p>These files will be made available as imports for any
@@ -116,7 +114,6 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
             .allowedFileTypes(AndroidRuleClasses.ANDROID_IDL))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(idl_parcelables) -->
         List of Android IDL definitions to supply as imports.
-        ${SYNOPSIS}
         These files will be made available as imports for any
         <code>android_library</code> target that depends on this library, directly
         or via its transitive closure, but will not be translated to Java

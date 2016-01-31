@@ -44,9 +44,7 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
     PathFragment pathFragment = getTargetPath(rule, getWorkspace());
 
     if (!symlinkLocalRepositoryContents(
-        outputDirectory,
-        getOutputBase().getFileSystem().getPath(pathFragment),
-        env)) {
+        outputDirectory, getOutputBase().getFileSystem().getPath(pathFragment))) {
       return null;
     }
 

@@ -54,7 +54,6 @@ public final class BazelShRuleClasses {
       return builder
           /* <!-- #BLAZE_RULE($sh_target).ATTRIBUTE(srcs) -->
           The file containing the shell script.
-          ${SYNOPSIS}
           <p>
             This attribute must be a singleton list, whose element is the shell script.
             This script must be executable, and may be a source file or a generated file.
@@ -67,7 +66,6 @@ public final class BazelShRuleClasses {
               .allowedFileTypes(SH_FILES))
           /* <!-- #BLAZE_RULE($sh_target).ATTRIBUTE(deps) -->
           The list of "library" targets to be aggregated into this target.
-          ${SYNOPSIS}
           See general comments about <code>deps</code>
           at <a href="common-definitions.html#common.deps">Attributes common to all build rules</a>.
           <p>

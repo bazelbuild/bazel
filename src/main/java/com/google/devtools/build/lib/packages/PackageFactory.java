@@ -750,7 +750,21 @@ public final class PackageFactory {
    * TODO(bazel-team): Remove in favor of package.licenses.
    */
   @SkylarkSignature(name = "licenses", returnType = Runtime.NoneType.class,
-      doc = "Declare the license(s) for the code in the current package.",
+      doc = "Declare the license(s) for the code in the current package. Legal license types "
+          + "include:\n"
+          + "<dl>"
+          + "<dt><code>restricted</code></dt><dd>Requires mandatory source distribution.</dd>"
+          + "<dt><code>reciprocal</code></dt><dd>Allows usage of software freely in "
+          + "<b>unmodified</b> form. Any modifications must be made freely available.</dd>"
+          + "<dt><code>notice</code></dt><dd>Original or modified third-party software may be "
+          + "shipped without danger nor encumbering other sources. All of the licenses in this "
+          + "category do, however, have an \"original Copyright notice\" or "
+          + "\"advertising clause\", wherein any external distributions must include the notice "
+          + "or clause specified in the license.</dd>"
+          + "<dt><code>permissive</code></dt><dd>Code that is under a license but does not "
+          + "require a notice.</dd>"
+          + "<dt><code>unencumbered</code></dt><dd>Public domain, free for any use.</dd>"
+          + "</dl>",
       mandatoryPositionals = {
         @Param(name = "license_strings", type = SkylarkList.class, generic1 = String.class,
             doc = "A list of strings, the names of the licenses used.")},
@@ -892,10 +906,12 @@ public final class PackageFactory {
    * Returns null if we don't want to export the value.
    *
    * <p>All of the types returned are immutable. If we want, we can change this to
-   * immutable in the future, but this is the safe choice for now.o
+   * immutable in the future, but this is the safe choice for now.
    */
   @Nullable
   private static Object skylarkifyValue(Object val, Package pkg) throws NotRepresentableException {
+    // TODO(bazel-team): the location of this function is ad-hoc. Arguably, the conversion
+    // from Java native types to Skylark types should be part of the Type class hierarchy,
     if (val == null) {
       return null;
     }
@@ -909,7 +925,6 @@ public final class PackageFactory {
       return val;
     }
 
-    // Maybe we should have an interface for types so they can represent themselves to skylark?
     if (val instanceof TriState) {
       switch ((TriState) val) {
         case AUTO:
@@ -970,6 +985,22 @@ public final class PackageFactory {
     if (val instanceof License) {
       // TODO(bazel-team): convert License.getLicenseTypes() to a list of strings.
       return null;
+    }
+
+    if (val instanceof BuildType.SelectorList) {
+      // This is terrible:
+      //  1) this value is opaque, and not a BUILD value, so it cannot be used in rule arguments
+      //  2) its representation has a pointer address, so it breaks hermeticity.
+      //
+      // Even though this is clearly imperfect, we return this value because otherwise
+      // native.rules() fails if there is any rule using a select() in the BUILD file.
+      //
+      // To remedy this, we should return a syntax.SelectorList. To do so, we have to
+      // 1) recurse into the Selector contents of SelectorList, so those values are skylarkified too
+      // 2) get the right Class<?> value. We could probably get at that by looking at
+      //    ((SelectorList)val).getSelectors().first().getEntries().first().getClass().
+
+      return val;
     }
 
     // We are explicit about types we don't understand so we minimize changes to existing callers
@@ -1548,11 +1579,17 @@ public final class PackageFactory {
       boolean wasPreprocessed, Path buildFilePath, Globber globber,
       RuleVisibility defaultVisibility, MakeEnvironment.Builder pkgMakeEnv)
       throws InterruptedException {
-    if (wasPreprocessed) {
-      // No point in prefetching globs here: preprocessing implies eager evaluation
-      // of all globs.
+    if (wasPreprocessed && preprocessorFactory.considersGlobs()) {
+      // All the globs have either already been evaluated and they aren't in the ast anymore, or
+      // they are in the ast but the globber has been evaluating them lazily and so there is no
+      // point in prefetching them again.
       return;
     }
+    // TODO(bazel-team): It may be wasteful to evaluate the BUILD file here, only to throw away the
+    // result. It may be better to first scan the ast and see if there are even possibly any globs
+    // at all. Additionally, it's wasteful to execute Skylark code that cannot invoke globs. So one
+    // strategy would be to crawl the ast and tag statements whose execution cannot involve globs -
+    // these can be executed and their impact on the resulting package can be saved.
     try (Mutability mutability = Mutability.create("prefetchGlobs for %s", packageId)) {
       Environment pkgEnv = Environment.builder(mutability)
           .setGlobals(Environment.BUILD)

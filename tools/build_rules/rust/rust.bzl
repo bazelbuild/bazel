@@ -15,12 +15,22 @@
 """Rust rules for Bazel"""
 
 RUST_FILETYPE = FileType([".rs"])
+
 A_FILETYPE = FileType([".a"])
 
-LIBRARY_CRATE_TYPES = ["lib", "rlib", "dylib", "staticlib"]
+LIBRARY_CRATE_TYPES = [
+    "lib",
+    "rlib",
+    "dylib",
+    "staticlib",
+]
 
 # Used by rust_doc
-HTML_MD_FILETYPE = FileType([".html", ".md"])
+HTML_MD_FILETYPE = FileType([
+    ".html",
+    ".md",
+])
+
 CSS_FILETYPE = FileType([".css"])
 
 ZIP_PATH = "/usr/bin/zip"
@@ -570,9 +580,14 @@ def _rust_doc_test_impl(ctx):
 
 _rust_common_attrs = {
     "srcs": attr.label_list(allow_files = RUST_FILETYPE),
-    "crate_root": attr.label(allow_files = RUST_FILETYPE,
-                             single_file = True),
-    "data": attr.label_list(allow_files = True, cfg = DATA_CFG),
+    "crate_root": attr.label(
+        allow_files = RUST_FILETYPE,
+        single_file = True,
+    ),
+    "data": attr.label_list(
+        allow_files = True,
+        cfg = DATA_CFG,
+    ),
     "deps": attr.label_list(),
     "crate_features": attr.string_list(),
     "rustc_flags": attr.string_list(),
@@ -582,14 +597,17 @@ _rust_toolchain_attrs = {
     "_rustc": attr.label(
         default = Label("//tools/build_rules/rust:rustc"),
         executable = True,
-        single_file = True),
+        single_file = True,
+    ),
     "_rustc_lib": attr.label(
-        default = Label("//tools/build_rules/rust:rustc_lib")),
+        default = Label("//tools/build_rules/rust:rustc_lib"),
+    ),
     "_rustlib": attr.label(default = Label("//tools/build_rules/rust:rustlib")),
     "_rustdoc": attr.label(
         default = Label("//tools/build_rules/rust:rustdoc"),
         executable = True,
-        single_file = True),
+        single_file = True,
+    ),
 }
 
 _rust_library_attrs = _rust_common_attrs + {
@@ -599,33 +617,33 @@ _rust_library_attrs = _rust_common_attrs + {
 rust_library = rule(
     _rust_library_impl,
     attrs = _rust_library_attrs + _rust_toolchain_attrs,
+    fragments = ["cpp"],
     outputs = {
         "rust_lib": "lib%{name}.rlib",
     },
-    fragments = ["cpp"],
 )
 
 rust_binary = rule(
     _rust_binary_impl,
-    executable = True,
     attrs = _rust_common_attrs + _rust_toolchain_attrs,
+    executable = True,
     fragments = ["cpp"],
 )
 
 rust_test = rule(
     _rust_test_impl,
-    executable = True,
     attrs = _rust_common_attrs + _rust_toolchain_attrs,
-    test = True,
+    executable = True,
     fragments = ["cpp"],
+    test = True,
 )
 
 rust_bench_test = rule(
     _rust_bench_test_impl,
-    executable = True,
     attrs = _rust_common_attrs + _rust_toolchain_attrs,
-    test = True,
+    executable = True,
     fragments = ["cpp"],
+    test = True,
 )
 
 _rust_doc_common_attrs = {
@@ -656,7 +674,7 @@ rust_doc_test = rule(
 
 def rust_repositories():
   native.new_http_archive(
-      name = "rust-linux-x86_64",
+      name = "rust_linux_x86_64",
       url = "https://static.rust-lang.org/dist/rust-1.4.0-x86_64-unknown-linux-gnu.tar.gz",
       strip_prefix = "rust-1.4.0-x86_64-unknown-linux-gnu",
       sha256 = "2de2424b50ca2ab3a67c495b6af03c720801a2928ad30884438ad0f5436ac51d",
@@ -664,7 +682,7 @@ def rust_repositories():
   )
 
   native.new_http_archive(
-      name = "rust-darwin-x86_64",
+      name = "rust_darwin_x86_64",
       url = "https://static.rust-lang.org/dist/rust-1.4.0-x86_64-apple-darwin.tar.gz",
       strip_prefix = "rust-1.4.0-x86_64-apple-darwin",
       sha256 = "7256617aec7c106be2aa3c5df0a2e613b13ec55e6237ab612bb4164719e09e21",

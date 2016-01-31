@@ -10,7 +10,7 @@ filegroup(
 java_binary(
     name = "j2objc",
     main_class = "com.google.devtools.j2objc.J2ObjC",
-    runtime_deps = ["@bazel-j2objc//:j2objc"],
+    runtime_deps = ["@bazel_j2objc//:j2objc"],
 )
 
 py_library(

@@ -54,6 +54,11 @@ filegroup(
     srcs = [":memleaks_plugin_stub"],
 )
 
+filegroup(
+    name = "dump_syms",
+    srcs = [":dump_syms_stub"],
+)
+
 sh_binary(
     name = "ibtoolwrapper",
     srcs = [":ibtoolwrapper.sh"],
@@ -93,6 +98,11 @@ sh_binary(
 sh_binary(
     name = "xcrunwrapper",
     srcs = [":xcrunwrapper.sh"],
+)
+
+filegroup(
+    name = "gcov",
+    srcs = [":gcov_stub"],
 )
 
 xcode_config(

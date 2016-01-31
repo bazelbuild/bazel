@@ -329,7 +329,7 @@ public class InMemoryNodeEntry implements NodeEntry {
 
   @Override
   public synchronized boolean signalDep() {
-    return signalDep(/*childVersion=*/new IntVersion(Long.MAX_VALUE));
+    return signalDep(/*childVersion=*/ IntVersion.of(Long.MAX_VALUE));
   }
 
   @Override

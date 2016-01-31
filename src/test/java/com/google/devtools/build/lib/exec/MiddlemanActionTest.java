@@ -112,9 +112,11 @@ public class MiddlemanActionTest extends BuildViewTestCase {
 
     analysisEnvironment.clear();
     Artifact middlemanForC = middlemanFactory.createRunfilesMiddleman(
-        NULL_ACTION_OWNER, c, Arrays.asList(c, common), targetConfig.getMiddlemanDirectory());
+        NULL_ACTION_OWNER, c, Arrays.asList(c, common), targetConfig.getMiddlemanDirectory(),
+        "runfiles");
     Artifact middlemanForD = middlemanFactory.createRunfilesMiddleman(
-        NULL_ACTION_OWNER, d, Arrays.asList(d, common), targetConfig.getMiddlemanDirectory());
+        NULL_ACTION_OWNER, d, Arrays.asList(d, common), targetConfig.getMiddlemanDirectory(),
+        "runfiles");
     analysisEnvironment.registerWith(getMutableActionGraph());
 
     MiddlemanAction middlemanActionForC = (MiddlemanAction) getGeneratingAction(middlemanForC);

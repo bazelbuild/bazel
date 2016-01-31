@@ -38,7 +38,6 @@ public final class BazelPyTestRule implements RuleDefinition {
         .override(attr("testonly", BOOLEAN).value(true)
             .nonconfigurable("policy decision: should be consistent across configurations"))
         /* <!-- #BLAZE_RULE(py_test).ATTRIBUTE(stamp) -->
-        ${SYNOPSIS}
         See the section on <a href="#py_binary_args">py_binary()</a> arguments, except
         that the stamp argument is set to 0 by default for tests.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -59,13 +58,9 @@ public final class BazelPyTestRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = py_test, TYPE = TEST, FAMILY = Python) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
 A <code>py_test()</code> rule compiles a test.  A test is a binary wrapper
  around some test code.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="py_test_examples">Examples</h4>
 

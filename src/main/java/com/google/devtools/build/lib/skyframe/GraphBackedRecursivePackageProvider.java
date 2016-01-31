@@ -24,9 +24,10 @@ import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Type;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.RecursivePackageProvider;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
@@ -55,6 +57,7 @@ import java.util.Set;
  * SkyQueryEnvironment} to look up the packages and targets matching the universe that's been
  * preloaded in {@code graph}.
  */
+@ThreadSafe
 public final class GraphBackedRecursivePackageProvider implements RecursivePackageProvider {
 
   private final WalkableGraph graph;
@@ -170,8 +173,8 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     if (repository.isDefault()) {
       roots.addAll(pkgPath.getPathEntries());
     } else {
-      RepositoryValue repositoryValue =
-            (RepositoryValue) graph.getValue(RepositoryValue.key(repository));
+      RepositoryDirectoryValue repositoryValue =
+            (RepositoryDirectoryValue) graph.getValue(RepositoryDirectoryValue.key(repository));
       if (repositoryValue == null) {
         // If this key doesn't exist, the repository is outside the universe, so we return
         // "nothing".

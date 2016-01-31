@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
+import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 
 import java.util.Set;
 
@@ -42,7 +43,6 @@ public final class BazelJavaImportRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(deps) -->
         The list of other libraries to be linked in to the target.
-        ${SYNOPSIS}
         See <a href="#java_library.deps">java_library.deps</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("deps", LABEL_LIST)
@@ -51,7 +51,6 @@ public final class BazelJavaImportRule implements RuleDefinition {
             .validityPredicate(ANY_EDGE))
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(exports) -->
         Targets to make available to users of this rule.
-        ${SYNOPSIS}
         See <a href="#java_library.exports">java_library.exports</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("exports", LABEL_LIST)
@@ -60,13 +59,13 @@ public final class BazelJavaImportRule implements RuleDefinition {
             .validityPredicate(ANY_EDGE))
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(runtime_deps) -->
         Libraries to make available to the final binary or test at runtime only.
-        ${SYNOPSIS}
         See <a href="#java_library.runtime_deps">java_library.runtime_deps</a>.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("runtime_deps", LABEL_LIST)
             .allowedFileTypes(JavaSemantics.JAR)
             .allowedRuleClasses(ALLOWED_DEPS)
             .skipAnalysisTimeFileTypeCheck())
+        .advertiseProvider(JavaSourceInfoProvider.class)
         .build();
 
   }
@@ -83,14 +82,10 @@ public final class BazelJavaImportRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = java_import, TYPE = LIBRARY, FAMILY = Java) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
   This rule allows the use of precompiled JAR files as libraries for
   <code><a href="#java_library">java_library</a></code> rules.
 </p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="java_import_examples">Examples</h4>
 

@@ -58,7 +58,7 @@ public abstract class GraphConcurrencyTest {
 
   protected abstract ProcessableGraph getGraph(Version version) throws Exception;
 
-  private static final IntVersion startingVersion = new IntVersion(42);
+  private static final IntVersion startingVersion = IntVersion.of(42);
 
   @Before
   public void init() throws Exception {

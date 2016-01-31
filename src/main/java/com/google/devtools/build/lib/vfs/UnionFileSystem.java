@@ -160,7 +160,7 @@ public class UnionFileSystem extends FileSystem {
   }
 
   @Override
-  public boolean supportsSymbolicLinks() {
+  public boolean supportsSymbolicLinksNatively() {
     return true;
   }
 
@@ -256,7 +256,7 @@ public class UnionFileSystem extends FileSystem {
   @Override
   protected void createSymbolicLink(Path linkPath, PathFragment targetFragment) throws IOException {
     checkModifiable();
-    if (!supportsSymbolicLinks()) {
+    if (!supportsSymbolicLinksNatively()) {
       throw new UnsupportedOperationException(
           "Attempted to create a symlink, but symlink support is disabled.");
     }

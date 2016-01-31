@@ -30,9 +30,9 @@ import java.util.logging.Logger;
  * SDK. Exception messages are selected to be consistent with those generated
  * by the java.io package where appropriate--see package javadoc for details.
  */
-public final class FilesystemUtils {
+public final class NativePosixFiles {
 
-  private FilesystemUtils() {}
+  private NativePosixFiles() {}
 
   /**
    * Returns true iff the file identified by 'path' is a symbolic link. Has
@@ -66,8 +66,8 @@ public final class FilesystemUtils {
       return false;
     }
   }
-    
-  
+
+
   /**
    * Marks the file or directory {@code path} as executable. (Non-atomic)
    *
@@ -107,10 +107,10 @@ public final class FilesystemUtils {
    * @throws IOException if the chmod() syscall failed.
    */
   public static void chmod(File path, int mode) throws IOException {
-    int mask = FileStatus.S_ISUID |
-               FileStatus.S_ISGID |
-               FileStatus.S_ISVTX |
-               FileStatus.S_IRWXA;
+    int mask = FileStatus.S_ISUID
+               | FileStatus.S_ISGID
+               | FileStatus.S_ISVTX
+               | FileStatus.S_IRWXA;
     chmod(path.toString(), mode & mask);
   }
 
@@ -128,9 +128,9 @@ public final class FilesystemUtils {
           // wait (if necessary) until the logging system is initialized
           synchronized (LogManager.getLogManager()) {}
           Logger.getLogger("com.google.devtools.build.lib.unix.FilesystemUtils").log(Level.FINE,
-              "WARNING: Default character set is not latin1; java.io.File and " +
-              "com.google.devtools.build.lib.unix.FilesystemUtils will represent some filenames " +
-              "differently.");
+              "WARNING: Default character set is not latin1; java.io.File and "
+              + "com.google.devtools.build.lib.unix.FilesystemUtils will represent some filenames "
+              + "differently.");
         }
       }.start();
     }
@@ -165,6 +165,15 @@ public final class FilesystemUtils {
    */
   public static native void symlink(String oldpath, String newpath)
       throws IOException;
+
+  /**
+   * Native wrapper around POSIX link(2) syscall.
+   *
+   * @param oldpath the file to link to
+   * @param newpath the new path for the link
+   * @throws IOException iff the link() syscall failed.
+   */
+  public static native void link(String oldpath, String newpath) throws IOException;
 
   /**
    * Native wrapper around POSIX stat(2) syscall.
@@ -432,14 +441,14 @@ public final class FilesystemUtils {
   public static HashCode md5sum(String path) throws IOException {
     return HashCode.fromBytes(md5sumAsBytes(path));
   }
-  
+
   /**
    * Removes entire directory tree. Doesn't follow symlinks.
    *
    * @param path the file or directory to remove.
    * @throws IOException if the remove failed.
    */
-  public static void rmTree(String path) throws IOException { 
+  public static void rmTree(String path) throws IOException {
     if (isDirectory(path)) {
       String[] contents = readdir(path);
       for (String entry : contents) {

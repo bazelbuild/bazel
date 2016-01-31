@@ -30,7 +30,7 @@ EOF
 
   # avoid trying to download the SDK from within the test.
   rm -rf tools/build_rules/go/toolchain
-  for p in golang-linux-amd64 golang-darwin-amd64 ; do
+  for p in golang_linux_amd64 golang_darwin_amd64 ; do
     d=$TEST_SRCDIR/external/${p}
     if [[ -d "${d}" ]]; then
       for f in $(cd ${d}; find -L . -type f -print ) ; do

@@ -59,6 +59,11 @@ public class SubincludePreprocessor implements Preprocessor {
         }
 
         @Override
+        public boolean considersGlobs() {
+          return false;
+        }
+
+        @Override
         public Preprocessor getPreprocessor() {
           return new SubincludePreprocessor(fileSystem, loc);
         }

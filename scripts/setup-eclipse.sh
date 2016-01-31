@@ -26,7 +26,7 @@ JRE="JavaSE-1.8"
 PROJECT_NAME="bazel"
 OUTPUT_PATH="bazel-out/ide/classes"
 GENERATED_PATH="bazel-out/ide/generated"
-EXTRA_JARS="bazel-bazel/external/local-jdk/lib/tools.jar"
+EXTRA_JARS="bazel-bazel/external/local_jdk/lib/tools.jar"
 
 cd $(dirname $(dirname "$0"))
 

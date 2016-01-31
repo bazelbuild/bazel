@@ -74,15 +74,11 @@ public final class JavaToolchainRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = java_toolchain, TYPE = OTHER, FAMILY = Java) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
 Specifies the configuration for the Java compiler. Which toolchain to be used can be changed through
 the --java_toolchain argument. Normally you should not write those kind of rules unless you want to
 tune your Java compiler.
 </p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="java_binary_examples">Examples</h4>
 

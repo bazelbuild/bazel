@@ -91,7 +91,7 @@ def _build_layer(ctx):
   data_path = _compute_data_path(ctx.outputs.out, ctx.attr.data_path)
 
   layer = ctx.new_file(ctx.label.name + ".layer")
-  build_layer = ctx.executable._build_layer
+  build_layer = ctx.executable.build_layer
   args = [
       "--output=" + layer.path,
       "--directory=" + ctx.attr.directory,
@@ -117,7 +117,7 @@ def _sha256(ctx, artifact):
   """Create an action to compute the SHA-256 of an artifact."""
   out = ctx.new_file(artifact.basename + ".sha256")
   ctx.action(
-      executable = ctx.executable._sha256,
+      executable = ctx.executable.sha256,
       arguments = [artifact.path, out.path],
       inputs = [artifact],
       outputs = [out],
@@ -138,7 +138,7 @@ def _serialize_dict(dict_value):
 
 def _metadata_action(ctx, layer, name, output):
   """Generate the action to create the JSON metadata for the layer."""
-  rewrite_tool = ctx.executable._rewrite_tool
+  rewrite_tool = ctx.executable.rewrite_tool
 
   label_file_dict = dict()
   for i in range(len(ctx.files.label_files)):
@@ -215,7 +215,7 @@ def _metadata(ctx, layer, name):
 
 def _create_image(ctx, layer, name, metadata):
   """Create the new image."""
-  create_image = ctx.executable._create_image
+  create_image = ctx.executable.create_image
   args = [
       "--output=" + ctx.outputs.layer.path,
       "--metadata=" + metadata.path,
@@ -248,7 +248,7 @@ def _assemble_image(ctx, layers, name):
       ] + ["--layer=" + l.path for l in layers]
   inputs = [name] + layers
   ctx.action(
-      executable = ctx.executable._join_layers,
+      executable = ctx.executable.join_layers,
       arguments = args,
       inputs = inputs,
       outputs = [ctx.outputs.out],
@@ -288,7 +288,7 @@ def _docker_build_impl(ctx):
       ] + getattr(ctx.attr.base, "docker_layers", [])
   # Generate the incremental load statement
   ctx.template_action(
-      template = ctx.file._incremental_load_template,
+      template = ctx.file.incremental_load_template,
       substitutions = {
         "%{load_statements}": "\n".join([
             "incr_load '%s' '%s'" % (_get_runfile_path(ctx, l["name"]),
@@ -331,32 +331,32 @@ docker_build_ = rule(
         "label_files": attr.label_list(
             allow_files=True),
         "label_file_strings": attr.string_list(),
-        "_build_layer": attr.label(
-            default=Label("//tools/build_defs/pkg:build_tar"),
+        "build_layer": attr.label(
+            default=Label("@bazel_tools//tools/build_defs/pkg:build_tar"),
             cfg=HOST_CFG,
             executable=True,
             allow_files=True),
-        "_create_image": attr.label(
-            default=Label("//tools/build_defs/docker:create_image"),
+        "create_image": attr.label(
+            default=Label("@bazel_tools//tools/build_defs/docker:create_image"),
             cfg=HOST_CFG,
             executable=True,
             allow_files=True),
-        "_incremental_load_template": attr.label(
-            default=Label("//tools/build_defs/docker:incremental_load_template"),
+        "incremental_load_template": attr.label(
+            default=Label("@bazel_tools//tools/build_defs/docker:incremental_load_template"),
             single_file=True,
             allow_files=True),
-        "_join_layers": attr.label(
-            default=Label("//tools/build_defs/docker:join_layers"),
+        "join_layers": attr.label(
+            default=Label("@bazel_tools//tools/build_defs/docker:join_layers"),
             cfg=HOST_CFG,
             executable=True,
             allow_files=True),
-        "_rewrite_tool": attr.label(
-            default=Label("//tools/build_defs/docker:rewrite_json"),
+        "rewrite_tool": attr.label(
+            default=Label("@bazel_tools//tools/build_defs/docker:rewrite_json"),
             cfg=HOST_CFG,
             executable=True,
             allow_files=True),
-        "_sha256": attr.label(
-            default=Label("//tools/build_defs/docker:sha256"),
+        "sha256": attr.label(
+            default=Label("@bazel_tools//tools/build_defs/docker:sha256"),
             cfg=HOST_CFG,
             executable=True,
             allow_files=True)

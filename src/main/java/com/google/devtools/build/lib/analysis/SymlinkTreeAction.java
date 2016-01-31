@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
 
+import javax.annotation.Nullable;
+
 /**
  * Action responsible for the symlink tree creation.
  * Used to generate runfiles and fileset symlink farms.
@@ -40,20 +42,34 @@ public class SymlinkTreeAction extends AbstractAction {
    * Creates SymlinkTreeAction instance.
    *
    * @param owner action owner
-   * @param inputManifest exec path to the input runfiles manifest
-   * @param outputManifest exec path to the generated symlink tree manifest
+   * @param inputManifest the input runfiles manifest
+   * @param artifactMiddleman the middleman artifact representing all the files the symlinks
+   *                          point to (on Windows we need to know if the target of a "symlink" is
+   *                          a directory or a file so we need to build it before)
+   * @param outputManifest the generated symlink tree manifest
    *                       (must have "MANIFEST" base name). Symlink tree root
    *                       will be set to the artifact's parent directory.
    * @param filesetTree true if this is fileset symlink tree,
    *                    false if this is a runfiles symlink tree.
    */
-  public SymlinkTreeAction(ActionOwner owner, Artifact inputManifest, Artifact outputManifest,
-      boolean filesetTree) {
-    super(owner, ImmutableList.of(inputManifest), ImmutableList.of(outputManifest));
+  public SymlinkTreeAction(ActionOwner owner, Artifact inputManifest,
+      @Nullable Artifact artifactMiddleman, Artifact outputManifest, boolean filesetTree) {
+    super(owner, computeInputs(inputManifest, artifactMiddleman), ImmutableList.of(outputManifest));
     Preconditions.checkArgument(outputManifest.getPath().getBaseName().equals("MANIFEST"));
     this.inputManifest = inputManifest;
     this.outputManifest = outputManifest;
     this.filesetTree = filesetTree;
+  }
+
+  private static ImmutableList<Artifact> computeInputs(
+      Artifact inputManifest, Artifact artifactMiddleman) {
+    ImmutableList.Builder<Artifact> result = ImmutableList.<Artifact>builder()
+        .add(inputManifest);
+    if (artifactMiddleman != null
+        && !artifactMiddleman.getPath().getFileSystem().supportsSymbolicLinksNatively()) {
+      result.add(artifactMiddleman);
+    }
+    return result.build();
   }
 
   public Artifact getInputManifest() {

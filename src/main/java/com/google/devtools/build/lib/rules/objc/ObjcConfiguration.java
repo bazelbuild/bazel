@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -63,14 +62,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final String xcodeOverrideWorkspaceRoot;
   private final boolean useAbsolutePathsForActions;
 
-  // We only load these labels if the mode which uses them is enabled. That is known as part of the
-  // BuildConfiguration. This label needs to be part of a configuration because only configurations
-  // can conditionally cause loading.
-  // They are referenced from late bound attributes, and if loading wasn't forced in a
-  // configuration, the late bound attribute will fail to be initialized because it hasn't been
-  // loaded.
-  @Nullable private final Label gcovLabel;
-  @Nullable private final Label dumpSymsLabel;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
       @Nullable BlazeDirectories directories) {
@@ -83,8 +74,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.runMemleaks = objcOptions.runMemleaks;
     this.copts = ImmutableList.copyOf(objcOptions.copts);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
-    this.gcovLabel = options.objcGcovBinary;
-    this.dumpSymsLabel = objcOptions.dumpSyms;
     this.iosSplitCpu = Preconditions.checkNotNull(objcOptions.iosSplitCpu, "iosSplitCpu");
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
     this.enableBinaryStripping = objcOptions.enableBinaryStripping;
@@ -153,22 +142,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   public List<String> getCopts() {
     return copts;
-  }
-
-  /**
-   * Returns the label of the gcov binary, used to get test coverage data. Null iff not in coverage
-   * mode.
-   */
-  @Nullable public Label getGcovLabel() {
-    return gcovLabel;
-  }
-
-  /**
-   * Returns the label of the dump_syms binary, used to get debug symbols from a binary. Null iff
-   * !{@link #generateDebugSymbols}.
-   */
-  @Nullable public Label getDumpSymsLabel() {
-    return dumpSymsLabel;
   }
 
   /**

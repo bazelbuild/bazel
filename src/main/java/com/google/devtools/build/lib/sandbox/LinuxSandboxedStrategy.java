@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.fileset.FilesetActionContext;
 import com.google.devtools.build.lib.rules.test.TestRunnerAction;
 import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
-import com.google.devtools.build.lib.unix.FilesystemUtils;
+import com.google.devtools.build.lib.unix.NativePosixFiles;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -300,13 +300,13 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     mounts.put(fs.getPath("/bin"), fs.getPath("/bin"));
     mounts.put(fs.getPath("/sbin"), fs.getPath("/sbin"));
     mounts.put(fs.getPath("/etc"), fs.getPath("/etc"));
-    for (String entry : FilesystemUtils.readdir("/")) {
+    for (String entry : NativePosixFiles.readdir("/")) {
       if (entry.startsWith("lib")) {
         Path libDir = fs.getRootDirectory().getRelative(entry);
         mounts.put(libDir, libDir);
       }
     }
-    for (String entry : FilesystemUtils.readdir("/usr")) {
+    for (String entry : NativePosixFiles.readdir("/usr")) {
       if (!entry.equals("local")) {
         Path usrDir = fs.getPath("/usr").getRelative(entry);
         mounts.put(usrDir, usrDir);

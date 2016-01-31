@@ -112,7 +112,6 @@ public class ConfigRuleClasses {
       return builder
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(values) -->
           The set of configuration values that match this rule (expressed as Blaze flags)
-          ${SYNOPSIS}
 
           <i>(Dictionary mapping flags to expected values, both expressed as strings;
              mandatory)</i>
@@ -206,15 +205,11 @@ public class ConfigRuleClasses {
 
 /*<!-- #BLAZE_RULE (NAME = config_setting, TYPE = OTHER, FAMILY = General)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
   Matches an expected configuration state (expressed as Blaze flags) for the purpose of triggering
-  configurable attributes. See <a href="#select">select</a> for how to consume this rule and
-  <a href="common-definitions.html#configurable-attributes">
+  configurable attributes. See <a href="functions.html#select">select</a> for how to consume this
+  rule and <a href="common-definitions.html#configurable-attributes">
   Configurable attributes</a> for an overview of the general feature.
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="config_setting_examples">Examples</h4>
 
@@ -231,7 +226,7 @@ config_setting(
 </pre>
 
 <p>The following matches any Blaze invocation that builds for ARM and applies a custom define
-   (e.g. <code>blaze build --cpu=armeabi --define FOO=bar ...</code>), , when applied to a target
+   (e.g. <code>blaze build --cpu=armeabi --define FOO=bar ...</code>), when applied to a target
    configuration rule:
 </p>
 
@@ -247,8 +242,8 @@ config_setting(
 
 <h4 id="config_setting_notes">Notes</h4>
 
-<p>See <a href="#select">select</a> for policies on what happens depending on how many rules match
-   an invocation.
+<p>See <a href="functions.html#select">select</a> for policies on what happens depending on how
+   many rules match an invocation.
 </p>
 
 <p>For flags that support shorthand forms (e.g. <code>--compilation_mode</code> vs.

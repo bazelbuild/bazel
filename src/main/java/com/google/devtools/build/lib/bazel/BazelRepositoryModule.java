@@ -48,10 +48,11 @@ import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.util.Clock;
@@ -105,8 +106,9 @@ public class BazelRepositoryModule extends BlazeModule {
   }
 
   /**
-   * A dirtiness checker that always dirties {@link RepositoryValue}s so that if they were produced
-   * in a {@code --nofetch} build, they are re-created no subsequent {@code --fetch} builds.
+   * A dirtiness checker that always dirties {@link RepositoryDirectoryValue}s so that if they were
+   * produced in a {@code --nofetch} build, they are re-created no subsequent {@code --fetch}
+   * builds.
    *
    * <p>The alternative solution would be to reify the value of the flag as a Skyframe value.
    */
@@ -114,7 +116,7 @@ public class BazelRepositoryModule extends BlazeModule {
       new SkyValueDirtinessChecker() {
         @Override
         public boolean applies(SkyKey skyKey) {
-          return skyKey.functionName().equals(SkyFunctions.REPOSITORY);
+          return skyKey.functionName().equals(SkyFunctions.REPOSITORY_DIRECTORY);
         }
 
         @Override
@@ -125,7 +127,7 @@ public class BazelRepositoryModule extends BlazeModule {
         @Override
         public DirtyResult check(
             SkyKey skyKey, SkyValue skyValue, @Nullable TimestampGranularityMonitor tsgm) {
-          RepositoryValue repositoryValue = (RepositoryValue) skyValue;
+          RepositoryDirectoryValue repositoryValue = (RepositoryDirectoryValue) skyValue;
           return repositoryValue.isFetchingDelayed()
               ? DirtyResult.dirty(skyValue)
               : DirtyResult.notDirty(skyValue);
@@ -166,11 +168,12 @@ public class BazelRepositoryModule extends BlazeModule {
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> builder = ImmutableMap.builder();
 
-    // Create the delegator everything flows through.
-    builder.put(SkyFunctions.REPOSITORY,
-        new RepositoryDelegatorFunction(directories, repositoryHandlers, isFetch));
+    // Create the repository function everything flows through.
+    builder.put(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction());
 
     // Helper SkyFunctions.
+    builder.put(SkyFunctions.REPOSITORY_DIRECTORY,
+        new RepositoryDelegatorFunction(directories, repositoryHandlers, isFetch));
     builder.put(MavenServerFunction.NAME, new MavenServerFunction(directories));
     return builder.build();
   }

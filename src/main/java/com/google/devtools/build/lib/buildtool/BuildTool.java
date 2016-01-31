@@ -342,7 +342,7 @@ public final class BuildTool {
       if (e.isCatastrophic()) {
         result.setCatastrophe();
       }
-      exitCode = ExitCode.BUILD_FAILURE;
+      exitCode = e.getExitCode() != null ? e.getExitCode() : ExitCode.BUILD_FAILURE;
     } catch (InterruptedException e) {
       exitCode = ExitCode.INTERRUPTED;
       env.getReporter().handle(Event.error("build interrupted"));

@@ -17,7 +17,11 @@ import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -50,16 +54,44 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
             "label '%s' does not refer to a package group", label)));
   }
 
+  @Override
+  protected void missingEdgeHook(Target from, Label to, NoSuchThingException e) {
+    if (e instanceof NoSuchTargetException) {
+      NoSuchTargetException nste = (NoSuchTargetException) e;
+      if (to.equals(nste.getLabel())) {
+        env.getListener().handle(
+            Event.error(
+                TargetUtils.getLocationMaybe(from),
+                TargetUtils.formatMissingEdge(from, to, e)));
+      }
+    } else if (e instanceof NoSuchPackageException) {
+      NoSuchPackageException nspe = (NoSuchPackageException) e;
+      if (nspe.getPackageId().equals(to.getPackageIdentifier())) {
+        env.getListener().handle(
+            Event.error(
+                TargetUtils.getLocationMaybe(from),
+                TargetUtils.formatMissingEdge(from, to, e)));
+      }
+    }
+  }
+
   @Nullable
   @Override
   protected Target getTarget(Label label) throws NoSuchThingException {
+    // TODO(ulfjack): This swallows all loading errors without reporting. That's ok for now, as we
+    // generally run a loading phase first, and only analyze targets that load successfully.
     if (env.getValue(TargetMarkerValue.key(label)) == null) {
       return null;
     }
     SkyKey key = PackageValue.key(label.getPackageIdentifier());
-    PackageValue packageValue = (PackageValue) env.getValue(key);
-    if (packageValue == null || packageValue.getPackage().containsErrors()) {
+    PackageValue packageValue =
+        (PackageValue) env.getValueOrThrow(key, NoSuchPackageException.class);
+    if (packageValue == null) {
       return null;
+    }
+    Package pkg = packageValue.getPackage();
+    if (pkg.containsErrors()) {
+      throw new BuildFileContainsErrorsException(label.getPackageIdentifier());
     }
     return packageValue.getPackage().getTarget(label.getName());
   }

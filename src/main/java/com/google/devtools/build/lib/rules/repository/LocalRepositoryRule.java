@@ -35,7 +35,6 @@ public class LocalRepositoryRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE(local_repository).ATTRIBUTE(path) -->
         The path to the local repository's directory.
-        ${SYNOPSIS}
 
         <p>This must be an absolute path to the directory containing the repository's
         <i>WORKSPACE</i> file.</p>
@@ -57,13 +56,9 @@ public class LocalRepositoryRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = local_repository, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>Allows targets from a local directory to be bound. This means that the current repository can
   use targets defined in this other directory. See the <a href="#bind_examples">bind section</a>
   for more details.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="local_repository_examples">Examples</h4>
 

@@ -39,7 +39,6 @@ public final class BazelJavaPluginRule implements RuleDefinition {
         .override(builder.copy("deps").validityPredicate(Attribute.ANY_EDGE))
         .override(builder.copy("srcs").validityPredicate(Attribute.ANY_EDGE))
         /* <!-- #BLAZE_RULE(java_plugin).ATTRIBUTE(processor_class) -->
-        ${SYNOPSIS}
         The processor class is the fully qualified type of the class that the Java compiler should
         use as entry point to the annotation processor. If not specified, this rule will not
         contribute an annotation processor to the Java compiler's annotation processing, but its
@@ -67,8 +66,6 @@ public final class BazelJavaPluginRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = java_plugin, TYPE = OTHER, FAMILY = Java) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>
   <code>java_plugin</code> defines plugins for the Java compiler run by Bazel. At the moment, the
   only supported kind of plugins are annotation processors. A <code>java_library</code> or
@@ -79,8 +76,6 @@ ${ATTRIBUTE_SIGNATURE}
 </p>
 
 ${IMPLICIT_OUTPUTS}
-
-${ATTRIBUTE_DEFINITION}
 
 <p>
   Arguments are identical to <a href="#java_library"><code>java_library</code></a>, except for the

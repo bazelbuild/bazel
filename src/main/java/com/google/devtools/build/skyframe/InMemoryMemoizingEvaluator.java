@@ -124,7 +124,7 @@ public final class InMemoryMemoizingEvaluator implements MemoizingEvaluator {
   @Override
   public void deleteDirty(long versionAgeLimit) {
     Preconditions.checkArgument(versionAgeLimit >= 0);
-    final Version threshold = new IntVersion(lastGraphVersion.getVal() - versionAgeLimit);
+    final Version threshold = IntVersion.of(lastGraphVersion.getVal() - versionAgeLimit);
     valuesToDelete.addAll(
         Sets.filter(dirtyKeyTracker.getDirtyKeys(), new Predicate<SkyKey>() {
           @Override

@@ -40,7 +40,6 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
         .setOutputToGenfiles()
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(deps) -->
         The list of other <code>proto_library</code> rules that the target depends upon.
-        ${SYNOPSIS}
         A <code>proto_library</code> may only depend on other
         <code>proto_library</code> targets.
         It may not depend on language-specific libraries.
@@ -50,7 +49,6 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
             .allowedFileTypes())
         /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(srcs) -->
         The list of <code>.proto</code> files that are processed to create the target.
-        ${SYNOPSIS}
         This is usually a non empty list. One usecase where <code>srcs</code> can be
         empty is an <i>alias-library</i>. This is a proto_library rule having one or
         more other proto_library in <code>deps</code>. This pattern can be used to
@@ -75,13 +73,9 @@ public final class BazelProtoLibraryRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = proto_library, TYPE = LIBRARY, FAMILY = Protocol Buffer) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>Use <code>proto_library</code> to define libraries of protocol buffers
    which may be used from multiple languages. A <code>proto_library</code> may be listed
    in the <code>deps</code> clause of supported rules, such as <code>objc_proto_library</code>.
 </p>
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

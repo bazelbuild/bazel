@@ -37,7 +37,6 @@ public class MavenJarRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(artifact) -->
         A description of a Maven artifact.
-        ${SYNOPSIS}
 
         <p>These descriptions are of the form &lt;groupId&gt:&lt;artifactId&gt;:&lt;version&gt;,
         see <a href="#maven_jar_examples">the documentation below</a> for an example.
@@ -48,7 +47,6 @@ public class MavenJarRule implements RuleDefinition {
         .add(attr("version", Type.STRING).undocumented("deprecated"))
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(repository) -->
         A URL for a Maven repository to fetch the jar from.
-        ${SYNOPSIS}
 
         <p>Either this or <code>server</code> can be specified. Defaults to Maven Central
          ("central.maven.org").</p>
@@ -56,14 +54,12 @@ public class MavenJarRule implements RuleDefinition {
         .add(attr("repository", Type.STRING))
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(server) -->
         A maven_server to use for this artifact.
-         ${SYNOPSIS}
 
         <p>Either this or <code>repository</code> can be specified.</p>
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("server", Type.STRING))
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(sha1) -->
          A SHA-1 hash of the desired jar.
-         ${SYNOPSIS}
 
          <p>If the downloaded jar does not match this hash, Bazel will error out.</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -84,11 +80,7 @@ public class MavenJarRule implements RuleDefinition {
 }
 /*<!-- #BLAZE_RULE (NAME = maven_jar, TYPE = OTHER, FAMILY = Workspace)[GENERIC_RULE] -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>Downloads a jar from Maven and makes it available to be used as a Java dependency.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <h4 id="maven_jar_examples">Examples</h4>
 

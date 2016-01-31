@@ -633,29 +633,5 @@ sh_binary(
   </li>
 </ul>
 
-<!-- =================================================================
-                              workspace()
-     =================================================================
--->
-
-<h2 id="workspace">workspace</h2>
-
-<pre>workspace(name = "something")</pre>
-
-<p>This can only be used in the WORKSPACE file.</p>
-
-<p>The sets an optional name for the repository.</p>
-
-<p>This name is used for the directory that runfiles are stored in. For
-  example, if there is a runfile foo/bar and the WORKSPACE file contains
-  <code>workspace(name = "baz")</code>, then the runfile will be output under
-  mytarget.runfiles/baz/foo/bar.  If no workspace name is specified, then the
-  runfile will be symlinked to bar.runfiles/foo/bar.
-</p>
-
-<p>A workspace name can contain slashes if a deeper directory listing is
-  desired (<code>workspace(name = "baz/qux")</code> will place the runfile at
-  bar.runfiles/baz/qux/foo/bar).
-</p>
 
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")

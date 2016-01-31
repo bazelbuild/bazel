@@ -42,7 +42,6 @@ public class ObjcXcodeprojRule implements RuleDefinition {
         .setImplicitOutputsFunction(XcodeSupport.PBXPROJ)
         /* <!-- #BLAZE_RULE(objc_xcodeproj).ATTRIBUTE(deps) -->
         The list of targets to include in the combined Xcode project file.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("deps", LABEL_LIST)
             .nonEmpty()
@@ -77,11 +76,7 @@ public class ObjcXcodeprojRule implements RuleDefinition {
 
 /*<!-- #BLAZE_RULE (NAME = objc_xcodeproj, TYPE = OTHER, FAMILY = Objective-C) -->
 
-${ATTRIBUTE_SIGNATURE}
-
 <p>This rule combines build information about several objc targets (and all their transitive
 dependencies) into a single Xcode project file, for use in developing on a Mac.</p>
-
-${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/

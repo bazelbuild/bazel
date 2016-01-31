@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier.RepositoryName;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
@@ -32,11 +32,11 @@ import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
 import com.google.devtools.build.lib.skyframe.PackageValue;
-import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -76,11 +76,11 @@ import javax.annotation.Nullable;
  * repository has never been fetched, Bazel errors out for lack of a better option. This is
  * implemented using
  * {@link com.google.devtools.build.lib.bazel.BazelRepositoryModule#REPOSITORY_VALUE_CHECKER} and
- * a flag in {@link RepositoryValue} that tells Bazel whether the value in Skyframe is stale
- * according to the value of {@code --nofetch} or not.
+ * a flag in {@link RepositoryDirectoryValue} that tells Bazel whether the value in Skyframe is
+ * stale according to the value of {@code --nofetch} or not.
  *
- * <p>When a rule in the WORKSPACE file is changed, the corresponding {@link RepositoryValue} is
- * invalidated using the usual Skyframe route.
+ * <p>When a rule in the WORKSPACE file is changed, the corresponding
+ * {@link RepositoryDirectoryValue} is invalidated using the usual Skyframe route.
  */
 public abstract class RepositoryFunction {
   /**
@@ -236,13 +236,14 @@ public abstract class RepositoryFunction {
     try {
       Path workspaceFile = repositoryDirectory.getRelative("WORKSPACE");
       FileSystemUtils.writeContent(workspaceFile, Charset.forName("UTF-8"),
-          String.format("# DO NOT EDIT: automatically generated WORKSPACE file for %s\n", rule));
+          String.format("# DO NOT EDIT: automatically generated WORKSPACE file for %s\n"
+              + "workspace(name = \"%s\")", rule, rule.getName()));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
   }
 
-  protected RepositoryValue writeBuildFile(Path repositoryDirectory, String contents)
+  protected RepositoryDirectoryValue writeBuildFile(Path repositoryDirectory, String contents)
       throws RepositoryFunctionException {
     Path buildFilePath = repositoryDirectory.getRelative("BUILD");
     try {
@@ -251,7 +252,7 @@ public abstract class RepositoryFunction {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 
-    return RepositoryValue.create(repositoryDirectory);
+    return RepositoryDirectoryValue.create(repositoryDirectory);
   }
 
   protected FileValue getBuildFileValue(Rule rule, Environment env)
@@ -305,11 +306,11 @@ public abstract class RepositoryFunction {
    * @throws RepositoryFunctionException if the BUILD file specified does not exist or cannot be
    *         linked.
    */
-  protected RepositoryValue symlinkBuildFile(FileValue buildFileValue, Path outputDirectory)
-      throws RepositoryFunctionException {
+  protected RepositoryDirectoryValue symlinkBuildFile(
+      FileValue buildFileValue, Path outputDirectory) throws RepositoryFunctionException {
     Path buildFilePath = outputDirectory.getRelative("BUILD");
     createSymbolicLink(buildFilePath, buildFileValue.realRootedPath().asPath());
-    return RepositoryValue.create(outputDirectory);
+    return RepositoryDirectoryValue.create(outputDirectory);
   }
 
   @VisibleForTesting
@@ -335,13 +336,19 @@ public abstract class RepositoryFunction {
    * </pre>
    */
   public static boolean symlinkLocalRepositoryContents(
-      Path repositoryDirectory, Path targetDirectory, Environment env)
+      Path repositoryDirectory, Path targetDirectory)
       throws RepositoryFunctionException {
     try {
-      for (Path target : targetDirectory.getDirectoryEntries()) {
-        Path symlinkPath =
-            repositoryDirectory.getRelative(target.getBaseName());
-        createSymbolicLink(symlinkPath, target);
+      FileSystemUtils.createDirectoryAndParents(repositoryDirectory);
+      FileSystem fs = repositoryDirectory.getFileSystem();
+      if (repositoryDirectory.getFileSystem().supportsSymbolicLinksNatively()) {
+        for (Path target : targetDirectory.getDirectoryEntries()) {
+          Path symlinkPath =
+              repositoryDirectory.getRelative(target.getBaseName());
+          createSymbolicLink(symlinkPath, target);
+        }
+      } else {
+        FileSystemUtils.copyTreesBelow(targetDirectory, repositoryDirectory);
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
