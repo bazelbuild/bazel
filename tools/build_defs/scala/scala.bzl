@@ -106,7 +106,6 @@ java -cp {cp} {name} {args} "$@"
 """
   content = content.format(
       name=ctx.attr.main_class,
-      # TODO(dinowernli): merge this with the write_launcher above.
       args=' '.join(_args_for_suites(ctx.attr.suites)),
       deploy_jar=ctx.outputs.jar.path,
       cp=":".join([j.short_path for j in jars]))
