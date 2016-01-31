@@ -1,6 +1,5 @@
 # Copyright 2015 The Bazel Authors. All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
+# # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
@@ -181,8 +180,8 @@ def _scala_binary_impl(ctx):
 
 def _scala_test_impl(ctx):
   (cjars, rjars) = _collect_comp_run_jars(ctx)
-  cjars += [ctx.file._scalareflect]
-  rjars += [ctx.outputs.jar, ctx.file._scalalib, ctx.file._scalareflect]
+  cjars += [ctx.file._scalareflect, ctx.file._scalatest, ctx.file._scalaxml]
+  rjars += [ctx.outputs.jar, ctx.file._scalalib, ctx.file._scalareflect, ctx.file._scalatest, ctx.file._scalaxml]
   _write_test_launcher(ctx, rjars)
   return _scala_binary_common(ctx, cjars, rjars)
 
@@ -190,6 +189,7 @@ _implicit_deps = {
   "_ijar": attr.label(executable=True, default=Label("//tools/defaults:ijar"), single_file=True, allow_files=True),
   "_scalac": attr.label(executable=True, default=Label("@scala//:bin/scalac"), single_file=True, allow_files=True),
   "_scalalib": attr.label(default=Label("@scala//:lib/scala-library.jar"), single_file=True, allow_files=True),
+  "_scalaxml": attr.label(default=Label("@scala//:lib/scala-xml_2.11-1.0.4.jar"), single_file=True, allow_files=True),
   "_scalasdk": attr.label(default=Label("@scala//:sdk"), allow_files=True),
   "_scalareflect": attr.label(default=Label("@scala//:lib/scala-reflect.jar"), single_file=True, allow_files=True),
   "_jar": attr.label(executable=True, default=Label("@bazel_tools//tools/jdk:jar"), single_file=True, allow_files=True),
@@ -249,6 +249,7 @@ scala_test = rule(
   attrs={
       "main_class": attr.string(default="org.scalatest.tools.Runner"),
       "suites": attr.string_list(),
+      "_scalatest": attr.label(executable=True, default=Label("@scalatest//file"), single_file=True, allow_files=True),
       } + _implicit_deps + _common_attrs,
   outputs={
       "jar": "%{name}_deploy.jar",

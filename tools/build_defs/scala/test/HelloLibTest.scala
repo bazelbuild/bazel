@@ -10,7 +10,7 @@ class ScalaSuite extends FlatSpec {
 
 class JavaSuite extends FlatSpec {
   "HelloLib" should "call java" in {
-    //assert(HelloLib.getOtherJavaLibMessage("hello").equals("hello java!"))
+    assert(HelloLib.getOtherJavaLibMessage("hello").equals("hello java!"))
   }
 }
 

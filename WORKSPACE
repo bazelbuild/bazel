@@ -53,12 +53,10 @@ new_http_archive(
     build_file = "tools/build_defs/scala/scala.BUILD",
 )
 
-maven_jar(
-    name = "scala-xml",
-    artifact = "org.scala-lang.modules:scala-xml_2.11:1.0.5",
+# only used for the scala test rule
+http_file(
+    name = "scalatest",
+    url = "https://oss.sonatype.org/content/groups/public/org/scalatest/scalatest_2.11/2.2.6/scalatest_2.11-2.2.6.jar",
+    sha256 = "f198967436a5e7a69cfd182902adcfbcb9f2e41b349e1a5c8881a2407f615962",
 )
 
-maven_jar(
-    name = "scalatest",
-    artifact = "org.scalatest:scalatest_2.11:2.2.4",
-)
