@@ -210,9 +210,9 @@ java_import(
 java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_core-2.0.8-20151216.jar",
-        "error_prone/error_prone_annotations-2.0.8-20151216.jar",
-        "error_prone/error_prone_annotation-2.0.8-20151216.jar",
+        "error_prone/error_prone_core-2.0.9-20160129.jar",
+        "error_prone/error_prone_annotations-2.0.9-20160129.jar",
+        "error_prone/error_prone_annotation-2.0.9-20160129.jar",
     ],
     exports = [
         ":checker_framework_dataflow",
@@ -257,9 +257,9 @@ filegroup(
     name = "error_prone-jars",
     srcs = [
         "checker_framework_dataflow/dataflow-1.8.10.jar",
-        "error_prone/error_prone_annotation-2.0.8-20151216.jar",
-        "error_prone/error_prone_annotations-2.0.8-20151216.jar",
-        "error_prone/error_prone_core-2.0.8-20151216.jar",
+        "error_prone/error_prone_annotation-2.0.9-20160129.jar",
+        "error_prone/error_prone_annotations-2.0.9-20160129.jar",
+        "error_prone/error_prone_core-2.0.9-20160129.jar",
         "guava/guava-19.0.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jformatstring/jFormatString-3.0.0.jar",
