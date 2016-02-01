@@ -15,14 +15,14 @@
 """Tests for rust rules."""
 
 load(
-    "/tools/build_rules/rust/rust",
+    "//tools/build_rules/rust:rust.bzl",
     "rust_library",
     "rust_binary",
     "rust_test",
 )
 
 load(
-    "/tools/build_rules/test_rules",
+    "//tools:build_rules/test_rules.bzl",
     "success_target",
     "successful_test",
     "failure_target",

@@ -1,4 +1,4 @@
-load("/tools/build_rules/java_rules_skylark", "java_library", "java_test")
+load("//tools:build_rules/java_rules_skylark.bzl", "java_library", "java_test")
 
 java_library(
     name = "junit4",

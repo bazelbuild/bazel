@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-load("/tools/build_rules/go/def", "go_prefix", "go_library", "go_binary", "go_test")
+load("//tools/build_rules/go:def.bzl", "go_prefix", "go_library", "go_binary", "go_test")
 
 go_library(
     name = "filter_tags_lib",

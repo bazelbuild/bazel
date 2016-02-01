@@ -51,7 +51,7 @@ py_binary(
 )
 
 # tests
-load("/tools/build_defs/pkg/pkg", "pkg_deb", "pkg_tar")
+load("//tools/build_defs/pkg:pkg.bzl", "pkg_deb", "pkg_tar")
 
 genrule(
     name = "generate_files",

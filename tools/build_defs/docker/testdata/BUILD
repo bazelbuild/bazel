@@ -4,7 +4,7 @@ package(
     ],
 )
 
-load("/tools/build_defs/docker/docker", "docker_build")
+load("//tools/build_defs/docker:docker.bzl", "docker_build")
 
 filegroup(
     name = "srcs",

@@ -1,7 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
 load(
-    "/tools/build_defs/jsonnet/jsonnet",
+    "//tools/build_defs/jsonnet:jsonnet.bzl",
     "jsonnet_library",
     "jsonnet_to_json",
     "jsonnet_to_json_test",

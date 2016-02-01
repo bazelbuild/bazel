@@ -39,7 +39,7 @@ genrule(
     cmd = "cp $< $@",
 )
 
-load("self_extract_binary", "self_extract_binary")
+load(":self_extract_binary.bzl", "self_extract_binary")
 
 self_extract_binary(
     name = "install.sh",
@@ -57,7 +57,7 @@ self_extract_binary(
     ],
 )
 
-load("/tools/build_defs/pkg/pkg", "pkg_tar", "pkg_deb")
+load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar", "pkg_deb")
 
 pkg_tar(
     name = "bazel-bin",

@@ -2,7 +2,7 @@ package(
     default_visibility = ["//visibility:public"],
 )
 
-load("/tools/build_rules/go/def", "go_binary")
+load("//tools/build_rules/go:def.bzl", "go_binary")
 
 go_binary(
     name = "bin",

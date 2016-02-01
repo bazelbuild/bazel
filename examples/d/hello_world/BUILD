@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-load("/tools/build_defs/d/d", "d_binary", "d_docs")
+load("//tools/build_defs/d:d.bzl", "d_binary", "d_docs")
 
 d_binary(
     name = "hello_world",
