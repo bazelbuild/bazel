@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.Pair;
@@ -152,7 +153,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       boolean useTestOnlyFlags) throws InterruptedException {
     ruleContext.checkSrcsSamePackage(true);
     FeatureConfiguration featureConfiguration = CcCommon.configureFeatures(ruleContext);
-    CcCommon common = new CcCommon(ruleContext);
+    CcCommon common = new CcCommon(ruleContext, featureConfiguration);
     CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
 
@@ -161,11 +162,16 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     List<String> linkopts = common.getLinkopts();
     LinkStaticness linkStaticness = getLinkStaticness(ruleContext, linkopts, cppConfiguration);
 
+    ImmutableList<Pair<Artifact, Label>> cAndCppSources = common.getCAndCppSources();
     CcLibraryHelper helper =
         new CcLibraryHelper(ruleContext, semantics, featureConfiguration)
             .fromCommon(common)
-            .addSources(common.getSources())
+            .addSources(cAndCppSources)
             .addDeps(ImmutableList.of(CppHelper.mallocForTarget(ruleContext)))
+            .addPrivateHeaders(
+                FileType.filter(
+                    ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list(),
+                    CppFileTypes.CPP_HEADER))
             .setFake(fake)
             .setLinkType(linkType)
             .addPrecompiledFiles(precompiledFiles);
@@ -278,16 +284,9 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     // logical since all symlinked libraries will be linked anyway and would
     // not require manual loading but if we do, then we would need to collect
     // their names and use a different constructor below.
-    Runfiles runfiles =
-        collectRunfiles(
-            ruleContext,
-            linkingOutputs,
-            cppCompilationContext,
-            linkStaticness,
-            filesToBuild,
-            fakeLinkerInputs,
-            fake,
-            helper.getCompilationUnitSources());
+    Runfiles runfiles = collectRunfiles(
+        ruleContext, linkingOutputs, cppCompilationContext, linkStaticness, filesToBuild,
+        fakeLinkerInputs, fake, cAndCppSources);
     RunfilesSupport runfilesSupport = RunfilesSupport.withExecutable(
         ruleContext, runfiles, executable, ruleContext.getConfiguration().buildRunfiles());
 

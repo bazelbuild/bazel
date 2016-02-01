@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -40,7 +39,6 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
-import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -69,14 +67,6 @@ import javax.annotation.Nullable;
  * methods.
  */
 public final class CcLibraryHelper {
-  static final FileTypeSet SOURCE_TYPES =
-      FileTypeSet.of(
-          CppFileTypes.CPP_SOURCE,
-          CppFileTypes.CPP_HEADER,
-          CppFileTypes.C_SOURCE,
-          CppFileTypes.ASSEMBLER,
-          CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR);
-  
   /** Function for extracting module maps from CppCompilationDependencies. */
   public static final Function<TransitiveInfoCollection, CppModuleMap> CPP_DEPS_TO_MODULES =
     new Function<TransitiveInfoCollection, CppModuleMap>() {
@@ -165,7 +155,7 @@ public final class CcLibraryHelper {
   private final List<Artifact> publicTextualHeaders = new ArrayList<>();
   private final List<Artifact> privateHeaders = new ArrayList<>();
   private final List<PathFragment> additionalExportedHeaders = new ArrayList<>();
-  private final List<Pair<Artifact, Label>> compilationUnitSources = new ArrayList<>();
+  private final List<Pair<Artifact, Label>> sources = new ArrayList<>();
   private final List<Artifact> objectFiles = new ArrayList<>();
   private final List<Artifact> picObjectFiles = new ArrayList<>();
   private final List<String> copts = new ArrayList<>();
@@ -224,39 +214,31 @@ public final class CcLibraryHelper {
   }
 
   /**
-   * Adds {@code headers} as public header files. These files will be made visible to dependent
-   * rules. They may be parsed/preprocessed or compiled into a header module depending on the
-   * configuration.
+   * Add the corresponding files as header files, i.e., these files will not be compiled, but are
+   * made visible as includes to dependent rules.
    */
   public CcLibraryHelper addPublicHeaders(Collection<Artifact> headers) {
-    for (Artifact header : headers) {
-      addHeader(header, ruleContext.getLabel());
-    }
+    this.publicHeaders.addAll(headers);
     return this;
   }
-  
+
   /**
-   * Adds {@code headers} as public header files. These files will be made visible to dependent
-   * rules. They may be parsed/preprocessed or compiled into a header module depending on the
-   * configuration.
+   * Add the corresponding files as public header files, i.e., these files will not be compiled, but
+   * are made visible as includes to dependent rules in module maps.
    */
   public CcLibraryHelper addPublicHeaders(Artifact... headers) {
-    addPublicHeaders(Arrays.asList(headers));
-    return this;
+    return addPublicHeaders(Arrays.asList(headers));
   }
-  
+
   /**
-   * Adds {@code headers} as public header files. These files will be made visible to dependent
-   * rules. They may be parsed/preprocessed or compiled into a header module depending on the
-   * configuration.
+   * Add the corresponding files as private header files, i.e., these files will not be compiled,
+   * but are not made visible as includes to dependent rules in module maps.
    */
-  public CcLibraryHelper addPublicHeaders(Iterable<Pair<Artifact, Label>> headers) {
-    for (Pair<Artifact, Label> header : headers) {
-      addHeader(header.first, header.second);
-    }
+  public CcLibraryHelper addPrivateHeaders(Iterable<Artifact> privateHeaders) {
+    Iterables.addAll(this.privateHeaders, privateHeaders);
     return this;
   }
-  
+
   /**
    * Add the corresponding files as public header files, i.e., these files will not be compiled, but
    * are made visible as includes to dependent rules in module maps.
@@ -283,9 +265,10 @@ public final class CcLibraryHelper {
    * Add the corresponding files as source files. These may also be header files, in which case
    * they will not be compiled, but also not made visible as includes to dependent rules.
    */
+  // TODO(bazel-team): This is inconsistent with the documentation on CppModel.
   public CcLibraryHelper addSources(Collection<Artifact> sources) {
     for (Artifact source : sources) {
-      addSource(source, ruleContext.getLabel());
+      this.sources.add(Pair.of(source, ruleContext.getLabel()));
     }
     return this;
   }
@@ -294,10 +277,9 @@ public final class CcLibraryHelper {
    * Add the corresponding files as source files. These may also be header files, in which case
    * they will not be compiled, but also not made visible as includes to dependent rules.
    */
+  // TODO(bazel-team): This is inconsistent with the documentation on CppModel.
   public CcLibraryHelper addSources(Iterable<Pair<Artifact, Label>> sources) {
-    for (Pair<Artifact, Label> source : sources) {
-      addSource(source.first, source.second);
-    }
+    Iterables.addAll(this.sources, sources);
     return this;
   }
 
@@ -307,50 +289,6 @@ public final class CcLibraryHelper {
    */
   public CcLibraryHelper addSources(Artifact... sources) {
     return addSources(Arrays.asList(sources));
-  }
-  
-  /**
-   * Adds a header to {@code publicHeaders} and in case header processing is switched on for the
-   * file type also to compilationUnitSources.
-   */
-  private void addHeader(Artifact header, Label label) {
-    boolean isHeader = CppFileTypes.CPP_HEADER.matches(header.getExecPath());
-    boolean isTextualInclude = CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(header.getExecPath());
-    publicHeaders.add(header);
-    if (isTextualInclude || !isHeader || !shouldProcessHeaders()) {
-      return;
-    }
-    compilationUnitSources.add(Pair.of(header, label));
-  }
-
-  /**
-   * Adds a source to {@code compilationUnitSources} if it is a compiled file type (including
-   * parsed/preprocessed header) and to {@code privateHeaders} if it is a header.
-   */
-  private void addSource(Artifact source, Label label) {
-    boolean isHeader = CppFileTypes.CPP_HEADER.matches(source.getExecPath());
-    boolean isTextualInclude = CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(source.getExecPath());
-    boolean isCompiledSource = SOURCE_TYPES.matches(source.getExecPathString());
-    if (isHeader || isTextualInclude) {
-      privateHeaders.add(source);
-    }
-    if (isTextualInclude || !isCompiledSource || (isHeader && !shouldProcessHeaders())) {
-      return;
-    }
-    compilationUnitSources.add(Pair.of(source, label));
-  }
-
-  private boolean shouldProcessHeaders() {
-    return featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)
-        || featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS);
-  }
-
-  /**
-   * Returns the compilation unit sources. That includes all compiled source files as well
-   * as headers that will be parsed or preprocessed.
-   */
-  public ImmutableList<Pair<Artifact, Label>> getCompilationUnitSources() {
-    return ImmutableList.copyOf(this.compilationUnitSources);
   }
 
   /**
@@ -775,7 +713,7 @@ public final class CcLibraryHelper {
    */
   private CppModel initializeCppModel() {
     return new CppModel(ruleContext, semantics)
-        .addCompilationUnitSources(compilationUnitSources)
+        .addSources(sources)
         .addCopts(copts)
         .setLinkTargetType(linkType)
         .setNeverLink(neverlink)
