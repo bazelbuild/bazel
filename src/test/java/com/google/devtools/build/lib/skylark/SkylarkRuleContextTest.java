@@ -246,6 +246,21 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         + "'//test/sub:my_sub_lib.h'?)");
   }
 
+  /* The error message for this case used to be wrong. */
+  @Test
+  public void testPackageBoundaryError_ExternalRepository() throws Exception {
+    scratch.file("/r/BUILD", "cc_library(name = 'cclib',", "  srcs = ['sub/my_sub_lib.h'])");
+    scratch.file("/r/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
+    scratch.overwriteFile("WORKSPACE", "local_repository(name='r', path='/r')");
+    invalidatePackages();
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("@r//:cclib");
+    assertContainsEvent(
+        "/external/r/BUILD:2:10: Label '@r//:sub/my_sub_lib.h' crosses boundary of "
+            + "subpackage '@r//sub' (perhaps you meant to put the colon here: "
+            + "'@r//sub:my_sub_lib.h'?)");
+  }
+
   /*
    * Making the location in BUILD file the default for "crosses boundary of subpackage" errors does
    * not work in this case since the error actually happens in the bzl file. However, because of
