@@ -259,7 +259,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
     Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> allProviders =
         new LinkedHashMap<>();
-    for (int i = configuredAspects.size() - 1; i >= 0; i++) {
+    for (int i = configuredAspects.size() - 1; i >= 0; i--) {
       for (TransitiveInfoProvider tip : configuredAspects.get(i)) {
         allProviders.put(tip.getClass(), tip);
       }

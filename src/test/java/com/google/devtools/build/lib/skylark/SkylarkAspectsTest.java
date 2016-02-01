@@ -185,7 +185,53 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     Object ruleKinds = skylarkProviders.getValue("rule_kinds");
     assertThat(ruleKinds).isInstanceOf(SkylarkNestedSet.class);
     assertThat((SkylarkNestedSet) ruleKinds).containsExactly("java_library");
+  }
 
+  @Test
+  public void aspectsPropagatingForDefaultAndImplicit() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   s = set([target.label])",
+        "   c = set([ctx.rule.kind])",
+        "   a = ctx.rule.attr",
+        "   if hasattr(a, '_stl') and a._stl:",
+        "       s += a._stl.target_labels",
+        "       c += a._stl.rule_kinds",
+        "   if hasattr(a, '_stl_default') and a._stl_default:",
+        "       s += a._stl_default.target_labels",
+        "       c += a._stl_default.rule_kinds",
+        "   return struct(target_labels = s, rule_kinds = c)",
+        "",
+        "MyAspect = aspect(",
+        "   implementation=_impl,",
+        "   attr_aspects=[':stl', '$stl_default'],",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "cc_library(",
+        "     name = 'xxx',",
+        ")");
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+    AspectValue aspectValue = analysisResult.getAspects().iterator().next();
+    SkylarkProviders skylarkProviders =
+        aspectValue.getConfiguredAspect().getProvider(SkylarkProviders.class);
+    assertThat(skylarkProviders).isNotNull();
+    Object names = skylarkProviders.getValue("target_labels");
+    assertThat(names).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(
+        transform(
+            (SkylarkNestedSet) names,
+            new Function<Object, String>() {
+              @Nullable
+              @Override
+              public String apply(Object o) {
+                assertThat(o).isInstanceOf(Label.class);
+                return ((Label) o).getName();
+              }
+            }))
+        .containsExactly("stl", "xxx");
   }
 
   @Test
