@@ -18,6 +18,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 import com.google.common.base.Functions;
 import com.google.common.base.Joiner;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
@@ -446,6 +448,55 @@ public class LoadingPhaseRunnerTest {
     assertThat(
         Iterables.transform(result.getAssociatedRule().getLabels(), Functions.toStringFunction()))
         .containsExactly("//foo:a.y", "//foo:b.y");
+  }
+
+  /** Regression test: handle symlink cycles gracefully. */
+  @Test
+  public void testCycleReporting_SymlinkCycleDuringTargetParsing() throws Exception {
+    tester.addFile("hello/BUILD", "cc_library(name = 'a', srcs = glob(['*.cc']))");
+    Path buildFilePath = tester.getWorkspace().getRelative("hello/BUILD");
+    Path dirPath = buildFilePath.getParentDirectory();
+    Path fooFilePath = dirPath.getRelative("foo.cc");
+    Path barFilePath = dirPath.getRelative("bar.cc");
+    Path bazFilePath = dirPath.getRelative("baz.cc");
+    fooFilePath.createSymbolicLink(barFilePath);
+    barFilePath.createSymbolicLink(bazFilePath);
+    bazFilePath.createSymbolicLink(fooFilePath);
+    assertCircularSymlinksDuringTargetParsing("//hello:a");
+  }
+
+  @Test
+  public void testRecursivePatternWithCircularSymlink() throws Exception {
+    tester.getWorkspace().getChild("broken").createDirectory();
+
+    // Create a circular symlink.
+    tester.getWorkspace().getRelative(new PathFragment("broken/BUILD"))
+        .createSymbolicLink(new PathFragment("BUILD"));
+
+    assertCircularSymlinksDuringTargetParsing("//broken/...");
+  }
+
+  @Test
+  public void testRecursivePatternWithTwoCircularSymlinks() throws Exception {
+    tester.getWorkspace().getChild("broken").createDirectory();
+
+    // Create a circular symlink.
+    tester.getWorkspace().getRelative(new PathFragment("broken/BUILD"))
+        .createSymbolicLink(new PathFragment("x"));
+    tester.getWorkspace().getRelative(new PathFragment("broken/x"))
+        .createSymbolicLink(new PathFragment("BUILD"));
+
+    assertCircularSymlinksDuringTargetParsing("//broken/...");
+  }
+
+  private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
+    try {
+      tester.load(targetPattern);
+      fail();
+    } catch (TargetParsingException e) {
+      // Expected.
+      tester.assertContainsError("circular symlinks detected");
+    }
   }
 
   private LoadingResult assertNoErrors(LoadingResult loadingResult) {

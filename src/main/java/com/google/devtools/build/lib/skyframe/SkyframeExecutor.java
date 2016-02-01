@@ -1760,9 +1760,19 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               ImmutableList.of(key), keepGoing, /*numThreads=*/10, eventHandler);
       if (evalResult.hasError()) {
         ErrorInfo errorInfo = evalResult.getError(key);
-        if (errorInfo != null && errorInfo.getException() != null) {
+        if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
+          String errorMessage = "cycles detected during target parsing";
+          getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), key, eventHandler);
+          throw new TargetParsingException(errorMessage);
+        }
+        if (errorInfo.getException() != null) {
           Exception e = errorInfo.getException();
           Throwables.propagateIfInstanceOf(e, TargetParsingException.class);
+          if (!keepGoing) {
+            // This is the same code as in SkyframeTargetPatternEvaluator; we allow any exception
+            // and turn it into a TargetParsingException here.
+            throw new TargetParsingException(e.getMessage());
+          }
           throw new IllegalStateException("Unexpected Exception type from TargetPatternPhaseValue "
               + "for '" + targetPatterns + "'' with root causes: "
               + Iterables.toString(errorInfo.getRootCauses()), e);
