@@ -679,39 +679,6 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testProcessHeadersInDependencies() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_PROCESSING_FEATURE_CONFIGURATION);
-    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
-    ConfiguredTarget x =
-        scratchConfiguredTarget(
-            "foo",
-            "x",
-            "cc_library(name = 'x', deps = [':y'])",
-            "cc_library(name = 'y', hdrs = ['y.h'])");
-    assertThat(ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupProvider.HIDDEN_TOP_LEVEL)))
-        .isEqualTo("y.h.processed");
-  }
-  
-  @Test
-  public void testProcessHeadersInCompileOnlyMode() throws Exception {
-    AnalysisMock.get()
-        .ccSupport()
-        .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_PROCESSING_FEATURE_CONFIGURATION);
-    useConfiguration(
-        "--features=parse_headers", "--process_headers_in_dependencies");
-    ConfiguredTarget y =
-        scratchConfiguredTarget(
-            "foo",
-            "y",
-            "cc_library(name = 'x', deps = [':y'])",
-            "cc_library(name = 'y', hdrs = ['y.h'])");
-    assertThat(ActionsTestUtil.baseNamesOf(getOutputGroup(y, OutputGroupProvider.FILES_TO_COMPILE)))
-        .isEqualTo("y.h.processed");
-  }
-
-  @Test
   public void testIncludePathOrder() throws Exception {
     scratch.file("foo/BUILD",
         "cc_library(",
