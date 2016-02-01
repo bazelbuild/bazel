@@ -33,6 +33,7 @@ import net.bytebuddy.implementation.bytecode.StackManipulation;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Utilities used by the evaluator.
@@ -82,20 +83,16 @@ public final class EvalUtils {
       try {
         return ((Comparable<Object>) o1).compareTo(o2);
       } catch (ClassCastException e) {
-        return compareByClass(o1, o2);
+        try {
+          // Different types -> let the class names decide
+          return o1.getClass().getName().compareTo(o2.getClass().getName());
+        } catch (NullPointerException ex) {
+          throw new ComparisonException(
+              "Cannot compare " + getDataTypeName(o1) + " with " + EvalUtils.getDataTypeName(o2));
+        }
       }
     }
   };
-
-  public static final int compareByClass(Object o1, Object o2) {
-    try {
-      // Different types -> let the class names decide
-      return o1.getClass().getName().compareTo(o2.getClass().getName());
-    } catch (NullPointerException ex) {
-      throw new ComparisonException(
-          "Cannot compare " + getDataTypeName(o1) + " with " + EvalUtils.getDataTypeName(o2));
-    }
-  }
 
   public static final StackManipulation checkValidDictKey =
       ByteCodeUtils.invoke(EvalUtils.class, "checkValidDictKey", Object.class);
@@ -208,25 +205,30 @@ public final class EvalUtils {
    * @return a super-class of c to be used in validation-time type inference.
    */
   public static Class<?> getSkylarkType(Class<?> c) {
-    // TODO(bazel-team): replace these with SkylarkValue-s
-    if (String.class.equals(c)
-        || Boolean.class.equals(c)
-        || Integer.class.equals(c)
-        || Iterable.class.equals(c)
-        || Class.class.equals(c)) {
+    if (SkylarkList.class.isAssignableFrom(c)) {
       return c;
+    } else if (ImmutableList.class.isAssignableFrom(c)) {
+      return ImmutableList.class;
+    } else if (List.class.isAssignableFrom(c)) {
+      return List.class;
+    } else if (Map.class.isAssignableFrom(c)) {
+      return Map.class;
+    } else if (NestedSet.class.isAssignableFrom(c)) {
+      // This could be removed probably
+      return NestedSet.class;
+    } else if (Set.class.isAssignableFrom(c)) {
+      return Set.class;
+    } else {
+      // TODO(bazel-team): also unify all implementations of ClassObject,
+      // that we used to all print the same as "struct"?
+      //
+      // Check if one of the superclasses or implemented interfaces has the SkylarkModule
+      // annotation. If yes return that class.
+      Class<?> parent = getParentWithSkylarkModule(c);
+      if (parent != null) {
+        return parent;
+      }
     }
-    // TODO(bazel-team): also unify all implementations of ClassObject,
-    // that we used to all print the same as "struct"?
-    //
-    // Check if one of the superclasses or implemented interfaces has the SkylarkModule
-    // annotation. If yes return that class.
-    Class<?> parent = getParentWithSkylarkModule(c);
-    if (parent != null) {
-      return parent;
-    }
-    Preconditions.checkArgument(SkylarkValue.class.isAssignableFrom(c),
-        "%s is not allowed as a Skylark value", c);
     return c;
   }
 
@@ -281,10 +283,8 @@ public final class EvalUtils {
       return "int";
     } else if (c.equals(Boolean.class)) {
       return "bool";
-    } else if (List.class.isAssignableFrom(c)) { // This is a Java List that isn't a SkylarkList
-      return "List"; // This case shouldn't happen in normal code, but we keep it for debugging.
-    } else if (Map.class.isAssignableFrom(c)) { // This is a Java Map that isn't a SkylarkDict
-      return "Map"; // This case shouldn't happen in normal code, but we keep it for debugging.
+    } else if (Map.class.isAssignableFrom(c)) {
+      return "dict";
     } else if (BaseFunction.class.isAssignableFrom(c)) {
       return "function";
     } else if (c.equals(SelectorValue.class)) {
@@ -416,9 +416,8 @@ public final class EvalUtils {
   }
 
   /**
-   * Build a SkylarkDict of kwarg arguments from a list, removing null-s or None-s.
+   * Build a map of kwarg arguments from a list, removing null-s or None-s.
    *
-   * @param env the Environment in which this map can be mutated.
    * @param init a series of key, value pairs (as consecutive arguments)
    *   as in {@code optionMap(k1, v1, k2, v2, k3, v3)}
    *   where each key is a String, each value is an arbitrary Objet.
@@ -430,16 +429,16 @@ public final class EvalUtils {
    * Keys cannot be null.
    */
   @SuppressWarnings("unchecked")
-  public static <K, V> SkylarkDict<K, V> optionMap(Environment env, Object... init) {
-    ImmutableMap.Builder<K, V> b = new ImmutableMap.Builder<>();
+  public static ImmutableMap<String, Object> optionMap(Object... init) {
+    ImmutableMap.Builder<String, Object> b = new ImmutableMap.Builder<>();
     Preconditions.checkState(init.length % 2 == 0);
     for (int i = init.length - 2; i >= 0; i -= 2) {
-      K key = (K) Preconditions.checkNotNull(init[i]);
-      V value = (V) init[i + 1];
+      String key = (String) Preconditions.checkNotNull(init[i]);
+      Object value = init[i + 1];
       if (!isNullOrNone(value)) {
         b.put(key, value);
       }
     }
-    return SkylarkDict.<K, V>copyOf(env, b.build());
+    return b.build();
   }
 }

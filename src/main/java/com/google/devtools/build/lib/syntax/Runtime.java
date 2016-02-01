@@ -26,6 +26,7 @@ import net.bytebuddy.implementation.bytecode.StackManipulation;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -119,13 +120,18 @@ public final class Runtime {
    */
   public static void registerFunction(Class<?> nameSpace, BaseFunction function) {
     Preconditions.checkNotNull(nameSpace);
-    Preconditions.checkArgument(nameSpace.equals(getCanonicalRepresentation(nameSpace)));
-    Preconditions.checkArgument(
-        getCanonicalRepresentation(function.getObjectType()).equals(nameSpace));
+    // TODO(bazel-team): fix our code so that the two checks below work.
+    // Preconditions.checkArgument(function.getObjectType().equals(nameSpace));
+    // Preconditions.checkArgument(nameSpace.equals(getCanonicalRepresentation(nameSpace)));
+    nameSpace = getCanonicalRepresentation(nameSpace);
     if (!functions.containsKey(nameSpace)) {
       functions.put(nameSpace, new HashMap<String, BaseFunction>());
     }
     functions.get(nameSpace).put(function.getName(), function);
+  }
+
+  static Map<String, BaseFunction> getNamespaceFunctions(Class<?> nameSpace) {
+    return functions.get(getCanonicalRepresentation(nameSpace));
   }
 
   /**
@@ -137,15 +143,18 @@ public final class Runtime {
    */
   // TODO(bazel-team): make everything a SkylarkValue, and remove this function.
   public static Class<?> getCanonicalRepresentation(Class<?> clazz) {
+    if (SkylarkValue.class.isAssignableFrom(clazz)) {
+      return clazz;
+    }
+    if (Map.class.isAssignableFrom(clazz)) {
+      return MethodLibrary.DictModule.class;
+    }
     if (String.class.isAssignableFrom(clazz)) {
       return MethodLibrary.StringModule.class;
     }
-    return EvalUtils.getSkylarkType(clazz);
-  }
-
-
-  static Map<String, BaseFunction> getNamespaceFunctions(Class<?> nameSpace) {
-    return functions.get(getCanonicalRepresentation(nameSpace));
+    Preconditions.checkArgument(
+        !List.class.isAssignableFrom(clazz), "invalid non-SkylarkList list class");
+    return clazz;
   }
 
   /**

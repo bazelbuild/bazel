@@ -284,7 +284,7 @@ public class ValidationTest extends EvaluationTestCase {
 
   @Test
   public void testParentWithSkylarkModule() throws Exception {
-    Class<?> emptyTupleClass = Tuple.empty().getClass();
+    Class<?> emptyTupleClass = Tuple.EMPTY.getClass();
     Class<?> tupleClass = Tuple.of(1, "a", "b").getClass();
     Class<?> mutableListClass = new MutableList(Tuple.of(1, 2, 3), env).getClass();
 
@@ -311,7 +311,7 @@ public class ValidationTest extends EvaluationTestCase {
   @Test
   public void testSkylarkTypeEquivalence() throws Exception {
     // All subclasses of SkylarkList are made equivalent
-    Class<?> emptyTupleClass = Tuple.empty().getClass();
+    Class<?> emptyTupleClass = Tuple.EMPTY.getClass();
     Class<?> tupleClass = Tuple.of(1, "a", "b").getClass();
     Class<?> mutableListClass = new MutableList(Tuple.of(1, 2, 3), env).getClass();
 
@@ -322,14 +322,8 @@ public class ValidationTest extends EvaluationTestCase {
 
     // Also for ClassObject
     assertThat(SkylarkType.of(ClassObject.SkylarkClassObject.class)).isEqualTo(SkylarkType.STRUCT);
-    try {
-      SkylarkType.of(ClassObject.class);
-      throw new Exception("foo");
-    } catch (Exception e) {
-      assertThat(e.getMessage()).contains(
-          "interface com.google.devtools.build.lib.syntax.ClassObject "
-          + "is not allowed as a Skylark value");
-    }
+    // TODO(bazel-team): fix that?
+    assertThat(SkylarkType.of(ClassObject.class)).isNotEqualTo(SkylarkType.STRUCT);
 
     // Also test for these bazel classes, to avoid some regression.
     // TODO(bazel-team): move to some other place to remove dependency of syntax tests on Artifact?
@@ -348,17 +342,17 @@ public class ValidationTest extends EvaluationTestCase {
     assertThat(SkylarkType.LIST.includes(combo1)).isTrue();
 
     SkylarkType union1 =
-        SkylarkType.Union.of(SkylarkType.DICT, SkylarkType.LIST, SkylarkType.STRUCT);
-    assertThat(union1.includes(SkylarkType.DICT)).isTrue();
+        SkylarkType.Union.of(SkylarkType.MAP, SkylarkType.LIST, SkylarkType.STRUCT);
+    assertThat(union1.includes(SkylarkType.MAP)).isTrue();
     assertThat(union1.includes(SkylarkType.STRUCT)).isTrue();
     assertThat(union1.includes(combo1)).isTrue();
     assertThat(union1.includes(SkylarkType.STRING)).isFalse();
 
     SkylarkType union2 =
         SkylarkType.Union.of(
-            SkylarkType.LIST, SkylarkType.DICT, SkylarkType.STRING, SkylarkType.INT);
+            SkylarkType.LIST, SkylarkType.MAP, SkylarkType.STRING, SkylarkType.INT);
     SkylarkType inter1 = SkylarkType.intersection(union1, union2);
-    assertThat(inter1.includes(SkylarkType.DICT)).isTrue();
+    assertThat(inter1.includes(SkylarkType.MAP)).isTrue();
     assertThat(inter1.includes(SkylarkType.LIST)).isTrue();
     assertThat(inter1.includes(combo1)).isTrue();
     assertThat(inter1.includes(SkylarkType.INT)).isFalse();
