@@ -148,8 +148,6 @@ class BlazeStartupOptions {
 
   string skyframe;
 
-  bool blaze_cpu;
-
   // If true, Blaze will listen to OS-level file change notifications.
   bool watchfs;
 
