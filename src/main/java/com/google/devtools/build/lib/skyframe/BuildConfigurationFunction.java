@@ -16,14 +16,12 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 
 import com.google.common.collect.ClassToInstanceMap;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.MutableClassToInstanceMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -90,13 +88,8 @@ public class BuildConfigurationFunction implements SkyFunction {
     // Get SkyKeys for the fragments we need to load.
     Set<SkyKey> fragmentKeys = new LinkedHashSet<>();
     for (Class<? extends BuildConfiguration.Fragment> fragmentClass : key.getFragments()) {
-      // We don't want to invalidate the fragment Skyframe key due to existence of absence of
-      // options the fragment doesn't use.
-      BuildOptions optionsUsedByFragment = key.getBuildOptions().trim(
-          BuildConfiguration.getOptionsClasses(
-              ImmutableList.<Class<? extends BuildConfiguration.Fragment>>of(fragmentClass),
-              ruleClassProvider));
-      fragmentKeys.add(ConfigurationFragmentValue.key(optionsUsedByFragment, fragmentClass));
+      fragmentKeys.add(
+          ConfigurationFragmentValue.key(key.getBuildOptions(), fragmentClass, ruleClassProvider));
     }
 
     // Load them as Skyframe deps.

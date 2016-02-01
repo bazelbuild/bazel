@@ -14,11 +14,13 @@
 package com.google.devtools.build.lib.skyframe;
 
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -34,7 +36,7 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 public class ConfigurationFragmentValue implements SkyValue {
-  
+
   @Nullable
   private final BuildConfiguration.Fragment fragment;
 
@@ -45,31 +47,47 @@ public class ConfigurationFragmentValue implements SkyValue {
   public BuildConfiguration.Fragment getFragment() {
     return fragment;
   }
-  
+
   @ThreadSafe
-  public static SkyKey key(BuildOptions buildOptions, Class<? extends Fragment> fragmentType) {
+  public static SkyKey key(BuildOptions buildOptions, Class<? extends Fragment> fragmentType,
+      RuleClassProvider ruleClassProvider) {
+    // For dynamic configurations, trim the options down to just those used by this fragment.
+    // This ensures we don't end up with different Skyframe keys due to trimming of unrelated
+    // options.
+    //
+    // We don't trim for static configurations because static configurations need to support
+    // LIPO and trimming breaks LIPO: it results in CppConfiguration instances being shared
+    // across configurations. That isn't safe because CppConfiguration mutates its state
+    // in prepareHook() for each configuration.
+    BuildOptions optionsKey =
+        buildOptions.get(BuildConfiguration.Options.class).useDynamicConfigurations
+        ? buildOptions.trim(
+              BuildConfiguration.getOptionsClasses(
+                  ImmutableList.<Class<? extends BuildConfiguration.Fragment>>of(fragmentType),
+                  ruleClassProvider))
+        : buildOptions;
     return new SkyKey(SkyFunctions.CONFIGURATION_FRAGMENT,
-        new ConfigurationFragmentKey(buildOptions, fragmentType));
+        new ConfigurationFragmentKey(optionsKey, fragmentType));
   }
-  
+
   static final class ConfigurationFragmentKey implements Serializable {
     private final BuildOptions buildOptions;
     private final Class<? extends Fragment> fragmentType;
-    
+
     public ConfigurationFragmentKey(BuildOptions buildOptions,
         Class<? extends Fragment> fragmentType) {
       this.buildOptions = Preconditions.checkNotNull(buildOptions);
-      this.fragmentType = Preconditions.checkNotNull(fragmentType);      
+      this.fragmentType = Preconditions.checkNotNull(fragmentType);
     }
-    
+
     public BuildOptions getBuildOptions() {
       return buildOptions;
     }
-    
+
     public Class<? extends Fragment> getFragmentType() {
       return fragmentType;
     }
-    
+
     @Override
     public boolean equals(Object o) {
       if (this == o) {
