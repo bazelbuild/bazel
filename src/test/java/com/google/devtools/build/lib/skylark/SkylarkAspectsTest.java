@@ -203,17 +203,28 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "       c += a._stl_default.rule_kinds",
         "   return struct(target_labels = s, rule_kinds = c)",
         "",
+        "def _rule_impl(ctx):",
+        "   pass",
+        "",
+        "my_rule = rule(implementation = _rule_impl,",
+        "   attrs = { '_stl' : attr.label(default = Label('//test:xxx')) },",
+        ")",
         "MyAspect = aspect(",
         "   implementation=_impl,",
-        "   attr_aspects=[':stl', '$stl_default'],",
+        "   attr_aspects=['_stl', '_stl_default'],",
         ")");
     scratch.file(
         "test/BUILD",
+        "load('/test/aspect', 'my_rule')",
         "cc_library(",
         "     name = 'xxx',",
-        ")");
+        ")",
+        "my_rule(",
+        "     name = 'yyy',",
+        ")"
+    );
     AnalysisResult analysisResult =
-        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:yyy");
     AspectValue aspectValue = analysisResult.getAspects().iterator().next();
     SkylarkProviders skylarkProviders =
         aspectValue.getConfiguredAspect().getProvider(SkylarkProviders.class);
@@ -231,7 +242,7 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
                 return ((Label) o).getName();
               }
             }))
-        .containsExactly("stl", "xxx");
+        .containsExactly("stl", "xxx", "yyy");
   }
 
   @Test

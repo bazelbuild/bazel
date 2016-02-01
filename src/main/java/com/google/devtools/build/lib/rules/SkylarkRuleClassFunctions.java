@@ -409,7 +409,15 @@ public class SkylarkRuleClassFunctions {
             throws EvalException {
           ImmutableList.Builder<String> attrAspects = ImmutableList.builder();
           for (Object attributeAspect : attributeAspects) {
-            attrAspects.add(STRING.convert(attributeAspect, "attr_aspects"));
+            String attrName = STRING.convert(attributeAspect, "attr_aspects");
+            if (!attrName.startsWith("_")) {
+              attrAspects.add(attrName);
+            } else  {
+              // Implicit attribute names mean ether implicit or late-bound attributes
+              // (``$attr`` or ``:attr``). Depend on both.
+              attrAspects.add(attributeToNative(attrName, location, false));
+              attrAspects.add(attributeToNative(attrName, location, true));
+            }
           }
 
           ImmutableList<Pair<String, SkylarkAttr.Descriptor>> attributes =
