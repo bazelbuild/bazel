@@ -157,6 +157,9 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   @Override
   public ImmutableSet<Artifact> getOrphanArtifacts() {
+    if (!allowRegisteringActions) {
+      return ImmutableSet.<Artifact>of();
+    }
     return ImmutableSet.copyOf(getOrphanArtifactMap().keySet());
   }
 
