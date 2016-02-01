@@ -52,3 +52,11 @@ new_http_archive(
     url = "http://downloads.typesafe.com/scala/2.11.7/scala-2.11.7.tgz",
     build_file = "tools/build_defs/scala/scala.BUILD",
 )
+
+# only used for the scala test rule
+http_file(
+    name = "scalatest",
+    url = "https://oss.sonatype.org/content/groups/public/org/scalatest/scalatest_2.11/2.2.6/scalatest_2.11-2.2.6.jar",
+    sha256 = "f198967436a5e7a69cfd182902adcfbcb9f2e41b349e1a5c8881a2407f615962",
+)
+
