@@ -2,7 +2,15 @@ package scala.test
 
 object HelloLib {
   def printMessage(arg: String) {
-    println(arg + " " + OtherLib.getMessage())
-    println(arg + " " + OtherJavaLib.getMessage())
+    println(getOtherLibMessage(arg))
+    println(getOtherJavaLibMessage(arg))
+  }
+
+  def getOtherLibMessage(arg: String) : String = {
+    arg + " " + OtherLib.getMessage()
+  }
+
+  def getOtherJavaLibMessage(arg: String) : String = {
+    arg + " " + OtherJavaLib.getMessage()
   }
 }
