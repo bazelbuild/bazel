@@ -50,8 +50,4 @@ public final class Constants {
 
   // Most other tools dependencies use this; we plan to split it into per-language repositories.
   public static final String TOOLS_REPOSITORY = "@bazel_tools".toString();
-
-  // The --cc_include_scanning flag does not work in Bazel, and will be removed imminently.
-  // We currently use this constant to disable it unconditionally.
-  public static final boolean ALLOW_CC_INCLUDE_SCANNING = new Boolean(false).booleanValue();
 }
