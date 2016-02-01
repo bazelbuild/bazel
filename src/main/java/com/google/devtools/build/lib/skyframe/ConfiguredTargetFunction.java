@@ -73,6 +73,7 @@ import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException2;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -85,6 +86,10 @@ import javax.annotation.Nullable;
  * SkyFunction for {@link ConfiguredTargetValue}s.
  */
 final class ConfiguredTargetFunction implements SkyFunction {
+  // This construction is a bit funky, but guarantees that the Object reference here is globally
+  // unique.
+  static final Set<ConfigMatchingProvider> NO_CONFIG_CONDITIONS =
+      Collections.unmodifiableSet(ImmutableSet.<ConfigMatchingProvider>of());
 
   /**
    * Exception class that signals an error during the evaluation of a dependency.
@@ -138,19 +143,27 @@ final class ConfiguredTargetFunction implements SkyFunction {
     if (packageValue == null) {
       return null;
     }
+
+    // TODO(ulfjack): This tries to match the logic in TransitiveTargetFunction /
+    // TargetMarkerFunction. Maybe we can merge the two?
     Package pkg = packageValue.getPackage();
-    if (pkg.containsErrors()) {
-      throw new ConfiguredTargetFunctionException(
-          new BuildFileContainsErrorsException(lc.getLabel().getPackageIdentifier()));
-    }
     Target target;
     try {
-      target = packageValue.getPackage().getTarget(lc.getLabel().getName());
+      target = pkg.getTarget(lc.getLabel().getName());
     } catch (NoSuchTargetException e) {
-      throw new ConfiguredTargetFunctionException(e);
+      throw new ConfiguredTargetFunctionException(
+          new ConfiguredValueCreationException(e.getMessage()));
     }
-
-    transitivePackages.add(packageValue.getPackage());
+    if (pkg.containsErrors()) {
+      if (target == null) {
+        throw new ConfiguredTargetFunctionException(new ConfiguredValueCreationException(
+            new BuildFileContainsErrorsException(
+                lc.getLabel().getPackageIdentifier()).getMessage()));
+      } else {
+        transitiveLoadingRootCauses.add(lc.getLabel());
+      }
+    }
+    transitivePackages.add(pkg);
     // TODO(bazel-team): This is problematic - we create the right key, but then end up with a value
     // that doesn't match; we can even have the same value multiple times. However, I think it's
     // only triggered in tests (i.e., in normal operation, the configuration passed in is already
@@ -158,11 +171,9 @@ final class ConfiguredTargetFunction implements SkyFunction {
     if (!target.isConfigurable()) {
       configuration = null;
     }
+    TargetAndConfiguration ctgValue = new TargetAndConfiguration(target, configuration);
 
     SkyframeDependencyResolver resolver = view.createDependencyResolver(env);
-
-    TargetAndConfiguration ctgValue =
-        new TargetAndConfiguration(target, configuration);
     try {
       // Get the configuration targets that trigger this rule's configurable attributes.
       Set<ConfigMatchingProvider> configConditions = getConfigConditions(
@@ -170,6 +181,17 @@ final class ConfiguredTargetFunction implements SkyFunction {
           transitiveLoadingRootCauses);
       if (env.valuesMissing()) {
         return null;
+      }
+      // TODO(ulfjack): ConfiguredAttributeMapper (indirectly used from computeDependencies) isn't
+      // safe to use if there are missing config conditions, so we stop here, but only if there are
+      // config conditions - though note that we can't check if configConditions is non-empty - it
+      // may be empty for other reasons. It would be better to continue here so that we can collect
+      // more root causes during computeDependencies.
+      // Note that this doesn't apply to AspectFunction, because aspects can't have configurable
+      // attributes.
+      if (!transitiveLoadingRootCauses.isEmpty() && configConditions != NO_CONFIG_CONDITIONS) {
+        throw new ConfiguredTargetFunctionException(
+            new ConfiguredValueCreationException(transitiveLoadingRootCauses.build()));
       }
 
       ListMultimap<Attribute, ConfiguredTarget> depValueMap =
@@ -654,7 +676,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       NestedSetBuilder<Label> transitiveLoadingRootCauses)
       throws DependencyEvaluationException {
     if (!(target instanceof Rule)) {
-      return ImmutableSet.of();
+      return NO_CONFIG_CONDITIONS;
     }
 
     ImmutableSet.Builder<ConfigMatchingProvider> configConditions = ImmutableSet.builder();
@@ -672,7 +694,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       }
     }
     if (configLabelMap.isEmpty()) {
-      return ImmutableSet.of();
+      return NO_CONFIG_CONDITIONS;
     }
 
     // Collect the corresponding Skyframe configured target values. Abort early if they haven't

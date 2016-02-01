@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.analysis.DependencyResolver;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -77,22 +78,38 @@ public final class SkyframeDependencyResolver extends DependencyResolver {
 
   @Nullable
   @Override
-  protected Target getTarget(Label label) throws NoSuchThingException {
-    // TODO(ulfjack): This swallows all loading errors without reporting. That's ok for now, as we
-    // generally run a loading phase first, and only analyze targets that load successfully.
-    if (env.getValue(TargetMarkerValue.key(label)) == null) {
+  protected Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses) {
+    SkyKey key = PackageValue.key(label.getPackageIdentifier());
+    PackageValue packageValue;
+    try {
+      packageValue = (PackageValue) env.getValueOrThrow(key, NoSuchPackageException.class);
+    } catch (NoSuchPackageException e) {
+      rootCauses.add(label);
+      missingEdgeHook(from, label, e);
       return null;
     }
-    SkyKey key = PackageValue.key(label.getPackageIdentifier());
-    PackageValue packageValue =
-        (PackageValue) env.getValueOrThrow(key, NoSuchPackageException.class);
     if (packageValue == null) {
       return null;
     }
     Package pkg = packageValue.getPackage();
-    if (pkg.containsErrors()) {
-      throw new BuildFileContainsErrorsException(label.getPackageIdentifier());
+    try {
+      Target target = pkg.getTarget(label.getName());
+      if (pkg.containsErrors()) {
+        NoSuchPackageException e =
+            new BuildFileContainsErrorsException(label.getPackageIdentifier());
+        missingEdgeHook(from, label, e);
+        if (target != null) {
+          rootCauses.add(label);
+          return target;
+        } else {
+          return null;
+        }
+      }
+      return target;
+    } catch (NoSuchTargetException e) {
+      rootCauses.add(label);
+      missingEdgeHook(from, label, e);
+      return null;
     }
-    return packageValue.getPackage().getTarget(label.getName());
   }
 }

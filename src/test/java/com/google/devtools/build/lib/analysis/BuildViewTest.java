@@ -75,7 +75,7 @@ import java.util.regex.Pattern;
  */
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
-public final class BuildViewTest extends BuildViewTestBase {
+public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testRuleConfiguredTarget() throws Exception {
@@ -438,7 +438,7 @@ public final class BuildViewTest extends BuildViewTestBase {
     try {
       update("//foo:top");
       fail();
-    } catch (LoadingFailedException e) {
+    } catch (LoadingFailedException | ViewCreationFailedException e) {
       // Expected.
     }
     assertContainsEvent("no such target '//badbuild:isweird': target 'isweird' not declared in "
@@ -837,13 +837,13 @@ public final class BuildViewTest extends BuildViewTestBase {
         "java_binary(name = 'java', srcs = ['DoesntMatter.java'])",
         "cc_binary(name = 'cpp', data = [':java'])");
     // Everything is fine - the dependency graph is acyclic.
-    update(defaultFlags(), "//foo:java", "//foo:cpp");
+    update("//foo:java", "//foo:cpp");
     // Now there will be an analysis-phase cycle because the java_binary now has an implicit dep on
     // the cc_binary launcher.
     useConfiguration("--java_launcher=//foo:cpp");
     reporter.removeHandler(failFastHandler);
     try {
-      update(defaultFlags(), "//foo:java", "//foo:cpp");
+      update("//foo:java", "//foo:cpp");
       fail();
     } catch (ViewCreationFailedException expected) {
       Truth.assertThat(expected.getMessage())
@@ -851,5 +851,34 @@ public final class BuildViewTest extends BuildViewTestBase {
     }
     assertContainsEvent("cycle in dependency graph");
     assertContainsEvent("This cycle occurred because of a configuration option");
+  }
+
+  @Test
+  public void testDependsOnBrokenTarget() throws Exception {
+    scratch.file("foo/BUILD",
+        "sh_test(name = 'test', srcs = ['test.sh'], data = ['//bar:data'])");
+    scratch.file("bar/BUILD",
+        "BROKEN BROKEN BROKEN!!!");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update("//foo:test");
+      fail();
+    } catch (LoadingFailedException expected) {
+      Truth.assertThat(expected.getMessage())
+          .matches("Loading failed; build aborted.*");
+    } catch (ViewCreationFailedException expected) {
+      Truth.assertThat(expected.getMessage())
+          .matches("Analysis of target '//foo:test' failed; build aborted.*");
+    }
+  }
+
+  /** Runs the same test with the reduced loading phase. */
+  @TestSpec(size = Suite.SMALL_TESTS)
+  @RunWith(JUnit4.class)
+  public static class WithSkyframeLoadingPhase extends BuildViewTest {
+    @Override
+    protected FlagBuilder defaultFlags() {
+      return super.defaultFlags().with(Flag.SKYFRAME_LOADING_PHASE);
+    }
   }
 }

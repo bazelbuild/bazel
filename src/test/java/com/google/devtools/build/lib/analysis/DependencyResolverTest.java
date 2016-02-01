@@ -23,9 +23,12 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AspectRequiringRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -71,10 +74,10 @@ public class DependencyResolverTest extends AnalysisTestCase {
 
       @Nullable
       @Override
-      protected Target getTarget(Label label) throws NoSuchThingException {
+      protected Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses) {
         try {
           return packageManager.getTarget(reporter, label);
-        } catch (InterruptedException e) {
+        } catch (NoSuchPackageException | NoSuchTargetException | InterruptedException e) {
           throw new IllegalStateException(e);
         }
       }

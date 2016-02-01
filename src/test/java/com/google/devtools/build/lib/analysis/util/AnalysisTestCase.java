@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
-import com.google.devtools.build.lib.pkgcache.LegacyLoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
@@ -89,7 +88,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   /** All the flags that can be passed to {@link BuildView#update}. */
   public enum Flag {
-    KEEP_GOING
+    KEEP_GOING,
+    SKYFRAME_LOADING_PHASE,
   }
 
   /** Helper class to make it easy to enable and disable flags. */
@@ -104,6 +104,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     public FlagBuilder without(Flag flag) {
       flags.remove(flag);
       return this;
+    }
+
+    boolean contains(Flag flag) {
+      return flags.contains(flag);
     }
   }
 
@@ -169,8 +173,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         Options.getDefaults(PackageCacheOptions.class).defaultVisibility, true,
         3, ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID());
     packageManager = skyframeExecutor.getPackageManager();
-    loadingPhaseRunner =
-        new LegacyLoadingPhaseRunner(packageManager, pkgFactory.getRuleClassNames());
+    loadingPhaseRunner = skyframeExecutor.getLoadingPhaseRunner(
+        pkgFactory.getRuleClassNames(), defaultFlags().contains(Flag.SKYFRAME_LOADING_PHASE));
     buildView = new BuildView(directories, ruleClassProvider, skyframeExecutor, null);
     useConfiguration();
   }

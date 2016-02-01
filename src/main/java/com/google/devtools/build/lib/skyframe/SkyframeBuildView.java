@@ -51,9 +51,12 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
@@ -336,39 +339,39 @@ public final class SkyframeBuildView {
     // --keep_going : We notify the error and return a ConfiguredTargetValue
     for (Map.Entry<SkyKey, ErrorInfo> errorEntry : result.errorMap().entrySet()) {
       // Only handle errors of configured targets, not errors of top-level aspects.
+      // TODO(ulfjack): this is quadratic - if there are a lot of CTs, this could be rather slow.
       if (!values.contains(errorEntry.getKey().argument())) {
         continue;
       }
       SkyKey errorKey = errorEntry.getKey();
       ConfiguredTargetKey label = (ConfiguredTargetKey) errorKey.argument();
+      Label topLevelLabel = label.getLabel();
       ErrorInfo errorInfo = errorEntry.getValue();
       assertSaneAnalysisError(errorInfo, errorKey);
 
       skyframeExecutor.getCyclesReporter().reportCycles(errorInfo.getCycleInfo(), errorKey,
           eventHandler);
       Exception cause = errorInfo.getException();
-      // We try to get the root cause key first from ErrorInfo rootCauses. If we don't have one
-      // we try to use the cycle culprit if the error is a cycle. Otherwise we use the top-level
-      // error key.
-      Label analysisRootCause;
+      Label analysisRootCause = null;
       if (cause instanceof ConfiguredValueCreationException) {
-        analysisRootCause = ((ConfiguredValueCreationException) cause).getAnalysisRootCause();
-      } else if (!Iterables.isEmpty(errorEntry.getValue().getRootCauses())) {
-        SkyKey culprit = Preconditions.checkNotNull(Iterables.getFirst(
-            errorEntry.getValue().getRootCauses(), null));
-        analysisRootCause = ((ConfiguredTargetKey) culprit.argument()).getLabel();
-      } else {
-        analysisRootCause = maybeGetConfiguredTargetCycleCulprit(errorInfo.getCycleInfo());
-      }
-      if (cause instanceof ActionConflictException) {
+        ConfiguredValueCreationException ctCause = (ConfiguredValueCreationException) cause;
+        for (Label rootCause : ctCause.getRootCauses()) {
+          eventBus.post(new LoadingFailureEvent(topLevelLabel, rootCause));
+        }
+        analysisRootCause = ctCause.getAnalysisRootCause();
+      } else if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
+        analysisRootCause = maybeGetConfiguredTargetCycleCulprit(
+            topLevelLabel, errorInfo.getCycleInfo());
+      } else if (cause instanceof ActionConflictException) {
         ((ActionConflictException) cause).reportTo(eventHandler);
       }
       eventHandler.handle(
           Event.warn("errors encountered while analyzing target '"
-              + label.getLabel() + "': it will not be built"));
-      eventBus.post(new AnalysisFailureEvent(
-          LabelAndConfiguration.of(label.getLabel(), label.getConfiguration()),
-          analysisRootCause));
+              + topLevelLabel + "': it will not be built"));
+      if (analysisRootCause != null) {
+        eventBus.post(new AnalysisFailureEvent(
+            LabelAndConfiguration.of(topLevelLabel, label.getConfiguration()), analysisRootCause));
+      }
     }
 
     Collection<Exception> reportedExceptions = Sets.newHashSet();
@@ -413,14 +416,27 @@ public final class SkyframeBuildView {
   }
 
   @Nullable
-  private Label maybeGetConfiguredTargetCycleCulprit(Iterable<CycleInfo> cycleInfos) {
+  private static Label maybeGetConfiguredTargetCycleCulprit(
+      Label labelToLoad, Iterable<CycleInfo> cycleInfos) {
     for (CycleInfo cycleInfo : cycleInfos) {
       SkyKey culprit = Iterables.getFirst(cycleInfo.getCycle(), null);
       if (culprit == null) {
         continue;
       }
       if (culprit.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
-        return ((LabelAndConfiguration) culprit.argument()).getLabel();
+        return ((ConfiguredTargetKey) culprit.argument()).getLabel();
+      } else {
+        // For other types of cycles (e.g. file symlink cycles), the root cause is the furthest
+        // target dependency that itself depended on the cycle.
+        Label furthestTarget = labelToLoad;
+        for (SkyKey skyKey : cycleInfo.getPathToCycle()) {
+          if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
+            furthestTarget = (Label) skyKey.argument();
+          } else {
+            break;
+          }
+        }
+        return furthestTarget;
       }
     }
     return null;
@@ -436,7 +452,10 @@ public final class SkyframeBuildView {
               || cause instanceof ActionConflictException
               // For top-level aspects
               || cause instanceof AspectCreationException
-              || cause instanceof SkylarkImportFailedException,
+              || cause instanceof SkylarkImportFailedException
+              // Only if we run the reduced loading phase and then analyze with --nokeep_going.
+              || cause instanceof NoSuchTargetException
+              || cause instanceof NoSuchPackageException,
           "%s -> %s",
           key,
           errorInfo);

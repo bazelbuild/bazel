@@ -157,17 +157,6 @@ public abstract class DependencyResolver {
     return outgoingEdges;
   }
 
-  @Nullable
-  private Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses) {
-    try {
-      return getTarget(label);
-    } catch (NoSuchThingException e) {
-      rootCauses.add(label);
-      missingEdgeHook(from, label, e);
-    }
-    return null;
-  }
-
   private ListMultimap<Attribute, LabelAndConfiguration> resolveAttributes(
       Rule rule, AspectDefinition aspect, BuildConfiguration configuration,
       BuildConfiguration hostConfiguration, Set<ConfigMatchingProvider> configConditions)
@@ -615,13 +604,11 @@ public abstract class DependencyResolver {
   /**
    * Returns the target by the given label.
    *
-   * <p>Throws {@link NoSuchThingException} if the target is known not to exist.
-   *
    * <p>Returns null if the target is not ready to be returned at this moment. If getTarget returns
    * null once or more during a {@link #dependentNodeMap} call, the results of that call will be
    * incomplete. For use within Skyframe, where several iterations may be needed to discover
    * all dependencies.
    */
   @Nullable
-  protected abstract Target getTarget(Label label) throws NoSuchThingException;
+  protected abstract Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses);
 }
