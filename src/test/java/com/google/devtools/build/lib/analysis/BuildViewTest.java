@@ -76,6 +76,14 @@ import java.util.regex.Pattern;
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
 public class BuildViewTest extends BuildViewTestBase {
+  private static final Function<AnalysisFailureEvent, Pair<String, String>>
+      ANALYSIS_EVENT_TO_STRING_PAIR = new Function<AnalysisFailureEvent, Pair<String, String>>() {
+    @Override
+    public Pair<String, String> apply(AnalysisFailureEvent event) {
+      return Pair.of(
+          event.getFailedTarget().getLabel().toString(), event.getFailureReason().toString());
+    }
+  };
 
   @Test
   public void testRuleConfiguredTarget() throws Exception {
@@ -187,6 +195,9 @@ public class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testReportsLoadingRootCauses() throws Exception {
+    // This test checks that two simultaneous errors are both reported:
+    // - missing outs attribute,
+    // - package referenced in tools does not exist
     scratch.file("pkg/BUILD",
         "genrule(name='foo',",
         "        tools=['//nopackage:missing'],",
@@ -449,6 +460,25 @@ public class BuildViewTest extends BuildViewTestBase {
       assertContainsEvent("cycle in dependency graph");
       assertEventCount(3, eventCollector);
     }
+  }
+
+  @Test
+  public void testErrorBelowCycleKeepGoing() throws Exception {
+    scratch.file("foo/BUILD",
+        "sh_library(name = 'top', deps = ['mid'])",
+        "sh_library(name = 'mid', deps = ['bad', 'cycle1'])",
+        "sh_library(name = 'bad', srcs = ['//badbuild:isweird'])",
+        "sh_library(name = 'cycle1', deps = ['cycle2', 'mid'])",
+        "sh_library(name = 'cycle2', deps = ['cycle1'])");
+    scratch.file("badbuild/BUILD", "");
+    reporter.removeHandler(failFastHandler);
+    update(defaultFlags().with(Flag.KEEP_GOING), "//foo:top");
+    assertContainsEvent("no such target '//badbuild:isweird': target 'isweird' not declared in "
+        + "package 'badbuild'");
+    assertContainsEvent("and referenced by '//foo:bad'");
+    assertContainsEvent("in sh_library rule //foo");
+    assertContainsEvent("cycle in dependency graph");
+    assertEventCount(3, eventCollector);
   }
 
   @Test
@@ -870,6 +900,103 @@ public class BuildViewTest extends BuildViewTestBase {
       Truth.assertThat(expected.getMessage())
           .matches("Analysis of target '//foo:test' failed; build aborted.*");
     }
+  }
+
+  /**
+   * Regression test: IllegalStateException in BuildView.update() on circular dependency instead of
+   * graceful failure.
+   */
+  @Test
+  public void testCircularDependency() throws Exception {
+    scratch.file("cycle/BUILD",
+        "cc_library(name = 'foo', srcs = ['foo.cc'], deps = [':bar'])",
+        "cc_library(name = 'bar', srcs = ['bar.cc'], deps = [':foo'])");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update("//cycle:foo");
+      fail();
+    } catch (LoadingFailedException | ViewCreationFailedException expected) {
+      assertContainsEvent("in cc_library rule //cycle:foo: cycle in dependency graph:");
+      // In the legacy case, SkyframeLabelVisitor prints the loading error for //cycle:foo. In the
+      // interleaved case, the SkyframeBuildView only throws the exception, but doesn't print the
+      // error - the error is printed by the BuildTool, which isn't used in this test.
+      if (defaultFlags().contains(Flag.SKYFRAME_LOADING_PHASE)) {
+        assertThat(expected.getMessage())
+            .contains("Analysis of target '//cycle:foo' failed; build aborted");
+      } else {
+        assertContainsEvent("Loading of target '//cycle:foo' failed; build aborted");
+      }
+    }
+  }
+
+  /**
+   * Regression test: IllegalStateException in BuildView.update() on circular dependency instead of
+   * graceful failure.
+   */
+  @Test
+  public void testCircularDependencyWithKeepGoing() throws Exception {
+    scratch.file("cycle/BUILD",
+        "cc_library(name = 'foo', srcs = ['foo.cc'], deps = [':bar'])",
+        "cc_library(name = 'bar', srcs = ['bar.cc'], deps = [':foo'])",
+        "cc_library(name = 'bat', srcs = ['bat.cc'], deps = [':bas'])",
+        "cc_library(name = 'bas', srcs = ['bas.cc'], deps = [':bau'])",
+        "cc_library(name = 'bau', srcs = ['bas.cc'], deps = [':bas'])",
+        "cc_library(name = 'baz', srcs = ['baz.cc'])");
+    reporter.removeHandler(failFastHandler);
+    EventBus eventBus = new EventBus();
+    LoadingFailureRecorder loadingFailureRecorder = new LoadingFailureRecorder();
+    AnalysisFailureRecorder analysisFailureRecorder = new AnalysisFailureRecorder();
+    eventBus.register(loadingFailureRecorder);
+    eventBus.register(analysisFailureRecorder);
+    update(eventBus, defaultFlags().with(Flag.KEEP_GOING),
+        "//cycle:foo", "//cycle:bat", "//cycle:baz");
+    assertContainsEvent("in cc_library rule //cycle:foo: cycle in dependency graph:");
+    assertContainsEvent(
+        "errors encountered while analyzing target '//cycle:foo': it will not be built");
+    assertContainsEvent("in cc_library rule //cycle:bas: cycle in dependency graph:");
+    assertContainsEvent(
+        "errors encountered while analyzing target '//cycle:bat': it will not be built");
+    if (defaultFlags().contains(Flag.SKYFRAME_LOADING_PHASE)) {
+      // With interleaved loading and analysis, we can no longer distinguish loading-phase cycles
+      // and analysis-phase cycles. This was previously reported as a loading-phase cycle, as it
+      // happens with any configuration (cycle is hard-coded in the BUILD files). Also see the
+      // test below.
+      assertThat(Iterables.transform(analysisFailureRecorder.events, ANALYSIS_EVENT_TO_STRING_PAIR))
+          .containsExactly(
+              Pair.of("//cycle:foo", "//cycle:foo"), Pair.of("//cycle:bat", "//cycle:bas"));
+    } else {
+      assertThat(Iterables.transform(loadingFailureRecorder.events,
+          new Function<Pair<Label, Label>, Pair<String, String>>() {
+            @Override
+            public Pair<String, String> apply(Pair<Label, Label> labelPair) {
+              return Pair.of(labelPair.getFirst().toString(), labelPair.getSecond().toString());
+            }
+          })).containsExactly(
+              Pair.of("//cycle:foo", "//cycle:foo"), Pair.of("//cycle:bat", "//cycle:bas"));
+    }
+  }
+
+  @Test
+  public void testCircularDependencyWithLateBoundLabel() throws Exception {
+    scratch.file("cycle/BUILD",
+        "cc_library(name = 'foo', deps = [':bar'])",
+        "cc_library(name = 'bar')");
+    useConfiguration("--experimental_stl=//cycle:foo");
+    reporter.removeHandler(failFastHandler);
+    EventBus eventBus = new EventBus();
+    LoadingFailureRecorder loadingFailureRecorder = new LoadingFailureRecorder();
+    AnalysisFailureRecorder analysisFailureRecorder = new AnalysisFailureRecorder();
+    eventBus.register(loadingFailureRecorder);
+    eventBus.register(analysisFailureRecorder);
+    AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//cycle:foo");
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("in cc_library rule //cycle:foo: cycle in dependency graph:");
+    // This needs to be reported as an anlysis-phase cycle; the cycle only occurs due to the stl
+    // command-line option, which is part of the configuration, and which is used due to the
+    // late-bound label.
+    assertThat(Iterables.transform(analysisFailureRecorder.events, ANALYSIS_EVENT_TO_STRING_PAIR))
+        .containsExactly(Pair.of("//cycle:foo", "//cycle:foo"));
+    assertThat(loadingFailureRecorder.events).isEmpty();
   }
 
   /** Runs the same test with the reduced loading phase. */
