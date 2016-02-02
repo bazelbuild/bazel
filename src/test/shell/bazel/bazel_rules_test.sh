@@ -274,4 +274,28 @@ EOF
   bazel build @r//package:abs_dep >$TEST_log 2>&1 || fail "Should build"
 }
 
+function test_genrule_remote_d() {
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r",
+    path = __workspace_dir__,
+)
+EOF
+  mkdir package
+  cat > package/BUILD <<'EOF'
+genrule(
+    name = "hi",
+    outs = [
+        "a/b",
+        "c/d"
+    ],
+    cmd = "echo 'hi' | tee $(@D)/a/b $(@D)/c/d",
+)
+EOF
+
+  bazel build @r//package:hi >$TEST_log 2>&1 || fail "Should build"
+  expect_log bazel-genfiles/external/r/package/a/b
+  expect_log bazel-genfiles/external/r/package/c/d
+}
+
 run_suite "rules test"
