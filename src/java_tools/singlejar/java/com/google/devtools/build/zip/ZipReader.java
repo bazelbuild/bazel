@@ -16,13 +16,6 @@ package com.google.devtools.build.zip;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.devtools.build.zip.ZipFileEntry.Compression;
-import com.google.devtools.build.zip.ZipUtil.CentralDirectoryFileHeader;
-import com.google.devtools.build.zip.ZipUtil.EndOfCentralDirectoryRecord;
-import com.google.devtools.build.zip.ZipUtil.LocalFileHeader;
-import com.google.devtools.build.zip.ZipUtil.Zip64EndOfCentralDirectory;
-import com.google.devtools.build.zip.ZipUtil.Zip64EndOfCentralDirectoryLocator;
-
 import java.io.BufferedInputStream;
 import java.io.Closeable;
 import java.io.File;
@@ -32,8 +25,6 @@ import java.io.RandomAccessFile;
 import java.nio.channels.Channels;
 import java.nio.charset.Charset;
 import java.util.Collection;
-import java.util.zip.Inflater;
-import java.util.zip.InflaterInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipFile;
@@ -53,181 +44,6 @@ import java.util.zip.ZipFile;
  * there, it will not be returned from {@link #entries()} or {@link #getEntry(String)}.
  */
 public class ZipReader implements Closeable, AutoCloseable {
-
-  /** An input stream for reading the file data of a ZIP file entry. */
-  private class ZipEntryInputStream extends InputStream {
-    private InputStream stream;
-    private long rem;
-
-    /**
-     * Opens an input stream for reading at the beginning of the ZIP file entry's content.
-     *
-     * @param zipEntry the ZIP file entry to open the input stream for
-     * @throws ZipException if a ZIP format error has occurred
-     * @throws IOException if an I/O error has occurred
-     */
-    private ZipEntryInputStream(ZipFileEntry zipEntry) throws IOException {
-      stream = getStreamAt(zipEntry.getLocalHeaderOffset());
-
-      byte[] fileHeader = new byte[LocalFileHeader.FIXED_DATA_SIZE];
-      ZipUtil.readFully(stream, fileHeader);
-
-      if (!ZipUtil.arrayStartsWith(fileHeader,
-          ZipUtil.intToLittleEndian(LocalFileHeader.SIGNATURE))) {
-        throw new ZipException(String.format("The file '%s' is not a correctly formatted zip file: "
-            + "Expected a File Header at file offset %d, but was not present.",
-            file.getName(), zipEntry.getLocalHeaderOffset()));
-      }
-
-      int nameLength = ZipUtil.getUnsignedShort(fileHeader,
-          LocalFileHeader.FILENAME_LENGTH_OFFSET);
-      int extraFieldLength = ZipUtil.getUnsignedShort(fileHeader,
-          LocalFileHeader.EXTRA_FIELD_LENGTH_OFFSET);
-      ZipUtil.readFully(stream, new byte[nameLength + extraFieldLength]);
-      rem = zipEntry.getSize();
-      if (zipEntry.getMethod() == Compression.DEFLATED) {
-        stream = new InflaterInputStream(stream, new Inflater(true));
-      }
-    }
-
-    @Override public int available() throws IOException {
-      return rem > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) rem;
-    }
-
-    @Override public void close() throws IOException {
-    }
-
-    @Override public void mark(int readlimit) {
-    }
-
-    @Override public boolean markSupported() {
-      return false;
-    }
-
-    @Override public int read() throws IOException {
-      byte[] b = new byte[1];
-      if (read(b, 0, 1) == 1) {
-        return b[0] & 0xff;
-      } else {
-        return -1;
-      }
-    }
-
-    @Override public int read(byte[] b) throws IOException {
-      return read(b, 0, b.length);
-    }
-
-    @Override public int read(byte[] b, int off, int len) throws IOException {
-      if (rem == 0) {
-        return -1;
-      }
-      if (len > rem) {
-        len = available();
-      }
-      len = stream.read(b, off, len);
-      rem -= len;
-      return len;
-    }
-
-    @Override public long skip(long n) throws IOException {
-      if (n > rem) {
-        n = rem;
-      }
-      n = stream.skip(n);
-      rem -= n;
-      return n;
-    }
-
-    @Override public void reset() throws IOException {
-      throw new IOException("Reset is not supported on this type of stream.");
-    }
-  }
-
-  /** An input stream for reading the raw file data of a ZIP file entry. */
-  private class RawZipEntryInputStream extends InputStream {
-    private InputStream stream;
-    private long rem;
-
-    /**
-     * Opens an input stream for reading at the beginning of the ZIP file entry's content.
-     *
-     * @param zipEntry the ZIP file entry to open the input stream for
-     * @throws ZipException if a ZIP format error has occurred
-     * @throws IOException if an I/O error has occurred
-     */
-    private RawZipEntryInputStream(ZipFileEntry zipEntry) throws IOException {
-      stream = getStreamAt(zipEntry.getLocalHeaderOffset());
-
-      byte[] fileHeader = new byte[LocalFileHeader.FIXED_DATA_SIZE];
-      ZipUtil.readFully(stream, fileHeader);
-
-      if (!ZipUtil.arrayStartsWith(fileHeader,
-          ZipUtil.intToLittleEndian(LocalFileHeader.SIGNATURE))) {
-        throw new ZipException(String.format("The file '%s' is not a correctly formatted zip file: "
-            + "Expected a File Header at file offset %d, but was not present.",
-            file.getName(), zipEntry.getLocalHeaderOffset()));
-      }
-
-      int nameLength = ZipUtil.getUnsignedShort(fileHeader,
-          LocalFileHeader.FILENAME_LENGTH_OFFSET);
-      int extraFieldLength = ZipUtil.getUnsignedShort(fileHeader,
-          LocalFileHeader.EXTRA_FIELD_LENGTH_OFFSET);
-      ZipUtil.readFully(stream, new byte[nameLength + extraFieldLength]);
-      rem = zipEntry.getCompressedSize();
-    }
-
-    @Override public int available() throws IOException {
-      return rem > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) rem;
-    }
-
-    @Override public void close() throws IOException {
-    }
-
-    @Override public void mark(int readlimit) {
-    }
-
-    @Override public boolean markSupported() {
-      return false;
-    }
-
-    @Override public int read() throws IOException {
-      byte[] b = new byte[1];
-      if (read(b, 0, 1) == 1) {
-        return b[0] & 0xff;
-      } else {
-        return -1;
-      }
-    }
-
-    @Override public int read(byte[] b) throws IOException {
-      return read(b, 0, b.length);
-    }
-
-    @Override public int read(byte[] b, int off, int len) throws IOException {
-      if (rem == 0) {
-        return -1;
-      }
-      if (len > rem) {
-        len = available();
-      }
-      len = stream.read(b, off, len);
-      rem -= len;
-      return len;
-    }
-
-    @Override public long skip(long n) throws IOException {
-      if (n > rem) {
-        n = rem;
-      }
-      n = stream.skip(n);
-      rem -= n;
-      return n;
-    }
-
-    @Override public void reset() throws IOException {
-      throw new IOException("Reset is not supported on this type of stream.");
-    }
-  }
 
   private final File file;
   private final RandomAccessFile in;
@@ -279,6 +95,13 @@ public class ZipReader implements Closeable, AutoCloseable {
   }
 
   /**
+   * Returns the zip file's name.
+   */
+  public String getFilename() {
+    return file.getName();
+  }
+
+  /**
    * Returns the ZIP file comment.
    */
   public String getComment() {
@@ -323,7 +146,7 @@ public class ZipReader implements Closeable, AutoCloseable {
           "Zip file '%s' does not contain the requested entry '%s'.", file.getName(),
           entry.getName()));
     }
-    return new ZipEntryInputStream(entry);
+    return new ZipEntryInputStream(this, entry, /* raw */ false);
   }
 
   /**
@@ -346,7 +169,7 @@ public class ZipReader implements Closeable, AutoCloseable {
           "Zip file '%s' does not contain the requested entry '%s'.", file.getName(),
           entry.getName()));
     }
-    return new RawZipEntryInputStream(entry);
+    return new ZipEntryInputStream(this, entry, /* raw */ true);
   }
 
   /**

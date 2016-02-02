@@ -15,8 +15,6 @@
 package com.google.devtools.build.zip;
 
 import com.google.devtools.build.zip.ZipFileEntry.Flag;
-import com.google.devtools.build.zip.ZipUtil.CentralDirectory;
-import com.google.devtools.build.zip.ZipUtil.LocalFileHeader;
 
 import java.io.IOException;
 import java.io.OutputStream;
