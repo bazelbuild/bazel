@@ -102,7 +102,7 @@ public final class Rule implements Comparable<Rule> {
    * A unique name for this artifact to use in maven_jar's name attribute.
    */
   public static String name(String groupId, String artifactId) {
-    return groupId + "_" + artifactId;
+    return groupId.replaceAll("[.-]", "_") + "_" + artifactId.replaceAll("[.-]", "_");
   }
 
   public Artifact getArtifact() {
