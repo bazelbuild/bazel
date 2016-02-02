@@ -201,7 +201,7 @@ def _groovy_test_impl(ctx):
   classes = [path_to_class(src.path) for src in ctx.files.srcs]
 
   # Write a file that executes JUnit on the inferred classes
-  cmd = "external/local-jdk/bin/java %s -cp %s org.junit.runner.JUnitCore %s\n" % (
+  cmd = "external/local_jdk/bin/java %s -cp %s org.junit.runner.JUnitCore %s\n" % (
     " ".join(ctx.attr.jvm_flags),
     ":".join([dep.short_path for dep in all_deps]),
     " ".join(classes),
