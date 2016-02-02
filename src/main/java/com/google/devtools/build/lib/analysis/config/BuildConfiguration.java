@@ -450,6 +450,12 @@ public final class BuildConfiguration {
             return "darwin";
           case FREEBSD:
             return "freebsd";
+          case WINDOWS:
+            switch (CPU.getCurrent()) {
+              case X86_64:
+                return "x64_windows";
+            }
+            break; // We only support x64 Windows for now.
           case LINUX:
             switch (CPU.getCurrent()) {
               case X86_32:

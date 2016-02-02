@@ -8,6 +8,7 @@ filegroup(
     srcs = select({
         ":darwin": ["//src/main/native:libunix.dylib"],
         ":darwin_x86_64": ["//src/main/native:libunix.dylib"],
+        ":windows": [],
         "//conditions:default": ["//src/main/native:libunix.so"],
     }),
     visibility = [
@@ -186,6 +187,6 @@ config_setting(
 
 config_setting(
     name = "windows",
-    values = {"compiler": "windows_msys64"},
+    values = {"cpu": "x64_windows"},
     visibility = ["//visibility:public"],
 )
