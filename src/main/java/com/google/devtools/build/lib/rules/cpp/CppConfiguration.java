@@ -1539,6 +1539,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   /**
+   * Returns true if Fission is enabled for this build and the user requested automatic building
+   * of .dwp files for C++ test targets.
+   */
+  public boolean shouldBuildTestDwp() {
+    return useFission() && cppOptions.buildTestDwp;
+  }
+
+  /**
    * Returns true if all C++ compilations should produce position-independent code, links should
    * produce position-independent executables, and dependencies with equivalent pre-built pic and
    * nopic versions should apply the pic versions. Returns false if default settings should be
@@ -1798,6 +1806,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
           Event.warn(
               "Fission is not supported by this crosstool. Please use a supporting "
                   + "crosstool to enable fission"));
+    }
+    if (cppOptions.buildTestDwp && !useFission()) {
+      reporter.handle(Event.warn("Test dwp file requested, but Fission is not enabled. To "
+          + "generate a dwp for the test executable, use '--fission=yes' with a toolchain "
+          + "that supports Fission and build statically."));
     }
   }
 

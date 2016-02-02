@@ -46,6 +46,7 @@ toolchain {
   tool_path { name: "strip" path: "/usr/bin/strip" }
 
   needsPic: true
+  supports_fission: true
 
   builtin_sysroot: ""
   cxx_flag: "-std=c++0x"

@@ -475,6 +475,24 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCcTestBuiltWithFissionHasDwp() throws Exception {
+    // Tests that cc_tests built statically and with Fission will have the .dwp file
+    // in their runfiles.
+
+    useConfiguration("--build_test_dwp", "--dynamic_mode=off", "--linkopt=-static",
+        "--fission=yes");
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "mypackage",
+            "mytest",
+            "cc_test(name = 'mytest', ",
+            "         srcs = ['mytest.cc'])");
+
+    Iterable<Artifact> runfiles = collectRunfiles(target);
+    assertThat(baseArtifactNames(runfiles)).contains("mytest.dwp");
+  }
+
+  @Test
   public void testCcLibraryBadIncludesWarnedAndIgnored() throws Exception {
     checkWarning(
         "badincludes",
