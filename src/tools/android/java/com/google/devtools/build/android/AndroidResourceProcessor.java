@@ -177,13 +177,13 @@ public class AndroidResourceProcessor {
     if (stdLogger.getLevel() == StdLogger.Level.VERBOSE) {
         command.add("-v");
     }
-    
+
     // Overwrite existing files, if they exist.
     command.add("-f");
-    
+
     // Resources are precrunched in the merge process.
     command.add("--no-crunch");
-    
+
     // Add the android.jar as a base input.
     command.add("-I");
     command.add(androidJar.toString());
@@ -238,7 +238,7 @@ public class AndroidResourceProcessor {
       command.add("--non-constant-id");
     }
 
-    if (variantType == VariantConfiguration.Type.DEFAULT) {
+    if (variantType == VariantConfiguration.Type.DEFAULT && !packages.isEmpty()) {
       // Generate the dependent R and Manifest files.
       command.add("--extra-packages");
       command.add(Joiner.on(":").join(packages));
