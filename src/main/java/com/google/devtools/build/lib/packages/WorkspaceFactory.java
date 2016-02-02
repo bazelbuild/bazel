@@ -167,11 +167,9 @@ public class WorkspaceFactory {
     localReporter.clear();
   }
 
-  private static void checkWorkspaceName(String name, FuncallExpression ast) throws EvalException {
+  private static boolean isLegalWorkspaceName(String name) {
     Matcher matcher = LEGAL_WORKSPACE_NAME.matcher(name);
-    if (!matcher.matches()) {
-      throw new EvalException(ast.getLocation(), name + " is not a legal workspace name");
-    }
+    return matcher.matches();
   }
 
   @SkylarkSignature(name = "workspace", objectType = Object.class, returnType = SkylarkList.class,
@@ -190,7 +188,10 @@ public class WorkspaceFactory {
               "workspace", FunctionSignature.namedOnly("name"), BuiltinFunction.USE_AST_ENV) {
             public Object invoke(String name, FuncallExpression ast, Environment env)
                 throws EvalException {
-              checkWorkspaceName(name, ast);
+              if (!isLegalWorkspaceName(name)) {
+                throw new EvalException(
+                    ast.getLocation(), name + " is not a legal workspace name");
+              }
               String errorMessage = LabelValidator.validateTargetName(name);
               if (errorMessage != null) {
                 throw new EvalException(ast.getLocation(), errorMessage);
@@ -253,7 +254,10 @@ public class WorkspaceFactory {
           Rule rule = builder
               .externalPackageData()
               .createAndAddRepositoryRule(builder, ruleClass, bindRuleClass, kwargs, ast);
-          checkWorkspaceName(rule.getName(), ast);
+          if (!isLegalWorkspaceName(rule.getName())) {
+            throw new EvalException(
+                ast.getLocation(), rule + "'s name field must be a legal workspace name");
+          }
         } catch (
             RuleFactory.InvalidRuleException | Package.NameConflictException | LabelSyntaxException
                 e) {

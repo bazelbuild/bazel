@@ -633,5 +633,43 @@ sh_binary(
   </li>
 </ul>
 
+<!-- =================================================================
+                              workspace()
+     =================================================================
+-->
+
+<h2 id="workspace"><a name="workspace">workspace</a></h2>
+
+<pre>workspace(name = "com_example_project")</pre>
+
+<p>This can only be used in a WORKSPACE file.</p>
+
+<p>Each repository's WORKSPACE file should have a workspace(name = "...") line,
+  which sets a global name for the repository.</p>
+
+<p>This name is used for the directory that the repository's runfiles are stored
+  in. For example, if there is a runfile <code>foo/bar</code> in the local
+  repository and the WORKSPACE file contains
+  <code>workspace(name = "baz")</code>, then the runfile will be available under
+  <code>mytarget.runfiles/baz/foo/bar</code>.  If no workspace name is
+  specified, then the runfile will be symlinked to
+  <code>bar.runfiles/foo/bar</code>.
+</p>
+
+<p>A workspace name must start with a letter and can contain letters, numbers,
+  and underscores (this is to maximize the number of languages for which this
+  string can be a legal package/module name). It should describe the project in
+  reverse-DNS form, with elements separated by underscores. For example, if a
+  project is hosted at example.com/some-project, you might use
+  com_example_some_project as the workspace name.
+</pre>
+
+<pre><a href="/docs/be/workspace.html">Remote repository</a> rule names must be
+  valid workspace names. For example, you could have
+  <code>maven_jar(name = "foo")</code>, but not
+  <code>maven_jar(name = "foo.bar")</code>, as Bazel would attempt to write a
+  WORKSPACE file for the <code>maven_jar</code> containing
+  <code>workspace(name = "foo.bar")</code>.
+</p>
 
 #parse("com/google/devtools/build/docgen/templates/be/footer.vm")
