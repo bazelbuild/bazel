@@ -61,7 +61,11 @@ java_library(
     srcs = glob([
         "unix/*.java",
     ]) + ["UnixJniLoader.java"],
-    resources = ["//src/main/native:libunix.so"],
+    resources = select({
+        # todo(dslomov): Get rid of this whole library on Windows.
+        "//src:windows": [],
+        "//conditions:default": ["//src/main/native:libunix.so"],
+    }),
     deps = [
         ":common",
         ":shell",
