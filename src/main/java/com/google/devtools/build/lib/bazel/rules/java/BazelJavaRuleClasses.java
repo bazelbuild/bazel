@@ -282,7 +282,8 @@ public class BazelJavaRuleClasses {
           .add(attr("classpath_resources", LABEL_LIST).legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(jvm_flags) -->
           A list of flags to embed in the wrapper script generated for running this binary.
-          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
+          Subject to <a href="#location">$(location)</a> and
+          <a href="make-variables.html">"Make variable"</a> substitution, and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>
             The wrapper script for a Java binary includes a <code>CLASSPATH</code> definition (to

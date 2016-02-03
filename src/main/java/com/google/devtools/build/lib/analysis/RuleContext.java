@@ -762,6 +762,12 @@ public final class RuleContext extends TargetContext
     return result;
   }
 
+  /** Indicates whether a string list attribute should be tokenized. */
+  public enum Tokenize {
+    YES,
+    NO
+  }
+
   /**
    * Gets an attribute of type STRING_LIST expanding Make variables, $(location) tags into the
    * dependency location (see {@link LocationExpander} for details) and tokenizes the result.
@@ -770,6 +776,17 @@ public final class RuleContext extends TargetContext
    * @return a list of strings containing the expanded and tokenized values for the attribute
    */
   public List<String> getTokenizedStringListAttr(String attributeName) {
+    return getExpandedStringListAttr(attributeName, Tokenize.YES);
+  }
+
+  /**
+   * Gets an attribute of type STRING_LIST expanding Make variables and $(location) tags,
+   * and optionally tokenizes the result.
+   *
+   * @param attributeName the name of the attribute to process
+   * @return a list of strings containing the processed values for the attribute
+   */
+  public List<String> getExpandedStringListAttr(String attributeName, Tokenize tokenize) {
     if (!getRule().isAttrDefined(attributeName, Type.STRING_LIST)) {
       // TODO(bazel-team): This should be an error.
       return ImmutableList.of();
@@ -783,7 +800,7 @@ public final class RuleContext extends TargetContext
         new LocationExpander(this, LocationExpander.Options.ALLOW_DATA);
 
     for (String token : original) {
-      tokenizeAndExpandMakeVars(tokens, attributeName, token, locationExpander);
+      expandValue(tokens, attributeName, token, locationExpander, tokenize);
     }
     return ImmutableList.copyOf(tokens);
   }
@@ -798,20 +815,41 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Expands make variables and $(location) tag in value and tokenizes the result into tokens.
+   * Expands make variables and $(location) tags in value and tokenizes the result into tokens.
    *
    * <p>This methods should be called only during initialization.
    */
-  public void tokenizeAndExpandMakeVars(List<String> tokens, String attributeName,
-                                        String value, @Nullable LocationExpander locationExpander) {
-    try {
-      if (locationExpander != null) {
-        value = locationExpander.expandAttribute(attributeName, value);
+  public void tokenizeAndExpandMakeVars(
+      List<String> tokens,
+      String attributeName,
+      String value,
+      @Nullable LocationExpander locationExpander) {
+    expandValue(tokens, attributeName, value, locationExpander, Tokenize.YES);
+  }
+
+  /**
+   * Expands make variables and $(location) tags in value, and optionally tokenizes the result.
+   *
+   * <p>This methods should be called only during initialization.
+   */
+  public void expandValue(
+      List<String> tokens,
+      String attributeName,
+      String value,
+      @Nullable LocationExpander locationExpander,
+      Tokenize tokenize) {
+    if (locationExpander != null) {
+      value = locationExpander.expandAttribute(attributeName, value);
+    }
+    value = expandMakeVariables(attributeName, value);
+    if (tokenize == Tokenize.YES) {
+      try {
+        ShellUtils.tokenize(tokens, value);
+      } catch (ShellUtils.TokenizationException e) {
+        attributeError(attributeName, e.getMessage());
       }
-      value = expandMakeVariables(attributeName, value);
-      ShellUtils.tokenize(tokens, value);
-    } catch (ShellUtils.TokenizationException e) {
-      attributeError(attributeName, e.getMessage());
+    } else {
+      tokens.add(value);
     }
   }
 

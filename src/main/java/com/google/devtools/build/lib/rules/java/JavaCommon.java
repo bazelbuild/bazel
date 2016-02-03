@@ -458,12 +458,12 @@ public class JavaCommon {
 
   /**
    * Gets the value of the "jvm_flags" attribute combining it with the default
-   * options and expanding any make variables.
+   * options and expanding any make variables and $(location) tags.
    */
   public List<String> getJvmFlags() {
     List<String> jvmFlags = new ArrayList<>();
     jvmFlags.addAll(ruleContext.getFragment(JavaConfiguration.class).getDefaultJvmFlags());
-    jvmFlags.addAll(ruleContext.expandedMakeVariablesList("jvm_flags"));
+    jvmFlags.addAll(ruleContext.getExpandedStringListAttr("jvm_flags", RuleContext.Tokenize.NO));
     return jvmFlags;
   }
 
