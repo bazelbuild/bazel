@@ -124,6 +124,12 @@ function test_native_python() {
   assert_test_fails //examples/py_native:fail --python2_path=python
 }
 
+function test_shell() {
+  assert_build "//examples/shell:bin"
+  assert_bazel_run "//examples/shell:bin" "Hello Bazel!"
+  assert_test_ok "//examples/shell:test"
+}
+
 #
 # Skylark rules
 #
