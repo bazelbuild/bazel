@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -53,7 +52,7 @@ public class ObjcBinaryRule implements RuleDefinition {
         // TODO(bazel-team): Remove these when this rule no longer produces a bundle.
         .add(attr("$runner_script_template", LABEL).cfg(HOST)
             .value(env.getLabel(
-                Constants.TOOLS_REPOSITORY + "//tools/objc:ios_runner.sh.mac_template")))
+                env.getToolsRepository() + "//tools/objc:ios_runner.sh.mac_template")))
         .add(attr("$is_executable", BOOLEAN).value(true)
             .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
         .build();

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.bazel.rules.android;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
@@ -44,7 +43,7 @@ public class BazelAndroidBinaryRule implements RuleDefinition {
             .cfg(HOST)
             .singleArtifact()
             .value(environment.getLabel(
-                Constants.TOOLS_REPOSITORY + "//tools/android:debug_keystore")))
+                environment.getToolsRepository() + "//tools/android:debug_keystore")))
         .add(attr(":cc_toolchain_split", BuildType.LABEL)
             .cfg(AndroidRuleClasses.ANDROID_SPLIT_TRANSITION)
             .value(BazelCppRuleClasses.CC_TOOLCHAIN))

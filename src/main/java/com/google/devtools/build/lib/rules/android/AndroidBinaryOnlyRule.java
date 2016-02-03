@@ -87,7 +87,8 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
         .add(attr("$android_manifest_merge_tool", LABEL)
             .cfg(HOST)
             .exec()
-            .value(env.getLabel(AndroidRuleClasses.MANIFEST_MERGE_TOOL_LABEL)))
+            .value(env.getLabel(env.getToolsRepository()
+                + AndroidRuleClasses.MANIFEST_MERGE_TOOL_LABEL)))
 
         /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(multidex) -->
         Whether to split code into multiple dex files.

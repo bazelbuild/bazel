@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -52,7 +51,7 @@ public final class ProguardLibraryRule implements RuleDefinition {
               public Object getDefault(AttributeMap rule) {
                 return rule.isAttributeValueExplicitlySpecified("proguard_specs")
                     ? environment.getLabel(
-                        Constants.TOOLS_REPOSITORY + "//tools/jdk:proguard_whitelister")
+                        environment.getToolsRepository() + "//tools/jdk:proguard_whitelister")
                     : null;
               }
             }))

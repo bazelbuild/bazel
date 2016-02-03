@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -84,7 +83,7 @@ public final class BazelPyRuleClasses {
           // do not depend on lib2to3:2to3 rule, because it creates circular dependencies
           // 2to3 is itself written in Python and depends on many libraries.
           .add(attr("$python2to3", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/python:2to3")))
+              .value(env.getLabel(env.getToolsRepository() + "//tools/python:2to3")))
           .setPreferredDependencyPredicate(PyRuleClasses.PYTHON_SOURCE)
           .build();
     }

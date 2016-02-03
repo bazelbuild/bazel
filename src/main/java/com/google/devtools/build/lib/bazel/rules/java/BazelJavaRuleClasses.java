@@ -25,7 +25,6 @@ import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -54,8 +53,7 @@ public class BazelJavaRuleClasses {
   public static final PredicateWithMessage<Rule> JAVA_PACKAGE_NAMES = new PackageNameConstraint(
       PackageNameConstraint.ANY_SEGMENT, "java", "javatests");
 
-  protected static final String JUNIT_TESTRUNNER =
-      Constants.TOOLS_REPOSITORY + "//tools/jdk:TestRunner_deploy.jar";
+  protected static final String JUNIT_TESTRUNNER = "//tools/jdk:TestRunner_deploy.jar";
 
   public static final ImplicitOutputsFunction JAVA_BINARY_IMPLICIT_OUTPUTS =
       fromFunctions(
@@ -340,7 +338,7 @@ public class BazelJavaRuleClasses {
                 @Override
                 public Object getDefault(AttributeMap rule) {
                   return rule.get("use_testrunner", Type.BOOLEAN)
-                    ? env.getLabel(JUNIT_TESTRUNNER)
+                    ? env.getLabel(env.getToolsRepository() + JUNIT_TESTRUNNER)
                     : null;
                 }
               }))
