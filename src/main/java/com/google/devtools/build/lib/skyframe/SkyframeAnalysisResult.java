@@ -26,27 +26,39 @@ import java.util.Collection;
  *  Encapsulates the raw analysis result of top level targets and aspects coming from Skyframe.
  */
 public class SkyframeAnalysisResult {
-  private final boolean hasError;
+  private final boolean hasLoadingError;
+  private final boolean hasAnalysisError;
   private final ImmutableList<ConfiguredTarget> configuredTargets;
   private final WalkableGraph walkableGraph;
   private final ImmutableList<AspectValue> aspects;
   private final ImmutableMap<PackageIdentifier, Path> packageRoots;
 
   public SkyframeAnalysisResult(
-      boolean hasError,
+      boolean hasLoadingError,
+      boolean hasAnalysisError,
       ImmutableList<ConfiguredTarget> configuredTargets,
       WalkableGraph walkableGraph,
       ImmutableList<AspectValue> aspects,
       ImmutableMap<PackageIdentifier, Path> packageRoots) {
-    this.hasError = hasError;
+    this.hasLoadingError = hasLoadingError;
+    this.hasAnalysisError = hasAnalysisError;
     this.configuredTargets = configuredTargets;
     this.walkableGraph = walkableGraph;
     this.aspects = aspects;
     this.packageRoots = packageRoots;
   }
 
-  public boolean hasError() {
-    return hasError;
+  /**
+   * If the new simplified loading phase is enabled, then we can also see loading errors during the
+   * analysis phase. This method returns true if any such errors were encountered. However, you also
+   * always need to check if the loading result has an error! These will be merged eventually.
+   */
+  public boolean hasLoadingError() {
+    return hasLoadingError;
+  }
+
+  public boolean hasAnalysisError() {
+    return hasAnalysisError;
   }
 
   public Collection<ConfiguredTarget> getConfiguredTargets() {

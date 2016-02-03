@@ -999,6 +999,18 @@ public class BuildViewTest extends BuildViewTestBase {
     assertThat(loadingFailureRecorder.events).isEmpty();
   }
 
+  @Test
+  public void testLoadingErrorReportedCorrectly() throws Exception {
+    scratch.file("a/BUILD", "cc_library(name='a')");
+    scratch.file("b/BUILD", "cc_library(name='b', deps = ['//missing:lib'])");
+
+    reporter.removeHandler(failFastHandler);
+    AnalysisResult result = update(defaultFlags().with(Flag.KEEP_GOING), "//a", "//b");
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError())
+        .contains("execution phase succeeded, but there were loading phase errors");
+  }
+
   /** Runs the same test with the reduced loading phase. */
   @TestSpec(size = Suite.SMALL_TESTS)
   @RunWith(JUnit4.class)
