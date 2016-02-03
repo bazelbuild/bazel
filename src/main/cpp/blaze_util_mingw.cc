@@ -111,6 +111,19 @@ string GetDefaultHostJavabase() {
   return javahome;
 }
 
+namespace {
+void ReplaceAll(
+        std::string* s, const std::string& pattern, const std::string with) {
+  size_t pos = 0;
+  while (true) {
+    size_t pos = s->find(pattern, pos);
+    if (pos == std::string::npos) return;
+    *s = s->replace(pos, pattern.length(), with);
+    pos += with.length();
+  }
+}
+}  // namespace
+
 // Replace the current process with the given program in the given working
 // directory, using the given argument vector.
 // This function does not return on success.
@@ -147,7 +160,21 @@ void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
     } else {
       cmdline.append(" ");
     }
-    cmdline.append(s);
+
+    string arg = s;
+    // Quote quotes.
+    if (s.find("\"") != string::npos) {
+      ReplaceAll(&arg, "\"", "\\\"");
+    }
+
+    // Quotize spaces.
+    if (arg.find(" ") != string::npos) {
+      cmdline.append("\"");
+      cmdline.append(arg);
+      cmdline.append("\"");
+    } else {
+      cmdline.append(arg);
+    }
   }
 
   // Copy command line into a mutable buffer.
