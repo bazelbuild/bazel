@@ -109,11 +109,6 @@ public final class SolibSymlinkAction extends AbstractAction {
   public String getMnemonic() { return "SolibSymlink"; }
 
   @Override
-  public String describeStrategy(Executor executor) {
-    return "local";
-  }
-
-  @Override
   protected String getRawProgressMessage() { return null; }
 
   /**

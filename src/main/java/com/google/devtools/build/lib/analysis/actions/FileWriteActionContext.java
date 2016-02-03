@@ -37,8 +37,4 @@ public interface FileWriteActionContext extends ActionContext {
    */
   ResourceSet estimateResourceConsumption(AbstractFileWriteAction action);
 
-  /**
-   * Returns where the action actually runs.
-   */
-  String strategyLocality(AbstractFileWriteAction action);
 }

@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -95,19 +96,23 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
   @Override
   public void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException {
-    Executor executor = actionExecutionContext.getExecutor();
-
     // Certain actions can't run remotely or in a sandbox - pass them on to the standalone strategy.
     if (!spawn.isRemotable()) {
       standaloneStrategy.exec(spawn, actionExecutionContext);
       return;
     }
 
+    Executor executor = actionExecutionContext.getExecutor();
+
     if (executor.reportsSubcommands()) {
       executor.reportSubcommand(
           Label.print(spawn.getOwner().getLabel()) + " [" + spawn.getResourceOwner().prettyPrint()
               + "]", spawn.asShellCommand(executor.getExecRoot()));
     }
+
+    executor
+        .getEventBus()
+        .post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "sandbox"));
 
     FileOutErr outErr = actionExecutionContext.getFileOutErr();
 
@@ -492,12 +497,12 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
   }
 
   @Override
-  public String strategyLocality(String mnemonic, boolean remotable) {
-    return "linux-sandboxing";
+  public boolean isRemotable(String mnemonic, boolean remotable) {
+    return false;
   }
 
   @Override
-  public boolean isRemotable(String mnemonic, boolean remotable) {
-    return false;
+  public String toString() {
+    return "sandboxed";
   }
 }

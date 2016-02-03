@@ -266,9 +266,6 @@ public class StandaloneTestStrategy extends TestStrategy {
   }
 
   @Override
-  public String strategyLocality(TestRunnerAction action) { return "standalone"; }
-
-  @Override
   public TestResult newCachedTestResult(
       Path execRoot, TestRunnerAction action, TestResultData data) {
     return new TestResult(action, data, /*cached*/ true);

@@ -47,9 +47,4 @@ public class ExclusiveTestStrategy implements TestActionContext {
       Path execRoot, TestRunnerAction action, TestResultData cached) throws IOException {
     return parent.newCachedTestResult(execRoot, action, cached);
   }
-
-  @Override
-  public String strategyLocality(TestRunnerAction testRunnerAction) {
-    return "exclusive";
-  }
 }

@@ -86,11 +86,6 @@ public class MiddlemanAction extends AbstractAction {
   }
 
   @Override
-  public String describeStrategy(Executor executor) {
-    return "";
-  }
-
-  @Override
   public String getMnemonic() {
     return MIDDLEMAN_MNEMONIC;
   }

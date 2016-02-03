@@ -122,9 +122,4 @@ public class SymlinkAction extends AbstractAction {
   protected String getRawProgressMessage() {
     return progressMessage;
   }
-
-  @Override
-  public String describeStrategy(Executor executor) {
-    return "local";
-  }
 }

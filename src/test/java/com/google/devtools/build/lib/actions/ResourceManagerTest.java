@@ -347,11 +347,6 @@ public class ResourceManagerTest {
     }
 
     @Override
-    public String describeStrategy(Executor executor) {
-      throw new IllegalStateException();
-    }
-
-    @Override
     public boolean inputsKnown() {
       throw new IllegalStateException();
     }

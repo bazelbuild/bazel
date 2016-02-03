@@ -482,11 +482,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return cppCompileCommandLine.dotdFile;
   }
 
-  @Override
-  public String describeStrategy(Executor executor) {
-    return executor.getContext(actionContext).strategyLocality();
-  }
-
   @VisibleForTesting
   public CppCompilationContext getContext() {
     return context;

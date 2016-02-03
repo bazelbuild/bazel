@@ -147,19 +147,6 @@ public abstract class TestStrategy implements TestActionContext {
   public abstract void exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
 
-  @Override
-  public abstract String strategyLocality(TestRunnerAction action);
-
-  /**
-   * Callback for determining the strategy locality.
-   *
-   * @param action the test action
-   * @param localRun whether to run it locally
-   */
-  protected String strategyLocality(TestRunnerAction action, boolean localRun) {
-    return strategyLocality(action);
-  }
-
   /**
    * Returns mutable map of default testing shell environment. By itself it is incomplete and is
    * modified further by the specific test strategy implementations (mostly due to the fact that

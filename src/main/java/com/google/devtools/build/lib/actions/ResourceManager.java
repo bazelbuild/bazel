@@ -265,7 +265,7 @@ public class ResourceManager {
   private void acquired(ActionMetadata owner) {
     if (eventBus != null) {
       // Null only in tests.
-      eventBus.post(ActionStatusMessage.runningStrategy(owner));
+      eventBus.post(ActionStatusMessage.runningStrategy(owner, "unknown"));
     }
   }
 

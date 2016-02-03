@@ -123,11 +123,6 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
     return true;
   }
 
-  @Override
-  public final String describeStrategy(Executor executor) {
-    return executor.getContext(FileWriteActionContext.class).strategyLocality(this);
-  }
-
   private FileWriteActionContext getStrategy(Executor executor) {
     return executor.getContext(FileWriteActionContext.class);
   }

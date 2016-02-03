@@ -102,11 +102,6 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
                   .build();
     }
 
-    @Override
-    public String describeStrategy(Executor executor) {
-      return "";
-    }
-
     private String getAdditionalWorkspaceStatus(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
       try {

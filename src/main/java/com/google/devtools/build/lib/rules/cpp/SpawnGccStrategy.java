@@ -36,10 +36,6 @@ import java.util.Collection;
   name = {"spawn"}
 )
 public class SpawnGccStrategy implements CppCompileActionContext {
-  @Override
-  public String strategyLocality() {
-    return "spawn";
-  }
 
   @Override
   public boolean needsIncludeScanning() {

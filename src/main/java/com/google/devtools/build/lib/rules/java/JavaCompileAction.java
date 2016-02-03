@@ -412,11 +412,6 @@ public class JavaCompileAction extends AbstractAction {
   }
 
   @Override
-  public String describeStrategy(Executor executor) {
-    return getContext(executor).strategyLocality(getMnemonic(), true);
-  }
-
-  @Override
   public ResourceSet estimateResourceConsumption(Executor executor) {
     if (getContext(executor).isRemotable(getMnemonic(), true)) {
       return ResourceSet.ZERO;

@@ -128,11 +128,6 @@ public class TestAction extends AbstractAction {
   }
 
   @Override
-  public String describeStrategy(Executor executor) {
-    return "";
-  }
-
-  @Override
   protected String computeKey() {
     List<String> outputsList = new ArrayList<>();
     for (Artifact output : getOutputs()) {

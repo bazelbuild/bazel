@@ -34,11 +34,6 @@ public interface TestActionContext extends ActionContext {
       ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException;
 
   /**
-   * String describing where the action will run.
-   */
-  String strategyLocality(TestRunnerAction action);
-
-  /**
    * Creates a cached test result.
    */
   TestResult newCachedTestResult(Path execRoot, TestRunnerAction action, TestResultData cached)

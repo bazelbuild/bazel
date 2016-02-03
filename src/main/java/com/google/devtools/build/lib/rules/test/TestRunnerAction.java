@@ -305,11 +305,6 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     return "Testing " + getTestName();
   }
 
-  @Override
-  public String describeStrategy(Executor executor) {
-    return executor.getContext(TestActionContext.class).strategyLocality(this);
-  }
-
   /**
    * Deletes <b>all</b> possible test outputs.
    *

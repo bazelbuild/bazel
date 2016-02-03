@@ -400,11 +400,6 @@ public class SpawnAction extends AbstractAction {
     return executionInfo;
   }
 
-  @Override
-  public String describeStrategy(Executor executor) {
-    return getContext(executor).strategyLocality(getMnemonic(), isRemotable());
-  }
-
   protected SpawnActionContext getContext(Executor executor) {
     return executor.getSpawnActionContext(getMnemonic());
   }

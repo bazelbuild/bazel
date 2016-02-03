@@ -197,11 +197,6 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public String describeStrategy(Executor executor) {
-      return "";
-    }
-
-    @Override
     public void execute(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
       try {

@@ -55,11 +55,6 @@ final class ExtractInclusionAction extends AbstractAction {
   }
 
   @Override
-  public String describeStrategy(Executor executor) {
-    return executor.getContext(CppCompileActionContext.class).strategyLocality();
-  }
-
-  @Override
   public String getMnemonic() {
     return "GrepIncludes";
   }

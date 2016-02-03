@@ -216,11 +216,6 @@ public class FakeCppCompileAction extends CppCompileAction {
   public String getMnemonic() { return "FakeCppCompile"; }
 
   @Override
-  public String describeStrategy(Executor executor) {
-    return "fake";
-  }
-
-  @Override
   public ResourceSet estimateResourceConsumptionLocal() {
     return ResourceSet.createWithRamCpuIo(/*memoryMb=*/1, /*cpuUsage=*/0.1, /*ioUsage=*/0.0);
   }

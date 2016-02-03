@@ -61,19 +61,6 @@ public interface ActionMetadata {
   String prettyPrint();
 
   /**
-   * Returns a string that can be used to describe the execution strategy.
-   * For example, "local".
-   *
-   * May return null if the action chooses to update its strategy
-   * locality "manually", via ActionLocalityMessage.
-   *
-   * @param executor the application-specific value passed to the
-   *   executor parameter of the top-level call to
-   *   Builder.buildArtifacts().
-   */
-  String describeStrategy(Executor executor);
-
-  /**
    * Returns true iff the getInputs set is known to be complete.
    *
    * <p>For most Actions, this always returns true, but in some cases (e.g. C++ compilation), inputs

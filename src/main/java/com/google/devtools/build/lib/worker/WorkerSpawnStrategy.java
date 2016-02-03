@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ChangedFilesMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -137,6 +138,10 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
       standaloneStrategy.exec(spawn, actionExecutionContext);
       return;
     }
+
+    executor
+        .getEventBus()
+        .post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "worker"));
 
     FileOutErr outErr = actionExecutionContext.getFileOutErr();
 
@@ -272,7 +277,7 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
   }
 
   @Override
-  public String strategyLocality(String mnemonic, boolean remotable) {
+  public String toString() {
     return "worker";
   }
 

@@ -70,11 +70,8 @@ public class ActionExecutionStatusReporterTest {
   private EventBus eventBus;
   private MockClock clock = new MockClock();
 
-  private Action mockAction(String progressMessage) { return mockAction(progressMessage, false); }
-
-  private Action mockAction(String progressMessage, boolean remote) {
+  private Action mockAction(String progressMessage) {
     Action action = Mockito.mock(Action.class);
-    when(action.describeStrategy(null)).thenReturn(remote ? "remote" : "something else");
     when(action.getProgressMessage()).thenReturn(progressMessage);
     if (progressMessage == null) {
       when(action.prettyPrint()).thenReturn("default message");
@@ -122,9 +119,9 @@ public class ActionExecutionStatusReporterTest {
     verifyWarningOutput("Still waiting for unfinished jobs");
     setScheduling(mockAction("action2"));
     clock.advance();
-    setRunning(mockAction("action3", true));
+    setRunning(mockAction("action3"), "remote");
     clock.advance();
-    setRunning(mockAction("action4", false));
+    setRunning(mockAction("action4"), "something else");
     verifyOutput("Still waiting for 4 jobs to complete:",
         "Preparing:", "action1, 3 s",
         "Running (remote):", "action3, 1 s",
@@ -139,7 +136,7 @@ public class ActionExecutionStatusReporterTest {
 
   @Test
   public void testSingleAction() throws Exception {
-    Action action = mockAction("action1", true);
+    Action action = mockAction("action1");
     verifyNoOutput();
     setPreparing(action);
     clock.advanceBy(1200);
@@ -150,7 +147,7 @@ public class ActionExecutionStatusReporterTest {
     clock.advanceBy(1200);
     // Only started *scheduling* 1200 ms ago, not 6200 ms ago.
     verifyOutput("Still waiting for 1 job to complete:", "Scheduling:", "action1, 1 s");
-    setRunning(action);
+    setRunning(action, "remote");
     clock.advanceBy(3000);
     // Only started *running* 3000 ms ago, not 4200 ms ago.
     verifyOutput("Still waiting for 1 job to complete:", "Running (remote):", "action1, 3 s");
@@ -160,7 +157,7 @@ public class ActionExecutionStatusReporterTest {
 
   @Test
   public void testDynamicUpdate() throws Exception {
-    Action action = mockAction("action1", true);
+    Action action = mockAction("action1");
     verifyNoOutput();
     setPreparing(action);
     clock.advance();
@@ -168,7 +165,7 @@ public class ActionExecutionStatusReporterTest {
     setScheduling(action);
     clock.advance();
     verifyOutput("Still waiting for 1 job to complete:", "Scheduling:", "action1, 1 s");
-    setRunning(action);
+    setRunning(action, "remote");
     clock.advance();
     verifyOutput("Still waiting for 1 job to complete:", "Running (remote):", "action1, 1 s");
     clock.advance();
@@ -184,8 +181,8 @@ public class ActionExecutionStatusReporterTest {
   public void testGroups() throws Exception {
     verifyNoOutput();
     List<Action> actions = ImmutableList.of(
-        mockAction("remote1", true), mockAction("remote2", true), mockAction("remote3", true),
-        mockAction("local1", false), mockAction("local2", false), mockAction("local3", false));
+        mockAction("remote1"), mockAction("remote2"), mockAction("remote3"),
+        mockAction("local1"), mockAction("local2"), mockAction("local3"));
 
     for (Action a : actions) {
       setScheduling(a);
@@ -198,7 +195,7 @@ public class ActionExecutionStatusReporterTest {
         "local1, 3 s", "local2, 2 s", "local3, 1 s");
 
     for (Action a : actions) {
-      setRunning(a);
+      setRunning(a, a.getProgressMessage().startsWith("remote") ? "remote" : "something else");
       clock.advanceBy(2000);
     }
 
@@ -228,7 +225,7 @@ public class ActionExecutionStatusReporterTest {
         "a6, 95 s", "a7, 94 s", "a8, 93 s", "a9, 92 s", "... 91 more jobs");
 
     for (int i = 0; i < 5; i++) {
-      setRunning(actions.get(i));
+      setRunning(actions.get(i), "something else");
       clock.advance();
     }
     verifyOutput("Still waiting for 100 jobs to complete:",
@@ -285,7 +282,7 @@ public class ActionExecutionStatusReporterTest {
     eventBus.post(ActionStatusMessage.preparingStrategy(action));
   }
 
-  private void setRunning(ActionMetadata action) {
-    eventBus.post(ActionStatusMessage.runningStrategy(action));
+  private void setRunning(ActionMetadata action, String strategy) {
+    eventBus.post(ActionStatusMessage.runningStrategy(action, strategy));
   }
 }

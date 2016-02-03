@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.standalone;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
@@ -62,11 +63,16 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
       ActionExecutionContext actionExecutionContext)
       throws ExecException {
     Executor executor = actionExecutionContext.getExecutor();
+
     if (executor.reportsSubcommands()) {
       executor.reportSubcommand(
           Label.print(spawn.getOwner().getLabel()) + " [" + spawn.getResourceOwner().prettyPrint()
               + "]", spawn.asShellCommand(executor.getExecRoot()));
     }
+
+    executor
+        .getEventBus()
+        .post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "standalone"));
 
     int timeout = -1;
     String timeoutStr = spawn.getExecutionInfo().get("timeout");
@@ -125,7 +131,7 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
   }
 
   @Override
-  public String strategyLocality(String mnemonic, boolean remotable) {
+  public String toString() {
     return "standalone";
   }
 
