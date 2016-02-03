@@ -1,5 +1,4 @@
-Objective C Examples
-======
+# Objective C Examples
 
 The example in this directory show typical use of Objective C libraries,
 binaries and imports. Because they build an iOS application they can only be run
