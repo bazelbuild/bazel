@@ -25,7 +25,6 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -292,8 +291,8 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
     assertThat(temps).hasSize(2);
 
     // Assert that the two temps are the .i and .s files we expect.
-    getOnlyElement(filter(temps, fileTypePredicate(CppFileTypes.PIC_PREPROCESSED_CPP)));
-    getOnlyElement(filter(temps, fileTypePredicate(CppFileTypes.PIC_ASSEMBLER)));
+    assertThat(filter(temps, fileTypePredicate(CppFileTypes.PIC_PREPROCESSED_CPP))).hasSize(1);
+    assertThat(filter(temps, fileTypePredicate(CppFileTypes.PIC_ASSEMBLER))).hasSize(1);
   }
 
   @Test
@@ -305,8 +304,8 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
     assertThat(temps).hasSize(2);
 
     // Assert that the two temps are the .i and .s files we expect.
-    getOnlyElement(filter(temps, fileTypePredicate(CppFileTypes.PREPROCESSED_CPP)));
-    getOnlyElement(filter(temps, fileTypePredicate(CppFileTypes.ASSEMBLER)));
+    assertThat(filter(temps, fileTypePredicate(CppFileTypes.PREPROCESSED_CPP))).hasSize(1);
+    assertThat(filter(temps, fileTypePredicate(CppFileTypes.ASSEMBLER))).hasSize(1);
   }
 
   @Test
@@ -320,8 +319,8 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
     assertThat(cTemps).hasSize(2);
 
     // Assert that the two temps are the .ii and .s files we expect.
-    getOnlyElement(filter(cTemps, fileTypePredicate(CppFileTypes.PIC_PREPROCESSED_C)));
-    getOnlyElement(filter(cTemps, fileTypePredicate(CppFileTypes.PIC_ASSEMBLER)));
+    assertThat(filter(cTemps, fileTypePredicate(CppFileTypes.PIC_PREPROCESSED_C))).hasSize(1);
+    assertThat(filter(cTemps, fileTypePredicate(CppFileTypes.PIC_ASSEMBLER))).hasSize(1);
   }
 
   @Test
@@ -563,7 +562,7 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
     // make sure we did not print warnings about the linkopt
     assertNoEvents();
     // make sure the binary is dependent on the static lib
-    Action linkAction = getGeneratingAction(Iterables.getOnlyElement(getFilesToBuild(theApp)));
+    Action linkAction = getGeneratingAction(getOnlyElement(getFilesToBuild(theApp)));
     ImmutableList<Artifact> filesToBuild = ImmutableList.copyOf(getFilesToBuild(theLib));
     assertTrue(ImmutableSet.copyOf(linkAction.getInputs()).containsAll(filesToBuild));
   }
