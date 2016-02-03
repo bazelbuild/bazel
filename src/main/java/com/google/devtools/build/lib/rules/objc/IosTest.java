@@ -90,9 +90,11 @@ public final class IosTest implements RuleConfiguredTargetFactory {
     XcodeProductType productType = getProductType(ruleContext);
     ExtraLinkArgs extraLinkArgs;
     Iterable<Artifact> extraLinkInputs;
+    String bundleFormat;
     if (!isXcTest(ruleContext)) {
       extraLinkArgs = new ExtraLinkArgs();
       extraLinkInputs = ImmutableList.of();
+      bundleFormat = ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT;
     } else {
       XcodeProvider appIpaXcodeProvider =
           ruleContext.getPrerequisite(XCTEST_APP, Mode.TARGET, XcodeProvider.class);
@@ -113,7 +115,8 @@ public final class IosTest implements RuleConfiguredTargetFactory {
           "-bundle_loader", bundleLoader.getExecPathString());
   
       extraLinkInputs = ImmutableList.of(bundleLoader);
-  
+      bundleFormat = ReleaseBundlingSupport.XCTEST_BUNDLE_DIR_FORMAT;
+
       filesToBuild.add(testApp.getIpa());
     }
   
@@ -129,7 +132,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
             ruleContext,
             common.getObjcProvider(),
             LinkedBinary.LOCAL_AND_DEPENDENCIES,
-            ReleaseBundlingSupport.APP_BUNDLE_DIR_FORMAT,
+            bundleFormat,
             objcConfiguration.getMinimumOs())
         .registerActions()
         .addXcodeSettings(xcodeProviderBuilder)

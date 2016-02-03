@@ -103,6 +103,8 @@ public final class ReleaseBundlingSupport {
   @VisibleForTesting
   static final String APP_BUNDLE_DIR_FORMAT = "Payload/%s.app";
   @VisibleForTesting
+  static final String XCTEST_BUNDLE_DIR_FORMAT = "Payload/%s.xctest";
+  @VisibleForTesting
   static final String EXTENSION_BUNDLE_DIR_FORMAT = "PlugIns/%s.appex";
   @VisibleForTesting
   static final String FRAMEWORK_BUNDLE_DIR_FORMAT = "Frameworks/%s.framework";

@@ -69,31 +69,32 @@ public class TestSupport {
   }
 
   private void registerTestScriptSubstitutionAction() throws InterruptedException {
-    // testIpa is the app actually containing the tests
-    Artifact testIpa = testIpa();
+    // testBundleIpa is the bundle actually containing the tests.
+    Artifact testBundleIpa = testBundleIpa();
 
     String runMemleaks =
         ruleContext.getFragment(ObjcConfiguration.class).runMemleaks() ? "true" : "false";
 
     Map<String, String> testEnv = ruleContext.getConfiguration().getTestEnv();
-    
+
     // The substitutions below are common for simulator and lab device.
     ImmutableList.Builder<Substitution> substitutions =
         new ImmutableList.Builder<Substitution>()
             .add(Substitution.of("%(memleaks)s", runMemleaks))
-            .add(Substitution.of("%(test_app_ipa)s", testIpa.getRootRelativePathString()))
-            .add(Substitution.of("%(test_app_name)s", baseNameWithoutIpa(testIpa)))
+            .add(Substitution.of("%(test_app_ipa)s", testBundleIpa.getRootRelativePathString()))
+            .add(Substitution.of("%(test_app_name)s", baseNameWithoutIpa(testBundleIpa)))
             .add(
                 Substitution.of("%(plugin_jars)s", Artifact.joinRootRelativePaths(":", plugins())));
     
     substitutions.add(Substitution.ofSpaceSeparatedMap("%(test_env)s", testEnv));
-        
-    // xctestIpa is the app bundle being tested
-    Optional<Artifact> xctestIpa = xctestIpa();
-    if (xctestIpa.isPresent()) {
+
+    // testHarnessIpa is the app being tested in the case where testBundleIpa is a .xctest bundle.
+    Optional<Artifact> testHarnessIpa = testHarnessIpa();
+    if (testHarnessIpa.isPresent()) {
       substitutions
-          .add(Substitution.of("%(xctest_app_ipa)s", xctestIpa.get().getRootRelativePathString()))
-          .add(Substitution.of("%(xctest_app_name)s", baseNameWithoutIpa(xctestIpa.get())));
+          .add(Substitution.of("%(xctest_app_ipa)s",
+              testHarnessIpa.get().getRootRelativePathString()))
+          .add(Substitution.of("%(xctest_app_name)s", baseNameWithoutIpa(testHarnessIpa.get())));
     } else {
       substitutions
           .add(Substitution.of("%(xctest_app_ipa)s", ""))
@@ -140,11 +141,18 @@ public class TestSupport {
         "target_device", Mode.TARGET, IosTestSubstitutionProvider.class);
   }
 
-  private Artifact testIpa() throws InterruptedException {
+  /*
+   * The IPA of the bundle that contains the tests. Typically will be a .xctest bundle, but in the
+   * case where the xctest attribute is false, it will be a .app bundle.
+   */
+  private Artifact testBundleIpa() throws InterruptedException {
     return ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA);
   }
 
-  private Optional<Artifact> xctestIpa() {
+  /*
+   * The IPA of the testHarness in the case where the testBundleIpa is an .xctest bundle.
+   */
+  private Optional<Artifact> testHarnessIpa() {
     FileProvider fileProvider =
         ruleContext.getPrerequisite("xctest_app", Mode.TARGET, FileProvider.class);
     if (fileProvider == null) {
@@ -209,8 +217,8 @@ public class TestSupport {
    */
   public TestSupport addRunfiles(Builder runfilesBuilder) throws InterruptedException {
     runfilesBuilder
-        .addArtifact(testIpa())
-        .addArtifacts(xctestIpa().asSet())
+        .addArtifact(testBundleIpa())
+        .addArtifacts(testHarnessIpa().asSet())
         .addArtifact(generatedTestScript())
         .addTransitiveArtifacts(plugins());
     if (!runWithLabDevice()) {
@@ -283,7 +291,7 @@ public class TestSupport {
    */
   public TestSupport addFilesToBuild(NestedSetBuilder<Artifact> builder)
       throws InterruptedException {
-    builder.add(testIpa()).addAll(xctestIpa().asSet());
+    builder.add(testBundleIpa()).addAll(testHarnessIpa().asSet());
     return this;
   }
 
