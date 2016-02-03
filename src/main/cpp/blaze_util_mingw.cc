@@ -194,6 +194,11 @@ void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
   STARTUPINFO startupinfo = {0};
   PROCESS_INFORMATION pi = {0};
 
+  // Propagate BAZEL_SH environment variable to a sub-process.
+  // todo(dslomov): More principled approach to propagating
+  // environment variables.
+  SetEnvironmentVariable("BAZEL_SH", getenv("BAZEL_SH"));
+
   bool success = CreateProcess(
       nullptr,       // _In_opt_    LPCTSTR               lpApplicationName,
       actual_line,   // _Inout_opt_ LPTSTR                lpCommandLine,
