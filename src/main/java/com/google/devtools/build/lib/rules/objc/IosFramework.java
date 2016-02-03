@@ -32,9 +32,11 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.cpp.CcCommon;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 /**
@@ -84,7 +86,8 @@ public class IosFramework extends ReleaseBundlingTargetFactory {
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
 
-    ImmutableList<Artifact> headers = ImmutableList.copyOf(CcCommon.getHeaders(ruleContext));
+    ImmutableList<Pair<Artifact, Label>> headers =
+        ImmutableList.copyOf(CcCommon.getHeaders(ruleContext));
 
     ImmutableMap.Builder<Artifact, Artifact> builder = new ImmutableMap.Builder<>();
 
@@ -94,11 +97,11 @@ public class IosFramework extends ReleaseBundlingTargetFactory {
     builder.put(intermediateArtifacts.combinedArchitectureBinary(), frameworkBinary);
 
     // Create framework headers
-    for (Artifact header : headers) {
+    for (Pair<Artifact, Label> header : headers) {
       Artifact frameworkHeader =
-          outputArtifact(ruleContext, new PathFragment("Headers/" + header.getFilename()));
+          outputArtifact(ruleContext, new PathFragment("Headers/" + header.first.getFilename()));
 
-      builder.put(header, frameworkHeader);
+      builder.put(header.first, frameworkHeader);
     }
 
     return builder.build();

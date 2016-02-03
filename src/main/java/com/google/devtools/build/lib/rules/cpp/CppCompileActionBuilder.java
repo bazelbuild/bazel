@@ -104,10 +104,13 @@ public class CppCompileActionBuilder {
 
   private static ImmutableMap<Artifact, IncludeScannable> getLipoScannableMap(
       RuleContext ruleContext) {
-    if (!ruleContext.getFragment(CppConfiguration.class).isLipoOptimization()) {
+    if (!ruleContext.getFragment(CppConfiguration.class).isLipoOptimization()
+        // Rules that do not contain sources that are compiled into object files, but may
+        // contain headers, will still create CppCompileActions without providing a
+        // lipo_context_collector.
+        || ruleContext.attributes().getAttributeDefinition(":lipo_context_collector") == null) {
       return null;
     }
-
     LipoContextProvider provider = ruleContext.getPrerequisite(
         ":lipo_context_collector", Mode.DONT_CHECK, LipoContextProvider.class);
     return provider.getIncludeScannables();

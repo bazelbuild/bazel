@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -112,16 +111,15 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       boolean collectLinkstamp,
       boolean addDynamicRuntimeInputArtifactsToRunfiles) {
     FeatureConfiguration featureConfiguration = CcCommon.configureFeatures(ruleContext);
-    final CcCommon common = new CcCommon(ruleContext, featureConfiguration);
+    final CcCommon common = new CcCommon(ruleContext);
     PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
 
     CcLibraryHelper helper =
         new CcLibraryHelper(ruleContext, semantics, featureConfiguration)
             .fromCommon(common)
-
             .addLinkopts(common.getLinkopts())
-            .addSources(common.getCAndCppSources())
-            .addPublicHeaders(CcCommon.getHeaders(ruleContext))
+            .addSources(common.getSources())
+            .addPublicHeaders(common.getHeaders())
             .enableCcNativeLibrariesProvider()
             .enableCompileProviders()
             .enableInterfaceSharedObjects()
@@ -165,9 +163,6 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     }
 
     if (ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
-      helper.addPrivateHeaders(FileType.filter(
-          ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET).list(),
-          CppFileTypes.CPP_HEADER));
       ruleContext.checkSrcsSamePackage(true);
     }
     if (ruleContext.getRule().isAttrDefined("textual_hdrs", BuildType.LABEL_LIST)) {
