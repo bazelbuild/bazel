@@ -26,6 +26,8 @@ import java.util.EnumMap;
 import java.util.Iterator;
 import java.util.List;
 
+import javax.annotation.Nullable;
+
 /**
  * Extracts and keeps statistics for one {@link ProfilePhase} for formatting to various outputs.
  */
@@ -38,7 +40,6 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
   private final EnumMap<ProfilerTask, Long> taskCounts;
   private final PhaseVfsStatistics vfsStatistics;
   private boolean wasExecuted;
-  private int count;
 
   public PhaseStatistics(ProfilePhase phase, boolean generateVfsStatistics) {
     this.phase = phase;
@@ -84,7 +85,6 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
         add(taskCounts, type, count);
         add(taskDurations, type, totalTime);
       }
-      count++;
     }
   }
 
@@ -107,21 +107,14 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
         add(taskCounts, type, otherCount);
         add(taskDurations, type, otherDuration);
       }
-      count++;
     }
-  }
-
-  /**
-   * @return how many executions of this phase were accumulated
-   */
-  public int getPhaseCount() {
-    return count;
   }
 
   public ProfilePhase getProfilePhase() {
     return phase;
   }
 
+  @Nullable
   public PhaseVfsStatistics getVfsStatistics() {
     return vfsStatistics;
   }
@@ -142,10 +135,6 @@ public final class PhaseStatistics implements Iterable<ProfilerTask> {
 
   public long getPhaseDurationNanos() {
     return phaseDurationNanos;
-  }
-
-  public long getTotalDurationNanos() {
-    return totalDurationNanos;
   }
 
   /**
