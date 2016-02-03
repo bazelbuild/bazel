@@ -277,7 +277,8 @@ java_binary(
         <td>
                     <p><code>List of strings; optional</code></p>
                               A list of flags to embed in the wrapper script generated for running this binary.
-          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
+          Subject to <a href="#location">$(location)</a> and
+          <a href="make-variables.html">"Make variable"</a> substitution, and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>
             The wrapper script for a Java binary includes a <code>CLASSPATH</code> definition (to
@@ -1039,7 +1040,8 @@ java_test(
         <td>
                     <p><code>List of strings; optional</code></p>
                               A list of flags to embed in the wrapper script generated for running this binary.
-          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
+          Subject to <a href="#location">$(location)</a> and
+          <a href="make-variables.html">"Make variable"</a> substitution, and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>
             The wrapper script for a Java binary includes a <code>CLASSPATH</code> definition (to
