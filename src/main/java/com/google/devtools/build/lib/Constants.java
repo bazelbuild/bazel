@@ -34,10 +34,6 @@ public final class Constants {
   // Default value for the --package_path flag if not otherwise set.
   public static final ImmutableList<String> DEFAULT_PACKAGE_PATH = ImmutableList.of("%workspace%");
 
-  // The rule documentation generator iterates over all rules in the class by this name.
-  public static final String MAIN_RULE_CLASS_PROVIDER =
-      "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";
-
   // Native Java deps are all linked into a single file, which is named with this value + ".so".
   public static final String NATIVE_DEPS_LIB_SUFFIX = "_nativedeps";
 

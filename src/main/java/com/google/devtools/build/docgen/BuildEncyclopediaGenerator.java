@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 
 import java.lang.reflect.InvocationTargetException;
@@ -26,10 +25,12 @@ import java.lang.reflect.Method;
 public class BuildEncyclopediaGenerator {
 
   private static boolean checkArgs(String[] args) {
-    if (args.length < 1) {
-      System.err.println("There has to be one or two input parameters\n"
+    if (args.length < 2) {
+      System.err.println("There has to be two to four input parameters\n"
           + " - a comma separated list for input directories\n"
-          + " - an output directory (optional).");
+          + " - the name of the rule class provider\n"
+          + " - an output directory (optional)."
+          + " - a path to a file listing rules to not document (optional)");
       return false;
     }
     return true;
@@ -43,10 +44,10 @@ public class BuildEncyclopediaGenerator {
     Runtime.getRuntime().exit(1);
   }
 
-  private static ConfiguredRuleClassProvider createRuleClassProvider()
+  private static ConfiguredRuleClassProvider createRuleClassProvider(String classProvider)
       throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException,
       IllegalAccessException {
-    Class<?> providerClass = Class.forName(Constants.MAIN_RULE_CLASS_PROVIDER);
+    Class<?> providerClass = Class.forName(classProvider);
     Method createMethod = providerClass.getMethod("create");
     return (ConfiguredRuleClassProvider) createMethod.invoke(null);
   }
@@ -56,9 +57,9 @@ public class BuildEncyclopediaGenerator {
       // TODO(bazel-team): use flags
       try {
         BuildEncyclopediaProcessor processor = new BuildEncyclopediaProcessor(
-            createRuleClassProvider());
+            createRuleClassProvider(args[1]));
         processor.generateDocumentation(
-            args[0].split(","), getArgsOrNull(args, 1), getArgsOrNull(args, 2));
+            args[0].split(","), getArgsOrNull(args, 2), getArgsOrNull(args, 3));
       } catch (BuildEncyclopediaDocException e) {
         fail(e, false);
       } catch (Throwable e) {

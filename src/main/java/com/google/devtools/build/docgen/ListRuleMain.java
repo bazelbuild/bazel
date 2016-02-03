@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
@@ -27,16 +26,21 @@ import java.util.Map;
  */
 public class ListRuleMain {
 
-  private static ConfiguredRuleClassProvider createRuleClassProvider()
+  private static ConfiguredRuleClassProvider createRuleClassProvider(String classProvider)
       throws ClassNotFoundException, NoSuchMethodException, InvocationTargetException,
           IllegalAccessException {
-    Class<?> providerClass = Class.forName(Constants.MAIN_RULE_CLASS_PROVIDER);
+    Class<?> providerClass = Class.forName(classProvider);
     Method createMethod = providerClass.getMethod("create");
     return (ConfiguredRuleClassProvider) createMethod.invoke(null);
   }
 
   public static void main(String[] args) throws Exception {
-    RuleClassProvider provider = createRuleClassProvider();
+    if (args.length == 0) {
+      System.err.println(
+          "Expected one input parameter, please provide the name of the rule class provider");
+    }
+
+    RuleClassProvider provider = createRuleClassProvider(args[0]);
     Map<String, RuleClass> rcMap = provider.getRuleClassMap();
     for (String name : rcMap.keySet()) {
       System.out.println(name);

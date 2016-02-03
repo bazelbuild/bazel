@@ -898,7 +898,8 @@ genrule(
     cmd = (
         "mkdir -p $(@D)/be && " +
         "$(location //src/main/java/com/google/devtools/build/docgen:docgen_bin)" +
-        " $$PWD/src/main/java/com/google/devtools/build/lib" +
+        " $$PWD/src/main/java/com/google/devtools/build/lib " +
+        "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
         " $(@D)/be &&" +
         "zip -qj $@ $(@D)/be/*"
     ),
