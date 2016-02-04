@@ -19,9 +19,10 @@ filegroup(
 filegroup(
     name = "protoc",
     srcs = select({
-        ":windows_mingw": ["protobuf/protoc-windows-x86_32.exe"],
-        ":windows_msys64_mingw64": ["protobuf/protoc-windows-x86_64.exe"],
-        ":windows_clang": ["protobuf/protoc-windows-x86_32.exe"],
+        ":windows_mingw": ["protobuf/protoc-mingw.exe"],
+        ":windows_msys64_mingw64": ["protobuf/protoc-mingw.exe"],
+        ":windows_msys64": ["protobuf/protoc-mingw.exe"],
+        ":windows_clang": ["protobuf/protoc-mingw.exe"],
         ":darwin": ["protobuf/protoc-osx-x86_32.exe"],
         ":k8": ["protobuf/protoc-linux-x86_64.exe"],
         ":piii": ["protobuf/protoc-linux-x86_32.exe"],
@@ -432,6 +433,11 @@ filegroup(
 config_setting(
     name = "windows_mingw",
     values = {"compiler": "windows_mingw"},
+)
+
+config_setting(
+    name = "windows_msys64",
+    values = {"compiler": "windows_msys64"},
 )
 
 config_setting(
