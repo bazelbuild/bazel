@@ -263,6 +263,25 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testBuildHeaderModulesAsPrerequisites() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION);
+    useConfiguration();
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo",
+            "x",
+            "package(features = ['header_modules'])",
+            "cc_library(name = 'x', srcs = ['x.cc'], deps = [':y'])",
+            "cc_library(name = 'y', hdrs = ['y.h'])");
+    assertThat(
+            ActionsTestUtil.baseNamesOf(
+                getOutputGroup(x, OutputGroupProvider.COMPILATION_PREREQUISITES)))
+        .isEqualTo("y.h y.pic.pcm y.cppmap stl.cppmap crosstool.cppmap x.cppmap x.cc");
+  }
+
+  @Test
   public void testDisablingHeaderModulesWhenDependingOnModuleBuildTransitively() throws Exception {
     AnalysisMock.get()
         .ccSupport()
@@ -666,7 +685,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(artifactsToStrings(getFilesToBuild(hello)))
         .doesNotContain("src precompiled/missing.a");
   }
-
+  
   @Test
   public void testAllowDuplicateNonCompiledSources() throws Exception {
     ConfiguredTarget x =
