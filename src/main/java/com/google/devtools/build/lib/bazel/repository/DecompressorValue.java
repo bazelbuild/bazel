@@ -64,10 +64,12 @@ public class DecompressorValue implements SkyValue {
       return ZipFunction.INSTANCE;
     } else if (baseName.endsWith(".tar.gz") || baseName.endsWith(".tgz")) {
       return TarGzFunction.INSTANCE;
+    } else if (baseName.endsWith(".tar.xz")) {
+      return TarXzFunction.INSTANCE;
     } else {
       throw new RepositoryFunctionException(
           new EvalException(null, String.format(
-              "Expected a file with a .zip, .jar, .war, .tar.gz, or .tgz suffix (got %s)",
+              "Expected a file with a .zip, .jar, .war, .tar.gz, .tgz, or .tar.xz suffix (got %s)",
               archivePath)),
           Transience.PERSISTENT);
     }

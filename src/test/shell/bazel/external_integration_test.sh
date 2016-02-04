@@ -57,6 +57,11 @@ function tar_gz_up() {
   tar czf $repo2_zip WORKSPACE fox
 }
 
+function tar_xz_up() {
+  repo2_zip=$TEST_TMPDIR/fox.tar.xz
+  tar cJf $repo2_zip WORKSPACE fox
+}
+
 # Test downloading a file from a repository.
 # This creates a simple repository containing:
 #
@@ -185,6 +190,10 @@ function test_http_archive_tgz() {
   http_archive_helper tar_gz_up "do_symlink"
   bazel shutdown
   http_archive_helper tar_gz_up "do_symlink"
+}
+
+function test_http_archive_tar_xz() {
+  http_archive_helper tar_xz_up "do_symlink"
 }
 
 function test_http_archive_no_server() {

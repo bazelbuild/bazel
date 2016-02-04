@@ -278,3 +278,8 @@ a minimal set of extra dependencies.
 
 * Version: 0.28
 * License: Apache License 2.0
+
+## [xz](http://tukaani.org/xz/java.html)
+
+* Version: 1.5
+* License: Public Domain

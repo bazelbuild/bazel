@@ -604,6 +604,7 @@ java_library(
         "//third_party:maven",
         "//third_party:maven_model",
         "//third_party:plexus_component_annotations",
+        "//third_party:xz",
     ],
 )
 

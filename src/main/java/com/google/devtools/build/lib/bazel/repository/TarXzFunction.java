@@ -16,23 +16,24 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 
+import org.tukaani.xz.XZInputStream;
+
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.zip.GZIPInputStream;
 
 /**
- * Creates a repository by unarchiving a .tar.gz file.
+ * Creates a repository by unarchiving a .tar.xz file.
  */
-public class TarGzFunction extends CompressedTarFunction {
-  public static final Decompressor INSTANCE = new TarGzFunction();
+class TarXzFunction extends CompressedTarFunction {
+  public static final Decompressor INSTANCE = new TarXzFunction();
 
-  private TarGzFunction() {
+  private TarXzFunction() {
   }
 
   @Override
   protected InputStream getDecompressorStream(DecompressorDescriptor descriptor)
       throws IOException {
-    return new GZIPInputStream(new FileInputStream(descriptor.archivePath().getPathFile()));
+    return new XZInputStream(new FileInputStream(descriptor.archivePath().getPathFile()));
   }
 }

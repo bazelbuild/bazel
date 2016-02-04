@@ -398,6 +398,11 @@ java_import(
     jars = ["truth/truth-0.28.jar"],
 )
 
+java_import(
+    name = "xz",
+    jars = ["xz/xz-1.5.jar"],
+)
+
 cc_library(
     name = "gtest",
     srcs = [
