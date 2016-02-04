@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
-import com.google.devtools.build.lib.packages.PackageFactory.Globber;
+import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.ParserInputSource;

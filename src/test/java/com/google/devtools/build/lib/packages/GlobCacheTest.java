@@ -21,7 +21,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.Futures;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.packages.GlobCache.BadGlobException;
+import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
