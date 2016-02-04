@@ -460,14 +460,14 @@ d_docs = rule(
 def d_repositories():
   native.new_http_archive(
       name = "dmd_linux_x86_64",
-      url = "http://downloads.dlang.org/releases/2.x/2.067.1/dmd.2.067.1.linux.zip",
-      sha256 = "a5014886773853b4a42df19ee9591774cf281d33fbc511b265df30ba832926cd",
+      url = "http://downloads.dlang.org/releases/2.x/2.070.0/dmd.2.070.0.linux.tar.xz",
+      sha256 = "42f48db8716f523076e881151f631e741342012881ec9b57353544ed46c4f774",
       build_file = "tools/build_defs/d/dmd.BUILD",
   )
 
   native.new_http_archive(
       name = "dmd_darwin_x86_64",
-      url = "http://downloads.dlang.org/releases/2.x/2.067.1/dmd.2.067.1.linux.zip",
-      sha256 = "aa76bb83c38b3f7495516eb08977fc9700c664d7a945ba3ac3c0004a6a8509f2",
+      url = "http://downloads.dlang.org/releases/2.x/2.070.0/dmd.2.070.0.osx.tar.xz",
+      sha256 = "c1dd14ded8e099dcb2f136379013959b07790249f440010d556e67ff59fe44a0",
       build_file = "tools/build_defs/d/dmd.BUILD",
   )
