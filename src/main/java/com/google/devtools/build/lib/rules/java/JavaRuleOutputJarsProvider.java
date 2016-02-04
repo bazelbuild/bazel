@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
 public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider {
 
   public static final JavaRuleOutputJarsProvider EMPTY =
-      new JavaRuleOutputJarsProvider(ImmutableList.<OutputJar>of());
+      new JavaRuleOutputJarsProvider(ImmutableList.<OutputJar>of(), null);
 
   /**
    * A collection of artifacts associated with a jar output.
@@ -63,13 +63,21 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
   }
 
   final Iterable<OutputJar> outputJars;
+  @Nullable final Artifact jdeps;
 
-  private JavaRuleOutputJarsProvider(Iterable<OutputJar> outputJars) {
+  private JavaRuleOutputJarsProvider(Iterable<OutputJar> outputJars,
+      @Nullable Artifact jdeps) {
     this.outputJars = outputJars;
+    this.jdeps = jdeps;
   }
 
   public Iterable<OutputJar> getOutputJars() {
     return outputJars;
+  }
+
+  @Nullable
+  public Artifact getJdeps() {
+    return jdeps;
   }
 
   public static Builder builder() {
@@ -81,6 +89,7 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
    */
   public static class Builder {
     ImmutableList.Builder<OutputJar> outputJars = ImmutableList.builder();
+    Artifact jdeps;
 
     public Builder addOutputJar(
         @Nullable Artifact classJar,
@@ -96,8 +105,13 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
       return this;
     }
 
+    public Builder setJdeps(Artifact jdeps) {
+      this.jdeps = jdeps;
+      return this;
+    }
+
     public JavaRuleOutputJarsProvider build() {
-      return new JavaRuleOutputJarsProvider(outputJars.build());
+      return new JavaRuleOutputJarsProvider(outputJars.build(), jdeps);
     }
   }
 }

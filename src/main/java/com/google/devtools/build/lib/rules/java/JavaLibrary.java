@@ -169,7 +169,9 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     builder
         .add(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(classJar, iJar, srcJar).build())
+            .addOutputJar(classJar, iJar, srcJar)
+            .setJdeps(outputDepsProto)
+            .build())
         .add(JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(common.getJavaCompilationArtifacts().getRuntimeJars()))
         .add(RunfilesProvider.class, RunfilesProvider.simple(common.getRunfiles(neverLink)))

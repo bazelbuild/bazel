@@ -38,6 +38,7 @@ message JavaRuleIdeInfo {
   repeated LibraryArtifact generated_jars = 2;
   ArtifactLocation package_manifest = 3;
   repeated ArtifactLocation sources = 4;
+  ArtifactLocation jdeps = 5;
 }
 
 message AndroidRuleIdeInfo {

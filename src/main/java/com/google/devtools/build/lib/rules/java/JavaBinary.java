@@ -315,7 +315,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     return builder
         .setFilesToBuild(filesToBuild)
         .add(JavaRuleOutputJarsProvider.class, JavaRuleOutputJarsProvider.builder()
-            .addOutputJar(classJar, null /* iJar */, srcJar).build())
+            .addOutputJar(classJar, null /* iJar */, srcJar)
+            .setJdeps(outputDepsProto)
+            .build())
         .add(RunfilesProvider.class, runfilesProvider)
         .setRunfilesSupport(runfilesSupport, executable)
         .add(

@@ -64,6 +64,8 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "com/google/example/libsimple-ijar.jar",
         "com/google/example/libsimple-src.jar"
     );
+    assertThat(ruleIdeInfo.getJavaRuleIdeInfo().getJdeps().getRelativePath())
+        .isEqualTo("com/google/example/libsimple.jdeps");
   }
 
   @Test
@@ -312,11 +314,15 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(javaRuleIdeInfo).isNotNull();
     assertThat(transform(javaRuleIdeInfo.getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
         .containsExactly(
-            jarString("com/google/example", "a.jar", null, "impsrc.jar"),
-            jarString("com/google/example", "b.jar", null, "impsrc.jar"))
+            jarString("com/google/example",
+                "a.jar", "_ijar/imp/com/google/example/a-ijar.jar", "impsrc.jar"),
+            jarString("com/google/example",
+                "b.jar", "_ijar/imp/com/google/example/b-ijar.jar", "impsrc.jar"))
         .inOrder();
 
     assertThat(getIdeResolveFiles()).containsExactly(
+        "com/google/example/_ijar/imp/com/google/example/a-ijar.jar",
+        "com/google/example/_ijar/imp/com/google/example/b-ijar.jar",
         "com/google/example/liblib.jar",
         "com/google/example/liblib-ijar.jar",
         "com/google/example/liblib-src.jar"
@@ -403,6 +409,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         ")");
     buildTarget("//com/google/example:imp");
     assertThat(getIdeResolveFiles()).containsExactly(
+        "com/google/example/_ijar/imp/com/google/example/gen_jar-ijar.jar",
         "com/google/example/gen_jar.jar",
         "com/google/example/gen_srcjar.jar"
     );
@@ -459,6 +466,8 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "java/com/google/example/FooBarTest.jar",
         "java/com/google/example/FooBarTest-src.jar"
     );
+    assertThat(testInfo.getJavaRuleIdeInfo().getJdeps().getRelativePath())
+        .isEqualTo("java/com/google/example/FooBarTest.jdeps");
   }
 
   @Test
@@ -493,6 +502,8 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "com/google/example/foobar-exe.jar",
         "com/google/example/foobar-exe-src.jar"
     );
+    assertThat(binaryInfo.getJavaRuleIdeInfo().getJdeps().getRelativePath())
+        .isEqualTo("com/google/example/foobar-exe.jdeps");
   }
 
   @Test
@@ -545,6 +556,8 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "com/google/example/l1_resources-ijar.jar",
         "com/google/example/l1_resources-src.jar"
     );
+    assertThat(ruleInfo.getJavaRuleIdeInfo().getJdeps().getRelativePath())
+        .isEqualTo("com/google/example/libl.jdeps");
   }
 
   @Test
@@ -600,6 +613,8 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "com/google/example/l1_resources-ijar.jar",
         "com/google/example/l1_resources-src.jar"
     );
+    assertThat(ruleInfo.getJavaRuleIdeInfo().getJdeps().getRelativePath())
+        .isEqualTo("com/google/example/libb.jdeps");
   }
 
   @Test
