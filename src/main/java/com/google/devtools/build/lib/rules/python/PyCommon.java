@@ -169,7 +169,8 @@ public final class PyCommon {
         .getPrerequisites("srcs", Mode.TARGET, FileProvider.class)) {
       // Make sure that none of the sources contain hyphens.
       if (Util.containsHyphen(src.getLabel().getPackageFragment())) {
-        ruleContext.attributeError("srcs", src.getLabel() + ": package name may not contain '-'");
+        ruleContext.attributeError("srcs",
+            src.getLabel() + ": paths to Python packages may not contain '-'");
       }
       Iterable<Artifact> pySrcs = FileType.filter(src.getFilesToBuild(),
           PyRuleClasses.PYTHON_SOURCE);
@@ -191,7 +192,7 @@ public final class PyCommon {
    */
   void validatePackageName() {
     if (Util.containsHyphen(ruleContext.getLabel().getPackageFragment())) {
-      ruleContext.ruleError("package name may not contain '-'");
+      ruleContext.ruleError("paths to Python packages may not contain '-'");
     }
   }
 
