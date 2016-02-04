@@ -385,9 +385,10 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     // Error out if any of the labels needed for the configuration could not be loaded.
     Multimap<Label, Label> rootCauses = pkgLoader.getRootCauses();
     for (Map.Entry<String, Label> entry : labelsToLoadUnconditionally.entries()) {
-      if (rootCauses.containsKey(entry.getValue())) {
-        throw new LoadingFailedException("Failed to load required " + entry.getKey()
-            + " target: '" + entry.getValue() + "'");
+      Label label = entry.getValue();
+      if (rootCauses.containsKey(label)) {
+        throw new LoadingFailedException(
+            String.format("Failed to load required %s target: '%s'", entry.getKey(), label));
       }
     }
 

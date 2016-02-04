@@ -24,8 +24,8 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.HostTransition;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigurations;
+import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.skyframe.ConfigurationCollectionValue.ConfigurationCollectionKey;
@@ -156,7 +156,7 @@ public class ConfigurationCollectionFunction implements SkyFunction {
       EventHandler originalEventListener,
       PackageProviderForConfigurations loadedPackageProvider,
       BuildOptions buildOptions, String cpuOverride) throws InvalidConfigurationException {
-    StoredEventHandler errorEventListener = new StoredEventHandler();
+    ErrorSensingEventHandler eventHandler = new ErrorSensingEventHandler(originalEventListener);
     if (cpuOverride != null) {
       // TODO(bazel-team): Options classes should be immutable. This is a bit of a hack.
       buildOptions = buildOptions.clone();
@@ -164,12 +164,13 @@ public class ConfigurationCollectionFunction implements SkyFunction {
     }
 
     BuildConfiguration targetConfig = configurationFactory.get().createConfigurations(
-        cache, loadedPackageProvider, buildOptions, errorEventListener);
+        cache, loadedPackageProvider, buildOptions, eventHandler);
     if (targetConfig == null) {
       return null;
     }
-    errorEventListener.replayOn(originalEventListener);
-    if (errorEventListener.hasErrors()) {
+    // The ConfigurationFactory may report an error rather than throwing an exception to support
+    // --keep_going. If so, we throw an error here.
+    if (eventHandler.hasErrors()) {
       throw new InvalidConfigurationException("Build options are invalid");
     }
     return targetConfig;
