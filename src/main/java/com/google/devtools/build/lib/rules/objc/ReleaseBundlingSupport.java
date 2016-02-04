@@ -386,7 +386,7 @@ public final class ReleaseBundlingSupport {
             configuration.getBundlingPlatform().getLowerCaseNameInPlist(),
             configuration.getIosSdkVersion());
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnOnDarwinActionBuilder()
+        ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
             .setMnemonic("EnvironmentPlist")
             .setExecutable(attributes.environmentPlist())
             .addArguments("--platform", platformWithVersion)
