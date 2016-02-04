@@ -638,7 +638,7 @@ sh_binary(
      =================================================================
 -->
 
-<h2 id="workspace"><a name="workspace">workspace</a></h2>
+<h2 id="workspace">workspace</h2>
 
 <pre>workspace(name = "com_example_project")</pre>
 
@@ -662,9 +662,9 @@ sh_binary(
   reverse-DNS form, with elements separated by underscores. For example, if a
   project is hosted at example.com/some-project, you might use
   com_example_some_project as the workspace name.
-</pre>
+</p>
 
-<pre><a href="/docs/be/workspace.html">Remote repository</a> rule names must be
+<p><a href="/docs/be/workspace.html">Remote repository</a> rule names must be
   valid workspace names. For example, you could have
   <code>maven_jar(name = "foo")</code>, but not
   <code>maven_jar(name = "foo.bar")</code>, as Bazel would attempt to write a
