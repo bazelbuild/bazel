@@ -47,6 +47,7 @@ public final class FilesetEntry implements SkylarkValue {
 
   public static final SymlinkBehavior DEFAULT_SYMLINK_BEHAVIOR = SymlinkBehavior.COPY;
   public static final String DEFAULT_STRIP_PREFIX = ".";
+  public static final String STRIP_PREFIX_WORKSPACE = "%workspace%";
 
   @Override
   public boolean isImmutable() {
@@ -220,8 +221,14 @@ public final class FilesetEntry implements SkylarkValue {
       return "Cannot specify absolute destdir '" + destDir + "'";
     } else if (!stripPrefix.equals(DEFAULT_STRIP_PREFIX) && files == null) {
       return "If the strip prefix is not \"" + DEFAULT_STRIP_PREFIX + "\", files must be specified";
+    } else if (stripPrefix.startsWith("/")) {
+      return "Cannot specify absolute strip prefix; perhaps you need to use \""
+          + STRIP_PREFIX_WORKSPACE + "\"";
     } else if (new PathFragment(stripPrefix).containsUplevelReferences()) {
       return "Strip prefix must not contain uplevel references";
+    } else if (stripPrefix.startsWith("%") && !stripPrefix.startsWith(STRIP_PREFIX_WORKSPACE)) {
+      return "If the strip_prefix starts with \"%\" then it must start with \""
+          + STRIP_PREFIX_WORKSPACE + "\"";
     } else {
       return null;
     }
