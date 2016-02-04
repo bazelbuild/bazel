@@ -741,4 +741,28 @@ EOF
   assert_contains "def" bazel-genfiles/external/x/catter.out
 }
 
+function test_truncated() {
+  http_response="$TEST_TMPDIR/http_response"
+  cat > "$http_response" <<EOF
+HTTP/1.0 200 OK
+Content-length: 200
+
+EOF
+  echo "foo"  >> "$http_response"
+  echo ${nc_port:=$(pick_random_unused_tcp_port)} > /dev/null
+  nc_log="$TEST_TMPDIR/nc.log"
+  nc_l "$nc_port" < "$http_response" >& "$nc_log" &
+  nc_pid=$!
+
+  cat > WORKSPACE <<EOF
+http_archive(
+    name = "foo",
+    url = "http://localhost:$nc_port",
+    sha256 = "b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c",
+)
+EOF
+  bazel build @foo//bar &> $TEST_log || echo "Build failed, as expected"
+  expect_log "Expected 200B, got 4B"
+}
+
 run_suite "external tests"

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -54,6 +55,9 @@ import javax.annotation.Nullable;
  */
 public class HttpDownloader {
   private static final int BUFFER_SIZE = 32 * 1024;
+  private static final int KB = 1024;
+  private static final String UNITS = " KMGTPEY";
+  private static final double LOG_OF_KB = Math.log(1024);
 
   private final String urlString;
   private final String sha256;
@@ -117,12 +121,18 @@ public class HttpDownloader {
     final ScheduledFuture<?> loggerHandle = getLoggerHandle(totalBytes);
 
     try (OutputStream out = destination.getOutputStream();
-         InputStream in = getInputStream(url)) {
+         HttpConnection connection = HttpConnection.createAndConnect(url)) {
+      InputStream inputStream = connection.getInputStream();
       int read;
       byte[] buf = new byte[BUFFER_SIZE];
-      while ((read = in.read(buf)) > 0) {
+      while ((read = inputStream.read(buf)) > 0) {
         totalBytes.addAndGet(read);
         out.write(buf, 0, read);
+      }
+      if (connection.getContentLength() != -1
+          && totalBytes.get() != connection.getContentLength()) {
+        throw new IOException("Expected " + formatSize(connection.getContentLength()) + ", got "
+            + formatSize(totalBytes.get()));
       }
     } catch (IOException e) {
       throw new IOException(
@@ -154,10 +164,6 @@ public class HttpDownloader {
 
   private ScheduledFuture<?> getLoggerHandle(final AtomicInteger totalBytes) {
     final Runnable logger = new Runnable() {
-      private static final int KB = 1024;
-      private static final String UNITS = " KMGTPEY";
-      private final double logOfKb = Math.log(1024);
-
       @Override
       public void run() {
         try {
@@ -168,34 +174,72 @@ public class HttpDownloader {
               "Error generating download progress: " + e.getMessage()));
         }
       }
-
-      private String formatSize(int bytes) {
-        if (bytes < KB) {
-          return bytes + "B";
-        }
-        int logBaseUnitOfBytes = (int) (Math.log(bytes) / logOfKb);
-        if (logBaseUnitOfBytes < 0 || logBaseUnitOfBytes >= UNITS.length()) {
-          return bytes + "B";
-        }
-        return (int) (bytes / Math.pow(KB, logBaseUnitOfBytes))
-            + (UNITS.charAt(logBaseUnitOfBytes) + "B");
-      }
     };
     return scheduler.scheduleAtFixedRate(logger, 0, 1, TimeUnit.SECONDS);
   }
 
-  private InputStream getInputStream(URL url) throws IOException {
-    HttpURLConnection connection = (HttpURLConnection) url.openConnection(
-        createProxyIfNeeded(url.getProtocol()));
-    connection.setInstanceFollowRedirects(true);
-    connection.connect();
-    if (connection.getResponseCode() == HttpURLConnection.HTTP_OK) {
-      return connection.getInputStream();
+  private static String formatSize(int bytes) {
+    if (bytes < KB) {
+      return bytes + "B";
+    }
+    int logBaseUnitOfBytes = (int) (Math.log(bytes) / LOG_OF_KB);
+    if (logBaseUnitOfBytes < 0 || logBaseUnitOfBytes >= UNITS.length()) {
+      return bytes + "B";
+    }
+    return (int) (bytes / Math.pow(KB, logBaseUnitOfBytes))
+        + (UNITS.charAt(logBaseUnitOfBytes) + "B");
+  }
+
+  private static class HttpConnection implements Closeable {
+    private final InputStream inputStream;
+    private final int contentLength;
+
+    private HttpConnection(InputStream inputStream, int contentLength) {
+      this.inputStream = inputStream;
+      this.contentLength = contentLength;
     }
 
-    InputStream errorStream = connection.getErrorStream();
-    throw new IOException(connection.getResponseCode() + ": "
-        + new String(ByteStreams.toByteArray(errorStream), StandardCharsets.UTF_8));
+    public InputStream getInputStream() {
+      return inputStream;
+    }
+
+    /**
+     * @return The length of the response, or -1 if unknown.
+     */
+    public int getContentLength() {
+      return contentLength;
+    }
+
+    @Override
+    public void close() throws IOException {
+      inputStream.close();
+    }
+
+    private static int parseContentLength(HttpURLConnection connection) {
+      String length;
+      try {
+        length = connection.getHeaderField("Content-Length");
+        if (length == null) {
+          return -1;
+        }
+        return Integer.parseInt(length);
+      } catch (NumberFormatException e) {
+        return -1;
+      }
+    }
+
+    public static HttpConnection createAndConnect(URL url) throws IOException {
+      HttpURLConnection connection = (HttpURLConnection) url.openConnection(
+          createProxyIfNeeded(url.getProtocol()));
+      connection.setInstanceFollowRedirects(true);
+      connection.connect();
+      if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
+        InputStream errorStream = connection.getErrorStream();
+        throw new IOException(connection.getResponseCode() + ": "
+            + new String(ByteStreams.toByteArray(errorStream), StandardCharsets.UTF_8));
+      }
+      return new HttpConnection(connection.getInputStream(), parseContentLength(connection));
+    }
   }
 
   private static Proxy createProxyIfNeeded(String protocol) throws IOException {
@@ -247,6 +291,7 @@ public class HttpDownloader {
 
       Authenticator.setDefault(
           new Authenticator() {
+            @Override
             public PasswordAuthentication getPasswordAuthentication() {
               return new PasswordAuthentication(username, password.toCharArray());
             }
