@@ -39,11 +39,17 @@ filegroup(
     name = "rustlib",
     srcs = select({
         ":darwin": glob([
+            "rust-std-x86_64-apple-darwin/lib/rustlib/x86_64-apple-darwin/lib/*.rlib",
+            "rust-std-x86_64-apple-darwin/lib/rustlib/x86_64-apple-darwin/lib/*.dylib",
+            "rust-std-x86_64-apple-darwin/lib/rustlib/x86_64-apple-darwin/lib/*.a",
             "rustc/lib/rustlib/x86_64-apple-darwin/lib/*.rlib",
             "rustc/lib/rustlib/x86_64-apple-darwin/lib/*.dylib",
             "rustc/lib/rustlib/x86_64-apple-darwin/lib/*.a",
         ]),
         ":k8": glob([
+            "rust-std-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/*.rlib",
+            "rust-std-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/*.so",
+            "rust-std-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/*.a",
             "rustc/lib/rustlib/x86_64-unknown-linux-gnu/lib/*.rlib",
             "rustc/lib/rustlib/x86_64-unknown-linux-gnu/lib/*.so",
             "rustc/lib/rustlib/x86_64-unknown-linux-gnu/lib/*.a",

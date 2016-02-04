@@ -559,6 +559,7 @@ def _rust_doc_test_impl(ctx):
           "LD_LIBRARY_PATH=%s" % toolchain.rustc_lib_path,
           "DYLD_LIBRARY_PATH=%s" % toolchain.rustc_lib_path,
           toolchain.rustdoc_path,
+          "-L all=%s" % toolchain.rustlib_path,
           lib_rs.path,
       ] +
       depinfo.search_flags +
@@ -675,16 +676,16 @@ rust_doc_test = rule(
 def rust_repositories():
   native.new_http_archive(
       name = "rust_linux_x86_64",
-      url = "https://static.rust-lang.org/dist/rust-1.4.0-x86_64-unknown-linux-gnu.tar.gz",
-      strip_prefix = "rust-1.4.0-x86_64-unknown-linux-gnu",
-      sha256 = "2de2424b50ca2ab3a67c495b6af03c720801a2928ad30884438ad0f5436ac51d",
+      url = "https://static.rust-lang.org/dist/rust-1.6.0-x86_64-unknown-linux-gnu.tar.gz",
+      strip_prefix = "rust-1.6.0-x86_64-unknown-linux-gnu",
+      sha256 = "8630cc02432b4423d64eeae4ef071ec58e5dd1f3d555a3a3cc34b759202813f6",
       build_file = "tools/build_rules/rust/rust.BUILD",
   )
 
   native.new_http_archive(
       name = "rust_darwin_x86_64",
-      url = "https://static.rust-lang.org/dist/rust-1.4.0-x86_64-apple-darwin.tar.gz",
-      strip_prefix = "rust-1.4.0-x86_64-apple-darwin",
-      sha256 = "7256617aec7c106be2aa3c5df0a2e613b13ec55e6237ab612bb4164719e09e21",
+      url = "https://static.rust-lang.org/dist/rust-1.6.0-x86_64-apple-darwin.tar.gz",
+      strip_prefix = "rust-1.6.0-x86_64-apple-darwin",
+      sha256 = "8c6897ed37ef6fd2890b176afa65306cc8943e3c770c9530a701f1aefd3942b1",
       build_file = "tools/build_rules/rust/rust.BUILD",
   )
