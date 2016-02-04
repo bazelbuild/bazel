@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.StringCanonicalizer;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.Serializable;
@@ -32,6 +33,7 @@ import java.util.Objects;
 @ThreadSafe
 public final class GlobDescriptor implements Serializable {
   final PackageIdentifier packageId;
+  final Path packageRoot;
   final PathFragment subdir;
   final String pattern;
   final boolean excludeDirs;
@@ -40,15 +42,17 @@ public final class GlobDescriptor implements Serializable {
    * Constructs a GlobDescriptor.
    *
    * @param packageId the name of the owner package (must be an existing package)
+   * @param packageRoot the package root of {@code packageId}
    * @param subdir the subdirectory being looked at (must exist and must be a directory. It's
    *               assumed that there are no other packages between {@code packageName} and
    *               {@code subdir}.
    * @param pattern a valid glob pattern
    * @param excludeDirs true if directories should be excluded from results
    */
-  public GlobDescriptor(PackageIdentifier packageId, PathFragment subdir, String pattern,
-      boolean excludeDirs) {
+  public GlobDescriptor(PackageIdentifier packageId, Path packageRoot, PathFragment subdir,
+      String pattern, boolean excludeDirs) {
     this.packageId = Preconditions.checkNotNull(packageId);
+    this.packageRoot = Preconditions.checkNotNull(packageRoot);
     this.subdir = Preconditions.checkNotNull(subdir);
     this.pattern = Preconditions.checkNotNull(StringCanonicalizer.intern(pattern));
     this.excludeDirs = excludeDirs;
@@ -56,8 +60,9 @@ public final class GlobDescriptor implements Serializable {
 
   @Override
   public String toString() {
-    return String.format("<GlobDescriptor packageName=%s subdir=%s pattern=%s excludeDirs=%s>",
-        packageId, subdir, pattern, excludeDirs);
+    return String.format(
+        "<GlobDescriptor packageName=%s packageRoot=%s subdir=%s pattern=%s excludeDirs=%s>",
+        packageId, packageRoot, subdir, pattern, excludeDirs);
   }
 
   /**
@@ -67,6 +72,13 @@ public final class GlobDescriptor implements Serializable {
    */
   public PackageIdentifier getPackageId() {
     return packageId;
+  }
+
+  /**
+   * Returns the package root of {@code getPackageId()}.
+   */
+  public Path getPackageRoot() {
+    return packageRoot;
   }
 
   /**
@@ -107,7 +119,8 @@ public final class GlobDescriptor implements Serializable {
       return false;
     }
     GlobDescriptor other = (GlobDescriptor) obj;
-    return packageId.equals(other.packageId) && subdir.equals(other.subdir)
-        && pattern.equals(other.pattern) && excludeDirs == other.excludeDirs;
+    return packageId.equals(other.packageId) && packageRoot.equals(other.packageRoot)
+        && subdir.equals(other.subdir) && pattern.equals(other.pattern)
+        && excludeDirs == other.excludeDirs;
   }
 }

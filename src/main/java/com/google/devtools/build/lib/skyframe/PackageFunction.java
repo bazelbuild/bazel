@@ -232,6 +232,7 @@ public class PackageFunction implements SkyFunction {
       Collection<Pair<String, Boolean>> globPatterns,
       Map<Label, Path> subincludes,
       PackageIdentifier packageIdentifier,
+      Path packageRoot,
       boolean containsErrors)
       throws InternalInconsistentFilesystemException {
     boolean packageShouldBeInError = containsErrors;
@@ -312,8 +313,8 @@ public class PackageFunction implements SkyFunction {
       boolean excludeDirs = globPattern.getSecond();
       SkyKey globSkyKey;
       try {
-        globSkyKey =
-            GlobValue.key(packageIdentifier, pattern, excludeDirs, PathFragment.EMPTY_FRAGMENT);
+        globSkyKey = GlobValue.key(packageIdentifier, packageRoot, pattern, excludeDirs,
+            PathFragment.EMPTY_FRAGMENT);
       } catch (InvalidGlobPatternException e) {
         // Globs that make it to pkg.getGlobPatterns() should already be filtered for errors.
         throw new IllegalStateException(e);
@@ -483,7 +484,8 @@ public class PackageFunction implements SkyFunction {
     try {
       packageShouldBeConsideredInError =
           markDependenciesAndPropagateInconsistentFilesystemExceptions(
-              env, globPatterns, subincludes, packageId, legacyPkgBuilder.containsErrors());
+              env, globPatterns, subincludes, packageId, packageLookupValue.getRoot(),
+              legacyPkgBuilder.containsErrors());
     } catch (InternalInconsistentFilesystemException e) {
       packageFunctionCache.invalidate(packageId);
       throw new PackageFunctionException(e,

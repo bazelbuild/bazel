@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnixGlob;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -79,9 +80,8 @@ public final class GlobValue implements SkyValue {
    * @throws InvalidGlobPatternException if the pattern is not valid.
    */
   @ThreadSafe
-  public static SkyKey key(PackageIdentifier packageId, String pattern, boolean excludeDirs,
-      PathFragment subdir)
-      throws InvalidGlobPatternException {
+  public static SkyKey key(PackageIdentifier packageId, Path packageRoot, String pattern,
+      boolean excludeDirs, PathFragment subdir) throws InvalidGlobPatternException {
     if (pattern.indexOf('?') != -1) {
       throw new InvalidGlobPatternException(pattern, "wildcard ? forbidden");
     }
@@ -91,7 +91,7 @@ public final class GlobValue implements SkyValue {
       throw new InvalidGlobPatternException(pattern, error);
     }
 
-    return internalKey(packageId, subdir, pattern, excludeDirs);
+    return internalKey(packageId, packageRoot, subdir, pattern, excludeDirs);
   }
 
   /**
@@ -100,10 +100,10 @@ public final class GlobValue implements SkyValue {
    * <p>Do not use outside {@code GlobFunction}.
    */
   @ThreadSafe
-  static SkyKey internalKey(PackageIdentifier packageId, PathFragment subdir, String pattern,
-      boolean excludeDirs) {
+  static SkyKey internalKey(PackageIdentifier packageId, Path packageRoot, PathFragment subdir,
+      String pattern, boolean excludeDirs) {
     return new SkyKey(SkyFunctions.GLOB,
-        new GlobDescriptor(packageId, subdir, pattern, excludeDirs));
+        new GlobDescriptor(packageId, packageRoot, subdir, pattern, excludeDirs));
   }
 
   /**
@@ -113,7 +113,7 @@ public final class GlobValue implements SkyValue {
    */
   @ThreadSafe
   static SkyKey internalKey(GlobDescriptor glob, String subdirName) {
-    return internalKey(glob.packageId, glob.subdir.getRelative(subdirName),
+    return internalKey(glob.packageId, glob.packageRoot, glob.subdir.getRelative(subdirName),
         glob.pattern, glob.excludeDirs);
   }
 
