@@ -70,7 +70,7 @@ Add the following to your `WORKSPACE` file:
 
 ```python
 new_http_archive(
-    name = "appengine-java",
+    name = "com_google_appengine_java",
     url = "http://central.maven.org/maven2/com/google/appengine/appengine-java-sdk/1.9.23/appengine-java-sdk-1.9.23.zip",
     sha256 = "05e667036e9ef4f999b829fc08f8e5395b33a5a3c30afa9919213088db2b2e89",
     build_file = "appengine.BUILD",
@@ -95,17 +95,17 @@ Add the following to the `WORKSPACE` file:
 ```python
 bind(
     name = "appengine/java/sdk",
-    actual = "@appengine-java//:sdk",
+    actual = "@com_google_appengine_java//:sdk",
 )
 
 bind(
     name = "appengine/java/api",
-    actual = "@appengine-java//:api",
+    actual = "@com_google_appengine_java//:api",
 )
 
 bind(
     name = "appengine/java/jars",
-    actual = "@appengine-java//:jars",
+    actual = "@com_google_appengine_java//:jars",
 )
 ```
 
@@ -120,18 +120,28 @@ Add the following to the `WORKSPACE` file:
 
 ```python
 maven_jar(
-    name = "commons-lang",
+    name = "org_apache_commons_lang",
     artifact = "commons-lang:commons-lang:2.6",
 )
 
 maven_jar(
-    name = "javax-servlet-api",
+    name = "org_apache_commons_collections",
+    artifact = "commons-collections:commons-collections:3.2.1",
+)
+
+maven_jar(
+    name = "javax_servlet_api",
     artifact = "javax.servlet:servlet-api:2.5",
 )
 
 bind(
     name = "javax/servlet/api",
     actual = "//tools/build_rules/appengine:javax.servlet.api",
+)
+
+maven_jar(
+    name = "json",
+    artifact = "org.json:json:20141113",
 )
 ```
 
