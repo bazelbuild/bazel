@@ -19,6 +19,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -144,6 +145,23 @@ public class CcCompilationOutputs {
   public List<IncludeScannable> getLipoScannables() {
     return lipoScannables;
   }
+  
+  /**
+   * Returns the output files that are considered "compiled" by this C++ compile action.
+   */
+  NestedSet<Artifact> getFilesToCompile(
+      boolean isLipoContextCollector, boolean parseHeaders, boolean usePic) {
+    if (isLipoContextCollector) {
+      return NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
+    }
+    NestedSetBuilder<Artifact> files = NestedSetBuilder.stableOrder();
+    files.addAll(getObjectFiles(usePic));
+    if (parseHeaders) {
+      files.addAll(getHeaderTokenFiles());
+    }
+    return files.build();
+  }
+
 
   public static final class Builder {
     private final Set<Artifact> objectFiles = new LinkedHashSet<>();

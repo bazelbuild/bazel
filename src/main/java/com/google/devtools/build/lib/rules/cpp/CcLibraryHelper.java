@@ -744,7 +744,14 @@ public final class CcLibraryHelper {
     Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
     outputGroups.put(OutputGroupProvider.TEMP_FILES, getTemps(ccOutputs));
     if (emitCompileProviders) {
-      outputGroups.put(OutputGroupProvider.FILES_TO_COMPILE, getFilesToCompile(ccOutputs));
+      boolean isLipoCollector =
+          ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector();
+      boolean processHeadersInDependencies =
+          ruleContext.getFragment(CppConfiguration.class).processHeadersInDependencies();
+      boolean usePic = CppHelper.usePic(ruleContext, false);
+      outputGroups.put(
+          OutputGroupProvider.FILES_TO_COMPILE,
+          ccOutputs.getFilesToCompile(isLipoCollector, processHeadersInDependencies, usePic));
       outputGroups.put(OutputGroupProvider.COMPILATION_PREREQUISITES,
           CcCommon.collectCompilationPrerequisites(ruleContext, cppCompilationContext));
     }
@@ -1002,12 +1009,5 @@ public final class CcLibraryHelper {
     return ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector()
         ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
         : compilationOutputs.getTemps();
-  }
-
-  private NestedSet<Artifact> getFilesToCompile(CcCompilationOutputs compilationOutputs) {
-    return ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector()
-        ? NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)
-        : NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER,
-            compilationOutputs.getObjectFiles(CppHelper.usePic(ruleContext, false)));
   }
 }

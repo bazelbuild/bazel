@@ -308,8 +308,17 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
 
     RuleConfiguredTargetBuilder ruleBuilder = new RuleConfiguredTargetBuilder(ruleContext);
     addTransitiveInfoProviders(
-        ruleContext, cppConfiguration, common, ruleBuilder, filesToBuild, ccCompilationOutputs,
-        cppCompilationContext, linkingOutputs, dwoArtifacts, transitiveLipoInfo, fake);
+        ruleContext,
+        cppConfiguration,
+        common,
+        ruleBuilder,
+        filesToBuild,
+        ccCompilationOutputs,
+        cppCompilationContext,
+        linkingOutputs,
+        dwoArtifacts,
+        transitiveLipoInfo,
+        fake);
 
     Map<Artifact, IncludeScannable> scannableMap = new LinkedHashMap<>();
     if (cppConfiguration.isLipoContextCollector()) {
@@ -594,23 +603,35 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     InstrumentedFilesProvider instrumentedFilesProvider = common.getInstrumentedFilesProvider(
         instrumentedObjectFiles, !TargetUtils.isTestRule(ruleContext.getRule()) && !fake);
 
+    NestedSet<Artifact> filesToCompile =
+        ccCompilationOutputs.getFilesToCompile(
+            cppConfiguration.isLipoContextCollector(),
+            cppConfiguration.processHeadersInDependencies(),
+            CppHelper.usePic(ruleContext, false));
     builder
         .setFilesToBuild(filesToBuild)
         .add(CppCompilationContext.class, cppCompilationContext)
         .add(TransitiveLipoInfoProvider.class, transitiveLipoInfo)
-        .add(CcExecutionDynamicLibrariesProvider.class,
-            new CcExecutionDynamicLibrariesProvider(collectExecutionDynamicLibraryArtifacts(
-                ruleContext, linkingOutputs.getExecutionDynamicLibraries())))
-        .add(CcNativeLibraryProvider.class, new CcNativeLibraryProvider(
-            collectTransitiveCcNativeLibraries(ruleContext, linkingOutputs.getDynamicLibraries())))
+        .add(
+            CcExecutionDynamicLibrariesProvider.class,
+            new CcExecutionDynamicLibrariesProvider(
+                collectExecutionDynamicLibraryArtifacts(
+                    ruleContext, linkingOutputs.getExecutionDynamicLibraries())))
+        .add(
+            CcNativeLibraryProvider.class,
+            new CcNativeLibraryProvider(
+                collectTransitiveCcNativeLibraries(
+                    ruleContext, linkingOutputs.getDynamicLibraries())))
         .add(InstrumentedFilesProvider.class, instrumentedFilesProvider)
-        .add(CppDebugFileProvider.class, new CppDebugFileProvider(
-            dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()))
-        .addOutputGroup(OutputGroupProvider.TEMP_FILES,
-            getTemps(cppConfiguration, ccCompilationOutputs))
-        .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE,
-            common.getFilesToCompile(ccCompilationOutputs))
-        .addOutputGroup(OutputGroupProvider.COMPILATION_PREREQUISITES,
+        .add(
+            CppDebugFileProvider.class,
+            new CppDebugFileProvider(
+                dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()))
+        .addOutputGroup(
+            OutputGroupProvider.TEMP_FILES, getTemps(cppConfiguration, ccCompilationOutputs))
+        .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, filesToCompile)
+        .addOutputGroup(
+            OutputGroupProvider.COMPILATION_PREREQUISITES,
             CcCommon.collectCompilationPrerequisites(ruleContext, cppCompilationContext));
   }
 

@@ -231,7 +231,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
     CcLinkingOutputs linkedLibraries = info.getCcLinkingOutputsExcludingPrecompiledLibraries();
 
     NestedSet<Artifact> artifactsToForce =
-        collectHiddenTopLevelArtifacts(ruleContext, common, info.getCcCompilationOutputs());
+        collectHiddenTopLevelArtifacts(ruleContext, info.getCcCompilationOutputs());
 
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
     filesBuilder.addAll(LinkerInputs.toLibraryArtifacts(linkedLibraries.getStaticLibraries()));
@@ -268,11 +268,18 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
 
   }
 
-  private static NestedSet<Artifact> collectHiddenTopLevelArtifacts(RuleContext ruleContext,
-      CcCommon common, CcCompilationOutputs ccCompilationOutputs) {
+  private static NestedSet<Artifact> collectHiddenTopLevelArtifacts(
+      RuleContext ruleContext, CcCompilationOutputs ccCompilationOutputs) {
     // Ensure that we build all the dependencies, otherwise users may get confused.
     NestedSetBuilder<Artifact> artifactsToForceBuilder = NestedSetBuilder.stableOrder();
-    artifactsToForceBuilder.addTransitive(common.getFilesToCompile(ccCompilationOutputs));
+    boolean isLipoCollector =
+        ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector();
+    boolean processHeadersInDependencies =
+        ruleContext.getFragment(CppConfiguration.class).processHeadersInDependencies();
+    boolean usePic = CppHelper.usePic(ruleContext, false);
+    artifactsToForceBuilder.addTransitive(
+        ccCompilationOutputs.getFilesToCompile(
+            isLipoCollector, processHeadersInDependencies, usePic));
     for (OutputGroupProvider dep :
         ruleContext.getPrerequisites("deps", Mode.TARGET, OutputGroupProvider.class)) {
       artifactsToForceBuilder.addTransitive(
