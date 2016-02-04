@@ -388,8 +388,7 @@ public final class ReleaseBundlingSupport {
     ruleContext.registerAction(
         ObjcRuleClasses.spawnOnDarwinActionBuilder()
             .setMnemonic("EnvironmentPlist")
-            .addInput(attributes.environmentPlistScript())
-            .setExecutable(attributes.environmentPlistScript())
+            .setExecutable(attributes.environmentPlist())
             .addArguments("--platform", platformWithVersion)
             .addArguments("--output", getGeneratedEnvironmentPlist().getExecPathString())
             .addOutput(getGeneratedEnvironmentPlist())
@@ -887,10 +886,6 @@ public final class ReleaseBundlingSupport {
             .setCommandLine(commandLine.build())
             .addOutput(intermediateArtifacts.swiftFrameworksFileZip())
             .addInput(intermediateArtifacts.combinedArchitectureBinary())
-            // TODO(dmaclach): Adding realpath and xcrunwrapper should not be required once
-            // https://github.com/google/bazel/issues/285 is fixed.
-            .addInput(attributes.realpath())
-            .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
             .build(ruleContext));
   }
 
@@ -1023,20 +1018,10 @@ public final class ReleaseBundlingSupport {
     }
 
     /**
-     * Returns the location of the realpath tool.
-     * TODO(dmaclach): Should not be required once https://github.com/google/bazel/issues/285
-     * is fixed.
+     * Returns the location of the environment_plist.
      */
-    Artifact realpath() {
-      return ruleContext.getPrerequisiteArtifact("$realpath", Mode.HOST);
-    }
-
-    /**
-     * Returns the location of the environment_plist.sh.
-     */
-    public Artifact environmentPlistScript() {
-      return checkNotNull(
-          ruleContext.getPrerequisiteArtifact("$environment_plist_sh", Mode.HOST));
+    public FilesToRunProvider environmentPlist() {
+      return ruleContext.getExecutablePrerequisite("$environment_plist", Mode.HOST);
     }
 
     String bundleId() {

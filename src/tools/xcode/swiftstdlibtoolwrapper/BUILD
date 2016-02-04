@@ -8,5 +8,8 @@ filegroup(
 sh_binary(
     name = "swiftstdlibtoolwrapper",
     srcs = ["swiftstdlibtoolwrapper.sh"],
-    data = ["//src/tools/xcode/realpath:realpath_genrule"],
+    data = [
+        "//src/tools/xcode/realpath",
+        "//src/tools/xcode/xcrunwrapper",
+    ],
 )

@@ -517,10 +517,6 @@ public class ObjcRuleClasses {
               .value(env.getLabel(env.getToolsRepository() + "//tools/objc:actoolwrapper")))
           .add(attr("$ibtoolwrapper", LABEL).cfg(HOST).exec()
               .value(env.getLabel(env.getToolsRepository() + "//tools/objc:ibtoolwrapper")))
-          // TODO(dmaclach): Adding realpath here should not be required once
-          // https://github.com/bazelbuild/bazel/issues/285 is fixed.
-          .add(attr("$realpath", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(env.getToolsRepository() + "//tools/objc:realpath")))
           .build();
     }
     @Override
@@ -979,11 +975,11 @@ public class ObjcRuleClasses {
                   .exec()
                   .value(env.getLabel(env.getToolsRepository() + "//tools/objc:bundlemerge")))
           .add(
-              attr("$environment_plist_sh", LABEL)
+              attr("$environment_plist", LABEL)
                   .cfg(HOST)
-                  .value(
-                      env.getLabel(
-                          env.getToolsRepository() + "//tools/objc:environment_plist.sh")))
+                  .exec()
+                  .value(env.getLabel(
+                      env.getToolsRepository() + "//tools/objc:environment_plist")))
           .build();
     }
     @Override

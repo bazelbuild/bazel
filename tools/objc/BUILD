@@ -100,6 +100,11 @@ sh_binary(
     srcs = [":xcrunwrapper.sh"],
 )
 
+sh_binary(
+    name = "environment_plist",
+    srcs = [":environment_plist.sh"],
+)
+
 filegroup(
     name = "gcov",
     srcs = [":gcov_stub"],
