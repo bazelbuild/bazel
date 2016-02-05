@@ -749,7 +749,6 @@ public final class ReleaseBundlingSupport {
         .addInputArgument(bundleMergeControlArtifact)
         .addTransitiveInputs(bundleContentArtifacts)
         .addOutput(ipaUnsigned)
-        .setVerboseFailuresAndSubcommandsInEnv()
         .build(ruleContext));
   }
 

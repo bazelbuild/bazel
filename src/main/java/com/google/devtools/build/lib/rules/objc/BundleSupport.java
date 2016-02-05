@@ -238,7 +238,6 @@ final class BundleSupport {
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, storyboardInput))
               .addOutput(zipOutput)
               .addInput(storyboardInput)
-              .setVerboseFailuresAndSubcommandsInEnv()
               .build(ruleContext));
     }
   }
@@ -278,7 +277,6 @@ final class BundleSupport {
               .setExecutable(attributes.momcWrapper())
               .addOutput(outputZip)
               .addInputs(datamodel.getInputs())
-              .setVerboseFailuresAndSubcommandsInEnv()
               .setCommandLine(CustomCommandLine.builder()
                   .addPath(outputZip.getExecPath())
                   .add(datamodel.archiveRootForMomczip())
@@ -308,7 +306,6 @@ final class BundleSupport {
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, original))
               .addOutput(zipOutput)
               .addInput(original)
-              .setVerboseFailuresAndSubcommandsInEnv()
               .build(ruleContext));
     }
   }
@@ -363,7 +360,6 @@ final class BundleSupport {
             .addInputArgument(plMergeControlArtifact)
             .addTransitiveInputs(mergingContentArtifacts)
             .addOutput(ObjcRuleClasses.intermediateArtifacts(ruleContext).mergedInfoplist())
-            .setVerboseFailuresAndSubcommandsInEnv()
             .build(ruleContext));
   }
 
@@ -388,7 +384,6 @@ final class BundleSupport {
             .addTransitiveInputs(objcProvider.get(ASSET_CATALOG))
             .addOutput(zipOutput)
             .addOutput(actoolPartialInfoplist)
-            .setVerboseFailuresAndSubcommandsInEnv()
             .setCommandLine(actoolzipCommandLine(
                 objcProvider,
                 zipOutput,
