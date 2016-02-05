@@ -45,12 +45,17 @@ def _groovy_jar_impl(ctx):
       " ".join([src.path for src in ctx.files.srcs]),
   )
 
-  # Jar them together to produce a single output. To make this work we have
-  # to cd into the output directory, run find to locate all of the generated
-  # class files, pass the result to cut to trim the leading "./", then pass
-  # the resulting paths to the zipper.
+  # Discover all of the generated class files and write their paths to a file.
+  # Run the paths through sed to trim out everything before the package root so
+  # that the paths match how they should look in the jar file.
+  cmd += "find . -name '*.class' | sed 's:^./%s/::' > %s/class_list\n" % (
+      build_output,
+      build_output,
+  )
+
+  # Create a jar file using the discovered paths
   cmd += "root=`pwd`\n"
-  cmd += "cd %s; $root/%s Cc ../%s `find . -name '*.class' | cut -c 3-`\n" % (
+  cmd += "cd %s; $root/%s Cc ../%s @class_list\n" % (
       build_output,
       ctx.executable._zipper.path,
       class_jar.basename,
