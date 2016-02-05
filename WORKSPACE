@@ -12,6 +12,17 @@ jsonnet_repositories()
 rust_repositories()
 sass_repositories()
 
+# Bind to dummy targets if no android SDK/NDK is present.
+bind(
+    name = "android_sdk_for_testing",
+    actual = "//:dummy",
+)
+
+bind(
+    name = "android_ndk_for_testing",
+    actual = "//:dummy",
+)
+
 # In order to run the Android integration tests, run
 # scripts/workspace_user.sh and uncomment the next two lines.
 # load("/WORKSPACE.user", "android_repositories")
