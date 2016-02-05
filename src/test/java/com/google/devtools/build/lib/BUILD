@@ -660,6 +660,7 @@ java_test(
     data = [
         ":shell/killmyself",
     ],
+    flaky = True,
     tags = ["shell"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
