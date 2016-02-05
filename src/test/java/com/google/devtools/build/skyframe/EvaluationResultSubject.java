@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.truth.DefaultSubject;
 import com.google.common.truth.FailureStrategy;
 import com.google.common.truth.Subject;
+import com.google.common.truth.Truth;
 
 /**
  * {@link Subject} for {@link EvaluationResult}. Please add to this class if you need more
@@ -37,4 +39,14 @@ public class EvaluationResultSubject extends Subject<EvaluationResultSubject, Ev
       fail("has no error");
     }
   }
+
+  public DefaultSubject hasEntryThat(SkyKey key) {
+    return Truth.assertThat(getSubject().get(key)).named("Entry for " + getDisplaySubject());
+  }
+
+  public DefaultSubject hasErrorEntryForKeyThat(SkyKey key) {
+    return Truth.assertThat(getSubject().getError(key))
+        .named("Error entry for " + getDisplaySubject());
+  }
+
 }
