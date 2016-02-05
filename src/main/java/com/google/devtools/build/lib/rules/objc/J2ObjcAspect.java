@@ -96,7 +96,8 @@ public class J2ObjcAspect implements ConfiguredNativeAspectFactory {
             .value(Label.parseAbsoluteUnchecked(
                 Constants.TOOLS_REPOSITORY + "//tools/j2objc:j2objc_wrapper")))
         .add(attr("$jre_emul_lib", LABEL)
-            .value(Label.parseAbsoluteUnchecked("//third_party/java/j2objc:jre_emul_lib")))
+            .value(Label.parseAbsoluteUnchecked(
+                Constants.TOOLS_REPOSITORY + "//third_party/java/j2objc:jre_emul_lib")))
         .add(attr("$xcrunwrapper", LABEL).cfg(HOST).exec()
             .value(Label.parseAbsoluteUnchecked(
                 Constants.TOOLS_REPOSITORY + "//tools/objc:xcrunwrapper")))

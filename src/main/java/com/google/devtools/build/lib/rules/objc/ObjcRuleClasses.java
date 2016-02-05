@@ -741,7 +741,7 @@ public class ObjcRuleClasses {
               .value(env.getLabel(
                   env.getToolsRepository() + "//tools/objc:j2objc_dead_code_pruner")))
           .add(attr("$dummy_lib", LABEL)
-              .value(env.getLabel("//tools/objc:dummy_lib")))
+              .value(env.getLabel(env.getToolsRepository() + "//tools/objc:dummy_lib")))
         .build();
     }
     @Override
