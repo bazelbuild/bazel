@@ -146,8 +146,6 @@ class BlazeStartupOptions {
 
   int max_idle_secs;
 
-  string skyframe;
-
   // If true, Blaze will listen to OS-level file change notifications.
   bool watchfs;
 

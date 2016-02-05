@@ -79,7 +79,6 @@ void BlazeStartupOptions::Copy(
   lhs->batch_cpu_scheduling = rhs.batch_cpu_scheduling;
   lhs->io_nice_level = rhs.io_nice_level;
   lhs->max_idle_secs = rhs.max_idle_secs;
-  lhs->skyframe = rhs.skyframe;
   lhs->webstatus_port = rhs.webstatus_port;
   lhs->watchfs = rhs.watchfs;
   lhs->allow_configurable_attributes = rhs.allow_configurable_attributes;
@@ -202,10 +201,6 @@ blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["max_idle_secs"] = rcfile;
-  } else if ((value = GetUnaryOption(arg, next_arg,
-              "--skyframe")) != NULL) {
-    fprintf(stderr, "WARNING: The --skyframe startup option is now ignored "
-            "and will be removed in a future release\n");
   } else if (GetNullaryOption(arg, "-x")) {
     fprintf(stderr, "WARNING: The -x startup option is now ignored "
             "and will be removed in a future release\n");

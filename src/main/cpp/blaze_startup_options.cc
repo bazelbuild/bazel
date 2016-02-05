@@ -51,7 +51,6 @@ BlazeStartupOptions::BlazeStartupOptions(const BlazeStartupOptions &rhs)
       batch_cpu_scheduling(rhs.batch_cpu_scheduling),
       io_nice_level(rhs.io_nice_level),
       max_idle_secs(rhs.max_idle_secs),
-      skyframe(rhs.skyframe),
       watchfs(rhs.watchfs),
       allow_configurable_attributes(rhs.allow_configurable_attributes),
       option_sources(rhs.option_sources),

@@ -262,9 +262,6 @@ static vector<string> GetArgumentArray() {
                    blaze::ConvertPath(globals->options.output_base));
   result.push_back("--workspace_directory=" +
                    blaze::ConvertPath(globals->workspace));
-  if (!globals->options.skyframe.empty()) {
-    result.push_back("--skyframe=" + globals->options.skyframe);
-  }
 
   if (globals->options.allow_configurable_attributes) {
     result.push_back("--allow_configurable_attributes");

@@ -206,14 +206,6 @@ public class BlazeServerStartupOptions extends OptionsBase {
           + "is not read.")
   public boolean masterBlazerc;
 
-  @Option(name = "skyframe",
-      deprecationWarning = "skyframe is now a no-op and will be removed in an upcoming Blaze "
-          + "release",
-      defaultValue = "full",
-      category = "undocumented",
-      help = "Unused.")
-  public String unusedSkyframe;
-
   @Option(name = "fatal_event_bus_exceptions",
       defaultValue = "false",  // NOTE: purely decorative!
       category = "undocumented",
