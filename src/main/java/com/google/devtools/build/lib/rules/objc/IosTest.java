@@ -122,7 +122,6 @@ public final class IosTest implements RuleConfiguredTargetFactory {
   
     new CompilationSupport(ruleContext)
         .registerLinkActions(common.getObjcProvider(), extraLinkArgs, extraLinkInputs)
-        .registerJ2ObjcCompileAndArchiveActions(common.getObjcProvider())
         .registerCompileAndArchiveActions(common)
         .addXcodeSettings(xcodeProviderBuilder, common)
         .validateAttributes();
@@ -225,7 +224,6 @@ public final class IosTest implements RuleConfiguredTargetFactory {
           .add(ruleContext.getPrerequisite(MEMLEAKS_DEP, Mode.TARGET, ObjcProvider.class));
     }
     return ObjcLibrary.common(ruleContext, extraSdkFrameworks, /*alwayslink=*/false,
-        new ObjcLibrary.ExtraImportLibraries(ObjcRuleClasses.j2ObjcLibraries(ruleContext)),
         extraDepObjcProviders);
   }
   

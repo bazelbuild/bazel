@@ -37,8 +37,7 @@ public class JavaImportBaseRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class,
-            J2ObjcConfiguration.class)
+        .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
         .add(attr(":host_jdk", LABEL)
             .cfg(HOST)
             .value(JavaSemantics.HOST_JDK))

@@ -119,3 +119,8 @@ py_library(
     name = "j2objc_dead_code_pruner",
     srcs = ["j2objc_dead_code_pruner.py"],
 )
+
+objc_library(
+    name = "dummy_lib",
+    srcs = ["dummy.c"],
+)

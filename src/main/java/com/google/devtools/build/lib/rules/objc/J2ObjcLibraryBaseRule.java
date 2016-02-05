@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
@@ -44,12 +43,6 @@ public class J2ObjcLibraryBaseRule implements RuleDefinition {
           Unused classes will then be removed from the final ObjC app bundle.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("entry_classes", STRING_LIST))
-        .add(attr("$jre_emul_lib", LABEL)
-            .value(env.getLabel(
-                env.getToolsRepository() + "//third_party/java/j2objc:jre_emul_lib")))
-        .add(attr("$protobuf_lib", LABEL)
-            .value(env.getLabel(
-                env.getToolsRepository() + "//third_party/java/j2objc:proto_runtime")))
         .build();
   }
 

@@ -69,6 +69,7 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.TargetUtils;
@@ -78,8 +79,6 @@ import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
-import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
-import com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
@@ -713,8 +712,28 @@ public final class CompilationSupport {
       dsymBundle = Optional.absent();
     }
 
-    registerLinkAction(objcProvider, extraLinkArgs, extraLinkInputs, dsymBundle);
+    Iterable<Artifact> prunedJ2ObjcArchives = ImmutableList.<Artifact>of();
+    if (stripJ2ObjcDeadCode()) {
+      J2ObjcEntryClassProvider provider = J2ObjcEntryClassProvider.buildFrom(ruleContext);
+      registerJ2ObjcDeadCodeRemovalActions(objcProvider, provider.getEntryClasses());
+      prunedJ2ObjcArchives = j2objcPrunedLibraries(objcProvider);
+    }
+
+    registerLinkAction(
+        objcProvider,
+        extraLinkArgs,
+        extraLinkInputs,
+        dsymBundle,
+        prunedJ2ObjcArchives);
     return this;
+  }
+
+  private boolean stripJ2ObjcDeadCode() {
+    J2ObjcEntryClassProvider provider = J2ObjcEntryClassProvider.buildFrom(ruleContext);
+    J2ObjcConfiguration j2objcConfiguration = ruleContext.getFragment(J2ObjcConfiguration.class);
+    // Only perform J2ObjC dead code stripping if flag --j2objc_dead_code_removal is specified and
+    // users have specified entry classes.
+    return j2objcConfiguration.removeDeadCode() && !provider.getEntryClasses().isEmpty();
   }
 
   /**
@@ -768,7 +787,8 @@ public final class CompilationSupport {
   }
 
   private void registerLinkAction(ObjcProvider objcProvider, ExtraLinkArgs extraLinkArgs,
-      Iterable<Artifact> extraLinkInputs, Optional<Artifact> dsymBundle) {
+      Iterable<Artifact> extraLinkInputs, Optional<Artifact> dsymBundle,
+      Iterable<Artifact> prunedJ2ObjcArchives) {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
@@ -784,19 +804,23 @@ public final class CompilationSupport {
             : intermediateArtifacts.strippedSingleArchitectureBinary();
 
     ImmutableList<Artifact> ccLibraries = ccLibraries(objcProvider);
+    NestedSet<Artifact> bazelBuiltLibraries = Iterables.isEmpty(prunedJ2ObjcArchives)
+        ? objcProvider.get(LIBRARY) : substituteJ2ObjcPrunedLibraries(objcProvider);
     ruleContext.registerAction(
         ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
             .setMnemonic("ObjcLink")
             .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
             .setCommandLine(
-                linkCommandLine(extraLinkArgs, objcProvider, binaryToLink, dsymBundle, ccLibraries))
+                linkCommandLine(extraLinkArgs, objcProvider, binaryToLink, dsymBundle, ccLibraries,
+                    bazelBuiltLibraries))
             .addOutput(binaryToLink)
             .addOutputs(dsymBundle.asSet())
-            .addTransitiveInputs(objcProvider.get(LIBRARY))
+            .addTransitiveInputs(bazelBuiltLibraries)
             .addTransitiveInputs(objcProvider.get(IMPORTED_LIBRARY))
             .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
             .addInputs(ccLibraries)
             .addInputs(extraLinkInputs)
+            .addInputs(prunedJ2ObjcArchives)
             .addInput(xcrunwrapper(ruleContext).getExecutable())
             .build(ruleContext));
 
@@ -827,6 +851,16 @@ public final class CompilationSupport {
     return ccLibraryBuilder.build();
   }
 
+  private ImmutableList<Artifact> j2objcPrunedLibraries(ObjcProvider objcProvider) {
+    IntermediateArtifacts intermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext);
+    ImmutableList.Builder<Artifact> j2objcPrunedLibraryBuilder = ImmutableList.builder();
+    for (Artifact j2objcLibrary : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY)) {
+      j2objcPrunedLibraryBuilder.add(intermediateArtifacts.j2objcPrunedArchive(j2objcLibrary));
+    }
+    return j2objcPrunedLibraryBuilder.build();
+  }
+
   private static CommandLine symbolStripCommandLine(
       Iterable<String> extraFlags, Artifact unstrippedArtifact, Artifact strippedArtifact) {
     return CustomCommandLine.builder()
@@ -837,16 +871,37 @@ public final class CompilationSupport {
         .build();
   }
 
+  /**
+   * Returns a nested set of Bazel-built ObjC libraries with all unpruned J2ObjC libraries
+   * substituted with pruned ones.
+   */
+  private NestedSet<Artifact> substituteJ2ObjcPrunedLibraries(ObjcProvider objcProvider) {
+    ImmutableList.Builder<Artifact> libraries = new ImmutableList.Builder<>();
+    IntermediateArtifacts intermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext);
+
+    Set<Artifact> unprunedJ2ObjcLibs = objcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toSet();
+    for (Artifact library : objcProvider.get(LIBRARY)) {
+      // If we match an unpruned J2ObjC library, add the pruned version of the J2ObjC static library
+      // instead.
+      if (unprunedJ2ObjcLibs.contains(library)) {
+        libraries.add(intermediateArtifacts.j2objcPrunedArchive(library));
+      } else {
+        libraries.add(library);
+      }
+    }
+    return NestedSetBuilder.wrap(Order.NAIVE_LINK_ORDER, libraries.build());
+  }
+
   private CommandLine linkCommandLine(ExtraLinkArgs extraLinkArgs,
       ObjcProvider objcProvider, Artifact linkedBinary, Optional<Artifact> dsymBundle,
-      ImmutableList<Artifact> ccLibraries) {
+      Iterable<Artifact> ccLibraries, Iterable<Artifact> bazelBuiltLibraries) {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     Iterable<String> libraryNames = libraryNames(objcProvider);
     
     CustomCommandLine.Builder commandLine = CustomCommandLine.builder()
         .addPath(xcrunwrapper(ruleContext).getExecutable().getExecPath());
-
     if (objcProvider.is(USES_CPP)) {
       commandLine
           .add(CLANG_PLUSPLUS)
@@ -883,7 +938,7 @@ public final class CompilationSupport {
 
     commandLine
         .addExecPath("-o", linkedBinary)
-        .addExecPaths(objcProvider.get(LIBRARY))
+        .addExecPaths(bazelBuiltLibraries)
         .addExecPaths(objcProvider.get(IMPORTED_LIBRARY))
         .addExecPaths(ccLibraries)
         .addBeforeEach("-force_load", Artifact.toExecPaths(objcProvider.get(FORCE_LOAD_LIBRARY)))
@@ -982,131 +1037,59 @@ public final class CompilationSupport {
     return names;
   }
 
-  /**
-   * Registers actions that compile and archive j2Objc dependencies of this rule.
-   *
-   * @param objcProvider common information about this rule's attributes and its dependencies
-   *
-   * @return this compilation support
-   */
-  CompilationSupport registerJ2ObjcCompileAndArchiveActions(ObjcProvider objcProvider)
-      throws InterruptedException {
-    J2ObjcSrcsProvider provider = J2ObjcSrcsProvider.buildFrom(ruleContext);
-    Iterable<J2ObjcSource> j2ObjcSources = provider.getSrcs();
-    J2ObjcConfiguration j2objcConfiguration = ruleContext.getFragment(J2ObjcConfiguration.class);
-
-    // Only perform J2ObjC dead code stripping if flag --j2objc_dead_code_removal is specified and
-    // users have specified entry classes.
-    boolean stripJ2ObjcDeadCode = j2objcConfiguration.removeDeadCode()
-        && !provider.getEntryClasses().isEmpty();
-
-    if (stripJ2ObjcDeadCode) {
-      registerJ2ObjcDeadCodeRemovalActions(j2ObjcSources, provider.getEntryClasses());
-    }
-
-    for (J2ObjcSource j2ObjcSource : j2ObjcSources) {
-      if (j2ObjcSource.hasSourceFiles()) {
-        J2ObjcSource sourceToCompile =
-            j2ObjcSource.getSourceType() == SourceType.JAVA && stripJ2ObjcDeadCode
-                ? j2ObjcSource.toPrunedSource(ruleContext)
-                : j2ObjcSource;
-        IntermediateArtifacts intermediateArtifacts =
-            ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext, sourceToCompile);
-        CompilationArtifacts compilationArtifact = new CompilationArtifacts.Builder()
-            .addNonArcSrcs(sourceToCompile.getObjcSrcs())
-            .setIntermediateArtifacts(intermediateArtifacts)
-            .setPchFile(Optional.<Artifact>absent())
-            .build();
-        // The module map that the above intermediateArtifacts would point to is a combination of
-        // the current target and the java target. Instead, we want the one generated for that
-        // source, but there is no easy way to get that. So for now, compile the source with the
-        // module map (and therefore module name) for this rule.
-        // TODO(bazel-team): Generate module maps along with the J2Objc sources, and use that here.
-        Optional<CppModuleMap> moduleMap;
-        if (ObjcRuleClasses.objcConfiguration(ruleContext).moduleMapsEnabled()) {
-          moduleMap = Optional.of(ObjcRuleClasses.intermediateArtifacts(ruleContext).moduleMap());
-        } else {
-          moduleMap = Optional.absent();
-        }
-        registerCompileAndArchiveActions(
-            compilationArtifact,
-            intermediateArtifacts,
-            objcProvider.toJ2ObjcOnlyProvider(),
-            moduleMap,
-            ruleContext.getConfiguration().isCodeCoverageEnabled(),
-            false);
-      }
-    }
-
-    return this;
-  }
-
-  /**
-   * Registers actions that generates a module map for all {@link J2ObjcSource}s in
-   * {@link J2ObjcSrcsProvider}.
-   *
-   * @return this compilation support
-   */
-  public CompilationSupport registerJ2ObjcGenerateModuleMapAction(J2ObjcSrcsProvider provider) {
-    if (ObjcRuleClasses.objcConfiguration(ruleContext).moduleMapsEnabled()) {
-      CppModuleMap moduleMap = ObjcRuleClasses.intermediateArtifacts(ruleContext).moduleMap();
-      ImmutableSet.Builder<Artifact> headers = ImmutableSet.builder();
-      for (J2ObjcSource j2ObjcSource : provider.getSrcs()) {
-        headers.addAll(j2ObjcSource.getObjcHdrs());
-      }
-      registerGenerateModuleMapAction(moduleMap, headers.build(), ImmutableList.<Artifact>of());
-    }
-    return this;
-  }
-
-  private void registerJ2ObjcDeadCodeRemovalActions(Iterable<J2ObjcSource> j2ObjcSources,
+  private void registerJ2ObjcDeadCodeRemovalActions(ObjcProvider objcProvider,
       Iterable<String> entryClasses) {
     Artifact pruner = ruleContext.getPrerequisiteArtifact("$j2objc_dead_code_pruner", Mode.HOST);
     J2ObjcMappingFileProvider provider = ObjcRuleClasses.j2ObjcMappingFileProvider(ruleContext);
     NestedSet<Artifact> j2ObjcDependencyMappingFiles = provider.getDependencyMappingFiles();
     NestedSet<Artifact> j2ObjcHeaderMappingFiles = provider.getHeaderMappingFiles();
+    NestedSet<Artifact> j2ObjcArchiveSourceMappingFiles = provider.getArchiveSourceMappingFiles();
+    IntermediateArtifacts intermediateArtifacts =
+        ObjcRuleClasses.intermediateArtifacts(ruleContext);
 
-    for (J2ObjcSource j2ObjcSource : j2ObjcSources) {
-      if (j2ObjcSource.getSourceType() == SourceType.JAVA
-          && j2ObjcSource.hasSourceFiles()) {
-        Iterable<Artifact> sourceArtifacts = j2ObjcSource.getObjcSrcs();
-        Iterable<Artifact> prunedSourceArtifacts =
-            j2ObjcSource.toPrunedSource(ruleContext).getObjcSrcs();
-        PathFragment paramFilePath = FileSystemUtils.replaceExtension(
-            j2ObjcSource.getTargetLabel().toPathFragment(), ".param.j2objc");
-        Artifact paramFile = ruleContext.getUniqueDirectoryArtifact(
-            "_j2objc_pruned",
-            paramFilePath,
-            ruleContext.getBinOrGenfilesDirectory());
-        PathFragment objcFilePath = j2ObjcSource.getObjcFilePath();
-        CustomCommandLine commandLine = CustomCommandLine.builder()
-            .addJoinExecPaths("--input_files", ",", sourceArtifacts)
-            .addJoinExecPaths("--output_files", ",", prunedSourceArtifacts)
-            .addJoinExecPaths("--dependency_mapping_files", ",", j2ObjcDependencyMappingFiles)
-            .addJoinExecPaths("--header_mapping_files", ",", j2ObjcHeaderMappingFiles)
-            .add("--entry_classes").add(Joiner.on(",").join(entryClasses))
-            .add("--objc_file_path").add(objcFilePath.getPathString())
-            .build();
+    for (Artifact j2objcArchive : objcProvider.get(ObjcProvider.J2OBJC_LIBRARY)) {
+      PathFragment paramFilePath = FileSystemUtils.replaceExtension(
+          j2objcArchive.getOwner().toPathFragment(), ".param.j2objc");
+      Artifact paramFile = ruleContext.getUniqueDirectoryArtifact(
+          "_j2objc_pruned",
+          paramFilePath,
+          ruleContext.getBinOrGenfilesDirectory());
+      Artifact prunedJ2ObjcArchive = intermediateArtifacts.j2objcPrunedArchive(j2objcArchive);
+      Artifact dummyArchive = Iterables.getOnlyElement(
+          ruleContext.getPrerequisite("$dummy_lib", Mode.TARGET, ObjcProvider.class).get(LIBRARY));
+
+      CustomCommandLine commandLine = CustomCommandLine.builder()
+          .addExecPath("--input_archive", j2objcArchive)
+          .addExecPath("--output_archive", prunedJ2ObjcArchive)
+          .addExecPath("--dummy_archive", dummyArchive)
+          .addExecPath("--xcrunwrapper", xcrunwrapper(ruleContext).getExecutable())
+          .addJoinExecPaths("--dependency_mapping_files", ",", j2ObjcDependencyMappingFiles)
+          .addJoinExecPaths("--header_mapping_files", ",", j2ObjcHeaderMappingFiles)
+          .addJoinExecPaths("--archive_source_mapping_files", ",", j2ObjcArchiveSourceMappingFiles)
+          .add("--entry_classes").add(Joiner.on(",").join(entryClasses))
+          .build();
 
         ruleContext.registerAction(new ParameterFileWriteAction(
             ruleContext.getActionOwner(),
             paramFile,
             commandLine,
             ParameterFile.ParameterFileType.UNQUOTED, ISO_8859_1));
-        ruleContext.registerAction(new SpawnAction.Builder()
+        ruleContext.registerAction(ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
             .setMnemonic("DummyPruner")
             .setExecutable(pruner)
+            .addInput(dummyArchive)
             .addInput(pruner)
             .addInput(paramFile)
-            .addInputs(sourceArtifacts)
+            .addInput(j2objcArchive)
+            .addInput(xcrunwrapper(ruleContext).getExecutable())
             .addTransitiveInputs(j2ObjcDependencyMappingFiles)
             .addTransitiveInputs(j2ObjcHeaderMappingFiles)
+            .addTransitiveInputs(j2ObjcArchiveSourceMappingFiles)
             .setCommandLine(CustomCommandLine.builder()
                 .addPaths("@%s", paramFile.getExecPath())
                 .build())
-            .addOutputs(prunedSourceArtifacts)
+            .addOutput(prunedJ2ObjcArchive)
             .build(ruleContext));
-      }
     }
   }
 

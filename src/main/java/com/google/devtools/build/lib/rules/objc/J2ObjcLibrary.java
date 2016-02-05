@@ -27,8 +27,6 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
-import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -45,6 +43,11 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
       "Entry classes must be specified when flag --compilationMode=opt is on in order to"
           + " perform J2ObjC dead code stripping.";
 
+  public static final List<String> J2OBJC_SUPPORTED_RULES = ImmutableList.of(
+      "java_import",
+      "java_library",
+      "proto_library");
+
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     checkAttributes(ruleContext);
@@ -53,43 +56,20 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    J2ObjcSrcsProvider j2ObjcSrcsProvider = new J2ObjcSrcsProvider.Builder()
-        .addTransitiveJ2ObjcSrcs(ruleContext)
+    J2ObjcEntryClassProvider j2ObjcEntryClassProvider = new J2ObjcEntryClassProvider.Builder()
+        .addTransitive(ruleContext)
         .addEntryClasses(ruleContext.attributes().get("entry_classes", Type.STRING_LIST))
         .build();
 
     ObjcProvider.Builder objcProviderBuilder =
         new ObjcProvider.Builder()
-            .addJ2ObjcTransitiveAndPropagate(
-                ruleContext.getPrerequisite("$jre_emul_lib", Mode.TARGET, ObjcProvider.class))
-            .addJ2ObjcTransitiveAndPropagate(
+            .addTransitiveAndPropagate(
                 ruleContext.getPrerequisites("deps", Mode.TARGET, ObjcProvider.class));
 
     XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
     XcodeSupport xcodeSupport =
         new XcodeSupport(ruleContext)
-            .addDependencies(xcodeProviderBuilder, new Attribute("$jre_emul_lib", Mode.TARGET))
             .addDependencies(xcodeProviderBuilder, new Attribute("deps", Mode.TARGET));
-
-    if (j2ObjcSrcsProvider.hasProtos()) {
-      // Public J2 in Bazel provides no protobuf_lib, and if OSS users try to sneakily use
-      // undocumented functionality to reach here, the below code will error.
-      objcProviderBuilder.addJ2ObjcTransitiveAndPropagate(
-          ruleContext.getPrerequisite("$protobuf_lib", Mode.TARGET, ObjcProvider.class));
-      xcodeSupport.addDependencies(
-          xcodeProviderBuilder, new Attribute("$protobuf_lib", Mode.TARGET));
-    }
-
-    for (J2ObjcSource j2objcSource : j2ObjcSrcsProvider.getSrcs()) {
-      objcProviderBuilder.addJ2ObjcAll(ObjcProvider.HEADER, j2objcSource.getObjcHdrs());
-      objcProviderBuilder.addJ2ObjcAll(ObjcProvider.INCLUDE, j2objcSource.getHeaderSearchPaths());
-      xcodeProviderBuilder.addHeaders(j2objcSource.getObjcHdrs());
-      xcodeProviderBuilder.addUserHeaderSearchPaths(j2objcSource.getHeaderSearchPaths());
-    }
-
-    if (ObjcRuleClasses.objcConfiguration(ruleContext).moduleMapsEnabled()) {
-      configureModuleMap(ruleContext, objcProviderBuilder, j2ObjcSrcsProvider);
-    }
 
     ObjcProvider objcProvider = objcProviderBuilder.build();
     xcodeSupport.addXcodeSettings(xcodeProviderBuilder, objcProvider, LIBRARY_STATIC);
@@ -97,7 +77,7 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(STABLE_ORDER))
         .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .addProvider(J2ObjcSrcsProvider.class, j2ObjcSrcsProvider)
+        .addProvider(J2ObjcEntryClassProvider.class, j2ObjcEntryClassProvider)
         .addProvider(
             J2ObjcMappingFileProvider.class, ObjcRuleClasses.j2ObjcMappingFileProvider(ruleContext))
         .addProvider(ObjcProvider.class, objcProvider)
@@ -127,21 +107,6 @@ public class J2ObjcLibrary implements RuleConfiguredTargetFactory {
     }
 
     return headerSearchPaths.build();
-  }
-
-  /**
-   * Configures a module map for all the sources in {@code j2ObjcSrcsProvider}, registering
-   * an action to generate the module map and exposing that module map through {@code objcProvider}.
-   */
-  private void configureModuleMap(
-      RuleContext ruleContext,
-      ObjcProvider.Builder objcProvider,
-      J2ObjcSrcsProvider j2ObjcSrcsProvider) {
-    new CompilationSupport(ruleContext).registerJ2ObjcGenerateModuleMapAction(j2ObjcSrcsProvider);
-
-    CppModuleMap moduleMap = ObjcRuleClasses.intermediateArtifacts(ruleContext).moduleMap();
-    objcProvider.add(ObjcProvider.MODULE_MAP, moduleMap.getArtifact());
-    objcProvider.add(ObjcProvider.TOP_LEVEL_MODULE_MAP, moduleMap);
   }
 
   private static void checkAttributes(RuleContext ruleContext) {

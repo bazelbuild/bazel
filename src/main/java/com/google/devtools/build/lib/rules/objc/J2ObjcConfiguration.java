@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.java;
+package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
@@ -79,7 +79,7 @@ public class J2ObjcConfiguration extends Fragment {
     }
   }
 
-  private final ImmutableSet<String> translationFlags;
+  private final Set<String> translationFlags;
   private final boolean removeDeadCode;
 
   J2ObjcConfiguration(J2ObjcCommandLineOptions j2ObjcOptions) {

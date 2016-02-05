@@ -14,9 +14,13 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
+import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredNativeAspectFactory;
@@ -24,12 +28,14 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.proto.ProtoCommon;
+import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -51,32 +57,45 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  */
 public abstract class AbstractJ2ObjcProtoAspect implements ConfiguredNativeAspectFactory {
   public static final String NAME = "J2ObjcProtoAspect";
+  private static final Iterable<Attribute> DEPENDENT_ATTRIBUTES = ImmutableList.of(
+      new Attribute("$protobuf_lib", Mode.TARGET),
+      new Attribute("deps", Mode.TARGET));
 
+  @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     AspectDefinition.Builder builder = new AspectDefinition.Builder("J2ObjcProtoAspect")
         .requireProvider(ProtoSourcesProvider.class)
+        .requiresConfigurationFragments(
+            AppleConfiguration.class,
+            J2ObjcConfiguration.class,
+            ObjcConfiguration.class,
+            ProtoConfiguration.class)
         .attributeAspect("deps", getClass())
         .attributeAspect("exports", getClass())
-        .attributeAspect("runtime_deps", getClass());
+        .attributeAspect("runtime_deps", getClass())
+        .add(attr("$protobuf_lib", LABEL)
+            .value(Label.parseAbsoluteUnchecked("//third_party/java/j2objc:proto_runtime")))
+        .add(attr("$xcrunwrapper", LABEL).cfg(HOST).exec()
+            .value(Label.parseAbsoluteUnchecked(
+                Constants.TOOLS_REPOSITORY + "//tools/objc:xcrunwrapper")))
+        .add(attr(":xcode_config", LABEL)
+            .allowedRuleClasses("xcode_config")
+            .checkConstraints()
+            .direct_compile_time_input()
+            .cfg(HOST)
+            .value(AppleToolchain.RequiresXcodeConfigRule.XCODE_CONFIG_LABEL));
     return addAdditionalAttributes(builder).build();
   }
 
   protected abstract AspectDefinition.Builder addAdditionalAttributes(
       AspectDefinition.Builder builder);
 
-  protected static Label parseLabel(String from) {
-    try {
-      return Label.parseAbsolute(from);
-    } catch (LabelSyntaxException e) {
-      throw new IllegalArgumentException(from);
-    }
-  }
-
   protected abstract boolean checkShouldCreateAspect(RuleContext ruleContext);
 
   @Override
   public ConfiguredAspect create(
-      ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
+      ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
+      throws InterruptedException {
     if (!checkShouldCreateAspect(ruleContext)) {
       return new ConfiguredAspect.Builder(NAME, ruleContext).build();
     }
@@ -85,39 +104,64 @@ public abstract class AbstractJ2ObjcProtoAspect implements ConfiguredNativeAspec
     ImmutableList<Artifact> protoSources = protoSourcesProvider.getDirectProtoSources();
     NestedSet<Artifact> transitiveImports = protoSourcesProvider.getTransitiveImports();
 
-    J2ObjcSrcsProvider.Builder srcsBuilder = new J2ObjcSrcsProvider.Builder();
+    XcodeProvider xcodeProvider;
     Iterable<Artifact> headerMappingFiles;
     Iterable<Artifact> classMappingFiles;
+    ObjcCommon common;
 
     if (protoSources.isEmpty()) {
       headerMappingFiles = ImmutableList.of();
       classMappingFiles = ImmutableList.of();
+      common = J2ObjcAspect.common(
+          ruleContext,
+          ImmutableList.<Artifact>of(),
+          ImmutableList.<Artifact>of(),
+          ImmutableList.<PathFragment>of(),
+          DEPENDENT_ATTRIBUTES);
+      xcodeProvider = J2ObjcAspect.xcodeProvider(
+          ruleContext,
+          common,
+          ImmutableList.<Artifact>of(),
+          ImmutableList.<PathFragment>of(),
+          DEPENDENT_ATTRIBUTES);
     } else {
       J2ObjcSource j2ObjcSource = j2ObjcSource(ruleContext, protoSources);
       headerMappingFiles = headerMappingFiles(ruleContext, protoSources);
       classMappingFiles = classMappingFiles(ruleContext, protoSources);
-      srcsBuilder.addSource(j2ObjcSource);
 
       createActions(base, ruleContext, protoSources, transitiveImports,
           headerMappingFiles, classMappingFiles, j2ObjcSource);
+      common = J2ObjcAspect.common(
+          ruleContext,
+          j2ObjcSource.getObjcSrcs(),
+          j2ObjcSource.getObjcHdrs(),
+          j2ObjcSource.getHeaderSearchPaths(),
+          DEPENDENT_ATTRIBUTES);
+      xcodeProvider = J2ObjcAspect.xcodeProvider(
+          ruleContext,
+          common,
+          j2ObjcSource.getObjcHdrs(),
+          j2ObjcSource.getHeaderSearchPaths(),
+          DEPENDENT_ATTRIBUTES);
+
+      new CompilationSupport(ruleContext).registerCompileAndArchiveActions(common);
     }
 
-    J2ObjcSrcsProvider j2objcSrcsProvider = srcsBuilder
-        .addTransitiveJ2ObjcSrcs(ruleContext, "deps")
-        .build();
     NestedSet<Artifact> j2ObjcTransitiveHeaderMappingFiles = j2ObjcTransitiveHeaderMappingFiles(
         ruleContext, headerMappingFiles);
     NestedSet<Artifact> j2ObjcTransitiveClassMappingFiles = j2ObjcTransitiveClassMappingFiles(
         ruleContext, classMappingFiles);
 
     return new ConfiguredAspect.Builder(NAME, ruleContext)
-        .addProvider(J2ObjcSrcsProvider.class, j2objcSrcsProvider)
         .addProvider(
             J2ObjcMappingFileProvider.class,
             new J2ObjcMappingFileProvider(
                 j2ObjcTransitiveHeaderMappingFiles,
                 j2ObjcTransitiveClassMappingFiles,
+                NestedSetBuilder.<Artifact>stableOrder().build(),
                 NestedSetBuilder.<Artifact>stableOrder().build()))
+        .addProvider(ObjcProvider.class, common.getObjcProvider())
+        .addProvider(XcodeProvider.class, xcodeProvider)
         .build();
   }
 

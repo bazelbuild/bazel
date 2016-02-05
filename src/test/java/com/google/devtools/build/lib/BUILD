@@ -397,6 +397,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:extra_actions_base_proto",
         "//third_party:guava",

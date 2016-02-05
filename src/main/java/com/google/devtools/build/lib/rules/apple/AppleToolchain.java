@@ -170,6 +170,15 @@ public class AppleToolchain {
    * Base rule definition to be ancestor for rules which may require an xcode toolchain.
    */
   public static class RequiresXcodeConfigRule implements RuleDefinition {
+    public static final LateBoundLabel<BuildConfiguration> XCODE_CONFIG_LABEL =
+        new LateBoundLabel<BuildConfiguration>(
+            AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL, AppleConfiguration.class) {
+          @Override
+          public Label getDefault(Rule rule, BuildConfiguration configuration) {
+            return configuration.getFragment(AppleConfiguration.class).getXcodeConfigLabel();
+          }
+        };
+
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
@@ -178,14 +187,7 @@ public class AppleToolchain {
               .checkConstraints()
               .direct_compile_time_input()
               .cfg(HOST)
-              .value(new LateBoundLabel<BuildConfiguration>(
-                  AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL,
-                  AppleConfiguration.class) {
-                @Override
-                public Label getDefault(Rule rule, BuildConfiguration configuration) {
-                  return configuration.getFragment(AppleConfiguration.class).getXcodeConfigLabel();
-                }
-              }))
+              .value(XCODE_CONFIG_LABEL))
           .build();
     }
     @Override
