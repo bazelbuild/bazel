@@ -130,22 +130,30 @@ public class FileFunctionTest {
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper))
-                .put(SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS,
+                .put(
+                    SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS,
                     new FileSymlinkCycleUniquenessFunction())
-                .put(SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS,
+                .put(
+                    SkyFunctions.FILE_SYMLINK_INFINITE_EXPANSION_UNIQUENESS,
                     new FileSymlinkInfiniteExpansionUniquenessFunction())
                 .put(SkyFunctions.FILE, new FileFunction(pkgLocatorRef))
-                .put(SkyFunctions.PACKAGE,
+                .put(
+                    SkyFunctions.PACKAGE,
                     new PackageFunction(null, null, null, null, null, null, null))
-                .put(SkyFunctions.PACKAGE_LOOKUP,
-                    new PackageLookupFunction(new AtomicReference<>(
-                        ImmutableSet.<PackageIdentifier>of())))
-                .put(SkyFunctions.WORKSPACE_AST,
+                .put(
+                    SkyFunctions.PACKAGE_LOOKUP,
+                    new PackageLookupFunction(
+                        new AtomicReference<>(ImmutableSet.<PackageIdentifier>of())))
+                .put(
+                    SkyFunctions.WORKSPACE_AST,
                     new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
-                .put(SkyFunctions.WORKSPACE_FILE,
-                    new WorkspaceFileFunction(TestRuleClassProvider.getRuleClassProvider(),
+                .put(
+                    SkyFunctions.WORKSPACE_FILE,
+                    new WorkspaceFileFunction(
+                        TestRuleClassProvider.getRuleClassProvider(),
                         new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),
                         new BlazeDirectories(pkgRoot, outputBase, pkgRoot)))
+                .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .build(),
             differencer);
     PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());

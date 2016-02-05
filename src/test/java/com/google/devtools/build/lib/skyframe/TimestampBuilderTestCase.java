@@ -155,19 +155,26 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
                 .put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper))
                 .put(SkyFunctions.FILE, new FileFunction(pkgLocator))
-                .put(SkyFunctions.ARTIFACT,
+                .put(
+                    SkyFunctions.ARTIFACT,
                     new ArtifactFunction(Predicates.<PathFragment>alwaysFalse()))
-                .put(SkyFunctions.ACTION_EXECUTION,
+                .put(
+                    SkyFunctions.ACTION_EXECUTION,
                     new ActionExecutionFunction(skyframeActionExecutor, tsgm))
-                .put(SkyFunctions.PACKAGE,
+                .put(
+                    SkyFunctions.PACKAGE,
                     new PackageFunction(null, null, null, null, null, null, null))
                 .put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(null))
-                .put(SkyFunctions.WORKSPACE_AST,
+                .put(
+                    SkyFunctions.WORKSPACE_AST,
                     new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
-                .put(SkyFunctions.WORKSPACE_FILE,
-                    new WorkspaceFileFunction(TestRuleClassProvider.getRuleClassProvider(),
+                .put(
+                    SkyFunctions.WORKSPACE_FILE,
+                    new WorkspaceFileFunction(
+                        TestRuleClassProvider.getRuleClassProvider(),
                         new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),
                         new BlazeDirectories(rootDirectory, outputBase, rootDirectory)))
+                .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .build(),
             differencer,
             evaluationProgressReceiver);

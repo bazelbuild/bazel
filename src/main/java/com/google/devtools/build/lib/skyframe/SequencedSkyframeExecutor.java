@@ -238,7 +238,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
           SkyFunctions.DIRECTORY_LISTING_STATE,
           SkyFunctions.TARGET_PATTERN,
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
-          SkyFunctions.WORKSPACE_FILE);
+          SkyFunctions.WORKSPACE_FILE,
+          SkyFunctions.EXTERNAL_PACKAGE);
 
   @Override
   protected void onNewPackageLocator(PathPackageLocator oldLocator, PathPackageLocator pkgLocator) {

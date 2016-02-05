@@ -340,7 +340,7 @@ public class PackageFunction implements SkyFunction {
       throws PackageFunctionException {
     RootedPath workspacePath = RootedPath.toRootedPath(
         packageLookupPath, new PathFragment("WORKSPACE"));
-    SkyKey workspaceKey = PackageValue.workspaceKey(workspacePath);
+    SkyKey workspaceKey = ExternalPackageFunction.key(workspacePath);
     PackageValue workspace = null;
     try {
       workspace = (PackageValue) env.getValueOrThrow(workspaceKey, IOException.class,

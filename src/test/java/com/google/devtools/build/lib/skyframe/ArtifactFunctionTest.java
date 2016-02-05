@@ -114,15 +114,20 @@ public class ArtifactFunctionTest {
                 .put(SkyFunctions.FILE, new FileFunction(pkgLocator))
                 .put(SkyFunctions.ARTIFACT, new ArtifactFunction(allowedMissingInputsPredicate))
                 .put(SkyFunctions.ACTION_EXECUTION, new SimpleActionExecutionFunction())
-                .put(SkyFunctions.PACKAGE,
+                .put(
+                    SkyFunctions.PACKAGE,
                     new PackageFunction(null, null, null, null, null, null, null))
                 .put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(null))
-                .put(SkyFunctions.WORKSPACE_AST,
+                .put(
+                    SkyFunctions.WORKSPACE_AST,
                     new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
-                .put(SkyFunctions.WORKSPACE_FILE,
-                    new WorkspaceFileFunction(TestRuleClassProvider.getRuleClassProvider(),
+                .put(
+                    SkyFunctions.WORKSPACE_FILE,
+                    new WorkspaceFileFunction(
+                        TestRuleClassProvider.getRuleClassProvider(),
                         new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),
                         new BlazeDirectories(root, root, root)))
+                .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .build(),
             differencer);
     driver = new SequentialBuildDriver(evaluator);

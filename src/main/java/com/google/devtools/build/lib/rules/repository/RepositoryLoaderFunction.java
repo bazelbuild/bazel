@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.skyframe.ExternalPackageFunction;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.vfs.Path;
@@ -48,7 +49,7 @@ public class RepositoryLoaderFunction implements SkyFunction {
       return null;
     }
 
-    SkyKey workspaceKey = PackageValue.workspaceKey(
+    SkyKey workspaceKey = ExternalPackageFunction.key(
         RootedPath.toRootedPath(repository.getPath(), new PathFragment("WORKSPACE")));
     PackageValue workspacePackage = (PackageValue) env.getValue(workspaceKey);
     if (workspacePackage == null) {
