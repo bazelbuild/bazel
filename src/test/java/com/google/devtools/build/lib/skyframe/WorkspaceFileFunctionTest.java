@@ -60,7 +60,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   private WorkspaceASTFunction astSkyFunc;
   private FakeFileValue fakeWorkspaceFileValue;
 
-  private static class FakeFileValue extends FileValue {
+  static class FakeFileValue extends FileValue {
     private boolean exists;
     private long size;
 
@@ -85,7 +85,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
       return exists;
     }
 
-    private void setExists(boolean exists) {
+    void setExists(boolean exists) {
       this.exists = exists;
     }
 
@@ -94,7 +94,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
       return size;
     }
 
-    private void setSize(long size) {
+    void setSize(long size) {
       this.size = size;
     }
   }
@@ -125,7 +125,7 @@ public class WorkspaceFileFunctionTest extends BuildViewTestCase {
   }
 
   // Dummy harmcrest matcher that match the function name of a skykey
-  private static class SkyKeyMatchers extends BaseMatcher<SkyKey> {
+  static class SkyKeyMatchers extends BaseMatcher<SkyKey> {
     private final SkyFunctionName functionName;
     
     public SkyKeyMatchers(SkyFunctionName functionName) {
