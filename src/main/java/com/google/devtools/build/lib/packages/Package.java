@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AttributeMap.AcceptsLabelAttribute;
 import com.google.devtools.build.lib.packages.License.DistributionType;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Canonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
@@ -672,9 +671,8 @@ public class Package {
    *
    * <p>Despite its name, this is the normal builder used when parsing BUILD files.
    */
+  // TODO(bazel-team): This class is no longer needed and can be removed.
   public static class LegacyBuilder extends Builder {
-    private Globber globber = null;
-
     LegacyBuilder(PackageIdentifier packageId, String runfilesPrefix) {
       super(packageId, runfilesPrefix);
     }
@@ -690,14 +688,6 @@ public class Package {
     }
 
     /**
-     * Sets the globber used for this package's glob expansions.
-     */
-    LegacyBuilder setGlobber(Globber globber) {
-      this.globber = globber;
-      return this;
-    }
-
-    /**
      * Removes a target from the {@link Package} under construction. Intended to be used only by
      * {@link com.google.devtools.build.lib.skyframe.PackageFunction} to remove targets whose
      * labels cross subpackage boundaries.
@@ -706,16 +696,6 @@ public class Package {
       if (target.getPackage() == pkg) {
         this.targets.remove(target.getName());
       }
-    }
-
-    /**
-     * Returns the glob patterns requested by {@link PackageFactory} during evaluation of this
-     * package's BUILD file. Intended to be used only by
-     * {@link com.google.devtools.build.lib.skyframe.PackageFunction} to mark the appropriate
-     * Skyframe dependencies after the fact.
-     */
-    public Set<Pair<String, Boolean>> getGlobPatterns() {
-      return globber.getGlobPatterns();
     }
   }
 

@@ -60,7 +60,6 @@ import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.Statement;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -262,7 +261,6 @@ public final class PackageFactory {
   // Used outside of Bazel!
   /** {@link Globber} that uses the legacy GlobCache. */
   public static class LegacyGlobber implements Globber {
-
     private final GlobCache globCache;
 
     public LegacyGlobber(GlobCache globCache) {
@@ -279,11 +277,6 @@ public final class PackageFactory {
         this.excludes = excludes;
         this.excludeDirs = excludeDirs;
       }
-    }
-
-    @Override
-    public Set<Pair<String, Boolean>> getGlobPatterns() {
-      return globCache.getKeySet();
     }
 
     @Override
@@ -1185,7 +1178,7 @@ public final class PackageFactory {
     BuildFileAST buildFileAST = parseBuildFile(packageId, preprocessingResult.result,
         preludeStatements, localReporterForParsing);
     AstAfterPreprocessing astAfterPreprocessing = new AstAfterPreprocessing(preprocessingResult,
-        buildFileAST, localReporterForParsing, /*globber=*/null);
+        buildFileAST, localReporterForParsing);
     return createPackageFromPreprocessingAst(
         externalPkg,
         packageId,
@@ -1500,8 +1493,7 @@ public final class PackageFactory {
           .setLoadingPhase()
           .build();
 
-      pkgBuilder.setGlobber(globber)
-          .setFilename(buildFilePath)
+      pkgBuilder.setFilename(buildFilePath)
           .setMakeEnv(pkgMakeEnv)
           .setDefaultVisibility(defaultVisibility)
           // "defaultVisibility" comes from the command line. Let's give the BUILD file a chance to
