@@ -107,14 +107,16 @@ public class HttpDownloader {
     }
     Path destination = outputDirectory.getRelative(filename);
 
-    try {
-      String currentSha256 = getHash(Hashing.sha256().newHasher(), destination);
-      if (currentSha256.equals(sha256)) {
-        // No need to download.
-        return destination;
+    if (!sha256.isEmpty()) {
+      try {
+        String currentSha256 = getHash(Hashing.sha256().newHasher(), destination);
+        if (currentSha256.equals(sha256)) {
+          // No need to download.
+          return destination;
+        }
+      } catch (IOException e) {
+        // Ignore error trying to hash. We'll just download again.
       }
-    } catch (IOException e) {
-      // Ignore error trying to hash. We'll just download again.
     }
 
     AtomicInteger totalBytes = new AtomicInteger(0);
@@ -146,6 +148,14 @@ public class HttpDownloader {
       }, 0, TimeUnit.SECONDS);
     }
 
+    compareHashes(destination);
+    return destination;
+  }
+
+  private void compareHashes(Path destination) throws IOException {
+    if (sha256.isEmpty()) {
+      return;
+    }
     String downloadedSha256;
     try {
       downloadedSha256 = getHash(Hashing.sha256().newHasher(), destination);
@@ -159,7 +169,6 @@ public class HttpDownloader {
           "Downloaded file at " + destination + " has SHA-256 of " + downloadedSha256
               + ", does not match expected SHA-256 (" + sha256 + ")");
     }
-    return destination;
   }
 
   private ScheduledFuture<?> getLoggerHandle(final AtomicInteger totalBytes) {

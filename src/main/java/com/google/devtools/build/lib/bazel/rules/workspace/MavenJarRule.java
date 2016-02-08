@@ -62,7 +62,10 @@ public class MavenJarRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(sha1) -->
          A SHA-1 hash of the desired jar.
 
-         <p>If the downloaded jar does not match this hash, Bazel will error out.</p>
+         <p>If the downloaded jar does not match this hash, Bazel will error out. <em>It is a
+         security risk to omit the SHA-1 as remote files can change.</em> At best omitting this
+         field will make your build non-hermetic. It is optional to make development easier but
+         should be set before shipping.</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("sha1", Type.STRING))
         .setWorkspaceOnly()

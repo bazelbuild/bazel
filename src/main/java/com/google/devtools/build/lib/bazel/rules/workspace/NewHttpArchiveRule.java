@@ -42,9 +42,12 @@ public class NewHttpArchiveRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(sha256) -->
          The expected SHA-256 hash of the file downloaded.
 
-         <p>This must match the SHA-256 hash of the file downloaded.</p>
+         <p>This must match the SHA-256 hash of the file downloaded. <em>It is a security risk to
+         omit the SHA-256 as remote files can change.</em> At best omitting this field will make
+         your build non-hermetic. It is optional to make development easier but should be set
+         before shipping.</p>
          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
-        .add(attr("sha256", STRING).mandatory())
+        .add(attr("sha256", STRING))
         /* <!-- #BLAZE_RULE(new_http_archive).ATTRIBUTE(build_file) -->
          The file to use as the BUILD file for this repository.
 

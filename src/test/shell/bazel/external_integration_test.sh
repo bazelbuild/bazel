@@ -317,8 +317,7 @@ function test_jar_download() {
   serve_jar
 
   cat > WORKSPACE <<EOF
-http_jar(name = 'endangered', url = 'http://localhost:$nc_port/lib.jar',
-    sha256 = '$sha256')
+http_jar(name = 'endangered', url = 'http://localhost:$nc_port/lib.jar')
 EOF
 
   mkdir -p zoo
