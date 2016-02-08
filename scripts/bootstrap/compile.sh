@@ -227,6 +227,7 @@ function bootstrap_build() {
       --workspace_directory=${PWD} \
       --nodeep_execroot --nofatal_event_bus_exceptions \
       build \
+      --ignore_unsupported_sandboxing \
       --startup_time=329 --extract_data_time=523 \
       --rc_source=/dev/null --isatty=1 --terminal_columns=97 \
       --ignore_client_env \
