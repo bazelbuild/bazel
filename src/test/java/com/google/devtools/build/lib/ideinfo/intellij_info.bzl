@@ -70,12 +70,16 @@ def java_rule_ide_info(target, ctx):
   else:
      sources = []
   jars = [library_artifact(output) for output in target.java.outputs.jars]
+  ide_resolve_files = set([jar
+       for jar in [output.class_jar, output.ijar, output.source_jar]
+       for output in target.java.outputs.jars])
   jdeps = artifact_location(target.java.outputs.jdeps)
 
-  return struct(sources = sources,
-                jars = jars,
-                jdeps = jdeps,
-         ) # todo(dslomov): more fields
+  return (struct(sources = sources,
+                 jars = jars,
+                 jdeps = jdeps,
+          ),
+          ide_resolve_files)
 
 
 def _aspect_impl(target, ctx):
@@ -83,23 +87,27 @@ def _aspect_impl(target, ctx):
   rule_attrs = ctx.rule.attr
 
   ide_info_text = set()
+  ide_resolve_files = set()
   all_deps = []
 
   for attr_name in DEPENDENCY_ATTRIBUTES:
     if hasattr(rule_attrs, attr_name):
       deps = getattr(rule_attrs, attr_name)
       for dep in deps:
-        ide_info_text += dep.android_studio_info_files
+        ide_info_text = ide_info_text | dep.intellij_info_files.ide_info_text
+        ide_resolve_files = ide_resolve_files | dep.intellij_info_files.ide_resolve_files
       all_deps += [str(dep.label) for dep in deps]
 
   if kind != _unrecognized_rule:
     if is_java_rule(target, ctx):
+      java_rule_ide_info, java_ide_resolve_files = java_rule_ide_info(target, ctx)
+      ide_resolve_files += java_ide_resolve_files
       info = struct(
           label = str(target.label),
           kind = kind,
           dependencies = all_deps,
           # build_file = ???
-          java_rule_ide_info = java_rule_ide_info(target, ctx)
+          java_rule_ide_info = java_rule_ide_info,
       )
     else:
       info = struct(
@@ -114,9 +122,13 @@ def _aspect_impl(target, ctx):
 
   return struct(
       output_groups = {
-        "ide-info-text" : ide_info_text
+        "ide-info-text" : ide_info_text,
+        "ide-resolve" : ide_resolve_files,
       },
-      android_studio_info_files = ide_info_text
+      intellij_info_files = struct(
+        ide_info_text = ide_info_text,
+        ide_resolve_files = ide_resolve_files,
+      )
     )
 
 intellij_info_aspect = aspect(implementation = _aspect_impl,

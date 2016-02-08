@@ -91,6 +91,12 @@ public class IntelliJSkylarkAspectTest extends AndroidStudioInfoAspectTestBase {
                 "com/google/example", "libsimple.jar", "libsimple-ijar.jar", "libsimple-src.jar"));
     assertThat(ruleIdeInfo.getJavaRuleIdeInfo().getJdeps().getRelativePath())
         .isEqualTo("com/google/example/libsimple.jdeps");
+
+    assertThat(getIdeResolveFiles()).containsExactly(
+        "com/google/example/libsimple.jar",
+        "com/google/example/libsimple-ijar.jar",
+        "com/google/example/libsimple-src.jar"
+    );
   }
 
   @Test
@@ -124,6 +130,7 @@ public class IntelliJSkylarkAspectTest extends AndroidStudioInfoAspectTestBase {
         .containsExactly("com/google/example/extracomplex/ExtraComplex.java");
     assertThat(extraComplexRuleIdeInfo.getDependenciesList())
         .containsExactly("//com/google/example:complex");
+
   }
 
   @Override
