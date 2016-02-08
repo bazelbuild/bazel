@@ -54,10 +54,10 @@ public class InMemoryNodeEntry implements NodeEntry {
   private SkyValue value = null;
 
   /**
-   * The last version of the graph at which this node entry was changed. In {@link #setValue} it
-   * may be determined that the data being written to the graph at a given version is the same as
-   * the already-stored data. In that case, the version will remain the same. The version can be
-   * thought of as the latest timestamp at which this entry was changed.
+   * The last version of the graph at which this node's value was changed. In {@link #setValue} it
+   * may be determined that the value being written to the graph at a given version is the same as
+   * the already-stored value. In that case, the version will remain the same. The version can be
+   * thought of as the latest timestamp at which this value was changed.
    */
   protected Version lastChangedVersion = MinimalVersion.INSTANCE;
 

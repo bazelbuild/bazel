@@ -300,16 +300,18 @@ public class BuildingState {
   }
 
   /**
-   * Returns true if {@code newValue}.equals the value from the last time this node was built, and
-   * the deps requested during this evaluation are exactly those requested the last time this node
-   * was built, in the same order. Should only be used by {@link NodeEntry#setValue}.
+   * Returns true if {@code newValue}.equals the value from the last time this node was built.
+   * Should only be used by {@link NodeEntry#setValue}.
+   *
+   * <p>Changes in direct deps do <i>not</i> force this to return false. Only the value is
+   * considered.
    */
   boolean unchangedFromLastBuild(SkyValue newValue) {
     checkFinishedBuildingWhenAboutToSetValue();
     if (newValue instanceof NotComparableSkyValue) {
       return false;
     }
-    return getLastBuildValue().equals(newValue) && lastBuildDirectDeps.equals(directDeps);
+    return getLastBuildValue().equals(newValue);
   }
 
   /**

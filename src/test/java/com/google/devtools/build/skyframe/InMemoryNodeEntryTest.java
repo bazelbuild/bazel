@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.skyframe.NodeEntrySubjectFactory.assertThatNodeEntry;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -573,7 +574,7 @@ public class InMemoryNodeEntryTest {
   }
 
   @Test
-  public void noPruneWhenDepsChange() {
+  public void pruneWhenDepsChange() {
     NodeEntry entry = new InMemoryNodeEntry();
     entry.addReverseDepAndCheckIfDone(null); // Start evaluation.
     SkyKey dep = key("dep");
@@ -593,7 +594,7 @@ public class InMemoryNodeEntryTest {
     assertTrue(entry.signalDep(IntVersion.of(1L)));
     setValue(entry, new IntegerValue(5), /*errorInfo=*/null, /*graphVersion=*/1L);
     assertTrue(entry.isDone());
-    assertEquals("Version increments when deps change", IntVersion.of(1L), entry.getVersion());
+    assertThatNodeEntry(entry).hasVersionThat().isEqualTo(IntVersion.of(0L));
   }
 
   @Test
