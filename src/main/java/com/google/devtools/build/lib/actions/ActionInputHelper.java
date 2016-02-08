@@ -20,6 +20,7 @@ import com.google.common.base.Functions;
 import com.google.common.collect.Collections2;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -125,6 +126,38 @@ public final class ActionInputHelper {
   }
 
   /**
+   * Instantiates a concrete ArtifactFile with the given parent Artifact and path
+   * relative to that Artifact.
+   */
+  public static ArtifactFile artifactFile(Artifact parent, PathFragment relativePath) {
+    Preconditions.checkState(parent.isTreeArtifact(),
+        "Given parent %s must be a TreeArtifact", parent);
+    return new TreeArtifactFile(parent, relativePath);
+  }
+
+  /**
+   * Instantiates a concrete ArtifactFile with the given parent Artifact and path
+   * relative to that Artifact.
+   */
+  public static ArtifactFile artifactFile(Artifact parent, String relativePath) {
+    return artifactFile(parent, new PathFragment(relativePath));
+  }
+
+  /** Returns an Iterable of ArtifactFiles with the given parent and parent relative paths. */
+  public static Iterable<ArtifactFile> asArtifactFiles(
+      final Artifact parent, Iterable<? extends PathFragment> parentRelativePaths) {
+    Preconditions.checkState(parent.isTreeArtifact(),
+        "Given parent %s must be a TreeArtifact", parent);
+    return Iterables.transform(parentRelativePaths,
+        new Function<PathFragment, ArtifactFile>() {
+          @Override
+          public ArtifactFile apply(PathFragment pathFragment) {
+            return artifactFile(parent, pathFragment);
+          }
+        });
+  }
+
+  /**
    * Expands middleman artifacts in a sequence of {@link ActionInput}s.
    *
    * <p>Non-middleman artifacts are returned untouched.
@@ -145,7 +178,7 @@ public final class ActionInputHelper {
     return result;
   }
 
-  /** Formatter for execPath String output. Public because Artifact uses it directly. */
+  /** Formatter for execPath String output. Public because {@link Artifact} uses it directly. */
   public static final Function<ActionInput, String> EXEC_PATH_STRING_FORMATTER =
       new Function<ActionInput, String>() {
         @Override

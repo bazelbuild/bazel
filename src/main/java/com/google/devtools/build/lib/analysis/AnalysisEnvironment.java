@@ -70,6 +70,13 @@ public interface AnalysisEnvironment extends ActionRegistry {
       Root root);
 
   /**
+   * Returns the artifact for the derived TreeArtifact with directory {@code rootRelativePath},
+   * creating it if necessary, and setting the root of that artifact to
+   * {@code root}. The artifact will be a TreeArtifact.
+   */
+  Artifact getTreeArtifact(PathFragment rootRelativePath, Root root);
+
+  /**
    * Returns the artifact for the derived file {@code rootRelativePath},
    * creating it if necessary, and setting the root of that artifact to
    * {@code root}. The artifact will represent the output directory of a {@code Fileset}.

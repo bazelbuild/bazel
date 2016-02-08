@@ -1490,6 +1490,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
+    public Artifact getTreeArtifact(PathFragment rootRelativePath, Root root) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public EventHandler getEventHandler() {
       return reporter;
     }

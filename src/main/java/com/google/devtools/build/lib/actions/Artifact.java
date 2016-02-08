@@ -65,6 +65,29 @@ import javax.annotation.Nullable;
  * during include validation, will also have null generating Actions.
  * </ul>
  *
+ * In the usual case, an Artifact represents a single file. However, an Artifact may
+ * also represent the following:
+ * <ul>
+ * <li>A TreeArtifact, which is a directory containing a tree of unknown {@link ArtifactFile}s.
+ * In the future, Actions will be able to examine these files as inputs and declare them as outputs
+ * at execution time, but this is not yet implemented. This is used for Actions where
+ * the inputs and/or outputs might not be discoverable except during Action execution.
+ * <li>A directory of unknown contents, but not a TreeArtifact.
+ * This is a legacy facility and should not be used by any new rule implementations.
+ * In particular, the file system cache integrity checks fail for directories.
+ * <li>An 'aggregating middleman' special Artifact, which may be expanded using a
+ * {@link MiddlemanExpander} at Action execution time. This is used by a handful of rules to save
+ * memory.
+ * <li>A 'constant metadata' special Artifact. These represent real files, changes to which are
+ * ignored by the build system. They are useful for files which change frequently but do not affect
+ * the result of a build, such as timestamp files.
+ * <li>A 'Fileset' special Artifact. This is a legacy type of Artifact and should not be used
+ * by new rule implementations.
+ * </ul>
+ * <p/>
+ * This class implements {@link ArtifactFile}, and is modeled as an Artifact "containing" itself
+ * as an ArtifactFile.
+ * <p/>
  * <p>This class is "theoretically" final; it should not be subclassed except by
  * {@link SpecialArtifact}.
  */
@@ -72,7 +95,7 @@ import javax.annotation.Nullable;
 @SkylarkModule(name = "File",
     doc = "This type represents a file used by the build system. It can be "
         + "either a source file or a derived file produced by a rule.")
-public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue {
+public class Artifact implements FileType.HasFilename, ArtifactFile, SkylarkValue {
 
   /**
    * Compares artifact according to their exec paths. Sorts null values first.
@@ -204,11 +227,20 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
         root.getExecPath().getRelative(rootRelativePath), ArtifactOwner.NULL_OWNER);
   }
 
-  /**
-   * Returns the location of this Artifact on the filesystem.
-   */
+  @Override
   public final Path getPath() {
     return path;
+  }
+
+  /**
+   * Returns the Artifact containing this ArtifactFile. Since normal Artifacts correspond
+   * to only one ArtifactFile -- itself -- for normal Artifacts, this method returns {@code this}.
+   * For special artifacts, throws {@link UnsupportedOperationException}.
+   * See also {@link ArtifactFile#getParent()}.
+   */
+  @Override
+  public Artifact getParent() throws UnsupportedOperationException {
+    return this;
   }
 
   /**
@@ -271,6 +303,7 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
    * package-path entries (for source Artifacts), or one of the bin, genfiles or includes dirs
    * (for derived Artifacts). It will always be an ancestor of getPath().
    */
+  @Override
   @SkylarkCallable(name = "root", structField = true,
       doc = "The root beneath which this file resides."
   )
@@ -278,13 +311,20 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
     return root;
   }
 
-  /**
-   * Returns the exec path of this Artifact. The exec path is a relative path
-   * that is suitable for accessing this artifact relative to the execution
-   * directory for this build.
-   */
+  @Override
   public final PathFragment getExecPath() {
     return execPath;
+  }
+
+  /**
+   * Returns the path of this ArtifactFile relative to this containing Artifact. Since
+   * ordinary Artifacts correspond to only one ArtifactFile -- itself -- for ordinary Artifacts,
+   * this just returns the empty path. For special Artifacts, throws
+   * {@link UnsupportedOperationException}. See also {@link ArtifactFile#getParentRelativePath()}.
+   */
+  @Override
+  public PathFragment getParentRelativePath() {
+    return PathFragment.EMPTY_FRAGMENT;
   }
 
   /**
@@ -303,6 +343,13 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
    */
   public final boolean isMiddlemanArtifact() {
     return getRoot().isMiddlemanRoot();
+  }
+
+  /**
+   * Returns true iff this is a TreeArtifact representing a directory tree containing ArtifactFiles.
+   */
+  public boolean isTreeArtifact() {
+    return false;
   }
 
   /**
@@ -325,8 +372,10 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
    *
    * @see SpecialArtifact
    */
-  static enum SpecialArtifactType {
+  @VisibleForTesting
+  public static enum SpecialArtifactType {
     FILESET,
+    TREE,
     CONSTANT_METADATA,
   }
 
@@ -342,7 +391,8 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
   public static final class SpecialArtifact extends Artifact {
     private final SpecialArtifactType type;
 
-    SpecialArtifact(Path path, Root root, PathFragment execPath, ArtifactOwner owner,
+    @VisibleForTesting
+    public SpecialArtifact(Path path, Root root, PathFragment execPath, ArtifactOwner owner,
         SpecialArtifactType type) {
       super(path, root, execPath, owner);
       this.type = type;
@@ -357,12 +407,28 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
     public boolean isConstantMetadata() {
       return type == SpecialArtifactType.CONSTANT_METADATA;
     }
+
+    @Override
+    public boolean isTreeArtifact() {
+      return type == SpecialArtifactType.TREE;
+    }
+
+    @Override
+    public Artifact getParent() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public PathFragment getParentRelativePath() {
+      throw new UnsupportedOperationException();
+    }
   }
 
   /**
    * Returns the relative path to this artifact relative to its root.  (Useful
    * when deriving output filenames from input files, etc.)
    */
+  @Override
   public final PathFragment getRootRelativePath() {
     return rootRelativePath;
   }
@@ -397,13 +463,7 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
     return getRootRelativePath().getPathString();
   }
 
-  /**
-   * Returns a pretty string representation of the path denoted by this artifact, suitable for use
-   * in user error messages.  Artifacts beneath a root will be printed relative to that root; other
-   * artifacts will be printed as an absolute path.
-   *
-   * <p>(The toString method is intended for developer messages since its more informative.)
-   */
+  @Override
   public final String prettyPrint() {
     // toDetailString would probably be more useful to users, but lots of tests rely on the
     // current values.
@@ -475,26 +535,26 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
   /**
    * Formatter for execPath PathFragment output.
    */
-  private static final Function<Artifact, PathFragment> EXEC_PATH_FORMATTER =
-      new Function<Artifact, PathFragment>() {
+  private static final Function<ArtifactFile, PathFragment> EXEC_PATH_FORMATTER =
+      new Function<ArtifactFile, PathFragment>() {
         @Override
-        public PathFragment apply(Artifact input) {
+        public PathFragment apply(ArtifactFile input) {
           return input.getExecPath();
         }
       };
 
-  public static final Function<Artifact, String> ROOT_RELATIVE_PATH_STRING =
-      new Function<Artifact, String>() {
+  public static final Function<ArtifactFile, String> ROOT_RELATIVE_PATH_STRING =
+      new Function<ArtifactFile, String>() {
         @Override
-        public String apply(Artifact artifact) {
+        public String apply(ArtifactFile artifact) {
           return artifact.getRootRelativePath().getPathString();
         }
       };
 
-  public static final Function<Artifact, String> ABSOLUTE_PATH_STRING =
-      new Function<Artifact, String>() {
+  public static final Function<ArtifactFile, String> ABSOLUTE_PATH_STRING =
+      new Function<ArtifactFile, String>() {
         @Override
-        public String apply(Artifact artifact) {
+        public String apply(ArtifactFile artifact) {
           return artifact.getPath().getPathString();
         }
       };
@@ -708,7 +768,7 @@ public class Artifact implements FileType.HasFilename, ActionInput, SkylarkValue
   /**
    * Converts artifacts into their exec paths. Returns an immutable list.
    */
-  public static List<PathFragment> asPathFragments(Iterable<Artifact> artifacts) {
+  public static List<PathFragment> asPathFragments(Iterable<? extends ArtifactFile> artifacts) {
     return ImmutableList.copyOf(Iterables.transform(artifacts, EXEC_PATH_FORMATTER));
   }
 

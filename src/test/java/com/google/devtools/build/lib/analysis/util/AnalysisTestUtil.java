@@ -125,6 +125,11 @@ public final class AnalysisTestUtil {
     }
 
     @Override
+    public Artifact getTreeArtifact(PathFragment rootRelativePath, Root root) {
+      return null;
+    }
+
+    @Override
     public Artifact getFilesetArtifact(PathFragment rootRelativePath, Root root) {
       return original.getFilesetArtifact(rootRelativePath, root);
     }
@@ -309,6 +314,11 @@ public final class AnalysisTestUtil {
 
     @Override
     public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, Root root) {
+      return null;
+    }
+
+    @Override
+    public Artifact getTreeArtifact(PathFragment rootRelativePath, Root root) {
       return null;
     }
 
