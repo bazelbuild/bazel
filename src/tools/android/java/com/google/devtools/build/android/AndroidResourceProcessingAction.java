@@ -283,21 +283,24 @@ public class AndroidResourceProcessingAction {
     options = optionsParser.getOptions(Options.class);
     FileSystem fileSystem = FileSystems.getDefault();
     Path working = fileSystem.getPath("").toAbsolutePath();
+    Path mergedAssets = working.resolve("merged_assets");
+    Path mergedResources = working.resolve("merged_resources");
+
     final AndroidResourceProcessor resourceProcessor =
         new AndroidResourceProcessor(STD_LOGGER);
 
     try {
-      final Path tmp = Files.createTempDirectory("android_resources_tmp");
-      tmp.toFile().deleteOnExit();
-      final Path expandedOut = tmp.resolve("tmp-expanded");
-      final Path deduplicatedOut = tmp.resolve("tmp-deduplicated");
-      final Path mergedAssets = tmp.resolve("merged_assets");
-      final Path mergedResources = tmp.resolve("merged_resources");
+
+      Path expandedOut = Files.createTempDirectory("tmp-expanded");
+      expandedOut.toFile().deleteOnExit();
+      Path deduplicatedOut = Files.createTempDirectory("tmp-deduplicated");
+      deduplicatedOut.toFile().deleteOnExit();
 
       Path generatedSources = null;
       if (options.srcJarOutput != null || options.rOutput != null
           || options.symbolsTxtOut != null) {
-        generatedSources = tmp.resolve("generated_resources");
+        generatedSources = Files.createTempDirectory("generated_resources");
+        generatedSources.toFile().deleteOnExit();
       }
 
       LOGGER.fine(String.format("Setup finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
@@ -347,7 +350,7 @@ public class AndroidResourceProcessingAction {
           options.versionName,
           filteredData,
           data,
-          tmp.resolve("processed_manifest"),
+          working.resolve("manifest"),
           generatedSources,
           options.packagePath,
           options.proguardOutput,
