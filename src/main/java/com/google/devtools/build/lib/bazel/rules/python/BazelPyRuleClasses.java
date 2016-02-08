@@ -83,7 +83,7 @@ public final class BazelPyRuleClasses {
           // do not depend on lib2to3:2to3 rule, because it creates circular dependencies
           // 2to3 is itself written in Python and depends on many libraries.
           .add(attr("$python2to3", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(env.getToolsRepository() + "//tools/python:2to3")))
+              .value(env.getToolsLabel("//tools/python:2to3")))
           .setPreferredDependencyPredicate(PyRuleClasses.PYTHON_SOURCE)
           .build();
     }

@@ -317,8 +317,7 @@ public final class AndroidRuleClasses {
                   .allowedFileTypes(ANY_FILE)
                   // TODO(bazel-team): Remove defaults and make mandatory when android_sdk targets
                   // have been updated to include manually specified Jack attributes.
-                  .value(environment.getLabel(
-                      environment.getToolsRepository() + "//tools/android/jack:android_jack")))
+                  .value(environment.getToolsLabel("//tools/android/jack:android_jack")))
           .add(attr("annotations_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("main_dex_classes", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("apkbuilder", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
@@ -328,22 +327,19 @@ public final class AndroidRuleClasses {
                   .cfg(HOST)
                   .allowedFileTypes(ANY_FILE)
                   .exec()
-                  .value(environment.getLabel(
-                      environment.getToolsRepository() + "//tools/android/jack:jack")))
+                  .value(environment.getToolsLabel("//tools/android/jack:jack")))
           .add(
               attr("jill", LABEL)
                   .cfg(HOST)
                   .allowedFileTypes(ANY_FILE)
                   .exec()
-                  .value(environment.getLabel(
-                      environment.getToolsRepository() + "//tools/android/jack:jill")))
+                  .value(environment.getToolsLabel("//tools/android/jack:jill")))
           .add(
               attr("resource_extractor", LABEL)
                   .cfg(HOST)
                   .allowedFileTypes(ANY_FILE)
                   .exec()
-                  .value(environment.getLabel(environment.getToolsRepository()
-                      + "//tools/android/jack:resource_extractor")))
+                  .value(environment.getToolsLabel("//tools/android/jack:resource_extractor")))
           .build();
     }
 
@@ -365,9 +361,9 @@ public final class AndroidRuleClasses {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("$android_resources_processor", LABEL).cfg(HOST).exec().value(
-              env.getLabel(env.getToolsRepository() + DEFAULT_RESOURCES_PROCESSOR)))
+              env.getToolsLabel(DEFAULT_RESOURCES_PROCESSOR)))
           .add(attr("$android_aar_generator", LABEL).cfg(HOST).exec().value(
-              env.getLabel(env.getToolsRepository() + DEFAULT_AAR_GENERATOR)))
+              env.getToolsLabel(DEFAULT_AAR_GENERATOR)))
           .build();
     }
 
@@ -488,10 +484,9 @@ public final class AndroidRuleClasses {
           // TODO(ahumesky): It would be better to put this dependency in //tools/android somehow
           // like all the rest of android tools.
           .add(attr("$jarjar_bin", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(
-                  env.getToolsRepository() + "//third_party/java/jarjar:jarjar_bin")))
+              .value(env.getToolsLabel("//third_party/java/jarjar:jarjar_bin")))
           .add(attr("$idlclass", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(env.getToolsRepository() + "//tools/android:IdlClass")))
+              .value(env.getToolsLabel("//tools/android:IdlClass")))
           .build();
     }
 
@@ -545,25 +540,23 @@ public final class AndroidRuleClasses {
               .aspect(JackAspect.class))
           // Proguard rule specifying master list of classes to keep during legacy multidexing.
           .add(attr("$build_incremental_dexmanifest", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(env.getToolsRepository() + BUILD_INCREMENTAL_DEXMANIFEST_LABEL)))
+              .value(env.getToolsLabel(BUILD_INCREMENTAL_DEXMANIFEST_LABEL)))
           .add(attr("$stubify_manifest", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(env.getToolsRepository() + STUBIFY_MANIFEST_LABEL)))
+              .value(env.getToolsLabel(STUBIFY_MANIFEST_LABEL)))
           .add(attr("$shuffle_jars", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(env.getToolsRepository() + "//tools/android:shuffle_jars")))
+              .value(env.getToolsLabel("//tools/android:shuffle_jars")))
           .add(attr("$merge_dexzips", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(env.getToolsRepository() + "//tools/android:merge_dexzips")))
+              .value(env.getToolsLabel("//tools/android:merge_dexzips")))
           .add(attr("$incremental_install", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(env.getToolsRepository() + INCREMENTAL_INSTALL_LABEL)))
+              .value(env.getToolsLabel(INCREMENTAL_INSTALL_LABEL)))
           .add(attr("$build_split_manifest", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(env.getToolsRepository() + BUILD_SPLIT_MANIFEST_LABEL)))
+              .value(env.getToolsLabel(BUILD_SPLIT_MANIFEST_LABEL)))
           .add(attr("$strip_resources", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(env.getToolsRepository() + STRIP_RESOURCES_LABEL)))
+              .value(env.getToolsLabel(STRIP_RESOURCES_LABEL)))
           .add(attr("$incremental_stub_application", LABEL)
-              .value(env.getLabel(env.getToolsRepository()
-                  + DEFAULT_INCREMENTAL_STUB_APPLICATION)))
+              .value(env.getToolsLabel(DEFAULT_INCREMENTAL_STUB_APPLICATION)))
           .add(attr("$incremental_split_stub_application", LABEL)
-              .value(env.getLabel(env.getToolsRepository()
-                  + DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION)))
+              .value(env.getToolsLabel(DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION)))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
           Additional command-line flags for the dx tool when generating classes.dex.
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and

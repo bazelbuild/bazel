@@ -164,7 +164,7 @@ public class BaseRuleClasses {
           .add(attr("args", STRING_LIST)
               .nonconfigurable("policy decision: should be consistent across configurations"))
           .add(attr("$test_runtime", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
-              env.getLabel(env.getToolsRepository() + "//tools/test:runtime"))))
+              env.getToolsLabel("//tools/test:runtime"))))
 
           // TODO(bazel-team): TestActions may need to be run with coverage, so all tests
           // implicitly depend on crosstool, which provides gcov.  We could add gcov to

@@ -262,7 +262,7 @@ public class BazelCppRuleClasses {
           .add(attr("copts", STRING_LIST))
           .add(
               attr("$stl_default", LABEL)
-                  .value(env.getLabel(env.getToolsRepository() + "//tools/cpp:stl")))
+                  .value(env.getToolsLabel("//tools/cpp:stl")))
           .add(attr(":stl", LABEL).value(STL))
           .build();
     }
@@ -541,7 +541,7 @@ public class BazelCppRuleClasses {
                           // sure that the correct headers are used for inclusion.
                           // The only exception is STL itself,
                           // to avoid cycles in the dependency graph.
-                          Label stl = env.getLabel(env.getToolsRepository() + "//tools/cpp:stl");
+                          Label stl = env.getToolsLabel("//tools/cpp:stl");
                           return rule.getLabel().equals(stl) ? null : stl;
                         }
                       }))
@@ -575,7 +575,7 @@ public class BazelCppRuleClasses {
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("malloc", LABEL)
-              .value(env.getLabel(env.getToolsRepository() + "//tools/cpp:malloc"))
+              .value(env.getToolsLabel("//tools/cpp:malloc"))
               .allowedFileTypes()
               .allowedRuleClasses("cc_library"))
           .add(attr(":default_malloc", LABEL).value(DEFAULT_MALLOC))

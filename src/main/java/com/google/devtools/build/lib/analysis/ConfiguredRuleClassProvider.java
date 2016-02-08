@@ -130,7 +130,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       this.runfilesPrefix = runfilesPrefix;
       return this;
     }
-    
+
     public Builder setToolsRepository(String toolsRepository) {
       this.toolsRepository = toolsRepository;
       return this;
@@ -271,10 +271,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     public Label getLabel(String labelValue) {
       return LABELS.getUnchecked(labelValue);
     }
-    
+
     @Override
-    public String getToolsRepository() {
-      return toolsRepository;
+    public Label getToolsLabel(String labelValue) {
+      return getLabel(toolsRepository + labelValue);
     }
   }
 
@@ -309,7 +309,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    * The default runfiles prefix.
    */
   private final String runfilesPrefix;
-  
+
   /**
    * The path to the tools repository.
    */
@@ -405,7 +405,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   public String getRunfilesPrefix() {
     return runfilesPrefix;
   }
-  
+
   @Override
   public String getToolsRepository() {
     return toolsRepository;

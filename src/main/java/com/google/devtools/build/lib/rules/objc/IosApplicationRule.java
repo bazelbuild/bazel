@@ -64,8 +64,7 @@ public class IosApplicationRule implements RuleDefinition {
             .allowedFileTypes()
             .direct_compile_time_input())
         .add(attr("$runner_script_template", LABEL).cfg(HOST)
-            .value(env.getLabel(
-                env.getToolsRepository() + "//tools/objc:ios_runner.sh.mac_template")))
+            .value(env.getToolsLabel("//tools/objc:ios_runner.sh.mac_template")))
         .add(attr("$is_executable", BOOLEAN).value(true)
             .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
         .build();

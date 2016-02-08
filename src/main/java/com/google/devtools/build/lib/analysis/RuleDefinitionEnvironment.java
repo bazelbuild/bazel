@@ -28,7 +28,8 @@ public interface RuleDefinitionEnvironment {
   Label getLabel(String labelValue);
 
   /**
-   * Returns the path to the tools repository. It is different for blaze and bazel.
+   * Prepends the tools repository path to the given string and parses the result
+   * using {@link RuleDefinitionEnvironment#getLabel}
    */
-  String getToolsRepository();
+  Label getToolsLabel(String labelValue);
 }

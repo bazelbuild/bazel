@@ -125,8 +125,8 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("idl_parcelables", LABEL_LIST).direct_compile_time_input()
             .allowedFileTypes(AndroidRuleClasses.ANDROID_IDL))
-        .add(attr("$android_manifest_merge_tool", LABEL).cfg(HOST).exec().value(env.getLabel(
-            env.getToolsRepository() + AndroidRuleClasses.MANIFEST_MERGE_TOOL_LABEL)))
+        .add(attr("$android_manifest_merge_tool", LABEL).cfg(HOST).exec().value(
+            env.getToolsLabel(AndroidRuleClasses.MANIFEST_MERGE_TOOL_LABEL)))
         .advertiseProvider(JavaCompilationArgsProvider.class)
         .build();
   }

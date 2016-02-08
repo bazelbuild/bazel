@@ -76,11 +76,11 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
             .allowedFileTypes(FileType.of(".py"))
             .cfg(HOST)
             .singleArtifact()
-            .value(env.getLabel(env.getToolsRepository() + "//tools/objc:compile_protos")))
+            .value(env.getToolsLabel("//tools/objc:compile_protos")))
         .add(attr(PROTO_SUPPORT_ATTR, LABEL)
             .legacyAllowAnyFileType()
             .cfg(HOST)
-            .value(env.getLabel(env.getToolsRepository() + "//tools/objc:proto_support")))
+            .value(env.getToolsLabel("//tools/objc:proto_support")))
         .add(attr(USE_OBJC_HEADER_NAMES_ATTR, BOOLEAN).value(false))
         .add(attr(LIBPROTOBUF_ATTR, LABEL).allowedRuleClasses("objc_library")
             .value(new ComputedDefault(OUTPUT_CPP_ATTR) {
@@ -92,7 +92,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
               }
             }))
         .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
-            .value(env.getLabel(env.getToolsRepository() + "//tools/objc:xcodegen")))
+            .value(env.getToolsLabel("//tools/objc:xcodegen")))
         .build();
   }
 
