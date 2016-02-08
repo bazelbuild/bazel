@@ -36,7 +36,8 @@ public class MavenJarRule implements RuleDefinition {
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(artifact) -->
-        A description of a Maven artifact.
+        A description of a Maven artifact using
+        <a href="https://maven.apache.org/pom.html#Maven_Coordinates">Maven coordinates</a>.
 
         <p>These descriptions are of the form &lt;groupId&gt:&lt;artifactId&gt;:&lt;version&gt;,
         see <a href="#maven_jar_examples">the documentation below</a> for an example.
