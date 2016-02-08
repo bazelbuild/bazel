@@ -283,24 +283,24 @@ public class AndroidResourceProcessingAction {
     options = optionsParser.getOptions(Options.class);
     FileSystem fileSystem = FileSystems.getDefault();
     Path working = fileSystem.getPath("").toAbsolutePath();
-    Path mergedAssets = working.resolve("merged_assets");
-    Path mergedResources = working.resolve("merged_resources");
-
     final AndroidResourceProcessor resourceProcessor =
         new AndroidResourceProcessor(STD_LOGGER);
 
     try {
+      final Path tmp = Files.createTempDirectory("android_resources_tmp");
+      tmp.toFile().deleteOnExit();
 
-      Path expandedOut = Files.createTempDirectory("tmp-expanded");
-      expandedOut.toFile().deleteOnExit();
-      Path deduplicatedOut = Files.createTempDirectory("tmp-deduplicated");
-      deduplicatedOut.toFile().deleteOnExit();
+      final Path expandedOut = tmp.resolve("tmp-expanded");
+      final Path deduplicatedOut = tmp.resolve("tmp-deduplicated");
+      final Path mergedAssets = tmp.resolve("merged_assets");
+      final Path mergedResources = tmp.resolve("merged_resources");
+      final Path filteredResources = tmp.resolve("resources-filtered");
+      final Path densityManifest = tmp.resolve("manifest-filtered/AndroidManifest.xml");
 
       Path generatedSources = null;
       if (options.srcJarOutput != null || options.rOutput != null
           || options.symbolsTxtOut != null) {
-        generatedSources = Files.createTempDirectory("generated_resources");
-        generatedSources.toFile().deleteOnExit();
+        generatedSources = tmp.resolve("generated_resources");
       }
 
       LOGGER.fine(String.format("Setup finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
@@ -329,10 +329,8 @@ public class AndroidResourceProcessingAction {
           true);
 
       LOGGER.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-      final Path filteredResources = fileSystem.getPath("resources-filtered");
-      final Path densityManifest = fileSystem.getPath("manifest-filtered/AndroidManifest.xml");
       final DensityFilteredAndroidData filteredData = mergedData.filter(
-          new DensitySpecificResourceFilter(options.densities, filteredResources, working),
+          new DensitySpecificResourceFilter(options.densities, filteredResources, mergedResources),
           new DensitySpecificManifestProcessor(options.densities, densityManifest));
       LOGGER.fine(
           String.format("Density filtering finished at %sms",
@@ -350,7 +348,7 @@ public class AndroidResourceProcessingAction {
           options.versionName,
           filteredData,
           data,
-          working.resolve("manifest"),
+          tmp.resolve("processed_manifest"),
           generatedSources,
           options.packagePath,
           options.proguardOutput,
