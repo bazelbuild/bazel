@@ -917,8 +917,11 @@ public final class CompilationSupport {
       commandLine.add("-dead_strip").add("-no_dead_strip_inits_and_terms");
     }
 
-    if (objcConfiguration.shouldPrioritizeSystemLibsOverFrameworks()) {
-      commandLine.addFormatEach("-l%s", libraryNames);
+    if (objcConfiguration.shouldPrioritizeStaticLibs()) {
+      commandLine
+          .addExecPaths(bazelBuiltLibraries)
+          .addExecPaths(objcProvider.get(IMPORTED_LIBRARY))
+          .addExecPaths(ccLibraries);
     }
 
     commandLine
@@ -930,17 +933,18 @@ public final class CompilationSupport {
         .add("-fobjc-link-runtime")
         .add(DEFAULT_LINKER_FLAGS)
         .addBeforeEach("-framework", frameworkNames(objcProvider))
-        .addBeforeEach("-weak_framework", SdkFramework.names(objcProvider.get(WEAK_SDK_FRAMEWORK)));
+        .addBeforeEach("-weak_framework", SdkFramework.names(objcProvider.get(WEAK_SDK_FRAMEWORK)))
+        .addFormatEach("-l%s", libraryNames);
 
-    if (!objcConfiguration.shouldPrioritizeSystemLibsOverFrameworks()) {
-      commandLine.addFormatEach("-l%s", libraryNames);
+    if (!objcConfiguration.shouldPrioritizeStaticLibs()) {
+      commandLine
+          .addExecPaths(bazelBuiltLibraries)
+          .addExecPaths(objcProvider.get(IMPORTED_LIBRARY))
+          .addExecPaths(ccLibraries);
     }
 
     commandLine
         .addExecPath("-o", linkedBinary)
-        .addExecPaths(bazelBuiltLibraries)
-        .addExecPaths(objcProvider.get(IMPORTED_LIBRARY))
-        .addExecPaths(ccLibraries)
         .addBeforeEach("-force_load", Artifact.toExecPaths(objcProvider.get(FORCE_LOAD_LIBRARY)))
         .add(extraLinkArgs)
         .add(objcProvider.get(ObjcProvider.LINKOPT))
