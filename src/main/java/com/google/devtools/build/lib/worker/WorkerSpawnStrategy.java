@@ -186,7 +186,7 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
             String.format(
                 "Worker process sent response with exit code: %d.", response.getExitCode()));
       }
-    } catch (Exception e) {
+    } catch (IOException e) {
       String message =
           CommandFailureUtils.describeCommandFailure(
               verboseFailures, spawn.getArguments(), env, execRoot.getPathString());
@@ -228,7 +228,7 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
 
   private WorkResponse execInWorker(
       EventHandler eventHandler, WorkerKey key, WorkRequest request, int retriesLeft)
-      throws Exception {
+      throws IOException, InterruptedException, UserExecException {
     Worker worker = null;
     WorkResponse response = null;
 
@@ -244,7 +244,7 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
             "Worker process did not return a correct WorkResponse. This is probably caused by a "
                 + "bug in the worker, writing unexpected other data to stdout.");
       }
-    } catch (Exception e) {
+    } catch (IOException | InterruptedException e) {
       if (e instanceof InterruptedException) {
         // The user pressed Ctrl-C. Get out here quick.
         retriesLeft = 0;

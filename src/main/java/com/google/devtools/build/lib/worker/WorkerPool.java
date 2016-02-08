@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import com.google.common.base.Throwables;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.Path;
 
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
+
+import java.io.IOException;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -46,5 +49,25 @@ final class WorkerPool extends GenericKeyedObjectPool<WorkerKey, Worker> {
 
   public void setVerbose(boolean verbose) {
     this.workerFactory.setVerbose(verbose);
+  }
+
+  @Override
+  public Worker borrowObject(WorkerKey key) throws IOException, InterruptedException {
+    try {
+      return super.borrowObject(key);
+    } catch (Throwable t) {
+      Throwables.propagateIfPossible(t, IOException.class, InterruptedException.class);
+      throw new RuntimeException("unexpected", t);
+    }
+  }
+
+  @Override
+  public void invalidateObject(WorkerKey key, Worker obj) throws IOException, InterruptedException {
+    try {
+      super.invalidateObject(key, obj);
+    } catch (Throwable t) {
+      Throwables.propagateIfPossible(t, IOException.class, InterruptedException.class);
+      throw new RuntimeException("unexpected", t);
+    }
   }
 }
