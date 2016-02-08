@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.ideinfo;
 
+import static com.google.common.collect.Iterables.transform;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
@@ -83,6 +84,13 @@ public class IntelliJSkylarkAspectTest extends AndroidStudioInfoAspectTestBase {
     assertThat(ruleIdeInfo.getDependenciesCount()).isEqualTo(0);
     assertThat(relativePathsForSourcesOf(ruleIdeInfo))
         .containsExactly("com/google/example/simple/Simple.java");
+    assertThat(
+            transform(ruleIdeInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
+        .containsExactly(
+            jarString(
+                "com/google/example", "libsimple.jar", "libsimple-ijar.jar", "libsimple-src.jar"));
+    assertThat(ruleIdeInfo.getJavaRuleIdeInfo().getJdeps().getRelativePath())
+        .isEqualTo("com/google/example/libsimple.jdeps");
   }
 
   @Test
@@ -118,6 +126,7 @@ public class IntelliJSkylarkAspectTest extends AndroidStudioInfoAspectTestBase {
         .containsExactly("//com/google/example:complex");
   }
 
+  @Override
   protected Map<String, RuleIdeInfo> buildRuleIdeInfo(String target) throws Exception {
     AnalysisResult analysisResult = update(
         ImmutableList.of(target),

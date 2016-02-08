@@ -69,4 +69,13 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     JavaSourceJarsProvider sourceJars = getInfo().getProvider(JavaSourceJarsProvider.class);
     return sourceJars.getTransitiveSourceJars();
   }
+
+  @SkylarkCallable(
+    name = "outputs",
+    doc = "Returns information about outputs of this Java rule",
+    structField = true
+  )
+  public JavaRuleOutputJarsProvider getOutputJars() {
+    return getInfo().getProvider(JavaRuleOutputJarsProvider.class);
+  }
 }

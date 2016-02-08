@@ -45,20 +45,37 @@ def is_java_rule(target, ctx):
   return ctx.rule.kind != "android_sdk";
 
 def artifact_location(file):
+  if file == None:
+    return None
   return struct(
       root_path = file.root.path, # todo(dslomov): this gives path relative to execution root
       relative_path = file.short_path,
       is_source = file.is_source,
   )
 
+def library_artifact(java_output):
+  if java_output == None:
+    return None
+  return struct(
+        jar = artifact_location(java_output.class_jar),
+        interface_jar = artifact_location(java_output.ijar),
+        source_jar = artifact_location(java_output.source_jar),
+  )
+
 def java_rule_ide_info(target, ctx):
-   if hasattr(ctx.rule.attr, "srcs"):
-      sources = [artifact_location(file)
-                 for src in ctx.rule.attr.srcs
-                 for file in src.files]
-   else:
-      sources = []
-   return struct(sources = sources) # todo(dslomov): more fields
+  if hasattr(ctx.rule.attr, "srcs"):
+     sources = [artifact_location(file)
+                for src in ctx.rule.attr.srcs
+                for file in src.files]
+  else:
+     sources = []
+  jars = [library_artifact(output) for output in target.java.outputs.jars]
+  jdeps = artifact_location(target.java.outputs.jdeps)
+
+  return struct(sources = sources,
+                jars = jars,
+                jdeps = jdeps,
+         ) # todo(dslomov): more fields
 
 
 def _aspect_impl(target, ctx):
