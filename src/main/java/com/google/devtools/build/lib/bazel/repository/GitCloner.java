@@ -161,13 +161,23 @@ public class GitCloner {
           new IOException("Invalid branch, tag, or commit: " + e.getMessage()),
           Transience.PERSISTENT);
     } catch (GitAPIException e) {
+      // This is a sad attempt to actually get a useful error message out of jGit, which will bury
+      // the actual (useful) cause of the exception under several throws.
+      StringBuilder errmsg = new StringBuilder();
+      errmsg.append(e.getMessage());
+      Throwable throwable = e;
+      while (throwable.getCause() != null) {
+        throwable = throwable.getCause();
+        errmsg.append(" caused by " + e.getMessage());
+      }
       throw new RepositoryFunctionException(
-          new IOException("Error cloning repository: " + e.getMessage()), Transience.PERSISTENT);
+          new IOException("Error cloning repository: " + errmsg), Transience.PERSISTENT);
     } catch (JGitInternalException e) {
       // This is a lame catch-all for jgit throwing RuntimeExceptions all over the place because,
       // as the docs put it, "a lot of exceptions are so low-level that is is unlikely that the
       // caller of the command can handle them effectively." Thanks, jgit.
-      throw new RepositoryFunctionException(new IOException(e.getMessage()), Transience.PERSISTENT);
+      throw new RepositoryFunctionException(new IOException(e.getMessage()),
+          Transience.PERSISTENT);
     } finally {
       if (git != null) {
         git.close();
