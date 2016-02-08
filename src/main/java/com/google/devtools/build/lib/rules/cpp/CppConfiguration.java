@@ -284,6 +284,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final boolean supportsGoldLinker;
   private final boolean supportsThinArchives;
   private final boolean supportsStartEndLib;
+  private final boolean supportsDynamicLinker;
   private final boolean supportsInterfaceSharedObjects;
   private final boolean supportsEmbeddedRuntimes;
   private final boolean supportsFission;
@@ -507,16 +508,35 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     }
 
     linkOptionsFromLinkingMode = ArrayListMultimap.create();
+
+    // If a toolchain supports dynamic libraries at all, there must be at least one
+    // of the following:
+    // - a "DYNAMIC" section in linking_mode_flags (even if no flags are needed)
+    // - a non-empty list in one of the dynamicLibraryLinkerFlag fields
+    // If none of the above contain data, then the toolchain can't do dynamic linking.
+    boolean haveDynamicMode = false;
+
     for (LinkingModeFlags flags : toolchain.getLinkingModeFlagsList()) {
       LinkingMode realmode = importLinkingMode(flags.getMode());
+      if (realmode == LinkingMode.DYNAMIC) {
+        haveDynamicMode = true;
+      }
       linkOptionsFromLinkingMode.putAll(realmode, flags.getLinkerFlagList());
     }
 
     this.commonLinkOptions = ImmutableList.copyOf(toolchain.getLinkerFlagList());
+    List<String> linkerFlagList = toolchain.getDynamicLibraryLinkerFlagList();
+    List<CToolchain.OptionalFlag> optionalLinkerFlagList =
+        toolchain.getOptionalDynamicLibraryLinkerFlagList();
+    if (!linkerFlagList.isEmpty() || !optionalLinkerFlagList.isEmpty()) {
+      haveDynamicMode = true;
+    }
+    this.supportsDynamicLinker = haveDynamicMode;
     dynamicLibraryLinkFlags = new FlagList(
-        ImmutableList.copyOf(toolchain.getDynamicLibraryLinkerFlagList()),
-        convertOptionalOptions(toolchain.getOptionalDynamicLibraryLinkerFlagList()),
+        ImmutableList.copyOf(linkerFlagList),
+        convertOptionalOptions(optionalLinkerFlagList),
         ImmutableList.<String>of());
+
     this.objcopyOptions = ImmutableList.copyOf(toolchain.getObjcopyEmbedFlagList());
     this.ldOptions = ImmutableList.copyOf(toolchain.getLdEmbedFlagList());
     this.arOptions = copyOrDefaultIfEmpty(toolchain.getArFlagList(), "rcsD");
@@ -1090,6 +1110,13 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean supportsStartEndLib() {
     return supportsStartEndLib;
+  }
+
+  /**
+   * Returns whether the toolchain supports dynamic linking.
+   */
+  public boolean supportsDynamicLinker() {
+    return supportsDynamicLinker;
   }
 
   /**

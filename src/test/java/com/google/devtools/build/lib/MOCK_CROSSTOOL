@@ -29,6 +29,46 @@ toolchain {
   target_cpu: "k8"
   target_libc: "local"
   compiler: "compiler"
+  linking_mode_flags { mode: DYNAMIC }
+
+  abi_version: "local"
+  abi_libc_version: "local"
+
+  tool_path { name: "ar" path: "/usr/bin/ar" }
+  tool_path { name: "compat-ld" path: "/usr/bin/ld" }
+  tool_path { name: "cpp" path: "/usr/bin/cpp" }
+  tool_path { name: "dwp" path: "/usr/bin/dwp" }
+  tool_path { name: "gcc" path: "/usr/bin/gcc" }
+  tool_path { name: "gcov" path: "/usr/bin/gcov" }
+  tool_path { name: "ld" path: "/usr/bin/ld" }
+  tool_path { name: "nm" path: "/usr/bin/nm" }
+  tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
+  tool_path { name: "objdump" path: "/usr/bin/objdump" }
+  tool_path { name: "strip" path: "/usr/bin/strip" }
+
+  needsPic: true
+  supports_fission: true
+
+  builtin_sysroot: ""
+  cxx_flag: "-std=c++0x"
+  linker_flag: "-lstdc++"
+  cxx_builtin_include_directory: "/usr/lib/gcc/"
+  cxx_builtin_include_directory: "/usr/local/include"
+  cxx_builtin_include_directory: "/usr/include"
+  objcopy_embed_flag: "-I"
+  objcopy_embed_flag: "binary"
+  supports_interface_shared_objects: true
+}
+
+toolchain {
+  toolchain_identifier: "k8-no-dyn-linker"
+
+  host_system_name: "local"
+  target_system_name: "local"
+  target_cpu: "k8"
+  target_libc: "local"
+  compiler: "compiler_no_dyn_linker"
+  # No linking_mode_flags here
 
   abi_version: "local"
   abi_libc_version: "local"
@@ -67,6 +107,7 @@ toolchain {
   target_cpu: "piii"
   target_libc: "local"
   compiler: "compiler"
+  linking_mode_flags { mode: DYNAMIC }
 
   abi_version: "local"
   abi_libc_version: "local"
@@ -104,6 +145,50 @@ toolchain {
   target_cpu: "darwin"
   target_libc: "macosx"
   compiler: "compiler"
+  linking_mode_flags { mode: DYNAMIC }
+
+  abi_version: "local"
+  abi_libc_version: "local"
+
+  tool_path { name: "ar" path: "/usr/bin/libtool" }
+  tool_path { name: "compat-ld" path: "/usr/bin/ld" }
+  tool_path { name: "cpp" path: "/usr/bin/cpp" }
+  tool_path { name: "dwp" path: "/usr/bin/dwp" }
+  tool_path { name: "gcc" path: "/usr/bin/gcc" }
+  tool_path { name: "gcov" path: "/usr/bin/gcov" }
+  tool_path { name: "ld" path: "/usr/bin/ld" }
+  tool_path { name: "nm" path: "/usr/bin/nm" }
+  tool_path { name: "objcopy" path: "/usr/bin/objcopy" }
+  tool_path { name: "objdump" path: "/usr/bin/objdump" }
+  tool_path { name: "strip" path: "/usr/bin/strip" }
+
+  needsPic: false
+
+  builtin_sysroot: ""
+  cxx_flag: "-std=c++0x"
+  ar_flag: "-static"
+  ar_flag: "-s"
+  ar_flag: "-o"
+  linker_flag: "-lstdc++"
+  cxx_builtin_include_directory: "/usr/include"
+  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain"
+  cxx_builtin_include_directory: "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs"
+  cxx_builtin_include_directory: "/opt/local/include"
+  cxx_builtin_include_directory: "/Library/Developer/CommandLineTools"
+  objcopy_embed_flag: "-I"
+  objcopy_embed_flag: "binary"
+  supports_interface_shared_objects: true
+}
+
+toolchain {
+  toolchain_identifier: "local_darwin-no-dyn-linker"
+
+  host_system_name: "local"
+  target_system_name: "local"
+  target_cpu: "darwin"
+  target_libc: "macosx"
+  compiler: "compiler_no_dyn_linker"
+  # No linking_mode_flags here
 
   abi_version: "local"
   abi_libc_version: "local"
@@ -146,6 +231,7 @@ toolchain {
   target_cpu: "k8"
   target_libc: "local"
   compiler: "windows_mingw"
+  linking_mode_flags { mode: DYNAMIC }
 
   abi_version: "local"
   abi_libc_version: "local"
@@ -179,6 +265,7 @@ toolchain {
   target_cpu: "k8"
   target_libc: "local"
   compiler: "windows_msys64_mingw64"
+  linking_mode_flags { mode: DYNAMIC }
 
   abi_version: "local"
   abi_libc_version: "local"
@@ -211,6 +298,7 @@ toolchain {
   target_cpu: "k8"
   target_libc: "local"
   compiler: "windows_clang"
+  linking_mode_flags { mode: DYNAMIC }
 
   abi_version: "local"
   abi_libc_version: "local"
@@ -250,6 +338,7 @@ toolchain {
   abi_libc_version: "armeabi-v7a"
   builtin_sysroot: ""
   compiler: "compiler"
+  linking_mode_flags { mode: DYNAMIC }
   host_system_name: "armeabi-v7a"
   needsPic: true
   supports_gold_linker: false

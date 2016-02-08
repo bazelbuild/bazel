@@ -114,6 +114,15 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testFilesToBuildWithoutDSO() throws Exception {
+    // This is like the preceding test, but with a toolchain that can't build '.so' files
+    useConfiguration("--compiler=compiler_no_dyn_linker");
+    ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
+    Artifact archive = getBinArtifact("libhello.a", hello);
+    assertThat(getFilesToBuild(hello)).containsExactly(archive);
+  }
+
+  @Test
   public void testFilesToBuildWithInterfaceSharedObjects() throws Exception {
     useConfiguration("--interface_shared_objects");
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");

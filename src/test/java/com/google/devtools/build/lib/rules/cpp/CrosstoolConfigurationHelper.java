@@ -88,6 +88,9 @@ public class CrosstoolConfigurationHelper {
         .setCompiler("gcc-4.3.1")
         .setAbiVersion("gcc-3.4")
         .setAbiLibcVersion("2.3.2")
+        // add a submessage that implies support for '.so' files
+        .addLinkingModeFlags(CrosstoolConfig.LinkingModeFlags.newBuilder()
+            .setMode(CrosstoolConfig.LinkingMode.DYNAMIC))
         .addCxxBuiltinIncludeDirectory("/include/directory");
     builder.addToolchain(toolchainBuilder);
     return builder.build();
