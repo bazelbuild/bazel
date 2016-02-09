@@ -571,6 +571,7 @@ public class JavaCommon {
     addInstrumentationFilesProvider(builder, filesToBuild, instrumentationSpec);
     builder
         .add(JavaExportsProvider.class, new JavaExportsProvider(collectTransitiveExports()))
+        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, new JavaSkylarkApiProvider())
         .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, getFilesToCompile(classJar));
   }
 

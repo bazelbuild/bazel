@@ -44,6 +44,10 @@ def get_kind(target, ctx):
 def is_java_rule(target, ctx):
   return ctx.rule.kind != "android_sdk";
 
+def struct_omit_none(**kwargs):
+    d = {name: kwargs[name] for name in kwargs if kwargs[name] != None}
+    return struct(**d)
+
 def artifact_location(file):
   if file == None:
     return None
@@ -56,7 +60,7 @@ def artifact_location(file):
 def library_artifact(java_output):
   if java_output == None:
     return None
-  return struct(
+  return struct_omit_none(
         jar = artifact_location(java_output.class_jar),
         interface_jar = artifact_location(java_output.ijar),
         source_jar = artifact_location(java_output.source_jar),
@@ -72,7 +76,8 @@ def java_rule_ide_info(target, ctx):
   jars = [library_artifact(output) for output in target.java.outputs.jars]
   ide_resolve_files = set([jar
        for jar in [output.class_jar, output.ijar, output.source_jar]
-       for output in target.java.outputs.jars])
+       for output in target.java.outputs.jars
+       if jar != None])
   jdeps = artifact_location(target.java.outputs.jdeps)
 
   return (struct(sources = sources,
