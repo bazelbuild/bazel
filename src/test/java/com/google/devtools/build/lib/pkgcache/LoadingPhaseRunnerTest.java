@@ -489,6 +489,16 @@ public class LoadingPhaseRunnerTest {
     assertCircularSymlinksDuringTargetParsing("//broken/...");
   }
 
+  @Test
+  public void testSuiteInSuite() throws Exception {
+    tester.addFile("suite/BUILD",
+        "test_suite(name = 'a', tests = [':b'])",
+        "test_suite(name = 'b', tests = [':c'])",
+        "sh_test(name = 'c', srcs = ['test.cc'])");
+    LoadingResult loadingResult = assertNoErrors(tester.load("//suite:a"));
+    assertThat(loadingResult.getTargets()).containsExactlyElementsIn(getTargets("//suite:c"));
+  }
+
   private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
     try {
       tester.load(targetPattern);
