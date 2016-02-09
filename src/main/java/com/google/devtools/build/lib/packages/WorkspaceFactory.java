@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder;
 import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
+import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory.EnvironmentExtension;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.syntax.BaseFunction;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
+import com.google.devtools.build.lib.syntax.Environment.Frame;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.FunctionSignature;
@@ -60,6 +62,16 @@ public class WorkspaceFactory {
   public static final String BIND = "bind";
   private static final Pattern LEGAL_WORKSPACE_NAME = Pattern.compile("^\\p{Alpha}\\w*$");
 
+  // List of static function added by #addWorkspaceFunctions. Used to trim them out from the
+  // serialized list of variables bindings.
+  private static final ImmutableList<String> STATIC_WORKSPACE_FUNCTIONS =
+      ImmutableList.of(
+          "workspace",
+          "__embedded_dir__", // serializable so optional
+          "__workspace_dir__", // serializable so optional
+          "DEFAULT_SERVER_JAVABASE", // serializable so optional
+          PackageFactory.PKG_CONTEXT);
+
   private final LegacyBuilder builder;
   
   private final Path installDir;
@@ -68,6 +80,18 @@ public class WorkspaceFactory {
 
   private final ImmutableMap<String, BaseFunction> workspaceFunctions;
   private final ImmutableList<EnvironmentExtension> environmentExtensions;
+
+  // Values from the previous workspace file parts.
+  // List of load statements
+  private ImmutableMap<String, Extension> parentImportMap = ImmutableMap.of();
+  // List of top level variable bindings
+  private ImmutableMap<String, Object> parentVariableBindings = ImmutableMap.of();
+
+  // Values accumulated up to the currently parsed workspace file part.
+  // List of load statements
+  private ImmutableMap<String, Extension> importMap = ImmutableMap.of();
+  // List of top level variable bindings
+  private ImmutableMap<String, Object> variableBindings = ImmutableMap.of();
 
   /**
    * @param builder a builder for the Workspace
@@ -144,7 +168,8 @@ public class WorkspaceFactory {
     Preconditions.checkNotNull(importedExtensions);
     execute(ast, importedExtensions, new StoredEventHandler());
   }
-  
+
+
   private void execute(BuildFileAST ast, @Nullable Map<String, Extension> importedExtensions,
       StoredEventHandler localReporter)
       throws InterruptedException {
@@ -152,13 +177,44 @@ public class WorkspaceFactory {
         .setGlobals(Environment.BUILD)
         .setEventHandler(localReporter);
     if (importedExtensions != null) {
-      environmentBuilder.setImportedExtensions(importedExtensions);
+      importMap =
+          ImmutableMap.<String, Extension>builder()
+              .putAll(parentImportMap)
+              .putAll(importedExtensions)
+              .build();
+    } else {
+      importMap = parentImportMap;
     }
+    environmentBuilder.setImportedExtensions(importMap);
     Environment workspaceEnv = environmentBuilder.setLoadingPhase().build();
     addWorkspaceFunctions(workspaceEnv, localReporter);
+    for (Map.Entry<String, Object> binding : parentVariableBindings.entrySet()) {
+      try {
+        workspaceEnv.update(binding.getKey(), binding.getValue());
+      } catch (EvalException e) {
+        // This should never happen because everything was already evaluated.
+        throw new IllegalStateException(e);
+      }
+    }
     if (!ast.exec(workspaceEnv, localReporter)) {
       localReporter.handle(Event.error("Error evaluating WORKSPACE file"));
     }
+
+    // Save the list of variable bindings for the next part of the workspace file. The list of
+    // variable bindings of interest are the global variable bindings that are defined by the user,
+    // so not the workspace functions.
+    // Workspace functions are not serializable and should not be passed over sky values. They
+    // also have a package builder specific to the current part and should be reinitialized for
+    // each workspace file.
+    ImmutableMap.Builder<String, Object> bindingsBuilder = ImmutableMap.builder();
+    Frame globals = workspaceEnv.getGlobals();
+    for (String s : globals.getDirectVariableNames()) {
+      Object o = globals.get(s);
+      if (!isAWorkspaceFunction(s, o)) {
+        bindingsBuilder.put(s, o);
+      }
+    }
+    variableBindings = bindingsBuilder.build();
 
     builder.addEvents(localReporter.getEvents());
     if (localReporter.hasErrors()) {
@@ -167,9 +223,36 @@ public class WorkspaceFactory {
     localReporter.clear();
   }
 
+  private boolean isAWorkspaceFunction(String name, Object o) {
+    return STATIC_WORKSPACE_FUNCTIONS.contains(name) || (workspaceFunctions.get(name) == o);
+  }
+
   private static boolean isLegalWorkspaceName(String name) {
     Matcher matcher = LEGAL_WORKSPACE_NAME.matcher(name);
     return matcher.matches();
+  }
+
+  /**
+   * Adds the various values returned by the parsing of the previous workspace file parts.
+   * {@code aPackage} is the package returned by the parent WorkspaceFileFunction, {@code importMap}
+   * is the list of load statements imports computed by the parent WorkspaceFileFunction and
+   * {@code variableBindings} the list of top level variable bindings of that same call.
+   */
+  public void setParent(
+      Package aPackage,
+      ImmutableMap<String, Extension> importMap,
+      ImmutableMap<String, Object> bindings)
+      throws NameConflictException {
+    this.parentVariableBindings = bindings;
+    this.parentImportMap = importMap;
+    // Transmit the content of the parent package to the new package builder.
+    builder.addEvents(aPackage.getEvents());
+    if (aPackage.containsErrors()) {
+      builder.setContainsErrors();
+    }
+    for (Target target : aPackage.getTargets(Rule.class)) {
+      builder.addRule((Rule) target);
+    }
   }
 
   @SkylarkSignature(name = "workspace", objectType = Object.class, returnType = SkylarkList.class,
@@ -327,5 +410,13 @@ public class WorkspaceFactory {
 
   static {
     SkylarkSignatureProcessor.configureSkylarkFunctions(WorkspaceFactory.class);
+  }
+
+  public Map<String, Extension> getImportMap() {
+    return importMap;
+  }
+
+  public Map<String, Object> getVariableBindings() {
+    return variableBindings;
   }
 }

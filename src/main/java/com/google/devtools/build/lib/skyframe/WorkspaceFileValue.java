@@ -14,14 +14,17 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -84,12 +87,38 @@ public class WorkspaceFileValue implements SkyValue {
   private final int idx;
   private final RootedPath path;
   private final boolean hasNext;
+  // TODO(dmarting): The bindings bind to "Object" which we should ultimately replace by a super
+  // type in the Environment class (that would ease the serialization of this object).
+  private final ImmutableMap<String, Object> bindings;
+  private final ImmutableMap<String, Extension> importMap;
 
-  public WorkspaceFileValue(Package pkg, RootedPath path, int idx, boolean hasNext) {
+  /**
+   * Create a WorkspaceFileValue containing the various values necessary to compute the split
+   * WORKSPACE file.
+   * @param pkg Package built by agreggating all parts of the split WORKSPACE file up to this one.
+   * @param importMap List of imports (i.e., load statements) present in all parts of the split
+   * WORKSPACE file up to this one.
+   * @param bindings List of top-level variable bindings from the all parts of the split
+   * WORKSPACE file up to this one. The key is the name of the bindings and the value is the actual
+   * object.
+   * @param path The rooted path to workspace file to parse.
+   * @param idx The index of this part of the split WORKSPACE file (0 for the first one, 1 for the
+   * second one and so on).
+   * @param hasNext Is there a next part in the WORKSPACE file or this part the last one?
+   */
+  public WorkspaceFileValue(
+      Package pkg,
+      Map<String, Extension> importMap,
+      Map<String, Object> bindings,
+      RootedPath path,
+      int idx,
+      boolean hasNext) {
     this.pkg = Preconditions.checkNotNull(pkg);
     this.idx = idx;
     this.path = path;
     this.hasNext = hasNext;
+    this.bindings = ImmutableMap.copyOf(bindings);
+    this.importMap = ImmutableMap.copyOf(importMap);
   }
 
   /**
@@ -102,10 +131,10 @@ public class WorkspaceFileValue implements SkyValue {
 
   @Override
   public String toString() {
-    return "<WorkspaceFileValue idx=" + idx + ">";
+    return "<WorkspaceFileValue path=" + path + " idx=" + idx + ">";
   }
 
-  private static SkyKey key(RootedPath path, int idx) {
+  static SkyKey key(RootedPath path, int idx) {
     return new SkyKey(SkyFunctions.WORKSPACE_FILE, new WorkspaceFileKey(path, idx));
   }
 
@@ -148,5 +177,13 @@ public class WorkspaceFileValue implements SkyValue {
 
   public RootedPath getPath() {
     return path;
+  }
+
+  public ImmutableMap<String, Object> getBindings() {
+    return bindings;
+  }
+
+  public ImmutableMap<String, Extension> getImportMap() {
+    return importMap;
   }
 }
