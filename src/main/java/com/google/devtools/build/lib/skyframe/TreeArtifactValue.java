@@ -16,13 +16,17 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFile;
 import com.google.devtools.build.lib.actions.cache.Digest;
 import com.google.devtools.build.lib.actions.cache.Metadata;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
+import java.io.IOException;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -160,4 +164,49 @@ public class TreeArtifactValue extends ArtifactValue {
       return "MISSING_TREE_ARTIFACT";
     }
   };
+
+  /**
+   * Exception used when the contents of a directory do not form a valid SetArtifact.
+   * (We cannot use IOException because ActionMetadataHandler, in some code paths,
+   * interprets IOExceptions as missing files.)
+   */
+  static class TreeArtifactException extends Exception {
+    TreeArtifactException(String message) {
+      super(message);
+    }
+  }
+
+  private static void explodeDirectory(Artifact rootArtifact,
+      PathFragment pathToExplode, ImmutableSet.Builder<PathFragment> valuesBuilder)
+      throws IOException, TreeArtifactException {
+    for (Path subpath : rootArtifact.getPath().getRelative(pathToExplode).getDirectoryEntries()) {
+      PathFragment canonicalSubpathFragment =
+          pathToExplode.getChild(subpath.getBaseName()).normalize();
+      if (subpath.isDirectory()) {
+        explodeDirectory(rootArtifact,
+            pathToExplode.getChild(subpath.getBaseName()), valuesBuilder);
+      } else if (subpath.isSymbolicLink()) {
+        throw new TreeArtifactException(
+            "A SetArtifact may not contain a symlink, found " + subpath);
+      } else if (subpath.isFile()) {
+        valuesBuilder.add(canonicalSubpathFragment);
+      } else {
+        // We shouldn't ever reach here.
+        throw new IllegalStateException("Could not determine type of file " + subpath);
+      }
+    }
+  }
+
+  /**
+   * Recursively get all child files in a directory
+   * (excluding child directories themselves, but including all files in them).
+   * @throws IOException if one was thrown reading directory contents from disk.
+   * @throws TreeArtifactException if the on-disk directory is not a valid TreeArtifact.
+   */
+  static Set<PathFragment> explodeDirectory(Artifact rootArtifact)
+      throws IOException, TreeArtifactException {
+    ImmutableSet.Builder<PathFragment> explodedDirectory = ImmutableSet.builder();
+    explodeDirectory(rootArtifact, PathFragment.EMPTY_FRAGMENT, explodedDirectory);
+    return explodedDirectory.build();
+  }
 }

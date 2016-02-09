@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrappe
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.AutoProfiler.ElapsedTimeReceiver;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker.DirtyResult;
+import com.google.devtools.build.lib.skyframe.TreeArtifactValue.TreeArtifactException;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileStatusWithDigest;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.Differencer;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -214,29 +216,37 @@ public class FilesystemValueChecker {
     return new Runnable() {
       @Override
       public void run() {
-        Map<Artifact, Pair<SkyKey, ActionExecutionValue>> artifactToKeyAndValue = new HashMap<>();
+        Map<ArtifactFile, Pair<SkyKey, ActionExecutionValue>> fileToKeyAndValue = new HashMap<>();
+        Map<Artifact, Pair<SkyKey, ActionExecutionValue>> treeArtifactsToKeyAndValue =
+            new HashMap<>();
         for (Pair<SkyKey, ActionExecutionValue> keyAndValue : shard) {
           ActionExecutionValue actionValue = keyAndValue.getSecond();
           if (actionValue == null) {
             dirtyKeys.add(keyAndValue.getFirst());
           } else {
             for (ArtifactFile file : actionValue.getAllFileValues().keySet()) {
-              // File system value checking for non-Artifacts is not yet implemented.
-              if (file instanceof Artifact) {
-                Artifact artifact = (Artifact) file;
-                if (shouldCheckArtifact(knownModifiedOutputFiles, artifact)) {
-                  artifactToKeyAndValue.put(artifact, keyAndValue);
-                }
+              if (shouldCheckFile(knownModifiedOutputFiles, file)) {
+                fileToKeyAndValue.put(file, keyAndValue);
               }
+            }
+
+            // TreeArtifacts are always checked because we can't match modified files to modified
+            // TreeArtifacts. We could construct a sorted map to do this, but it's unclear
+            // whether this is a performance savings, since we expect the ratio of ordinary
+            // files to TreeArtifacts directories and subdirectories to be rather high.
+            // TODO(bazel-team): Investigate whether we can use modified output file awareness
+            // to speed this up.
+            for (Artifact artifact : actionValue.getAllTreeArtifactValues().keySet()) {
+              treeArtifactsToKeyAndValue.put(artifact, keyAndValue);
             }
           }
         }
 
-        List<Artifact> artifacts = ImmutableList.copyOf(artifactToKeyAndValue.keySet());
+        List<ArtifactFile> files = ImmutableList.copyOf(fileToKeyAndValue.keySet());
         List<FileStatusWithDigest> stats;
         try {
           stats = batchStatter.batchStat(/*includeDigest=*/true, /*includeLinks=*/true,
-              Artifact.asPathFragments(artifacts));
+              Artifact.asPathFragments(files));
         } catch (IOException e) {
           // Batch stat did not work. Log an exception and fall back on system calls.
           LoggingUtil.logToRemote(Level.WARNING, "Unable to process batch stat", e);
@@ -247,17 +257,17 @@ public class FilesystemValueChecker {
           return;
         }
 
-        Preconditions.checkState(artifacts.size() == stats.size(),
-            "artifacts.size() == %s stats.size() == %s", artifacts.size(), stats.size());
-        for (int i = 0; i < artifacts.size(); i++) {
-          Artifact artifact = artifacts.get(i);
+        Preconditions.checkState(files.size() == stats.size(),
+            "artifacts.size() == %s stats.size() == %s", files.size(), stats.size());
+        for (int i = 0; i < files.size(); i++) {
+          ArtifactFile file = files.get(i);
           FileStatusWithDigest stat = stats.get(i);
-          Pair<SkyKey, ActionExecutionValue> keyAndValue = artifactToKeyAndValue.get(artifact);
+          Pair<SkyKey, ActionExecutionValue> keyAndValue = fileToKeyAndValue.get(file);
           ActionExecutionValue actionValue = keyAndValue.getSecond();
           SkyKey key = keyAndValue.getFirst();
-          FileValue lastKnownData = actionValue.getAllFileValues().get(artifact);
+          FileValue lastKnownData = actionValue.getAllFileValues().get(file);
           try {
-            FileValue newData = ActionMetadataHandler.fileValueFromArtifactFile(artifact, stat,
+            FileValue newData = ActionMetadataHandler.fileValueFromArtifactFile(file, stat,
                 tsgm);
             if (!newData.equals(lastKnownData)) {
               updateIntraBuildModifiedCounter(stat != null ? stat.getLastChangeTime() : -1,
@@ -269,6 +279,29 @@ public class FilesystemValueChecker {
             // This is an unexpected failure getting a digest or symlink target.
             modifiedOutputFilesCounter.getAndIncrement();
             dirtyKeys.add(key);
+          }
+        }
+
+        // Unfortunately, there exists no facility to batch list directories.
+        // We must use direct filesystem calls.
+        for (Map.Entry<Artifact, Pair<SkyKey, ActionExecutionValue>> entry :
+            treeArtifactsToKeyAndValue.entrySet()) {
+          Artifact artifact = entry.getKey();
+          if (treeArtifactIsDirty(
+              entry.getKey(), entry.getValue().getSecond().getTreeArtifactValue(artifact))) {
+            Path path = artifact.getPath();
+            // Count the changed directory as one "file".
+            // TODO(bazel-team): There are no tests for this codepath.
+            try {
+              updateIntraBuildModifiedCounter(path.exists()
+                  ? path.getLastModifiedTime()
+                  : -1, false, path.isSymbolicLink());
+            } catch (IOException e) {
+              // Do nothing here.
+            }
+
+            modifiedOutputFilesCounter.getAndIncrement();
+            dirtyKeys.add(entry.getValue().getFirst());
           }
         }
       }
@@ -285,8 +318,8 @@ public class FilesystemValueChecker {
   }
 
   private Runnable outputStatJob(final Collection<SkyKey> dirtyKeys,
-          final List<Pair<SkyKey, ActionExecutionValue>> shard,
-          final ImmutableSet<PathFragment> knownModifiedOutputFiles) {
+      final List<Pair<SkyKey, ActionExecutionValue>> shard,
+      final ImmutableSet<PathFragment> knownModifiedOutputFiles) {
     return new Runnable() {
       @Override
       public void run() {
@@ -313,13 +346,30 @@ public class FilesystemValueChecker {
     return modifiedOutputFilesIntraBuildCounter.get();
   }
 
+  private boolean treeArtifactIsDirty(Artifact artifact, TreeArtifactValue value) {
+    if (artifact.getPath().isSymbolicLink()) {
+      // TreeArtifacts may not be symbolic links.
+      return true;
+    }
+
+    // There doesn't appear to be any facility to batch list directories... we must
+    // do things the 'slow' way.
+    try {
+      Set<PathFragment> currentDirectoryValue = TreeArtifactValue.explodeDirectory(artifact);
+      Set<PathFragment> valuePaths = value.getChildPaths();
+      return !currentDirectoryValue.equals(valuePaths);
+    } catch (IOException | TreeArtifactException e) {
+      return true;
+    }
+  }
+
   private boolean actionValueIsDirtyWithDirectSystemCalls(ActionExecutionValue actionValue,
       ImmutableSet<PathFragment> knownModifiedOutputFiles) {
     boolean isDirty = false;
     for (Map.Entry<ArtifactFile, FileValue> entry : actionValue.getAllFileValues().entrySet()) {
       ArtifactFile file = entry.getKey();
       FileValue lastKnownData = entry.getValue();
-      if (shouldCheckArtifact(knownModifiedOutputFiles, file)) {
+      if (shouldCheckFile(knownModifiedOutputFiles, file)) {
         try {
           FileValue fileValue = ActionMetadataHandler.fileValueFromArtifactFile(file, null,
               tsgm);
@@ -337,10 +387,30 @@ public class FilesystemValueChecker {
         }
       }
     }
+
+    for (Map.Entry<Artifact, TreeArtifactValue> entry :
+        actionValue.getAllTreeArtifactValues().entrySet()) {
+      Artifact artifact = entry.getKey();
+      if (treeArtifactIsDirty(artifact, entry.getValue())) {
+        Path path = artifact.getPath();
+        // Count the changed directory as one "file".
+        try {
+          updateIntraBuildModifiedCounter(path.exists()
+              ? path.getLastModifiedTime()
+              : -1, false, path.isSymbolicLink());
+        } catch (IOException e) {
+          // Do nothing here.
+        }
+
+        modifiedOutputFilesCounter.getAndIncrement();
+        isDirty = true;
+      }
+    }
+
     return isDirty;
   }
 
-  private static boolean shouldCheckArtifact(ImmutableSet<PathFragment> knownModifiedOutputFiles,
+  private static boolean shouldCheckFile(ImmutableSet<PathFragment> knownModifiedOutputFiles,
       ArtifactFile file) {
     return knownModifiedOutputFiles == null
         || knownModifiedOutputFiles.contains(file.getExecPath());
