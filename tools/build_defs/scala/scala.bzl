@@ -252,7 +252,7 @@ scala_test = rule(
   implementation=_scala_test_impl,
   attrs={
       "main_class": attr.string(default="org.scalatest.tools.Runner"),
-      "suites": attr.string_list(),
+      "suites": attr.string_list(non_empty=True, mandatory=True),
       "_scalatest": attr.label(executable=True, default=Label("@scalatest//file"), single_file=True, allow_files=True),
       "_java": attr.label(executable=True, default=Label("@bazel_tools//tools/jdk:java"), single_file=True, allow_files=True),
       } + _implicit_deps + _common_attrs,
