@@ -183,6 +183,12 @@ a minimal set of extra dependencies.
 * License: Eclipse Distribution License 1.0
 
 
+## [JimFS](https://github.com/google/jimfs)
+
+* Version: 1.1-rc1
+* License: Apache License 2.0
+
+
 ## [joda_time](http://www.joda.org/joda-time/)
 
 * Version: 2.3

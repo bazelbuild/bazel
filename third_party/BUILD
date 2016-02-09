@@ -295,6 +295,11 @@ java_import(
 )
 
 java_import(
+    name = "jimfs",
+    jars = ["jimfs-1.1-rc1.jar"],
+)
+
+java_import(
     name = "joda_time",
     jars = ["joda_time/joda-time-2.3.jar"],
 )
