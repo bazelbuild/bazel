@@ -499,6 +499,37 @@ public class LoadingPhaseRunnerTest {
     assertThat(loadingResult.getTargets()).containsExactlyElementsIn(getTargets("//suite:c"));
   }
 
+  @Test
+  public void testTopLevelTargetErrorsPrintedExactlyOnce_NoKeepGoing() throws Exception {
+    // 42 is not a valid bash_version, and this is detected during package loading.
+    tester.addFile("bad/BUILD", "sh_binary(name = 'bad', srcs = ['bad.sh'], bash_version = '42')");
+    try {
+      tester.load("//bad");
+      fail();
+    } catch (TargetParsingException expected) {
+    }
+    tester.assertContainsEventWithFrequency("invalid value in 'bash_version' attribute", 1);
+  }
+
+  @Test
+  public void testTopLevelTargetErrorsPrintedExactlyOnce_KeepGoing() throws Exception {
+    // 42 is not a valid bash_version, and this is detected during package loading.
+    tester.addFile("bad/BUILD", "sh_binary(name = 'bad', srcs = ['bad.sh'], bash_version = '42')");
+    LoadingResult loadingResult = tester.loadKeepGoing("//bad");
+    if (runsLoadingPhase()) {
+      // The legacy loading phase runner reports a loading error, but no target pattern error in
+      // keep_going mode, even though it's clearly an error in the referenced target itself, rather
+      // than in its transitive closure. This happens because the target pattern eval swallows such
+      // errors in keep_going mode. We could fix that, but it's a fairly invasive change, and we're
+      // planning to migrate to the Skyframe-based implementation anyway.
+      assertThat(loadingResult.hasTargetPatternError()).isFalse();
+      assertThat(loadingResult.hasLoadingError()).isTrue();
+    } else {
+      assertThat(loadingResult.hasTargetPatternError()).isTrue();
+    }
+    tester.assertContainsEventWithFrequency("invalid value in 'bash_version' attribute", 1);
+  }
+
   private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
     try {
       tester.load(targetPattern);
@@ -697,6 +728,11 @@ public class LoadingPhaseRunnerTest {
 
     public Event assertContainsError(String expectedMessage) {
       return MoreAsserts.assertContainsEvent(filteredEvents(), expectedMessage, EventKind.ERRORS);
+    }
+
+    public void assertContainsEventWithFrequency(String expectedMessage, int expectedFrequency) {
+      MoreAsserts.assertContainsEventWithFrequency(
+          filteredEvents(), expectedMessage, expectedFrequency);
     }
   }
 
