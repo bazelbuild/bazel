@@ -59,7 +59,6 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
   protected static final boolean EXPECT_ERROR = true;
   protected TransitivePackageLoader visitor = null;
   protected CustomInMemoryFs fs = new CustomInMemoryFs(new ManualClock());
-  protected SkyframeExecutor skyframeExecutor;
   protected PreprocessorUtils.MutableFactorySupplier preprocessorFactorySupplier =
       new PreprocessorUtils.MutableFactorySupplier(null);
 
@@ -192,7 +191,8 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
   }
 
   protected void syncPackages(ModifiedFileSet modifiedFileSet) throws InterruptedException {
-    skyframeExecutor.invalidateFilesUnderPathForTesting(reporter, modifiedFileSet, rootDirectory);
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(reporter, modifiedFileSet, rootDirectory);
   }
 
   @Override
@@ -201,7 +201,7 @@ abstract public class SkyframeLabelVisitorTestCase extends PackageLoadingTestCas
     Set<Target> targets = new HashSet<>();
     for (String strLabel : strLabels) {
       Label label = Label.parseAbsolute(strLabel);
-      targets.add(skyframeExecutor.getPackageManager().getTarget(reporter, label));
+      targets.add(getSkyframeExecutor().getPackageManager().getTarget(reporter, label));
     }
     return targets;
   }
