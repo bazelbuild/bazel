@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.cmdline;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.testutil.TestUtils;
@@ -196,6 +197,20 @@ public class LabelTest {
     assertEquals(RepositoryName.create("@"), relative.getPackageIdentifier().getRepository());
     assertEquals(new PathFragment("x"), relative.getPackageFragment());
     assertEquals("y", relative.getName());
+  }
+
+  @Test
+  public void testGetRepositoryRelative() throws Exception {
+    Label defaultBase = Label.parseAbsolute("//foo/bar:baz");
+    Label repoBase = Label.parseAbsolute("@repo//foo/bar:baz");
+    Label mainBase = Label.parseAbsolute("@//foo/bar:baz");
+    Label externalTarget = Label.parseAbsolute("//external:target");
+    Label l = defaultBase.resolveRepositoryRelative(externalTarget);
+    assertTrue(l.getPackageIdentifier().getRepository().isDefault());
+    assertEquals("external", l.getPackageName());
+    assertEquals("target", l.getName());
+    assertEquals(l, repoBase.resolveRepositoryRelative(externalTarget));
+    assertEquals(l, mainBase.resolveRepositoryRelative(externalTarget));
   }
 
   @Test
