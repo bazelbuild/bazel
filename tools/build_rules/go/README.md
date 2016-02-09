@@ -34,7 +34,7 @@ They currently do not support (in order of importance):
 * Add the following to your WORKSPACE file:
 
     ```python
-    load("/tools/build_rules/go/def", "go_repositories")
+    load("@bazel_tools//tools/build_rules/go:def.bzl", "go_repositories")
 
     go_repositories()
     ```
@@ -44,7 +44,7 @@ They currently do not support (in order of importance):
   empty.
 
     ```python
-    load("/tools/build_rules/go/def", "go_prefix")
+    load("@bazel_tools//tools/build_rules/go:def.bzl", "go_prefix")
 
     go_prefix("github.com/joe/project")
     ```
@@ -52,7 +52,7 @@ They currently do not support (in order of importance):
 * For a library `github.com/joe/project/lib`, create `lib/BUILD`, containing
 
     ```python
-    load("/tools/build_rules/go/def", "go_library")
+    load("@bazel_tools//tools/build_rules/go:def.bzl", "go_library")
 
     go_library(
         name = "go_default_library",

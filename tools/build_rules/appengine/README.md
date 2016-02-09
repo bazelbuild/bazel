@@ -23,7 +23,7 @@ available to Bazel. The easiest way to do so is by adding the following to your
 `WORKSPACE` file:
 
 ```python
-load("/tools/build_rules/appengine/appengine", "appengine_repositories")
+load("@bazel_tools//tools/build_rules/appengine:appengine.bzl", "appengine_repositories")
 
 appengine_repositories()
 ```
@@ -51,7 +51,7 @@ application:
 Then, to build your webapp, your `hello_app/BUILD` can look like:
 
 ```python
-load("/tools/build_rules/appengine/appengine", "appengine_war")
+load("@bazel_tools//tools/build_rules/appengine:appengine.bzl", "appengine_war")
 
 java_library(
     name = "mylib",
@@ -74,7 +74,7 @@ For simplicity, you can use the `java_war` rule to build an app from source.
 Your `hello_app/BUILD` file would then look like:
 
 ```python
-load("/tools/build_rules/appengine/appengine", "java_war")
+load("@bazel_tools//tools/build_rules/appengine:appengine.bzl", "java_war")
 
 java_war(
     name = "myapp",

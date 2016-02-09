@@ -16,7 +16,7 @@ Add the following to your `WORKSPACE` file to add the external repositories
 for the various Closure Tools binaries and the Closure Library:
 
 ```python
-load("/tools/build_rules/closure/closure_repositories", "closure_repositories")
+load("@bazel_tools//tools/build_rules/closure:closure_repositories.bzl", "closure_repositories")
 
 closure_repositories()
 ```
@@ -67,10 +67,10 @@ We can create a BUILD file to compile these and produce two files:
 `BUILD`
 
 ```python
-load("/tools/build_rules/closure/closure_js_binary", "closure_js_binary")
-load("/tools/build_rules/closure/closure_js_library", "closure_js_library")
-load("/tools/build_rules/closure/closure_stylesheet_library", "closure_stylesheet_library")
-load("/tools/build_rules/closure/closure_template_library", "closure_template_library")
+load("@bazel_tools//tools/build_rules/closure:closure_js_binary.bzl", "closure_js_binary")
+load("@bazel_tools//tools/build_rules/closure:closure_js_library.bzl", "closure_js_library")
+load("@bazel_tools//tools/build_rules/closure:closure_stylesheet_library.bzl", "closure_stylesheet_library")
+load("@bazel_tools//tools/build_rules/closure:closure_template_library.bzl", "closure_template_library")
 
 closure_js_binary(
     name = "hello",

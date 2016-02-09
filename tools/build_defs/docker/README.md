@@ -30,7 +30,7 @@ The docker_build rule constructs a tarball that is compatible with
 Consider the following BUILD file in `//third_party/debian`:
 
 ```python
-load("/tools/build_defs/docker/docker", "docker_build")
+load("@bazel_tools//tools/build_defs/docker:docker.bzl", "docker_build")
 
 filegroup(
     name = "ca_certificates",
@@ -142,7 +142,7 @@ If you do not want to check in base image in your repository, you can use
 you could create various layer with `external` labels:
 
 ```python
-load("/tools/build_defs/docker/docker", "docker_build")
+load("@bazel_tools//tools/build_defs/docker:docker.bzl", "docker_build")
 
 docker_build(
     name = "java",
@@ -172,7 +172,7 @@ http_file(
 With the following `debian.BUILD` file:
 
 ```python
-load("/tools/build_defs/docker/docker", "docker_build")
+load("@bazel_tools//tools/build_defs/docker:docker.bzl", "docker_build")
 
 # Extract .xz files
 genrule(

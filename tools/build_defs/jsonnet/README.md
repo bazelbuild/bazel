@@ -21,7 +21,7 @@ To use the Jsonnet rules, add the following to your `WORKSPACE` file to add the
 external repositories for Jsonnet:
 
 ```python
-load("/tools/build_defs/jsonnet/jsonnet", "jsonnet_repositories")
+load("@bazel_tools//tools/build_defs/jsonnet:jsonnet.bzl", "jsonnet_repositories")
 
 jsonnet_repositories()
 ```
@@ -103,7 +103,7 @@ files that can be imported by other `.jsonnet` files as dependencies:
 `configs/BUILD`:
 
 ```python
-load("/tools/build_defs/jsonnet/jsonnet", "jsonnet_library")
+load("@bazel_tools//tools/build_defs/jsonnet:jsonnet.bzl", "jsonnet_library")
 
 jsonnet_library(
     name = "configs",
@@ -266,7 +266,7 @@ First, create a `jsonnet_library` target with `workflow.jsonnet`:
 `workflows/BUILD`:
 
 ```python
-load("/tools/build_defs/jsonnet/jsonnet", "jsonnet_library")
+load("@bazel_tools//tools/build_defs/jsonnet:jsonnet.bzl", "jsonnet_library")
 
 jsonnet_library(
     name = "workflow",
@@ -483,7 +483,7 @@ the expected JSON output:
 
 ```python
 load(
-    "/tools/build_defs/jsonnet/jsonnet",
+    "@bazel_tools//tools/build_defs/jsonnet:jsonnet.bzl",
     "jsonnet_library",
     "jsonnet_to_json_test",
 )
@@ -531,7 +531,7 @@ the expected error output:
 
 ```python
 load(
-    "/tools/build_defs/jsonnet/jsonnet",
+    "@bazel_tools//tools/build_defs/jsonnet:jsonnet.bzl",
     "jsonnet_library",
     "jsonnet_to_json_test",
 )
