@@ -35,7 +35,7 @@ scala_library(
 
 scala_test(
     name = "HelloLibTest",
-    size = "medium",  # Not a macro, can pass test-specific attributes.
+    size = "small",  # Not a macro, can pass test-specific attributes.
     srcs = ["HelloLibTest.scala"],
     suites = [
         "scala.test.ScalaSuite",
