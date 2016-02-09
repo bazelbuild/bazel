@@ -868,10 +868,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testTags() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",

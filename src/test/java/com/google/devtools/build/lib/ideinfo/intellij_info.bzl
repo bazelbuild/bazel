@@ -113,6 +113,7 @@ def _aspect_impl(target, ctx):
           dependencies = all_deps,
           # build_file = ???
           java_rule_ide_info = java_rule_ide_info,
+          tags = ctx.rule.attr.tags,
       )
     else:
       info = struct(
