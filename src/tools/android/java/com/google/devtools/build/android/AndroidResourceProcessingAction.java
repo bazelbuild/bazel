@@ -90,6 +90,13 @@ public class AndroidResourceProcessingAction {
     // TODO(bazel-team): Determine what the API version changes in AndroidBuilder.
     public FullRevision apiVersion;
 
+    @Option(name = "buildToolsVersion",
+        defaultValue = "null",
+        converter = FullRevisionConverter.class,
+        category = "config",
+        help = "Version of the build tools (e.g. aapt) being used, e.g. 23.0.2")
+    public FullRevision buildToolsVersion;
+    
     @Option(name = "aapt",
         defaultValue = "null",
         converter = ExistingPathConverter.class,
