@@ -1896,7 +1896,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   @Override
-  public void prepareHook(Path execRoot, ArtifactFactory artifactFactory, PathFragment genfilesPath,
+  public void prepareHook(Path execRoot, ArtifactFactory artifactFactory,
       PackageRootResolver resolver) throws ViewCreationFailedException {
     // TODO(bazel-team): Remove the "relative" guard. sysroot should always be relative, and this
     // should be enforced in the creation of CppConfiguration.
@@ -1919,7 +1919,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       }
     }
     try {
-      getFdoSupport().prepareToBuild(execRoot, genfilesPath, artifactFactory, resolver);
+      getFdoSupport().prepareToBuild(execRoot, artifactFactory, resolver);
     } catch (ZipException e) {
       throw new ViewCreationFailedException("Error reading provided FDO zip file", e);
     } catch (FdoException | IOException | PackageRootResolutionException e) {
