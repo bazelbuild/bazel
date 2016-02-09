@@ -18,16 +18,34 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.BuildView;
+import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.ArtifactLocation;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.JavaRuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo.Kind;
+import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.vfs.Path;
 
+import com.google.protobuf.TextFormat;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -49,7 +67,9 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(ruleIdeInfos.size()).isEqualTo(1);
     RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(
         "//com/google/example:simple", ruleIdeInfos);
-    assertThat(ruleIdeInfo.getBuildFile()).isEqualTo(buildFilePath.toString());
+    if (isNativeTest()) {
+      assertThat(ruleIdeInfo.getBuildFile()).isEqualTo(buildFilePath.toString());
+    }
     assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.JAVA_LIBRARY);
     assertThat(ruleIdeInfo.getDependenciesCount()).isEqualTo(0);
     assertThat(relativePathsForSourcesOf(ruleIdeInfo))
@@ -70,6 +90,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testPackageManifestCreated() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -87,7 +111,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
   }
   
   @Test
-  public void testJavaLibraryProtoWithDependencies() throws Exception {
+  public void testJavaLibraryWithDependencies() throws Exception {
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -199,6 +223,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testJavaLibraryWithExports() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -247,6 +275,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testJavaLibraryWithTransitiveExports() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -291,6 +323,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testJavaImport() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "com/google/example/BUILD",
         "java_import(",
@@ -331,6 +367,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testJavaImportWithExports() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -362,6 +402,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testNoPackageManifestForExports() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -390,6 +434,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testGeneratedJavaImportFilesAreAddedToOutputGroup() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "com/google/example/BUILD",
         "java_import(",
@@ -417,6 +465,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAspectIsPropagatedAcrossExports() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -435,6 +487,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testJavaTest() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "java/com/google/example/BUILD",
         "java_library(",
@@ -472,6 +528,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testJavaBinary() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -508,6 +568,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidLibrary() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "com/google/example/BUILD",
         "android_library(",
@@ -562,6 +626,9 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidBinary() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
     scratch.file(
         "com/google/example/BUILD",
         "android_library(",
@@ -619,6 +686,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidInferredPackage() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "java/com/google/example/BUILD",
         "android_library(",
@@ -641,6 +712,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidLibraryWithoutAidlHasNoIdlJars() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "java/com/google/example/BUILD",
         "android_library(",
@@ -657,6 +732,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidLibraryWithAidlHasIdlJars() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "java/com/google/example/BUILD",
         "android_library(",
@@ -685,6 +764,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidLibraryGeneratedManifestIsAddedToOutputGroup() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "com/google/example/BUILD",
         "android_library(",
@@ -710,6 +793,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testJavaLibraryWithoutGeneratedSourcesHasNoGenJars() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "java/com/google/example/BUILD",
         "java_library(",
@@ -727,6 +814,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testJavaLibraryWithGeneratedSourcesHasGenJars() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "java/com/google/example/BUILD",
         "java_library(",
@@ -764,6 +855,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testNonConformingPackageName() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "bad/package/google/example/BUILD",
         "android_library(",
@@ -781,6 +876,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testTags() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -796,6 +895,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidLibraryWithoutSourcesExportsDependencies() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "java/com/google/example/BUILD",
         "android_library(",
@@ -821,6 +924,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testSourceFilesAreCorrectlyMarkedAsSourceOrGenerated() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "com/google/example/BUILD",
         "genrule(",
@@ -849,6 +956,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAspectIsPropagatedAcrossRuntimeDeps() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -871,6 +982,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testRuntimeDepsAddedToProto() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -904,6 +1019,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidLibraryGeneratesResourceClass() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "java/com/google/example/BUILD",
         "android_library(",
@@ -936,6 +1055,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testJavaPlugin() throws Exception {
+    if (!isNativeTest()) {
+      return;
+    }
+
     scratch.file(
         "java/com/google/example/BUILD",
         "java_plugin(",
@@ -954,5 +1077,70 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         LIBRARY_ARTIFACT_TO_STRING))
         .containsExactly(jarString("java/com/google/example",
             "libplugin.jar", "libplugin-ijar.jar", "libplugin-src.jar"));
+  }
+
+  /**
+   * Returns true if we are testing the native aspect, not the Skylark one.
+   * Eventually Skylark aspect will be equivalent to a native one, and this method
+   * will be removed.
+   */
+  public boolean isNativeTest() {
+    return true;
+  }
+
+  /**
+   * Test for Skylark version of the aspect.
+   */
+  @RunWith(JUnit4.class)
+  public static class IntelliJSkylarkAspectTest extends AndroidStudioInfoAspectTest {
+    @Before
+    public void setupBzl() throws Exception {
+      InputStream stream = IntelliJSkylarkAspectTest.class
+          .getResourceAsStream("intellij_info.bzl");
+      BufferedReader reader =
+          new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
+      String line;
+      ArrayList<String> contents = new ArrayList<>();
+      while ((line = reader.readLine()) != null) {
+        contents.add(line);
+      }
+
+      scratch.file("intellij_tools/BUILD", "# empty");
+      scratch.file("intellij_tools/intellij_info.bzl", contents.toArray(new String[0]));
+    }
+
+    @Override
+    protected Map<String, RuleIdeInfo> buildRuleIdeInfo(String target) throws Exception {
+      BuildView.AnalysisResult analysisResult = update(
+          ImmutableList.of(target),
+          ImmutableList.of("intellij_tools/intellij_info.bzl%intellij_info_aspect"),
+          false,
+          LOADING_PHASE_THREADS,
+          true,
+          new EventBus()
+      );
+      Collection<AspectValue> aspects = analysisResult.getAspects();
+      assertThat(aspects).hasSize(1);
+      AspectValue aspectValue = aspects.iterator().next();
+      this.configuredAspect = aspectValue.getConfiguredAspect();
+      OutputGroupProvider provider = configuredAspect.getProvider(OutputGroupProvider.class);
+      NestedSet<Artifact> outputGroup = provider.getOutputGroup("ide-info-text");
+      Map<String, RuleIdeInfo> ruleIdeInfos = new HashMap<>();
+      for (Artifact artifact : outputGroup) {
+        Action generatingAction = getGeneratingAction(artifact);
+        assertThat(generatingAction).isInstanceOf(FileWriteAction.class);
+        String fileContents = ((FileWriteAction) generatingAction).getFileContents();
+        RuleIdeInfo.Builder builder = RuleIdeInfo.newBuilder();
+        TextFormat.getParser().merge(fileContents, builder);
+        RuleIdeInfo ruleIdeInfo = builder.build();
+        ruleIdeInfos.put(ruleIdeInfo.getLabel(), ruleIdeInfo);
+      }
+      return ruleIdeInfos;
+    }
+
+    @Override
+    public boolean isNativeTest() {
+      return false;
+    }
   }
 }
