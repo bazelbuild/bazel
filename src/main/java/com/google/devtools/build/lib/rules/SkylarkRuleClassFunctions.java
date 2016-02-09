@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithCallback;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SkylarkImplicitOutputsFunctionWithMap;
@@ -93,6 +94,7 @@ import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -117,6 +119,39 @@ public class SkylarkRuleClassFunctions {
         public Label getDefault(Rule rule, BuildConfiguration configuration) {
           RunUnder runUnder = configuration.getRunUnder();
           return runUnder == null ? null : runUnder.getLabel();
+        }
+      };
+
+  private static final Label COVERAGE_SUPPORT_LABEL =
+      Label.parseAbsoluteUnchecked("//tools/defaults:coverage");
+
+  private static final LateBoundLabelList<BuildConfiguration> GCOV =
+      new LateBoundLabelList<BuildConfiguration>(ImmutableList.of(COVERAGE_SUPPORT_LABEL)) {
+        @Override
+        public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
+          return configuration.isCodeCoverageEnabled()
+              ? ImmutableList.copyOf(configuration.getGcovLabels())
+              : ImmutableList.<Label>of();
+        }
+      };
+
+  private static final LateBoundLabelList<BuildConfiguration> COVERAGE_REPORT_GENERATOR =
+      new LateBoundLabelList<BuildConfiguration>(ImmutableList.of(COVERAGE_SUPPORT_LABEL)) {
+        @Override
+        public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
+          return configuration.isCodeCoverageEnabled()
+              ? ImmutableList.copyOf(configuration.getCoverageReportGeneratorLabels())
+              : ImmutableList.<Label>of();
+        }
+      };
+
+  private static final LateBoundLabelList<BuildConfiguration> COVERAGE_SUPPORT =
+      new LateBoundLabelList<BuildConfiguration>(ImmutableList.of(COVERAGE_SUPPORT_LABEL)) {
+        @Override
+        public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
+          return configuration.isCodeCoverageEnabled()
+              ? ImmutableList.copyOf(configuration.getCoverageLabels())
+              : ImmutableList.<Label>of();
         }
       };
 
@@ -183,6 +218,12 @@ public class SkylarkRuleClassFunctions {
           .add(attr("$test_runtime", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
               labelCache.getUnchecked(Constants.TOOLS_REPOSITORY + "//tools/test:runtime"))))
           .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER))
+          .add(attr(":gcov", LABEL_LIST).cfg(HOST).value(GCOV))
+          .add(attr(":coverage_support", LABEL_LIST).cfg(HOST).value(COVERAGE_SUPPORT))
+          .add(
+              attr(":coverage_report_generator", LABEL_LIST)
+                  .cfg(HOST)
+                  .value(COVERAGE_REPORT_GENERATOR))
           .build();
 
   /**

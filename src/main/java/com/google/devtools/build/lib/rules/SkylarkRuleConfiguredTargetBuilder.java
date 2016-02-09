@@ -29,6 +29,9 @@ import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext.Kind;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
@@ -43,7 +46,11 @@ import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -221,6 +228,44 @@ public final class SkylarkRuleConfiguredTargetBuilder {
           defaultRunfiles = cast("default_runfiles", struct, Runfiles.class, loc);
         } else if (key.equals("output_groups")) {
           addOutputGroups(struct.getValue(key), loc, builder);
+        } else if (key.equals("instrumented_files")) {
+          SkylarkClassObject insStruct =
+              cast("instrumented_files", struct, SkylarkClassObject.class, loc);
+          Location insLoc = insStruct.getCreationLoc();
+          FileTypeSet fileTypeSet = FileTypeSet.ANY_FILE;
+          if (insStruct.getKeys().contains("extensions")) {
+            List<String> exts = cast("extensions", insStruct, List.class, String.class, insLoc);
+            if (exts.isEmpty()) {
+              fileTypeSet = FileTypeSet.NO_FILE;
+            } else {
+              FileType[] fileTypes = new FileType[exts.size()];
+              for (int i = 0; i < fileTypes.length; i++) {
+                fileTypes[i] = FileType.of(exts.get(i));
+              }
+              fileTypeSet = FileTypeSet.of(fileTypes);
+            }
+          }
+          List<String> dependencyAttributes = Collections.emptyList();
+          if (insStruct.getKeys().contains("dependency_attributes")) {
+            dependencyAttributes =
+                cast("dependency_attributes", insStruct, List.class, String.class, insLoc);
+          }
+          List<String> sourceAttributes = Collections.emptyList();
+          if (insStruct.getKeys().contains("source_attributes")) {
+            sourceAttributes =
+                cast("source_attributes", insStruct, List.class, String.class, insLoc);
+          }
+          InstrumentationSpec instrumentationSpec =
+              new InstrumentationSpec(fileTypeSet)
+                  .withSourceAttributes(sourceAttributes.toArray(new String[0]))
+                  .withDependencyAttributes(dependencyAttributes.toArray(new String[0]));
+          InstrumentedFilesProvider instrumentedFilesProvider =
+              InstrumentedFilesCollector.collect(
+                  ruleContext,
+                  instrumentationSpec,
+                  InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
+                  Collections.<Artifact>emptySet());
+          builder.addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider);
         } else if (!key.equals("executable")) {
           // We handled executable already.
           builder.addSkylarkTransitiveInfo(key, struct.getValue(key), loc);

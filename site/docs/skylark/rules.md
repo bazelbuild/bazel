@@ -357,6 +357,29 @@ binary should know about them.
 Also note that if an action uses an executable, the executable's runfiles can
 be used when the action executes.
 
+Instrumented files
+------------------
+
+Instrumented files are a set of files used by the coverage command. A rule can
+use the `instrumented_files` provider to provide information about which files
+should be used for measuring coverage.
+
+```skylark
+def rule_implementation(ctx):
+  ...
+  return struct(instrumented_files=struct(
+      # Optional: File extensions used to filter files from source_attributes.
+      # If not provided, then all files from source_attributes will be
+      # added to instrumented files, if an empty list is provided, then
+      # no files from source attributes will be added.
+      extensions=["ext1", "ext2"],
+      # Optional: Attributes that contain source files for this rule.
+      source_attributes=["srcs"],
+      # Optional: Attributes for dependencies that could include instrumented
+      # files.
+      dependency_attributes=["data", "deps"]))
+```
+
 Executable rules
 ----------------
 
