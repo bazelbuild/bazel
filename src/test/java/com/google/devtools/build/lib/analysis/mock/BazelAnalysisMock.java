@@ -216,6 +216,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
   }
 
   @Override
+  public ConfigurationFactory createFullConfigurationFactory() {
+    return createConfigurationFactory();
+  }
+
+  @Override
   public ConfigurationCollectionFactory createConfigurationCollectionFactory() {
     return new BazelConfigurationCollection();
   }

@@ -64,6 +64,11 @@ public abstract class AnalysisMock {
 
   public abstract ConfigurationFactory createConfigurationFactory();
 
+  /**
+   * Creates a configuration factory that doesn't contain any mock parts.
+   */
+  public abstract ConfigurationFactory createFullConfigurationFactory();
+
   public abstract ConfigurationCollectionFactory createConfigurationCollectionFactory();
 
   public abstract Collection<String> getOptionOverrides();
@@ -108,6 +113,11 @@ public abstract class AnalysisMock {
     @Override
     public ConfigurationFactory createConfigurationFactory() {
       return delegate.createConfigurationFactory();
+    }
+
+    @Override
+    public ConfigurationFactory createFullConfigurationFactory() {
+      return delegate.createFullConfigurationFactory();
     }
 
     @Override

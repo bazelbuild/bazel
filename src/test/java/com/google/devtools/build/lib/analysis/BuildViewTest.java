@@ -38,6 +38,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.analysis.util.AnalysisTestCase.Flag;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -47,6 +49,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.testutil.Suite;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
@@ -1030,6 +1033,77 @@ public class BuildViewTest extends BuildViewTestBase {
     }
     assertContainsEventWithFrequency(
         "no such target '//nobuild:bar': target 'bar' not declared in package 'nobuild'", 1);
+  }
+
+  @Test
+  public void testBadLabelInConfiguration() throws Exception {
+    useConfiguration("--crosstool_top=//third_party/crosstool/v2");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update(defaultFlags().with(Flag.KEEP_GOING));
+      fail();
+    } catch (LoadingFailedException | InvalidConfigurationException e) {
+      assertContainsEvent(
+          "no such package 'third_party/crosstool/v2': BUILD file not found on package path");
+    }
+  }
+
+  @Test
+  public void testMissingFdoOptimize() throws Exception {
+    // The fdo_optimize flag uses a different code path, because it also accepts paths.
+    useConfiguration("--fdo_optimize=//does/not/exist");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update(defaultFlags().with(Flag.KEEP_GOING));
+      fail();
+    } catch (LoadingFailedException | InvalidConfigurationException e) {
+      assertContainsEvent(
+          "no such package 'does/not/exist': BUILD file not found on package path");
+    }
+  }
+
+  @Test
+  public void testMissingJavabase() throws Exception {
+    // The javabase flag uses yet another code path with its own redirection logic on top of the
+    // redirect chaser.
+    scratch.file("jdk/BUILD",
+        "filegroup(name = 'jdk', srcs = [",
+        "    '//does/not/exist:a-piii', '//does/not/exist:b-k8', '//does/not/exist:c-default'])");
+    scratch.file("does/not/exist/BUILD");
+    useConfigurationFactory(AnalysisMock.get().createFullConfigurationFactory());
+    useConfiguration("--javabase=//jdk");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update(defaultFlags().with(Flag.KEEP_GOING));
+      fail();
+    } catch (LoadingFailedException | InvalidConfigurationException e) {
+      if (TestConstants.THIS_IS_BAZEL) {
+        // TODO(ulfjack): Bazel ignores the --cpu setting and just uses "default" instead. This
+        // means all cross-platform Java builds are broken for checked-in JDKs.
+        assertContainsEvent(
+            "no such target '//does/not/exist:c-default': target 'c-default' not declared in");
+      } else {
+        assertContainsEvent(
+            "no such target '//does/not/exist:b-k8': target 'b-k8' not declared in package");
+      }
+    }
+  }
+
+  @Test
+  public void testMissingXcodeVersion() throws Exception {
+    // The xcode_version flag uses yet another code path on top of the redirect chaser.
+    // Note that the redirect chaser throws if it can't find a package, but doesn't throw if it
+    // can't find a label in a package - that's why we use an empty package here.
+    scratch.file("xcode/BUILD");
+    useConfiguration("--xcode_version=1.2", "--xcode_version_config=//xcode:does_not_exist");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update(defaultFlags().with(Flag.KEEP_GOING));
+      fail();
+    } catch (LoadingFailedException | InvalidConfigurationException e) {
+      assertContainsEvent(
+          "no such target '//xcode:does_not_exist': target 'does_not_exist' not declared");
+    }
   }
 
   /** Runs the same test with the reduced loading phase. */

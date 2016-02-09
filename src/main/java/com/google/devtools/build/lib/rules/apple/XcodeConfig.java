@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -206,6 +207,7 @@ public class XcodeConfig implements RuleConfiguredTargetFactory {
             description, label, type));
       }
     } catch (NoSuchPackageException | NoSuchTargetException exception) {
+      env.getEventHandler().handle(Event.error(exception.getMessage()));
       throw new InvalidConfigurationException(exception);
     }
   }
