@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Helper utility to create ActionInput instances.
@@ -170,6 +172,20 @@ public final class ActionInputHelper {
             return artifactFile(parent, pathFragment);
           }
         });
+  }
+
+  /** Returns an Set of ArtifactFiles with the given parent and parent relative paths. */
+  public static Set<ArtifactFile> asArtifactFiles(
+      final Artifact parent, Set<? extends PathFragment> parentRelativePaths) {
+    Preconditions.checkState(parent.isTreeArtifact(),
+        "Given parent %s must be a TreeArtifact", parent);
+
+    ImmutableSet.Builder<ArtifactFile> builder = ImmutableSet.builder();
+    for (PathFragment path : parentRelativePaths) {
+      builder.add(artifactFile(parent, path));
+    }
+
+    return builder.build();
   }
 
   /**
