@@ -33,28 +33,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MissingInputFileException;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.TestAction.DummyAction;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.events.NullEventHandler;
-import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
-import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.EvaluationResult;
-import com.google.devtools.build.skyframe.InMemoryMemoizingEvaluator;
-import com.google.devtools.build.skyframe.MemoizingEvaluator;
-import com.google.devtools.build.skyframe.RecordingDifferencer;
-import com.google.devtools.build.skyframe.SequentialBuildDriver;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -68,78 +54,27 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Tests for {@link ArtifactFunction}.
  */
 // Doesn't actually need any particular Skyframe, but is only relevant to Skyframe full mode.
 @RunWith(JUnit4.class)
-public class ArtifactFunctionTest {
-  private static final SkyKey OWNER_KEY = new SkyKey(SkyFunctions.ACTION_LOOKUP, "OWNER");
-  private static final ActionLookupKey ALL_OWNER = new SingletonActionLookupKey();
+public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
 
   private PathFragment allowedMissingInput = null;
-  private Predicate<PathFragment> allowedMissingInputsPredicate = new Predicate<PathFragment>() {
-    @Override
-    public boolean apply(PathFragment input) {
-      return input.equals(allowedMissingInput);
-    }
-  };
-
-  private Set<Action> actions;
-  private boolean fastDigest = false;
-  private RecordingDifferencer differencer = new RecordingDifferencer();
-  private SequentialBuildDriver driver;
-  private MemoizingEvaluator evaluator;
-  private Path root;
-  private TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
 
   @Before
   public final void setUp() throws Exception  {
-    setupRoot(new CustomInMemoryFs());
-    AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>(new PathPackageLocator(
-        root.getFileSystem().getPath("/outputbase"), ImmutableList.of(root)));
-    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator, false);
-    differencer = new RecordingDifferencer();
-    evaluator =
-        new InMemoryMemoizingEvaluator(
-            ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper))
-                .put(SkyFunctions.FILE, new FileFunction(pkgLocator))
-                .put(SkyFunctions.ARTIFACT, new ArtifactFunction(allowedMissingInputsPredicate))
-                .put(SkyFunctions.ACTION_EXECUTION, new SimpleActionExecutionFunction())
-                .put(
-                    SkyFunctions.PACKAGE,
-                    new PackageFunction(null, null, null, null, null, null, null))
-                .put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(null))
-                .put(
-                    SkyFunctions.WORKSPACE_AST,
-                    new WorkspaceASTFunction(TestRuleClassProvider.getRuleClassProvider()))
-                .put(
-                    SkyFunctions.WORKSPACE_FILE,
-                    new WorkspaceFileFunction(
-                        TestRuleClassProvider.getRuleClassProvider(),
-                        new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),
-                        new BlazeDirectories(root, root, root)))
-                .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
-                .build(),
-            differencer);
-    driver = new SequentialBuildDriver(evaluator);
-    PrecomputedValue.BUILD_ID.set(differencer, UUID.randomUUID());
-    PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
-    actions = new HashSet<>();
-  }
-
-  private void setupRoot(CustomInMemoryFs fs) throws IOException {
-    root = fs.getPath(TestUtils.tmpDir());
-    FileSystemUtils.createDirectoryAndParents(root);
-    FileSystemUtils.createEmptyFile(root.getRelative("WORKSPACE"));
+    delegateActionExecutionFunction = new SimpleActionExecutionFunction();
+    allowedMissingInputsPredicate = new Predicate<PathFragment>() {
+      @Override
+      public boolean apply(PathFragment input) {
+        return input.equals(allowedMissingInput);
+      }
+    };
   }
 
   private void assertFileArtifactValueMatches(boolean expectDigest) throws Throwable {
@@ -452,23 +387,6 @@ public class ArtifactFunctionTest {
         NullEventHandler.INSTANCE);
   }
 
-  private static void writeFile(Path path, String contents) throws IOException {
-    FileSystemUtils.createDirectoryAndParents(path.getParentDirectory());
-    FileSystemUtils.writeContentAsLatin1(path, contents);
-  }
-
-  private static class SingletonActionLookupKey extends ActionLookupKey {
-    @Override
-    SkyKey getSkyKey() {
-      return OWNER_KEY;
-    }
-
-    @Override
-    SkyFunctionName getType() {
-      throw new UnsupportedOperationException();
-    }
-  }
-
   /** Value Builder for actions that just stats and stores the output file (which must exist). */
   private class SimpleActionExecutionFunction implements SkyFunction {
     @Override
@@ -479,7 +397,7 @@ public class ArtifactFunctionTest {
       FileArtifactValue value;
       if (action.getActionType() == MiddlemanType.NORMAL) {
         try {
-          FileValue fileValue = ActionMetadataHandler.fileValueFromArtifact(output, null, tsgm);
+          FileValue fileValue = ActionMetadataHandler.fileValueFromArtifactFile(output, null, tsgm);
           artifactData.put(output, fileValue);
           value = FileArtifactValue.create(output, fileValue);
         } catch (IOException e) {
@@ -488,25 +406,15 @@ public class ArtifactFunctionTest {
       } else {
         value = FileArtifactValue.DEFAULT_MIDDLEMAN;
       }
-      return new ActionExecutionValue(artifactData, ImmutableMap.of(output, value));
+      return new ActionExecutionValue(
+          artifactData,
+          ImmutableMap.<Artifact, TreeArtifactValue>of(),
+          ImmutableMap.of(output, value));
     }
 
     @Override
     public String extractTag(SkyKey skyKey) {
       return null;
-    }
-  }
-
-  /** InMemoryFileSystem that can pretend to do a fast digest. */
-  private class CustomInMemoryFs extends InMemoryFileSystem {
-    @Override
-    protected String getFastDigestFunctionType(Path path) {
-      return fastDigest ? "MD5" : null;
-    }
-
-    @Override
-    protected byte[] getFastDigest(Path path) throws IOException {
-      return fastDigest ? getMD5Digest(path) : null;
     }
   }
 }

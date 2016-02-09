@@ -615,7 +615,9 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
             "%s %s", actionExecutionContext.getMetadataHandler(), metadataHandler);
         prepareScheduleExecuteAndCompleteAction(action, actionExecutionContext, actionStartTime);
         return new ActionExecutionValue(
-            metadataHandler.getOutputData(), metadataHandler.getAdditionalOutputData());
+            metadataHandler.getOutputArtifactFileData(),
+            ImmutableMap.<Artifact, TreeArtifactValue>of(),
+            metadataHandler.getAdditionalOutputData());
       } finally {
         profiler.completeTask(ProfilerTask.ACTION);
       }

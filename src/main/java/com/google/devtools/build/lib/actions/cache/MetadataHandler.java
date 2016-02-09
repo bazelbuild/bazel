@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions.cache;
 
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactFile;
 import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 
@@ -49,6 +50,13 @@ public interface MetadataHandler {
   void setDigestForVirtualArtifact(Artifact artifact, Digest digest);
 
   /**
+   * Registers the given output as contents of a TreeArtifact, without injecting its digest.
+   * Prefer {@link #injectDigest} when the digest is available.
+   * @throws IllegalStateException if the given output does not have a TreeArtifact parent.
+   */
+  void addExpandedTreeOutput(ArtifactFile output) throws IllegalStateException;
+
+  /**
    * Injects provided digest into the metadata handler, simultaneously caching lstat() data as well.
    */
   void injectDigest(ActionInput output, FileStatus statNoFollow, byte[] digest);
@@ -75,14 +83,14 @@ public interface MetadataHandler {
   boolean artifactOmitted(Artifact artifact);
 
   /**
-   * @return Whether the artifact's data was injected.
-   * @throws IOException if implementation tried to stat artifact which threw an exception.
+   * @return Whether the ArtifactFile's data was injected.
+   * @throws IOException if implementation tried to stat the ArtifactFile which threw an exception.
    *         Technically, this means that the artifact could not have been injected, but by throwing
    *         here we save the caller trying to stat this file on their own and throwing the same
    *         exception. Implementations are not guaranteed to throw in this case if they are able to
    *         determine that the artifact is not injected without statting it.
    */
-  boolean isInjected(Artifact artifact) throws IOException;
+  boolean isInjected(ArtifactFile file) throws IOException;
 
   /**
    * Discards all known output artifact metadata, presumably because outputs will be modified.

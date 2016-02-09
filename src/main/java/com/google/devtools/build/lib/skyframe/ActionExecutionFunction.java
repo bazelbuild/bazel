@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -335,7 +336,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     if (state.token == null) {
       // We got a hit from the action cache -- no need to execute.
       return new ActionExecutionValue(
-          metadataHandler.getOutputData(),
+          metadataHandler.getOutputArtifactFileData(),
+          ImmutableMap.<Artifact, TreeArtifactValue>of(),
           metadataHandler.getAdditionalOutputData());
     }
 

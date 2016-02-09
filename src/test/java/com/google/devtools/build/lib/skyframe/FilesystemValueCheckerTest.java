@@ -453,12 +453,16 @@ public class FilesystemValueCheckerTest {
         Path path = output.getPath();
         FileStatusWithDigest stat =
             forceDigest ? statWithDigest(path, path.statIfFound(Symlinks.NOFOLLOW)) : null;
-        artifactData.put(output, ActionMetadataHandler.fileValueFromArtifact(output, stat, tsgm));
+        artifactData.put(output,
+            ActionMetadataHandler.fileValueFromArtifactFile(output, stat, tsgm));
       } catch (IOException e) {
         throw new IllegalStateException(e);
       }
     }
-    return new ActionExecutionValue(artifactData, ImmutableMap.<Artifact, FileArtifactValue>of());
+    return new ActionExecutionValue(
+        artifactData,
+        ImmutableMap.<Artifact, TreeArtifactValue>of(),
+        ImmutableMap.<Artifact, FileArtifactValue>of());
   }
 
   @Test

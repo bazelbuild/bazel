@@ -76,7 +76,9 @@ class ArtifactFunction implements SkyFunction {
       return null;
     }
 
-    if (!isAggregatingValue(action)) {
+    if (artifact.isTreeArtifact()) {
+      return actionValue.getTreeArtifactValue(artifact);
+    } else if (!isAggregatingValue(action)) {
       try {
         return createSimpleValue(artifact, actionValue);
       } catch (IOException e) {

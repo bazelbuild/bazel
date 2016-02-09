@@ -27,9 +27,21 @@ import java.util.Arrays;
 import javax.annotation.Nullable;
 
 /**
- * Stores the data of an artifact corresponding to a file. This file may be an ordinary file, in
- * which case we would expect to see a digest and size; a directory, in which case we would expect
- * to see an mtime; or an empty file, where we would expect to see a size (=0), mtime, and digest
+ * Stores the actual metadata data of a file. We have the following cases:
+ * <ul><li>
+ *   an ordinary file, in which case we would expect to see a digest and size;
+ * </li><li>
+ *   a directory, in which case we would expect to see an mtime;
+ * </li><li>
+ *   an empty file corresponding to an Artifact, where we would expect to see a size (=0), mtime,
+ *   and digest;
+ * </li><li>
+ *   an intentionally omitted file which the build system is aware of but doesn't actually exist,
+ *   where all access methods are unsupported;
+ * </li><li>
+ *   The "self data" of a middleman artifact or TreeArtifact, where we would expect to see a digest
+ *   representing the artifact's contents, and a size of 1.
+ * </li></ul>
  */
 public class FileArtifactValue extends ArtifactValue {
   /** Data for Middleman artifacts that did not have data specified. */
@@ -44,7 +56,7 @@ public class FileArtifactValue extends ArtifactValue {
   };
 
   /**
-   * Represents an omitted file- we are aware of it but it doesn't exist. All access methods
+   * Represents an omitted file -- we are aware of it but it doesn't exist. All access methods
    * are unsupported.
    */
   static final FileArtifactValue OMITTED_FILE_MARKER = new FileArtifactValue(null, 2, 0) {
@@ -62,7 +74,6 @@ public class FileArtifactValue extends ArtifactValue {
   private final long size;
 
   private FileArtifactValue(byte[] digest, long size) {
-    Preconditions.checkState(size >= 0, "size must be non-negative: %s %s", digest, size);
     this.digest = Preconditions.checkNotNull(digest, size);
     this.size = size;
     this.mtime = -1;
@@ -109,7 +120,23 @@ public class FileArtifactValue extends ArtifactValue {
     return new FileArtifactValue(digest, size);
   }
 
-  static FileArtifactValue createMiddleman(byte[] digest) {
+  /** Returns a FileArtifactValue with the given digest, even for empty files (size = 0). */
+  static FileArtifactValue createWithDigest(Path path, byte[] digest, long size)
+      throws IOException {
+    // Eventually, we want to migrate everything away from using mtimes instead of digests.
+    // But right now, some cases always use digests (TreeArtifacts) and some don't.
+    // So we have different constructors.
+    if (digest == null) {
+      digest = DigestUtils.getDigestOrFail(path, size);
+    }
+    return new FileArtifactValue(digest, size);
+  }
+
+  /**
+   * Creates a FileArtifactValue used as a 'proxy' input for other ArtifactValues.
+   * These are used in {@link com.google.devtools.build.lib.actions.ActionCacheChecker}.
+   */
+  static FileArtifactValue createProxy(byte[] digest) {
     Preconditions.checkNotNull(digest);
     // The Middleman artifact values have size 1 because we want their digests to be used. This hack
     // can be removed once empty files are digested.

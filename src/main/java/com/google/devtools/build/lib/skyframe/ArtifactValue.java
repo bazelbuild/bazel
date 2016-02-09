@@ -29,10 +29,11 @@ import java.util.Collection;
  * A value representing an artifact. Source artifacts are checked for existence, while output
  * artifacts imply creation of the output file.
  *
- * <p>There are effectively two kinds of output artifact values. The first corresponds to an
+ * <p>There are effectively three kinds of output artifact values. The first corresponds to an
  * ordinary artifact {@link FileArtifactValue}. It stores the relevant data for the artifact --
- * digest/mtime and size. The second corresponds to an "aggregating" artifact -- the output of an
- * aggregating middleman action. It stores the relevant data of all its inputs.
+ * digest/mtime and size. The second corresponds to either an "aggregating" artifact -- the output
+ * of an aggregating middleman action -- or a TreeArtifact. It stores the relevant data of all its
+ * inputs, as well as a combined digest for itself.
  */
 @Immutable
 @ThreadSafe

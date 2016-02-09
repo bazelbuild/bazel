@@ -1065,7 +1065,8 @@ public final class ParallelEvaluator implements Evaluator {
       // just order it to be built.
       if (newDirectDeps.isEmpty()) {
         // TODO(bazel-team): This means a bug in the SkyFunction. What to do?
-        Preconditions.checkState(!env.childErrorInfos.isEmpty(), "%s %s", skyKey, state);
+        Preconditions.checkState(!env.childErrorInfos.isEmpty(),
+            "Evaluation of SkyKey failed and no dependencies were requested: %s %s", skyKey, state);
         env.commit(/*enqueueParents=*/keepGoing);
         if (!keepGoing) {
           throw SchedulerException.ofError(state.getErrorInfo(), skyKey);
