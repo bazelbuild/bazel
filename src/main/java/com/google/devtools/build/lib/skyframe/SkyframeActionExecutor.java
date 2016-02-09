@@ -38,7 +38,8 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.MiddlemanExpander;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactFile;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -428,17 +429,17 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     }
   }
 
-  private static class MiddlemanExpanderImpl implements MiddlemanExpander {
-    private final Map<Artifact, Collection<Artifact>> expandedInputMiddlemen;
+  private static class ArtifactExpanderImpl implements ArtifactExpander {
+    private final Map<Artifact, Collection<ArtifactFile>> expandedInputs;
 
-    private MiddlemanExpanderImpl(Map<Artifact, Collection<Artifact>> expandedInputMiddlemen) {
-      this.expandedInputMiddlemen = expandedInputMiddlemen;
+    private ArtifactExpanderImpl(Map<Artifact, Collection<ArtifactFile>> expandedInputMiddlemen) {
+      this.expandedInputs = expandedInputMiddlemen;
     }
 
     @Override
-    public void expand(Artifact middlemanArtifact, Collection<? super Artifact> output) {
-      Preconditions.checkState(middlemanArtifact.isMiddlemanArtifact(), middlemanArtifact);
-      Collection<Artifact> result = expandedInputMiddlemen.get(middlemanArtifact);
+    public void expand(Artifact artifact, Collection<? super ArtifactFile> output) {
+      Preconditions.checkState(artifact.isMiddlemanArtifact(), artifact);
+      Collection<ArtifactFile> result = expandedInputs.get(artifact);
       // Note that result may be null for non-aggregating middlemen.
       if (result != null) {
         output.addAll(result);
@@ -454,14 +455,14 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   @Override
   public ActionExecutionContext getContext(
       ActionInputFileCache graphFileCache, MetadataHandler metadataHandler,
-      Map<Artifact, Collection<Artifact>> expandedInputMiddlemen) {
+      Map<Artifact, Collection<ArtifactFile>> expandedInputs) {
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate();
     return new ActionExecutionContext(
         executorEngine,
         new DelegatingPairFileCache(graphFileCache, perBuildFileCache),
         metadataHandler,
         fileOutErr,
-        new MiddlemanExpanderImpl(expandedInputMiddlemen));
+        new ArtifactExpanderImpl(expandedInputs));
   }
 
   /**

@@ -161,8 +161,8 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
       expandArgument(requestBuilder, Iterables.getLast(spawn.getArguments()));
 
       List<ActionInput> inputs =
-          ActionInputHelper.expandMiddlemen(
-              spawn.getInputFiles(), actionExecutionContext.getMiddlemanExpander());
+          ActionInputHelper.expandArtifacts(
+              spawn.getInputFiles(), actionExecutionContext.getArtifactExpander());
 
       for (ActionInput input : inputs) {
         ByteString digest = inputFileCache.getDigest(input);

@@ -76,7 +76,7 @@ import javax.annotation.Nullable;
  * This is a legacy facility and should not be used by any new rule implementations.
  * In particular, the file system cache integrity checks fail for directories.
  * <li>An 'aggregating middleman' special Artifact, which may be expanded using a
- * {@link MiddlemanExpander} at Action execution time. This is used by a handful of rules to save
+ * {@link ArtifactExpander} at Action execution time. This is used by a handful of rules to save
  * memory.
  * <li>A 'constant metadata' special Artifact. These represent real files, changes to which are
  * ignored by the build system. They are useful for files which change frequently but do not affect
@@ -116,14 +116,15 @@ public class Artifact implements FileType.HasFilename, ArtifactFile, SkylarkValu
   };
 
   /** An object that can expand middleman artifacts. */
-  public interface MiddlemanExpander {
+  public interface ArtifactExpander {
 
     /**
-     * Expands the middleman artifact "mm", and populates "output" with the result.
+     * Expands the given artifact, and populates "output" with the result.
      *
-     * <p>{@code mm.isMiddlemanArtifact()} must be true. Only aggregating middlemen are expanded.
+     * <p>{@code artifact.isMiddlemanArtifact() || artifact.isTreeArtifact()} must be true.
+     * Only aggregating middlemen and tree artifacts are expanded.
      */
-    void expand(Artifact mm, Collection<? super Artifact> output);
+    void expand(Artifact artifact, Collection<? super ArtifactFile> output);
   }
 
   public static final ImmutableList<Artifact> NO_ARTIFACTS = ImmutableList.of();
@@ -639,8 +640,8 @@ public class Artifact implements FileType.HasFilename, ArtifactFile, SkylarkValu
    * {@link MiddlemanType#AGGREGATING_MIDDLEMAN} middleman actions expanded once.
    */
   public static void addExpandedArtifacts(Iterable<Artifact> artifacts,
-      Collection<? super Artifact> output, MiddlemanExpander middlemanExpander) {
-    addExpandedArtifacts(artifacts, output, Functions.<Artifact>identity(), middlemanExpander);
+      Collection<? super ArtifactFile> output, ArtifactExpander artifactExpander) {
+    addExpandedArtifacts(artifacts, output, Functions.<ArtifactFile>identity(), artifactExpander);
   }
 
   /**
@@ -652,9 +653,9 @@ public class Artifact implements FileType.HasFilename, ArtifactFile, SkylarkValu
   @VisibleForTesting
   public static void addExpandedExecPathStrings(Iterable<Artifact> artifacts,
                                                  Collection<String> output,
-                                                 MiddlemanExpander middlemanExpander) {
+                                                 ArtifactExpander artifactExpander) {
     addExpandedArtifacts(artifacts, output, ActionInputHelper.EXEC_PATH_STRING_FORMATTER,
-        middlemanExpander);
+        artifactExpander);
   }
 
   /**
@@ -664,8 +665,8 @@ public class Artifact implements FileType.HasFilename, ArtifactFile, SkylarkValu
    * once.
    */
   public static void addExpandedExecPaths(Iterable<Artifact> artifacts,
-      Collection<PathFragment> output, MiddlemanExpander middlemanExpander) {
-    addExpandedArtifacts(artifacts, output, EXEC_PATH_FORMATTER, middlemanExpander);
+      Collection<PathFragment> output, ArtifactExpander artifactExpander) {
+    addExpandedArtifacts(artifacts, output, EXEC_PATH_FORMATTER, artifactExpander);
   }
 
   /**
@@ -673,27 +674,29 @@ public class Artifact implements FileType.HasFilename, ArtifactFile, SkylarkValu
    * outputFormatter and adds them to a given collection. Middleman artifacts
    * are expanded once.
    */
-  private static <E> void addExpandedArtifacts(Iterable<Artifact> artifacts,
+  private static <E> void addExpandedArtifacts(Iterable<? extends Artifact> artifacts,
                                                Collection<? super E> output,
-                                               Function<? super Artifact, E> outputFormatter,
-                                               MiddlemanExpander middlemanExpander) {
+                                               Function<? super ArtifactFile, E> outputFormatter,
+                                               ArtifactExpander artifactExpander) {
     for (Artifact artifact : artifacts) {
-      if (artifact.isMiddlemanArtifact()) {
-        expandMiddlemanArtifact(artifact, output, outputFormatter, middlemanExpander);
+      if (artifact.isMiddlemanArtifact() || artifact.isTreeArtifact()) {
+        expandArtifact(artifact, output, outputFormatter, artifactExpander);
       } else {
         output.add(outputFormatter.apply(artifact));
       }
     }
   }
 
-  private static <E> void expandMiddlemanArtifact(Artifact middleman,
-                                                  Collection<? super E> output,
-                                                  Function<? super Artifact, E> outputFormatter,
-                                                  MiddlemanExpander middlemanExpander) {
-    Preconditions.checkArgument(middleman.isMiddlemanArtifact());
-    List<Artifact> artifacts = new ArrayList<>();
-    middlemanExpander.expand(middleman, artifacts);
-    addExpandedArtifacts(artifacts, output, outputFormatter, middlemanExpander);
+  private static <E> void expandArtifact(Artifact middleman,
+      Collection<? super E> output,
+      Function<? super ArtifactFile, E> outputFormatter,
+      ArtifactExpander artifactExpander) {
+    Preconditions.checkArgument(middleman.isMiddlemanArtifact() || middleman.isTreeArtifact());
+    List<ArtifactFile> artifacts = new ArrayList<>();
+    artifactExpander.expand(middleman, artifacts);
+    for (ArtifactFile artifact : artifacts) {
+      output.add(outputFormatter.apply(artifact));
+    }
   }
 
   /**
@@ -702,9 +705,9 @@ public class Artifact implements FileType.HasFilename, ArtifactFile, SkylarkValu
    * returned list is mutable.
    */
   public static List<String> asExpandedExecPathStrings(Iterable<Artifact> artifacts,
-                                                       MiddlemanExpander middlemanExpander) {
+                                                       ArtifactExpander artifactExpander) {
     List<String> result = new ArrayList<>();
-    addExpandedExecPathStrings(artifacts, result, middlemanExpander);
+    addExpandedExecPathStrings(artifacts, result, artifactExpander);
     return result;
   }
 
@@ -714,9 +717,9 @@ public class Artifact implements FileType.HasFilename, ArtifactFile, SkylarkValu
    * returned list is mutable.
    */
   public static List<PathFragment> asExpandedExecPaths(Iterable<Artifact> artifacts,
-                                                       MiddlemanExpander middlemanExpander) {
+                                                       ArtifactExpander artifactExpander) {
     List<PathFragment> result = new ArrayList<>();
-    addExpandedExecPaths(artifacts, result, middlemanExpander);
+    addExpandedExecPaths(artifacts, result, artifactExpander);
     return result;
   }
 

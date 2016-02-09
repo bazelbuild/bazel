@@ -176,7 +176,7 @@ public class ArtifactTest {
     List<String> paths = new ArrayList<>();
     MutableActionGraph actionGraph = new MapBasedActionGraph();
     Artifact.addExpandedExecPathStrings(getFooBarArtifacts(actionGraph, true), paths,
-        ActionInputHelper.actionGraphMiddlemanExpander(actionGraph));
+        ActionInputHelper.actionGraphArtifactExpander(actionGraph));
     assertThat(paths).containsExactly("bar1.h", "bar1.h", "bar2.h", "bar3.h");
   }
 
@@ -185,7 +185,7 @@ public class ArtifactTest {
     List<PathFragment> paths = new ArrayList<>();
     MutableActionGraph actionGraph = new MapBasedActionGraph();
     Artifact.addExpandedExecPaths(getFooBarArtifacts(actionGraph, true), paths,
-        ActionInputHelper.actionGraphMiddlemanExpander(actionGraph));
+        ActionInputHelper.actionGraphArtifactExpander(actionGraph));
     assertThat(paths).containsExactly(
         new PathFragment("bar1.h"),
         new PathFragment("bar1.h"),
@@ -195,11 +195,11 @@ public class ArtifactTest {
 
   @Test
   public void testAddExpandedArtifacts() throws Exception {
-    List<Artifact> expanded = new ArrayList<>();
+    List<ArtifactFile> expanded = new ArrayList<>();
     MutableActionGraph actionGraph = new MapBasedActionGraph();
     List<Artifact> original = getFooBarArtifacts(actionGraph, true);
     Artifact.addExpandedArtifacts(original, expanded,
-        ActionInputHelper.actionGraphMiddlemanExpander(actionGraph));
+        ActionInputHelper.actionGraphArtifactExpander(actionGraph));
 
     List<Artifact> manuallyExpanded = new ArrayList<>();
     for (Artifact artifact : original) {
@@ -226,7 +226,7 @@ public class ArtifactTest {
     List<String> paths = new ArrayList<>();
     MutableActionGraph actionGraph = new MapBasedActionGraph();
     Artifact.addExpandedExecPathStrings(getFooBarArtifacts(actionGraph, true), paths,
-        ActionInputHelper.actionGraphMiddlemanExpander(actionGraph));
+        ActionInputHelper.actionGraphArtifactExpander(actionGraph));
     assertThat(paths).containsExactly("bar1.h", "bar1.h", "bar2.h", "bar3.h");
   }
 
@@ -235,7 +235,7 @@ public class ArtifactTest {
     List<PathFragment> paths = new ArrayList<>();
     MutableActionGraph actionGraph = new MapBasedActionGraph();
     Artifact.addExpandedExecPaths(getFooBarArtifacts(actionGraph, true), paths,
-        ActionInputHelper.actionGraphMiddlemanExpander(actionGraph));
+        ActionInputHelper.actionGraphArtifactExpander(actionGraph));
     assertThat(paths).containsExactly(
         new PathFragment("bar1.h"),
         new PathFragment("bar1.h"),
@@ -243,13 +243,14 @@ public class ArtifactTest {
         new PathFragment("bar3.h"));
   }
 
+  // TODO consider tests for the future
   @Test
   public void testAddExpandedArtifactsNewActionGraph() throws Exception {
-    List<Artifact> expanded = new ArrayList<>();
+    List<ArtifactFile> expanded = new ArrayList<>();
     MutableActionGraph actionGraph = new MapBasedActionGraph();
     List<Artifact> original = getFooBarArtifacts(actionGraph, true);
     Artifact.addExpandedArtifacts(original, expanded,
-        ActionInputHelper.actionGraphMiddlemanExpander(actionGraph));
+        ActionInputHelper.actionGraphArtifactExpander(actionGraph));
 
     List<Artifact> manuallyExpanded = new ArrayList<>();
     for (Artifact artifact : original) {

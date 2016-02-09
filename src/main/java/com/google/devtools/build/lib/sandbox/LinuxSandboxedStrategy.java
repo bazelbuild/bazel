@@ -442,8 +442,8 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     MountMap mounts = new MountMap();
 
     List<ActionInput> inputs =
-        ActionInputHelper.expandMiddlemen(
-            spawn.getInputFiles(), actionExecutionContext.getMiddlemanExpander());
+        ActionInputHelper.expandArtifacts(
+            spawn.getInputFiles(), actionExecutionContext.getArtifactExpander());
 
     if (spawn.getResourceOwner() instanceof CppCompileAction) {
       CppCompileAction action = (CppCompileAction) spawn.getResourceOwner();

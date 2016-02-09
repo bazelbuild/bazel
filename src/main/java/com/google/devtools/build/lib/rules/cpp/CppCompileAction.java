@@ -27,7 +27,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.MiddlemanExpander;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactFile;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -686,15 +687,15 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @VisibleForTesting
   public void validateInclusions(
       Iterable<Artifact> inputsForValidation,
-      MiddlemanExpander middlemanExpander,
+      ArtifactExpander artifactExpander,
       EventHandler eventHandler)
       throws ActionExecutionException {
     IncludeProblems errors = new IncludeProblems();
     IncludeProblems warnings = new IncludeProblems();
-    Set<Artifact> allowedIncludes = new HashSet<>();
+    Set<ArtifactFile> allowedIncludes = new HashSet<>();
     for (Artifact input : mandatoryInputs) {
-      if (input.isMiddlemanArtifact()) {
-        middlemanExpander.expand(input, allowedIncludes);
+      if (input.isMiddlemanArtifact() || input.isTreeArtifact()) {
+        artifactExpander.expand(input, allowedIncludes);
       }
       allowedIncludes.add(input);
     }
@@ -1138,7 +1139,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     // hdrs_check: This cannot be switched off, because doing so would allow for incorrect builds.
     validateInclusions(
         discoveredInputs,
-        actionExecutionContext.getMiddlemanExpander(),
+        actionExecutionContext.getArtifactExpander(),
         executor.getEventHandler());
   }
 

@@ -90,7 +90,7 @@ public final class ActionsTestUtil {
         metadataHandler, fileOutErr,
         actionGraph == null
             ? null
-            : ActionInputHelper.actionGraphMiddlemanExpander(actionGraph));
+            : ActionInputHelper.actionGraphArtifactExpander(actionGraph));
   }
 
   public static ActionExecutionContext createContextForInputDiscovery(Executor executor,
