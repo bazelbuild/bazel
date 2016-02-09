@@ -60,6 +60,31 @@ import java.util.concurrent.CountDownLatch;
 @ThreadSafe
 public class ResourceManager {
 
+  /**
+   * A handle returned by {@link #acquireResources(ActionMetadata, ResourceSet)} that must be closed
+   * in order to free the resources again.
+   */
+  public static class ResourceHandle implements AutoCloseable {
+    final ResourceManager rm;
+    final ActionMetadata actionMetadata;
+    final ResourceSet resourceSet;
+
+    public ResourceHandle(
+        ResourceManager rm, ActionMetadata actionMetadata, ResourceSet resources) {
+      this.rm = rm;
+      this.actionMetadata = actionMetadata;
+      this.resourceSet = resources;
+    }
+
+    /**
+     * Closing the ResourceHandle releases the resources associated with it.
+     */
+    @Override
+    public void close() {
+      rm.releaseResources(actionMetadata, resourceSet);
+    }
+  }
+
   private EventBus eventBus;
 
   private final ThreadLocal<Boolean> threadLocked = new ThreadLocal<Boolean>() {
@@ -135,8 +160,7 @@ public class ResourceManager {
 
   /**
    * Resets resource manager state and releases all thread locks.
-   * Note - it does not reset available resources. Use
-   * separate call to setAvailableResoures().
+   * Note - it does not reset available resources. Use separate call to setAvailableResources().
    */
   public synchronized void resetResourceUsage() {
     usedCpu = 0;
@@ -167,7 +191,6 @@ public class ResourceManager {
 
   /**
    * Specify how much of the available RAM we should allow to be used.
-   * This has no effect if autosensing is enabled.
    */
   public synchronized void setRamUtilizationPercentage(int percentage) {
     ramUtilizationPercentage = percentage;
@@ -177,7 +200,7 @@ public class ResourceManager {
    * Acquires requested resource set. Will block if resource is not available.
    * NB! This method must be thread-safe!
    */
-  public void acquireResources(ActionMetadata owner, ResourceSet resources)
+  public ResourceHandle acquireResources(ActionMetadata owner, ResourceSet resources)
       throws InterruptedException {
     Preconditions.checkNotNull(resources);
     AutoProfiler p = profiled(owner, ProfilerTask.ACTION_LOCK);
@@ -198,6 +221,7 @@ public class ResourceManager {
         p.complete();
       }
     }
+    return new ResourceHandle(this, owner, resources);
   }
 
   /**

@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.TargetOutOfDateException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
@@ -706,20 +707,21 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     postEvent(new ActionStartedEvent(action, actionStartTime));
     ResourceSet estimate = action.estimateResourceConsumption(executorEngine);
     ActionExecutionStatusReporter statusReporter = statusReporterRef.get();
+    ResourceHandle handle = null;
     try {
       if (estimate == null || estimate == ResourceSet.ZERO) {
         statusReporter.setRunningFromBuildData(action);
       } else {
         // If estimated resource consumption is null, action will manually call
         // resource manager when it knows what resources are needed.
-        resourceManager.acquireResources(action, estimate);
+        handle = resourceManager.acquireResources(action, estimate);
       }
       boolean outputDumped = executeActionTask(action, context);
       completeAction(action, context.getMetadataHandler(),
           context.getFileOutErr(), outputDumped);
     } finally {
-      if (estimate != null) {
-        resourceManager.releaseResources(action, estimate);
+      if (handle != null) {
+        handle.close();
       }
       statusReporter.remove(action);
       postEvent(new ActionCompletionEvent(actionStartTime, action));

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -110,13 +111,11 @@ public final class SymlinkTreeHelper {
       BinTools binTools) throws ExecException, InterruptedException {
     List<String> args = getSpawnArgumentList(
         actionExecutionContext.getExecutor().getExecRoot(), binTools);
-    try {
-      ResourceManager.instance().acquireResources(action, RESOURCE_SET);
+    try (ResourceHandle handle =
+            ResourceManager.instance().acquireResources(action, RESOURCE_SET)) {
       actionExecutionContext.getExecutor().getSpawnActionContext(action.getMnemonic()).exec(
           new BaseSpawn.Local(args, ImmutableMap.<String, String>of(), action),
           actionExecutionContext);
-    } finally {
-      ResourceManager.instance().releaseResources(action, RESOURCE_SET);
     }
   }
 
