@@ -25,10 +25,11 @@
 
 set -eu
 
-REALPATH=$0.runfiles/external/bazel_tools/tools/objc/realpath
-WRAPPER=$0.runfiles/external/bazel_tools/tools/objc/xcrunwrapper.sh
+MY_LOCATION=${MY_LOCATION:-"$0.runfiles/external/bazel_tools/tools/objc"}
+REALPATH="${MY_LOCATION}/realpath"
+WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 
-OUTZIP=$($REALPATH "$1")
+OUTZIP=$("${REALPATH}" "$1")
 ARCHIVEROOT="$2"
 shift 2
 TEMPDIR=$(mktemp -d -t ibtoolZippingOutput)
@@ -37,7 +38,7 @@ trap "rm -rf \"$TEMPDIR\"" EXIT
 FULLPATH="$TEMPDIR/$ARCHIVEROOT"
 PARENTDIR=$(dirname "$FULLPATH")
 mkdir -p "$PARENTDIR"
-FULLPATH=$($REALPATH "$FULLPATH")
+FULLPATH=$("${REALPATH}" "$FULLPATH")
 
 # IBTool needs to have absolute paths sent to it, so we call realpaths on
 # on all arguments seeing if we can expand them.
@@ -45,7 +46,7 @@ FULLPATH=$($REALPATH "$FULLPATH")
 TOOLARGS=()
 for i in $@; do
   if [ -e "$i" ]; then
-    ARG=$($REALPATH "$i")
+    ARG=$("${REALPATH}" "$i")
     TOOLARGS+=("$ARG")
   else
     TOOLARGS+=("$i")
@@ -59,7 +60,7 @@ done
 # you may also see if
 #   IBToolNeverDeque=1
 # helps.
-$WRAPPER ibtool --errors --warnings --notices \
+"${WRAPPER}" ibtool --errors --warnings --notices \
     --auto-activate-custom-fonts --output-format human-readable-text \
     --compile "$FULLPATH" "${TOOLARGS[@]}"
 
