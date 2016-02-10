@@ -364,7 +364,7 @@ Instrumented files are a set of files used by the coverage command. A rule can
 use the `instrumented_files` provider to provide information about which files
 should be used for measuring coverage.
 
-```skylark
+```python
 def rule_implementation(ctx):
   ...
   return struct(instrumented_files=struct(
