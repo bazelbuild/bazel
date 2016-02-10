@@ -100,7 +100,7 @@ def _build_layer(ctx):
   args += ["--file=%s=%s" % (f.path, _dest_path(f, data_path))
            for f in ctx.files.files]
   args += ["--tar=" + f.path for f in ctx.files.tars]
-  args += ["--deb=" + f.path for f in ctx.files.debs]
+  args += ["--deb=" + f.path for f in ctx.files.debs if f.path.endswith(".deb")]
   args += ["--link=%s:%s" % (k, ctx.attr.symlinks[k])
            for k in ctx.attr.symlinks]
 
