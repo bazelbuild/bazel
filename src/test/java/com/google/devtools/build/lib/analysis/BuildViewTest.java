@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.analysis.util.AnalysisTestCase.Flag;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -1103,6 +1102,39 @@ public class BuildViewTest extends BuildViewTestBase {
     } catch (LoadingFailedException | InvalidConfigurationException e) {
       assertContainsEvent(
           "no such target '//xcode:does_not_exist': target 'does_not_exist' not declared");
+    }
+  }
+
+
+  @Test
+  public void testVisibilityReferencesNonexistentPackage() throws Exception {
+    scratch.file("z/a/BUILD",
+        "py_library(name='a', visibility=['//nonexistent:nothing'])");
+    scratch.file("z/b/BUILD",
+        "py_library(name='b', deps=['//z/a:a'])");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update("//z/b:b");
+      fail();
+    } catch (LoadingFailedException | ViewCreationFailedException expected) {
+      assertContainsEvent("no such package 'nonexistent'");
+    }
+  }
+
+  // regression test ("java.lang.IllegalStateException: cannot happen")
+  @Test
+  public void testDefaultVisibilityInNonexistentPackage() throws Exception {
+    scratch.file("z/a/BUILD",
+        "package(default_visibility=['//b'])",
+        "py_library(name='alib')");
+    scratch.file("z/b/BUILD",
+        "py_library(name='b', deps=['//z/a:alib'])");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update("//z/b:b");
+      fail();
+    } catch (LoadingFailedException | ViewCreationFailedException expected) {
+      assertContainsEvent("no such package 'b'");
     }
   }
 
