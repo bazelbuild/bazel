@@ -319,6 +319,7 @@ public abstract class DependencyResolver {
             : BuildType.LABEL.cast(attribute.getDefaultValue(rule));
 
         if (label != null) {
+          label = ruleLabel.resolveRepositoryRelative(label);
           builder.put(attribute, LabelAndConfiguration.of(label, configuration));
         }
       } else if (attribute.getType() == BuildType.LABEL_LIST) {
@@ -326,23 +327,6 @@ public abstract class DependencyResolver {
         if (mappedAttributes.contains(attribute.getName())) {
           labelList = new ArrayList<>();
           for (Label label : attributeMap.get(attribute.getName(), BuildType.LABEL_LIST)) {
-            if (attribute.getName().equals("$config_dependencies")) {
-              // This is a hack necessary due to the confluence of the following circumstances:
-              //   - We need to call ruleLabel.resolveRepositoryRelative() on every label except
-              //     implicit ones so that the implicit labels specified in rule class definitions
-              //     work as expected
-              //   - The way dependencies for selectors is loaded is through the
-              //     $config_dependencies attribute, and thus the labels there need to be a verbatim
-              //     copy of those in the BUILD file (because
-              //     AggregatingAttributeMapper#visitLabels() calls
-              //     Label#resolveRepositoryRelative() on them, and calling it twice would be wrong
-              // Thus, we are stuck with the situation where the only implicit attribute on which
-              // Label#resolveRepositoryRelative needs to be called here is $config_dependencies.
-              //
-              // This is a bad state of affairs and the proper fix would be not to use labels in the
-              // default repository to signal configured targets in the main repository in SkyKeys.
-              label = ruleLabel.resolveRepositoryRelative(label);
-            }
             labelList.add(label);
           }
         } else {
@@ -350,6 +334,7 @@ public abstract class DependencyResolver {
         }
 
         for (Label label : labelList) {
+          label = ruleLabel.resolveRepositoryRelative(label);
           builder.put(attribute, LabelAndConfiguration.of(label, configuration));
         }
       }

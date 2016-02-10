@@ -659,6 +659,41 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testLabelAttributeDefault() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'explicit_dep': attr.label(default = Label('//:dep')),",
+        "    '_implicit_dep': attr.label(default = Label('//:dep')),",
+        "    'explicit_dep_list': attr.label_list(default = [Label('//:dep')]),",
+        "    '_implicit_dep_list': attr.label_list(default = [Label('//:dep')]),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "BUILD", "filegroup(name='dep')", "load('/my_rule', 'my_rule')", "my_rule(name='r')");
+
+    invalidatePackages();
+    SkylarkRuleContext context = createRuleContext("@//:r");
+    Label explicitDepLabel =
+        (Label) evalRuleContextCode(context, "ruleContext.attr.explicit_dep.label");
+    assertThat(explicitDepLabel).isEqualTo(Label.parseAbsolute("@//:dep"));
+    Label implicitDepLabel =
+        (Label) evalRuleContextCode(context, "ruleContext.attr._implicit_dep.label");
+    assertThat(implicitDepLabel).isEqualTo(Label.parseAbsolute("@//:dep"));
+    Label explicitDepListLabel =
+        (Label) evalRuleContextCode(context, "ruleContext.attr.explicit_dep_list[0].label");
+    assertThat(explicitDepListLabel).isEqualTo(Label.parseAbsolute("@//:dep"));
+    Label implicitDepListLabel =
+        (Label) evalRuleContextCode(context, "ruleContext.attr._implicit_dep_list[0].label");
+    assertThat(implicitDepListLabel).isEqualTo(Label.parseAbsolute("@//:dep"));
+  }
+
+  @Test
   public void testRelativeLabelInExternalRepository() throws Exception {
     scratch.file("BUILD");
     scratch.file("external_rule.bzl",
