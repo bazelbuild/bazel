@@ -117,7 +117,6 @@ EOF
   expect_not_log "Tra-la-la!"  # No invalidation
   cat bazel-genfiles/zoo/ball-pit2.txt >$TEST_log
   expect_log "Tra-la-la!"
-
 }
 
 function test_load_from_symlink_to_outside_of_workspace() {
@@ -140,38 +139,44 @@ EOF
   rm -fr $TEST_TMPDIR/other
 }
 
-# Loading a skylark file located in an external repo from a WORKSPACE file
-# is disallowed.
-function test_external_load_from_workspace_file_invalid() {
+# Test load from repository.
+function test_external_load_from_workspace() {
   create_new_workspace
-  external_repo=${new_workspace_dir}
+  repo2=$new_workspace_dir
 
-  cat > ${WORKSPACE_DIR}/WORKSPACE <<EOF
-local_repository(name = "external_repo", path = "${external_repo}")
-load("@external_repo//external_pkg:ext.bzl", "CONST")
-EOF
-
-  mkdir ${WORKSPACE_DIR}/local_pkg
-  cat > ${WORKSPACE_DIR}/local_pkg/BUILD <<EOF
+  mkdir -p carnivore
+  cat > carnivore/BUILD <<'EOF'
 genrule(
-  name = "shouldnt_be_built",
-  cmd = "echo echo"
+    name = "mongoose",
+    cmd = "echo 'Tra-la-la!' | tee $@",
+    outs = ["moogoose.txt"],
+    visibility = ["//visibility:public"],
 )
 EOF
 
-  mkdir ${external_repo}/external_pkg
-  touch ${external_repo}/external_pkg/BUILD
-  cat > ${external_repo}/external_pkg/ext.bzl <<EOF
-CONST = 17
+  create_new_workspace
+  repo3=$new_workspace_dir
+  # Our macro
+  cat >WORKSPACE
+  cat >test.bzl <<EOF
+def macro(path):
+  print('bleh')
+  native.local_repository(name='endangered', path=path)
+EOF
+  cat >BUILD <<'EOF'
+exports_files(["test.bzl"])
 EOF
 
   cd ${WORKSPACE_DIR}
-  bazel build local_pkg:shouldnt_be_built >& $TEST_log && \
-    fail "Expected build to fail" || true
+  cat > WORKSPACE <<EOF
+local_repository(name='proxy', path='$repo3')
+load('@proxy//:test.bzl', 'macro')
+macro('$repo2')
+EOF
 
-  expect_log "Extension file '@external_repo//external_pkg:ext.bzl' may not be \
-loaded from a WORKSPACE file since the extension file is located in an \
-external repository."
+  bazel build @endangered//carnivore:mongoose >& $TEST_log \
+    || fail "Failed to build"
+  expect_log "bleh."
 }
 
 function tear_down() {

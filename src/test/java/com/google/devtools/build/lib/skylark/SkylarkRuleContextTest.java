@@ -721,4 +721,38 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     Label depLabel = (Label) evalRuleContextCode(context, "ruleContext.attr.internal_dep.label");
     assertThat(depLabel).isEqualTo(Label.parseAbsolute("@r//:dep"));
   }
+
+  @Test
+  public void testExternalWorkspaceLoad() throws Exception {
+    scratch.file(
+        "/r1/BUILD",
+        "filegroup(name = 'test',",
+        " srcs = ['test.txt'],",
+        " visibility = ['//visibility:public'],",
+        ")");
+    scratch.file("/r1/WORKSPACE");
+    scratch.file("/r2/BUILD", "exports_files(['test.bzl'])");
+    scratch.file(
+        "/r2/test.bzl",
+        "def macro(name, path):",
+        "  native.local_repository(name = name, path = path)"
+    );
+    scratch.file(
+        "/r2/other_test.bzl",
+        "def other_macro(name, path):",
+        "  print(name + ': ' + path)"
+    );
+    scratch.file("BUILD");
+    scratch.overwriteFile(
+        "WORKSPACE",
+        "local_repository(name='r2', path='/r2')",
+        "load('@r2//:test.bzl', 'macro')",
+        "macro('r1', '/r1')",
+        "NEXT_NAME = 'r3'",
+        "load('@r2//:other_test.bzl', 'other_macro')",  // We can still refer to r2 in other chunks.
+        "macro(NEXT_NAME, '/r2')"  // and we can still use macro outside of its chunk.
+    );
+    invalidatePackages();
+    assertThat(getConfiguredTarget("@r1//:test")).isNotNull();
+  }
 }
