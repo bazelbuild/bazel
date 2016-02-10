@@ -43,6 +43,7 @@ import com.android.manifmerger.ManifestMerger2.MergeFailureException;
 import com.android.manifmerger.ManifestMerger2.SystemProperty;
 import com.android.manifmerger.MergingReport;
 import com.android.manifmerger.XmlDocument;
+import com.android.sdklib.repository.FullRevision;
 import com.android.utils.StdLogger;
 
 import org.xml.sax.SAXException;
@@ -125,7 +126,8 @@ public class AndroidResourceProcessor {
       Throwables.propagate(e);
     }
   }
-
+  
+  // TODO(bazel-team): Clean up this method call -- 19 params is too many.
   /**
    * Processes resources for generated sources, configs and packaging resources.
    */
@@ -146,7 +148,9 @@ public class AndroidResourceProcessor {
       Path sourceOut,
       Path packageOut,
       Path proguardOut,
-      Path manifestOut) throws IOException, InterruptedException, LoggedErrorException {
+      Path manifestOut,
+      @Nullable FullRevision buildToolsVersion)
+      throws IOException, InterruptedException, LoggedErrorException {
     List<SymbolFileProvider> libraries = new ArrayList<>();
     List<String> packages = new ArrayList<>();
     for (DependencyAndroidData dataDep : dependencyData) {
@@ -156,7 +160,6 @@ public class AndroidResourceProcessor {
     }
 
     Path androidManifest = processManifest(
-
         variantType == VariantConfiguration.Type.DEFAULT ? applicationId : customPackageForR,
         versionCode,
         versionName,
@@ -165,114 +168,50 @@ public class AndroidResourceProcessor {
         variantType == VariantConfiguration.Type.DEFAULT
             ? ManifestMerger2.MergeType.APPLICATION : ManifestMerger2.MergeType.LIBRARY);
 
-    File resFolder = primaryData.getResourceDirFile();
-    File assetsDir = primaryData.getAssetDirFile();
+    Path resFolder = primaryData.getResourceDirFile().toPath();
+    Path assetsDir = primaryData.getAssetDirFile().toPath();
 
-    List<String> command = new ArrayList<>();
-    
-    command.add(aapt.toString());
-    command.add("package");
-    
-    // Trigger the aapt logging level on the Logger.
-    if (stdLogger.getLevel() == StdLogger.Level.VERBOSE) {
-        command.add("-v");
-    }
-    
-    // Overwrite existing files, if they exist.
-    command.add("-f");
-    
-    // Resources are precrunched in the merge process.
-    command.add("--no-crunch");
+    AaptCommandBuilder commandBuilder =
+        new AaptCommandBuilder(aapt, buildToolsVersion, variantType, "package")
+            // If the logger is verbose, set aapt to be verbose
+        .maybeAdd("-v", stdLogger.getLevel() == StdLogger.Level.VERBOSE)
+        // Overwrite existing files, if they exist.
+        .add("-f")
+        // Resources are precrunched in the merge process.
+        .add("--no-crunch")
+        // Do not automatically generate versioned copies of vector XML resources.
+        .maybeAdd("--no-version-vectors", new FullRevision(23))
+        // Add the android.jar as a base input.
+        .add("-I", androidJar)
+        // Add the manifest for validation.
+        .add("-M", androidManifest.toAbsolutePath())
+        // Maybe add the resources if they exist
+        .maybeAdd("-S", resFolder, Files.isDirectory(resFolder))
+        // Maybe add the assets if they exist
+        .maybeAdd("-A", assetsDir, Files.isDirectory(assetsDir))
+        // Outputs
+        .maybeAdd("-m", sourceOut != null)
+        .maybeAdd("-J", prepareOutputPath(sourceOut), sourceOut != null)
+        .maybeAdd("--output-text-symbols", prepareOutputPath(sourceOut), sourceOut != null)
+        .add("-F", packageOut)
+        .add("-G", proguardOut)
+        .maybeAdd("--debug-mode", debug)
+        .add("--custom-package", customPackageForR)
+        // If it is a library, do not generate final java ids.
+        .maybeAdd("--non-constant-id", VariantConfiguration.Type.LIBRARY)
+        // Generate the dependent R and Manifest files.
+        .maybeAdd("--extra-packages", Joiner.on(":").join(packages),
+            VariantConfiguration.Type.DEFAULT)
+        .add("--ignore-assets", aaptOptions.getIgnoreAssets())
+        .maybeAdd("--error-on-missing-config-entry", aaptOptions.getFailOnMissingConfigEntry())
+        // Never compress apks.
+        .add("-0", "apk")
+        // Add custom no-compress extensions.
+        .addRepeated("-0", aaptOptions.getNoCompress())
+        // Filter by resource configuration type.
+        .add("-c", Joiner.on(',').join(resourceConfigs));
 
-    // Do not automatically generate versioned copies of vector XML resources.
-    command.add("--no-version-vectors");
-
-    // Add the android.jar as a base input.
-    command.add("-I");
-    command.add(androidJar.toString());
-
-    // Add the manifest for validation.
-    command.add("-M");
-    command.add(androidManifest.toAbsolutePath().toString());
-
-    if (resFolder.isDirectory()) {
-      command.add("-S");
-      command.add(resFolder.getAbsolutePath());
-    }
-
-    if (assetsDir != null && assetsDir.isDirectory()) {
-      command.add("-A");
-      command.add(assetsDir.getAbsolutePath());
-    }
-
-    // Outputs
-    if (sourceOut != null) {
-      prepareOutputPath(sourceOut);
-      command.add("-m");
-      command.add("-J");
-      command.add(sourceOut.toString());
-      command.add("--output-text-symbols");
-      command.add(sourceOut.toString());
-    }
-
-    if (packageOut != null) {
-      command.add("-F");
-      command.add(packageOut.toString());
-    }
-
-    if (proguardOut != null) {
-      command.add("-G");
-      command.add(proguardOut.toString());
-    }
-    
-    // Additional options.
-    if (debug) {
-      command.add("--debug-mode");
-    }
-
-    if (customPackageForR != null) {
-      command.add("--custom-package");
-      command.add(customPackageForR);
-      stdLogger.verbose("Custom package for R class: '%s'", customPackageForR);
-    }
-
-    // If it is a library, do not generate final java ids.
-    if (variantType == VariantConfiguration.Type.LIBRARY) {
-      command.add("--non-constant-id");
-    }
-
-    if (variantType == VariantConfiguration.Type.DEFAULT  && !packages.isEmpty()) {
-      // Generate the dependent R and Manifest files.
-      command.add("--extra-packages");
-      command.add(Joiner.on(":").join(packages));
-    }
-
-    if (aaptOptions.getIgnoreAssets() != null) {
-      command.add("--ignore-assets");
-      command.add(aaptOptions.getIgnoreAssets());
-    }
-
-    if (aaptOptions.getFailOnMissingConfigEntry()) {
-      command.add("--error-on-missing-config-entry");
-    }
-
-    // Never compress apks.
-    command.add("-0");
-    command.add("apk");
-
-    // Add custom no-compress extensions.
-    for (String noCompress : aaptOptions.getNoCompress()) {
-      command.add("-0");
-      command.add(noCompress);
-    }
-
-    // Filter by resource configuration type.
-    if (!resourceConfigs.isEmpty()) {
-      command.add("-c");
-      command.add(Joiner.on(',').join(resourceConfigs));
-    }
-
-    new CommandLineRunner(stdLogger).runCmdLine(command, null);
+    new CommandLineRunner(stdLogger).runCmdLine(commandBuilder.build(), null);
 
     // The R needs to be created for each library in the dependencies,
     // but only if the current project is not a library.
@@ -288,7 +227,6 @@ public class AndroidResourceProcessor {
     }
     if (manifestOut != null) {
       Files.copy(androidManifest, manifestOut);
-
       Files.setLastModifiedTime(manifestOut, FileTime.fromMillis(0L));
     }
   }
@@ -349,7 +287,6 @@ public class AndroidResourceProcessor {
   }
 
   private Path processManifest(
-
       String newManifestPackage,
       int versionCode,
       String versionName,
@@ -489,11 +426,11 @@ public class AndroidResourceProcessor {
     assetSets.add(mainAssets);
   }
 
-  private String prepareOutputPath(@Nullable Path out) throws IOException {
+  @Nullable private Path prepareOutputPath(@Nullable Path out) throws IOException {
     if (out == null) {
       return null;
     }
-    return Files.createDirectories(out).toString();
+    return Files.createDirectories(out);
   }
 
   /**

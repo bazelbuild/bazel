@@ -81,14 +81,6 @@ public class AndroidResourceProcessingAction {
 
   /** Flag specifications for this action. */
   public static final class Options extends OptionsBase {
-    @Option(name = "apiVersion",
-        defaultValue = "21.0.0",
-        converter = FullRevisionConverter.class,
-        category = "config",
-        help = "ApiVersion indicates the version passed to the AndroidBuilder. ApiVersion must be"
-            + " > 19.10 when defined.")
-    // TODO(bazel-team): Determine what the API version changes in AndroidBuilder.
-    public FullRevision apiVersion;
 
     @Option(name = "buildToolsVersion",
         defaultValue = "null",
@@ -295,6 +287,7 @@ public class AndroidResourceProcessingAction {
 
     try {
       final Path tmp = Files.createTempDirectory("android_resources_tmp");
+      // Clean up the tmp file on exit to keep diskspace low.
       tmp.toFile().deleteOnExit();
 
       final Path expandedOut = tmp.resolve("tmp-expanded");
@@ -359,7 +352,8 @@ public class AndroidResourceProcessingAction {
           generatedSources,
           options.packagePath,
           options.proguardOutput,
-          options.manifestOutput);
+          options.manifestOutput,
+          options.buildToolsVersion);
       LOGGER.fine(String.format("appt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       if (options.srcJarOutput != null) {
         resourceProcessor.createSrcJar(generatedSources, options.srcJarOutput,
