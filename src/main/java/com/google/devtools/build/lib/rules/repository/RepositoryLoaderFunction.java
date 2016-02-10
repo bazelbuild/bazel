@@ -68,9 +68,9 @@ public class RepositoryLoaderFunction implements SkyFunction {
     if (!workspaceName.isDefault() && !nameFromRule.equals(workspaceName)) {
       Path workspacePath = repository.getPath().getRelative("WORKSPACE");
       env.getListener().handle(Event.warn(Location.fromFile(workspacePath),
-          "Workspace name in " + workspacePath + " (" + workspaceName + ") does not match name "
-              + " given in the repository's definition (" + nameFromRule + "), this will cause "
-              + " a build error in future versions."));
+          "Workspace name in " + workspacePath + " (" + workspaceName + ") does not match the "
+              + "name given in the repository's definition (" + nameFromRule + "); this will "
+              + "cause a build error in future versions."));
     }
 
     return new RepositoryValue(nameFromRule, repository);
