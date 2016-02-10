@@ -17,6 +17,7 @@ FILES = [
     "xcodegen",
     "worker_protocol",
     "invocation_policy",
+    "remote_protocol",
 ]
 
 [proto_java_library(

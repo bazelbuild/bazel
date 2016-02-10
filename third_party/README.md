@@ -260,6 +260,12 @@ a minimal set of extra dependencies.
 * License: MIT license
 
 
+## [hazelcast](http://hazelcast.org/)
+
+* Version: 3.5.4
+* License: Apache License 2.0
+
+
 # Testing
 
 ## [hamcrest](https://code.google.com/p/hamcrest/)
