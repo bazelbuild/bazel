@@ -545,6 +545,18 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(argv.get(1)).isEqualTo("-c");
     assertMatches("argv[2]", "A.*/mytool .*/mytool.sh B.*file3.dat", argv.get(2));
   }
+  
+  @Test
+  public void testResolveCommandExecutionRequirements() throws Exception {
+    // Tests that requires-darwin execution requirements result in the usage of /bin/bash.
+    evalRuleContextCode(
+        createRuleContext("//foo:resolve_me"),
+        "inputs, argv, manifests = ruleContext.resolve_command(",
+        "  execution_requirements={'requires-darwin': ''})");
+    @SuppressWarnings("unchecked")
+    List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
+    assertMatches("argv[0]", "^/bin/bash$", argv.get(0));
+  }
 
   @Test
   public void testResolveCommandScript() throws Exception {

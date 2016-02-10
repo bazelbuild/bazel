@@ -651,7 +651,15 @@ public class SkylarkRuleImplementationFunctions {
         doc =
             "dictionary of resolved labels and the corresponding list of Files "
         + "(a dict of Label : list of Files)"
-      )
+      ),
+      @Param(
+        name = "execution_requirements",
+        type = Map.class,
+        defaultValue = "{}",
+        doc =
+            "information for scheduling the action to resolve this command."
+                + " See [tags](/docs/be/common-definitions.html#common.tags) for useful keys."
+      ),
     },
     useLocation = true, useEnvironment = true
   )
@@ -666,6 +674,7 @@ public class SkylarkRuleImplementationFunctions {
             Object makeVariablesO,
             SkylarkList tools,
             Map<?, ?> labelDictM,
+            Map<?, ?> executionRequirementsM,
             Location loc,
             Environment env)
             throws ConversionException, EvalException {
@@ -688,8 +697,17 @@ public class SkylarkRuleImplementationFunctions {
           }
           List<Artifact> inputs = new ArrayList<>();
           inputs.addAll(helper.getResolvedTools());
-          List<String> argv = helper.buildCommandLine(command, inputs, SCRIPT_SUFFIX);
-          return Tuple.of(
+
+          ImmutableMap<String, String> executionRequirements = ImmutableMap.copyOf(
+                castMap(
+                    executionRequirementsM,
+                    String.class,
+                    String.class,
+                    "execution_requirements"));
+          
+          List<String> argv =
+              helper.buildCommandLine(command, inputs, SCRIPT_SUFFIX, executionRequirements);
+          return Tuple.<Object>of(
               new MutableList(inputs, env),
               new MutableList(argv, env),
               helper.getRemoteRunfileManifestMap());
