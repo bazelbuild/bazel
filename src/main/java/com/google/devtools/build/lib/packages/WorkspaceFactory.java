@@ -103,7 +103,7 @@ public class WorkspaceFactory {
       RuleClassProvider ruleClassProvider,
       ImmutableList<EnvironmentExtension> environmentExtensions,
       Mutability mutability) {
-    this(builder, ruleClassProvider, environmentExtensions, mutability, null, null);
+    this(builder, ruleClassProvider, environmentExtensions, mutability, true, null, null);
   }
 
   // TODO(bazel-team): document installDir
@@ -120,6 +120,7 @@ public class WorkspaceFactory {
       RuleClassProvider ruleClassProvider,
       ImmutableList<EnvironmentExtension> environmentExtensions,
       Mutability mutability,
+      boolean allowOverride,
       @Nullable Path installDir,
       @Nullable Path workspaceDir) {
     this.builder = builder;
@@ -127,7 +128,7 @@ public class WorkspaceFactory {
     this.installDir = installDir;
     this.workspaceDir = workspaceDir;
     this.environmentExtensions = environmentExtensions;
-    this.workspaceFunctions = createWorkspaceFunctions(ruleClassProvider);
+    this.workspaceFunctions = createWorkspaceFunctions(ruleClassProvider, allowOverride);
   }
 
   /**
@@ -325,18 +326,29 @@ public class WorkspaceFactory {
    * specified package context.
    */
   private static BuiltinFunction newRuleFunction(
-      final RuleFactory ruleFactory, final String ruleClassName) {
+      final RuleFactory ruleFactory, final String ruleClassName, final boolean allowOverride) {
     return new BuiltinFunction(
         ruleClassName, FunctionSignature.KWARGS, BuiltinFunction.USE_AST_ENV) {
       public Object invoke(Map<String, Object> kwargs, FuncallExpression ast, Environment env)
           throws EvalException, InterruptedException {
         try {
           Builder builder = PackageFactory.getContext(env, ast).pkgBuilder;
+          if (!allowOverride
+              && kwargs.containsKey("name")
+              && builder.targets.containsKey(kwargs.get("name"))) {
+            throw new EvalException(
+                ast.getLocation(),
+                "Cannot redefine repository after any load statement in the WORKSPACE file"
+                    + " (for repository '"
+                    + kwargs.get("name")
+                    + "')");
+          }
           RuleClass ruleClass = ruleFactory.getRuleClass(ruleClassName);
           RuleClass bindRuleClass = ruleFactory.getRuleClass("bind");
-          Rule rule = builder
-              .externalPackageData()
-              .createAndAddRepositoryRule(builder, ruleClass, bindRuleClass, kwargs, ast);
+          Rule rule =
+              builder
+                  .externalPackageData()
+                  .createAndAddRepositoryRule(builder, ruleClass, bindRuleClass, kwargs, ast);
           if (!isLegalWorkspaceName(rule.getName())) {
             throw new EvalException(
                 ast.getLocation(), rule + "'s name field must be a legal workspace name");
@@ -352,13 +364,13 @@ public class WorkspaceFactory {
   }
 
   private static ImmutableMap<String, BaseFunction> createWorkspaceFunctions(
-      RuleClassProvider ruleClassProvider) {
+      RuleClassProvider ruleClassProvider, boolean allowOverride) {
     ImmutableMap.Builder<String, BaseFunction> mapBuilder = ImmutableMap.builder();
     RuleFactory ruleFactory = new RuleFactory(ruleClassProvider);
     mapBuilder.put(BIND, newBindFunction(ruleFactory));
     for (String ruleClass : ruleFactory.getRuleClassNames()) {
       if (!ruleClass.equals(BIND)) {
-        BaseFunction ruleFunction = newRuleFunction(ruleFactory, ruleClass);
+        BaseFunction ruleFunction = newRuleFunction(ruleFactory, ruleClass, allowOverride);
         mapBuilder.put(ruleClass, ruleFunction);
       }
     }
@@ -405,7 +417,7 @@ public class WorkspaceFactory {
   }
 
   public static ClassObject newNativeModule(RuleClassProvider ruleClassProvider) {
-    return newNativeModule(createWorkspaceFunctions(ruleClassProvider));
+    return newNativeModule(createWorkspaceFunctions(ruleClassProvider, false));
   }
 
   static {

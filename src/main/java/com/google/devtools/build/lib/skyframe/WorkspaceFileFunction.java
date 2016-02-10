@@ -87,6 +87,7 @@ public class WorkspaceFileFunction implements SkyFunction {
               ruleClassProvider,
               packageFactory.getEnvironmentExtensions(),
               mutability,
+              key.getIndex() == 0,
               directories.getEmbeddedBinariesRoot(),
               directories.getWorkspace());
       if (key.getIndex() > 0) {
@@ -108,8 +109,6 @@ public class WorkspaceFileFunction implements SkyFunction {
       if (importResult == null) {
         return null;
       }
-      // TODO(dmarting): give a nice error message when redefining a repository name and
-      // getIndex() > 0.
       parser.execute(ast, importResult.importMap);
     } catch (PackageFunctionException | NameConflictException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);

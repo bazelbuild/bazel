@@ -109,6 +109,7 @@ public class WorkspaceFactoryTest {
           TestRuleClassProvider.getRuleClassProvider(),
           ImmutableList.<PackageFactory.EnvironmentExtension>of(),
           Mutability.create("test"),
+          true,
           root,
           root);
       Exception exception = null;
