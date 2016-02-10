@@ -128,7 +128,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
   @ThreadSafe
   public static SkyKey key(ImmutableList<String> targetPatterns, String offset,
       boolean compileOneDependency, boolean buildTestsOnly, boolean determineTests,
-      TestFilter testFilter) {
+      @Nullable TestFilter testFilter) {
     return new SkyKey(SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternList(
         targetPatterns, offset, compileOneDependency, buildTestsOnly, determineTests, testFilter));
   }
@@ -144,17 +144,20 @@ public final class TargetPatternPhaseValue implements SkyValue {
     private final boolean compileOneDependency;
     private final boolean buildTestsOnly;
     private final boolean determineTests;
-    private final TestFilter testFilter;
+    @Nullable private final TestFilter testFilter;
 
     public TargetPatternList(ImmutableList<String> targetPatterns, String offset,
         boolean compileOneDependency, boolean buildTestsOnly, boolean determineTests,
-        TestFilter testFilter) {
-      this.targetPatterns = targetPatterns;
-      this.offset = offset;
+        @Nullable TestFilter testFilter) {
+      this.targetPatterns = Preconditions.checkNotNull(targetPatterns);
+      this.offset = Preconditions.checkNotNull(offset);
       this.compileOneDependency = compileOneDependency;
       this.buildTestsOnly = buildTestsOnly;
       this.determineTests = determineTests;
       this.testFilter = testFilter;
+      if (buildTestsOnly || determineTests) {
+        Preconditions.checkNotNull(testFilter);
+      }
     }
 
     public ImmutableList<String> getTargetPatterns() {
@@ -183,13 +186,22 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
     @Override
     public String toString() {
-      return targetPatterns.toString();
+      StringBuilder result = new StringBuilder();
+      result.append(targetPatterns);
+      if (!offset.isEmpty()) {
+        result.append(" OFFSET=").append(offset);
+      }
+      result.append(compileOneDependency ? " COMPILE_ONE_DEPENDENCY" : "");
+      result.append(buildTestsOnly ? " BUILD_TESTS_ONLY" : "");
+      result.append(determineTests ? " DETERMINE_TESTS" : "");
+      result.append(testFilter != null ? testFilter : "");
+      return result.toString();
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(targetPatterns, compileOneDependency, buildTestsOnly, determineTests,
-          testFilter);
+      return Objects.hash(targetPatterns, offset, compileOneDependency, buildTestsOnly,
+          determineTests, testFilter);
     }
 
     @Override
@@ -202,10 +214,11 @@ public final class TargetPatternPhaseValue implements SkyValue {
       }
       TargetPatternList other = (TargetPatternList) obj;
       return other.targetPatterns.equals(this.targetPatterns)
+          && other.offset.equals(this.offset)
           && other.compileOneDependency == compileOneDependency
           && other.buildTestsOnly == buildTestsOnly
           && other.determineTests == determineTests
-          && other.testFilter.equals(testFilter);
+          && Objects.equals(other.testFilter, testFilter);
     }
   }
 }
