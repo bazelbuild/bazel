@@ -15,8 +15,9 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction;
 
@@ -84,12 +85,13 @@ public class ExternalFilesHelper {
 
     // The outputBase may be null if we're not actually running a build.
     Path outputBase = pkgLocator.get().getOutputBase();
-    if (outputBase != null && !rootedPath.asPath().startsWith(
-        pkgLocator.get().getOutputBase().getRelative(Label.EXTERNAL_PATH_PREFIX))) {
+    Path relativeExternal = pkgLocator
+        .get().getOutputBase().getRelative(Label.EXTERNAL_PATH_PREFIX);
+    if (outputBase != null && !rootedPath.asPath().startsWith(relativeExternal)) {
       return;
     }
 
-    // For files that are under $OUTPUT_BASE/external, add a dependency on the //external package
+    // For files that are under $OUTPUT_BASE/external, add a dependency on the corresponding rule
     // so that if the WORKSPACE file changes, the File/DirectoryStateValue will be re-evaluated.
     //
     // Note that:
@@ -100,11 +102,26 @@ public class ExternalFilesHelper {
     // skyframe graph in the first place is through symlinks outside the package roots, which we
     // neither want to encourage nor optimize for since it is not common. So the set of external
     // files is small.
-    PackageValue pkgValue = (PackageValue) env.getValue(PackageValue.key(
-            Label.EXTERNAL_PACKAGE_IDENTIFIER));
-    if (pkgValue == null) {
+
+    PathFragment repositoryPath = rootedPath.asPath().relativeTo(relativeExternal);
+    if (repositoryPath.segmentCount() == 0) {
+      // We are the top of the repository path (<outputBase>/external), not in an actual external
+      // repository path.
       return;
     }
-    Preconditions.checkState(!pkgValue.getPackage().containsErrors());
+    String repositoryName = repositoryPath.getSegment(0);
+
+    try {
+      RepositoryFunction.getRule(repositoryName, env);
+    } catch (RepositoryFunction.RepositoryNotFoundException ex) {
+      // The repository we are looking for does not exist so we should depend on the whole
+      // WORKSPACE file. In that case, the call to RepositoryFunction#getRule(String, Environment)
+      // already requested all repository functions from the WORKSPACE file from Skyframe as part of
+      // the resolution. Therefore we are safe to ignore that Exception.
+    } catch (RepositoryFunction.RepositoryFunctionException ex) {
+      // This should never happen.
+      throw new IllegalStateException(
+          "Repository " + repositoryName + " cannot be resolved for path " + rootedPath, ex);
+    }
   }
 }
