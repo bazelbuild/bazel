@@ -1,6 +1,9 @@
 filegroup(
     name = "srcs",
-    srcs = glob(["*.py"]) + ["BUILD"],
+    srcs = glob(["*.py"]) + [
+        "BUILD",
+        "//examples/py_native/fibonacci:srcs",
+    ],
     visibility = ["//examples:__pkg__"],
 )
 
