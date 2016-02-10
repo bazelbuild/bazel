@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
@@ -440,8 +439,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
 
     @Override
     public void expand(Artifact artifact, Collection<? super ArtifactFile> output) {
-      Preconditions.checkState(artifact.isMiddlemanArtifact() || artifact.isTreeArtifact(),
-          artifact);
+      Preconditions.checkState(artifact.isMiddlemanArtifact(), artifact);
       Collection<ArtifactFile> result = expandedInputs.get(artifact);
       // Note that result may be null for non-aggregating middlemen.
       if (result != null) {
@@ -612,12 +610,14 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
         }
         statusReporterRef.get().setPreparing(action);
 
+        createOutputDirectories(action);
+
         Preconditions.checkState(actionExecutionContext.getMetadataHandler() == metadataHandler,
             "%s %s", actionExecutionContext.getMetadataHandler(), metadataHandler);
         prepareScheduleExecuteAndCompleteAction(action, actionExecutionContext, actionStartTime);
         return new ActionExecutionValue(
             metadataHandler.getOutputArtifactFileData(),
-            metadataHandler.getOutputTreeArtifactData(),
+            ImmutableMap.<Artifact, TreeArtifactValue>of(),
             metadataHandler.getAdditionalOutputData());
       } finally {
         profiler.completeTask(ProfilerTask.ACTION);
@@ -629,13 +629,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     try {
       Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
       for (Artifact outputFile : action.getOutputs()) {
-        Path outputDir;
-        if (outputFile.isTreeArtifact()) {
-          outputDir = outputFile.getPath();
-        } else {
-          outputDir = outputFile.getPath().getParentDirectory();
-        }
-
+        Path outputDir = outputFile.getPath().getParentDirectory();
         if (done.add(outputDir)) {
           try {
             createDirectoryAndParents(outputDir);
@@ -706,7 +700,6 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     // the action really does produce the outputs.
     try {
       action.prepare(context.getExecutor().getExecRoot());
-      createOutputDirectories(action);
     } catch (IOException e) {
       reportError("failed to delete output files before executing action", e, action, null);
     }
@@ -849,35 +842,6 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     }
   }
 
-  // TODO TODOTIJDSO: maybe just set directories r/o and executable always
-  private static void setPathReadOnlyAndExecutable(MetadataHandler metadataHandler,
-      ArtifactFile file)
-      throws IOException {
-    Path path = file.getPath();
-    if (path.isFile(Symlinks.NOFOLLOW)) { // i.e. regular files only.
-      // We trust the files created by the execution-engine to be non symlinks with expected
-      // chmod() settings already applied.
-      if (!metadataHandler.isInjected(file)) {
-        path.chmod(0555);  // Sets the file read-only and executable.
-      }
-    }
-  }
-
-  private static void setTreeReadOnlyAndExecutable(MetadataHandler metadataHandler, Artifact parent,
-      PathFragment subpath) throws IOException {
-    Path path = parent.getPath().getRelative(subpath);
-    if (path.isDirectory()) {
-      path.chmod(0555);
-      for (Path child : path.getDirectoryEntries()) {
-        setTreeReadOnlyAndExecutable(metadataHandler, parent,
-            subpath.getChild(child.getBaseName()));
-      }
-    } else {
-      setPathReadOnlyAndExecutable(
-          metadataHandler, ActionInputHelper.artifactFile(parent, subpath));
-    }
-  }
-
   /**
    * For each of the action's outputs that is a regular file (not a symbolic
    * link or directory), make it read-only and executable.
@@ -899,13 +863,14 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     Preconditions.checkState(!action.getActionType().isMiddleman());
 
     for (Artifact output : action.getOutputs()) {
-      if (output.isTreeArtifact()) {
-        // Preserve existing behavior: we don't set non-TreeArtifact directories
-        // read only and executable. However, it's unusual for non-TreeArtifact outputs
-        // to be directories.
-        setTreeReadOnlyAndExecutable(metadataHandler, output, PathFragment.EMPTY_FRAGMENT);
-      } else {
-        setPathReadOnlyAndExecutable(metadataHandler, output);
+      Path path = output.getPath();
+      if (metadataHandler.isInjected(output)) {
+        // We trust the files created by the execution-engine to be non symlinks with expected
+        // chmod() settings already applied.
+        continue;
+      }
+      if (path.isFile(Symlinks.NOFOLLOW)) { // i.e. regular files only.
+        path.chmod(0555);  // Sets the file read-only and executable.
       }
     }
   }

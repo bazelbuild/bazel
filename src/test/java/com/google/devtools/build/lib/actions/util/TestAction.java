@@ -45,7 +45,7 @@ public class TestAction extends AbstractAction {
   private static final ResourceSet RESOURCES =
       ResourceSet.createWithRamCpuIo(/*memoryMb=*/1.0, /*cpu=*/0.1, /*io=*/0.0);
 
-  protected final Callable<Void> effect;
+  private final Callable<Void> effect;
 
   /** Use this constructor if the effect can't throw exceptions. */
   public TestAction(Runnable effect,

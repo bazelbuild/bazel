@@ -15,7 +15,8 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
@@ -24,7 +25,6 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFile;
@@ -133,8 +133,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       // invariant of asking for the same deps each build.
       Map<SkyKey, ValueOrException2<MissingInputFileException, ActionExecutionException>> inputDeps
           = env.getValuesOrThrow(toKeys(state.allInputs.getAllInputs(),
-              action.discoversInputs() ? action.getMandatoryInputs() : null),
-          MissingInputFileException.class, ActionExecutionException.class);
+                  action.discoversInputs() ? action.getMandatoryInputs() : null),
+              MissingInputFileException.class, ActionExecutionException.class);
 
       if (!sharedActionAlreadyRan && !state.hasArtifactData()) {
         // Do we actually need to find our metadata?
@@ -281,8 +281,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
 
       Map<SkyKey,
           ValueOrException2<NoSuchPackageException, InconsistentFilesystemException>> values =
-          env.getValuesOrThrow(depKeys.values(), NoSuchPackageException.class,
-              InconsistentFilesystemException.class);
+              env.getValuesOrThrow(depKeys.values(), NoSuchPackageException.class,
+                  InconsistentFilesystemException.class);
       // Check values even if some are missing so that we can throw an appropriate exception if
       // needed.
 
@@ -337,7 +337,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       // We got a hit from the action cache -- no need to execute.
       return new ActionExecutionValue(
           metadataHandler.getOutputArtifactFileData(),
-          metadataHandler.getOutputTreeArtifactData(),
+          ImmutableMap.<Artifact, TreeArtifactValue>of(),
           metadataHandler.getAdditionalOutputData());
     }
 
@@ -446,8 +446,6 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   private static Map<Artifact, FileArtifactValue> addDiscoveredInputs(
       Map<Artifact, FileArtifactValue> originalInputData, Collection<Artifact> discoveredInputs,
       Environment env) {
-    // We assume nobody would want to discover a TreeArtifact, since TreeArtifacts are precisely
-    // for undiscoverable contents.
     Map<Artifact, FileArtifactValue> result = new HashMap<>(originalInputData);
     Set<SkyKey> keys = new HashSet<>();
     for (Artifact artifact : discoveredInputs) {
@@ -544,30 +542,25 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       Artifact input = ArtifactValue.artifact(depsEntry.getKey());
       try {
         ArtifactValue value = (ArtifactValue) depsEntry.getValue().get();
-        if (populateInputData) {
-          if (value instanceof AggregatingArtifactValue) {
-            AggregatingArtifactValue aggregatingValue = (AggregatingArtifactValue) value;
-            for (Pair<Artifact, FileArtifactValue> entry : aggregatingValue.getInputs()) {
-              inputArtifactData.put(entry.first, entry.second);
-            }
-            // We have to cache the "digest" of the aggregating value itself,
-            // because the action cache checker may want it.
-            inputArtifactData.put(input, aggregatingValue.getSelfData());
-            ImmutableList.Builder<ArtifactFile> expansionBuilder = ImmutableList.builder();
-            for (Pair<Artifact, FileArtifactValue> pair : aggregatingValue.getInputs()) {
-              expansionBuilder.add(pair.first);
-            }
-            expandedArtifacts.put(input, expansionBuilder.build());
-          } else if (value instanceof TreeArtifactValue) {
-            TreeArtifactValue setValue = (TreeArtifactValue) value;
-            expandedArtifacts.put(input, ActionInputHelper.asArtifactFiles(
-                    input, setValue.getChildPaths()));
-            // Again, we cache the "digest" of the value for cache checking.
-            inputArtifactData.put(input, setValue.getSelfData());
-          } else if (value instanceof FileArtifactValue) {
-            // TODO(bazel-team): Make sure middleman "virtual" artifact data is properly processed.
-            inputArtifactData.put(input, (FileArtifactValue) value);
+        if (populateInputData && value instanceof AggregatingArtifactValue) {
+          AggregatingArtifactValue aggregatingValue = (AggregatingArtifactValue) value;
+          for (Pair<Artifact, FileArtifactValue> entry : aggregatingValue.getInputs()) {
+            inputArtifactData.put(entry.first, entry.second);
           }
+          // We have to cache the "digest" of the aggregating value itself, because the action cache
+          // checker may want it.
+          inputArtifactData.put(input, aggregatingValue.getSelfData());
+          expandedArtifacts.put(input,
+              Collections2.transform(aggregatingValue.getInputs(),
+                  new Function<Pair<Artifact, FileArtifactValue>, ArtifactFile>() {
+                    @Override
+                    public ArtifactFile apply(Pair<Artifact, FileArtifactValue> pair) {
+                      return pair.first;
+                    }
+                  }));
+        } else if (populateInputData && value instanceof FileArtifactValue) {
+          // TODO(bazel-team): Make sure middleman "virtual" artifact data is properly processed.
+          inputArtifactData.put(input, (FileArtifactValue) value);
         }
       } catch (MissingInputFileException e) {
         missingCount++;

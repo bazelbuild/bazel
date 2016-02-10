@@ -20,14 +20,12 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFile;
 import com.google.devtools.build.lib.actions.cache.Digest;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
-import com.google.devtools.build.lib.skyframe.TreeArtifactValue.TreeArtifactException;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -323,45 +321,12 @@ public class ActionMetadataHandler implements MetadataHandler {
       return value;
     }
 
-    Set<ArtifactFile> registeredContents = outputDirectoryListings.get(artifact);
-    if (registeredContents != null) {
-      // Check that our registered outputs matches on-disk outputs. Only perform this check
-      // when contents were explicitly registered.
-      // TODO(bazel-team): Provide a way for actions to register empty TreeArtifacts.
-
-      // By the time we're constructing TreeArtifactValues, use of the metadata handler
-      // should be single threaded and there should be no race condition.
-      // The current design of ActionMetadataHandler makes this hard to enforce.
-      Set<PathFragment> paths = null;
-      try {
-        paths = TreeArtifactValue.explodeDirectory(artifact);
-      } catch (TreeArtifactException e) {
-        throw new IllegalStateException(e);
-      }
-      Set<ArtifactFile> diskFiles = ActionInputHelper.asArtifactFiles(artifact, paths);
-      if (!diskFiles.equals(registeredContents)) {
-        // There might be more than one error here. We first look for missing output files.
-        Set<ArtifactFile> missingFiles = Sets.difference(registeredContents, diskFiles);
-        if (!missingFiles.isEmpty()) {
-          // Don't throw IOException--getMetadataMaybe() eats them.
-          // TODO(bazel-team): Report this error in a better way when called by checkOutputs()
-          // Currently it's hard to report this error without refactoring, since checkOutputs()
-          // likes to substitute its own error messages upon catching IOException, and falls
-          // through to unrecoverable error behavior on any other exception.
-          throw new IllegalStateException("Output file " + missingFiles.iterator().next()
-              + " was registered, but not present on disk");
-        }
-
-        Set<ArtifactFile> extraFiles = Sets.difference(diskFiles, registeredContents);
-        // extraFiles cannot be empty
-        throw new IllegalStateException(
-            "File " + extraFiles.iterator().next().getParentRelativePath()
-            + ", present in TreeArtifact " + artifact + ", was not registered");
-      }
-
-      value = constructTreeArtifactValue(registeredContents);
+    Set<ArtifactFile> contents = outputDirectoryListings.get(artifact);
+    if (contents != null) {
+      value = constructTreeArtifactValue(contents);
     } else {
-      value = constructTreeArtifactValueFromFilesystem(artifact);
+      // Functionality is planned to construct the TreeArtifactValue from disk here.
+      throw new UnsupportedOperationException();
     }
 
     TreeArtifactValue oldValue = outputTreeArtifactData.putIfAbsent(artifact, value);
@@ -394,31 +359,6 @@ public class ActionMetadataHandler implements MetadataHandler {
     }
 
     return TreeArtifactValue.create(values);
-  }
-
-  private TreeArtifactValue constructTreeArtifactValueFromFilesystem(Artifact artifact)
-      throws IOException {
-    Preconditions.checkState(artifact.isTreeArtifact(), artifact);
-
-    if (!artifact.getPath().isDirectory() || artifact.getPath().isSymbolicLink()) {
-      return TreeArtifactValue.MISSING_TREE_ARTIFACT;
-    }
-
-    Set<PathFragment> paths = null;
-    try {
-      paths = TreeArtifactValue.explodeDirectory(artifact);
-    } catch (TreeArtifactException e) {
-      throw new IllegalStateException(e);
-    }
-    // If you're reading tree artifacts from disk while outputDirectoryListings are being injected,
-    // something has gone terribly wrong.
-    Object previousDirectoryListing =
-        outputDirectoryListings.put(artifact,
-            Collections.newSetFromMap(new ConcurrentHashMap<ArtifactFile, Boolean>()));
-    Preconditions.checkState(previousDirectoryListing == null,
-        "Race condition while constructing TreArtifactValue: %s, %s",
-        artifact, previousDirectoryListing);
-    return constructTreeArtifactValue(ActionInputHelper.asArtifactFiles(artifact, paths));
   }
 
   @Override
