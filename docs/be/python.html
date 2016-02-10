@@ -33,7 +33,7 @@ title: Python Rules
     py_binary
   </h2>
 
-  <pre class="rule-signature">py_binary(<a href="#py_binary.name">name</a>, <a href="#py_binary.deps">deps</a>, <a href="#py_binary.srcs">srcs</a>, <a href="#py_binary.data">data</a>, <a href="common-definitions.html#binary.args">args</a>, <a href="#py_binary.default_python_version">default_python_version</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#py_binary.main">main</a>, <a href="common-definitions.html#binary.output_licenses">output_licenses</a>, <a href="#py_binary.srcs_version">srcs_version</a>, <a href="#py_binary.stamp">stamp</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">py_binary(<a href="#py_binary.name">name</a>, <a href="#py_binary.deps">deps</a>, <a href="#py_binary.srcs">srcs</a>, <a href="#py_binary.data">data</a>, <a href="common-definitions.html#binary.args">args</a>, <a href="#py_binary.default_python_version">default_python_version</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#py_binary.imports">imports</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#py_binary.main">main</a>, <a href="common-definitions.html#binary.output_licenses">output_licenses</a>, <a href="#py_binary.srcs_version">srcs_version</a>, <a href="#py_binary.stamp">stamp</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>
@@ -166,7 +166,27 @@ java_library(
 
         </td>
       </tr>
-                                                              <tr>
+                                                    <tr>
+        <td id="py_binary.imports">
+          <code>imports</code>
+        </td>
+        <td>
+                    <p><code>List of strings; optional</code></p>
+                              List of import directories to be added to the <code>PYTHONPATH</code>.
+          <p>
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution. These import
+          directories will be added for this rule and all rules that depend on it (note: not the
+          rules this rule depends on. Each directory will be added to <code>PYTHONPATH</code> by
+          <a href="#py_binary"><code>py_binary</code></a> rules that depend on this rule.
+          </p>
+          <p>
+          Absolute paths (paths that start with <code>/</code>) and paths that references a path
+          above the execution root are not allowed and will result in an error.
+          </p>
+
+        </td>
+      </tr>
+                                <tr>
         <td id="py_binary.main">
           <code>main</code>
         </td>
@@ -229,7 +249,7 @@ java_library(
     py_library
   </h2>
 
-  <pre class="rule-signature">py_library(<a href="#py_library.name">name</a>, <a href="#py_library.deps">deps</a>, <a href="#py_library.srcs">srcs</a>, <a href="#py_library.data">data</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#py_library.srcs_version">srcs_version</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">py_library(<a href="#py_library.name">name</a>, <a href="#py_library.deps">deps</a>, <a href="#py_library.srcs">srcs</a>, <a href="#py_library.data">data</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#py_library.imports">imports</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#py_library.srcs_version">srcs_version</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 
@@ -294,7 +314,27 @@ java_library(
 
         </td>
       </tr>
-                                                              <tr>
+                                                    <tr>
+        <td id="py_library.imports">
+          <code>imports</code>
+        </td>
+        <td>
+                    <p><code>List of strings; optional</code></p>
+                              List of import directories to be added to the <code>PYTHONPATH</code>.
+          <p>
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution. These import
+          directories will be added for this rule and all rules that depend on it (note: not the
+          rules this rule depends on. Each directory will be added to <code>PYTHONPATH</code> by
+          <a href="#py_binary"><code>py_binary</code></a> rules that depend on this rule.
+          </p>
+          <p>
+          Absolute paths (paths that start with <code>/</code>) and paths that references a path
+          above the execution root are not allowed and will result in an error.
+          </p>
+
+        </td>
+      </tr>
+                                <tr>
         <td id="py_library.srcs_version">
           <code>srcs_version</code>
         </td>
@@ -322,7 +362,7 @@ java_library(
     py_test
   </h2>
 
-  <pre class="rule-signature">py_test(<a href="#py_test.name">name</a>, <a href="#py_test.deps">deps</a>, <a href="#py_test.srcs">srcs</a>, <a href="#py_test.data">data</a>, <a href="common-definitions.html#test.args">args</a>, <a href="#py_test.default_python_version">default_python_version</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="#py_test.main">main</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="#py_test.srcs_version">srcs_version</a>, <a href="#py_test.stamp">stamp</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">py_test(<a href="#py_test.name">name</a>, <a href="#py_test.deps">deps</a>, <a href="#py_test.srcs">srcs</a>, <a href="#py_test.data">data</a>, <a href="common-definitions.html#test.args">args</a>, <a href="#py_test.default_python_version">default_python_version</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="#py_test.imports">imports</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="#py_test.main">main</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="#py_test.srcs_version">srcs_version</a>, <a href="#py_test.stamp">stamp</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>
@@ -437,7 +477,27 @@ py_binary(
 
         </td>
       </tr>
-                                                                                  <tr>
+                                                              <tr>
+        <td id="py_test.imports">
+          <code>imports</code>
+        </td>
+        <td>
+                    <p><code>List of strings; optional</code></p>
+                              List of import directories to be added to the <code>PYTHONPATH</code>.
+          <p>
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution. These import
+          directories will be added for this rule and all rules that depend on it (note: not the
+          rules this rule depends on. Each directory will be added to <code>PYTHONPATH</code> by
+          <a href="#py_binary"><code>py_binary</code></a> rules that depend on this rule.
+          </p>
+          <p>
+          Absolute paths (paths that start with <code>/</code>) and paths that references a path
+          above the execution root are not allowed and will result in an error.
+          </p>
+
+        </td>
+      </tr>
+                                          <tr>
         <td id="py_test.main">
           <code>main</code>
         </td>
