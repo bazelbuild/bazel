@@ -121,14 +121,22 @@ def _collect_comp_run_jars(ctx):
   compile_jars = set()
   runtime_jars = set()
   for target in ctx.attr.deps:
+    found = False
     if hasattr(target, "runtime_jar_files"):
       runtime_jars += target.runtime_jar_files
+      found = True
     if hasattr(target, "interface_jar_files"):
       compile_jars += target.interface_jar_files
+      found = True
     if hasattr(target, "java"):
       runtime_jars += target.java.transitive_runtime_deps
       #see JavaSkylarkApiProvider.java, this is just the compile-time deps
       compile_jars += target.java.transitive_deps
+      found = True
+    if not found:
+       #support http_file pointed at a jar. http_jar uses ijar, which breaks scala macros
+       runtime_jars += target.files
+       compile_jars += target.files
   return (compile_jars, runtime_jars)
 
 def _scala_library_impl(ctx):
