@@ -50,6 +50,7 @@ public abstract class GraphConcurrencyTest {
   private static final SkyFunctionName SKY_FUNCTION_NAME = SkyFunctionName.FOR_TESTING;
   protected ProcessableGraph graph;
   protected TestRunnableWrapper wrapper;
+  private final Version startingVersion = getStartingVersion();
 
   // This code should really be in a @Before method, but @Before methods are executed from the
   // top down, and this class's @Before method calls #getGraph, so makeGraph must have already
@@ -58,11 +59,14 @@ public abstract class GraphConcurrencyTest {
 
   protected abstract ProcessableGraph getGraph(Version version) throws Exception;
 
-  private static final IntVersion startingVersion = IntVersion.of(42);
+  protected abstract Version getStartingVersion();
+
+  protected abstract Version getNextVersion(Version version);
 
   @Before
   public void init() throws Exception {
     makeGraph();
+    Version startingVersion = getStartingVersion();
     this.graph = getGraph(startingVersion);
     this.wrapper = new TestRunnableWrapper("GraphConcurrencyTest");
   }
@@ -161,13 +165,13 @@ public abstract class GraphConcurrencyTest {
     assertEquals(new StringValue("foo1"), graph.get(key).getValue());
     assertEquals(numKeys + 1, Iterables.size(graph.get(key).getReverseDeps()));
 
-    graph = getGraph(startingVersion.next());
+    graph = getGraph(getNextVersion(startingVersion));
     NodeEntry sameEntry = Preconditions.checkNotNull(graph.get(key));
     // Mark the node as dirty again and check that the reverse deps have been preserved.
     sameEntry.markDirty(true);
     startEvaluation(sameEntry);
     sameEntry.markRebuildingAndGetAllRemainingDirtyDirectDeps();
-    sameEntry.setValue(new StringValue("foo2"), startingVersion.next());
+    sameEntry.setValue(new StringValue("foo2"), getNextVersion(startingVersion));
     assertEquals(new StringValue("foo2"), graph.get(key).getValue());
     assertEquals(numKeys + 1, Iterables.size(graph.get(key).getReverseDeps()));
   }
@@ -254,7 +258,7 @@ public abstract class GraphConcurrencyTest {
     }
 
     assertNotNull(graph.get(key("foo" + 0)));
-    graph = getGraph(startingVersion.next());
+    graph = getGraph(getNextVersion(startingVersion));
     assertNotNull(graph.get(key("foo" + 0)));
     ExecutorService pool1 = Executors.newFixedThreadPool(numThreads);
     ExecutorService pool2 = Executors.newFixedThreadPool(numThreads);
@@ -288,7 +292,7 @@ public abstract class GraphConcurrencyTest {
               addTemporaryDirectDep(entry, key("dep"));
               entry.signalDep();
               // Move node from dirty back to done.
-              entry.setValue(new StringValue("bar" + keyNum), startingVersion.next());
+              entry.setValue(new StringValue("bar" + keyNum), getNextVersion(startingVersion));
             }
           };
 
@@ -307,7 +311,8 @@ public abstract class GraphConcurrencyTest {
               // Requests for the value are made at the same time that the version increments from
               // the base. Check that there is no problem in requesting the version and that the
               // number is sane.
-              assertThat(entry.getVersion()).isAnyOf(startingVersion, startingVersion.next());
+              assertThat(entry.getVersion()).isAnyOf(startingVersion,
+                  getNextVersion(startingVersion));
               getCountDownLatch.countDown();
             }
           };
@@ -341,7 +346,8 @@ public abstract class GraphConcurrencyTest {
                 // Batch requests are made at the same time that the version increments from the
                 // base. Check that there is no problem in requesting the version and that the
                 // number is sane.
-                assertThat(entry.getVersion()).isAnyOf(startingVersion, startingVersion.next());
+                assertThat(entry.getVersion()).isAnyOf(startingVersion,
+                    getNextVersion(startingVersion));
               }
             }
           };
@@ -354,7 +360,7 @@ public abstract class GraphConcurrencyTest {
     for (int i = 0; i < numKeys; i++) {
       NodeEntry entry = graph.get(key("foo" + i));
       assertThat(entry.getValue()).isEqualTo(new StringValue("bar" + i));
-      assertThat(entry.getVersion()).isEqualTo(startingVersion.next());
+      assertThat(entry.getVersion()).isEqualTo(getNextVersion(startingVersion));
       for (SkyKey key : entry.getReverseDeps()) {
         assertEquals(key("rdep"), key);
       }
