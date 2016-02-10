@@ -81,7 +81,8 @@ public class BaseRuleClasses {
   static final LateBoundLabelList<BuildConfiguration> ACTION_LISTENER =
       new LateBoundLabelList<BuildConfiguration>() {
     @Override
-    public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
+    public List<Label> getDefault(Rule rule, AttributeMap attributes,
+        BuildConfiguration configuration) {
       // action_listeners are special rules; they tell the build system to add extra_actions to
       // existing rules. As such they need an edge to every ConfiguredTarget with the limitation
       // that they only run on the target configuration and should not operate on action_listeners
@@ -93,7 +94,8 @@ public class BaseRuleClasses {
   private static final LateBoundLabelList<BuildConfiguration> COVERAGE_SUPPORT =
       new LateBoundLabelList<BuildConfiguration>(ImmutableList.of(COVERAGE_SUPPORT_LABEL)) {
         @Override
-        public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
+        public List<Label> getDefault(Rule rule,  AttributeMap attributes,
+            BuildConfiguration configuration) {
           return configuration.isCodeCoverageEnabled()
               ? ImmutableList.copyOf(configuration.getCoverageLabels())
               : ImmutableList.<Label>of();
@@ -103,7 +105,8 @@ public class BaseRuleClasses {
   private static final LateBoundLabelList<BuildConfiguration> GCOV =
       new LateBoundLabelList<BuildConfiguration>(ImmutableList.of(COVERAGE_SUPPORT_LABEL)) {
         @Override
-        public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
+        public List<Label> getDefault(Rule rule,  AttributeMap attributes,
+            BuildConfiguration configuration) {
           return configuration.isCodeCoverageEnabled()
               ? ImmutableList.copyOf(configuration.getGcovLabels())
               : ImmutableList.<Label>of();
@@ -113,7 +116,8 @@ public class BaseRuleClasses {
   private static final LateBoundLabelList<BuildConfiguration> COVERAGE_REPORT_GENERATOR =
       new LateBoundLabelList<BuildConfiguration>(ImmutableList.of(COVERAGE_SUPPORT_LABEL)) {
         @Override
-        public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
+        public List<Label> getDefault(Rule rule,  AttributeMap attributes,
+            BuildConfiguration configuration) {
           return configuration.isCodeCoverageEnabled()
               ? ImmutableList.copyOf(configuration.getCoverageReportGeneratorLabels())
               : ImmutableList.<Label>of();
@@ -126,7 +130,8 @@ public class BaseRuleClasses {
   private static final LateBoundLabel<BuildConfiguration> RUN_UNDER =
       new LateBoundLabel<BuildConfiguration>() {
         @Override
-        public Label getDefault(Rule rule, BuildConfiguration configuration) {
+        public Label getDefault(Rule rule, AttributeMap attributes,
+            BuildConfiguration configuration) {
           RunUnder runUnder = configuration.getRunUnder();
           return runUnder == null ? null : runUnder.getLabel();
         }

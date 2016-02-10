@@ -865,7 +865,8 @@ public class ObjcRuleClasses {
                   .value(
                       new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
                         @Override
-                        public Label getDefault(Rule rule, BuildConfiguration configuration) {
+                        public Label getDefault(Rule rule, AttributeMap attributes,
+                            BuildConfiguration configuration) {
                           AppleConfiguration appleConfiguration =
                               configuration.getFragment(AppleConfiguration.class);
                           if (appleConfiguration.getBundlingPlatform() != Platform.IOS_DEVICE) {

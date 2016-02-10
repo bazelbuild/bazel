@@ -380,7 +380,7 @@ public abstract class DependencyResolver {
 
         // TODO(bazel-team): We should check if the implementation tries to access an undeclared
         // fragment.
-        Object actualValue = lateBoundDefault.getDefault(rule, actualConfig);
+        Object actualValue = lateBoundDefault.getDefault(rule, attributeMap, actualConfig);
         if (EvalUtils.isNullOrNone(actualValue)) {
           continue;
         }
