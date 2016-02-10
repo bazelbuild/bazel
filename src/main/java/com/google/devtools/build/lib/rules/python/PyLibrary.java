@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,7 +51,6 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
     common.validatePackageName();
     semantics.validate(ruleContext, common);
 
-
     List<Artifact> srcs = common.validateSrcs();
     List<Artifact> allOutputs =
         new ArrayList<>(semantics.precompiledPythonFiles(ruleContext, srcs, common));
@@ -69,6 +69,11 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
       }
     };
 
+    NestedSet<PathFragment> imports = common.collectImports(ruleContext, semantics);
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
+
     Runfiles.Builder runfilesBuilder = new Runfiles.Builder(ruleContext.getWorkspaceName());
     if (common.getConvertedFiles() != null) {
       runfilesBuilder.addSymlinks(common.getConvertedFiles());
@@ -85,6 +90,7 @@ public abstract class PyLibrary implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfilesBuilder.build()))
         .add(CcLinkParamsProvider.class, new CcLinkParamsProvider(ccLinkParamsStore))
+        .add(PythonImportsProvider.class, new PythonImportsProvider(imports))
         .build();
   }
 }

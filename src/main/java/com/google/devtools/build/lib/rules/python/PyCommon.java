@@ -276,12 +276,29 @@ public final class PyCommon {
   }
 
   private NestedSet<Artifact> collectTransitivePythonSources() {
-    NestedSetBuilder<Artifact> builder =
-        NestedSetBuilder.compileOrder();
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.compileOrder();
     collectTransitivePythonSourcesFrom(getTargetDeps(), builder);
-    addSourceFiles(builder, ruleContext
-        .getPrerequisiteArtifacts("srcs", Mode.TARGET).filter(PyRuleClasses.PYTHON_SOURCE).list());
+    addSourceFiles(builder,
+        ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET)
+            .filter(PyRuleClasses.PYTHON_SOURCE).list());
     return builder.build();
+  }
+
+  public NestedSet<PathFragment> collectImports(
+      RuleContext ruleContext, PythonSemantics semantics) {
+    NestedSetBuilder<PathFragment> builder = NestedSetBuilder.compileOrder();
+    builder.addAll(semantics.getImports(ruleContext));
+    collectTransitivePythonImports(builder);
+    return builder.build();
+  }
+
+  private void collectTransitivePythonImports(NestedSetBuilder<PathFragment> builder) {
+    for (TransitiveInfoCollection dep : getTargetDeps()) {
+      if (dep.getProvider(PythonImportsProvider.class) != null) {
+        PythonImportsProvider provider = dep.getProvider(PythonImportsProvider.class);
+        builder.addTransitive(provider.getTransitivePythonImports());
+      }
+    }
   }
 
   /**

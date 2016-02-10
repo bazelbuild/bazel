@@ -21,10 +21,12 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParams;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -65,7 +67,12 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
       return null;
     }
 
-    semantics.createExecutable(ruleContext, common, ccLinkParamsStore);
+    NestedSet<PathFragment> imports = common.collectImports(ruleContext, semantics);
+    if (ruleContext.hasErrors()) {
+      return null;
+    }
+
+    semantics.createExecutable(ruleContext, common, ccLinkParamsStore, imports);
     Runfiles commonRunfiles = collectCommonRunfiles(ruleContext, common, semantics);
 
     Runfiles.Builder defaultRunfilesBuilder = new Runfiles.Builder(ruleContext.getWorkspaceName())
@@ -99,7 +106,8 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
         .setFilesToBuild(common.getFilesToBuild())
         .add(RunfilesProvider.class, runfilesProvider)
         .setRunfilesSupport(runfilesSupport, common.getExecutable())
-        .add(CcLinkParamsProvider.class, new CcLinkParamsProvider(ccLinkParamsStore));
+        .add(CcLinkParamsProvider.class, new CcLinkParamsProvider(ccLinkParamsStore))
+        .add(PythonImportsProvider.class, new PythonImportsProvider(imports));
   }
 
   private static Runfiles collectCommonRunfiles(RuleContext ruleContext, PyCommon common,
