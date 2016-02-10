@@ -35,6 +35,14 @@ filegroup(
     srcs = ["//external:javac"],
 )
 
+# On Windows, executables end in ".exe", but the label we reach it through
+# must be platform-independent. Thus, we create a little filegroup that
+# contains the appropriate platform-dependent file.
+filegroup(
+    name = "ijar",
+    srcs = glob(["ijar/*"]),
+)
+
 BOOTCLASS_JARS = [
     "rt.jar",
     "resources.jar",
