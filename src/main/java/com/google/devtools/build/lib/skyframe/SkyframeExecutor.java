@@ -1728,7 +1728,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Skyframe-based implementation of {@link LoadingPhaseRunner} based on {@link
    * TargetPatternPhaseFunction}.
    */
-  // TODO(ulfjack): This is still incomplete.
   final class SkyframeLoadingPhaseRunner extends LoadingPhaseRunner {
     private final TargetPatternEvaluator targetPatternEvaluator;
     private final Set<String> ruleClassNames;
@@ -1785,17 +1784,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       long time = timer.stop().elapsed(TimeUnit.MILLISECONDS);
 
       TargetPatternPhaseValue patternParsingValue = evalResult.get(key);
-      // TODO(ulfjack): The first event should be pre-test_suite expansion, the second post.
-      eventBus.post(new TargetParsingCompleteEvent(patternParsingValue.getTargets(),
+      eventBus.post(new TargetParsingCompleteEvent(patternParsingValue.getOriginalTargets(),
           patternParsingValue.getFilteredTargets(), patternParsingValue.getTestFilteredTargets(),
           time));
       if (callback != null) {
         callback.notifyTargets(patternParsingValue.getTargets());
       }
       eventBus.post(new LoadingPhaseCompleteEvent(
-          /*was expandedTargetsToLoad*/patternParsingValue.getTargets(),
-          // TODO(ulfjack): Should be: Sets.difference(originalTargetsToLoad, expandedTargetsToLoad)
-          /*was testSuiteTargets*/ImmutableSet.<Target>of(),
+          patternParsingValue.getTargets(), patternParsingValue.getTestSuiteTargets(),
           packageManager.getStatistics(), /*timeInMs=*/0));
       return patternParsingValue.toLoadingResult();
     }

@@ -281,7 +281,8 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
   private void postLoadingLogging(EventBus eventBus, ImmutableSet<Target> originalTargetsToLoad,
       ImmutableSet<Target> expandedTargetsToLoad, Stopwatch timer) {
     Set<Target> testSuiteTargets = Sets.difference(originalTargetsToLoad, expandedTargetsToLoad);
-    eventBus.post(new LoadingPhaseCompleteEvent(expandedTargetsToLoad, testSuiteTargets,
+    eventBus.post(new LoadingPhaseCompleteEvent(
+        expandedTargetsToLoad, ImmutableSet.copyOf(testSuiteTargets),
         packageManager.getStatistics(), timer.stop().elapsed(TimeUnit.MILLISECONDS)));
     LOG.info("Loading phase finished"); 
   }

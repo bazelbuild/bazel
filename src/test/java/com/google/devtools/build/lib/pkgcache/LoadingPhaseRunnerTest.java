@@ -27,6 +27,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
@@ -230,8 +231,8 @@ public class LoadingPhaseRunnerTest {
     tester.addFile("my_test/BUILD",
         "sh_test(name = 'my_test', srcs = ['test.cc'])");
     assertNoErrors(tester.loadTests("-//my_test"));
-    assertThat(tester.filteredTargets).containsExactlyElementsIn(getTargets());
-    assertThat(tester.testFilteredTargets).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets()).containsExactlyElementsIn(getTargets());
   }
 
   @Test
@@ -239,8 +240,8 @@ public class LoadingPhaseRunnerTest {
     tester.addFile("my_library/BUILD",
         "cc_library(name = 'my_library', srcs = ['test.cc'])");
     assertNoErrors(tester.loadTests("-//my_library"));
-    assertThat(tester.filteredTargets).containsExactlyElementsIn(getTargets());
-    assertThat(tester.testFilteredTargets).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets()).containsExactlyElementsIn(getTargets());
   }
 
   private void writeBuildFilesForTestFiltering() throws Exception {
@@ -258,8 +259,8 @@ public class LoadingPhaseRunnerTest {
         .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t2"));
     assertThat(loadingResult.getTestsToRun())
         .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t2"));
-    assertThat(tester.filteredTargets).containsExactlyElementsIn(getTargets());
-    assertThat(tester.testFilteredTargets).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets()).containsExactlyElementsIn(getTargets());
   }
 
   @Test
@@ -271,8 +272,8 @@ public class LoadingPhaseRunnerTest {
         .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t2"));
     assertThat(loadingResult.getTestsToRun())
         .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t2"));
-    assertThat(tester.filteredTargets).containsExactlyElementsIn(getTargets());
-    assertThat(tester.testFilteredTargets).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets()).containsExactlyElementsIn(getTargets());
   }
 
   @Test
@@ -283,8 +284,8 @@ public class LoadingPhaseRunnerTest {
     assertThat(loadingResult.getTargets())
         .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t2"));
     assertThat(loadingResult.getTestsToRun()).containsExactlyElementsIn(getTargets("//tests:t1"));
-    assertThat(tester.filteredTargets).containsExactlyElementsIn(getTargets());
-    assertThat(tester.testFilteredTargets).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets()).containsExactlyElementsIn(getTargets());
   }
 
   @Test
@@ -294,8 +295,8 @@ public class LoadingPhaseRunnerTest {
     LoadingResult loadingResult = assertNoErrors(tester.loadTests("//tests:all"));
     assertThat(loadingResult.getTargets()).containsExactlyElementsIn(getTargets("//tests:t1"));
     assertThat(loadingResult.getTestsToRun()).containsExactlyElementsIn(getTargets("//tests:t1"));
-    assertThat(tester.filteredTargets).containsExactlyElementsIn(getTargets());
-    assertThat(tester.testFilteredTargets).containsExactlyElementsIn(getTargets("//tests:t2"));
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets()).containsExactlyElementsIn(getTargets("//tests:t2"));
   }
 
   @Test
@@ -307,8 +308,8 @@ public class LoadingPhaseRunnerTest {
         .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t3"));
     assertThat(loadingResult.getTestsToRun())
         .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t3"));
-    assertThat(tester.filteredTargets).containsExactlyElementsIn(getTargets());
-    assertThat(tester.testFilteredTargets).containsExactlyElementsIn(getTargets("//tests:t2"));
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets()).containsExactlyElementsIn(getTargets("//tests:t2"));
   }
 
   @Test
@@ -324,6 +325,10 @@ public class LoadingPhaseRunnerTest {
       assertThat(loadingResult.getPackageRoots().entrySet())
           .contains(entryFor(PackageIdentifier.createInDefaultRepo("cc"), tester.getWorkspace()));
     }
+    assertThat(tester.getOriginalTargets())
+        .containsExactlyElementsIn(getTargets("//cc:tests", "//cc:my_test"));
+    assertThat(tester.getTestSuiteTargets())
+        .containsExactlyElementsIn(getTargets("//cc:tests"));
   }
 
   @Test
@@ -384,8 +389,9 @@ public class LoadingPhaseRunnerTest {
         .containsExactlyElementsIn(getTargets("//foo:foo", "//foo:baz"));
     assertThat(loadingResult.getTestsToRun())
         .containsExactlyElementsIn(getTargets("//foo:foo", "//foo:baz"));
-    assertThat(tester.filteredTargets).containsExactlyElementsIn(getTargets());
-    assertThat(tester.testFilteredTargets).containsExactlyElementsIn(getTargets("//foo:foo_suite"));
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets())
+        .containsExactlyElementsIn(getTargets("//foo:foo_suite"));
   }
 
   /** Regression test for bug: "subtracting tests from test doesn't work" */
@@ -630,8 +636,8 @@ public class LoadingPhaseRunnerTest {
     private final StoredEventHandler storedErrors;
     private LoadingCallback loadingCallback;
 
-    private Set<Target> filteredTargets;
-    private Set<Target> testFilteredTargets;
+    private TargetParsingCompleteEvent targetParsingCompleteEvent;
+    private LoadingPhaseCompleteEvent loadingPhaseCompleteEvent;
 
     private MockToolsConfig mockToolsConfig;
 
@@ -709,8 +715,8 @@ public class LoadingPhaseRunnerTest {
         result = loadingPhaseRunner.execute(storedErrors, eventBus,
             ImmutableList.copyOf(patterns), options, ImmutableListMultimap.<String, Label>of(),
             keepGoing, /*enableLoading=*/true, determineTests, loadingCallback);
-        this.filteredTargets = listener.filteredTargets;
-        this.testFilteredTargets = listener.testFilteredTargets;
+        this.targetParsingCompleteEvent = listener.targetParsingCompleteEvent;
+        this.loadingPhaseCompleteEvent = listener.loadingPhaseCompleteEvent;
       } catch (LoadingFailedException e) {
         System.err.println(storedErrors.getEvents());
         throw e;
@@ -780,6 +786,22 @@ public class LoadingPhaseRunnerTest {
       return skyframeExecutor.getPackageManager();
     }
 
+    public ImmutableSet<Target> getFilteredTargets() {
+      return targetParsingCompleteEvent.getFilteredTargets();
+    }
+
+    public ImmutableSet<Target> getTestFilteredTargets() {
+      return targetParsingCompleteEvent.getTestFilteredTargets();
+    }
+
+    public ImmutableSet<Target> getOriginalTargets() {
+      return targetParsingCompleteEvent.getTargets();
+    }
+
+    public ImmutableSet<Target> getTestSuiteTargets() {
+      return loadingPhaseCompleteEvent.getFilteredTargets();
+    }
+
     private Iterable<Event> filteredEvents() {
       return Iterables.filter(storedErrors.getEvents(), new Predicate<Event>() {
         @Override
@@ -808,12 +830,17 @@ public class LoadingPhaseRunnerTest {
   }
 
   public static class FilteredTargetListener {
-    private Set<Target> filteredTargets;
-    private Set<Target> testFilteredTargets;
+    private TargetParsingCompleteEvent targetParsingCompleteEvent;
+    private LoadingPhaseCompleteEvent loadingPhaseCompleteEvent;
+
     @Subscribe
-    public void notifyFilteredTargets(TargetParsingCompleteEvent event) {
-      filteredTargets = event.getFilteredTargets();
-      testFilteredTargets = event.getTestFilteredTargets();
+    public void targetParsingComplete(TargetParsingCompleteEvent event) {
+      this.targetParsingCompleteEvent = event;
+    }
+
+    @Subscribe
+    public void loadingPhaseComplete(LoadingPhaseCompleteEvent event) {
+      this.loadingPhaseCompleteEvent = event;
     }
   }
 }

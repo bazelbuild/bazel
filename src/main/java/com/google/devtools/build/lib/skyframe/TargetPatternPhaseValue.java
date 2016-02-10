@@ -52,15 +52,23 @@ public final class TargetPatternPhaseValue implements SkyValue {
   private final ImmutableSet<Target> filteredTargets;
   private final ImmutableSet<Target> testFilteredTargets;
 
+  // These two fields are only for the purposes of generating the TargetParsingCompleteEvent.
+  // TODO(ulfjack): Support EventBus event posting in Skyframe, and remove this code again.
+  private final ImmutableSet<Target> originalTargets;
+  private final ImmutableSet<Target> testSuiteTargets;
+
   TargetPatternPhaseValue(ImmutableSet<Target> targets, @Nullable ImmutableSet<Target> testsToRun,
       boolean hasError, boolean hasPostExpansionError, ImmutableSet<Target> filteredTargets,
-      ImmutableSet<Target> testFilteredTargets) {
+      ImmutableSet<Target> testFilteredTargets, ImmutableSet<Target> originalTargets,
+      ImmutableSet<Target> testSuiteTargets) {
     this.targets = Preconditions.checkNotNull(targets);
     this.testsToRun = testsToRun;
     this.hasError = hasError;
     this.hasPostExpansionError = hasPostExpansionError;
     this.filteredTargets = Preconditions.checkNotNull(filteredTargets);
     this.testFilteredTargets = Preconditions.checkNotNull(testFilteredTargets);
+    this.originalTargets = Preconditions.checkNotNull(originalTargets);
+    this.testSuiteTargets = Preconditions.checkNotNull(testSuiteTargets);
   }
 
   public ImmutableSet<Target> getTargets() {
@@ -86,6 +94,14 @@ public final class TargetPatternPhaseValue implements SkyValue {
 
   public ImmutableSet<Target> getTestFilteredTargets() {
     return testFilteredTargets;
+  }
+
+  public ImmutableSet<Target> getOriginalTargets() {
+    return originalTargets;
+  }
+
+  public ImmutableSet<Target> getTestSuiteTargets() {
+    return testSuiteTargets;
   }
 
   public LoadingResult toLoadingResult() {
