@@ -550,6 +550,52 @@ public class LoadingPhaseRunnerTest {
     tester.assertContainsEventWithFrequency("invalid value in 'bash_version' attribute", 1);
   }
 
+  @Test
+  public void testCompileOneDependency() throws Exception {
+    tester.addFile("base/BUILD",
+        "cc_library(name = 'hello', srcs = ['hello.cc'])");
+    tester.useLoadingOptions("--compile_one_dependency");
+    LoadingResult loadingResult = assertNoErrors(tester.load("base/hello.cc"));
+    assertThat(loadingResult.getTargets()).containsExactlyElementsIn(getTargets("//base:hello"));
+  }
+
+  @Test
+  public void testCompileOneDependencyNonExistentSource() throws Exception {
+    tester.addFile("base/BUILD",
+        "cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
+    tester.useLoadingOptions("--compile_one_dependency");
+    try {
+      tester.load("base/hello.cc");
+      fail();
+    } catch (TargetParsingException expected) {
+      tester.assertContainsError("no such package 'bad'");
+    }
+  }
+
+  @Test
+  public void testCompileOneDependencyNonExistentSourceKeepGoing() throws Exception {
+    tester.addFile("base/BUILD",
+        "cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
+    tester.useLoadingOptions("--compile_one_dependency");
+    if (runsLoadingPhase()) {
+      // The LegacyLoadingPhaseRunner throws an exception if it can't load any of the sources in the
+      // same rule as the source we're looking for even with --keep_going.
+      // In general, we probably want --compile_one_dependency to be compatible with --keep_going
+      // for consistency, but it's unclear if this is actually a problem for anyone. The most common
+      // use case for compile_one_dependency is to iterate quickly on a single file, without
+      // --keep_going.
+      try {
+        tester.load("base/hello.cc");
+        fail();
+      } catch (TargetParsingException expected) {
+        tester.assertContainsError("no such package 'bad'");
+      }
+    } else {
+      LoadingResult loadingResult = tester.loadKeepGoing("base/hello.cc");
+      assertThat(loadingResult.hasTargetPatternError()).isTrue();
+    }
+  }
+
   private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
     try {
       tester.load(targetPattern);

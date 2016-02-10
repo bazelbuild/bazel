@@ -22,10 +22,13 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
+import com.google.devtools.build.lib.pkgcache.CompileOneDependencyTransformer;
 import com.google.devtools.build.lib.pkgcache.FilteringPolicies;
 import com.google.devtools.build.lib.pkgcache.LoadingOptions;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
+import com.google.devtools.build.lib.pkgcache.TargetProvider;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
+import com.google.devtools.build.lib.skyframe.EnvironmentBackedRecursivePackageProvider.MissingDepException;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue.TargetPatternList;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternSkyKeyOrException;
@@ -209,11 +212,20 @@ final class TargetPatternPhaseFunction implements SkyFunction {
       }
     }
 
+    ResolvedTargets<Target> result = builder.build();
     if (compileOneDependency) {
-      // TODO(ulfjack): Add support for compile_one_dependency before hooking this up.
-      throw new UnsupportedOperationException();
+      TargetProvider targetProvider = new EnvironmentBackedRecursivePackageProvider(env);
+      try {
+        return new CompileOneDependencyTransformer(targetProvider)
+            .transformCompileOneDependency(env.getListener(), result);
+      } catch (MissingDepException e) {
+        return null;
+      } catch (TargetParsingException e) {
+        env.getListener().handle(Event.error(e.getMessage()));
+        return ResolvedTargets.failed();
+      }
     }
-    return builder.build();
+    return result;
   }
 
   /**
