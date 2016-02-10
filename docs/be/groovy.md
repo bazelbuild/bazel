@@ -37,7 +37,7 @@ The easiest way to do so is to add the following to your `WORKSPACE` file and
 putting `groovy.BUILD` at the root of your workspace:
 
 ```python
-load("/tools/build_defs/groovy/groovy", "groovy_repositories")
+load("@bazel_tools//tools/build_defs/groovy:groovy.bzl", "groovy_repositories")
 
 groovy_repositories()
 ```
@@ -69,7 +69,7 @@ Then, to build the code under src/main/groovy/lib/, your
 `src/main/groovy/lib/BUILD` can look like this:
 
 ```python
-load("/tools/build_defs/groovy/groovy", "groovy_library")
+load("@bazel_tools//tools/build_defs/groovy:groovy.bzl", "groovy_library")
 
 groovy_library(
     name = "groovylib",
@@ -91,7 +91,7 @@ reference the Java code, but not vice-versa. Your `src/main/groovy/lib/BUILD`
 file would then look like this:
 
 ```python
-load("/tools/build_defs/groovy/groovy", "groovy_and_java_library")
+load("@bazel_tools//tools/build_defs/groovy:groovy.bzl", "groovy_and_java_library")
 
 groovy_and_java_library(
     name = "lib",
@@ -103,7 +103,7 @@ To build the application under src/main/groovy/app, you can define a binary
 using `groovy_binary` as follows:
 
 ```python
-load("/tools/build_defs/groovy/groovy", "groovy_binary")
+load("@bazel_tools//tools/build_defs/groovy:groovy.bzl", "groovy_binary")
 
 groovy_binary(
     name = "GroovyApp",
@@ -122,7 +122,7 @@ To build the test under src/test/groovy/lib, your BUILD file would look like
 this:
 
 ```python
-load("/tools/build_defs/groovy/groovy", "groovy_test", "groovy_library")
+load("@bazel_tools//tools/build_defs/groovy:groovy.bzl", "groovy_test", "groovy_library")
 
 
 groovy_library(
