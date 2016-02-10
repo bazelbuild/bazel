@@ -1789,6 +1789,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       eventBus.post(new TargetParsingCompleteEvent(patternParsingValue.getTargets(),
           patternParsingValue.getFilteredTargets(), patternParsingValue.getTestFilteredTargets(),
           time));
+      if (callback != null) {
+        callback.notifyTargets(patternParsingValue.getTargets());
+      }
       eventBus.post(new LoadingPhaseCompleteEvent(
           /*was expandedTargetsToLoad*/patternParsingValue.getTargets(),
           // TODO(ulfjack): Should be: Sets.difference(originalTargetsToLoad, expandedTargetsToLoad)
