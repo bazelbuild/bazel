@@ -959,6 +959,19 @@ java_test(
 )
 
 java_test(
+    name = "objc-rules-tests",
+    srcs = glob(["rules/objc/XcodeProviderTest.java"]),
+    tags = ["rules"],
+    test_class = "com.google.devtools.build.lib.rules.objc.XcodeProviderTest",
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:cmdline",
+        "//src/main/java/com/google/devtools/build/lib/rules/objc",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "repository-rules-tests",
     srcs = glob(["rules/repository/*.java"]),
     tags = ["rules"],
