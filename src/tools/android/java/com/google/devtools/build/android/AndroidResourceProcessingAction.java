@@ -380,8 +380,7 @@ public class AndroidResourceProcessingAction {
       System.exit(3);
     }
     LOGGER.fine(String.format("Resources processed in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-    // AOSP code can leave dangling threads.
-    System.exit(0);
+    resourceProcessor.shutdown();
   }
 
   private static boolean useAaptCruncher() {

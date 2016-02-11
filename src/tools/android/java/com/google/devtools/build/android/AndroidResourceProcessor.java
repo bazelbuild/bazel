@@ -28,6 +28,7 @@ import com.android.builder.internal.SymbolLoader;
 import com.android.builder.internal.SymbolWriter;
 import com.android.builder.model.AaptOptions;
 import com.android.ide.common.internal.CommandLineRunner;
+import com.android.ide.common.internal.ExecutorSingleton;
 import com.android.ide.common.internal.LoggedErrorException;
 import com.android.ide.common.internal.PngCruncher;
 import com.android.ide.common.res2.AssetMerger;
@@ -392,6 +393,14 @@ public class AndroidResourceProcessor {
     return new MergedAndroidData(resourcesOut, assetsOut, primary.getManifest());
   }
 
+  /**
+   * Shutdown AOSP utilized thread-pool.
+   */
+  public void shutdown() {
+    // AOSP code never shuts down its singleton executor and leaves the process hanging.
+    ExecutorSingleton.getExecutor().shutdownNow();
+  }
+
   private void androidDataToRelaxedMergeSet(UnvalidatedAndroidData primary,
       List<DependencyAndroidData> secondary, ImmutableList<DirectoryModifier> modifiers,
       List<ResourceSet> resourceSets, List<AssetSet> assetSets) {
@@ -505,4 +514,3 @@ public class AndroidResourceProcessor {
     }
   }
 }
-
