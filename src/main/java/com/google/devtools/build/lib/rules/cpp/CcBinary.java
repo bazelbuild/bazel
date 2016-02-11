@@ -275,7 +275,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       // For cc_test rules, include the dwp in the runfiles if Fission is enabled and the test was
       // built statically.
       if (TargetUtils.isTestRule(ruleContext.getRule())
-          && linkStaticness == LinkStaticness.FULLY_STATIC
+          && linkStaticness != LinkStaticness.DYNAMIC
           && cppConfiguration.shouldBuildTestDwp()) {
         filesToBuild = NestedSetBuilder.fromNestedSet(filesToBuild).add(dwpFile).build();
       }
