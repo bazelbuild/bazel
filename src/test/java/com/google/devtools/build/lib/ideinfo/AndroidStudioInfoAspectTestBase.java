@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.ideinfo;
 
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 
@@ -164,7 +165,8 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
     NestedSet<Artifact> artifacts = outputGroupProvider.getOutputGroup(outputGroup);
 
     for (Artifact artifact : artifacts) {
-      assertThat(getGeneratingAction(artifact)).isNotNull();
+      assertWithMessage("Artifact %s has no generating action", artifact)
+          .that(getGeneratingAction(artifact)).isNotNull();
     }
 
     List<String> artifactRelativePaths = Lists.newArrayList();

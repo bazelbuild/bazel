@@ -81,8 +81,8 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
 
   @SkylarkCallable(
     name = "annotation_processing",
-    doc = "Returns information about annotation processing for this Java rule",
-    structField = true
+    structField = true, allowReturnNones = true,
+    doc = "Returns information about annotation processing for this Java rule"
   )
   public JavaGenJarsProvider getGenJarsProvider() {
     return getInfo().getProvider(JavaGenJarsProvider.class);

@@ -60,7 +60,7 @@ def artifact_location(file):
   )
 
 def library_artifact(java_output):
-  if java_output == None:
+  if java_output == None or java_output.class_jar == None:
     return None
   return struct_omit_none(
         jar = artifact_location(java_output.class_jar),
@@ -74,6 +74,11 @@ def annotation_processing_jars(annotation_processing):
         source_jar = artifact_location(annotation_processing.source_jar),
   )
 
+def add_jar_to_set(s, file):
+  if  file != None and not file.is_source:
+    return s | set([file])
+  else:
+    return s
 
 def java_rule_ide_info(target, ctx):
   if hasattr(ctx.rule.attr, "srcs"):
@@ -82,11 +87,12 @@ def java_rule_ide_info(target, ctx):
                 for file in src.files]
   else:
      sources = []
+
   jars = [library_artifact(output) for output in target.java.outputs.jars]
   ide_resolve_files = set([jar
-       for jar in [output.class_jar, output.ijar, output.source_jar]
        for output in target.java.outputs.jars
-       if jar != None])
+       for jar in [output.class_jar, output.ijar, output.source_jar]
+       if jar != None and not jar.is_source])
 
   gen_jars = []
   if target.java.annotation_processing and target.java.annotation_processing.enabled:
@@ -94,11 +100,12 @@ def java_rule_ide_info(target, ctx):
     ide_resolve_files = ide_resolve_files | set([ jar
         for jar in [target.java.annotation_processing.class_jar,
                     target.java.annotation_processing.source_jar]
-        if jar != None])
+        if jar != None and not jar.is_source])
 
   jdeps = artifact_location(target.java.outputs.jdeps)
 
-  return (struct(sources = sources,
+  return (struct_omit_none(
+                 sources = sources,
                  jars = jars,
                  jdeps = jdeps,
                  generated_jars = gen_jars
@@ -125,7 +132,7 @@ def _aspect_impl(target, ctx):
   if kind != _unrecognized_rule:
     if is_java_rule(target, ctx):
       java_rule_ide_info, java_ide_resolve_files = java_rule_ide_info(target, ctx)
-      ide_resolve_files += java_ide_resolve_files
+      ide_resolve_files = ide_resolve_files | java_ide_resolve_files
       info = struct(
           label = str(target.label),
           kind = kind,
