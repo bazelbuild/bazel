@@ -320,7 +320,6 @@ public interface JavaSemantics {
       Artifact genJar,
       Artifact gensrcJar,
       ImmutableMap<Artifact, Artifact> compilationToRuntimeJarMap,
-      JavaCompilationHelper helper,
       NestedSetBuilder<Artifact> filesBuilder,
       RuleConfiguredTargetBuilder ruleBuilder) throws InterruptedException;
 

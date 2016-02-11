@@ -159,7 +159,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     semantics.addProviders(
         ruleContext, common, ImmutableList.<String>of(), classJar, srcJar, 
         genClassJar, genSourceJar, ImmutableMap.<Artifact, Artifact>of(), 
-        helper, filesBuilder, builder);
+        filesBuilder, builder);
 
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
     common.addTransitiveInfoProviders(builder, filesToBuild, classJar);
