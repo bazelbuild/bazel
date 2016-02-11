@@ -583,8 +583,7 @@ public class FileSystemUtils {
 
   /**
    * Copies all dir trees under a given 'from' dir to location 'to', while overwriting
-   * all files in the potentially existing 'to'. Does not follow any symbolic links,
-   * but copies them instead.
+   * all files in the potentially existing 'to'. Resolves symbolic links.
    *
    * <p>The source and the destination must be non-overlapping, otherwise an
    * IllegalArgumentException will be thrown. This method cannot be used to copy
@@ -602,16 +601,13 @@ public class FileSystemUtils {
 
     Collection<Path> entries = from.getDirectoryEntries();
     for (Path entry : entries) {
-      if (entry.isDirectory(Symlinks.NOFOLLOW)) {
+      if (entry.isFile()) {
+        Path newEntry = to.getChild(entry.getBaseName());
+        copyFile(entry, newEntry);
+      } else {
         Path subDir = to.getChild(entry.getBaseName());
         subDir.createDirectory();
         copyTreesBelow(entry, subDir);
-      } else if (entry.isSymbolicLink()) {
-        Path newLink = to.getChild(entry.getBaseName());
-        newLink.createSymbolicLink(entry.readSymbolicLinkUnchecked());
-      } else {
-        Path newEntry = to.getChild(entry.getBaseName());
-        copyFile(entry, newEntry);
       }
     }
   }
