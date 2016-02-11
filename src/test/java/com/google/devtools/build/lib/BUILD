@@ -965,6 +965,7 @@ java_test(
     test_class = "com.google.devtools.build.lib.rules.objc.XcodeProviderTest",
     deps = [
         "//src/main/java/com/google/devtools/build/lib:cmdline",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//third_party:junit4",
         "//third_party:truth",
