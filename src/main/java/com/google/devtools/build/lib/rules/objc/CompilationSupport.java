@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.DEFINE;
-import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FORCE_LOAD_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_DIR;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.FRAMEWORK_FILE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_CPP;
@@ -702,6 +701,43 @@ public final class CompilationSupport {
    */
   CompilationSupport registerLinkActions(ObjcProvider objcProvider, ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs) {
+    LibrariesToLink defaultLibrariesToLink = LibrariesToLink.defaultLibraries(objcProvider);
+    return registerLinkActions(
+        objcProvider, extraLinkArgs, extraLinkInputs, defaultLibrariesToLink);
+  }
+
+  /**
+   * Registers any actions necessary to link a test rule and its dependencies, without redundantly
+   * linking libraries already linked into the test application.
+   *
+   * <p>Dsym bundle and breakpad files are generated if
+   * {@link ObjcConfiguration#generateDebugSymbols()} is set.
+   *
+   * <p>When Bazel flags {@code --compilation_mode=opt} and {@code --objc_enable_binary_stripping}
+   * are specified, additional optimizations will be performed on the linked binary: all-symbol
+   * stripping (using {@code /usr/bin/strip}) and dead-code stripping (using linker flags:
+   * {@code -dead_strip} and {@code -no_dead_strip_inits_and_terms}).
+   *
+   * @param objcProvider common information about this rule's attributes and its dependencies
+   * @param extraLinkArgs any additional arguments to pass to the linker
+   * @param extraLinkInputs any additional input artifacts to pass to the link action
+   * @param librariesToLink libraries that were not already linked into the test application
+   *
+   * @return this compilation support
+   */
+  CompilationSupport registerLinkActionsForXcTest(
+      ObjcProvider objcProvider,
+      ExtraLinkArgs extraLinkArgs,
+      Iterable<Artifact> extraLinkInputs,
+      LibrariesToLink librariesToLink) {
+    return registerLinkActions(objcProvider, extraLinkArgs, extraLinkInputs, librariesToLink);
+  }
+
+  private CompilationSupport registerLinkActions(
+      ObjcProvider objcProvider,
+      ExtraLinkArgs extraLinkArgs,
+      Iterable<Artifact> extraLinkInputs,
+      LibrariesToLink librariesToLink) {
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
     Optional<Artifact> dsymBundle;
@@ -724,6 +760,7 @@ public final class CompilationSupport {
         extraLinkArgs,
         extraLinkInputs,
         dsymBundle,
+        librariesToLink,
         prunedJ2ObjcArchives);
     return this;
   }
@@ -786,8 +823,12 @@ public final class CompilationSupport {
             /*externDependencies=*/ true));
   }
 
-  private void registerLinkAction(ObjcProvider objcProvider, ExtraLinkArgs extraLinkArgs,
-      Iterable<Artifact> extraLinkInputs, Optional<Artifact> dsymBundle,
+  private void registerLinkAction(
+      ObjcProvider objcProvider,
+      ExtraLinkArgs extraLinkArgs,
+      Iterable<Artifact> extraLinkInputs,
+      Optional<Artifact> dsymBundle,
+      LibrariesToLink librariesToLink,
       Iterable<Artifact> prunedJ2ObjcArchives) {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     IntermediateArtifacts intermediateArtifacts =
@@ -804,18 +845,26 @@ public final class CompilationSupport {
             : intermediateArtifacts.strippedSingleArchitectureBinary();
 
     ImmutableList<Artifact> ccLibraries = ccLibraries(objcProvider);
-    NestedSet<Artifact> bazelBuiltLibraries = Iterables.isEmpty(prunedJ2ObjcArchives)
-        ? objcProvider.get(LIBRARY) : substituteJ2ObjcPrunedLibraries(objcProvider);
+    Iterable<Artifact> bazelBuiltLibraries =
+        Iterables.isEmpty(prunedJ2ObjcArchives)
+            ? librariesToLink.getLibrariesToLink()
+            : substituteJ2ObjcPrunedLibraries(objcProvider, librariesToLink);
     ruleContext.registerAction(
         ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
             .setMnemonic("ObjcLink")
             .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
             .setCommandLine(
-                linkCommandLine(extraLinkArgs, objcProvider, binaryToLink, dsymBundle, ccLibraries,
+                linkCommandLine(
+                    extraLinkArgs,
+                    objcProvider,
+                    binaryToLink,
+                    dsymBundle,
+                    ccLibraries,
+                    librariesToLink,
                     bazelBuiltLibraries))
             .addOutput(binaryToLink)
             .addOutputs(dsymBundle.asSet())
-            .addTransitiveInputs(bazelBuiltLibraries)
+            .addInputs(bazelBuiltLibraries)
             .addTransitiveInputs(objcProvider.get(IMPORTED_LIBRARY))
             .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
             .addInputs(ccLibraries)
@@ -875,13 +924,14 @@ public final class CompilationSupport {
    * Returns a nested set of Bazel-built ObjC libraries with all unpruned J2ObjC libraries
    * substituted with pruned ones.
    */
-  private NestedSet<Artifact> substituteJ2ObjcPrunedLibraries(ObjcProvider objcProvider) {
+  private NestedSet<Artifact> substituteJ2ObjcPrunedLibraries(
+      ObjcProvider objcProvider, LibrariesToLink librariesToLink) {
     ImmutableList.Builder<Artifact> libraries = new ImmutableList.Builder<>();
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
 
     Set<Artifact> unprunedJ2ObjcLibs = objcProvider.get(ObjcProvider.J2OBJC_LIBRARY).toSet();
-    for (Artifact library : objcProvider.get(LIBRARY)) {
+    for (Artifact library : librariesToLink.getLibrariesToLink()) {
       // If we match an unpruned J2ObjC library, add the pruned version of the J2ObjC static library
       // instead.
       if (unprunedJ2ObjcLibs.contains(library)) {
@@ -893,9 +943,14 @@ public final class CompilationSupport {
     return NestedSetBuilder.wrap(Order.NAIVE_LINK_ORDER, libraries.build());
   }
 
-  private CommandLine linkCommandLine(ExtraLinkArgs extraLinkArgs,
-      ObjcProvider objcProvider, Artifact linkedBinary, Optional<Artifact> dsymBundle,
-      Iterable<Artifact> ccLibraries, Iterable<Artifact> bazelBuiltLibraries) {
+  private CommandLine linkCommandLine(
+      ExtraLinkArgs extraLinkArgs,
+      ObjcProvider objcProvider,
+      Artifact linkedBinary,
+      Optional<Artifact> dsymBundle,
+      Iterable<Artifact> ccLibraries,
+      LibrariesToLink librariesToLink,
+      Iterable<Artifact> bazelBuiltLibraries) {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     Iterable<String> libraryNames = libraryNames(objcProvider);
@@ -920,7 +975,7 @@ public final class CompilationSupport {
     if (objcConfiguration.shouldPrioritizeStaticLibs()) {
       commandLine
           .addExecPaths(bazelBuiltLibraries)
-          .addExecPaths(objcProvider.get(IMPORTED_LIBRARY))
+          .addExecPaths(librariesToLink.getImportedLibrariesToLink())
           .addExecPaths(ccLibraries);
     }
 
@@ -939,13 +994,14 @@ public final class CompilationSupport {
     if (!objcConfiguration.shouldPrioritizeStaticLibs()) {
       commandLine
           .addExecPaths(bazelBuiltLibraries)
-          .addExecPaths(objcProvider.get(IMPORTED_LIBRARY))
+          .addExecPaths(librariesToLink.getImportedLibrariesToLink())
           .addExecPaths(ccLibraries);
     }
 
     commandLine
         .addExecPath("-o", linkedBinary)
-        .addBeforeEach("-force_load", Artifact.toExecPaths(objcProvider.get(FORCE_LOAD_LIBRARY)))
+        .addBeforeEach(
+            "-force_load", Artifact.toExecPaths(librariesToLink.getForceLoadLibrariesToLink()))
         .add(extraLinkArgs)
         .add(objcProvider.get(ObjcProvider.LINKOPT))
         .build();
