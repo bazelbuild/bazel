@@ -78,4 +78,14 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
   public JavaRuleOutputJarsProvider getOutputJars() {
     return getInfo().getProvider(JavaRuleOutputJarsProvider.class);
   }
+
+  @SkylarkCallable(
+    name = "annotation_processing",
+    doc = "Returns information about annotation processing for this Java rule",
+    structField = true
+  )
+  public JavaGenJarsProvider getGenJarsProvider() {
+    return getInfo().getProvider(JavaGenJarsProvider.class);
+  }
+
 }

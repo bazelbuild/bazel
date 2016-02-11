@@ -36,6 +36,7 @@ DEPENDENCY_ATTRIBUTES = [
   "binary_under_test", #  From android_test
   "java_lib",# From proto_library
   "_proto1_java_lib", # From proto_library
+  "runtime_deps",
 ]
 
 def get_kind(target, ctx):
@@ -52,7 +53,8 @@ def artifact_location(file):
   if file == None:
     return None
   return struct(
-      root_path = file.root.path, # todo(dslomov): this gives path relative to execution root
+      # todo(dslomov): return correct root_path
+      # root_path = file.root.path,
       relative_path = file.short_path,
       is_source = file.is_source,
   )
@@ -66,6 +68,13 @@ def library_artifact(java_output):
         source_jar = artifact_location(java_output.source_jar),
   )
 
+def annotation_processing_jars(annotation_processing):
+  return struct_omit_none(
+        jar = artifact_location(annotation_processing.class_jar),
+        source_jar = artifact_location(annotation_processing.source_jar),
+  )
+
+
 def java_rule_ide_info(target, ctx):
   if hasattr(ctx.rule.attr, "srcs"):
      sources = [artifact_location(file)
@@ -78,11 +87,21 @@ def java_rule_ide_info(target, ctx):
        for jar in [output.class_jar, output.ijar, output.source_jar]
        for output in target.java.outputs.jars
        if jar != None])
+
+  gen_jars = []
+  if target.java.annotation_processing and target.java.annotation_processing.enabled:
+    gen_jars = [annotation_processing_jars(target.java.annotation_processing)]
+    ide_resolve_files = ide_resolve_files | set([ jar
+        for jar in [target.java.annotation_processing.class_jar,
+                    target.java.annotation_processing.source_jar]
+        if jar != None])
+
   jdeps = artifact_location(target.java.outputs.jdeps)
 
   return (struct(sources = sources,
                  jars = jars,
                  jdeps = jdeps,
+                 generated_jars = gen_jars
           ),
           ide_resolve_files)
 
