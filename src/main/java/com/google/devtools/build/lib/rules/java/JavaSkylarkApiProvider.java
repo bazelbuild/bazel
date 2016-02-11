@@ -72,7 +72,7 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
 
   @SkylarkCallable(
     name = "outputs",
-    doc = "Returns information about outputs of this Java rule",
+    doc = "Returns information about outputs of this Java target",
     structField = true
   )
   public JavaRuleOutputJarsProvider getOutputJars() {
@@ -81,11 +81,22 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
 
   @SkylarkCallable(
     name = "annotation_processing",
-    structField = true, allowReturnNones = true,
-    doc = "Returns information about annotation processing for this Java rule"
+    structField = true,
+    allowReturnNones = true,
+    doc = "Returns information about annotation processing for this Java target"
   )
   public JavaGenJarsProvider getGenJarsProvider() {
     return getInfo().getProvider(JavaGenJarsProvider.class);
+  }
+
+  @SkylarkCallable(
+    name = "compilation_info",
+    structField = true,
+    allowReturnNones = true,
+    doc = "Returns compilation information for this Java target"
+  )
+  public JavaCompilationInfoProvider getCompilationInfoProvider() {
+    return getInfo().getProvider(JavaCompilationInfoProvider.class);
   }
 
 }

@@ -166,7 +166,8 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
 
     for (Artifact artifact : artifacts) {
       assertWithMessage("Artifact %s has no generating action", artifact)
-          .that(getGeneratingAction(artifact)).isNotNull();
+          .that(getGeneratingAction(artifact))
+          .isNotNull();
     }
 
     List<String> artifactRelativePaths = Lists.newArrayList();

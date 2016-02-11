@@ -580,8 +580,8 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
                 "l_resources.jar", "l_resources-ijar.jar", "l_resources-src.jar"));
     if (isNativeTest()) {
       assertThat(
-          transform(
-              ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
+              transform(
+                  ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
           .containsExactly("com/google/example/res");
       assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
           .isEqualTo("com/google/example/AndroidManifest.xml");
@@ -637,8 +637,8 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
     if (isNativeTest()) {
       assertThat(
-          transform(
-              ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
+              transform(
+                  ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
           .containsExactly("com/google/example/res");
       assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
           .isEqualTo("com/google/example/AndroidManifest.xml");
