@@ -552,10 +552,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidLibrary() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "com/google/example/BUILD",
         "android_library(",
@@ -582,13 +578,15 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
                 "libl.jar", "libl-ijar.jar", "libl-src.jar"),
             jarString("com/google/example",
                 "l_resources.jar", "l_resources-ijar.jar", "l_resources-src.jar"));
-    assertThat(
-            transform(
-                ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
-        .containsExactly("com/google/example/res");
-    assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
-        .isEqualTo("com/google/example/AndroidManifest.xml");
-    assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
+    if (isNativeTest()) {
+      assertThat(
+          transform(
+              ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
+          .containsExactly("com/google/example/res");
+      assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
+          .isEqualTo("com/google/example/AndroidManifest.xml");
+      assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
+    }
 
     assertThat(ruleInfo.getDependenciesList()).containsExactly("//com/google/example:l1");
     assertThat(getIdeResolveFiles()).containsExactly(
@@ -610,9 +608,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidBinary() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
     scratch.file(
         "com/google/example/BUILD",
         "android_library(",
@@ -639,15 +634,18 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
                 "libb.jar", "libb-ijar.jar", "libb-src.jar"),
             jarString("com/google/example",
                 "b_resources.jar", "b_resources-ijar.jar", "b_resources-src.jar"));
-    assertThat(
-            transform(
-                ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
-        .containsExactly("com/google/example/res");
-    assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
-        .isEqualTo("com/google/example/AndroidManifest.xml");
-    assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
-    assertThat(ruleInfo.getAndroidRuleIdeInfo().getApk().getRelativePath())
-        .isEqualTo("com/google/example/b.apk");
+
+    if (isNativeTest()) {
+      assertThat(
+          transform(
+              ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
+          .containsExactly("com/google/example/res");
+      assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
+          .isEqualTo("com/google/example/AndroidManifest.xml");
+      assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
+      assertThat(ruleInfo.getAndroidRuleIdeInfo().getApk().getRelativePath())
+          .isEqualTo("com/google/example/b.apk");
+    }
 
     assertThat(ruleInfo.getDependenciesList()).containsExactly("//com/google/example:l1");
 
