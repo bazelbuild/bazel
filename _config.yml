@@ -1,5 +1,5 @@
 destination: production
-markdown: kramdown
+markdown: redcarpet
 paginate: 10
 highlighter: pygments
 sass:
