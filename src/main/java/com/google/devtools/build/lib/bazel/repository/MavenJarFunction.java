@@ -170,13 +170,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
       this.name = name;
       this.outputDirectory = outputDirectory;
 
-      if (!mapper.get("artifact", Type.STRING).isEmpty()) {
-        this.artifact = mapper.get("artifact", Type.STRING);
-      } else {
-        this.artifact = mapper.get("group_id", Type.STRING) + ":"
-            + mapper.get("artifact_id", Type.STRING) + ":"
-            + mapper.get("version", Type.STRING);
-      }
+      this.artifact = mapper.get("artifact", Type.STRING);
       this.sha1 = (mapper.has("sha1", Type.STRING)) ? mapper.get("sha1", Type.STRING) : null;
       this.url = serverValue.getUrl();
       this.server = serverValue.getServer();

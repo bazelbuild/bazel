@@ -43,9 +43,6 @@ public class MavenJarRule implements RuleDefinition {
         see <a href="#maven_jar_examples">the documentation below</a> for an example.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("artifact", Type.STRING))
-        .add(attr("artifact_id", Type.STRING).undocumented("deprecated"))
-        .add(attr("group_id", Type.STRING).undocumented("deprecated"))
-        .add(attr("version", Type.STRING).undocumented("deprecated"))
         /* <!-- #BLAZE_RULE(maven_jar).ATTRIBUTE(repository) -->
         A URL for a Maven repository to fetch the jar from.
 
