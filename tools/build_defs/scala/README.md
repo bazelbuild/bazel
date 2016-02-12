@@ -18,23 +18,8 @@ and `scala_test`.
 In order to use `scala_library`, `scala_macro_library`, and `scala_binary`,
 you must add the following to your WORKSPACE file:
 ```python
-new_http_archive(
-    name = "scala",
-    strip_prefix = "scala-2.11.7",
-    sha256 = "ffe4196f13ee98a66cf54baffb0940d29432b2bd820bd0781a8316eec22926d0",
-    url = "http://downloads.typesafe.com/scala/2.11.7/scala-2.11.7.tgz",
-    build_file = "tools/build_defs/scala/scala.BUILD",
-)
-```
-
-In addition, in order to use `scala_test`, you must add the following to your
-WORKSPACE file:
-```python
-http_file(
-    name = "scalatest",
-    url = "https://oss.sonatype.org/content/groups/public/org/scalatest/scalatest_2.11/2.2.6/scalatest_2.11-2.2.6.jar",
-    sha256 = "f198967436a5e7a69cfd182902adcfbcb9f2e41b349e1a5c8881a2407f615962",
-)
+load("@bazel_tools//tools/build_defs/scala:scala.bzl", "scala_repositories")
+scala_repositories()
 ```
 
 [scala]: http://www.scala-lang.org/

@@ -23,7 +23,7 @@ might become especially valuable.
 Add the following to your `WORKSPACE` file to add the external repositories:
 
 ```python
-load("/tools/build_defs/dotnet/csharp", "csharp_repositories")
+load("@bazel_tools//tools/build_defs/dotnet:csharp.bzl", "csharp_repositories")
 
 csharp_repositories()
 ```

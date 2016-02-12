@@ -156,8 +156,14 @@ public final class NativeLibs {
             ruleContext.getActionOwner(), null, symlinks.values(),
             ruleContext.getConfiguration().getMiddlemanDirectory(), "android_native_libs");
 
-    ruleContext.registerAction(new SymlinkTreeAction(
-        ruleContext.getActionOwner(), inputManifest, nativeLibsMiddleman, outputManifest, false));
+    ruleContext.registerAction(
+        new SymlinkTreeAction(
+            ruleContext.getActionOwner(),
+            inputManifest,
+            nativeLibsMiddleman,
+            outputManifest,
+            false,
+            ruleContext.getConfiguration().getShExecutable()));
     return outputManifest;
   }
 

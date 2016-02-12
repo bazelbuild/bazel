@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -69,8 +70,9 @@ public class StandaloneTestStrategy extends TestStrategy {
       throws ExecException, InterruptedException {
     Path runfilesDir = null;
     try {
-      runfilesDir = TestStrategy.getLocalRunfilesDirectory(
-          action, actionExecutionContext, binTools);
+      runfilesDir =
+          TestStrategy.getLocalRunfilesDirectory(
+              action, actionExecutionContext, binTools, action.getShExecutable());
     } catch (ExecException e) {
       throw new TestExecException(e.getMessage());
     }
@@ -116,34 +118,27 @@ public class StandaloneTestStrategy extends TestStrategy {
       throw new EnvironmentalExecException("Could not create TEST_TMPDIR " + testTmpDir, e);
     }
 
-    ResourceSet resources = null;
-    FileOutErr fileOutErr = null;
     try {
       FileSystemUtils.createDirectoryAndParents(workingDirectory);
-      fileOutErr = new FileOutErr(action.getTestLog().getPath(),
-          action.resolve(actionExecutionContext.getExecutor().getExecRoot()).getTestStderr());
 
-      resources = action.getTestProperties()
-          .getLocalResourceUsage(executionOptions.usingLocalTestJobs());
-      ResourceManager.instance().acquireResources(action, resources);
-      TestResultData data = execute(
-          actionExecutionContext.withFileOutErr(fileOutErr), spawn, action);
-      appendStderr(fileOutErr.getOutputFile(), fileOutErr.getErrorFile());
-      finalizeTest(actionExecutionContext, action, data);
+      ResourceSet resources =
+          action.getTestProperties().getLocalResourceUsage(executionOptions.usingLocalTestJobs());
+
+      try (FileOutErr fileOutErr =
+              new FileOutErr(
+                  action.getTestLog().getPath(),
+                  action
+                      .resolve(actionExecutionContext.getExecutor().getExecRoot())
+                      .getTestStderr());
+          ResourceHandle handle = ResourceManager.instance().acquireResources(action, resources)) {
+        TestResultData data =
+            execute(actionExecutionContext.withFileOutErr(fileOutErr), spawn, action);
+        appendStderr(fileOutErr.getOutputFile(), fileOutErr.getErrorFile());
+        finalizeTest(actionExecutionContext, action, data);
+      }
     } catch (IOException e) {
       executor.getEventHandler().handle(Event.error("Caught I/O exception: " + e));
       throw new EnvironmentalExecException("unexpected I/O exception", e);
-    } finally {
-      if (resources != null) {
-        ResourceManager.instance().releaseResources(action, resources);
-      }
-      try {
-        if (fileOutErr != null) {
-          fileOutErr.close();
-        }
-      } catch (IOException e) {
-        // If the close fails, there is little we can do.
-      }
     }
   }
 

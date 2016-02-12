@@ -116,6 +116,9 @@ final class TestsInSuiteFunction implements SkyFunction {
       if (TargetUtils.isTestSuiteRule(suite)) {
         TestsInSuiteValue value =
             (TestsInSuiteValue) env.getValue(TestsInSuiteValue.key(suite, strict));
+        if (value == null) {
+          continue;
+        }
         builder.merge(value.getTargets());
       }
     }

@@ -139,6 +139,7 @@ public final class ParallelEvaluator implements Evaluator {
   private final EventHandler reporter;
   private final NestedSetVisitor<TaggedEvents> replayingNestedSetEventVisitor;
   private final boolean keepGoing;
+  private final boolean storeErrorsAlongsideValues;
   private final int threadCount;
   @Nullable private final ForkJoinPool forkJoinPool;
   @Nullable private final EvaluationProgressReceiver progressReceiver;
@@ -164,6 +165,7 @@ public final class ParallelEvaluator implements Evaluator {
     this.inflightKeysReceiver = inflightKeysReceiver;
     this.reporter = Preconditions.checkNotNull(reporter);
     this.keepGoing = keepGoing;
+    this.storeErrorsAlongsideValues = true;
     this.threadCount = threadCount;
     this.progressReceiver = progressReceiver;
     this.dirtyKeyTracker = Preconditions.checkNotNull(dirtyKeyTracker);
@@ -181,6 +183,7 @@ public final class ParallelEvaluator implements Evaluator {
       EmittedEventState emittedEventState,
       EventFilter storedEventFilter,
       boolean keepGoing,
+      boolean storeErrorsAlongsideValues,
       @Nullable EvaluationProgressReceiver progressReceiver,
       DirtyKeyTracker dirtyKeyTracker,
       Receiver<Collection<SkyKey>> inflightKeysReceiver,
@@ -191,6 +194,8 @@ public final class ParallelEvaluator implements Evaluator {
     this.inflightKeysReceiver = inflightKeysReceiver;
     this.reporter = Preconditions.checkNotNull(reporter);
     this.keepGoing = keepGoing;
+    this.storeErrorsAlongsideValues = storeErrorsAlongsideValues;
+    Preconditions.checkState(storeErrorsAlongsideValues || keepGoing);
     this.threadCount = 0;
     this.progressReceiver = progressReceiver;
     this.dirtyKeyTracker = Preconditions.checkNotNull(dirtyKeyTracker);
@@ -332,10 +337,16 @@ public final class ParallelEvaluator implements Evaluator {
      * <p>Child errors are remembered, if there are any and yet the parent recovered without
      * error, so that subsequent noKeepGoing evaluations can stop as soon as they encounter a
      * node whose (transitive) children had experienced an error, even if that (transitive)
-     * parent node had been able to recover from it during a keepGoing build.
+     * parent node had been able to recover from it during a keepGoing build. This behavior can be
+     * suppressed by setting {@link #storeErrorsAlongsideValues} to false, which will cause nodes
+     * with values to have no stored error info. This may be useful if this graph will only ever be
+     * used for keepGoing builds, since in that case storing errors from recovered nodes is
+     * pointless.
      */
     private void finalizeErrorInfo() {
-      if (errorInfo == null && !childErrorInfos.isEmpty()) {
+      if (errorInfo == null
+          && (storeErrorsAlongsideValues || value == null)
+          && !childErrorInfos.isEmpty()) {
         errorInfo = ErrorInfo.fromChildErrors(skyKey, childErrorInfos);
       }
     }

@@ -94,6 +94,14 @@ EOF
   expect_log "Pluto is a dwarf planet"
 }
 
+function test_new_git_repository_with_build_file() {
+  do_new_git_repository_test "build_file"
+}
+
+function test_new_git_repository_with_build_file_content() {
+  do_new_git_repository_test "build_file_content"
+}
+
 # Test cloning a Git repository using the new_git_repository rule.
 #
 # This test uses the pluto Git repository at tag 0-initial, which contains the
@@ -113,12 +121,14 @@ EOF
 #
 # //planets has a dependency on a target in the $TEST_TMPDIR/pluto Git
 # repository.
-function test_new_git_repository() {
+function do_new_git_repository_test() {
   local pluto_repo_dir=$TEST_TMPDIR/repos/pluto
 
   # Create a workspace that clones the repository at the first commit.
   cd $WORKSPACE_DIR
-  cat > WORKSPACE <<EOF
+
+  if [ "$1" == "build_file" ] ; then
+    cat > WORKSPACE <<EOF
 new_git_repository(
     name = "pluto",
     remote = "$pluto_repo_dir",
@@ -127,13 +137,28 @@ new_git_repository(
 )
 EOF
 
-  cat > pluto.BUILD <<EOF
+    cat > pluto.BUILD <<EOF
 filegroup(
     name = "pluto",
     srcs = ["info"],
     visibility = ["//visibility:public"],
 )
 EOF
+  else
+    cat > WORKSPACE <<EOF
+new_git_repository(
+    name = "pluto",
+    remote = "$pluto_repo_dir",
+    tag = "0-initial",
+    build_file_content = """
+filegroup(
+    name = "pluto",
+    srcs = ["info"],
+    visibility = ["//visibility:public"],
+)"""
+)
+EOF
+  fi
 
   mkdir -p planets
   cat > planets/BUILD <<EOF

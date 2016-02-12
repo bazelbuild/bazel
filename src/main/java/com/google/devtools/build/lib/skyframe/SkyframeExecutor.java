@@ -100,7 +100,6 @@ import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.pkgcache.TargetParsingCompleteEvent;
-import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
@@ -1728,35 +1727,22 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * Skyframe-based implementation of {@link LoadingPhaseRunner} based on {@link
    * TargetPatternPhaseFunction}.
    */
-  // TODO(ulfjack): This is still incomplete.
   final class SkyframeLoadingPhaseRunner extends LoadingPhaseRunner {
-    private final TargetPatternEvaluator targetPatternEvaluator;
     private final Set<String> ruleClassNames;
 
     public SkyframeLoadingPhaseRunner(Set<String> ruleClassNames) {
-      this.targetPatternEvaluator = getPackageManager().newTargetPatternEvaluator();
       this.ruleClassNames = ruleClassNames;
     }
 
     @Override
-    public TargetPatternEvaluator getTargetPatternEvaluator() {
-      return targetPatternEvaluator;
-    }
-
-    @Override
-    public void updatePatternEvaluator(PathFragment relativeWorkingDirectory) {
-      targetPatternEvaluator.updateOffset(relativeWorkingDirectory);
-    }
-
-    @Override
     public LoadingResult execute(EventHandler eventHandler, EventBus eventBus,
-        List<String> targetPatterns, LoadingOptions options,
+        List<String> targetPatterns, PathFragment relativeWorkingDirectory, LoadingOptions options,
         ListMultimap<String, Label> labelsToLoadUnconditionally, boolean keepGoing,
         boolean enableLoading, boolean determineTests, @Nullable LoadingCallback callback)
         throws TargetParsingException, LoadingFailedException, InterruptedException {
       Stopwatch timer = Stopwatch.createStarted();
       SkyKey key = TargetPatternPhaseValue.key(ImmutableList.copyOf(targetPatterns),
-          targetPatternEvaluator.getOffset(), options.compileOneDependency,
+          relativeWorkingDirectory.getPathString(), options.compileOneDependency,
           options.buildTestsOnly, determineTests,
           TestFilter.forOptions(options, eventHandler, ruleClassNames));
       EvaluationResult<TargetPatternPhaseValue> evalResult =
@@ -1785,14 +1771,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       long time = timer.stop().elapsed(TimeUnit.MILLISECONDS);
 
       TargetPatternPhaseValue patternParsingValue = evalResult.get(key);
-      // TODO(ulfjack): The first event should be pre-test_suite expansion, the second post.
-      eventBus.post(new TargetParsingCompleteEvent(patternParsingValue.getTargets(),
+      eventBus.post(new TargetParsingCompleteEvent(patternParsingValue.getOriginalTargets(),
           patternParsingValue.getFilteredTargets(), patternParsingValue.getTestFilteredTargets(),
           time));
+      if (callback != null) {
+        callback.notifyTargets(patternParsingValue.getTargets());
+      }
       eventBus.post(new LoadingPhaseCompleteEvent(
-          /*was expandedTargetsToLoad*/patternParsingValue.getTargets(),
-          // TODO(ulfjack): Should be: Sets.difference(originalTargetsToLoad, expandedTargetsToLoad)
-          /*was testSuiteTargets*/ImmutableSet.<Target>of(),
+          patternParsingValue.getTargets(), patternParsingValue.getTestSuiteTargets(),
           packageManager.getStatistics(), /*timeInMs=*/0));
       return patternParsingValue.toLoadingResult();
     }

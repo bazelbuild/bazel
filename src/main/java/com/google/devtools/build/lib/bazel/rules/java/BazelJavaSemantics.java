@@ -275,7 +275,6 @@ public class BazelJavaSemantics implements JavaSemantics {
       Artifact genJar,
       Artifact gensrcJar,
       ImmutableMap<Artifact, Artifact> compilationToRuntimeJarMap,
-      JavaCompilationHelper helper,
       NestedSetBuilder<Artifact> filesBuilder,
       RuleConfiguredTargetBuilder ruleBuilder) {
     if (isJavaBinaryOrJavaTest(ruleContext)) {

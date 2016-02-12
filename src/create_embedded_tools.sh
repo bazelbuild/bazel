@@ -32,7 +32,8 @@ for i in $*; do
     *SingleJar_deploy.jar) OUTPUT_PATH=tools/jdk/SingleJar_deploy.jar ;;
     *GenClass_deploy.jar) OUTPUT_PATH=tools/jdk/GenClass_deploy.jar ;;
     *Runner_deploy.jar) OUTPUT_PATH=tools/jdk/TestRunner_deploy.jar ;;
-    *ijar) OUTPUT_PATH=tools/jdk/ijar ;;
+    *ijar.exe) OUTPUT_PATH=tools/jdk/ijar/ijar.exe ;;
+    *ijar) OUTPUT_PATH=tools/jdk/ijar/ijar ;;
     *src/objc_tools/*) OUTPUT_PATH=tools/objc/precomp_${i##*/} ;;
     *xcode*StdRedirect.dylib) OUTPUT_PATH=tools/objc/StdRedirect.dylib ;;
     *xcode*realpath) OUTPUT_PATH=tools/objc/realpath ;;

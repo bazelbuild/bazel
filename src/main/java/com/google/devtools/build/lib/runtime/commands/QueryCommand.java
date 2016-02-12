@@ -253,7 +253,7 @@ public final class QueryCommand implements BlazeCommand {
         env.getPackageManager().newTransitiveLoader(),
         env.getSkyframeExecutor(),
         env.getPackageManager(),
-        env.getTargetPatternEvaluator(),
+        env.newTargetPatternEvaluator(),
         keepGoing, orderedResults, universeScope, loadingPhaseThreads, env.getReporter(),
         settings,
         functions.build(),

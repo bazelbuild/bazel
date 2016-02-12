@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.SymlinkTreeAction;
 import com.google.devtools.build.lib.analysis.SymlinkTreeActionContext;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.logging.Logger;
 
@@ -42,8 +43,10 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
   }
 
   @Override
-  public void createSymlinks(SymlinkTreeAction action,
-      ActionExecutionContext actionExecutionContext)
+  public void createSymlinks(
+      SymlinkTreeAction action,
+      ActionExecutionContext actionExecutionContext,
+      PathFragment shExecutable)
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
     try (AutoProfiler p =
@@ -58,7 +61,7 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
               action.getOutputManifest().getPath(),
               action.isFilesetTree(), helper.getSymlinkTreeRoot());
         } else {
-          helper.createSymlinks(action, actionExecutionContext, binTools);
+          helper.createSymlinks(action, actionExecutionContext, binTools, shExecutable);
         }
       } catch (ExecException e) {
         throw e.toActionExecutionException(

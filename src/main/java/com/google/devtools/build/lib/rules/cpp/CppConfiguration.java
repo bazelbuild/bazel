@@ -458,8 +458,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
               if (tool == Tool.DWP) {
                 // When fission is unsupported, don't check for the dwp tool.
                 return supportsFission();
-              } else if (tool == Tool.GCOVTOOL) {
-                // gcov-tool is optional, don't check whether it's present
+              } else if (tool == Tool.GCOVTOOL || tool == Tool.OBJCOPY) {
+                // gcov-tool and objcopy are optional, don't check whether they're present
                 return false;
               } else {
                 return true;
@@ -1856,7 +1856,11 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     // Make variables provided by crosstool/gcc compiler suite.
     globalMakeEnvBuilder.put("AR", getArExecutable().getPathString());
     globalMakeEnvBuilder.put("NM", getNmExecutable().getPathString());
-    globalMakeEnvBuilder.put("OBJCOPY", getObjCopyExecutable().getPathString());
+    PathFragment objcopyTool = getObjCopyExecutable();
+    if (objcopyTool != null) {
+      // objcopy is optional in Crosstool
+      globalMakeEnvBuilder.put("OBJCOPY", objcopyTool.getPathString());
+    }
     globalMakeEnvBuilder.put("STRIP", getStripExecutable().getPathString());
 
     PathFragment gcovtool = getGcovToolExecutable();
@@ -1896,7 +1900,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   @Override
-  public void prepareHook(Path execRoot, ArtifactFactory artifactFactory, PathFragment genfilesPath,
+  public void prepareHook(Path execRoot, ArtifactFactory artifactFactory,
       PackageRootResolver resolver) throws ViewCreationFailedException {
     // TODO(bazel-team): Remove the "relative" guard. sysroot should always be relative, and this
     // should be enforced in the creation of CppConfiguration.
@@ -1919,7 +1923,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       }
     }
     try {
-      getFdoSupport().prepareToBuild(execRoot, genfilesPath, artifactFactory, resolver);
+      getFdoSupport().prepareToBuild(execRoot, artifactFactory, resolver);
     } catch (ZipException e) {
       throw new ViewCreationFailedException("Error reading provided FDO zip file", e);
     } catch (FdoException | IOException | PackageRootResolutionException e) {

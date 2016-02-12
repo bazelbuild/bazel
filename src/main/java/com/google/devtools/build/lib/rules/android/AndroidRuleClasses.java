@@ -146,7 +146,8 @@ public final class AndroidRuleClasses {
   public static final LateBoundLabel<BuildConfiguration> ANDROID_SDK =
       new LateBoundLabel<BuildConfiguration>(DEFAULT_ANDROID_SDK, AndroidConfiguration.class) {
         @Override
-        public Label getDefault(Rule rule, BuildConfiguration configuration) {
+        public Label getDefault(Rule rule, AttributeMap attributes,
+            BuildConfiguration configuration) {
           return configuration.getFragment(AndroidConfiguration.class).getSdk();
         }
       };
@@ -297,6 +298,8 @@ public final class AndroidRuleClasses {
       return builder
           .requiresConfigurationFragments(JavaConfiguration.class, AndroidConfiguration.class)
           .setUndocumented()
+          // build_tools_version is assumed to be the latest version if omitted.
+          .add(attr("build_tools_version", STRING))
           // This is the Proguard that comes from the --proguard_top attribute.
           .add(attr(":proguard", LABEL).cfg(HOST).value(JavaSemantics.PROGUARD).exec())
           // This is the Proguard in the BUILD file that contains the android_sdk rule. Used when

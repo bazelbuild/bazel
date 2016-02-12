@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
@@ -174,7 +175,8 @@ public class AppleToolchain {
         new LateBoundLabel<BuildConfiguration>(
             AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL, AppleConfiguration.class) {
           @Override
-          public Label getDefault(Rule rule, BuildConfiguration configuration) {
+          public Label getDefault(Rule rule, AttributeMap attributes,
+              BuildConfiguration configuration) {
             return configuration.getFragment(AppleConfiguration.class).getXcodeConfigLabel();
           }
         };

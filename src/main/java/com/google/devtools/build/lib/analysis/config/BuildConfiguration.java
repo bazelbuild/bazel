@@ -164,8 +164,7 @@ public final class BuildConfiguration {
      */
     @SuppressWarnings("unused")
     public void prepareHook(Path execPath, ArtifactFactory artifactFactory,
-        PathFragment genfilesPath, PackageRootResolver resolver)
-        throws ViewCreationFailedException {
+        PackageRootResolver resolver) throws ViewCreationFailedException {
     }
 
     /**
@@ -2345,7 +2344,7 @@ public final class BuildConfiguration {
   public void prepareToBuild(Path execRoot, ArtifactFactory artifactFactory,
       PackageRootResolver resolver) throws ViewCreationFailedException {
     for (Fragment fragment : fragments.values()) {
-      fragment.prepareHook(execRoot, artifactFactory, getGenfilesFragment(), resolver);
+      fragment.prepareHook(execRoot, artifactFactory, resolver);
     }
   }
 

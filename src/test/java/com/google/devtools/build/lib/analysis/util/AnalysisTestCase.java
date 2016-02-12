@@ -253,8 +253,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
 
     LoadingResult loadingResult = loadingPhaseRunner
-        .execute(reporter, eventBus, ImmutableList.copyOf(labels), loadingOptions,
-            buildOptions.getAllLabels(), viewOptions.keepGoing, isLoadingEnabled(),
+        .execute(reporter, eventBus, ImmutableList.copyOf(labels), PathFragment.EMPTY_FRAGMENT,
+            loadingOptions, buildOptions.getAllLabels(), viewOptions.keepGoing, isLoadingEnabled(),
             /*determineTests=*/false, /*callback=*/null);
 
     BuildRequestOptions requestOptions = optionsParser.getOptions(BuildRequestOptions.class);

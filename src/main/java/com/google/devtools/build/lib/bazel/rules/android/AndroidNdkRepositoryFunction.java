@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.StlImpls;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
@@ -124,7 +125,8 @@ public class AndroidNdkRepositoryFunction extends RepositoryFunction {
     }
 
     String buildFile = createBuildFile(ruleName, crosstoolsAndStls.build());
-    return writeBuildFile(outputDirectory, buildFile);
+    writeBuildFile(outputDirectory, buildFile);
+    return RepositoryDirectoryValue.create(outputDirectory);
   }
 
   @Override

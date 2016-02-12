@@ -209,6 +209,14 @@ java_import(
 )
 
 java_import(
+    name = "hazelcast",
+    jars = [
+        "hazelcast/hazelcast-3.5.4.jar",
+        "hazelcast/hazelcast-client-3.5.4.jar",
+    ],
+)
+
+java_import(
     name = "error_prone",
     jars = [
         "error_prone/error_prone_core-2.0.9-20160129.jar",
@@ -292,6 +300,11 @@ filegroup(
 java_import(
     name = "jgit",
     jars = ["jgit/org.eclipse.jgit-4.0.1.201506240215-r.jar"],
+)
+
+java_import(
+    name = "jimfs",
+    jars = ["jimfs-1.1-rc1.jar"],
 )
 
 java_import(

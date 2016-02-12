@@ -22,10 +22,11 @@
 
 set -eu
 
-REALPATH=$0.runfiles/external/bazel_tools/tools/objc/realpath
-WRAPPER=$0.runfiles/external/bazel_tools/tools/objc/xcrunwrapper.sh
+MY_LOCATION=${MY_LOCATION:-"$0.runfiles/external/bazel_tools/tools/objc"}
+REALPATH="${MY_LOCATION}/realpath"
+WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 
-OUTZIP=$($REALPATH "$1")
+OUTZIP=$("${REALPATH}" "$1")
 NAME="$2"
 shift 2
 TEMPDIR=$(mktemp -d -t momcZippingOutput)

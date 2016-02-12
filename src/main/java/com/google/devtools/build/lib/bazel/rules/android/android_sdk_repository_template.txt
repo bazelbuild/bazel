@@ -111,6 +111,7 @@ java_import(
 
 android_sdk(
     name = "sdk",
+    build_tools_version = "%build_tools_version%",
     proguard = ":proguard_binary",
     aapt = ":aapt_binary",
     dx = ":dx_binary",

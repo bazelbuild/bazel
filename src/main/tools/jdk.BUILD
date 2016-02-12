@@ -22,18 +22,28 @@ filegroup(
 
 filegroup(
     name = "java",
-    srcs = ["bin/java"],
+    srcs = select({
+       ":windows" : ["bin/java.exe"],
+       "//conditions:default" : ["bin/java"],
+    }),
 )
 
 filegroup(
     name = "jar",
-    srcs = ["bin/jar"],
+    srcs = select({
+       ":windows" : ["bin/jar.exe"],
+       "//conditions:default" : ["bin/jar"],
+    }),
 )
 
 filegroup(
     name = "javac",
-    srcs = ["bin/javac"],
+    srcs = select({
+        ":windows" : ["bin/javac.exe"],
+        "//conditions:default" : ["bin/javac"],
+    }),
 )
+
 
 filegroup(
     name = "xjc",
@@ -120,4 +130,10 @@ java_import(
     name = "langtools-neverlink",
     jars = ["lib/tools.jar"],
     neverlink = 1,
+)
+
+config_setting(
+    name = "windows",
+    values = {"cpu": "x64_windows"},
+    visibility = ["//visibility:private"],
 )

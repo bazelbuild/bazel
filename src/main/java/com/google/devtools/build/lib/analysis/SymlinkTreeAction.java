@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import javax.annotation.Nullable;
 
@@ -37,6 +38,7 @@ public class SymlinkTreeAction extends AbstractAction {
   private final Artifact inputManifest;
   private final Artifact outputManifest;
   private final boolean filesetTree;
+  private final PathFragment shExecutable;
 
   /**
    * Creates SymlinkTreeAction instance.
@@ -52,13 +54,19 @@ public class SymlinkTreeAction extends AbstractAction {
    * @param filesetTree true if this is fileset symlink tree,
    *                    false if this is a runfiles symlink tree.
    */
-  public SymlinkTreeAction(ActionOwner owner, Artifact inputManifest,
-      @Nullable Artifact artifactMiddleman, Artifact outputManifest, boolean filesetTree) {
+  public SymlinkTreeAction(
+      ActionOwner owner,
+      Artifact inputManifest,
+      @Nullable Artifact artifactMiddleman,
+      Artifact outputManifest,
+      boolean filesetTree,
+      PathFragment shExecutable) {
     super(owner, computeInputs(inputManifest, artifactMiddleman), ImmutableList.of(outputManifest));
     Preconditions.checkArgument(outputManifest.getPath().getBaseName().equals("MANIFEST"));
     this.inputManifest = inputManifest;
     this.outputManifest = outputManifest;
     this.filesetTree = filesetTree;
+    this.shExecutable = shExecutable;
   }
 
   private static ImmutableList<Artifact> computeInputs(
@@ -114,7 +122,9 @@ public class SymlinkTreeAction extends AbstractAction {
   public void execute(
       ActionExecutionContext actionExecutionContext)
           throws ActionExecutionException, InterruptedException {
-    actionExecutionContext.getExecutor().getContext(SymlinkTreeActionContext.class)
-        .createSymlinks(this, actionExecutionContext);
+    actionExecutionContext
+        .getExecutor()
+        .getContext(SymlinkTreeActionContext.class)
+        .createSymlinks(this, actionExecutionContext, shExecutable);
   }
 }

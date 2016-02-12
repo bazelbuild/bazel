@@ -15,7 +15,8 @@
 package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.FileValue;
+import com.google.devtools.build.lib.rules.repository.NewRepositoryBuildFileHandler;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -27,15 +28,19 @@ import com.google.devtools.build.skyframe.SkyValue;
 public class NewGitRepositoryFunction extends GitRepositoryFunction {
   @Override
   public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
-      throws SkyFunctionException {
-    FileValue buildFileValue = getBuildFileValue(rule, env);
-    if (env.valuesMissing()) {
+      throws SkyFunctionException { 
+
+    NewRepositoryBuildFileHandler buildFileHandler =
+        new NewRepositoryBuildFileHandler(getWorkspace());
+    if (!buildFileHandler.prepareBuildFile(rule, env)) {
       return null;
     }
 
     createDirectory(outputDirectory, rule);
     GitCloner.clone(rule, outputDirectory, env.getListener());
     createWorkspaceFile(outputDirectory, rule);
-    return symlinkBuildFile(buildFileValue, outputDirectory);
+    buildFileHandler.finishBuildFile(outputDirectory);
+
+    return RepositoryDirectoryValue.create(outputDirectory);
   }
 }

@@ -100,4 +100,16 @@ public class LoadingOptions extends OptionsBase {
              "This option affects --build_tests_only behavior and the test command."
       )
   public List<String> testLangFilterList;
+
+  // If this option is set, the value of experimental_interleave_loading_and_analysis is completely
+  // ignored. This enables a different LoadingPhaseRunner implementation which doesn't implement
+  // the loading phase at all, and therefore can't currently support the other flag. If we roll this
+  // out soonish, then we're never going to implement the legacy code path in the new
+  // implementation, making it a moot point.
+  @Option(name = "experimental_skyframe_target_pattern_evaluator",
+      defaultValue = "false",
+      category = "hidden",
+      help = "Use the Skyframe-based target pattern evaluator; implies "
+          + "--experimental_interleave_loading_and_analysis.")
+  public boolean useSkyframeTargetPatternEvaluator;
 }

@@ -148,7 +148,8 @@ public class IosTestRule implements RuleDefinition {
                 .value(
                     new LateBoundLabelList<BuildConfiguration>(gcov) {
                       @Override
-                      public List<Label> getDefault(Rule rule, BuildConfiguration configuration) {
+                      public List<Label> getDefault(Rule rule, AttributeMap attributes,
+                          BuildConfiguration configuration) {
                         if (!configuration.isCodeCoverageEnabled()) {
                           return ImmutableList.of();
                         }

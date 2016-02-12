@@ -27,6 +27,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
@@ -72,6 +73,7 @@ import org.junit.runners.JUnit4;
 import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -120,6 +122,25 @@ public class LoadingPhaseRunnerTest {
           ImmutableMap.of(PackageIdentifier.createInDefaultRepo("base"), tester.getWorkspace()),
           loadingResult.getPackageRoots());
     }
+  }
+
+  @Test
+  public void testSmokeWithCallback() throws Exception {
+    tester.addFile("base/BUILD",
+        "filegroup(name = 'hello', srcs = ['foo.txt'])");
+    final List<Target> targetsNotified = new ArrayList<>();
+    tester.setCallback(new LoadingCallback() {
+      @Override
+      public void notifyTargets(Collection<Target> targets) throws LoadingFailedException {
+        targetsNotified.addAll(targets);
+      }
+
+      @Override
+      public void notifyVisitedPackages(Set<PackageIdentifier> visitedPackages) {
+      }
+    });
+    assertNoErrors(tester.load("//base:hello"));
+    assertThat(targetsNotified).containsExactlyElementsIn(getTargets("//base:hello"));
   }
 
   @Test
@@ -210,8 +231,8 @@ public class LoadingPhaseRunnerTest {
     tester.addFile("my_test/BUILD",
         "sh_test(name = 'my_test', srcs = ['test.cc'])");
     assertNoErrors(tester.loadTests("-//my_test"));
-    assertThat(tester.filteredTargets).containsExactlyElementsIn(getTargets());
-    assertThat(tester.testFilteredTargets).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets()).containsExactlyElementsIn(getTargets());
   }
 
   @Test
@@ -219,8 +240,8 @@ public class LoadingPhaseRunnerTest {
     tester.addFile("my_library/BUILD",
         "cc_library(name = 'my_library', srcs = ['test.cc'])");
     assertNoErrors(tester.loadTests("-//my_library"));
-    assertThat(tester.filteredTargets).containsExactlyElementsIn(getTargets());
-    assertThat(tester.testFilteredTargets).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets()).containsExactlyElementsIn(getTargets());
   }
 
   private void writeBuildFilesForTestFiltering() throws Exception {
@@ -238,8 +259,8 @@ public class LoadingPhaseRunnerTest {
         .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t2"));
     assertThat(loadingResult.getTestsToRun())
         .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t2"));
-    assertThat(tester.filteredTargets).containsExactlyElementsIn(getTargets());
-    assertThat(tester.testFilteredTargets).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets()).containsExactlyElementsIn(getTargets());
   }
 
   @Test
@@ -251,8 +272,8 @@ public class LoadingPhaseRunnerTest {
         .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t2"));
     assertThat(loadingResult.getTestsToRun())
         .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t2"));
-    assertThat(tester.filteredTargets).containsExactlyElementsIn(getTargets());
-    assertThat(tester.testFilteredTargets).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets()).containsExactlyElementsIn(getTargets());
   }
 
   @Test
@@ -263,8 +284,8 @@ public class LoadingPhaseRunnerTest {
     assertThat(loadingResult.getTargets())
         .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t2"));
     assertThat(loadingResult.getTestsToRun()).containsExactlyElementsIn(getTargets("//tests:t1"));
-    assertThat(tester.filteredTargets).containsExactlyElementsIn(getTargets());
-    assertThat(tester.testFilteredTargets).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets()).containsExactlyElementsIn(getTargets());
   }
 
   @Test
@@ -274,8 +295,8 @@ public class LoadingPhaseRunnerTest {
     LoadingResult loadingResult = assertNoErrors(tester.loadTests("//tests:all"));
     assertThat(loadingResult.getTargets()).containsExactlyElementsIn(getTargets("//tests:t1"));
     assertThat(loadingResult.getTestsToRun()).containsExactlyElementsIn(getTargets("//tests:t1"));
-    assertThat(tester.filteredTargets).containsExactlyElementsIn(getTargets());
-    assertThat(tester.testFilteredTargets).containsExactlyElementsIn(getTargets("//tests:t2"));
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets()).containsExactlyElementsIn(getTargets("//tests:t2"));
   }
 
   @Test
@@ -287,8 +308,8 @@ public class LoadingPhaseRunnerTest {
         .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t3"));
     assertThat(loadingResult.getTestsToRun())
         .containsExactlyElementsIn(getTargets("//tests:t1", "//tests:t3"));
-    assertThat(tester.filteredTargets).containsExactlyElementsIn(getTargets());
-    assertThat(tester.testFilteredTargets).containsExactlyElementsIn(getTargets("//tests:t2"));
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets()).containsExactlyElementsIn(getTargets("//tests:t2"));
   }
 
   @Test
@@ -304,6 +325,10 @@ public class LoadingPhaseRunnerTest {
       assertThat(loadingResult.getPackageRoots().entrySet())
           .contains(entryFor(PackageIdentifier.createInDefaultRepo("cc"), tester.getWorkspace()));
     }
+    assertThat(tester.getOriginalTargets())
+        .containsExactlyElementsIn(getTargets("//cc:tests", "//cc:my_test"));
+    assertThat(tester.getTestSuiteTargets())
+        .containsExactlyElementsIn(getTargets("//cc:tests"));
   }
 
   @Test
@@ -364,8 +389,9 @@ public class LoadingPhaseRunnerTest {
         .containsExactlyElementsIn(getTargets("//foo:foo", "//foo:baz"));
     assertThat(loadingResult.getTestsToRun())
         .containsExactlyElementsIn(getTargets("//foo:foo", "//foo:baz"));
-    assertThat(tester.filteredTargets).containsExactlyElementsIn(getTargets());
-    assertThat(tester.testFilteredTargets).containsExactlyElementsIn(getTargets("//foo:foo_suite"));
+    assertThat(tester.getFilteredTargets()).containsExactlyElementsIn(getTargets());
+    assertThat(tester.getTestFilteredTargets())
+        .containsExactlyElementsIn(getTargets("//foo:foo_suite"));
   }
 
   /** Regression test for bug: "subtracting tests from test doesn't work" */
@@ -489,6 +515,95 @@ public class LoadingPhaseRunnerTest {
     assertCircularSymlinksDuringTargetParsing("//broken/...");
   }
 
+  @Test
+  public void testSuiteInSuite() throws Exception {
+    tester.addFile("suite/BUILD",
+        "test_suite(name = 'a', tests = [':b'])",
+        "test_suite(name = 'b', tests = [':c'])",
+        "sh_test(name = 'c', srcs = ['test.cc'])");
+    LoadingResult loadingResult = assertNoErrors(tester.load("//suite:a"));
+    assertThat(loadingResult.getTargets()).containsExactlyElementsIn(getTargets("//suite:c"));
+  }
+
+  @Test
+  public void testTopLevelTargetErrorsPrintedExactlyOnce_NoKeepGoing() throws Exception {
+    tester.addFile("bad/BUILD",
+        "sh_binary(name = 'bad', srcs = ['bad.sh'])",
+        "undefined_symbol");
+    try {
+      tester.load("//bad");
+      fail();
+    } catch (TargetParsingException expected) {
+    }
+    tester.assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
+  }
+
+  @Test
+  public void testTopLevelTargetErrorsPrintedExactlyOnce_KeepGoing() throws Exception {
+    tester.addFile("bad/BUILD",
+        "sh_binary(name = 'bad', srcs = ['bad.sh'])",
+        "undefined_symbol");
+    LoadingResult loadingResult = tester.loadKeepGoing("//bad");
+    if (runsLoadingPhase()) {
+      // The legacy loading phase runner reports a loading error, but no target pattern error in
+      // keep_going mode, even though it's clearly an error in the referenced target itself, rather
+      // than in its transitive closure. This happens because the target pattern eval swallows such
+      // errors in keep_going mode. We could fix that, but it's a fairly invasive change, and we're
+      // planning to migrate to the Skyframe-based implementation anyway.
+      assertThat(loadingResult.hasTargetPatternError()).isFalse();
+      assertThat(loadingResult.hasLoadingError()).isTrue();
+    } else {
+      assertThat(loadingResult.hasTargetPatternError()).isTrue();
+    }
+    tester.assertContainsEventWithFrequency("name 'undefined_symbol' is not defined", 1);
+  }
+
+  @Test
+  public void testCompileOneDependency() throws Exception {
+    tester.addFile("base/BUILD",
+        "cc_library(name = 'hello', srcs = ['hello.cc'])");
+    tester.useLoadingOptions("--compile_one_dependency");
+    LoadingResult loadingResult = assertNoErrors(tester.load("base/hello.cc"));
+    assertThat(loadingResult.getTargets()).containsExactlyElementsIn(getTargets("//base:hello"));
+  }
+
+  @Test
+  public void testCompileOneDependencyNonExistentSource() throws Exception {
+    tester.addFile("base/BUILD",
+        "cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
+    tester.useLoadingOptions("--compile_one_dependency");
+    try {
+      tester.load("base/hello.cc");
+      fail();
+    } catch (TargetParsingException expected) {
+      tester.assertContainsError("no such package 'bad'");
+    }
+  }
+
+  @Test
+  public void testCompileOneDependencyNonExistentSourceKeepGoing() throws Exception {
+    tester.addFile("base/BUILD",
+        "cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
+    tester.useLoadingOptions("--compile_one_dependency");
+    if (runsLoadingPhase()) {
+      // The LegacyLoadingPhaseRunner throws an exception if it can't load any of the sources in the
+      // same rule as the source we're looking for even with --keep_going.
+      // In general, we probably want --compile_one_dependency to be compatible with --keep_going
+      // for consistency, but it's unclear if this is actually a problem for anyone. The most common
+      // use case for compile_one_dependency is to iterate quickly on a single file, without
+      // --keep_going.
+      try {
+        tester.load("base/hello.cc");
+        fail();
+      } catch (TargetParsingException expected) {
+        tester.assertContainsError("no such package 'bad'");
+      }
+    } else {
+      LoadingResult loadingResult = tester.loadKeepGoing("base/hello.cc");
+      assertThat(loadingResult.hasTargetPatternError()).isTrue();
+    }
+  }
+
   private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
     try {
       tester.load(targetPattern);
@@ -521,9 +636,10 @@ public class LoadingPhaseRunnerTest {
 
     private LoadingOptions options;
     private final StoredEventHandler storedErrors;
+    private LoadingCallback loadingCallback;
 
-    private Set<Target> filteredTargets;
-    private Set<Target> testFilteredTargets;
+    private TargetParsingCompleteEvent targetParsingCompleteEvent;
+    private LoadingPhaseCompleteEvent loadingPhaseCompleteEvent;
 
     private MockToolsConfig mockToolsConfig;
 
@@ -563,6 +679,10 @@ public class LoadingPhaseRunnerTest {
       this.options = Options.getDefaults(LoadingOptions.class);
     }
 
+    public void setCallback(LoadingCallback loadingCallback) {
+      this.loadingCallback = loadingCallback;
+    }
+
     public void useLoadingOptions(String... options) throws OptionsParsingException {
       OptionsParser parser = OptionsParser.newOptionsParser(LoadingOptions.class);
       parser.parse(ImmutableList.copyOf(options));
@@ -595,10 +715,11 @@ public class LoadingPhaseRunnerTest {
         FilteredTargetListener listener = new FilteredTargetListener();
         eventBus.register(listener);
         result = loadingPhaseRunner.execute(storedErrors, eventBus,
-            ImmutableList.copyOf(patterns), options, ImmutableListMultimap.<String, Label>of(),
-            keepGoing, /*enableLoading=*/true, determineTests, /*callback=*/null);
-        this.filteredTargets = listener.filteredTargets;
-        this.testFilteredTargets = listener.testFilteredTargets;
+            ImmutableList.copyOf(patterns), PathFragment.EMPTY_FRAGMENT, options,
+            ImmutableListMultimap.<String, Label>of(), keepGoing, /*enableLoading=*/true,
+            determineTests, loadingCallback);
+        this.targetParsingCompleteEvent = listener.targetParsingCompleteEvent;
+        this.loadingPhaseCompleteEvent = listener.loadingPhaseCompleteEvent;
       } catch (LoadingFailedException e) {
         System.err.println(storedErrors.getEvents());
         throw e;
@@ -668,6 +789,22 @@ public class LoadingPhaseRunnerTest {
       return skyframeExecutor.getPackageManager();
     }
 
+    public ImmutableSet<Target> getFilteredTargets() {
+      return targetParsingCompleteEvent.getFilteredTargets();
+    }
+
+    public ImmutableSet<Target> getTestFilteredTargets() {
+      return targetParsingCompleteEvent.getTestFilteredTargets();
+    }
+
+    public ImmutableSet<Target> getOriginalTargets() {
+      return targetParsingCompleteEvent.getTargets();
+    }
+
+    public ImmutableSet<Target> getTestSuiteTargets() {
+      return loadingPhaseCompleteEvent.getFilteredTargets();
+    }
+
     private Iterable<Event> filteredEvents() {
       return Iterables.filter(storedErrors.getEvents(), new Predicate<Event>() {
         @Override
@@ -688,15 +825,25 @@ public class LoadingPhaseRunnerTest {
     public Event assertContainsError(String expectedMessage) {
       return MoreAsserts.assertContainsEvent(filteredEvents(), expectedMessage, EventKind.ERRORS);
     }
+
+    public void assertContainsEventWithFrequency(String expectedMessage, int expectedFrequency) {
+      MoreAsserts.assertContainsEventWithFrequency(
+          filteredEvents(), expectedMessage, expectedFrequency);
+    }
   }
 
   public static class FilteredTargetListener {
-    private Set<Target> filteredTargets;
-    private Set<Target> testFilteredTargets;
+    private TargetParsingCompleteEvent targetParsingCompleteEvent;
+    private LoadingPhaseCompleteEvent loadingPhaseCompleteEvent;
+
     @Subscribe
-    public void notifyFilteredTargets(TargetParsingCompleteEvent event) {
-      filteredTargets = event.getFilteredTargets();
-      testFilteredTargets = event.getTestFilteredTargets();
+    public void targetParsingComplete(TargetParsingCompleteEvent event) {
+      this.targetParsingCompleteEvent = event;
+    }
+
+    @Subscribe
+    public void loadingPhaseComplete(LoadingPhaseCompleteEvent event) {
+      this.loadingPhaseCompleteEvent = event;
     }
   }
 }

@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.truth.DefaultSubject;
 import com.google.common.truth.FailureStrategy;
+import com.google.common.truth.IterableSubject;
 import com.google.common.truth.Subject;
 import com.google.common.truth.Truth;
 
@@ -49,4 +51,9 @@ public class EvaluationResultSubject extends Subject<EvaluationResultSubject, Ev
         .named("Error entry for " + getDisplaySubject());
   }
 
+  public IterableSubject hasDirectDepsInGraphThat(SkyKey parent) {
+    return Truth.assertThat(
+            getSubject().getWalkableGraph().getDirectDeps(ImmutableList.of(parent)).get(parent))
+        .named("Direct deps for " + parent + " in " + getDisplaySubject());
+  }
 }

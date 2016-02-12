@@ -17,6 +17,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -37,12 +38,11 @@ import java.util.List;
 /**
  * Implementation of --compile_one_dependency.
  */
-final class CompileOneDependencyTransformer {
+public final class CompileOneDependencyTransformer {
+  private final TargetProvider targetProvider;
 
-  private final PackageManager pkgManager;
-
-  public CompileOneDependencyTransformer(PackageManager pkgManager) {
-    this.pkgManager = pkgManager;
+  public CompileOneDependencyTransformer(TargetProvider targetProvider) {
+    this.targetProvider = targetProvider;
   }
 
   /**
@@ -100,7 +100,7 @@ final class CompileOneDependencyTransformer {
       try {
         // The call to getSrcTargets here can be removed in favor of the
         // rule.getLabels() call below once we update "srcs" for all rules.
-        if (SrcTargetUtil.getSrcTargets(eventHandler, rule, pkgManager).contains(target)) {
+        if (SrcTargetUtil.getSrcTargets(eventHandler, rule, targetProvider).contains(target)) {
           if (rule.getRuleClassObject().isPreferredDependency(target.getName())) {
             return rule;
           } else if (fallbackRule == null) {
@@ -148,10 +148,11 @@ final class CompileOneDependencyTransformer {
 
     try {
       // If the rule has source targets, return it.
-      if (!SrcTargetUtil.getSrcTargets(eventHandler, result, pkgManager).isEmpty()) {
+      if (!SrcTargetUtil.getSrcTargets(eventHandler, result, targetProvider).isEmpty()) {
         return result;
       }
     } catch (NoSuchThingException e) {
+      eventHandler.handle(Event.error(e.getMessage()));
       throw new TargetParsingException(
           "Couldn't find dependency on target '" + target.getLabel() + "'");
     } catch (InterruptedException e) {

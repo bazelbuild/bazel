@@ -159,7 +159,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     semantics.addProviders(
         ruleContext, common, ImmutableList.<String>of(), classJar, srcJar, 
         genClassJar, genSourceJar, ImmutableMap.<Artifact, Artifact>of(), 
-        helper, filesBuilder, builder);
+        filesBuilder, builder);
 
     NestedSet<Artifact> filesToBuild = filesBuilder.build();
     common.addTransitiveInfoProviders(builder, filesToBuild, classJar);
@@ -176,7 +176,6 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             new JavaRuntimeJarProvider(common.getJavaCompilationArtifacts().getRuntimeJars()))
         .add(RunfilesProvider.class, RunfilesProvider.simple(common.getRunfiles(neverLink)))
         .setFilesToBuild(filesToBuild)
-        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, new JavaSkylarkApiProvider())
         .add(JavaNeverlinkInfoProvider.class, new JavaNeverlinkInfoProvider(neverLink))
         .add(CppCompilationContext.class, transitiveCppDeps)
         .add(JavaCompilationArgsProvider.class, new JavaCompilationArgsProvider(

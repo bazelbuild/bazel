@@ -178,6 +178,7 @@ public class ExecutionTool {
     this.runtime = env.getRuntime();
     this.request = request;
 
+
     // Create tools before getting the strategies from the modules as some of them need tools to
     // determine whether the host actually supports certain strategies (e.g. sandboxing).
     createToolsSymlinks();

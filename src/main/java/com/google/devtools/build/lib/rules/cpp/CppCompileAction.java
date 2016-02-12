@@ -1350,6 +1350,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       addFilteredOptions(options,
           featureConfiguration.getCommandLine(getActionName(), variables));
 
+      // TODO(bazel-team): Move this into a feature; more specifically, create a feature for both
+      // the amount of debug information requested, and whether the debug info is written in a
+      // split out file. Until then, keep this before the user-provided copts so it can be
+      // overwritten.
+      if (cppConfiguration.useFission()) {
+        options.add("-gsplit-dwarf");
+      }
+      
       // Users don't expect the explicit copts to be filtered by coptsFilter, add them verbatim.
       // Make sure these are added after the options from the feature configuration, so that
       // those options can be overriden.
@@ -1401,9 +1409,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         options.add("-E");
       }
 
-      if (cppConfiguration.useFission()) {
-        options.add("-gsplit-dwarf");
-      }
       if (usePic) {
         options.add("-fPIC");
       }

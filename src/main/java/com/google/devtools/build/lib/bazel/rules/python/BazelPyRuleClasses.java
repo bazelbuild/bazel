@@ -20,7 +20,9 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.TRISTATE;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
+import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -63,6 +65,20 @@ public final class BazelPyRuleClasses {
           .override(builder.copy("deps")
               .allowedRuleClasses(ALLOWED_RULES_IN_DEPS)
               .allowedFileTypes())
+          /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(imports) -->
+          List of import directories to be added to the <code>PYTHONPATH</code>.
+          <p>
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution. These import
+          directories will be added for this rule and all rules that depend on it (note: not the
+          rules this rule depends on. Each directory will be added to <code>PYTHONPATH</code> by
+          <a href="#py_binary"><code>py_binary</code></a> rules that depend on this rule.
+          </p>
+          <p>
+          Absolute paths (paths that start with <code>/</code>) and paths that references a path
+          above the execution root are not allowed and will result in an error.
+          </p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("imports", STRING_LIST).value(ImmutableList.<String>of()))
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(srcs_version) -->
           A string specifying the Python major version(s) that the <code>.py</code> source
           files listed in the <code>srcs</code> of this rule are compatible with.

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.devtools.build.lib.analysis.config.ConfigurationEnvironment;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -100,8 +101,10 @@ public final class RedirectChaser {
         }
       }
     } catch (NoSuchPackageException e) {
+      env.getEventHandler().handle(Event.error(e.getMessage()));
       throw new InvalidConfigurationException(e.getMessage(), e);
     } catch (NoSuchTargetException e) {
+      // TODO(ulfjack): Consider throwing an exception here instead of returning silently.
       return label;
     }
   }

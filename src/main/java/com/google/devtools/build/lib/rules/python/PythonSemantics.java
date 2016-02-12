@@ -17,10 +17,13 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.cpp.CcLinkParamsStore;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
+import java.util.List;
 
 /**
  * Pluggable semantics for Python rules.
@@ -56,16 +59,21 @@ public interface PythonSemantics {
       RuleContext ruleContext, Collection<Artifact> sources, PyCommon common);
 
   /**
+   * Returns a list of PathFragments for the import paths specified in the imports attribute.
+   */
+  List<PathFragment> getImports(RuleContext ruleContext);
+
+  /**
    * Create the actual executable artifact.
    *
    * <p>This should create a generating action for {@code common.getExecutable()}.
    */
   void createExecutable(RuleContext ruleContext, PyCommon common,
-      CcLinkParamsStore ccLinkParamsStore);
+      CcLinkParamsStore ccLinkParamsStore, NestedSet<PathFragment> imports);
 
   /**
    * Called at the end of the analysis of {@code py_binary} rules.
-   * @throws InterruptedException 
+   * @throws InterruptedException
    */
   void postInitBinary(RuleContext ruleContext, RunfilesSupport runfilesSupport,
       PyCommon common) throws InterruptedException;

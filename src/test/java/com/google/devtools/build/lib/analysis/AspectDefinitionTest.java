@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
 import com.google.devtools.build.lib.packages.NativeAspectClass;
@@ -75,7 +76,7 @@ public class AspectDefinitionTest {
         .build();
     LateBoundLabel<String> latebound = new LateBoundLabel<String>() {
         @Override
-        public Label getDefault(Rule rule, String configuration) {
+        public Label getDefault(Rule rule, AttributeMap attributes, String configuration) {
           return Label.parseAbsoluteUnchecked("//run:away");
         }
     };

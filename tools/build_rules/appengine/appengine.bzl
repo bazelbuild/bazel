@@ -233,12 +233,35 @@ def java_war(name, data=[], data_path=None, **kwargs):
                 data=data,
                 data_path=data_path)
 
+APPENGINE_BUILD_FILE = """
+# BUILD file to use the Java AppEngine SDK with a remote repository.
+java_import(
+    name = "jars",
+    jars = glob(["**/*.jar"]),
+    visibility = ["//visibility:public"],
+)
+
+java_import(
+    name = "api",
+    jars = ["appengine-java-sdk-1.9.23/lib/impl/appengine-api.jar"],
+    visibility = ["//visibility:public"],
+    neverlink = 1,
+)
+
+filegroup(
+    name = "sdk",
+    srcs = glob(["appengine-java-sdk-1.9.23/**"]),
+    visibility = ["//visibility:public"],
+    path = "appengine-java-sdk-1.9.23",
+)
+"""
+
 def appengine_repositories():
   native.new_http_archive(
       name = "com_google_appengine_java",
       url = "http://central.maven.org/maven2/com/google/appengine/appengine-java-sdk/1.9.23/appengine-java-sdk-1.9.23.zip",
       sha256 = "05e667036e9ef4f999b829fc08f8e5395b33a5a3c30afa9919213088db2b2e89",
-      build_file = "tools/build_rules/appengine/appengine.BUILD",
+      build_file_content = APPENGINE_BUILD_FILE,
   )
 
   native.bind(
