@@ -43,6 +43,7 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -69,6 +70,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "//com/google/example:simple", ruleIdeInfos);
     if (isNativeTest()) {
       assertThat(ruleIdeInfo.getBuildFile()).isEqualTo(buildFilePath.toString());
+      ArtifactLocation location = ruleIdeInfo.getBuildFileArtifactLocation();
+      assertThat(Paths.get(location.getRootPath(), location.getRelativePath()).toString())
+          .isEqualTo(buildFilePath.toString());
+      assertThat(location.getRelativePath()).isEqualTo("com/google/example/BUILD");
     }
     assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.JAVA_LIBRARY);
     assertThat(ruleIdeInfo.getDependenciesCount()).isEqualTo(0);
@@ -907,26 +912,21 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         ")");
     Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:lib");
     RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel("//com/google/example:lib", ruleIdeInfos);
-    assertThat(ruleIdeInfo.getJavaRuleIdeInfo().getSourcesList())
-        .containsExactly(
-            expectedArtifactLocationWithRootPath(
-                    targetConfig.getGenfilesDirectory().getPath().getPathString())
-                .setRelativePath("com/google/example/gen.java")
-                .setIsSource(false)
-                .build(),
-            expectedArtifactLocationWithRootPath(directories.getWorkspace().getPathString())
-                .setRelativePath("com/google/example/Test.java")
-                .setIsSource(true)
-                .build());
-  }
-
-  private ArtifactLocation.Builder expectedArtifactLocationWithRootPath(String pathString) {
-    if (isNativeTest()) {
-      return ArtifactLocation.newBuilder().setRootPath(pathString);
-    } else {
-      // todo(dslomov): Skylark aspect implementation does not yet return a correct root path.
-      return ArtifactLocation.newBuilder();
-    }
+    // todo(dslomov): Skylark aspect implementation does not yet return a correct root path.
+    assertThat(ruleIdeInfo.getJavaRuleIdeInfo().getSourcesList()).containsExactly(
+        ArtifactLocation.newBuilder()
+            .setRootPath(
+                isNativeTest() ? targetConfig.getGenfilesDirectory().getPath().getPathString() : "")
+            .setRootExecutionPathFragment(
+                isNativeTest() ? targetConfig.getGenfilesDirectory().getExecPathString() : "")
+            .setRelativePath("com/google/example/gen.java")
+            .setIsSource(false)
+            .build(),
+        ArtifactLocation.newBuilder()
+            .setRootPath(isNativeTest() ? directories.getWorkspace().getPathString() : "")
+            .setRelativePath("com/google/example/Test.java")
+            .setIsSource(true)
+            .build());
   }
 
   @Test

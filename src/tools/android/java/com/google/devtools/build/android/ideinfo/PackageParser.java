@@ -16,6 +16,7 @@ package com.google.devtools.build.android.ideinfo;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.io.Files;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -23,6 +24,7 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.PathListConverter;
+import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.ArtifactLocation;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.JavaSourcePackage;
 import com.google.devtools.build.lib.ideinfo.androidstudio.PackageManifestOuterClass.PackageManifest;
 import com.google.devtools.common.options.Option;
@@ -34,6 +36,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -54,12 +57,27 @@ public class PackageParser {
 
   /** The options for a {@PackageParser} action. */
   public static final class PackageParserOptions extends OptionsBase {
+    @Option(name = "sources",
+        defaultValue = "null",
+        converter = ArtifactLocationListConverter.class,
+        category = "input",
+        help = "The locations of the java source files. The expected format is a "
+            + "colon-separated list.")
+    public List<ArtifactLocation> sources;
+
+    @Option(name = "output_manifest",
+        defaultValue = "null",
+        converter = PathConverter.class,
+        category = "output",
+        help = "The path to the manifest file this parser writes to.")
+    public Path outputManifest;
+
     @Option(name = "sources_absolute_paths",
         defaultValue = "null",
         converter = PathListConverter.class,
         category = "input",
         help = "The absolute paths of the java source files. The expected format is a "
-               + "colon-separated list.")
+            + "colon-separated list.")
     public List<Path> sourcesAbsolutePaths;
 
     @Option(name = "sources_execution_paths",
@@ -69,13 +87,6 @@ public class PackageParser {
         help = "The execution paths of the java source files. The expected format is a "
             + "colon-separated list.")
     public List<Path> sourcesExecutionPaths;
-
-    @Option(name = "output_manifest",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "The path to the manifest file this parser writes to.")
-    public Path outputManifest;
   }
 
   private static final Logger logger = Logger.getLogger(PackageParser.class.getName());
@@ -85,22 +96,64 @@ public class PackageParser {
 
   public static void main(String[] args) throws Exception {
     PackageParserOptions options = parseArgs(args);
-    Preconditions.checkNotNull(options.sourcesAbsolutePaths);
-    Preconditions.checkNotNull(options.sourcesExecutionPaths);
-    Preconditions.checkState(
-        options.sourcesAbsolutePaths.size() == options.sourcesExecutionPaths.size());
     Preconditions.checkNotNull(options.outputManifest);
+
+    // temporary code to handle output from older builds
+    boolean oldFormat = options.sources == null;
+    if (oldFormat) {
+      Preconditions.checkNotNull(options.sourcesAbsolutePaths);
+      Preconditions.checkNotNull(options.sourcesExecutionPaths);
+      Preconditions.checkState(
+          options.sourcesAbsolutePaths.size() == options.sourcesExecutionPaths.size());
+      convertFromOldFormat(options);
+    }
 
     try {
       PackageParser parser = new PackageParser(PackageParserIoProvider.INSTANCE);
-      Map<Path, String> outputMap = parser.parsePackageStrings(options.sourcesAbsolutePaths,
-          options.sourcesExecutionPaths);
-      parser.writeManifest(outputMap, options.outputManifest);
+      Map<ArtifactLocation, String> outputMap = parser.parsePackageStrings(options.sources);
+      parser.writeManifest(outputMap, options.outputManifest, oldFormat);
     } catch (Throwable e) {
       logger.log(Level.SEVERE, "Error parsing package strings", e);
       System.exit(1);
     }
     System.exit(0);
+  }
+
+  @VisibleForTesting
+  @Deprecated
+  protected static void convertFromOldFormat(PackageParserOptions options) {
+    options.sources = Lists.newArrayList();
+    for (int i = 0; i < options.sourcesAbsolutePaths.size(); i++) {
+      options.sources.add(dummySourceFromOldFormat(
+          options.sourcesAbsolutePaths.get(i).toString(),
+          options.sourcesExecutionPaths.get(i).toString()));
+    }
+  }
+
+  @Deprecated
+  private static ArtifactLocation dummySourceFromOldFormat(
+      String absolutePath,
+      String executionPath) {
+    if (!absolutePath.endsWith(executionPath)) {
+      throw new IllegalArgumentException(
+          String.format("Cannot parse root path from absolute path %s and execution path %s",
+              absolutePath, executionPath));
+    }
+    String rootPath = absolutePath.substring(0, absolutePath.lastIndexOf(executionPath));
+    return ArtifactLocation.newBuilder()
+        .setRelativePath(executionPath)
+        .setRootPath(rootPath)
+        .build();
+  }
+
+  @Nonnull
+  private static Path getExecutionPath(@Nonnull ArtifactLocation location) {
+    return Paths.get(location.getRootExecutionPathFragment(), location.getRelativePath());
+  }
+
+  @Nonnull
+  private static Path getAbsolutePath(@Nonnull ArtifactLocation location) {
+    return Paths.get(location.getRootPath(), location.getRelativePath());
   }
 
   @VisibleForTesting
@@ -131,13 +184,20 @@ public class PackageParser {
   }
 
   @VisibleForTesting
-  public void writeManifest(@Nonnull Map<Path, String> sourceToPackageMap, Path outputFile)
+  public void writeManifest(
+      @Nonnull Map<ArtifactLocation, String> sourceToPackageMap,
+      Path outputFile,
+      boolean oldFormat)
       throws IOException {
     PackageManifest.Builder builder = PackageManifest.newBuilder();
-    for (Entry<Path, String> entry : sourceToPackageMap.entrySet()) {
-      builder.addSources(JavaSourcePackage.newBuilder()
-          .setAbsolutePath(entry.getKey().toAbsolutePath().toString())
-          .setPackageString(entry.getValue()));
+    for (Entry<ArtifactLocation, String> entry : sourceToPackageMap.entrySet()) {
+      JavaSourcePackage.Builder srcBuilder = JavaSourcePackage.newBuilder()
+          .setAbsolutePath(getAbsolutePath(entry.getKey()).toString())
+          .setPackageString(entry.getValue());
+      if (!oldFormat) {
+        srcBuilder.setArtifactLocation(entry.getKey());
+      }
+      builder.addSources(srcBuilder.build());
     }
 
     try {
@@ -150,24 +210,23 @@ public class PackageParser {
 
   @Nonnull
   @VisibleForTesting
-  public Map<Path, String> parsePackageStrings(@Nonnull List<Path> absolutePaths,
-      @Nonnull List<Path> executionPaths) throws Exception {
+  public Map<ArtifactLocation, String> parsePackageStrings(@Nonnull List<ArtifactLocation> sources)
+      throws Exception {
 
     ListeningExecutorService executorService = MoreExecutors.listeningDecorator(
         Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors()));
 
-    Map<Path, ListenableFuture<String>> futures = Maps.newHashMap();
-    for (int i = 0; i < absolutePaths.size(); i++) {
-      final Path source = executionPaths.get(i);
-      futures.put(absolutePaths.get(i), executorService.submit(new Callable<String>() {
+    Map<ArtifactLocation, ListenableFuture<String>> futures = Maps.newHashMap();
+    for (final ArtifactLocation source : sources) {
+      futures.put(source, executorService.submit(new Callable<String>() {
         @Override
         public String call() throws Exception {
           return getDeclaredPackageOfJavaFile(source);
         }
       }));
     }
-    Map<Path, String> map = Maps.newHashMap();
-    for (Entry<Path, ListenableFuture<String>> entry : futures.entrySet()) {
+    Map<ArtifactLocation, String> map = Maps.newHashMap();
+    for (Entry<ArtifactLocation, ListenableFuture<String>> entry : futures.entrySet()) {
       String value = entry.getValue().get();
       if (value != null) {
         map.put(entry.getKey(), value);
@@ -177,8 +236,8 @@ public class PackageParser {
   }
 
   @Nullable
-  private String getDeclaredPackageOfJavaFile(@Nonnull Path source) {
-    try (BufferedReader reader = ioProvider.getReader(source)) {
+  private String getDeclaredPackageOfJavaFile(@Nonnull ArtifactLocation source) {
+    try (BufferedReader reader = ioProvider.getReader(getExecutionPath(source))) {
       return parseDeclaredPackage(reader);
 
     } catch (IOException e) {
