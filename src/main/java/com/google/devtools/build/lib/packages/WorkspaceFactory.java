@@ -78,6 +78,8 @@ public class WorkspaceFactory {
   private final Path workspaceDir;
   private final Mutability mutability;
 
+  private final boolean allowOverride;
+
   private final ImmutableMap<String, BaseFunction> workspaceFunctions;
   private final ImmutableList<EnvironmentExtension> environmentExtensions;
 
@@ -127,6 +129,7 @@ public class WorkspaceFactory {
     this.mutability = mutability;
     this.installDir = installDir;
     this.workspaceDir = workspaceDir;
+    this.allowOverride = allowOverride;
     this.environmentExtensions = environmentExtensions;
     this.workspaceFunctions = createWorkspaceFunctions(ruleClassProvider, allowOverride);
   }
@@ -256,34 +259,53 @@ public class WorkspaceFactory {
     }
   }
 
-  @SkylarkSignature(name = "workspace", objectType = Object.class, returnType = SkylarkList.class,
-      doc = "Sets the name for this workspace. Workspace names should be a Java-package-style "
-          + "description of the project, using underscores as separators, e.g., "
-          + "github.com/bazelbuild/bazel should use com_github_bazelbuild_bazel. Names must start "
-          + "with a letter and can only contain letters, numbers, and underscores.",
-      mandatoryPositionals = {
-          @SkylarkSignature.Param(name = "name", type = String.class,
-              doc = "the name of the workspace.")},
-      documented = true, useAst = true, useEnvironment = true)
+  @SkylarkSignature(
+    name = "workspace",
+    objectType = Object.class,
+    returnType = SkylarkList.class,
+    doc =
+        "Sets the name for this workspace. Workspace names should be a Java-package-style "
+            + "description of the project, using underscores as separators, e.g., "
+            + "github.com/bazelbuild/bazel should use com_github_bazelbuild_bazel. Names must "
+            + "start with a letter and can only contain letters, numbers, and underscores.",
+    mandatoryPositionals = {
+      @SkylarkSignature.Param(name = "name", type = String.class, doc = "the name of the workspace."
+      )
+    },
+    documented = true,
+    useAst = true,
+    useEnvironment = true
+  )
   private static final BuiltinFunction.Factory newWorkspaceFunction =
       new BuiltinFunction.Factory("workspace") {
-        public BuiltinFunction create() {
-          return new BuiltinFunction(
-              "workspace", FunctionSignature.namedOnly("name"), BuiltinFunction.USE_AST_ENV) {
-            public Object invoke(String name, FuncallExpression ast, Environment env)
-                throws EvalException {
-              if (!isLegalWorkspaceName(name)) {
+        public BuiltinFunction create(boolean allowOverride) {
+          if (allowOverride) {
+            return new BuiltinFunction(
+                "workspace", FunctionSignature.namedOnly("name"), BuiltinFunction.USE_AST_ENV) {
+              public Object invoke(String name, FuncallExpression ast, Environment env)
+                  throws EvalException {
+                if (!isLegalWorkspaceName(name)) {
+                  throw new EvalException(
+                      ast.getLocation(), name + " is not a legal workspace name");
+                }
+                String errorMessage = LabelValidator.validateTargetName(name);
+                if (errorMessage != null) {
+                  throw new EvalException(ast.getLocation(), errorMessage);
+                }
+                PackageFactory.getContext(env, ast).pkgBuilder.setWorkspaceName(name);
+                return NONE;
+              }
+            };
+          } else {
+            return new BuiltinFunction(
+                "workspace", FunctionSignature.namedOnly("name"), BuiltinFunction.USE_AST) {
+              public Object invoke(String name, FuncallExpression ast) throws EvalException {
                 throw new EvalException(
-                    ast.getLocation(), name + " is not a legal workspace name");
+                    ast.getLocation(),
+                    "workspace() function should be used only at the top of the WORKSPACE file.");
               }
-              String errorMessage = LabelValidator.validateTargetName(name);
-              if (errorMessage != null) {
-                throw new EvalException(ast.getLocation(), errorMessage);
-              }
-              PackageFactory.getContext(env, ast).pkgBuilder.setWorkspaceName(name);
-              return NONE;
-            }
-          };
+            };
+          }
         }
       };
 
@@ -379,7 +401,7 @@ public class WorkspaceFactory {
 
   private void addWorkspaceFunctions(Environment workspaceEnv, StoredEventHandler localReporter) {
     try {
-      workspaceEnv.setup("workspace", newWorkspaceFunction.apply());
+      workspaceEnv.setup("workspace", newWorkspaceFunction.apply(allowOverride));
       for (Map.Entry<String, BaseFunction> function : workspaceFunctions.entrySet()) {
         workspaceEnv.update(function.getKey(), function.getValue());
       }

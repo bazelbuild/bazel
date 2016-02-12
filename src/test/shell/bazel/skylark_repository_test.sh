@@ -179,6 +179,43 @@ EOF
   expect_log "bleh."
 }
 
+# Test loading a repository with a load statement in the WORKSPACE file
+function test_load_repository_with_load() {
+  create_new_workspace
+  repo2=$new_workspace_dir
+
+  echo "Tra-la!" > data.txt
+  cat <<'EOF' >BUILD
+exports_files(["data.txt"])
+EOF
+
+  cat <<'EOF' >ext.bzl
+def macro():
+  print('bleh')
+EOF
+
+  cat <<'EOF' >WORKSPACE
+workspace(name = "foo")
+load("//:ext.bzl", "macro")
+macro()
+EOF
+
+  cd ${WORKSPACE_DIR}
+  cat > WORKSPACE <<EOF
+local_repository(name='foo', path='$repo2')
+load("@foo//:ext.bzl", "macro")
+macro()
+EOF
+
+  cat > BUILD <<'EOF'
+genrule(name = "foo", srcs=["@foo//:data.txt"], outs=["foo.txt"], cmd = "cat $< | tee $@")
+EOF
+
+  bazel build //:foo >& $TEST_log || fail "Failed to build"
+  expect_log "bleh"
+  expect_log "Tra-la!"
+}
+
 function tear_down() {
   true
 }

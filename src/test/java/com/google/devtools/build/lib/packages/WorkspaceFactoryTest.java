@@ -79,6 +79,14 @@ public class WorkspaceFactoryTest {
         "local_repository rule //external:foo/bar's name field must be a legal workspace name");
   }
 
+  @Test
+  public void testIllegalWorkspaceFunctionPosition() throws Exception {
+    WorkspaceFactoryHelper helper = new WorkspaceFactoryHelper(
+        false, "workspace(name = 'foo')");
+    assertThat(helper.getParserError()).contains(
+        "workspace() function should be used only at the top of the WORKSPACE file.");
+  }
+
   private WorkspaceFactoryHelper parse(String... args) {
     return new WorkspaceFactoryHelper(args);
   }
@@ -93,6 +101,10 @@ public class WorkspaceFactoryTest {
     private final ImmutableList<Event> events;
 
     public WorkspaceFactoryHelper(String... args) {
+      this(true, args);
+    }
+
+    public WorkspaceFactoryHelper(boolean allowOverride, String... args) {
       Path root = null;
       Path workspaceFilePath = null;
       try {
@@ -109,7 +121,7 @@ public class WorkspaceFactoryTest {
           TestRuleClassProvider.getRuleClassProvider(),
           ImmutableList.<PackageFactory.EnvironmentExtension>of(),
           Mutability.create("test"),
-          true,
+          allowOverride,
           root,
           root);
       Exception exception = null;
