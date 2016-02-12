@@ -70,8 +70,9 @@ public class StandaloneTestStrategy extends TestStrategy {
       throws ExecException, InterruptedException {
     Path runfilesDir = null;
     try {
-      runfilesDir = TestStrategy.getLocalRunfilesDirectory(
-          action, actionExecutionContext, binTools);
+      runfilesDir =
+          TestStrategy.getLocalRunfilesDirectory(
+              action, actionExecutionContext, binTools, action.getShExecutable());
     } catch (ExecException e) {
       throw new TestExecException(e.getMessage());
     }

@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
@@ -87,7 +88,7 @@ public final class SymlinkTreeHelper {
    */
   public void createSymlinksUsingCommand(Path execRoot,
       BuildConfiguration config, BinTools binTools) throws CommandException {
-    List<String> argv = getSpawnArgumentList(execRoot, binTools);
+    List<String> argv = getSpawnArgumentList(execRoot, binTools, config.getShExecutable());
 
     CommandBuilder builder = new CommandBuilder();
     builder.addArgs(argv);
@@ -103,16 +104,20 @@ public final class SymlinkTreeHelper {
    * block for undetermined period of time. If it is interrupted during
    * that wait, ExecException will be thrown but interrupted bit will be
    * preserved.
-   *
-   * @param action action instance that requested symlink tree creation
+   *  @param action action instance that requested symlink tree creation
    * @param actionExecutionContext Services that are in the scope of the action.
+   * @param shExecutable
    */
-  public void createSymlinks(AbstractAction action, ActionExecutionContext actionExecutionContext,
-      BinTools binTools) throws ExecException, InterruptedException {
+  public void createSymlinks(
+      AbstractAction action,
+      ActionExecutionContext actionExecutionContext,
+      BinTools binTools,
+      PathFragment shExecutable)
+      throws ExecException, InterruptedException {
     List<String> args = getSpawnArgumentList(
-        actionExecutionContext.getExecutor().getExecRoot(), binTools);
+        actionExecutionContext.getExecutor().getExecRoot(), binTools, shExecutable);
     try (ResourceHandle handle =
-            ResourceManager.instance().acquireResources(action, RESOURCE_SET)) {
+        ResourceManager.instance().acquireResources(action, RESOURCE_SET)) {
       actionExecutionContext.getExecutor().getSpawnActionContext(action.getMnemonic()).exec(
           new BaseSpawn.Local(args, ImmutableMap.<String, String>of(), action),
           actionExecutionContext);
@@ -122,10 +127,20 @@ public final class SymlinkTreeHelper {
   /**
    * Returns the complete argument list build-runfiles has to be called with.
    */
-  private List<String> getSpawnArgumentList(Path execRoot, BinTools binTools) {
+  private List<String> getSpawnArgumentList(
+      Path execRoot, BinTools binTools, PathFragment shExecutable) {
     PathFragment path = binTools.getExecPath(BUILD_RUNFILES);
     Preconditions.checkNotNull(path, BUILD_RUNFILES + " not found in embedded tools");
-    List<String> args = Lists.newArrayList(execRoot.getRelative(path).getPathString());
+
+    List<String> args = Lists.newArrayList();
+    if (OS.getCurrent() == OS.WINDOWS) {
+      // During bootstrapping, build-runfiles is a shell script, that cannot be directly
+      // executed on Windows, so we shell out.
+      args.add(shExecutable.getPathString());
+      args.add("-c");
+      args.add("$0 $*");
+    }
+    args.add(execRoot.getRelative(path).getPathString());
 
     if (filesetTree) {
       args.add("--allow_relative");
