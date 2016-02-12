@@ -894,7 +894,7 @@ default will be fetching from Maven Central with no authentication enabled.</p>
     new_git_repository
   </h2>
 
-  <pre class="rule-signature">new_git_repository(<a href="#new_git_repository.name">name</a>, <a href="#new_git_repository.build_file">build_file</a>, <a href="#new_git_repository.init_submodules">init_submodules</a>, <a href="#new_git_repository.remote">remote</a>)</pre>
+  <pre class="rule-signature">new_git_repository(<a href="#new_git_repository.name">name</a>, <a href="#new_git_repository.build_file">build_file</a>, <a href="#new_git_repository.build_file_content">build_file_content</a>, <a href="#new_git_repository.init_submodules">init_submodules</a>, <a href="#new_git_repository.remote">remote</a>)</pre>
 
 
 <p>Clones a Git repository, checks out the specified tag, or commit, and makes its targets
@@ -967,12 +967,26 @@ new_git_repository(
           <code>build_file</code>
         </td>
         <td>
-                    <p><code>String; required</code></p>
+                    <p><code>String; optional</code></p>
                             The file to use as the BUILD file for this repository.
+
+        <p>Either build_file or build_file_content must be specified.</p>
 
         <p>This path is relative to the build's workspace. The file does not need to be named
         BUILD, but can be something like BUILD.new-repo-name to distinguish it
         from the workspace's actual BUILD files.</p>
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="new_git_repository.build_file_content">
+          <code>build_file_content</code>
+        </td>
+        <td>
+                    <p><code>String; optional</code></p>
+                            The content for the BUILD file for this repository.
+
+        <p>Either build_file or build_file_content must be specified.</p>
 
         </td>
       </tr>
@@ -1006,7 +1020,7 @@ new_git_repository(
     new_http_archive
   </h2>
 
-  <pre class="rule-signature">new_http_archive(<a href="#new_http_archive.name">name</a>, <a href="#new_http_archive.build_file">build_file</a>, <a href="#new_http_archive.sha256">sha256</a>, <a href="#new_http_archive.strip_prefix">strip_prefix</a>, <a href="#new_http_archive.type">type</a>, <a href="#new_http_archive.url">url</a>)</pre>
+  <pre class="rule-signature">new_http_archive(<a href="#new_http_archive.name">name</a>, <a href="#new_http_archive.build_file">build_file</a>, <a href="#new_http_archive.build_file_content">build_file_content</a>, <a href="#new_http_archive.sha256">sha256</a>, <a href="#new_http_archive.strip_prefix">strip_prefix</a>, <a href="#new_http_archive.type">type</a>, <a href="#new_http_archive.url">url</a>)</pre>
 
 
 <p>Downloads a compressed archive file, decompresses it, and creates a Bazel repository by
@@ -1081,12 +1095,26 @@ new_http_archive(
           <code>build_file</code>
         </td>
         <td>
-                    <p><code>String; required</code></p>
+                    <p><code>String; optional</code></p>
                              The file to use as the BUILD file for this repository.
+
+         <p>Either build_file or build_file_content must be specified.</p>
 
          <p>This path is relative to the build's workspace. The file does not need to be named
          BUILD, but can be something like BUILD.new-repo-name to distinguish it
          from the workspace's actual BUILD files.</p>
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="new_http_archive.build_file_content">
+          <code>build_file_content</code>
+        </td>
+        <td>
+                    <p><code>String; optional</code></p>
+                            The content for the BUILD file for this repository.
+
+        <p>Either build_file or build_file_content must be specified.</p>
 
         </td>
       </tr>
@@ -1164,7 +1192,7 @@ new_http_archive(
     new_local_repository
   </h2>
 
-  <pre class="rule-signature">new_local_repository(<a href="#new_local_repository.name">name</a>, <a href="#new_local_repository.build_file">build_file</a>, <a href="#new_local_repository.path">path</a>)</pre>
+  <pre class="rule-signature">new_local_repository(<a href="#new_local_repository.name">name</a>, <a href="#new_local_repository.build_file">build_file</a>, <a href="#new_local_repository.build_file_content">build_file_content</a>, <a href="#new_local_repository.path">path</a>)</pre>
 
 
 <p>Allows a local directory to be turned into a Bazel repository. This means that the current
@@ -1255,12 +1283,26 @@ Then targets can depend on <code>@piano//:play-music</code> to use piano.jar.
           <code>build_file</code>
         </td>
         <td>
-                    <p><code>String; required</code></p>
+                    <p><code>String; optional</code></p>
                             A file to use as a BUILD file for this directory.
+
+        <p>Either build_file or build_file_content must be specified.</p>
 
         <p>This path is relative to the build's workspace. The file does not need to be named
         BUILD, but can be (something like BUILD.new-repo-name may work well for distinguishing it
         from the repository's actual BUILD files.</p>
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="new_local_repository.build_file_content">
+          <code>build_file_content</code>
+        </td>
+        <td>
+                    <p><code>String; optional</code></p>
+                            The content for the BUILD file for this repository.
+
+        <p>Either build_file or build_file_content must be specified.</p>
 
         </td>
       </tr>
