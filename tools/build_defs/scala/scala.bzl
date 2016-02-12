@@ -118,7 +118,7 @@ cd $0.runfiles
       content=content)
 
 def _collect_comp_run_jars(ctx):
-  compile_jars = set() # not transative
+  compile_jars = set() # not transitive
   runtime_jars = set() # this is transitive
   for target in ctx.attr.deps:
     found = False
