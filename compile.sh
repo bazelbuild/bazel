@@ -154,6 +154,7 @@ if [ $DO_TESTS ]; then
       ${EXTRA_BAZEL_ARGS} \
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
       -k --test_output=errors //src/... //third_party/ijar/... //scripts/... \
+      //tools/build_defs/scala/test/... \
       || fail "Tests failed"
 fi
 
