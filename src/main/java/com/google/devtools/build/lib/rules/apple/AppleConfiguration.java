@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions.AppleBitcodeMode;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Map;
@@ -36,6 +38,7 @@ import javax.annotation.Nullable;
 /**
  * A configuration containing flags required for Apple platforms and tools.
  */
+@SkylarkModule(name = "apple", doc = "A configuration fragment for Apple platforms")
 @Immutable
 public class AppleConfiguration extends BuildConfiguration.Fragment {
   public static final String XCODE_VERSION_ENV_NAME = "XCODE_VERSION_OVERRIDE";
@@ -107,6 +110,13 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * apple host system. These environment variables are needed by the apple toolchain. Keys are
    * variable names and values are their corresponding values.
    */
+  @SkylarkCallable(
+      name = "apple_host_system_env",
+      doc =
+          "Returns a map of environment variables that should be propagated for actions that "
+          + "build on an apple host system. These environment variables are needed by the apple "
+          + "toolchain. Keys are variable names and values are their corresponding values."
+    )
   public Map<String, String> getAppleHostSystemEnv() {
     Optional<DottedVersion> xcodeVersion = getXcodeVersion();
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
