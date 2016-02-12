@@ -101,16 +101,6 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     this.ruleNames = ruleNames;
   }
 
-  @Override
-  public TargetPatternEvaluator getTargetPatternEvaluator() {
-    return targetPatternEvaluator;
-  }
-
-  @Override
-  public void updatePatternEvaluator(PathFragment relativeWorkingDirectory) {
-    targetPatternEvaluator.updateOffset(relativeWorkingDirectory);
-  }
-
   /**
    * Performs target pattern evaluation, test suite expansion (if requested), and loads the
    * transitive closure of the resulting targets as well as of the targets needed to use the
@@ -118,7 +108,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
    */
   @Override
   public LoadingResult execute(EventHandler eventHandler, EventBus eventBus,
-      List<String> targetPatterns, LoadingOptions options,
+      List<String> targetPatterns, PathFragment relativeWorkingDirectory, LoadingOptions options,
       ListMultimap<String, Label> labelsToLoadUnconditionally, boolean keepGoing,
       boolean enableLoading, boolean determineTests, @Nullable LoadingCallback callback)
           throws TargetParsingException, LoadingFailedException, InterruptedException {
@@ -129,6 +119,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
           + "the --build_tests_only option or the 'bazel test' command ");
     }
 
+    targetPatternEvaluator.updateOffset(relativeWorkingDirectory);
     EventHandler parseFailureListener = new ParseFailureListenerImpl(eventHandler, eventBus);
     // Determine targets to build:
     ResolvedTargets<Target> targets = getTargetsToBuild(parseFailureListener,

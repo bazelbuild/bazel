@@ -715,8 +715,9 @@ public class LoadingPhaseRunnerTest {
         FilteredTargetListener listener = new FilteredTargetListener();
         eventBus.register(listener);
         result = loadingPhaseRunner.execute(storedErrors, eventBus,
-            ImmutableList.copyOf(patterns), options, ImmutableListMultimap.<String, Label>of(),
-            keepGoing, /*enableLoading=*/true, determineTests, loadingCallback);
+            ImmutableList.copyOf(patterns), PathFragment.EMPTY_FRAGMENT, options,
+            ImmutableListMultimap.<String, Label>of(), keepGoing, /*enableLoading=*/true,
+            determineTests, loadingCallback);
         this.targetParsingCompleteEvent = listener.targetParsingCompleteEvent;
         this.loadingPhaseCompleteEvent = listener.loadingPhaseCompleteEvent;
       } catch (LoadingFailedException e) {

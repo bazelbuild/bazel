@@ -1334,9 +1334,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     LoadingPhaseRunner runner = new LegacyLoadingPhaseRunner(getPackageManager(),
         Collections.unmodifiableSet(ruleClassProvider.getRuleClassMap().keySet()));
-    LoadingResult loadingResult = runner.execute(reporter, eventBus, targets, loadingOptions,
-        getTargetConfiguration().getAllLabels(), viewOptions.keepGoing,
-        isLoadingEnabled(), /*determineTests=*/false, /*callback=*/null);
+    LoadingResult loadingResult = runner.execute(reporter, eventBus, targets,
+        PathFragment.EMPTY_FRAGMENT, loadingOptions, getTargetConfiguration().getAllLabels(),
+        viewOptions.keepGoing, isLoadingEnabled(), /*determineTests=*/false, /*callback=*/null);
     if (!doAnalysis) {
       // TODO(bazel-team): What's supposed to happen in this case?
       return null;
