@@ -488,7 +488,15 @@ EOF
   expect_log "missing value for mandatory attribute 'url' in 'http_jar' rule"
 }
 
-function test_new_remote_repo() {
+function test_new_remote_repo_with_build_file() {
+  do_new_remote_repo_test "build_file"
+}
+
+function test_new_remote_repo_with_build_file_content() {
+  do_new_remote_repo_test "build_file_content"
+}
+
+function do_new_remote_repo_test() {
   # Create a zipped-up repository HTTP response.
   local repo2=$TEST_TMPDIR/repo2
   rm -rf $repo2
@@ -503,7 +511,9 @@ function test_new_remote_repo() {
   serve_file $repo2_zip
 
   cd ${WORKSPACE_DIR}
-  cat > fox.BUILD <<EOF
+
+  if [ "$1" = "build_file"] ; then
+    cat > fox.BUILD <<EOF
 filegroup(
     name = "fox",
     srcs = ["fox/male"],
@@ -511,7 +521,7 @@ filegroup(
 )
 EOF
 
-  cat > WORKSPACE <<EOF
+    cat > WORKSPACE <<EOF
 new_http_archive(
     name = 'endangered',
     url = 'http://localhost:$nc_port/repo.zip',
@@ -519,6 +529,21 @@ new_http_archive(
     build_file = 'fox.BUILD'
 )
 EOF
+  else
+    cat > WORKSPACE <<EOF
+new_http_archive(
+    name = 'endangered',
+    url = 'http://localhost:$nc_port/repo.zip',
+    sha256 = '$sha256',
+    build_file_content = """
+filegroup(
+    name = "fox",
+    srcs = ["fox/male"],
+    visibility = ["//visibility:public"],
+)"""
+)
+EOF
+  fi
 
   mkdir -p zoo
   cat > zoo/BUILD <<EOF

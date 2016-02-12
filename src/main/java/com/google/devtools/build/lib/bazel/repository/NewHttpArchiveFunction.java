@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.bazel.repository;
 
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.FileValue;
+import com.google.devtools.build.lib.rules.repository.NewRepositoryBuildFileHandler;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -38,10 +39,13 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
   @Override
   public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
       throws RepositoryFunctionException, InterruptedException {
-    FileValue buildFileValue = getBuildFileValue(rule, env);
-    if (env.valuesMissing()) {
+
+    NewRepositoryBuildFileHandler buildFileHandler =
+        new NewRepositoryBuildFileHandler(getWorkspace());
+    if (!buildFileHandler.prepareBuildFile(rule, env)) {
       return null;
     }
+
     try {
       FileSystemUtils.createDirectoryAndParents(outputDirectory);
     } catch (IOException e) {
@@ -68,8 +72,10 @@ public class NewHttpArchiveFunction extends HttpArchiveFunction {
         .setPrefix(prefix)
         .build());
 
-    // Add WORKSPACE and BUILD files.
+    // Finally, write WORKSPACE and BUILD files.
     createWorkspaceFile(decompressed, rule);
-    return symlinkBuildFile(buildFileValue, outputDirectory);
+    buildFileHandler.finishBuildFile(outputDirectory);
+
+    return RepositoryDirectoryValue.create(outputDirectory);
   }
 }

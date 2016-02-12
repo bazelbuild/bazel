@@ -187,7 +187,15 @@ EOF
   expect_log "no such package '@common//carnivore'"
 }
 
-function test_new_local_repository() {
+function test_new_local_repository_with_build_file() {
+  do_new_local_repository_test "build_file"
+}
+
+function test_new_local_repository_with_build_file_content() {
+  do_new_local_repository_test "build_file_content"
+}
+
+function do_new_local_repository_test() {
   bazel clean
 
   # Create a non-Bazel directory.
@@ -210,14 +218,37 @@ public class Mongoose {
 }
 EOF
 
-  build_file=BUILD.carnivore
-  cat > WORKSPACE <<EOF
+  if [ "$1" == "build_file" ] ; then
+    build_file=BUILD.carnivore
+    cat > WORKSPACE <<EOF
 new_local_repository(
     name = 'endangered',
     path = '$project_dir',
     build_file = '$build_file',
 )
 EOF
+
+    cat > $build_file <<EOF
+java_library(
+    name = "mongoose",
+    srcs = ["carnivore/Mongoose.java"],
+    visibility = ["//visibility:public"],
+)
+EOF
+  else
+    cat > WORKSPACE <<EOF
+new_local_repository(
+    name = 'endangered',
+    path = '$project_dir',
+    build_file_content = """
+java_library(
+    name = "mongoose",
+    srcs = ["carnivore/Mongoose.java"],
+    visibility = ["//visibility:public"],
+)""",
+)
+EOF
+  fi
 
    mkdir -p zoo
    cat > zoo/BUILD <<EOF
@@ -239,13 +270,6 @@ public class BallPit {
 }
 EOF
 
-  cat > $build_file <<EOF
-java_library(
-    name = "mongoose",
-    srcs = ["carnivore/Mongoose.java"],
-    visibility = ["//visibility:public"],
-)
-EOF
   bazel fetch //zoo:ball-pit || fail "Fetch failed"
   bazel run //zoo:ball-pit >& $TEST_log || fail "Failed to build/run zoo"
   expect_log "Tra-la!"

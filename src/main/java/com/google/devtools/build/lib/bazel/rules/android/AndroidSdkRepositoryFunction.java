@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
@@ -65,7 +66,8 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
         .replaceAll("%build_tools_version%", buildToolsVersion)
         .replaceAll("%api_level%", apiLevel.toString());
 
-    return writeBuildFile(outputDirectory, buildFile);
+    writeBuildFile(outputDirectory, buildFile);
+    return RepositoryDirectoryValue.create(outputDirectory);
   }
 
   @Override
