@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleHostInfo;
+import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -157,8 +158,17 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
    */
   private ImmutableMap<String, String> locallyDeterminedEnv(ImmutableMap<String, String> env)
       throws UserExecException {
+    // TODO(bazel-team): Remove apple-specific logic from this class.
     ImmutableMap.Builder<String, String> newEnvBuilder = ImmutableMap.builder();
     newEnvBuilder.putAll(env);
+    // Empty developer dir indicates to use the system default.
+    // TODO(bazel-team): Bazel's view of the xcode version and developer dir
+    // should be explicitly set for build hermiticity.
+    String developerDir = "";
+    if (env.containsKey(AppleConfiguration.XCODE_VERSION_ENV_NAME)) {
+      developerDir = getDeveloperDir(env.get(AppleConfiguration.XCODE_VERSION_ENV_NAME));
+      newEnvBuilder.put("DEVELOPER_DIR", developerDir);
+    }
     if (env.containsKey(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME)) {
       // The Apple platform is needed to select the appropriate SDK.
       if (!env.containsKey(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME)) {
@@ -166,19 +176,24 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
       }
       String iosSdkVersion = env.get(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME);
       String appleSdkPlatform = env.get(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME);
-      // TODO(bazel-team): Determine and set DEVELOPER_DIR.
-      addSdkRootEnv(newEnvBuilder, iosSdkVersion, appleSdkPlatform);
+      newEnvBuilder.put("SDKROOT", getSdkRootEnv(developerDir, iosSdkVersion, appleSdkPlatform));
     }
     return newEnvBuilder.build();
   }
 
-  private void addSdkRootEnv(
-      ImmutableMap.Builder<String, String> envBuilder, String iosSdkVersion,
-      String appleSdkPlatform) throws UserExecException {
-    // Sanity check, also presents a less cryptic error message.
+  private String getDeveloperDir(String xcodeVersion) throws UserExecException {
+    if (OS.getCurrent() != OS.DARWIN) {
+      throw new UserExecException(
+          "Cannot locate xcode developer directory on non-darwin operating system");
+    }
+    return AppleHostInfo.getDeveloperDir(execRoot, DottedVersion.fromString(xcodeVersion));
+  }
+
+  private String getSdkRootEnv(String developerDir,
+      String iosSdkVersion, String appleSdkPlatform) throws UserExecException {
     if (OS.getCurrent() != OS.DARWIN) {
       throw new UserExecException("Cannot locate iOS SDK on non-darwin operating system");
     }
-    envBuilder.put("SDKROOT", AppleHostInfo.getSdkRoot(execRoot, iosSdkVersion, appleSdkPlatform));
+    return AppleHostInfo.getSdkRoot(execRoot, developerDir, iosSdkVersion, appleSdkPlatform);
   }
 }
