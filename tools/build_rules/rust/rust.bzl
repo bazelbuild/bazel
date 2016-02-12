@@ -673,13 +673,75 @@ rust_doc_test = rule(
     test = True,
 )
 
+RUST_BUILD_FILE = """
+config_setting(
+    name = "darwin",
+    values = {"host_cpu": "darwin"},
+)
+
+config_setting(
+    name = "k8",
+    values = {"host_cpu": "k8"},
+)
+
+filegroup(
+    name = "rustc",
+    srcs = select({
+        ":darwin": ["rustc/bin/rustc"],
+        ":k8": ["rustc/bin/rustc"],
+    }),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "rustc_lib",
+    srcs = select({
+        ":darwin": glob(["rustc/lib/*.dylib"]),
+        ":k8": glob(["rustc/lib/*.so"]),
+    }),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "rustdoc",
+    srcs = select({
+        ":darwin": ["rustc/bin/rustdoc"],
+        ":k8": ["rustc/bin/rustdoc"],
+    }),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "rustlib",
+    srcs = select({
+        ":darwin": glob([
+            "rust-std-x86_64-apple-darwin/lib/rustlib/x86_64-apple-darwin/lib/*.rlib",
+            "rust-std-x86_64-apple-darwin/lib/rustlib/x86_64-apple-darwin/lib/*.dylib",
+            "rust-std-x86_64-apple-darwin/lib/rustlib/x86_64-apple-darwin/lib/*.a",
+            "rustc/lib/rustlib/x86_64-apple-darwin/lib/*.rlib",
+            "rustc/lib/rustlib/x86_64-apple-darwin/lib/*.dylib",
+            "rustc/lib/rustlib/x86_64-apple-darwin/lib/*.a",
+        ]),
+        ":k8": glob([
+            "rust-std-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/*.rlib",
+            "rust-std-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/*.so",
+            "rust-std-x86_64-unknown-linux-gnu/lib/rustlib/x86_64-unknown-linux-gnu/lib/*.a",
+            "rustc/lib/rustlib/x86_64-unknown-linux-gnu/lib/*.rlib",
+            "rustc/lib/rustlib/x86_64-unknown-linux-gnu/lib/*.so",
+            "rustc/lib/rustlib/x86_64-unknown-linux-gnu/lib/*.a",
+        ]),
+    }),
+    visibility = ["//visibility:public"],
+)
+"""
+
 def rust_repositories():
   native.new_http_archive(
       name = "rust_linux_x86_64",
       url = "https://static.rust-lang.org/dist/rust-1.6.0-x86_64-unknown-linux-gnu.tar.gz",
       strip_prefix = "rust-1.6.0-x86_64-unknown-linux-gnu",
       sha256 = "8630cc02432b4423d64eeae4ef071ec58e5dd1f3d555a3a3cc34b759202813f6",
-      build_file = "tools/build_rules/rust/rust.BUILD",
+      build_file_content = RUST_BUILD_FILE,
   )
 
   native.new_http_archive(
@@ -687,5 +749,5 @@ def rust_repositories():
       url = "https://static.rust-lang.org/dist/rust-1.6.0-x86_64-apple-darwin.tar.gz",
       strip_prefix = "rust-1.6.0-x86_64-apple-darwin",
       sha256 = "8c6897ed37ef6fd2890b176afa65306cc8943e3c770c9530a701f1aefd3942b1",
-      build_file = "tools/build_rules/rust/rust.BUILD",
+      build_file_content = RUST_BUILD_FILE,
   )

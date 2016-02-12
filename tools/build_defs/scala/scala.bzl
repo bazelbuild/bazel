@@ -263,3 +263,46 @@ scala_test = rule(
   executable=True,
   test=True,
 )
+
+SCALA_BUILD_FILE = """
+# scala.BUILD
+exports_files([
+  "bin/scala",
+  "bin/scalac",
+  "bin/scaladoc",
+  "lib/akka-actor_2.11-2.3.10.jar",
+  "lib/config-1.2.1.jar",
+  "lib/jline-2.12.1.jar",
+  "lib/scala-actors-2.11.0.jar",
+  "lib/scala-actors-migration_2.11-1.1.0.jar",
+  "lib/scala-compiler.jar",
+  "lib/scala-continuations-library_2.11-1.0.2.jar",
+  "lib/scala-continuations-plugin_2.11.7-1.0.2.jar",
+  "lib/scala-library.jar",
+  "lib/scala-parser-comscala-2.11.7/binators_2.11-1.0.4.jar",
+  "lib/scala-reflect.jar",
+  "lib/scala-swing_2.11-1.0.2.jar",
+  "lib/scala-xml_2.11-1.0.4.jar",
+  "lib/scalap-2.11.7.jar",
+])
+
+filegroup(
+    name = "sdk",
+    srcs = glob(["**"]),
+    visibility = ["//visibility:public"],
+)
+"""
+
+def scala_repositories():
+  native.new_http_archive(
+    name = "scala",
+    strip_prefix = "scala-2.11.7",
+    sha256 = "ffe4196f13ee98a66cf54baffb0940d29432b2bd820bd0781a8316eec22926d0",
+    url = "http://downloads.typesafe.com/scala/2.11.7/scala-2.11.7.tgz",
+    build_file_content = SCALA_BUILD_FILE,
+  )
+  native.http_file(
+    name = "scalatest",
+    url = "https://oss.sonatype.org/content/groups/public/org/scalatest/scalatest_2.11/2.2.6/scalatest_2.11-2.2.6.jar",
+    sha256 = "f198967436a5e7a69cfd182902adcfbcb9f2e41b349e1a5c8881a2407f615962",
+  )

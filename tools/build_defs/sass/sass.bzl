@@ -88,12 +88,47 @@ sass_binary = rule(
     },
 )
 
+LIBSASS_BUILD_FILE = """
+package(default_visibility = ["@sassc//:__pkg__"])
+
+filegroup(
+    name = "srcs",
+    srcs = glob([
+         "src/**/*.h*",
+         "src/**/*.c*",
+    ]),
+)
+
+# Includes directive may seem unnecessary here, but its needed for the weird
+# interplay between libsass/sassc projects. This is intentional.
+cc_library(
+    name = "headers",
+    includes = ["include"],
+    hdrs = glob(["include/**/*.h"]),
+)
+"""
+
+SASSC_BUILD_FILE = """
+package(default_visibility = ["//tools/build_defs/sass:__pkg__"])
+
+cc_binary(
+    name = "sassc",
+    srcs = [
+        "@libsass//:srcs",
+        "sassc.c",
+        "sassc_version.h",
+],
+    linkopts = ["-ldl", "-lm"],
+    deps = ["@libsass//:headers"],
+)
+"""
+
 def sass_repositories():
   native.new_http_archive(
       name = "libsass",
       url = "https://github.com/sass/libsass/archive/3.3.0-beta1.tar.gz",
       sha256 = "6a4da39cc0b585f7a6ee660dc522916f0f417c890c3c0ac7ebbf6a85a16d220f",
-      build_file = "tools/build_defs/sass/libsass.BUILD",
+      build_file_content = LIBSASS_BUILD_FILE,
       strip_prefix = "libsass-3.3.0-beta1",
   )
 
@@ -101,6 +136,6 @@ def sass_repositories():
       name = "sassc",
       url = "https://github.com/sass/sassc/archive/3.3.0-beta1.tar.gz",
       sha256 = "87494218eea2441a7a24b40f227330877dbba75c5fa9014ac6188711baed53f6",
-      build_file = "tools/build_defs/sass/sassc.BUILD",
+      build_file_content = SASSC_BUILD_FILE,
       strip_prefix = "sassc-3.3.0-beta1",
   )
