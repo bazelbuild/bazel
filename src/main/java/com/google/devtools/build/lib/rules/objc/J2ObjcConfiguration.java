@@ -37,20 +37,16 @@ import java.util.Set;
 public class J2ObjcConfiguration extends Fragment {
   /**
    * Always-on flags for J2ObjC translation. These flags will always be used for invoking the J2ObjC
-   * transpiler. See https://github.com/google/j2objc/wiki/j2objc for flag documentation.
+   * transpiler. See http://j2objc.org/docs/j2objc.html for flag documentation.
    */
   private static final Set<String> J2OBJC_ALWAYS_ON_TRANSLATION_FLAGS = ImmutableSet.of(
       "-encoding",
       "UTF-8",
       "--doc-comments",
-      "--extract-unsequenced",
-      "--final-methods-as-functions",
-      "--hide-private-members",
-      "--segmented-headers",
       "-XcombineJars");
 
   /**
-   * Allowed flags for J2ObjC translation. See https://github.com/google/j2objc/wiki/j2objc for flag
+   * Allowed flags for J2ObjC translation. See http://j2objc.org/docs/j2objc.html for flag
    * documentation.
    */
   static final Set<String> J2OBJC_BLACKLISTED_TRANSLATION_FLAGS =
