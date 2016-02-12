@@ -27,36 +27,11 @@ public final class XcTestAppProvider implements TransitiveInfoProvider {
   private final Artifact bundleLoader;
   private final Artifact ipa;
   private final ObjcProvider objcProvider;
-  private final Iterable<Artifact> linkedLibraries;
-  private final Iterable<Artifact> linkedImportedLibraries;
-  private final Iterable<Artifact> forceLoadLibraries;
 
-  /**
-   * Constructs XcTestAppProvider.
-   *
-   * @param bundleLoader  the bundle loader to be passed into the linker of the test binary
-   * @param ipa  the bundled test application
-   * @param objcProvider  an objcProvider to be passed to the depending IosTest target
-   * @param linkedLibraries  libraries already linked into the test application, that should not be
-   *    linked into the IosTest binary
-   * @param linkedImportedLibraries  imported Libraries already linked into the test application,
-   *    that should not be linked into the IosTest binary
-   * @param forceLoadLibraries  libraries already linked into the test application with --force_load
-   *    that should not be linked into the IosTest binary
-   */
-  XcTestAppProvider(
-      Artifact bundleLoader,
-      Artifact ipa,
-      ObjcProvider objcProvider,
-      Iterable<Artifact> linkedLibraries,
-      Iterable<Artifact> linkedImportedLibraries,
-      Iterable<Artifact> forceLoadLibraries) {
+  XcTestAppProvider(Artifact bundleLoader, Artifact ipa, ObjcProvider objcProvider) {
     this.bundleLoader = Preconditions.checkNotNull(bundleLoader);
     this.ipa = Preconditions.checkNotNull(ipa);
     this.objcProvider = Preconditions.checkNotNull(objcProvider);
-    this.linkedLibraries = linkedLibraries;
-    this.linkedImportedLibraries = linkedImportedLibraries;
-    this.forceLoadLibraries = forceLoadLibraries;
   }
 
   /**
@@ -78,30 +53,5 @@ public final class XcTestAppProvider implements TransitiveInfoProvider {
    */
   public ObjcProvider getObjcProvider() {
     return objcProvider;
-  }
-  
-  /**
-   * Returns the list of libraries that were linked into the host application.  These libraries
-   * should not also be linked into the test binary, so as to prevent ambiguous references.
-   */
-  public Iterable<Artifact> getLinkedLibraries() {
-    return linkedLibraries;
-  }
-
-  /**
-   * Returns the list of imported libraries that were linked into the host application.  These
-   * libraries  should not also be linked into the test binary, so as to
-   * prevent ambiguous references.
-   */
-  public Iterable<Artifact> getLinkedImportedLibraries() {
-    return linkedImportedLibraries;
-  }
-
-  /**
-   * Returns the list of libraries that were linked into the host application with the --force_load
-   * flag.
-   */
-  public Iterable<Artifact> getForceLoadLibraries() {
-    return forceLoadLibraries;
   }
 }

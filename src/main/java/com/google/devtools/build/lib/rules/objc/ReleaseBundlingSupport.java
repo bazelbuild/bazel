@@ -521,18 +521,8 @@ public final class ReleaseBundlingSupport {
         .build();
     // TODO(bazel-team): Handle the FRAMEWORK_DIR key properly. We probably want to add it to
     // framework search paths, but not actually link it with the -framework flag.
-
-    Iterable<Artifact> linkedArtifacts = objcProvider.get(ObjcProvider.LIBRARY);
-    Iterable<Artifact> linkedImportedLibraries = objcProvider.get(ObjcProvider.IMPORTED_LIBRARY);
-    Iterable<Artifact> forceLoadLibraries = objcProvider.get(ObjcProvider.FORCE_LOAD_LIBRARY);
-
-    return new XcTestAppProvider(
-        intermediateArtifacts.combinedArchitectureBinary(),
-        ruleContext.getImplicitOutputArtifact(IPA),
-        partialObjcProvider,
-        linkedArtifacts,
-        linkedImportedLibraries,
-        forceLoadLibraries);
+    return new XcTestAppProvider(intermediateArtifacts.combinedArchitectureBinary(),
+        ruleContext.getImplicitOutputArtifact(IPA), partialObjcProvider);
   }
 
   /**
