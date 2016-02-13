@@ -309,7 +309,8 @@ concat = rule(
   attrs={
       "srcs": attr.label_list(allow_files=True),
       "out": attr.output(mandatory=True),
-      "_merge_tool": attr.label(executable=True, default=Label("//pkg:merge"))
+      "_merge_tool": attr.label(executable=True, allow_files=True,
+                                default=Label("//pkg:merge"))
   }
 )
 ```
