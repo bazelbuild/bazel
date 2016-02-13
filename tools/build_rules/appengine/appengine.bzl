@@ -116,19 +116,23 @@ def _war_impl(ctxt):
       "mkdir -p " + build_output
       ]
 
-  inputs = ctxt.files.jars + [zipper]
-  cmd += ["mkdir -p %s" % build_output + "/WEB-INF/lib"]
-  for jar in ctxt.files.jars:
-    # Add the jar to WEB-INF/lib.
-    cmd += _add_file(jar, build_output + "/WEB-INF/lib")
-    # Add its runtime classpath to WEB-INF/lib
-    if hasattr(jar, "java"):
-      inputs += jar.java.transitive_runtime_deps
-      for run_jar in jar.java.transitive_runtime_deps:
-        cmd += _add_file(run_jar, build_output + "/WEB-INF/lib")
+  inputs = [zipper]
+  cmd += ["mkdir -p %s/WEB-INF/lib" % build_output]
+
+  transitive_deps = set()
+  for jar in ctxt.attr.jars:
+    if hasattr(jar, "java"):  # java_library, java_import
+      transitive_deps += jar.java.transitive_runtime_deps
+    elif hasattr(jar, "files"):  # a jar file
+      transitive_deps += jar.files
+
+  for dep in transitive_deps:
+    cmd += _add_file(dep, build_output + "/WEB-INF/lib")
+    inputs.append(dep)
+
   for jar in ctxt.files._appengine_deps:
     cmd += _add_file(jar, build_output + "/WEB-INF/lib")
-    inputs += [jar]
+    inputs.append(jar)
 
   inputs += ctxt.files.data
   for res in ctxt.files.data:
