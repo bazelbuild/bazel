@@ -304,7 +304,7 @@ java_import(
 
 java_import(
     name = "jimfs",
-    jars = ["jimfs-1.1-rc1.jar"],
+    jars = ["jimfs/jimfs-1.1-rc1.jar"],
 )
 
 java_import(
