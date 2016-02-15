@@ -31,9 +31,6 @@ unset _JAVA_OPTIONS
 
 LDFLAGS=${LDFLAGS:-""}
 
-# Extension for executables (.exe on Windows).
-EXE_EXT=""
-
 MSYS_DLLS=""
 PATHSEP=":"
 
@@ -76,8 +73,6 @@ darwin)
 msys*|mingw*)
   # Use a simplified platform string.
   PLATFORM="mingw"
-  # Workaround for msys issue which causes omission of std::to_string.
-  EXE_EXT=".exe"
   PATHSEP=";"
   # Find the latest available version of the SDK.
   JAVA_HOME="${JAVA_HOME:-$(ls -d /c/Program\ Files/Java/jdk* | sort | tail -n 1)}"

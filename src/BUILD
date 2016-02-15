@@ -161,6 +161,26 @@ genrule(
     "_notools",
 ]]
 
+# Build an executable named `bazel.exe`.
+# Works on all platforms but only makes sense on Windows.
+# Workaround for non-configurability of genrule's `outs` attribute.
+[genrule(
+    name = "bazel-bin" + suffix + ".exe",
+    srcs = [":bazel-bin" + suffix],
+    outs = ["bazel" + suffix + ".exe"],
+    cmd = "cp $(location :bazel-bin" + suffix + ") $@",
+    executable = 1,
+    output_to_bindir = 1,
+    visibility = [
+        "//scripts:__pkg__",  # For bash completion generation
+        "//scripts/packages:__pkg__",  # For installer generation
+        "//src/test:__subpackages__",  # For integration tests
+    ],
+) for suffix in [
+    "",
+    "_notools",
+]]
+
 config_setting(
     name = "darwin",
     values = {"cpu": "darwin"},

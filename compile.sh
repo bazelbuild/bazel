@@ -91,10 +91,10 @@ if [ $DO_COMPILE ]; then
   new_step 'Building Bazel with Bazel'
   display "."
   log "Building output/bazel"
-  bazel_build src:bazel
-  cp -f bazel-bin/src/bazel output/bazel
-  chmod 0755 output/bazel
-  BAZEL=$(pwd)/output/bazel
+  bazel_build "src:bazel${EXE_EXT}"
+  cp -f "bazel-bin/src/bazel${EXE_EXT}" "output/bazel${EXE_EXT}"
+  chmod 0755 "output/bazel${EXE_EXT}"
+  BAZEL="$(pwd)/output/bazel${EXE_EXT}"
 fi
 
 #

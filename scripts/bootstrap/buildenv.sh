@@ -36,6 +36,13 @@ if [ "${MACHINE_TYPE}" = 'arm' -o "${MACHINE_TYPE}" = 'armv7l' -o "${MACHINE_TYP
   MACHINE_IS_ARM='yes'
 fi
 
+# Extension for executables.
+EXE_EXT=""
+case "${PLATFORM}" in
+msys*|mingw*)
+  EXE_EXT=".exe"
+esac
+
 ATEXIT_=""
 function atexit() {
   ATEXIT_="$1; ${ATEXIT_}"
