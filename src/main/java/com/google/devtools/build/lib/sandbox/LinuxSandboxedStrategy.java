@@ -42,11 +42,13 @@ import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.unix.NativePosixFiles;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SearchPath;
+import com.google.devtools.build.lib.vfs.Symlinks;
 
 import java.io.File;
 import java.io.IOException;
@@ -217,87 +219,84 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
 
   private ImmutableMap<Path, Path> getMounts(Spawn spawn, ActionExecutionContext executionContext)
       throws IOException, ExecException {
+    ImmutableMap.Builder<Path, Path> result = new ImmutableMap.Builder<>();
+    result.putAll(mountUsualUnixDirs());
     MountMap mounts = new MountMap();
-    mounts.putAll(mountUsualUnixDirs());
-    mounts.putAll(withRecursedDirs(setupBlazeUtils()));
-    mounts.putAll(withRecursedDirs(mountRunfilesFromManifests(spawn)));
-    mounts.putAll(withRecursedDirs(mountRunfilesFromSuppliers(spawn)));
-    mounts.putAll(withRecursedDirs(mountFilesFromFilesetManifests(spawn, executionContext)));
-    mounts.putAll(withRecursedDirs(mountInputs(spawn, executionContext)));
-    mounts.putAll(withRecursedDirs(mountRunUnderCommand(spawn)));
-    return validateMounts(withResolvedSymlinks(mounts));
+    mounts.putAll(setupBlazeUtils());
+    mounts.putAll(mountRunfilesFromManifests(spawn));
+    mounts.putAll(mountRunfilesFromSuppliers(spawn));
+    mounts.putAll(mountFilesFromFilesetManifests(spawn, executionContext));
+    mounts.putAll(mountInputs(spawn, executionContext));
+    mounts.putAll(mountRunUnderCommand(spawn));
+    result.putAll(finalizeMounts(mounts));
+    return result.build();
   }
 
   /**
-   * Validates all mounts against a set of criteria and throws an exception on error.
+   * Helper method of {@link #finalizeMounts}. This method handles adding a single path
+   * to the output map, including making sure it exists and adding the target of a
+   * symbolic link if necessary.
    *
-   * @return an ImmutableMap of all mounts.
+   * @param finalizedMounts the map to add the mapping(s) to
+   * @param target the key to add to the map
+   * @param source the value to add to the map
+   * @param stat information about source (passed in to avoid fetching it twice)
    */
-  @VisibleForTesting
-  static ImmutableMap<Path, Path> validateMounts(Map<Path, Path> mounts) {
-    ImmutableMap.Builder<Path, Path> validatedMounts = ImmutableMap.builder();
-    for (Entry<Path, Path> mount : mounts.entrySet()) {
-      Path target = mount.getKey();
-      Path source = mount.getValue();
+  private static void finalizeMountPath(
+      MountMap finalizedMounts, Path target, Path source, FileStatus stat) throws IOException {
+    // The source must exist.
+    Preconditions.checkArgument(stat != null, "%s does not exist", source.toString());
+    finalizedMounts.put(target, source);
 
-      // The source must exist.
-      Preconditions.checkArgument(source.exists(), "%s does not exist", source.toString());
-
-      validatedMounts.put(target, source);
+    if (stat.isSymbolicLink()) {
+      Path symlinkTarget = source.resolveSymbolicLinks();
+      Preconditions.checkArgument(
+          symlinkTarget.exists(), "%s does not exist", symlinkTarget.toString());
+      finalizedMounts.put(symlinkTarget, symlinkTarget);
     }
-    return validatedMounts.build();
   }
 
   /**
+   * Performs various checks on each mounted file which require stating each one.
+   * Contained in one function to allow minimizing the number of syscalls involved.
+   *
    * Checks for each mount if the source refers to a symbolic link and if yes, adds another mount
    * for the target of that symlink to ensure that it keeps working inside the sandbox.
    *
-   * @return a new mounts multimap with the added mounts.
-   */
-  @VisibleForTesting
-  static MountMap withResolvedSymlinks(Map<Path, Path> mounts) throws IOException {
-    MountMap fixedMounts = new MountMap();
-    for (Entry<Path, Path> mount : mounts.entrySet()) {
-      Path target = mount.getKey();
-      Path source = mount.getValue();
-      fixedMounts.put(target, source);
-
-      if (source.isSymbolicLink()) {
-        Path symlinkTarget = source.resolveSymbolicLinks();
-        fixedMounts.put(symlinkTarget, symlinkTarget);
-      }
-    }
-    return fixedMounts;
-  }
-
-  /**
    * Checks for each mount if the source refers to a directory and if yes, replaces that mount with
    * mounts of all files inside that directory.
    *
-   * @return a new mounts multimap with the added mounts.
+   * Validates all mounts against a set of criteria and throws an exception on error.
+   *
+   * @return a new mounts multimap with all mounts and the added mounts.
    */
   @VisibleForTesting
-  static MountMap withRecursedDirs(Map<Path, Path> mounts) throws IOException {
-    MountMap fixedMounts = new MountMap();
+  static MountMap finalizeMounts(Map<Path, Path> mounts) throws IOException {
+    MountMap finalizedMounts = new MountMap();
     for (Entry<Path, Path> mount : mounts.entrySet()) {
       Path target = mount.getKey();
       Path source = mount.getValue();
 
-      if (source.isDirectory()) {
+      FileStatus stat = source.statNullable(Symlinks.NOFOLLOW);
+
+      if (stat != null && stat.isDirectory()) {
         for (Path subSource : FileSystemUtils.traverseTree(source, Predicates.alwaysTrue())) {
           Path subTarget = target.getRelative(subSource.relativeTo(source));
-          fixedMounts.put(subTarget, subSource);
+          finalizeMountPath(
+              finalizedMounts, subTarget, subSource, subSource.statNullable(Symlinks.NOFOLLOW));
         }
       } else {
-        fixedMounts.put(target, source);
+        finalizeMountPath(finalizedMounts, target, source, stat);
       }
     }
-    return fixedMounts;
+    return finalizedMounts;
   }
 
   /**
    * Mount a certain set of unix directories to make the usual tools and libraries available to the
    * spawn that runs.
+   *
+   * Throws an exception if any of them do not exist.
    */
   private MountMap mountUsualUnixDirs() throws IOException {
     MountMap mounts = new MountMap();
@@ -316,6 +315,9 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
         Path usrDir = fs.getPath("/usr").getRelative(entry);
         mounts.put(usrDir, usrDir);
       }
+    }
+    for (Path path : mounts.values()) {
+      Preconditions.checkArgument(path.exists(), "%s does not exist", path.toString());
     }
     return mounts;
   }
