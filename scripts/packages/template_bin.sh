@@ -36,8 +36,9 @@ function usage() {
   echo "  --prefix=/some/path set the prefix path (default=/usr/local)." >&2
   echo "  --bin= set the binary folder path (default=%prefix%/bin)." >&2
   echo "  --base= set the base install path (default=%prefix%/lib/bazel)." >&2
-  echo "  --user configure for user install, expands to" >&2
-  echo '           `--bin=$HOME/bin --base=$HOME/.bazel' >&2
+  echo "  --bazelrc= set the path to bazelrc (default=/etc/bazelrc)." >&2
+  echo "  --user configure for user install, expands to:" >&2
+  echo '      --bin=$HOME/bin --base=$HOME/.bazel --bazelrc=$HOME/.bazelrc' >&2
   exit 1
 }
 
