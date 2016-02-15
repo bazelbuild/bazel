@@ -237,7 +237,7 @@ for the `main_class` attribute.
 Add the following to your `BUILD` file:
 
 ```python
-load("/tools/build_rules/appengine/appengine", "appengine_war")
+load("@bazel_tools//tools/build_rules/appengine:appengine.bzl", "appengine_war")
 
 appengine_war(
     name = "backend",
