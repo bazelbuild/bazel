@@ -104,6 +104,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private Class<? extends BuildConfiguration.Fragment> universalFragment;
     private PrerequisiteValidator prerequisiteValidator;
     private ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses = ImmutableMap.of();
+    private ImmutableList.Builder<Class<?>> skylarkModules =
+        ImmutableList.<Class<?>>builder().addAll(SkylarkModules.MODULES);
     private final List<Class<? extends FragmentOptions>> buildOptions = Lists.newArrayList();
 
     public void addWorkspaceFile(String contents) {
@@ -190,6 +192,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
+    public Builder addSkylarkModule(Class<?>... modules) {
+      this.skylarkModules.add(modules);
+      return this;
+    }
+
     private RuleConfiguredTargetFactory createFactory(
         Class<? extends RuleConfiguredTargetFactory> factoryClass) {
       try {
@@ -264,6 +271,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           universalFragment,
           prerequisiteValidator,
           skylarkAccessibleJavaClasses,
+          skylarkModules.build(),
           buildOptions);
     }
 
@@ -374,6 +382,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       Class<? extends BuildConfiguration.Fragment> universalFragment,
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses,
+      ImmutableList<Class<?>> skylarkModules,
       List<Class<? extends FragmentOptions>> buildOptions) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
@@ -388,7 +397,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.configurationCollectionFactory = configurationCollectionFactory;
     this.universalFragment = universalFragment;
     this.prerequisiteValidator = prerequisiteValidator;
-    this.globals = createGlobals(skylarkAccessibleJavaClasses);
+    this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkModules);
     this.buildOptions = buildOptions;
   }
 
@@ -491,10 +500,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   private Environment.Frame createGlobals(
-      ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses) {
+      ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses,
+      ImmutableList<Class<?>> modules) {
     try (Mutability mutability = Mutability.create("ConfiguredRuleClassProvider globals")) {
       Environment env = createSkylarkRuleClassEnvironment(
-          mutability, SkylarkModules.GLOBALS, null, null, null);
+          mutability, SkylarkModules.getGlobals(modules), null, null, null);
       for (Map.Entry<String, SkylarkType> entry : skylarkAccessibleJavaClasses.entrySet()) {
         env.setup(entry.getKey(), entry.getValue().getType());
       }
