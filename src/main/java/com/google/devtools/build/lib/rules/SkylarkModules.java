@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.lib.rules;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.SkylarkNativeModule;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -55,29 +53,5 @@ public final class SkylarkModules {
       }
       return env.getGlobals();
     }
-  }
-
-
-  /**
-   * Create an {@link Environment} in which to load a Skylark file.
-   * @param eventHandler an EventHandler for warnings, errors, etc.
-   * @param astFileContentHashCode a hash code identifying the file being evaluated
-   * @param mutability the Mutability for the current evaluation context
-   * @return a new Environment with the elements of the Skylark modules.
-   */
-  public static Environment getNewEnvironment(
-      EventHandler eventHandler, String astFileContentHashCode, Mutability mutability) {
-    return Environment.builder(mutability)
-        .setSkylark()
-        .setGlobals(GLOBALS)
-        .setEventHandler(eventHandler)
-        .setFileContentHashCode(astFileContentHashCode)
-        .build();
-  }
-
-  @VisibleForTesting
-  public static Environment getNewEnvironment(
-      EventHandler eventHandler, Mutability mutability) {
-    return getNewEnvironment(eventHandler, null, mutability);
   }
 }
