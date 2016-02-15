@@ -334,7 +334,7 @@ genrule(
     name = "foo",
     srcs = [],
     outs = ["foo.h"],
-    cmd = "$(location create_foo.pl) &gt; \"$@\"",
+    cmd = "./$(location create_foo.pl) &gt; \"$@\"",
     tools = ["create_foo.pl"],
 )
 </pre>
