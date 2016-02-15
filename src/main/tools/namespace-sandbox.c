@@ -400,6 +400,13 @@ static void CreateFile(const char *path) {
   CHECK_CALL(close(handle));
 }
 
+// Creates an empty file at 'path' by hard linking it from a known empty file.
+// This is over two times faster than creating empty files via open() on
+// certain filesystems (e.g. XFS).
+static void LinkFile(const char *path) {
+  CHECK_CALL(link("tmp/empty_file", path));
+}
+
 static void SetupDevices() {
   CHECK_CALL(mkdir("dev", 0755));
   const char *devs[] = {"/dev/null", "/dev/random", "/dev/urandom", "/dev/zero",
@@ -448,7 +455,7 @@ static int CreateTarget(const char *path, bool is_directory) {
   if (is_directory) {
     CHECK_CALL(mkdir(path, 0755));
   } else {
-    CreateFile(path);
+    LinkFile(path);
   }
 
   return 0;
@@ -498,6 +505,9 @@ static void SetupDirectories(struct Options *opt) {
 
     CHECK_CALL(CreateTarget(opt->create_dirs[i] + 1, true));
   }
+
+  // This is used as the base for hardlinking the input files.
+  CreateFile("tmp/empty_file");
 
   // Mount all mounts.
   for (int i = 0; i < opt->num_mounts; i++) {
