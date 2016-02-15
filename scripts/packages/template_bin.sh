@@ -166,6 +166,9 @@ fi
 
 # Not necessary, but this way it matches the Debian package.
 touch "${bazelrc}"
+if [ "${UID}" == 0 ]; then
+  chmod 0644 "${bazelrc}"
+fi
 echo .
 
 cat <<EOF
