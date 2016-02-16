@@ -66,6 +66,7 @@ struct Options {
   size_t mount_map_sizes;    // How many elements in mount_{sources,targets}
   int num_mounts;            // How many mounts were specified
   char **create_dirs;        // empty dirs to create (-d)
+  size_t create_dirs_size;   // How many elements in create_dirs
   int num_create_dirs;       // How many empty dirs to create were specified
   int fake_root;             // Pretend to be root inside the namespace.
   int create_netns;          // If 1, create a new network namespace.
@@ -176,6 +177,20 @@ static void AddMountSource(char *source, struct Options *opt) {
     }
     opt->mount_sources[opt->num_mounts] = source;
   }
+}
+
+static void AddCreateDir(char *create_dir, struct Options *opt) {
+  if (opt->num_create_dirs > opt->create_dirs_size - 1) {
+    opt->create_dirs =
+        realloc(opt->create_dirs, opt->create_dirs_size * sizeof(char *) * 2);
+    if (opt->create_dirs == NULL) {
+      DIE("realloc failed\n");
+    }
+    memset(opt->create_dirs + opt->create_dirs_size, 0,
+           opt->create_dirs_size * sizeof(char *));
+    opt->create_dirs_size *= 2;
+  }
+  opt->create_dirs[opt->num_create_dirs++] = create_dir;
 }
 
 static void ParseCommandLine(int argc, char *const *argv, struct Options *opt);
@@ -290,7 +305,7 @@ static void ParseCommandLine(int argc, char *const *argv, struct Options *opt) {
           Usage(argc, argv,
                 "The -d option must be used with absolute paths only.");
         }
-        opt->create_dirs[opt->num_create_dirs++] = optarg;
+        AddCreateDir(optarg, opt);
         break;
       case 'M':
         if (optarg[0] != '/') {
@@ -407,18 +422,6 @@ static void LinkFile(const char *path) {
   CHECK_CALL(link("tmp/empty_file", path));
 }
 
-static void SetupDevices() {
-  CHECK_CALL(mkdir("dev", 0755));
-  const char *devs[] = {"/dev/null", "/dev/random", "/dev/urandom", "/dev/zero",
-                        NULL};
-  for (int i = 0; devs[i] != NULL; i++) {
-    CreateFile(devs[i] + 1);
-    CHECK_CALL(mount(devs[i], devs[i] + 1, NULL, MS_BIND, NULL));
-  }
-
-  CHECK_CALL(symlink("/proc/self/fd", "dev/fd"));
-}
-
 // Recursively creates the file or directory specified in "path" and its parent
 // directories.
 static int CreateTarget(const char *path, bool is_directory) {
@@ -461,28 +464,45 @@ static int CreateTarget(const char *path, bool is_directory) {
   return 0;
 }
 
+static void SetupDevices() {
+  CHECK_CALL(CreateTarget("dev", true));
+  const char *devs[] = {"/dev/null", "/dev/random", "/dev/urandom", "/dev/zero",
+                        NULL};
+  for (int i = 0; devs[i] != NULL; i++) {
+    LinkFile(devs[i] + 1);
+    CHECK_CALL(mount(devs[i], devs[i] + 1, NULL, MS_BIND, NULL));
+  }
+
+  CHECK_CALL(symlink("/proc/self/fd", "dev/fd"));
+}
+
 static void SetupDirectories(struct Options *opt) {
   // Mount the sandbox and go there.
   CHECK_CALL(mount(opt->sandbox_root, opt->sandbox_root, NULL,
                    MS_BIND | MS_NOSUID, NULL));
   CHECK_CALL(chdir(opt->sandbox_root));
 
+  // This is used as the base for hardlinking the input files.
+  CHECK_CALL(CreateTarget("tmp", true));
+  CreateFile("tmp/empty_file");
+
   // Setup /dev.
   SetupDevices();
 
-  CHECK_CALL(mkdir("proc", 0755));
+  CHECK_CALL(CreateTarget("proc", true));
   CHECK_CALL(mount("/proc", "proc", NULL, MS_REC | MS_BIND, NULL));
 
   // Make sure the home directory exists, too.
   char *homedir_from_env = getenv("HOME");
   if (homedir_from_env != NULL) {
     if (homedir_from_env[0] != '/') {
-      DIE(
-          "Home directory specified in $HOME must be an absolute path, but is "
+      DIE("Home directory specified in $HOME must be an absolute path, but is "
           "%s",
           homedir_from_env);
     }
-    opt->create_dirs[opt->num_create_dirs++] = homedir_from_env;
+    if (strcmp(homedir_from_env, "/") != 0) {
+      AddCreateDir(homedir_from_env, opt);
+    }
   }
 
   char *homedir = getpwuid(getuid())->pw_dir;
@@ -493,7 +513,7 @@ static void SetupDirectories(struct Options *opt) {
           homedir);
     }
     if (strcmp(homedir, "/") != 0) {
-      opt->create_dirs[opt->num_create_dirs++] = homedir;
+      AddCreateDir(homedir, opt);
     }
   }
 
@@ -502,12 +522,8 @@ static void SetupDirectories(struct Options *opt) {
     if (global_debug) {
       PRINT_DEBUG("createdir: %s\n", opt->create_dirs[i]);
     }
-
     CHECK_CALL(CreateTarget(opt->create_dirs[i] + 1, true));
   }
-
-  // This is used as the base for hardlinking the input files.
-  CreateFile("tmp/empty_file");
 
   // Mount all mounts.
   for (int i = 0; i < opt->num_mounts; i++) {
@@ -540,6 +556,7 @@ static void SetupDirectories(struct Options *opt) {
     CHECK_CALL(CreateTarget(full_sandbox_path, S_ISDIR(sb.st_mode)));
     CHECK_CALL(mount(opt->mount_sources[i], full_sandbox_path, NULL,
                      MS_REC | MS_BIND | MS_RDONLY, NULL));
+    free(full_sandbox_path);
   }
 }
 
@@ -686,12 +703,13 @@ static void SpawnCommand(char *const *argv, double timeout_secs) {
 int main(int argc, char *const argv[]) {
   struct Options opt;
   memset(&opt, 0, sizeof(opt));
-  opt.mount_sources = calloc(argc, sizeof(char *));
-  opt.mount_targets = calloc(argc, sizeof(char *));
-  opt.mount_map_sizes = argc;
-
-  // Reserve two extra slots for homedir_from_env and homedir.
-  opt.create_dirs = calloc(argc + 2, sizeof(char *));
+  // 16 elements is a sane default, will be realloc'd as needed anyway.
+  opt.mount_sources = calloc(16, sizeof(char *));
+  opt.mount_targets = calloc(16, sizeof(char *));
+  opt.mount_map_sizes = 16;
+  // We'll need at least two slots for homedir_from_env and homedir.
+  opt.create_dirs = calloc(2, sizeof(char *));
+  opt.create_dirs_size = 2;
 
   ParseCommandLine(argc, argv, &opt);
   if (opt.args == NULL) {
