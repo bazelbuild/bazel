@@ -95,32 +95,6 @@ public class SkylarkNativeModule {
         }
       };
 
-  @Deprecated
-  @SkylarkSignature(
-    name = "rule",
-    objectType = SkylarkNativeModule.class,
-    returnType = Object.class,
-    doc = "Deprecated. Use existing_rule instead.",
-    mandatoryPositionals = {
-      @Param(name = "name", type = String.class, doc = "The name of the rule.")
-    },
-    useAst = true,
-    useEnvironment = true
-  )
-  private static final BuiltinFunction getRule =
-      new BuiltinFunction("rule") {
-        public Object invoke(String name, FuncallExpression ast, Environment env)
-            throws EvalException, InterruptedException {
-          env.checkLoadingPhase("native.rule", ast.getLocation());
-          Map<String, Object> rule = PackageFactory.callGetRuleFunction(name, ast, env);
-          if (rule != null) {
-            return rule;
-          }
-
-          return Runtime.NONE;
-        }
-      };
-
   @SkylarkSignature(
     name = "existing_rule",
     objectType = SkylarkNativeModule.class,
@@ -148,25 +122,6 @@ public class SkylarkNativeModule {
         }
       };
 
-  @Deprecated
-  @SkylarkSignature(
-    name = "rules",
-    objectType = SkylarkNativeModule.class,
-    returnType = Map.class,
-    doc = "Deprecated. Use existing_rules instead.",
-    mandatoryPositionals = {},
-    useAst = true,
-    useEnvironment = true
-  )
-  private static final BuiltinFunction getRules =
-      new BuiltinFunction("rules") {
-        public Map<?, ?> invoke(FuncallExpression ast, Environment env)
-            throws EvalException, InterruptedException {
-          env.checkLoadingPhase("native.rules", ast.getLocation());
-          return PackageFactory.callGetRulesFunction(ast, env);
-        }
-      };
-
   /*
     If necessary, we could allow filtering by tag (anytag, alltags), name (regexp?), kind ?
     For now, we ignore this, since users can implement it in Skylark.
@@ -178,7 +133,7 @@ public class SkylarkNativeModule {
     doc =
         "Returns a dict containing all the rules instantiated so far. "
             + "The map key is the name of the rule. The map value is equivalent to the "
-            + "get_rule output for that rule.",
+            + "existing_rule output for that rule.",
     mandatoryPositionals = {},
     useAst = true,
     useEnvironment = true
