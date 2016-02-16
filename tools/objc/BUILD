@@ -122,5 +122,7 @@ py_library(
 
 objc_library(
     name = "dummy_lib",
-    srcs = ["dummy.c"],
+    srcs = [
+        "objc_dummy.m",
+    ],
 )
