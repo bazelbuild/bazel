@@ -15,9 +15,13 @@ filegroup(
 
 cc_library(
     name = "zip",
-    srcs = ["zip.cc"],
+    srcs = [
+        "mapped_file_unix.cc",
+        "zip.cc",
+    ],
     hdrs = [
         "common.h",
+        "mapped_file.h",
         "zip.h",
     ],
     # TODO(bazel-team): we should replace the -lz flag, it is non-hermetic.
