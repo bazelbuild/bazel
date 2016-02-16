@@ -85,9 +85,11 @@ public class ExternalFilesHelper {
 
     // The outputBase may be null if we're not actually running a build.
     Path outputBase = pkgLocator.get().getOutputBase();
-    Path relativeExternal = pkgLocator
-        .get().getOutputBase().getRelative(Label.EXTERNAL_PATH_PREFIX);
-    if (outputBase != null && !rootedPath.asPath().startsWith(relativeExternal)) {
+    if (outputBase == null) {
+      return;
+    }
+    Path relativeExternal = outputBase.getRelative(Label.EXTERNAL_PATH_PREFIX);
+    if (!rootedPath.asPath().startsWith(relativeExternal)) {
       return;
     }
 
