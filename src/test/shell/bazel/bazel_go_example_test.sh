@@ -39,7 +39,20 @@ EOF
       done
     fi
   done
-  ln -s $TEST_SRCDIR/tools/build_rules/go/toolchain/BUILD.go-toolchain tools/build_rules/go/toolchain/BUILD
+  cat <<'EOF' >tools/build_rules/go/toolchain/BUILD
+package(
+  default_visibility = [ "//visibility:public" ])
+
+filegroup(
+  name = "toolchain",
+  srcs = glob(["go/bin/*", "go/pkg/**", ]),
+)
+
+filegroup(
+  name = "go_tool",
+  srcs = [ "go/bin/go" ],
+)
+EOF
   cat  <<EOF > BUILD
 load("/tools/build_rules/go/def", "go_prefix")
 go_prefix("prefix")
