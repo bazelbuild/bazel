@@ -13,14 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
+
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
 
 import java.util.Objects;
-
-import javax.annotation.Nullable;
 
 /**
  * Objects of this class contain values of some attributes of rules. Used for passing this
@@ -60,9 +60,18 @@ public final class AspectParameters {
   /**
    * Returns collection of values for specified key, or null if key is missing.
    */
-  @Nullable
   public ImmutableCollection<String> getAttribute(String key) {
     return attributes.get(key);
+  }
+
+  /**
+   * Similar to {@link #getAttribute}}, but asserts that there's only one value for the provided
+   * key.
+   * Uses Guava's {@link Iterables#getOnlyElement}, which may throw exceptions if there isn't
+   * exactly one element.
+   */
+  public String getOnlyValueOfAttribute(String key) {
+    return getOnlyElement(getAttribute(key));
   }
 
   public boolean isEmpty() {
