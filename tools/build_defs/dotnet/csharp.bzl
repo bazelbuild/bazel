@@ -282,10 +282,30 @@ csharp_nunit_test = rule(
     test=True
 )
 
+NUNIT_BUILD_FILE = """
+filegroup(
+    name = "nunit_exe",
+    srcs = ["NUnit-2.6.4/bin/nunit-console.exe"],
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "nunit_exe_libs",
+    srcs = glob(["NUnit-2.6.4/bin/lib/*.dll"]),
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "nunit_framework",
+    srcs = glob(["NUnit-2.6.4/bin/framework/*.dll"]),
+    visibility = ["//visibility:public"],
+)
+"""
+
 def csharp_repositories():
   native.new_http_archive(
       name = "nunit",
-      build_file = "tools/build_defs/dotnet/BUILD.nunit",
+      build_file_content = NUNIT_BUILD_FILE,
       sha256 = "1bd925514f31e7729ccde40a38a512c2accd86895f93465f3dfe6d0b593d7170",
       type = "zip",
       url = "https://github.com/nunit/nunitv2/releases/download/2.6.4/NUnit-2.6.4.zip",

@@ -68,6 +68,8 @@ if [ ! -x "${BAZEL}" ]; then
   display "$INFO    $0 ${COMMANDS} /path/to/bazel"
   new_step 'Building Bazel from scratch'
   source scripts/bootstrap/compile.sh
+  # The DO_COMPILE flow will actually create the bazel binary and set BAZEL.
+  DO_COMPILE=1
 fi
 
 #
@@ -89,10 +91,10 @@ if [ $DO_COMPILE ]; then
   new_step 'Building Bazel with Bazel'
   display "."
   log "Building output/bazel"
-  bazel_build //src:bazel
-  cp -f bazel-bin/src/bazel output/bazel
-  chmod 0755 output/bazel
-  BAZEL=$(pwd)/output/bazel
+  bazel_build "src:bazel${EXE_EXT}"
+  cp -f "bazel-bin/src/bazel${EXE_EXT}" "output/bazel${EXE_EXT}"
+  chmod 0755 "output/bazel${EXE_EXT}"
+  BAZEL="$(pwd)/output/bazel${EXE_EXT}"
 fi
 
 #
@@ -152,6 +154,7 @@ if [ $DO_TESTS ]; then
       ${EXTRA_BAZEL_ARGS} \
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
       -k --test_output=errors //src/... //third_party/ijar/... //scripts/... \
+      //tools/build_defs/scala/test/... \
       || fail "Tests failed"
 fi
 

@@ -81,7 +81,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         ")");
   }
 
-  private void setUpAttributeErrorTest() throws Exception   {
+  private void setUpAttributeErrorTest() throws Exception {
     scratch.file("test/BUILD",
         "load('/test/macros', 'macro_native_rule', 'macro_skylark_rule', 'skylark_rule')",
         "macro_native_rule(name = 'm_native',",
@@ -121,7 +121,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
       // about the macro.
       assertContainsEvent(
           "ERROR /workspace/test/BUILD:2:1: in deps attribute of cc_library rule //test:m_native: "
-          + "java_library rule '//test:jlib' is misplaced here (expected ");
+              + "java_library rule '//test:jlib' is misplaced here (expected ");
       // Skip the part of the error message that has details about the allowed deps since the mocks
       // for the mac tests might have different values for them.
       assertContainsEvent(". Since this "
@@ -141,9 +141,9 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
       // about the macro.
       assertContainsEvent(
           "ERROR /workspace/test/BUILD:4:1: in deps attribute of skylark_rule rule "
-          + "//test:m_skylark: '//test:jlib' does not have mandatory provider 'some_provider'. "
-          + "Since this rule was created by the macro 'macro_skylark_rule', the error might have "
-          + "been caused by the macro implementation in /workspace/test/macros.bzl:12:36");
+              + "//test:m_skylark: '//test:jlib' does not have mandatory provider 'some_provider'. "
+              + "Since this rule was created by the macro 'macro_skylark_rule', the error might "
+              + "have been caused by the macro implementation in /workspace/test/macros.bzl:12:36");
     }
   }
 
@@ -216,8 +216,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     getConfiguredTarget("//test:skyrule");
     assertContainsEvent(
         "ERROR /workspace/test/BUILD:3:10: Label '//test:sub/my_sub_lib.h' crosses boundary of "
-        + "subpackage 'test/sub' (perhaps you meant to put the colon here: "
-        + "'//test/sub:my_sub_lib.h'?)");
+            + "subpackage 'test/sub' (perhaps you meant to put the colon here: "
+            + "'//test/sub:my_sub_lib.h'?)");
   }
 
   @Test
@@ -244,6 +244,21 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertContainsEvent("ERROR /workspace/test/BUILD:2:1: Label '//test:sub/my_sub_lib.h' "
         + "crosses boundary of subpackage 'test/sub' (perhaps you meant to put the colon here: "
         + "'//test/sub:my_sub_lib.h'?)");
+  }
+
+  /* The error message for this case used to be wrong. */
+  @Test
+  public void testPackageBoundaryError_ExternalRepository() throws Exception {
+    scratch.file("/r/BUILD", "cc_library(name = 'cclib',", "  srcs = ['sub/my_sub_lib.h'])");
+    scratch.file("/r/sub/BUILD", "cc_library(name = 'my_sub_lib', srcs = ['my_sub_lib.h'])");
+    scratch.overwriteFile("WORKSPACE", "local_repository(name='r', path='/r')");
+    invalidatePackages();
+    reporter.removeHandler(failFastHandler);
+    getConfiguredTarget("@r//:cclib");
+    assertContainsEvent(
+        "/external/r/BUILD:2:10: Label '@r//:sub/my_sub_lib.h' crosses boundary of "
+            + "subpackage '@r//sub' (perhaps you meant to put the colon here: "
+            + "'@r//sub:my_sub_lib.h'?)");
   }
 
   /*
@@ -354,14 +369,32 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testGetRuleSelect() throws Exception {
+    scratch.file("test/skylark/BUILD");
+    scratch.file(
+        "test/skylark/rulestr.bzl", "def rule_dict(name):", "  return native.existing_rule(name)");
+
+    scratch.file(
+        "test/getrule/BUILD",
+        "load('/test/skylark/rulestr', 'rule_dict')",
+        "cc_library(name ='x', ",
+        "  srcs = select({'//conditions:default': []})",
+        ")",
+        "rule_dict('x')");
+
+    // Parse the BUILD file, to make sure select() makes it out of native.rule().
+    createRuleContext("//test/getrule:x");
+  }
+
+  @Test
   public void testGetRule() throws Exception {
     scratch.file("test/skylark/BUILD");
     scratch.file(
         "test/skylark/rulestr.bzl",
         "def rule_dict(name):",
-        "  return native.rule(name)",
+        "  return native.existing_rule(name)",
         "def rules_dict():",
-        "  return native.rules()",
+        "  return native.existing_rules()",
         "def nop(ctx):",
         "  pass",
         "nop_rule = rule(attrs = {'x': attr.label()}, implementation = nop)",
@@ -617,12 +650,48 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   @Test
   public void testParamFileSuffix() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
-    Object result = evalRuleContextCode(
-        ruleContext,
-        "ruleContext.new_file(ruleContext.files.tools[0], "
-        + "ruleContext.files.tools[0].basename + '.params')");
+    Object result =
+        evalRuleContextCode(
+            ruleContext,
+            "ruleContext.new_file(ruleContext.files.tools[0], "
+                + "ruleContext.files.tools[0].basename + '.params')");
     PathFragment fragment = ((Artifact) result).getRootRelativePath();
     assertEquals("foo/t.exe.params", fragment.getPathString());
+  }
+
+  @Test
+  public void testLabelAttributeDefault() throws Exception {
+    scratch.file(
+        "my_rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "my_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'explicit_dep': attr.label(default = Label('//:dep')),",
+        "    '_implicit_dep': attr.label(default = Label('//:dep')),",
+        "    'explicit_dep_list': attr.label_list(default = [Label('//:dep')]),",
+        "    '_implicit_dep_list': attr.label_list(default = [Label('//:dep')]),",
+        "  }",
+        ")");
+
+    scratch.file(
+        "BUILD", "filegroup(name='dep')", "load('/my_rule', 'my_rule')", "my_rule(name='r')");
+
+    invalidatePackages();
+    SkylarkRuleContext context = createRuleContext("@//:r");
+    Label explicitDepLabel =
+        (Label) evalRuleContextCode(context, "ruleContext.attr.explicit_dep.label");
+    assertThat(explicitDepLabel).isEqualTo(Label.parseAbsolute("@//:dep"));
+    Label implicitDepLabel =
+        (Label) evalRuleContextCode(context, "ruleContext.attr._implicit_dep.label");
+    assertThat(implicitDepLabel).isEqualTo(Label.parseAbsolute("@//:dep"));
+    Label explicitDepListLabel =
+        (Label) evalRuleContextCode(context, "ruleContext.attr.explicit_dep_list[0].label");
+    assertThat(explicitDepListLabel).isEqualTo(Label.parseAbsolute("@//:dep"));
+    Label implicitDepListLabel =
+        (Label) evalRuleContextCode(context, "ruleContext.attr._implicit_dep_list[0].label");
+    assertThat(implicitDepListLabel).isEqualTo(Label.parseAbsolute("@//:dep"));
   }
 
   @Test
@@ -652,5 +721,81 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     SkylarkRuleContext context = createRuleContext("@r//a:r");
     Label depLabel = (Label) evalRuleContextCode(context, "ruleContext.attr.internal_dep.label");
     assertThat(depLabel).isEqualTo(Label.parseAbsolute("@r//:dep"));
+  }
+
+  @Test
+  public void testExternalWorkspaceLoad() throws Exception {
+    scratch.file(
+        "/r1/BUILD",
+        "filegroup(name = 'test',",
+        " srcs = ['test.txt'],",
+        " visibility = ['//visibility:public'],",
+        ")");
+    scratch.file("/r1/WORKSPACE");
+    scratch.file("/r2/BUILD", "exports_files(['test.bzl'])");
+    scratch.file(
+        "/r2/test.bzl",
+        "def macro(name, path):",
+        "  native.local_repository(name = name, path = path)"
+    );
+    scratch.file(
+        "/r2/other_test.bzl",
+        "def other_macro(name, path):",
+        "  print(name + ': ' + path)"
+    );
+    scratch.file("BUILD");
+    scratch.overwriteFile(
+        "WORKSPACE",
+        "local_repository(name='r2', path='/r2')",
+        "load('@r2//:test.bzl', 'macro')",
+        "macro('r1', '/r1')",
+        "NEXT_NAME = 'r3'",
+        "load('@r2//:other_test.bzl', 'other_macro')",  // We can still refer to r2 in other chunks.
+        "macro(NEXT_NAME, '/r2')"  // and we can still use macro outside of its chunk.
+    );
+    invalidatePackages();
+    assertThat(getConfiguredTarget("@r1//:test")).isNotNull();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testLoadBlockRepositoryRedefinition() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("/bar/WORKSPACE");
+    scratch.file("/bar/bar.txt");
+    scratch.file("/bar/BUILD", "filegroup(name = 'baz', srcs = ['bar.txt'])");
+    scratch.file("/baz/WORKSPACE");
+    scratch.file("/baz/baz.txt");
+    scratch.file("/baz/BUILD", "filegroup(name = 'baz', srcs = ['baz.txt'])");
+    scratch.overwriteFile(
+        "WORKSPACE",
+        "local_repository(name = 'foo', path = '/bar')",
+        "local_repository(name = 'foo', path = '/baz')");
+    invalidatePackages();
+    assertThat(
+            (List<Label>)
+                getConfiguredTarget("@foo//:baz")
+                    .getTarget()
+                    .getAssociatedRule()
+                    .getAttributeContainer()
+                    .getAttr("srcs"))
+        .contains(Label.parseAbsolute("@foo//:baz.txt"));
+
+    scratch.overwriteFile("BUILD");
+    scratch.overwriteFile("bar.bzl", "dummy = 1");
+    scratch.overwriteFile(
+        "WORKSPACE",
+        "local_repository(name = 'foo', path = '/bar')",
+        "load('//:bar.bzl', 'dummy')",
+        "local_repository(name = 'foo', path = '/baz')");
+    try {
+      invalidatePackages();
+      createRuleContext("@foo//:baz");
+      fail("Should have failed because repository 'foo' is overloading after a load!");
+    } catch (Exception ex) {
+      assertContainsEvent(
+          "ERROR /workspace/WORKSPACE:3:1: Cannot redefine repository after any load statement "
+              + "in the WORKSPACE file (for repository 'foo')");
+    }
   }
 }

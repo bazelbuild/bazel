@@ -35,7 +35,6 @@ public final class BazelTestSuiteRule implements RuleDefinition {
             .nonconfigurable("policy decision: should be consistent across configurations"))
         /* <!-- #BLAZE_RULE(test_suite).ATTRIBUTE(tags) -->
         List of text tags such as "small" or "database" or "-flaky". Tags may be any valid string.
-        ${SYNOPSIS}
         <p>
           Tags which begin with a "-" character are considered negative tags. The
           preceding "-" character is not considered part of the tag, so a suite tag
@@ -75,7 +74,6 @@ public final class BazelTestSuiteRule implements RuleDefinition {
 
         /* <!-- #BLAZE_RULE(test_suite).ATTRIBUTE(tests) -->
         A list of test suites and test targets of any language.
-        ${SYNOPSIS}
         <p>
           Any <code>*_test</code> is accepted here, independent of the language. No
           <code>*_binary</code> targets are accepted however, even if they happen to run a test.

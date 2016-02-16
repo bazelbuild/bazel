@@ -33,6 +33,10 @@ def FindPythonBinary():
     # Case 4: Path has to be looked up in the search path.
     return SearchPath(PYTHON_BINARY)
 
+def CreatePythonPathEntries(python_imports, module_space):
+  parts = python_imports.split(':');
+  return [module_space] + ["%s/%s" % (module_space, path) for path in parts]
+
 def Main():
   args = sys.argv[1:]
 
@@ -61,7 +65,8 @@ def Main():
     raise AssertionError('Cannot find .runfiles directory for %s' %
                          sys.argv[0])
 
-  python_path_entries = [module_space]
+  python_imports = '%imports%'
+  python_path_entries = CreatePythonPathEntries(python_imports, module_space)
 
   external_dir = os.path.join(module_space, 'external')
   if os.path.isdir(external_dir):

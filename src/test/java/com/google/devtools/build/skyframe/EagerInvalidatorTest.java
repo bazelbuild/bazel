@@ -69,7 +69,7 @@ public class EagerInvalidatorTest {
   protected AtomicReference<InvalidatingNodeVisitor<?>> visitor = new AtomicReference<>();
   protected DirtyKeyTrackerImpl dirtyKeyTracker;
 
-  private IntVersion graphVersion = new IntVersion(0);
+  private IntVersion graphVersion = IntVersion.of(0);
 
   @After
   public void assertNoTrackedErrors() {

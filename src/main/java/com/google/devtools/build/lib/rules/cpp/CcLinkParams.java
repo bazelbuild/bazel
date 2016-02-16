@@ -155,7 +155,7 @@ public final class CcLinkParams {
           librariesBuilder.build(), extraLinkTimeLibraries);
     }
 
-    private boolean add(CcLinkParamsStore store) {
+    public boolean add(CcLinkParamsStore store) {
       if (store != null) {
         CcLinkParams args = store.get(linkingStatically, linkShared);
         addTransitiveArgs(args);

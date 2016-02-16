@@ -32,13 +32,15 @@ import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionMiddlemanEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.MiddlemanExpander;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactFile;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -50,6 +52,7 @@ import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.ResourceManager;
+import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.TargetOutOfDateException;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
@@ -428,17 +431,18 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     }
   }
 
-  private static class MiddlemanExpanderImpl implements MiddlemanExpander {
-    private final Map<Artifact, Collection<Artifact>> expandedInputMiddlemen;
+  private static class ArtifactExpanderImpl implements ArtifactExpander {
+    private final Map<Artifact, Collection<ArtifactFile>> expandedInputs;
 
-    private MiddlemanExpanderImpl(Map<Artifact, Collection<Artifact>> expandedInputMiddlemen) {
-      this.expandedInputMiddlemen = expandedInputMiddlemen;
+    private ArtifactExpanderImpl(Map<Artifact, Collection<ArtifactFile>> expandedInputMiddlemen) {
+      this.expandedInputs = expandedInputMiddlemen;
     }
 
     @Override
-    public void expand(Artifact middlemanArtifact, Collection<? super Artifact> output) {
-      Preconditions.checkState(middlemanArtifact.isMiddlemanArtifact(), middlemanArtifact);
-      Collection<Artifact> result = expandedInputMiddlemen.get(middlemanArtifact);
+    public void expand(Artifact artifact, Collection<? super ArtifactFile> output) {
+      Preconditions.checkState(artifact.isMiddlemanArtifact() || artifact.isTreeArtifact(),
+          artifact);
+      Collection<ArtifactFile> result = expandedInputs.get(artifact);
       // Note that result may be null for non-aggregating middlemen.
       if (result != null) {
         output.addAll(result);
@@ -454,14 +458,14 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   @Override
   public ActionExecutionContext getContext(
       ActionInputFileCache graphFileCache, MetadataHandler metadataHandler,
-      Map<Artifact, Collection<Artifact>> expandedInputMiddlemen) {
+      Map<Artifact, Collection<ArtifactFile>> expandedInputs) {
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate();
     return new ActionExecutionContext(
         executorEngine,
         new DelegatingPairFileCache(graphFileCache, perBuildFileCache),
         metadataHandler,
         fileOutErr,
-        new MiddlemanExpanderImpl(expandedInputMiddlemen));
+        new ArtifactExpanderImpl(expandedInputs));
   }
 
   /**
@@ -608,13 +612,13 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
         }
         statusReporterRef.get().setPreparing(action);
 
-        createOutputDirectories(action);
-
         Preconditions.checkState(actionExecutionContext.getMetadataHandler() == metadataHandler,
             "%s %s", actionExecutionContext.getMetadataHandler(), metadataHandler);
         prepareScheduleExecuteAndCompleteAction(action, actionExecutionContext, actionStartTime);
         return new ActionExecutionValue(
-            metadataHandler.getOutputData(), metadataHandler.getAdditionalOutputData());
+            metadataHandler.getOutputArtifactFileData(),
+            metadataHandler.getOutputTreeArtifactData(),
+            metadataHandler.getAdditionalOutputData());
       } finally {
         profiler.completeTask(ProfilerTask.ACTION);
       }
@@ -625,7 +629,13 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     try {
       Set<Path> done = new HashSet<>(); // avoid redundant calls for the same directory.
       for (Artifact outputFile : action.getOutputs()) {
-        Path outputDir = outputFile.getPath().getParentDirectory();
+        Path outputDir;
+        if (outputFile.isTreeArtifact()) {
+          outputDir = outputFile.getPath();
+        } else {
+          outputDir = outputFile.getPath().getParentDirectory();
+        }
+
         if (done.add(outputDir)) {
           try {
             createDirectoryAndParents(outputDir);
@@ -696,6 +706,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     // the action really does produce the outputs.
     try {
       action.prepare(context.getExecutor().getExecRoot());
+      createOutputDirectories(action);
     } catch (IOException e) {
       reportError("failed to delete output files before executing action", e, action, null);
     }
@@ -703,20 +714,21 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     postEvent(new ActionStartedEvent(action, actionStartTime));
     ResourceSet estimate = action.estimateResourceConsumption(executorEngine);
     ActionExecutionStatusReporter statusReporter = statusReporterRef.get();
+    ResourceHandle handle = null;
     try {
       if (estimate == null || estimate == ResourceSet.ZERO) {
         statusReporter.setRunningFromBuildData(action);
       } else {
         // If estimated resource consumption is null, action will manually call
         // resource manager when it knows what resources are needed.
-        resourceManager.acquireResources(action, estimate);
+        handle = resourceManager.acquireResources(action, estimate);
       }
       boolean outputDumped = executeActionTask(action, context);
       completeAction(action, context.getMetadataHandler(),
           context.getFileOutErr(), outputDumped);
     } finally {
-      if (estimate != null) {
-        resourceManager.releaseResources(action, estimate);
+      if (handle != null) {
+        handle.close();
       }
       statusReporter.remove(action);
       postEvent(new ActionCompletionEvent(actionStartTime, action));
@@ -837,6 +849,37 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     }
   }
 
+  private static void setPathReadOnlyAndExecutable(MetadataHandler metadataHandler,
+      ArtifactFile file)
+      throws IOException {
+    // If the metadata was injected, we assume the mode is set correct and bail out early to avoid
+    // the additional overhead of resetting it.
+    if (metadataHandler.isInjected(file)) {
+      return;
+    }
+    Path path = file.getPath();
+    if (path.isFile(Symlinks.NOFOLLOW)) { // i.e. regular files only.
+      // We trust the files created by the execution-engine to be non symlinks with expected
+      // chmod() settings already applied.
+      path.chmod(0555);  // Sets the file read-only and executable.
+    }
+  }
+
+  private static void setTreeReadOnlyAndExecutable(MetadataHandler metadataHandler, Artifact parent,
+      PathFragment subpath) throws IOException {
+    Path path = parent.getPath().getRelative(subpath);
+    if (path.isDirectory()) {
+      path.chmod(0555);
+      for (Path child : path.getDirectoryEntries()) {
+        setTreeReadOnlyAndExecutable(metadataHandler, parent,
+            subpath.getChild(child.getBaseName()));
+      }
+    } else {
+      setPathReadOnlyAndExecutable(
+          metadataHandler, ActionInputHelper.artifactFile(parent, subpath));
+    }
+  }
+
   /**
    * For each of the action's outputs that is a regular file (not a symbolic
    * link or directory), make it read-only and executable.
@@ -858,14 +901,13 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     Preconditions.checkState(!action.getActionType().isMiddleman());
 
     for (Artifact output : action.getOutputs()) {
-      Path path = output.getPath();
-      if (metadataHandler.isInjected(output)) {
-        // We trust the files created by the execution-engine to be non symlinks with expected
-        // chmod() settings already applied.
-        continue;
-      }
-      if (path.isFile(Symlinks.NOFOLLOW)) { // i.e. regular files only.
-        path.chmod(0555);  // Sets the file read-only and executable.
+      if (output.isTreeArtifact()) {
+        // Preserve existing behavior: we don't set non-TreeArtifact directories
+        // read only and executable. However, it's unusual for non-TreeArtifact outputs
+        // to be directories.
+        setTreeReadOnlyAndExecutable(metadataHandler, output, PathFragment.EMPTY_FRAGMENT);
+      } else {
+        setPathReadOnlyAndExecutable(metadataHandler, output);
       }
     }
   }

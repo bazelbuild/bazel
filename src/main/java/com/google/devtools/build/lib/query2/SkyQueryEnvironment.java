@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableSet.Builder;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -83,6 +84,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.logging.Logger;
 
 import javax.annotation.Nullable;
@@ -418,13 +421,17 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
                     .argument());
         GraphBackedRecursivePackageProvider provider =
             new GraphBackedRecursivePackageProvider(graph, universeTargetPatternKeys, pkgPath);
+
+        ExecutorService threadPool = Executors.newFixedThreadPool(
+            Runtime.getRuntime().availableProcessors(),
+            new ThreadFactoryBuilder().setNameFormat("GetPackages-%d").build());
         RecursivePackageProviderBackedTargetPatternResolver resolver =
             new RecursivePackageProviderBackedTargetPatternResolver(
-                provider, eventHandler, targetPatternKey.getPolicy());
+                provider, eventHandler, targetPatternKey.getPolicy(), threadPool);
         TargetPattern parsedPattern = targetPatternKey.getParsedPattern();
         FilteringBatchingUniquifyingCallback wrapper =
             new FilteringBatchingUniquifyingCallback(callback);
-        parsedPattern.eval(resolver, wrapper);
+        parsedPattern.eval(resolver, wrapper, QueryException.class);
         wrapper.processLastPending();
       } catch (TargetParsingException e) {
         reportBuildFileError(owner, e.getMessage());

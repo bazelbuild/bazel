@@ -116,19 +116,23 @@ def _war_impl(ctxt):
       "mkdir -p " + build_output
       ]
 
-  inputs = ctxt.files.jars + [zipper]
-  cmd += ["mkdir -p %s" % build_output + "/WEB-INF/lib"]
-  for jar in ctxt.files.jars:
-    # Add the jar to WEB-INF/lib.
-    cmd += _add_file(jar, build_output + "/WEB-INF/lib")
-    # Add its runtime classpath to WEB-INF/lib
-    if hasattr(jar, "java"):
-      inputs += jar.java.transitive_runtime_deps
-      for run_jar in jar.java.transitive_runtime_deps:
-        cmd += _add_file(run_jar, build_output + "/WEB-INF/lib")
+  inputs = [zipper]
+  cmd += ["mkdir -p %s/WEB-INF/lib" % build_output]
+
+  transitive_deps = set()
+  for jar in ctxt.attr.jars:
+    if hasattr(jar, "java"):  # java_library, java_import
+      transitive_deps += jar.java.transitive_runtime_deps
+    elif hasattr(jar, "files"):  # a jar file
+      transitive_deps += jar.files
+
+  for dep in transitive_deps:
+    cmd += _add_file(dep, build_output + "/WEB-INF/lib")
+    inputs.append(dep)
+
   for jar in ctxt.files._appengine_deps:
     cmd += _add_file(jar, build_output + "/WEB-INF/lib")
-    inputs += [jar]
+    inputs.append(jar)
 
   inputs += ctxt.files.data
   for res in ctxt.files.data:
@@ -207,9 +211,9 @@ appengine_war = rule(
         ),
         "_appengine_deps": attr.label_list(
             default = [
-                Label("@appengine-java//:api"),
-                Label("@commons-lang//jar"),
-                Label("@commons-collections//jar"),
+                Label("@com_google_appengine_java//:api"),
+                Label("@org_apache_commons_lang//jar"),
+                Label("@org_apache_commons_collections//jar"),
             ],
         ),
         "jars": attr.label_list(
@@ -233,31 +237,54 @@ def java_war(name, data=[], data_path=None, **kwargs):
                 data=data,
                 data_path=data_path)
 
+APPENGINE_BUILD_FILE = """
+# BUILD file to use the Java AppEngine SDK with a remote repository.
+java_import(
+    name = "jars",
+    jars = glob(["**/*.jar"]),
+    visibility = ["//visibility:public"],
+)
+
+java_import(
+    name = "api",
+    jars = ["appengine-java-sdk-1.9.23/lib/impl/appengine-api.jar"],
+    visibility = ["//visibility:public"],
+    neverlink = 1,
+)
+
+filegroup(
+    name = "sdk",
+    srcs = glob(["appengine-java-sdk-1.9.23/**"]),
+    visibility = ["//visibility:public"],
+    path = "appengine-java-sdk-1.9.23",
+)
+"""
+
 def appengine_repositories():
   native.new_http_archive(
-      name = "appengine-java",
+      name = "com_google_appengine_java",
       url = "http://central.maven.org/maven2/com/google/appengine/appengine-java-sdk/1.9.23/appengine-java-sdk-1.9.23.zip",
       sha256 = "05e667036e9ef4f999b829fc08f8e5395b33a5a3c30afa9919213088db2b2e89",
-      build_file = "tools/build_rules/appengine/appengine.BUILD",
+      build_file_content = APPENGINE_BUILD_FILE,
   )
 
   native.bind(
       name = "appengine/java/sdk",
-      actual = "@appengine-java//:sdk",
+      actual = "@com_google_appengine_java//:sdk",
   )
 
   native.bind(
       name = "appengine/java/api",
-      actual = "@appengine-java//:api",
+      actual = "@com_google_appengine_java//:api",
   )
 
   native.bind(
       name = "appengine/java/jars",
-      actual = "@appengine-java//:jars",
+      actual = "@com_google_appengine_java//:jars",
   )
 
   native.maven_jar(
-      name = "javax-servlet-api",
+      name = "javax_servlet_api",
       artifact = "javax.servlet:servlet-api:2.5",
   )
 
@@ -267,11 +294,11 @@ def appengine_repositories():
   )
 
   native.maven_jar(
-      name = "commons-lang",
+      name = "org_apache_commons_lang",
       artifact = "commons-lang:commons-lang:2.6",
   )
 
   native.maven_jar(
-      name = "commons-collections",
+      name = "org_apache_commons_collections",
       artifact = "commons-collections:commons-collections:3.2.1",
   )

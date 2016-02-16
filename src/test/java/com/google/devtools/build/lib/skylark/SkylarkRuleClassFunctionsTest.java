@@ -570,4 +570,27 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "invalid target name 'bad syntax': target names may not contain ' '",
         "Label('//foo:bar').relative('bad syntax')");
   }
+
+  @Test
+  public void testLicenseAttributesNonconfigurable() throws Exception {
+    scratch.file("test/BUILD");
+    scratch.file("test/rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "some_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'licenses': attr.license()",
+        "  }",
+        ")");
+    scratch.file("third_party/foo/BUILD",
+        "load('/test/rule', 'some_rule')",
+        "some_rule(",
+        "    name='r',",
+        "    licenses = ['unencumbered']",
+        ")");
+    invalidatePackages();
+    // Should succeed without a "licenses attribute is potentially configurable" loading error:
+    createRuleContext("//third_party/foo:r");
+  }
 }

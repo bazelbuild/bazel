@@ -17,10 +17,13 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.rules.objc.XcodeProductType.LIBRARY_STATIC;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
@@ -34,13 +37,13 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
@@ -56,10 +59,18 @@ import java.util.List;
  */
 public class J2ObjcAspect implements ConfiguredNativeAspectFactory {
   public static final String NAME = "J2ObjcAspect";
+
+  private static final Iterable<Attribute> DEPENDENT_ATTRIBUTES = ImmutableList.of(
+      new Attribute("$jre_emul_lib", Mode.TARGET),
+      new Attribute("deps", Mode.TARGET),
+      new Attribute("exports", Mode.TARGET),
+      new Attribute("runtime_deps", Mode.TARGET));
+
   /**
-   * Adds the attribute aspect args to the given AspectDefinition.Builder.
+   * Adds additional attribute aspects and attributes to the given AspectDefinition.Builder.
    */
-  protected AspectDefinition.Builder addAttributeAspects(AspectDefinition.Builder builder) {
+  protected AspectDefinition.Builder addAdditionalAttributes(
+      AspectDefinition.Builder builder) {
     return builder.attributeAspect("deps", J2ObjcAspect.class, BazelJ2ObjcProtoAspect.class)
         .attributeAspect("exports", J2ObjcAspect.class, BazelJ2ObjcProtoAspect.class)
         .attributeAspect("runtime_deps", J2ObjcAspect.class, BazelJ2ObjcProtoAspect.class);
@@ -67,67 +78,109 @@ public class J2ObjcAspect implements ConfiguredNativeAspectFactory {
 
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
-    return addAttributeAspects(new AspectDefinition.Builder("J2ObjCAspect"))
+    return addAdditionalAttributes(new AspectDefinition.Builder("J2ObjCAspect"))
         .requireProvider(JavaSourceInfoProvider.class)
         .requireProvider(JavaCompilationArgsProvider.class)
+        .requiresConfigurationFragments(
+            AppleConfiguration.class,
+            J2ObjcConfiguration.class,
+            ObjcConfiguration.class)
         .add(attr("$j2objc", LABEL).cfg(HOST).exec()
-            .value(parseLabel(Constants.TOOLS_REPOSITORY + "//tools/j2objc:j2objc_deploy.jar")))
+            .value(Label.parseAbsoluteUnchecked(
+                Constants.TOOLS_REPOSITORY + "//tools/j2objc:j2objc_deploy.jar")))
         .add(attr("$j2objc_wrapper", LABEL)
             .allowedFileTypes(FileType.of(".py"))
             .cfg(HOST)
             .exec()
             .singleArtifact()
-            .value(parseLabel(Constants.TOOLS_REPOSITORY + "//tools/j2objc:j2objc_wrapper")))
+            .value(Label.parseAbsoluteUnchecked(
+                Constants.TOOLS_REPOSITORY + "//tools/j2objc:j2objc_wrapper")))
+        .add(attr("$jre_emul_lib", LABEL)
+            .value(Label.parseAbsoluteUnchecked("//third_party/java/j2objc:jre_emul_lib")))
+        .add(attr("$xcrunwrapper", LABEL).cfg(HOST).exec()
+            .value(Label.parseAbsoluteUnchecked(
+                Constants.TOOLS_REPOSITORY + "//tools/objc:xcrunwrapper")))
+        .add(attr(":xcode_config", LABEL)
+            .allowedRuleClasses("xcode_config")
+            .checkConstraints()
+            .direct_compile_time_input()
+            .cfg(HOST)
+            .value(AppleToolchain.RequiresXcodeConfigRule.XCODE_CONFIG_LABEL))
         .build();
-  }
-
-  private static Label parseLabel(String from) {
-    try {
-      return Label.parseAbsolute(from);
-    } catch (LabelSyntaxException e) {
-      throw new IllegalArgumentException(from);
-    }
   }
 
   @Override
   public ConfiguredAspect create(
-      ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
+      ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters)
+      throws InterruptedException {
     ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(NAME, ruleContext);
-
     JavaCompilationArgsProvider compilationArgsProvider =
         base.getProvider(JavaCompilationArgsProvider.class);
     JavaSourceInfoProvider sourceInfoProvider =
         base.getProvider(JavaSourceInfoProvider.class);
-
     ImmutableSet<Artifact> javaInputFiles = ImmutableSet.<Artifact>builder()
         .addAll(sourceInfoProvider.getSourceFiles())
         .addAll(sourceInfoProvider.getSourceJars())
         .addAll(sourceInfoProvider.getSourceJarsForJarFiles())
         .build();
 
-    NestedSetBuilder<Artifact> depsHeaderMappingsBuilder = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<Artifact> depsClassMappingsBuilder = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<Artifact> depsDependencyMappingsBuilder = NestedSetBuilder.stableOrder();
-
-    for (J2ObjcMappingFileProvider provider : getJ2ObjCMappings(ruleContext)) {
-      depsHeaderMappingsBuilder.addTransitive(provider.getHeaderMappingFiles());
-      depsClassMappingsBuilder.addTransitive(provider.getClassMappingFiles());
-      depsDependencyMappingsBuilder.addTransitive(provider.getDependencyMappingFiles());
-    }
-
-    NestedSet<Artifact> depsHeaderMappings = depsHeaderMappingsBuilder.build();
-    NestedSet<Artifact> depsClassMappings = depsClassMappingsBuilder.build();
-    NestedSet<Artifact> depsDependencyMappings = depsDependencyMappingsBuilder.build();
-
-    J2ObjcSrcsProvider.Builder srcsBuilder = new J2ObjcSrcsProvider.Builder();
-    J2ObjcMappingFileProvider j2ObjcMappingFileProvider;
+    XcodeProvider xcodeProvider;
+    ObjcCommon common;
 
     if (!javaInputFiles.isEmpty()) {
       J2ObjcSource j2ObjcSource = buildJ2ObjcSource(ruleContext, javaInputFiles);
+      J2ObjcMappingFileProvider depJ2ObjcMappingFileProvider =
+          depJ2ObjcMappingFileProvider(ruleContext);
+      createJ2ObjcTranspilationAction(
+          ruleContext,
+          depJ2ObjcMappingFileProvider.getHeaderMappingFiles(),
+          depJ2ObjcMappingFileProvider.getClassMappingFiles(),
+          javaInputFiles,
+          compilationArgsProvider,
+          j2ObjcSource);
+      common = common(
+          ruleContext,
+          j2ObjcSource.getObjcSrcs(),
+          j2ObjcSource.getObjcHdrs(),
+          j2ObjcSource.getHeaderSearchPaths(),
+          DEPENDENT_ATTRIBUTES);
+      xcodeProvider = xcodeProvider(
+          ruleContext,
+          common,
+          j2ObjcSource.getObjcHdrs(),
+          j2ObjcSource.getHeaderSearchPaths(),
+          DEPENDENT_ATTRIBUTES);
 
-      createJ2ObjcTranspilationAction(ruleContext, depsHeaderMappings, depsClassMappings,
-          javaInputFiles, compilationArgsProvider, j2ObjcSource);
+      new CompilationSupport(ruleContext).registerCompileAndArchiveActions(common);
+    } else {
+      common = common(
+          ruleContext,
+          ImmutableList.<Artifact>of(),
+          ImmutableList.<Artifact>of(),
+          ImmutableList.<PathFragment>of(),
+          DEPENDENT_ATTRIBUTES);
+      xcodeProvider = xcodeProvider(
+          ruleContext,
+          common,
+          ImmutableList.<Artifact>of(),
+          ImmutableList.<PathFragment>of(),
+          DEPENDENT_ATTRIBUTES);
+    }
 
+    return builder
+        .addProvider(J2ObjcMappingFileProvider.class,
+            j2ObjcMappingFileProvider(ruleContext, !javaInputFiles.isEmpty()))
+        .addProvider(ObjcProvider.class, common.getObjcProvider())
+        .addProvider(XcodeProvider.class, xcodeProvider)
+        .build();
+  }
+
+  private J2ObjcMappingFileProvider j2ObjcMappingFileProvider(RuleContext ruleContext,
+      boolean hasTranslatedSource) {
+    J2ObjcMappingFileProvider depJ2ObjcMappingFileProvider =
+        depJ2ObjcMappingFileProvider(ruleContext);
+    J2ObjcMappingFileProvider j2ObjcMappingFileProvider = depJ2ObjcMappingFileProvider;
+    if (hasTranslatedSource) {
       // J2ObjC merges all input header mapping files into the output header mapping file, so we
       // only need to export the output header mapping file here.
       NestedSet<Artifact> headerMappingFiles = NestedSetBuilder.<Artifact>stableOrder()
@@ -135,23 +188,22 @@ public class J2ObjcAspect implements ConfiguredNativeAspectFactory {
           .build();
       NestedSet<Artifact> dependencyMappingFiles = NestedSetBuilder.<Artifact>stableOrder()
           .add(j2ObjcOutputDependencyMappingFile(ruleContext))
-          .addTransitive(depsDependencyMappings)
+          .addTransitive(depJ2ObjcMappingFileProvider.getDependencyMappingFiles())
           .build();
 
-      srcsBuilder.addSource(j2ObjcSource);
+      NestedSet<Artifact> archiveSourceMappingFiles = NestedSetBuilder.<Artifact>stableOrder()
+          .add(j2ObjcOutputArchiveSourceMappingFile(ruleContext))
+          .addTransitive(depJ2ObjcMappingFileProvider.getArchiveSourceMappingFiles())
+          .build();
+
       j2ObjcMappingFileProvider = new J2ObjcMappingFileProvider(
-          headerMappingFiles, depsClassMappings, dependencyMappingFiles);
-    } else {
-      j2ObjcMappingFileProvider = new J2ObjcMappingFileProvider(
-          depsHeaderMappings, depsClassMappings, depsDependencyMappings);
+          headerMappingFiles,
+          depJ2ObjcMappingFileProvider.getClassMappingFiles(),
+          dependencyMappingFiles,
+          archiveSourceMappingFiles);
     }
 
-    srcsBuilder.addTransitiveJ2ObjcSrcs(ruleContext);
-
-    return builder
-        .addProvider(J2ObjcSrcsProvider.class, srcsBuilder.build())
-        .addProvider(J2ObjcMappingFileProvider.class, j2ObjcMappingFileProvider)
-        .build();
+    return j2ObjcMappingFileProvider;
   }
 
   private static void createJ2ObjcTranspilationAction(
@@ -192,6 +244,12 @@ public class J2ObjcAspect implements ConfiguredNativeAspectFactory {
       argBuilder.addJoinExecPaths("--mapping", ",", depsClassMappingFiles);
     }
 
+    Artifact archiveSourceMappingFile = j2ObjcOutputArchiveSourceMappingFile(ruleContext);
+    argBuilder.addExecPath("--output_archive_source_mapping_file", archiveSourceMappingFile);
+
+    Artifact compiledLibrary = ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext).archive();
+    argBuilder.addExecPath("--compiled_archive_file_path", compiledLibrary);
+
     argBuilder.add("-d").addPath(j2ObjcSource.getObjcFilePath());
 
     // In J2ObjC, the jars you pass as dependencies must be precisely the same as the
@@ -228,9 +286,30 @@ public class J2ObjcAspect implements ConfiguredNativeAspectFactory {
         .addOutputs(j2ObjcSource.getObjcSrcs())
         .addOutputs(j2ObjcSource.getObjcHdrs())
         .addOutput(outputHeaderMappingFile)
-        .addOutput(outputDependencyMappingFile);
+        .addOutput(outputDependencyMappingFile)
+        .addOutput(archiveSourceMappingFile);
 
     ruleContext.registerAction(builder.build(ruleContext));
+  }
+
+  private J2ObjcMappingFileProvider depJ2ObjcMappingFileProvider(RuleContext ruleContext) {
+    NestedSetBuilder<Artifact> depsHeaderMappingsBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> depsClassMappingsBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> depsDependencyMappingsBuilder = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> depsArchiveSourceMappingsBuilder = NestedSetBuilder.stableOrder();
+
+    for (J2ObjcMappingFileProvider mapping : getJ2ObjCMappings(ruleContext)) {
+      depsHeaderMappingsBuilder.addTransitive(mapping.getHeaderMappingFiles());
+      depsClassMappingsBuilder.addTransitive(mapping.getClassMappingFiles());
+      depsDependencyMappingsBuilder.addTransitive(mapping.getDependencyMappingFiles());
+      depsArchiveSourceMappingsBuilder.addTransitive(mapping.getArchiveSourceMappingFiles());
+    }
+
+    return new J2ObjcMappingFileProvider(
+        depsHeaderMappingsBuilder.build(),
+        depsClassMappingsBuilder.build(),
+        depsDependencyMappingsBuilder.build(),
+        depsArchiveSourceMappingsBuilder.build());
   }
 
   private static List<? extends J2ObjcMappingFileProvider> getJ2ObjCMappings(RuleContext context) {
@@ -269,6 +348,11 @@ public class J2ObjcAspect implements ConfiguredNativeAspectFactory {
     return ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, ".param.j2objc");
   }
 
+  private static Artifact j2ObjcOutputArchiveSourceMappingFile(RuleContext ruleContext) {
+    return ObjcRuleClasses.artifactByAppendingToBaseName(
+        ruleContext, ".archive_source_mapping.j2objc");
+  }
+
   private J2ObjcSource buildJ2ObjcSource(RuleContext ruleContext,
       Iterable<Artifact> javaInputSourceFiles) {
     PathFragment objcFileRootRelativePath = ruleContext.getUniqueDirectory("_j2objc");
@@ -302,5 +386,73 @@ public class J2ObjcAspect implements ConfiguredNativeAspectFactory {
     }
 
     return objcSources.build();
+  }
+
+  /**
+   * Sets up and returns an {@link ObjcCommon} object containing the J2ObjC-translated code.
+   *
+   */
+  static ObjcCommon common(RuleContext ruleContext, Iterable<Artifact> transpiledSources,
+      Iterable<Artifact> transpiledHeaders, Iterable<PathFragment> headerSearchPaths,
+      Iterable<Attribute> dependentAttributes) {
+    ObjcCommon.Builder builder = new ObjcCommon.Builder(ruleContext);
+    IntermediateArtifacts intermediateArtifacts =
+        ObjcRuleClasses.j2objcIntermediateArtifacts(ruleContext);
+
+    if (!Iterables.isEmpty(transpiledSources) || !Iterables.isEmpty(transpiledHeaders)) {
+      CompilationArtifacts compilationArtifacts = new CompilationArtifacts.Builder()
+          .addNonArcSrcs(transpiledSources)
+          .setIntermediateArtifacts(intermediateArtifacts)
+          .setPchFile(Optional.<Artifact>absent())
+          .addAdditionalHdrs(transpiledHeaders)
+          .build();
+      builder.setCompilationArtifacts(compilationArtifacts);
+    }
+
+    for (Attribute dependentAttribute : dependentAttributes) {
+      if (ruleContext.getAttribute(dependentAttribute.getName()) != null) {
+        builder.addDepObjcProviders(ruleContext.getPrerequisites(
+            dependentAttribute.getName(),
+            dependentAttribute.getAccessMode(),
+            ObjcProvider.class));
+      }
+    }
+
+    return builder
+        .addUserHeaderSearchPaths(headerSearchPaths)
+        .setIntermediateArtifacts(intermediateArtifacts)
+        .setHasModuleMap()
+        .build();
+  }
+
+  /**
+   * Sets up and returns an {@link XcodeProvider} object containing the J2ObjC-translated code.
+   *
+   */
+  static XcodeProvider xcodeProvider(RuleContext ruleContext, ObjcCommon common,
+      Iterable<Artifact> transpiledHeaders, Iterable<PathFragment> headerSearchPaths,
+      Iterable<Attribute> dependentAttributes) {
+    XcodeProvider.Builder xcodeProviderBuilder = new XcodeProvider.Builder();
+    XcodeSupport xcodeSupport = new XcodeSupport(ruleContext);
+    xcodeSupport.addXcodeSettings(xcodeProviderBuilder, common.getObjcProvider(), LIBRARY_STATIC);
+
+    for (Attribute dependentAttribute : dependentAttributes) {
+      if (ruleContext.getAttribute(dependentAttribute.getName()) != null) {
+        xcodeSupport.addDependencies(xcodeProviderBuilder, dependentAttribute);
+      }
+    }
+
+    if (!Iterables.isEmpty(transpiledHeaders)) {
+      xcodeProviderBuilder
+          .addUserHeaderSearchPaths(headerSearchPaths)
+          .addCopts(ruleContext.getFragment(ObjcConfiguration.class).getCopts())
+          .addHeaders(transpiledHeaders);
+    }
+
+    if (common.getCompilationArtifacts().isPresent()) {
+      xcodeProviderBuilder.setCompilationArtifacts(common.getCompilationArtifacts().get());
+    }
+
+    return xcodeProviderBuilder.build();
   }
 }

@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -38,7 +37,6 @@ public final class ProguardLibraryRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE($proguard_library).ATTRIBUTE(proguard_specs) -->
         Files to be used as Proguard specification.
-        ${SYNOPSIS}
         These will describe the set of specifications to be used by Proguard. If specified,
         they will be added to any <code>android_binary</code> target depending on this library.
 
@@ -52,8 +50,7 @@ public final class ProguardLibraryRule implements RuleDefinition {
               @Override
               public Object getDefault(AttributeMap rule) {
                 return rule.isAttributeValueExplicitlySpecified("proguard_specs")
-                    ? environment.getLabel(
-                        Constants.TOOLS_REPOSITORY + "//tools/jdk:proguard_whitelister")
+                    ? environment.getToolsLabel("//tools/jdk:proguard_whitelister")
                     : null;
               }
             }))

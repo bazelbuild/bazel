@@ -101,16 +101,6 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     this.ruleNames = ruleNames;
   }
 
-  @Override
-  public TargetPatternEvaluator getTargetPatternEvaluator() {
-    return targetPatternEvaluator;
-  }
-
-  @Override
-  public void updatePatternEvaluator(PathFragment relativeWorkingDirectory) {
-    targetPatternEvaluator.updateOffset(relativeWorkingDirectory);
-  }
-
   /**
    * Performs target pattern evaluation, test suite expansion (if requested), and loads the
    * transitive closure of the resulting targets as well as of the targets needed to use the
@@ -118,7 +108,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
    */
   @Override
   public LoadingResult execute(EventHandler eventHandler, EventBus eventBus,
-      List<String> targetPatterns, LoadingOptions options,
+      List<String> targetPatterns, PathFragment relativeWorkingDirectory, LoadingOptions options,
       ListMultimap<String, Label> labelsToLoadUnconditionally, boolean keepGoing,
       boolean enableLoading, boolean determineTests, @Nullable LoadingCallback callback)
           throws TargetParsingException, LoadingFailedException, InterruptedException {
@@ -129,6 +119,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
           + "the --build_tests_only option or the 'bazel test' command ");
     }
 
+    targetPatternEvaluator.updateOffset(relativeWorkingDirectory);
     EventHandler parseFailureListener = new ParseFailureListenerImpl(eventHandler, eventBus);
     // Determine targets to build:
     ResolvedTargets<Target> targets = getTargetsToBuild(parseFailureListener,
@@ -281,7 +272,8 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
   private void postLoadingLogging(EventBus eventBus, ImmutableSet<Target> originalTargetsToLoad,
       ImmutableSet<Target> expandedTargetsToLoad, Stopwatch timer) {
     Set<Target> testSuiteTargets = Sets.difference(originalTargetsToLoad, expandedTargetsToLoad);
-    eventBus.post(new LoadingPhaseCompleteEvent(expandedTargetsToLoad, testSuiteTargets,
+    eventBus.post(new LoadingPhaseCompleteEvent(
+        expandedTargetsToLoad, ImmutableSet.copyOf(testSuiteTargets),
         packageManager.getStatistics(), timer.stop().elapsed(TimeUnit.MILLISECONDS)));
     LOG.info("Loading phase finished"); 
   }
@@ -385,9 +377,10 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     // Error out if any of the labels needed for the configuration could not be loaded.
     Multimap<Label, Label> rootCauses = pkgLoader.getRootCauses();
     for (Map.Entry<String, Label> entry : labelsToLoadUnconditionally.entries()) {
-      if (rootCauses.containsKey(entry.getValue())) {
-        throw new LoadingFailedException("Failed to load required " + entry.getKey()
-            + " target: '" + entry.getValue() + "'");
+      Label label = entry.getValue();
+      if (rootCauses.containsKey(label)) {
+        throw new LoadingFailedException(
+            String.format("Failed to load required %s target: '%s'", entry.getKey(), label));
       }
     }
 
@@ -396,10 +389,9 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
       eventBus.post(new LoadingFailureEvent(entry.getKey(), entry.getValue()));
     }
 
-    LoadedPackageProvider.Bridge bridge =
-        new LoadedPackageProvider.Bridge(packageManager, eventHandler);
+    LoadedPackageProvider packageProvider = new LoadedPackageProvider(packageManager, eventHandler);
     return ImmutableSet.copyOf(Sets.difference(ImmutableSet.copyOf(targetsToLoad),
-        getTargetsForLabels(bridge, rootCauses.keySet())));
+        getTargetsForLabels(packageProvider, rootCauses.keySet())));
   }
 
   /**

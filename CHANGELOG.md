@@ -1,3 +1,51 @@
+## Release 0.1.5 (2016-02-05)
+
+```
+Baseline: 3a95f35
+   + 8378cd8: Rollback of commit
+              a9b84575a32476a5faf991da22b44661d75c19b6.
+```
+
+Incompatible changes:
+
+  - Set stamping to false by default (i.e., --nostamp)
+  - Removed --objc_dump_syms_binary.
+  - Removes --objc_gcov_binary flag.
+  - Remove JAVAC "Make" variable
+  - The startup flag --blaze_cpu is removed,
+
+New features:
+
+  - A new java test runner that support XML output and test filtering
+    is supported. It can be used by specifying --nolegacy_bazel_java_test
+    or by specifying the test_class attribute on a java_test.
+  - Skylark aspects can now specify configuration fragment
+    dependencies with fragments and host_fragments like rules can.
+
+Important changes:
+
+  - Support for downloading remote resources through proxies by
+    setting HTTP_PROXY (or HTTPS_PROXY).
+  - Timestamps within Android apks are removed to make apks
+    deterministic.
+  - Support aggregation over existing rules in Skylark extensions
+    through native.rules and native.rule.
+  - A tools/bazel script in the workspace will be executed
+    as an opportunity to use a fixed version of Bazel (not
+    implemented for the homebrew recipe yet).
+  - --noimplicit_deps and --nohost_deps work correctly for Aspect
+    attributes.
+  - JDK-related targets are now available via @local_jdk (instead of
+    @local-jdk).
+  - j2objc tools can now be accessed via @bazel_j2objc, not
+    @bazel-j2objc.
+  - Repository rules must use names that are valid workspace names.
+  - [rust] Update to Rust 1.6
+  - Add support for .tar.xz archives to http_archive rules.
+  - Make C++ modules compatible with tools using
+    --compilation_prerequisites_only
+  - [d] Update to DMD 2.070.0
+
 ## Release 0.1.4 (2016-01-15)
 
 ```

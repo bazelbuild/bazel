@@ -160,10 +160,10 @@ public class AarGeneratorAction {
           modifiers,
           null,
           options.strictMerge);
-      logger.info(String.format("Merging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
+      logger.fine(String.format("Merging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       writeAar(options.aarOutput, mergedData, options.manifest, options.rtxt, options.classes);
-      logger.info(
+      logger.fine(
           String.format("Packaging finished at %dms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
     } catch (IOException | MergingException e) {

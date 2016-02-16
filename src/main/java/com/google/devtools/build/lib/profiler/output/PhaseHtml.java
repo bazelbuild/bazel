@@ -28,6 +28,8 @@ import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.EnumMap;
 
+import javax.annotation.Nullable;
+
 /**
  * Output {@link PhaseSummaryStatistics}, {@link PhaseStatistics} and {@link PhaseVfsStatistics}
  * in HTML format.
@@ -223,8 +225,8 @@ public final class PhaseHtml extends HtmlPrinter {
    * by descending duration. If multiple of the same VFS operation were logged for the same path,
    * print the total duration.
    */
-  private void printVfsStatistics(PhaseVfsStatistics stats) {
-    if (vfsStatsLimit == 0 || stats.isEmpty()) {
+  private void printVfsStatistics(@Nullable PhaseVfsStatistics stats) {
+    if (vfsStatsLimit == 0 || stats == null || stats.isEmpty()) {
       return;
     }
 

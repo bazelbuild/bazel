@@ -21,10 +21,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.server.RPCService.UnknownCommandException;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
-import com.google.devtools.build.lib.unix.FilesystemUtils;
 import com.google.devtools.build.lib.unix.LocalClientSocket;
 import com.google.devtools.build.lib.unix.LocalServerSocket;
 import com.google.devtools.build.lib.unix.LocalSocketAddress;
+import com.google.devtools.build.lib.unix.NativePosixFiles;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.ThreadUtils;
@@ -381,7 +381,7 @@ public final class RPCServer {
 
     LocalServerSocket serverSocket = new LocalServerSocket();
     serverSocket.bind(new LocalSocketAddress(socketFile.getPathFile()));
-    FilesystemUtils.chmod(socketFile.getPathFile(), 0600);  // Lock it down.
+    NativePosixFiles.chmod(socketFile.getPathFile(), 0600);  // Lock it down.
     serverSocket.listen(/*backlog=*/50);
     return serverSocket;
   }

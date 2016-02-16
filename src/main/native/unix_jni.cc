@@ -236,7 +236,7 @@ void PostFileException(JNIEnv *env, int error_number, const char *filename) {
 // into a separate source file, fsutils.cc.
 
 extern "C" JNIEXPORT jstring JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_readlink(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_readlink(JNIEnv *env,
                                                      jclass clazz,
                                                      jstring path) {
   const char *path_chars = GetStringLatin1Chars(env, path);
@@ -252,7 +252,7 @@ Java_com_google_devtools_build_lib_unix_FilesystemUtils_readlink(JNIEnv *env,
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_chmod(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_chmod(JNIEnv *env,
                                                   jclass clazz,
                                                   jstring path,
                                                   jint mode) {
@@ -277,7 +277,7 @@ static void link_common(JNIEnv *env,
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_link(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_link(JNIEnv *env,
                                                  jclass clazz,
                                                  jstring oldpath,
                                                  jstring newpath) {
@@ -285,7 +285,7 @@ Java_com_google_devtools_build_lib_unix_FilesystemUtils_link(JNIEnv *env,
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_symlink(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_symlink(JNIEnv *env,
                                                     jclass clazz,
                                                     jstring oldpath,
                                                     jstring newpath) {
@@ -405,63 +405,63 @@ static jobject StatCommon(JNIEnv *env,
 }
 
 /*
- * Class:     com.google.devtools.build.lib.unix.FilesystemUtils
+ * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    stat
  * Signature: (Ljava/lang/String;)Lcom/google/devtools/build/lib/unix/FileStatus;
  * Throws:    java.io.IOException
  */
 extern "C" JNIEXPORT jobject JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_stat(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_stat(JNIEnv *env,
                                                  jclass clazz,
                                                  jstring path) {
   return ::StatCommon(env, path, portable_stat, true);
 }
 
 /*
- * Class:     com.google.devtools.build.lib.unix.FilesystemUtils
+ * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    lstat
  * Signature: (Ljava/lang/String;)Lcom/google/devtools/build/lib/unix/FileStatus;
  * Throws:    java.io.IOException
  */
 extern "C" JNIEXPORT jobject JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_lstat(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_lstat(JNIEnv *env,
                                                   jclass clazz,
                                                   jstring path) {
   return ::StatCommon(env, path, portable_lstat, true);
 }
 
 /*
- * Class:     com.google.devtools.build.lib.unix.FilesystemUtils
+ * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    statNullable
  * Signature: (Ljava/lang/String;)Lcom/google/devtools/build/lib/unix/FileStatus;
  */
 extern "C" JNIEXPORT jobject JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_errnoStat(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_errnoStat(JNIEnv *env,
                                                       jclass clazz,
                                                       jstring path) {
   return ::StatCommon(env, path, portable_stat, false);
 }
 
 /*
- * Class:     com.google.devtools.build.lib.unix.FilesystemUtils
+ * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    lstatNullable
  * Signature: (Ljava/lang/String;)Lcom/google/devtools/build/lib/unix/FileStatus;
  */
 extern "C" JNIEXPORT jobject JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_errnoLstat(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_errnoLstat(JNIEnv *env,
                                                        jclass clazz,
                                                        jstring path) {
   return ::StatCommon(env, path, portable_lstat, false);
 }
 
 /*
- * Class:     com.google.devtools.build.lib.unix.FilesystemUtils
+ * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    utime
  * Signature: (Ljava/lang/String;ZII)V
  * Throws:    java.io.IOException
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_utime(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_utime(JNIEnv *env,
                                                   jclass clazz,
                                                   jstring path,
                                                   jboolean now,
@@ -486,25 +486,25 @@ Java_com_google_devtools_build_lib_unix_FilesystemUtils_utime(JNIEnv *env,
 }
 
 /*
- * Class:     com.google.devtools.build.lib.unix.FilesystemUtils
+ * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    umask
  * Signature: (I)I
  */
 extern "C" JNIEXPORT jint JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_umask(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_umask(JNIEnv *env,
                                                   jclass clazz,
                                                   jint new_umask) {
   return ::umask(new_umask);
 }
 
 /*
- * Class:     com.google.devtools.build.lib.unix.FilesystemUtils
+ * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    mkdir
  * Signature: (Ljava/lang/String;I)Z
  * Throws:    java.io.IOException
  */
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_mkdir(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdir(JNIEnv *env,
                                                   jclass clazz,
                                                   jstring path,
                                                   jint mode) {
@@ -532,7 +532,7 @@ static jobject NewDirents(JNIEnv *env,
   // See http://java.sun.com/docs/books/jni/html/fldmeth.html#26855
   static jclass dirents_class = NULL;
   if (dirents_class == NULL) {  // note: harmless race condition
-    jclass local = env->FindClass("com/google/devtools/build/lib/unix/FilesystemUtils$Dirents");
+    jclass local = env->FindClass("com/google/devtools/build/lib/unix/NativePosixFiles$Dirents");
     CHECK(local != NULL);
     dirents_class = static_cast<jclass>(env->NewGlobalRef(local));
   }
@@ -573,13 +573,13 @@ static char GetDirentType(struct dirent *entry,
 }
 
 /*
- * Class:     com.google.devtools.build.lib.unix.FilesystemUtils
+ * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    readdir
  * Signature: (Ljava/lang/String;Z)Lcom/google/devtools/build/lib/unix/Dirents;
  * Throws:    java.io.IOException
  */
 extern "C" JNIEXPORT jobject JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_readdir(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_readdir(JNIEnv *env,
                                                     jclass clazz,
                                                     jstring path,
                                                     jchar read_types) {
@@ -660,13 +660,13 @@ Java_com_google_devtools_build_lib_unix_FilesystemUtils_readdir(JNIEnv *env,
 }
 
 /*
- * Class:     com.google.devtools.build.lib.unix.FilesystemUtils
+ * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    rename
  * Signature: (Ljava/lang/String;Ljava/lang/String;)V
  * Throws:    java.io.IOException
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_rename(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_rename(JNIEnv *env,
                                                    jclass clazz,
                                                    jstring oldpath,
                                                    jstring newpath) {
@@ -707,39 +707,39 @@ static bool unlink_err(int err) { return err == ENOENT; }
 static bool remove_err(int err) { return err == ENOENT || err == ENOTDIR; }
 
 /*
- * Class:     com.google.devtools.build.lib.unix.FilesystemUtils
+ * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    unlink
  * Signature: (Ljava/lang/String;)V
  * Throws:    java.io.IOException
  */
 extern "C" JNIEXPORT bool JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_unlink(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_unlink(JNIEnv *env,
                                                    jclass clazz,
                                                    jstring path) {
   return ::delete_common(env, path, ::unlink, ::unlink_err);
 }
 
 /*
- * Class:     com.google.devtools.build.lib.unix.FilesystemUtils
+ * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    remove
  * Signature: (Ljava/lang/String;)V
  * Throws:    java.io.IOException
  */
 extern "C" JNIEXPORT bool JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_remove(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_remove(JNIEnv *env,
                                                    jclass clazz,
                                                    jstring path) {
   return ::delete_common(env, path, ::remove, ::remove_err);
 }
 
 /*
- * Class:     com.google.devtools.build.lib.unix.FilesystemUtils
+ * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
  * Method:    mkfifo
  * Signature: (Ljava/lang/String;I)V
  * Throws:    java.io.IOException
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_mkfifo(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkfifo(JNIEnv *env,
                                                    jclass clazz,
                                                    jstring path,
                                                    jint mode) {
@@ -781,7 +781,7 @@ static jbyteArray getxattr_common(JNIEnv *env,
 }
 
 extern "C" JNIEXPORT jbyteArray JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_getxattr(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_getxattr(JNIEnv *env,
                                                      jclass clazz,
                                                      jstring path,
                                                      jstring name) {
@@ -789,7 +789,7 @@ Java_com_google_devtools_build_lib_unix_FilesystemUtils_getxattr(JNIEnv *env,
 }
 
 extern "C" JNIEXPORT jbyteArray JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_lgetxattr(JNIEnv *env,
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_lgetxattr(JNIEnv *env,
                                                       jclass clazz,
                                                       jstring path,
                                                       jstring name) {
@@ -835,7 +835,7 @@ static int md5sumAsBytes(const char *file,
 
 
 extern "C" JNIEXPORT jbyteArray JNICALL
-Java_com_google_devtools_build_lib_unix_FilesystemUtils_md5sumAsBytes(
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_md5sumAsBytes(
     JNIEnv *env, jclass clazz, jstring path) {
   const char *path_chars = GetStringLatin1Chars(env, path);
   jbyte value[Md5Digest::kDigestLength];

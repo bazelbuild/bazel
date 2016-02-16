@@ -23,11 +23,16 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.SkylarkProviderValidationUtil;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext.Kind;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesCollector.InstrumentationSpec;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
@@ -37,10 +42,15 @@ import com.google.devtools.build.lib.syntax.EvalExceptionWithStackTrace;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -153,14 +163,45 @@ public final class SkylarkRuleConfiguredTargetBuilder {
   private static void addOutputGroups(Object value, Location loc,
       RuleConfiguredTargetBuilder builder)
       throws EvalException {
-    Map<String, SkylarkNestedSet> outputGroups = SkylarkType
-        .castMap(value, String.class, SkylarkNestedSet.class, "output_groups");
+    Map<String, SkylarkValue> outputGroups =
+        SkylarkType.castMap(value, String.class, SkylarkValue.class, "output_groups");
 
     for (String outputGroup : outputGroups.keySet()) {
-      SkylarkNestedSet objects = outputGroups.get(outputGroup);
-      builder.addOutputGroup(outputGroup,
-          SkylarkType.cast(objects, SkylarkNestedSet.class, Artifact.class, loc,
-              "Output group '%s'", outputGroup).getSet(Artifact.class));
+      SkylarkValue objects = outputGroups.get(outputGroup);
+      NestedSet<Artifact> artifacts;
+
+      String typeErrorMessage =
+          "Output group '%s' is of unexpected type. "
+              + "Should be list or set of Files, but got '%s' instead.";
+
+      if (objects instanceof SkylarkList) {
+        NestedSetBuilder<Artifact> nestedSetBuilder = NestedSetBuilder.stableOrder();
+        for (Object o : (SkylarkList) objects) {
+          if (o instanceof Artifact) {
+            nestedSetBuilder.add((Artifact) o);
+          } else {
+            throw new EvalException(
+                loc,
+                String.format(
+                    typeErrorMessage,
+                    outputGroup,
+                    "list with an element of " + EvalUtils.getDataTypeNameFromClass(o.getClass())));
+          }
+        }
+        artifacts = nestedSetBuilder.build();
+      } else {
+        artifacts =
+            SkylarkType.cast(
+                    objects,
+                    SkylarkNestedSet.class,
+                    Artifact.class,
+                    loc,
+                    typeErrorMessage,
+                    outputGroup,
+                    EvalUtils.getDataTypeName(objects, true))
+                .getSet(Artifact.class);
+      }
+      builder.addOutputGroup(outputGroup, artifacts);
     }
   }
 
@@ -187,6 +228,44 @@ public final class SkylarkRuleConfiguredTargetBuilder {
           defaultRunfiles = cast("default_runfiles", struct, Runfiles.class, loc);
         } else if (key.equals("output_groups")) {
           addOutputGroups(struct.getValue(key), loc, builder);
+        } else if (key.equals("instrumented_files")) {
+          SkylarkClassObject insStruct =
+              cast("instrumented_files", struct, SkylarkClassObject.class, loc);
+          Location insLoc = insStruct.getCreationLoc();
+          FileTypeSet fileTypeSet = FileTypeSet.ANY_FILE;
+          if (insStruct.getKeys().contains("extensions")) {
+            List<String> exts = cast("extensions", insStruct, List.class, String.class, insLoc);
+            if (exts.isEmpty()) {
+              fileTypeSet = FileTypeSet.NO_FILE;
+            } else {
+              FileType[] fileTypes = new FileType[exts.size()];
+              for (int i = 0; i < fileTypes.length; i++) {
+                fileTypes[i] = FileType.of(exts.get(i));
+              }
+              fileTypeSet = FileTypeSet.of(fileTypes);
+            }
+          }
+          List<String> dependencyAttributes = Collections.emptyList();
+          if (insStruct.getKeys().contains("dependency_attributes")) {
+            dependencyAttributes =
+                cast("dependency_attributes", insStruct, List.class, String.class, insLoc);
+          }
+          List<String> sourceAttributes = Collections.emptyList();
+          if (insStruct.getKeys().contains("source_attributes")) {
+            sourceAttributes =
+                cast("source_attributes", insStruct, List.class, String.class, insLoc);
+          }
+          InstrumentationSpec instrumentationSpec =
+              new InstrumentationSpec(fileTypeSet)
+                  .withSourceAttributes(sourceAttributes.toArray(new String[0]))
+                  .withDependencyAttributes(dependencyAttributes.toArray(new String[0]));
+          InstrumentedFilesProvider instrumentedFilesProvider =
+              InstrumentedFilesCollector.collect(
+                  ruleContext,
+                  instrumentationSpec,
+                  InstrumentedFilesCollector.NO_METADATA_COLLECTOR,
+                  Collections.<Artifact>emptySet());
+          builder.addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider);
         } else if (!key.equals("executable")) {
           // We handled executable already.
           builder.addSkylarkTransitiveInfo(key, struct.getValue(key), loc);

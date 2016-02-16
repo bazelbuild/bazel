@@ -34,7 +34,6 @@ public final class BindRule implements RuleDefinition {
     return builder
         /* <!-- #BLAZE_RULE(bind).ATTRIBUTE(actual) -->
         The target to be aliased.
-        ${SYNOPSIS}
 
         <p>This target must exist, but can be any type of rule (including bind).</p>
 

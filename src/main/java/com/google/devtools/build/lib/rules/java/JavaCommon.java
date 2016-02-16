@@ -458,12 +458,12 @@ public class JavaCommon {
 
   /**
    * Gets the value of the "jvm_flags" attribute combining it with the default
-   * options and expanding any make variables.
+   * options and expanding any make variables and $(location) tags.
    */
   public List<String> getJvmFlags() {
     List<String> jvmFlags = new ArrayList<>();
     jvmFlags.addAll(ruleContext.getFragment(JavaConfiguration.class).getDefaultJvmFlags());
-    jvmFlags.addAll(ruleContext.expandedMakeVariablesList("jvm_flags"));
+    jvmFlags.addAll(ruleContext.getExpandedStringListAttr("jvm_flags", RuleContext.Tokenize.NO));
     return jvmFlags;
   }
 
@@ -571,7 +571,9 @@ public class JavaCommon {
     addInstrumentationFilesProvider(builder, filesToBuild, instrumentationSpec);
     builder
         .add(JavaExportsProvider.class, new JavaExportsProvider(collectTransitiveExports()))
-        .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, getFilesToCompile(classJar));
+        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, new JavaSkylarkApiProvider())
+        .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, getFilesToCompile(classJar))
+        .add(JavaCompilationInfoProvider.class, createCompilationInfoProvider());
   }
 
   private void addInstrumentationFilesProvider(RuleConfiguredTargetBuilder builder,
@@ -753,5 +755,14 @@ public class JavaCommon {
   
   public RuleContext getRuleContext() {
     return ruleContext;
+  }
+
+  private JavaCompilationInfoProvider createCompilationInfoProvider() {
+    return new JavaCompilationInfoProvider.Builder()
+        .setJavacOpts(javacOpts)
+        .setBootClasspath(getBootClasspath())
+        .setCompilationClasspath(getCompileTimeClasspath())
+        .setRuntimeClasspath(getRuntimeClasspath())
+        .build();
   }
 }

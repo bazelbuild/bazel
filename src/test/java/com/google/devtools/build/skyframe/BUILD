@@ -1,5 +1,7 @@
 TESTUTIL_FILES = [
     "DeterministicInMemoryGraph.java",
+    "EvaluationResultSubject.java",
+    "EvaluationResultSubjectFactory.java",
     "NotifyingInMemoryGraph.java",
     "TrackingAwaiter.java",
     "GraphTester.java",

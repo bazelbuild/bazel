@@ -60,8 +60,7 @@ public final class GenRuleAction extends SpawnAction {
         runfilesManifests,
         "Genrule",
         false,
-        null,
-        false);
+        null);
   }
 
   @Override

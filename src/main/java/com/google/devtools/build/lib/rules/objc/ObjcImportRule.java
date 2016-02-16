@@ -44,7 +44,6 @@ public class ObjcImportRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(objc_import).ATTRIBUTE(archives) -->
         The list of <code>.a</code> files provided to Objective-C targets that
         depend on this target.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("archives", LABEL_LIST)
             .mandatory()

@@ -22,8 +22,10 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.syntax.Type;
 
 /**
  * Implementation of the {@code android_sdk} rule.
@@ -38,6 +40,8 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
             ? ruleContext.getExecutablePrerequisite("proguard", Mode.HOST)
             : ruleContext.getExecutablePrerequisite(":proguard", Mode.HOST);
 
+    String buildToolsVersion = AggregatingAttributeMapper.of(ruleContext.getRule())
+        .get("build_tools_version", Type.STRING);
     FilesToRunProvider aidl = ruleContext.getExecutablePrerequisite("aidl", Mode.HOST);
     FilesToRunProvider aapt = ruleContext.getExecutablePrerequisite("aapt", Mode.HOST);
     FilesToRunProvider apkBuilder = ruleContext.getExecutablePrerequisite(
@@ -67,6 +71,7 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
         .add(
             AndroidSdkProvider.class,
             new AndroidSdkProvider(
+                buildToolsVersion,
                 frameworkAidl,
                 androidJar,
                 shrinkedAndroidJar,

@@ -241,6 +241,20 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
     return getArtifact(path, root, path.relativeTo(execRoot), owner, SpecialArtifactType.FILESET);
   }
 
+  /**
+   * Returns an artifact that represents a TreeArtifact; that is, a directory containing some
+   * tree of ArtifactFiles unknown at analysis time.
+   *
+   * <p>The root must be below the execRoot, and the execPath of the resulting Artifact is computed
+   * as {@code root.getRelative(rootRelativePath).relativeTo(execRoot)}.
+   */
+  public Artifact getTreeArtifact(PathFragment rootRelativePath, Root root,
+      ArtifactOwner owner) {
+    validatePath(rootRelativePath, root);
+    Path path = root.getPath().getRelative(rootRelativePath);
+    return getArtifact(path, root, path.relativeTo(execRoot), owner, SpecialArtifactType.TREE);
+  }
+
   public Artifact getConstantMetadataArtifact(PathFragment rootRelativePath, Root root,
       ArtifactOwner owner) {
     validatePath(rootRelativePath, root);

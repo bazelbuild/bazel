@@ -39,7 +39,6 @@ public final class BazelJavaPluginRule implements RuleDefinition {
         .override(builder.copy("deps").validityPredicate(Attribute.ANY_EDGE))
         .override(builder.copy("srcs").validityPredicate(Attribute.ANY_EDGE))
         /* <!-- #BLAZE_RULE(java_plugin).ATTRIBUTE(processor_class) -->
-        ${SYNOPSIS}
         The processor class is the fully qualified type of the class that the Java compiler should
         use as entry point to the annotation processor. If not specified, this rule will not
         contribute an annotation processor to the Java compiler's annotation processing, but its

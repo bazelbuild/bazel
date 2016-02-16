@@ -21,10 +21,11 @@
 
 set -eu
 
-REALPATH=$0.runfiles/external/bazel_tools/tools/objc/realpath
-WRAPPER=$0.runfiles/external/bazel_tools/tools/objc/xcrunwrapper.sh
+MY_LOCATION=${MY_LOCATION:-"$0.runfiles/external/bazel_tools/tools/objc"}
+REALPATH="${MY_LOCATION}/realpath"
+WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 
-OUTZIP=$($REALPATH "$1")
+OUTZIP=$("${REALPATH}" "$1")
 shift 1
 TEMPDIR=$(mktemp -d -t actoolZippingOutput)
 trap "rm -rf \"$TEMPDIR\"" EXIT
@@ -44,7 +45,7 @@ for i in $@; do
     touch "$i"
   fi
   if [ -e "$i" ]; then
-    ARG=$($REALPATH "$i")
+    ARG=$("${REALPATH}" "$i")
     TOOLARGS+=("$ARG")
   else
     TOOLARGS+=("$i")
@@ -61,7 +62,7 @@ done
 # helps.
 # Yes IBTOOL appears to be correct here due to actool and ibtool being based
 # on the same codebase.
-$WRAPPER actool --errors --warnings --notices \
+"${WRAPPER}" actool --errors --warnings --notices \
     --compress-pngs --output-format human-readable-text \
     --compile "$TEMPDIR" "${TOOLARGS[@]}"
 

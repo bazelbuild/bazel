@@ -64,7 +64,6 @@ public final class BazelJavaTestRule implements RuleDefinition {
         .override(attr("main_class", STRING).value(JUNIT4_RUNNER))
         /* <!-- #BLAZE_RULE(java_test).ATTRIBUTE(test_class) -->
         The Java class to be loaded by the test runner.<br/>
-        ${SYNOPSIS}
         <p>
           By default, if this argument is not defined then the legacy mode is used and the
           test arguments are used instead. Set the <code>--nolegacy_bazel_java_test</code> flag

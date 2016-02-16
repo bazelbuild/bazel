@@ -139,11 +139,17 @@ public abstract class InvalidatingNodeVisitor<TGraph extends ThinNodeQueryableGr
     // Make a copy to avoid concurrent modification confusing us as to which nodes were passed by
     // the caller, and which are added by other threads during the run. Since no tasks have been
     // started yet (the queueDirtying calls start them), this is thread-safe.
-    for (Pair<SkyKey, InvalidationType> visitData : ImmutableList.copyOf(pendingVisitations)) {
+    for (final Pair<SkyKey, InvalidationType> visitData :
+        ImmutableList.copyOf(pendingVisitations)) {
       // The caller may have specified non-existent SkyKeys, or there may be stale SkyKeys in
       // pendingVisitations that have already been deleted. In both these cases, the nodes will not
       // exist in the graph, so we must be tolerant of that case.
-      visit(ImmutableList.of(visitData.first), visitData.second, !MUST_EXIST);
+      executor.execute(new Runnable() {
+        @Override
+        public void run() {
+          visit(ImmutableList.of(visitData.first), visitData.second, !MUST_EXIST);
+        }
+      });
     }
     executor.awaitQuiescence(/*interruptWorkers=*/ true);
 

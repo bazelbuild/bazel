@@ -25,10 +25,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
  */
 @ActionContextMarker(name = "C++ link")
 public interface CppLinkActionContext extends ActionContext {
-  /**
-   * Returns where the action actually runs.
-   */
-  String strategyLocality();
 
   /**
    * Returns the estimated resource consumption of the action.

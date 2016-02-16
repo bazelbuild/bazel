@@ -24,9 +24,6 @@ public interface SpawnActionContext extends Executor.ActionContext {
   void exec(Spawn spawn, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
 
-  /** Returns the locality of running the spawn, i.e., "local". */
-  String strategyLocality(String mnemonic, boolean remotable);
-
   /**
    * This implements a tri-state mode. There are three possible cases: (1) implementations of this
    * class can unconditionally execute spawns locally, (2) they can follow whatever is set for the

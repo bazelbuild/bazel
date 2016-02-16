@@ -412,7 +412,9 @@ public abstract class FunctionSignature implements Serializable {
         private int j = 0;
 
         public void comma() {
-          if (isMore) { sb.append(", "); }
+          if (isMore) {
+            sb.append(", ");
+          }
           isMore = true;
         }
         public void type(int i) {

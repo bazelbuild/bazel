@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.buildjar;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,7 +45,7 @@ public abstract class CommonJavaLibraryProcessor {
     // Add an empty source path to prevent javac from sucking in source files
     // from .jar files on the classpath.
     args.add("-sourcepath");
-    args.add(":");
+    args.add(File.pathSeparator);
 
     if (build.getExtdir() != null) {
       args.add("-extdirs");

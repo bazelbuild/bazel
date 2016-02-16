@@ -746,10 +746,12 @@ public final class CcLibraryHelper {
     if (emitCompileProviders) {
       boolean isLipoCollector =
           ruleContext.getFragment(CppConfiguration.class).isLipoContextCollector();
+      boolean processHeadersInDependencies =
+          ruleContext.getFragment(CppConfiguration.class).processHeadersInDependencies();
       boolean usePic = CppHelper.usePic(ruleContext, false);
       outputGroups.put(
           OutputGroupProvider.FILES_TO_COMPILE,
-          ccOutputs.getFilesToCompile(isLipoCollector, usePic));
+          ccOutputs.getFilesToCompile(isLipoCollector, processHeadersInDependencies, usePic));
       outputGroups.put(OutputGroupProvider.COMPILATION_PREREQUISITES,
           CcCommon.collectCompilationPrerequisites(ruleContext, cppCompilationContext));
     }

@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-load("/tools/build_rules/go/def", "go_binary")
+load("//tools/build_rules/go:def.bzl", "go_binary")
 
 # This binary is used implicitly by go_test().
 go_binary(

@@ -20,7 +20,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -50,7 +49,6 @@ public class IosApplicationRule implements RuleDefinition {
             ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
         /* <!-- #BLAZE_RULE(ios_application).ATTRIBUTE(binary) -->
         The binary target included in the final bundle.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("binary", LABEL)
             .allowedRuleClasses("objc_binary")
@@ -60,15 +58,13 @@ public class IosApplicationRule implements RuleDefinition {
             .cfg(IosApplication.SPLIT_ARCH_TRANSITION))
         /* <!-- #BLAZE_RULE(ios_application).ATTRIBUTE(extensions) -->
         Any extensions to include in the final application.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("extensions", LABEL_LIST)
             .allowedRuleClasses("ios_extension")
             .allowedFileTypes()
             .direct_compile_time_input())
         .add(attr("$runner_script_template", LABEL).cfg(HOST)
-            .value(env.getLabel(
-                Constants.TOOLS_REPOSITORY + "//tools/objc:ios_runner.sh.mac_template")))
+            .value(env.getToolsLabel("//tools/objc:ios_runner.sh.mac_template")))
         .add(attr("$is_executable", BOOLEAN).value(true)
             .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
         .build();

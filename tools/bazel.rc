@@ -1,1 +1,0 @@
-build:android --crosstool_top=@androidndk//:toolchain --host_crosstool_top=//tools/cpp:toolchain

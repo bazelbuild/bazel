@@ -53,6 +53,11 @@ public class PreprocessorUtils {
       }
 
       @Override
+      public boolean considersGlobs() {
+        return false;
+      }
+
+      @Override
       @Nullable
       public Preprocessor getPreprocessor() {
         return preprocessor;

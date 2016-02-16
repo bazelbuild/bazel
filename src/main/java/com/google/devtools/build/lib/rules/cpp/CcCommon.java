@@ -199,13 +199,16 @@ public final class CcCommon {
         ruleContext.getPrerequisites("srcs", Mode.TARGET, FileProvider.class);
     for (FileProvider provider : providers) {
       for (Artifact artifact : provider.getFilesToBuild()) {
-        // TODO(bazel-team): We currently do not warn for duplicate headers with
-        // different labels, as that would require cleaning up the code base
-        // without significant benefit; we should eventually make this
-        // consistent one way or the other.
+        // TODO(bazel-team): We currently do not produce an error for duplicate headers and other
+        // non-source artifacts with different labels, as that would require cleaning up the code
+        // base without significant benefit; we should eventually make this consistent one way or
+        // the other.
         Label oldLabel = map.put(artifact, provider.getLabel());
         boolean isHeader = CppFileTypes.CPP_HEADER.matches(artifact.getExecPath());
-        if (!isHeader && oldLabel != null && !oldLabel.equals(provider.getLabel())) {
+        if (!isHeader
+            && CcLibraryHelper.SOURCE_TYPES.matches(artifact.getExecPathString())
+            && oldLabel != null
+            && !oldLabel.equals(provider.getLabel())) {
           ruleContext.attributeError("srcs", String.format(
               "Artifact '%s' is duplicated (through '%s' and '%s')",
               artifact.getExecPathString(), oldLabel, provider.getLabel()));
@@ -429,6 +432,7 @@ public final class CcCommon {
       }
     }
     prerequisites.addTransitive(context.getDeclaredIncludeSrcs());
+    prerequisites.addTransitive(context.getAdditionalInputs());
     return prerequisites.build();
   }
 

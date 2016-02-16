@@ -7,6 +7,11 @@ filegroup(
     srcs = glob(["**"]),
 )
 
+java_import(
+    name = "javac",
+    jars = ["javac.jar"],
+)
+
 filegroup(
     name = "javac_jar",
     srcs = ["javac.jar"],

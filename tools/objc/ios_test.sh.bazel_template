@@ -22,7 +22,7 @@ TEST_APP_DIR="${TEST_APP_DIR}/Payload/%(test_app_name)s.app"
 
 XCTEST_APP_DIR="$(mktemp -d -t xctest_app_dir)"
 unzip -qq -d "${XCTEST_APP_DIR}" "%(xctest_app_ipa)s"
-XCTEST_APP_DIR="${XCTEST_APP_DIR}/Payload/%(xctest_app_name)s.app"
+XCTEST_APP_DIR="${XCTEST_APP_DIR}/Payload/%(xctest_app_name)s.xctest"
 
 killall "iOS Simulator" >/dev/null 2>/dev/null || :
 

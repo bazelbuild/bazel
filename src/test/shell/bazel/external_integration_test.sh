@@ -57,6 +57,11 @@ function tar_gz_up() {
   tar czf $repo2_zip WORKSPACE fox
 }
 
+function tar_xz_up() {
+  repo2_zip=$TEST_TMPDIR/fox.tar.xz
+  tar cJf $repo2_zip WORKSPACE fox
+}
+
 # Test downloading a file from a repository.
 # This creates a simple repository containing:
 #
@@ -187,6 +192,10 @@ function test_http_archive_tgz() {
   http_archive_helper tar_gz_up "do_symlink"
 }
 
+function test_http_archive_tar_xz() {
+  http_archive_helper tar_xz_up "do_symlink"
+}
+
 function test_http_archive_no_server() {
   nc_port=$(pick_random_unused_tcp_port) || exit 1
   cat > WORKSPACE <<EOF
@@ -308,8 +317,7 @@ function test_jar_download() {
   serve_jar
 
   cat > WORKSPACE <<EOF
-http_jar(name = 'endangered', url = 'http://localhost:$nc_port/lib.jar',
-    sha256 = '$sha256')
+http_jar(name = 'endangered', url = 'http://localhost:$nc_port/lib.jar')
 EOF
 
   mkdir -p zoo
@@ -480,7 +488,15 @@ EOF
   expect_log "missing value for mandatory attribute 'url' in 'http_jar' rule"
 }
 
-function test_new_remote_repo() {
+function test_new_remote_repo_with_build_file() {
+  do_new_remote_repo_test "build_file"
+}
+
+function test_new_remote_repo_with_build_file_content() {
+  do_new_remote_repo_test "build_file_content"
+}
+
+function do_new_remote_repo_test() {
   # Create a zipped-up repository HTTP response.
   local repo2=$TEST_TMPDIR/repo2
   rm -rf $repo2
@@ -495,7 +511,9 @@ function test_new_remote_repo() {
   serve_file $repo2_zip
 
   cd ${WORKSPACE_DIR}
-  cat > fox.BUILD <<EOF
+
+  if [ "$1" = "build_file"] ; then
+    cat > fox.BUILD <<EOF
 filegroup(
     name = "fox",
     srcs = ["fox/male"],
@@ -503,7 +521,7 @@ filegroup(
 )
 EOF
 
-  cat > WORKSPACE <<EOF
+    cat > WORKSPACE <<EOF
 new_http_archive(
     name = 'endangered',
     url = 'http://localhost:$nc_port/repo.zip',
@@ -511,6 +529,21 @@ new_http_archive(
     build_file = 'fox.BUILD'
 )
 EOF
+  else
+    cat > WORKSPACE <<EOF
+new_http_archive(
+    name = 'endangered',
+    url = 'http://localhost:$nc_port/repo.zip',
+    sha256 = '$sha256',
+    build_file_content = """
+filegroup(
+    name = "fox",
+    srcs = ["fox/male"],
+    visibility = ["//visibility:public"],
+)"""
+)
+EOF
+  fi
 
   mkdir -p zoo
   cat > zoo/BUILD <<EOF
@@ -730,6 +763,30 @@ EOF
   serve_file x.tar.gz
   bazel build @x//:catter &> $TEST_log || fail "Build 2 failed"
   assert_contains "def" bazel-genfiles/external/x/catter.out
+}
+
+function test_truncated() {
+  http_response="$TEST_TMPDIR/http_response"
+  cat > "$http_response" <<EOF
+HTTP/1.0 200 OK
+Content-length: 200
+
+EOF
+  echo "foo"  >> "$http_response"
+  echo ${nc_port:=$(pick_random_unused_tcp_port)} > /dev/null
+  nc_log="$TEST_TMPDIR/nc.log"
+  nc_l "$nc_port" < "$http_response" >& "$nc_log" &
+  nc_pid=$!
+
+  cat > WORKSPACE <<EOF
+http_archive(
+    name = "foo",
+    url = "http://localhost:$nc_port",
+    sha256 = "b5bb9d8014a0f9b1d61e21e796d78dccdf1352f23cd32812f4850b878ae4944c",
+)
+EOF
+  bazel build @foo//bar &> $TEST_log || echo "Build failed, as expected"
+  expect_log "Expected 200B, got 4B"
 }
 
 run_suite "external tests"

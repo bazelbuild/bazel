@@ -123,6 +123,7 @@ public class ProxyHelper {
 
       Authenticator.setDefault(
           new Authenticator() {
+        	@Override
             public PasswordAuthentication getPasswordAuthentication() {
               return new PasswordAuthentication(username, decodedPassword.toCharArray());
             }

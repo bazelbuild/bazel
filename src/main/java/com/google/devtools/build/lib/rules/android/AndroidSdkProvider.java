@@ -26,6 +26,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
  */
 @Immutable
 public final class AndroidSdkProvider implements TransitiveInfoProvider {
+
+  private final String buildToolsVersion;
   private final Artifact frameworkAidl;
   private final Artifact androidJar;
   private final Artifact shrinkedAndroidJar;
@@ -45,6 +47,7 @@ public final class AndroidSdkProvider implements TransitiveInfoProvider {
   private final FilesToRunProvider resourceExtractor;
 
   public AndroidSdkProvider(
+      String buildToolsVersion,
       Artifact frameworkAidl,
       Artifact androidJar,
       Artifact shrinkedAndroidJar,
@@ -62,6 +65,8 @@ public final class AndroidSdkProvider implements TransitiveInfoProvider {
       FilesToRunProvider jack,
       FilesToRunProvider jill,
       FilesToRunProvider resourceExtractor) {
+
+    this.buildToolsVersion = buildToolsVersion;
     this.frameworkAidl = frameworkAidl;
     this.androidJar = androidJar;
     this.shrinkedAndroidJar = shrinkedAndroidJar;
@@ -107,6 +112,13 @@ public final class AndroidSdkProvider implements TransitiveInfoProvider {
     return true;
   }
 
+  /**
+   * The value of build_tools_version. May be null or empty.
+   */
+  public String getBuildToolsVersion() {
+    return buildToolsVersion;
+  }
+  
   public Artifact getFrameworkAidl() {
     return frameworkAidl;
   }

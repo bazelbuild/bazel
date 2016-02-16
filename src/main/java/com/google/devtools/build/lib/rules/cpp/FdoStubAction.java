@@ -38,11 +38,6 @@ public class FdoStubAction extends AbstractAction {
   }
 
   @Override
-  public String describeStrategy(Executor executor) {
-    return "";
-  }
-
-  @Override
   public void execute(ActionExecutionContext actionExecutionContext) {
   }
 

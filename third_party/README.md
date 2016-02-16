@@ -183,6 +183,12 @@ a minimal set of extra dependencies.
 * License: Eclipse Distribution License 1.0
 
 
+## [JimFS](https://github.com/google/jimfs)
+
+* Version: 1.1-rc1
+* License: Apache License 2.0
+
+
 ## [joda_time](http://www.joda.org/joda-time/)
 
 * Version: 2.3
@@ -254,6 +260,12 @@ a minimal set of extra dependencies.
 * License: MIT license
 
 
+## [hazelcast](http://hazelcast.org/)
+
+* Version: 3.5.4
+* License: Apache License 2.0
+
+
 # Testing
 
 ## [hamcrest](https://code.google.com/p/hamcrest/)
@@ -278,3 +290,8 @@ a minimal set of extra dependencies.
 
 * Version: 0.28
 * License: Apache License 2.0
+
+## [xz](http://tukaani.org/xz/java.html)
+
+* Version: 1.5
+* License: Public Domain

@@ -262,12 +262,6 @@ static vector<string> GetArgumentArray() {
                    blaze::ConvertPath(globals->options.output_base));
   result.push_back("--workspace_directory=" +
                    blaze::ConvertPath(globals->workspace));
-  if (!globals->options.skyframe.empty()) {
-    result.push_back("--skyframe=" + globals->options.skyframe);
-  }
-  if (globals->options.blaze_cpu) {
-    result.push_back("--blaze_cpu=true");
-  }
 
   if (globals->options.allow_configurable_attributes) {
     result.push_back("--allow_configurable_attributes");
@@ -627,15 +621,15 @@ static int ConnectToServer(bool start) {
            "Failed: fcntl to enable O_NONBLOCK on pipe");
     }
     // Give the server one minute to start up.
-    for (int ii = 0; ii < 600; ++ii) {  // 60s; enough time to connect
-                                        // with debugger
-                                        if (Connect(s, socket_file)) {
-                                          if (ii) {
-                                            fputc('\n', stderr);
-                                            fflush(stderr);
-                                          }
-                                          GetServerPid(s, pid_file);
-                                          return s;
+    for (int ii = 0; ii < 600; ++ii) {
+      // 60s; enough time to connect with debugger
+      if (Connect(s, socket_file)) {
+        if (ii) {
+          fputc('\n', stderr);
+          fflush(stderr);
+        }
+        GetServerPid(s, pid_file);
+        return s;
       }
       fputc('.', stderr);
       fflush(stderr);

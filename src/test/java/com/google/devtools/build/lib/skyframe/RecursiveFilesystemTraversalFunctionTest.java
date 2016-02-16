@@ -114,6 +114,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new WorkspaceFileFunction(TestRuleClassProvider.getRuleClassProvider(),
             new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),
             new BlazeDirectories(rootDirectory, outputBase, rootDirectory)));
+    skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
 
     progressReceiver = new RecordingEvaluationProgressReceiver();
     differencer = new RecordingDifferencer();

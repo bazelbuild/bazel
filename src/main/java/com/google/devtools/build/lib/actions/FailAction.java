@@ -62,11 +62,6 @@ public final class FailAction extends AbstractAction {
   }
 
   @Override
-  public String describeStrategy(Executor executor) {
-    return "";
-  }
-
-  @Override
   public String getMnemonic() {
     return "Fail";
   }

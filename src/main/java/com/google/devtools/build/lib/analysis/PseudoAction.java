@@ -52,11 +52,6 @@ public class PseudoAction<InfoType extends MessageLite> extends AbstractAction {
     this.info = info;
   }
 
- @Override
-  public String describeStrategy(Executor executor) {
-    return null;
-  }
-
   @Override
   public void execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException {

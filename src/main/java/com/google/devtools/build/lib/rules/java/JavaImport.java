@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -66,11 +67,11 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     semantics.checkRule(ruleContext, common);
 
     // No need for javac options - no compilation happening here.
-    JavaCompilationHelper helper = new JavaCompilationHelper(ruleContext, semantics,
-        ImmutableList.<String>of(), new JavaTargetAttributes.Builder(semantics));
-    ImmutableMap.Builder<Artifact, Artifact> compilationToRuntimeJarMap = ImmutableMap.builder();
+    BaseJavaCompilationHelper helper = new BaseJavaCompilationHelper(ruleContext);
+    ImmutableBiMap.Builder<Artifact, Artifact> compilationToRuntimeJarMapBuilder =
+        ImmutableBiMap.builder();
     ImmutableList<Artifact> interfaceJars =
-        processWithIjar(jars, helper, compilationToRuntimeJarMap);
+        processWithIjar(jars, helper, compilationToRuntimeJarMapBuilder);
 
     common.setJavaCompilationArtifacts(collectJavaArtifacts(jars, interfaceJars));
 
@@ -114,6 +115,8 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.stableOrder();
     filesBuilder.addAll(jars);
 
+    ImmutableBiMap<Artifact, Artifact> compilationToRuntimeJarMap =
+        compilationToRuntimeJarMapBuilder.build();
     semantics.addProviders(
         ruleContext,
         common,
@@ -122,8 +125,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         srcJar /* srcJar */,
         null /* genJar */,
         null /* gensrcJar */,
-        compilationToRuntimeJarMap.build(),
-        helper,
+        compilationToRuntimeJarMap,
         filesBuilder,
         ruleBuilder);
 
@@ -134,14 +136,23 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .setSourceJarsForJarFiles(srcJars)
         .build();
 
+    JavaRuleOutputJarsProvider.Builder ruleOutputJarsProvider =
+        JavaRuleOutputJarsProvider.builder();
+    for (Artifact jar : jars) {
+      ruleOutputJarsProvider.addOutputJar(
+          jar,
+          compilationToRuntimeJarMap.inverse().get(jar),
+          srcJar);
+    }
+
     NestedSet<Artifact> proguardSpecs = new ProguardLibrary(ruleContext).collectProguardSpecs();
 
     common.addTransitiveInfoProviders(ruleBuilder, filesToBuild, null);
     return ruleBuilder
         .setFilesToBuild(filesToBuild)
+        .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider.build())
         .add(JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(common.getJavaCompilationArtifacts().getRuntimeJars()))
-        .addSkylarkTransitiveInfo(JavaSkylarkApiProvider.NAME, new JavaSkylarkApiProvider())
         .add(JavaNeverlinkInfoProvider.class, new JavaNeverlinkInfoProvider(neverLink))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .add(CcLinkParamsProvider.class, new CcLinkParamsProvider(ccLinkParamsStore))
@@ -201,7 +212,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
   }
 
   private ImmutableList<Artifact> processWithIjar(ImmutableList<Artifact> jars,
-      JavaCompilationHelper helper,
+      BaseJavaCompilationHelper helper,
       ImmutableMap.Builder<Artifact, Artifact> compilationToRuntimeJarMap) {
     ImmutableList.Builder<Artifact> interfaceJarsBuilder = ImmutableList.builder();
     for (Artifact jar : jars) {

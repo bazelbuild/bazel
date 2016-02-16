@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.packages.PackageFactory.Globber;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.ParserInputSource;
@@ -68,6 +67,14 @@ public interface Preprocessor {
     boolean isStillValid();
 
     /**
+     * Returns whether all globs encountered during {@link Preprocessor#preprocess} will be passed
+     * along to the {@link Globber} given there (which then executes them asynchronously). If this
+     * is not the case, then e.g. prefetching globs during normal BUILD file evaluation may be
+     * profitable.
+     */
+    boolean considersGlobs();
+
+    /**
      * Returns a Preprocessor instance capable of preprocessing a BUILD file independently (e.g. it
      * ought to be fine to call {@link #getPreprocessor} for each BUILD file).
      */
@@ -84,6 +91,11 @@ public interface Preprocessor {
       @Override
       public boolean isStillValid() {
         return true;
+      }
+
+      @Override
+      public boolean considersGlobs() {
+        return false;
       }
 
       @Override
@@ -181,18 +193,15 @@ public interface Preprocessor {
     public final BuildFileAST ast;
     public final boolean containsAstParsingErrors;
     public final Iterable<Event> allEvents;
-    @Nullable
-    public final Globber globber;
 
     public AstAfterPreprocessing(Result preprocessingResult, BuildFileAST ast,
-        StoredEventHandler astParsingEventHandler, @Nullable Globber globber) {
+        StoredEventHandler astParsingEventHandler) {
       this.ast = ast;
       this.preprocessed = preprocessingResult.preprocessed;
       this.containsPreprocessingErrors = preprocessingResult.containsErrors;
       this.containsAstParsingErrors = astParsingEventHandler.hasErrors();
       this.allEvents = Iterables.concat(
           preprocessingResult.events, astParsingEventHandler.getEvents());
-      this.globber = globber;
     }
   }
 }

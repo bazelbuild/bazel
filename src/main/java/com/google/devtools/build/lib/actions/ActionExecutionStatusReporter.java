@@ -117,20 +117,13 @@ public final class ActionExecutionStatusReporter {
   }
 
   public void setRunningFromBuildData(ActionMetadata action) {
-    updateStatus(ActionStatusMessage.runningStrategy(action));
+    updateStatus(ActionStatusMessage.runningStrategy(action, "unknown"));
   }
 
   @Subscribe
   public void updateStatus(ActionStatusMessage statusMsg) {
     String message = statusMsg.getMessage();
     ActionMetadata action = statusMsg.getActionMetadata();
-    if (statusMsg.needsStrategy()) {
-      String strategy = action.describeStrategy(executor);
-      if (strategy == null) {
-        return;
-      }
-      message = String.format(message, strategy);
-    }
     setStatus(action, message);
   }
 

@@ -28,7 +28,7 @@ public class SequentialBuildDriver implements BuildDriver {
 
   public SequentialBuildDriver(MemoizingEvaluator evaluator) {
     this.memoizingEvaluator = Preconditions.checkNotNull(evaluator);
-    this.curVersion = new IntVersion(0);
+    this.curVersion = IntVersion.of(0);
   }
 
   @Override

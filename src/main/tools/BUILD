@@ -43,6 +43,7 @@ cc_binary(
         "//src:darwin": [],
         "//src:darwin_x86_64": [],
         "//src:freebsd": [],
+        "//src:windows": [],
         "//conditions:default": [
             ":process-tools",
             ":network-tools",

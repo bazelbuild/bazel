@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
@@ -38,7 +39,8 @@ public final class CcToolchainRule implements RuleDefinition {
   private static final LateBoundLabel<BuildConfiguration> LIBC_LINK =
       new LateBoundLabel<BuildConfiguration>(CppConfiguration.class) {
         @Override
-        public Label getDefault(Rule rule, BuildConfiguration configuration) {
+        public Label getDefault(Rule rule, AttributeMap attributes,
+            BuildConfiguration configuration) {
           return configuration.getFragment(CppConfiguration.class).getLibcLabel();
         }
       };

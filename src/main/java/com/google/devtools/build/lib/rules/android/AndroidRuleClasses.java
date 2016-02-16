@@ -124,38 +124,30 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_files/dexmanifest.txt");
   public static final SafeImplicitOutputsFunction JAVA_RESOURCES_JAR =
       fromTemplates("%{name}_files/java_resources.jar");
-  public static final String MANIFEST_MERGE_TOOL_LABEL =
-      Constants.TOOLS_REPOSITORY + "//tools/android:merge_manifests";
+  public static final String MANIFEST_MERGE_TOOL_LABEL = "//tools/android:merge_manifests";
   public static final String BUILD_INCREMENTAL_DEXMANIFEST_LABEL =
-      Constants.TOOLS_REPOSITORY + "//tools/android:build_incremental_dexmanifest";
-  public static final String STUBIFY_MANIFEST_LABEL =
-      Constants.TOOLS_REPOSITORY + "//tools/android:stubify_manifest";
-  public static final String INCREMENTAL_INSTALL_LABEL =
-      Constants.TOOLS_REPOSITORY + "//tools/android:incremental_install";
-  public static final String BUILD_SPLIT_MANIFEST_LABEL =
-      Constants.TOOLS_REPOSITORY + "//tools/android:build_split_manifest";
-  public static final String STRIP_RESOURCES_LABEL =
-      Constants.TOOLS_REPOSITORY + "//tools/android:strip_resources";
+      "//tools/android:build_incremental_dexmanifest";
+  public static final String STUBIFY_MANIFEST_LABEL = "//tools/android:stubify_manifest";
+  public static final String INCREMENTAL_INSTALL_LABEL = "//tools/android:incremental_install";
+  public static final String BUILD_SPLIT_MANIFEST_LABEL = "//tools/android:build_split_manifest";
+  public static final String STRIP_RESOURCES_LABEL = "//tools/android:strip_resources";
+  public static final String DEFAULT_INCREMENTAL_STUB_APPLICATION =
+      "//tools/android:incremental_stub_application";
+  public static final String DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION =
+      "//tools/android:incremental_split_stub_application";
+  public static final String DEFAULT_RESOURCES_PROCESSOR =
+      "//tools/android:resources_processor";
+  public static final String DEFAULT_AAR_GENERATOR = "//tools/android:aar_generator";
 
   public static final Label DEFAULT_ANDROID_SDK =
       Label.parseAbsoluteUnchecked(
           Constants.ANDROID_DEFAULT_SDK);
-  public static final Label DEFAULT_INCREMENTAL_STUB_APPLICATION =
-      Label.parseAbsoluteUnchecked(
-          Constants.TOOLS_REPOSITORY + "//tools/android:incremental_stub_application");
-  public static final Label DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION =
-      Label.parseAbsoluteUnchecked(
-          Constants.TOOLS_REPOSITORY + "//tools/android:incremental_split_stub_application");
-  public static final Label DEFAULT_RESOURCES_PROCESSOR =
-      Label.parseAbsoluteUnchecked(
-          Constants.TOOLS_REPOSITORY + "//tools/android:resources_processor");
-  public static final Label DEFAULT_AAR_GENERATOR =
-      Label.parseAbsoluteUnchecked(Constants.TOOLS_REPOSITORY + "//tools/android:aar_generator");
 
   public static final LateBoundLabel<BuildConfiguration> ANDROID_SDK =
       new LateBoundLabel<BuildConfiguration>(DEFAULT_ANDROID_SDK, AndroidConfiguration.class) {
         @Override
-        public Label getDefault(Rule rule, BuildConfiguration configuration) {
+        public Label getDefault(Rule rule, AttributeMap attributes,
+            BuildConfiguration configuration) {
           return configuration.getFragment(AndroidConfiguration.class).getSdk();
         }
       };
@@ -306,6 +298,8 @@ public final class AndroidRuleClasses {
       return builder
           .requiresConfigurationFragments(JavaConfiguration.class, AndroidConfiguration.class)
           .setUndocumented()
+          // build_tools_version is assumed to be the latest version if omitted.
+          .add(attr("build_tools_version", STRING))
           // This is the Proguard that comes from the --proguard_top attribute.
           .add(attr(":proguard", LABEL).cfg(HOST).value(JavaSemantics.PROGUARD).exec())
           // This is the Proguard in the BUILD file that contains the android_sdk rule. Used when
@@ -326,8 +320,7 @@ public final class AndroidRuleClasses {
                   .allowedFileTypes(ANY_FILE)
                   // TODO(bazel-team): Remove defaults and make mandatory when android_sdk targets
                   // have been updated to include manually specified Jack attributes.
-                  .value(environment.getLabel(
-                      Constants.TOOLS_REPOSITORY + "//tools/android/jack:android_jack")))
+                  .value(environment.getToolsLabel("//tools/android/jack:android_jack")))
           .add(attr("annotations_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("main_dex_classes", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("apkbuilder", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
@@ -337,22 +330,19 @@ public final class AndroidRuleClasses {
                   .cfg(HOST)
                   .allowedFileTypes(ANY_FILE)
                   .exec()
-                  .value(environment.getLabel(
-                      Constants.TOOLS_REPOSITORY + "//tools/android/jack:jack")))
+                  .value(environment.getToolsLabel("//tools/android/jack:jack")))
           .add(
               attr("jill", LABEL)
                   .cfg(HOST)
                   .allowedFileTypes(ANY_FILE)
                   .exec()
-                  .value(environment.getLabel(
-                      Constants.TOOLS_REPOSITORY + "//tools/android/jack:jill")))
+                  .value(environment.getToolsLabel("//tools/android/jack:jill")))
           .add(
               attr("resource_extractor", LABEL)
                   .cfg(HOST)
                   .allowedFileTypes(ANY_FILE)
                   .exec()
-                  .value(environment.getLabel(
-                      Constants.TOOLS_REPOSITORY + "//tools/android/jack:resource_extractor")))
+                  .value(environment.getToolsLabel("//tools/android/jack:resource_extractor")))
           .build();
     }
 
@@ -374,9 +364,9 @@ public final class AndroidRuleClasses {
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("$android_resources_processor", LABEL).cfg(HOST).exec().value(
-              AndroidRuleClasses.DEFAULT_RESOURCES_PROCESSOR))
+              env.getToolsLabel(DEFAULT_RESOURCES_PROCESSOR)))
           .add(attr("$android_aar_generator", LABEL).cfg(HOST).exec().value(
-              AndroidRuleClasses.DEFAULT_AAR_GENERATOR))
+              env.getToolsLabel(DEFAULT_AAR_GENERATOR)))
           .build();
     }
 
@@ -400,18 +390,15 @@ public final class AndroidRuleClasses {
           /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(manifest) -->
           The name of the Android manifest file, normally <code>AndroidManifest.xml</code>.
           Must be defined if resource_files or assets are defined.
-          ${SYNOPSIS}
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("manifest", LABEL).legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(exports_manifest) -->
           Whether to export manifest entries to <code>android_binary</code> targets
           that depend on this target. <code>uses-permissions</code> attributes are never exported.
-          ${SYNOPSIS}
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("exports_manifest", BOOLEAN).value(false))
           /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(resource_files) -->
           The list of resources to be packaged.
-          ${SYNOPSIS}
           This is typically a <code>glob</code> of all files under the
           <code>res</code> directory.
           <br/>
@@ -423,14 +410,12 @@ public final class AndroidRuleClasses {
           .add(attr("resource_files", LABEL_LIST).legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(assets_dir) -->
           The string giving the path to the files in <code>assets</code>.
-          ${SYNOPSIS}
           The pair <code>assets</code> and <code>assets_dir</code> describe packaged
           assets and either both attributes should be provided or none of them.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("assets_dir", STRING))
           /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(assets) -->
           The list of assets to be packaged.
-          ${SYNOPSIS}
           This is typically a <code>glob</code> of all files under the
           <code>assets</code> directory. You can also reference other rules (any rule that produces
           files) or exported files in the other packages, as long as all those files are under the
@@ -439,7 +424,6 @@ public final class AndroidRuleClasses {
           .add(attr("assets", LABEL_LIST).legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(inline_constants) -->
           Let the compiler inline the constants defined in the generated java sources.
-          ${SYNOPSIS}
           This attribute must be set to 0 for all <code>android_library</code> rules
           used directly by an <code>android_binary</code>,
           and for any <code>android_binary</code> that has an <code>android_library</code>
@@ -448,7 +432,6 @@ public final class AndroidRuleClasses {
           .add(attr("inline_constants", BOOLEAN).value(false))
           /* <!-- #BLAZE_RULE($android_resource_support).ATTRIBUTE(custom_package) -->
           Java package for which java sources will be generated.
-          ${SYNOPSIS}
           By default the package is inferred from the directory where the BUILD file
           containing the rule is. You can specify a different package but this is
           highly discouraged since it can introduce classpath conflicts with other
@@ -480,7 +463,6 @@ public final class AndroidRuleClasses {
               .value(ANDROID_SDK))
           /* <!-- #BLAZE_RULE($android_base).ATTRIBUTE(plugins) -->
           Java compiler plugins to run at compile-time.
-          ${SYNOPSIS}
           Every <code>java_plugin</code> specified in
           the plugins attribute will be run whenever
           this target is built.  Resources generated by
@@ -496,7 +478,6 @@ public final class AndroidRuleClasses {
               .value(JavaSemantics.JAVA_PLUGINS))
           /* <!-- #BLAZE_RULE($android_base).ATTRIBUTE(javacopts) -->
           Extra compiler options for this target.
-          ${SYNOPSIS}
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <p>
@@ -506,10 +487,9 @@ public final class AndroidRuleClasses {
           // TODO(ahumesky): It would be better to put this dependency in //tools/android somehow
           // like all the rest of android tools.
           .add(attr("$jarjar_bin", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(
-                  Constants.TOOLS_REPOSITORY + "//third_party/java/jarjar:jarjar_bin")))
+              .value(env.getToolsLabel("//third_party/java/jarjar:jarjar_bin")))
           .add(attr("$idlclass", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/android:IdlClass")))
+              .value(env.getToolsLabel("//tools/android:IdlClass")))
           .build();
     }
 
@@ -532,7 +512,6 @@ public final class AndroidRuleClasses {
       return builder
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(srcs) -->
           The list of source files that are processed to create the target.
-          ${SYNOPSIS}
           <p><code>srcs</code> files of type <code>.java</code> are compiled.
           <em>For readability's sake</em>, it is not good to put the name of a
           generated <code>.java</code> source file into the <code>srcs</code>.
@@ -551,7 +530,6 @@ public final class AndroidRuleClasses {
               .allowedFileTypes(JavaSemantics.JAVA_SOURCE, JavaSemantics.SOURCE_JAR))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(deps) -->
           The list of other libraries to be linked in to the binary target.
-          ${SYNOPSIS}
           Permitted library types are: <code>android_library</code>,
           <code>java_library</code> with <code>android</code> constraint and
           <code>cc_library</code> wrapping or producing <code>.so</code> native libraries for the
@@ -561,36 +539,35 @@ public final class AndroidRuleClasses {
               .cfg(ANDROID_SPLIT_TRANSITION)
               .allowedRuleClasses(ALLOWED_DEPENDENCIES)
               .allowedFileTypes()
-              .aspect(AndroidNeverlinkAspect.class))
+              .aspect(AndroidNeverlinkAspect.class)
+              .aspect(JackAspect.class))
           // Proguard rule specifying master list of classes to keep during legacy multidexing.
           .add(attr("$build_incremental_dexmanifest", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(AndroidRuleClasses.BUILD_INCREMENTAL_DEXMANIFEST_LABEL)))
+              .value(env.getToolsLabel(BUILD_INCREMENTAL_DEXMANIFEST_LABEL)))
           .add(attr("$stubify_manifest", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(AndroidRuleClasses.STUBIFY_MANIFEST_LABEL)))
+              .value(env.getToolsLabel(STUBIFY_MANIFEST_LABEL)))
           .add(attr("$shuffle_jars", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/android:shuffle_jars")))
+              .value(env.getToolsLabel("//tools/android:shuffle_jars")))
           .add(attr("$merge_dexzips", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/android:merge_dexzips")))
+              .value(env.getToolsLabel("//tools/android:merge_dexzips")))
           .add(attr("$incremental_install", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(INCREMENTAL_INSTALL_LABEL)))
+              .value(env.getToolsLabel(INCREMENTAL_INSTALL_LABEL)))
           .add(attr("$build_split_manifest", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(BUILD_SPLIT_MANIFEST_LABEL)))
+              .value(env.getToolsLabel(BUILD_SPLIT_MANIFEST_LABEL)))
           .add(attr("$strip_resources", LABEL).cfg(HOST).exec()
-              .value(env.getLabel(AndroidRuleClasses.STRIP_RESOURCES_LABEL)))
+              .value(env.getToolsLabel(STRIP_RESOURCES_LABEL)))
           .add(attr("$incremental_stub_application", LABEL)
-              .value(DEFAULT_INCREMENTAL_STUB_APPLICATION))
+              .value(env.getToolsLabel(DEFAULT_INCREMENTAL_STUB_APPLICATION)))
           .add(attr("$incremental_split_stub_application", LABEL)
-              .value(DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION))
+              .value(env.getToolsLabel(DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION)))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dexopts) -->
           Additional command-line flags for the dx tool when generating classes.dex.
-          ${SYNOPSIS}
           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("dexopts", STRING_LIST))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(dex_shards) -->
           Number of shards dexing should be decomposed into.
-          ${SYNOPSIS}
           This is makes dexing much faster at the expense of app installation and startup time. The
           larger the binary, the more shards should be used. 25 is a good value to start
           experimenting with.
@@ -601,7 +578,6 @@ public final class AndroidRuleClasses {
           .add(attr("dex_shards", INTEGER).value(1))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(main_dex_list_opts) -->
           Command line options to pass to the main dex list builder.
-          ${SYNOPSIS}
           Use this option to affect the classes included in the main dex list.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("main_dex_list_opts", STRING_LIST))
@@ -614,26 +590,22 @@ android/support/multidex/MultiDex.class
 android/support/multidex/MultiDexApplication.class
 com/google/common/base/Objects.class
           </pre>
-          ${SYNOPSIS}
           Must be used with <code>multidex="manual_main_dex"</code>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("main_dex_list", LABEL).legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(main_dex_proguard_specs) -->
           Files to be used as the Proguard specifications to determine classes that must be kept in
           the main dex.
-          ${SYNOPSIS}
           Only allowed if the <code>multidex</code> attribute is set to <code>legacy</code>.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("main_dex_proguard_specs", LABEL_LIST).legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(proguard_specs) -->
           Files to be used as Proguard specification.
-          ${SYNOPSIS}
           This file will describe the set of specifications to be used by Proguard.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr("proguard_specs", LABEL_LIST).legacyAllowAnyFileType())
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(proguard_generate_mapping) -->
           Whether to generate Proguard mapping file.
-          ${SYNOPSIS}
           The mapping file will be generated only if <code>proguard_specs</code> is
           specified. This file will list the mapping between the original and
           obfuscated class, method, and field names.
@@ -645,7 +617,6 @@ com/google/common/base/Objects.class
               .nonconfigurable("value is referenced in an ImplicitOutputsFunction"))
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(proguard_apply_mapping) -->
           File to be used as a mapping for proguard.
-          ${SYNOPSIS}
           A mapping file generated by <code>proguard_generate_mapping</code> to be
           re-used to apply the same mapping to a new build.
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -653,7 +624,6 @@ com/google/common/base/Objects.class
           /* <!-- #BLAZE_RULE($android_binary_base).ATTRIBUTE(legacy_native_support) -->
           Enables legacy native support, where pre-compiled native libraries are copied
           directly into the APK.
-          ${SYNOPSIS}
           Possible values:
           <ul>
               <li><code>legacy_native_support = 1</code>: Pre-built .so files found in the

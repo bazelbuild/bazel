@@ -27,6 +27,8 @@ import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.EnumMap;
 
+import javax.annotation.Nullable;
+
 /**
  * Output {@link PhaseSummaryStatistics}, {@link PhaseStatistics} and {@link PhaseVfsStatistics}
  * in text format.
@@ -107,10 +109,7 @@ public final class PhaseText extends TextPrinter {
     if (!stats.isEmpty()) {
       printTimingDistribution(stats);
       printLn();
-      if (vfsStatsLimit != 0) {
-        printVfsStatistics(stats.getVfsStatistics());
-        printLn();
-      }
+      printVfsStatistics(stats.getVfsStatistics());
     }
   }
 
@@ -171,10 +170,7 @@ public final class PhaseText extends TextPrinter {
       printLn();
     }
 
-    if (vfsStatsLimit != 0) {
-      printVfsStatistics(execPhase.getVfsStatistics());
-      printLn();
-    }
+    printVfsStatistics(execPhase.getVfsStatistics());
   }
 
   /**
@@ -199,10 +195,13 @@ public final class PhaseText extends TextPrinter {
    * sorted by descending duration. If multiple of the same VFS operation were logged for the same
    * path, print the total duration.
    */
-  private void printVfsStatistics(PhaseVfsStatistics stats) {
+  private void printVfsStatistics(@Nullable PhaseVfsStatistics stats) {
+    if (vfsStatsLimit == 0 || stats == null || stats.isEmpty()) {
+      return;
+    }
+
     lnPrint("VFS path statistics:");
     lnPrintf("%15s %10s %10s %s", "Type", "Frequency", "Duration", "Path");
-
     for (ProfilerTask type : stats) {
       int numPrinted = 0;
       for (Stat stat : stats.getSortedStatistics(type)) {
@@ -218,6 +217,7 @@ public final class PhaseText extends TextPrinter {
             stat.path);
       }
     }
+    printLn();
   }
 }
 

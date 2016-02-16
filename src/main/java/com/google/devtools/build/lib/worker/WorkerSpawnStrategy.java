@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
+import com.google.devtools.build.lib.actions.ActionStatusMessage;
 import com.google.devtools.build.lib.actions.ChangedFilesMessage;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
@@ -138,6 +139,10 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
       return;
     }
 
+    executor
+        .getEventBus()
+        .post(ActionStatusMessage.runningStrategy(spawn.getResourceOwner(), "worker"));
+
     FileOutErr outErr = actionExecutionContext.getFileOutErr();
 
     ImmutableList<String> args = ImmutableList.<String>builder()
@@ -156,8 +161,8 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
       expandArgument(requestBuilder, Iterables.getLast(spawn.getArguments()));
 
       List<ActionInput> inputs =
-          ActionInputHelper.expandMiddlemen(
-              spawn.getInputFiles(), actionExecutionContext.getMiddlemanExpander());
+          ActionInputHelper.expandArtifacts(
+              spawn.getInputFiles(), actionExecutionContext.getArtifactExpander());
 
       for (ActionInput input : inputs) {
         ByteString digest = inputFileCache.getDigest(input);
@@ -181,7 +186,7 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
             String.format(
                 "Worker process sent response with exit code: %d.", response.getExitCode()));
       }
-    } catch (Exception e) {
+    } catch (IOException e) {
       String message =
           CommandFailureUtils.describeCommandFailure(
               verboseFailures, spawn.getArguments(), env, execRoot.getPathString());
@@ -223,7 +228,7 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
 
   private WorkResponse execInWorker(
       EventHandler eventHandler, WorkerKey key, WorkRequest request, int retriesLeft)
-      throws Exception {
+      throws IOException, InterruptedException, UserExecException {
     Worker worker = null;
     WorkResponse response = null;
 
@@ -239,7 +244,7 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
             "Worker process did not return a correct WorkResponse. This is probably caused by a "
                 + "bug in the worker, writing unexpected other data to stdout.");
       }
-    } catch (Exception e) {
+    } catch (IOException | InterruptedException e) {
       if (e instanceof InterruptedException) {
         // The user pressed Ctrl-C. Get out here quick.
         retriesLeft = 0;
@@ -272,7 +277,7 @@ final class WorkerSpawnStrategy implements SpawnActionContext {
   }
 
   @Override
-  public String strategyLocality(String mnemonic, boolean remotable) {
+  public String toString() {
     return "worker";
   }
 

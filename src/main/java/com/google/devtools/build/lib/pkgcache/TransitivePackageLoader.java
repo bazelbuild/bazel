@@ -47,15 +47,6 @@ public interface TransitivePackageLoader {
                int maxDepth) throws InterruptedException;
 
   /**
-   * Returns a read-only view of the set of targets visited since this visitor
-   * was constructed.
-   *
-   * <p>Not thread-safe; do not call during visitation.
-   */
-  // TODO(bazel-team): This is only used in legacy non-Skyframe code.
-  Set<Label> getVisitedTargets();
-
-  /**
    * Returns a read-only view of the set of packages visited since this visitor
    * was constructed.
    *

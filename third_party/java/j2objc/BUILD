@@ -40,7 +40,7 @@ objc_library(
     sdk_frameworks = [
         "Security",
     ],
-    deps = ["@bazel-j2objc//:jre_emul_archive"],
+    deps = ["@bazel_j2objc//:jre_emul_archive"],
 )
 
 # Proto support is a work in progress.

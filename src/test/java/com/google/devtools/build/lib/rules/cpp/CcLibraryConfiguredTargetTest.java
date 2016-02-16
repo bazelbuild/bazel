@@ -114,6 +114,15 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testFilesToBuildWithoutDSO() throws Exception {
+    // This is like the preceding test, but with a toolchain that can't build '.so' files
+    useConfiguration("--compiler=compiler_no_dyn_linker");
+    ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
+    Artifact archive = getBinArtifact("libhello.a", hello);
+    assertThat(getFilesToBuild(hello)).containsExactly(archive);
+  }
+
+  @Test
   public void testFilesToBuildWithInterfaceSharedObjects() throws Exception {
     useConfiguration("--interface_shared_objects");
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
@@ -260,6 +269,25 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
           "bin foo/_objs/y/foo/y.pic.o",
           "bin foo/_objs/z/foo/z.pic.o"),
         artifactsToStrings(getOutputGroup(x, OutputGroupProvider.HIDDEN_TOP_LEVEL)));
+  }
+
+  @Test
+  public void testBuildHeaderModulesAsPrerequisites() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION);
+    useConfiguration();
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo",
+            "x",
+            "package(features = ['header_modules'])",
+            "cc_library(name = 'x', srcs = ['x.cc'], deps = [':y'])",
+            "cc_library(name = 'y', hdrs = ['y.h'])");
+    assertThat(
+            ActionsTestUtil.baseNamesOf(
+                getOutputGroup(x, OutputGroupProvider.COMPILATION_PREREQUISITES)))
+        .isEqualTo("y.h y.pic.pcm y.cppmap stl.cppmap crosstool.cppmap x.cppmap x.cc");
   }
 
   @Test
@@ -666,6 +694,17 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(artifactsToStrings(getFilesToBuild(hello)))
         .doesNotContain("src precompiled/missing.a");
   }
+  
+  @Test
+  public void testAllowDuplicateNonCompiledSources() throws Exception {
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "x",
+            "x",
+            "filegroup(name = 'xso', srcs = ['x.so'])",
+            "cc_library(name = 'x', srcs = ['x.so', ':xso'])");
+    assertThat(x).isNotNull();
+  }
 
   @Test
   public void testDoNotCompileSourceFilesInHeaders() throws Exception {
@@ -693,14 +732,29 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupProvider.HIDDEN_TOP_LEVEL)))
         .isEqualTo("y.h.processed");
   }
-  
+
+  @Test
+  public void testDoNotProcessHeadersInDependencies() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_PROCESSING_FEATURE_CONFIGURATION);
+    useConfiguration("--features=parse_headers");
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo",
+            "x",
+            "cc_library(name = 'x', deps = [':y'])",
+            "cc_library(name = 'y', hdrs = ['y.h'])");
+    assertThat(ActionsTestUtil.baseNamesOf(getOutputGroup(x, OutputGroupProvider.HIDDEN_TOP_LEVEL)))
+        .isEmpty();
+  }
+
   @Test
   public void testProcessHeadersInCompileOnlyMode() throws Exception {
     AnalysisMock.get()
         .ccSupport()
         .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_PROCESSING_FEATURE_CONFIGURATION);
-    useConfiguration(
-        "--features=parse_headers", "--process_headers_in_dependencies");
+    useConfiguration("--features=parse_headers", "--process_headers_in_dependencies");
     ConfiguredTarget y =
         scratchConfiguredTarget(
             "foo",

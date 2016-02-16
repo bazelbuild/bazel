@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -57,9 +58,17 @@ public final class ProguardLibrary {
    * Collects the validated proguard specs exported by this rule and its dependencies.
    */
   public NestedSet<Artifact> collectProguardSpecs() {
+    return collectProguardSpecs(DEPENDENCY_ATTRIBUTES);
+  }
+
+  /**
+   * Collects the validated proguard specs exported by this rule and its dependencies through the
+   * given attributes.
+   */
+  public NestedSet<Artifact> collectProguardSpecs(Multimap<Mode, String> attributes) {
     NestedSetBuilder<Artifact> specsBuilder = NestedSetBuilder.naiveLinkOrder();
 
-    for (Entry<Mode, String> attribute : DEPENDENCY_ATTRIBUTES.entries()) {
+    for (Entry<Mode, String> attribute : attributes.entries()) {
       specsBuilder.addTransitive(
           collectProguardSpecsFromAttribute(attribute.getValue(), attribute.getKey()));
     }
@@ -88,10 +97,11 @@ public final class ProguardLibrary {
   }
 
   /**
-   * Collects the proguard specs exported by dependencies on the given LABEL_LIST attribute.
+   * Collects the proguard specs exported by dependencies on the given LABEL_LIST/LABEL attribute.
    */
   private NestedSet<Artifact> collectProguardSpecsFromAttribute(String attribute, Mode mode) {
-    if (!ruleContext.getRule().isAttrDefined(attribute, BuildType.LABEL_LIST)) {
+    if (!(ruleContext.getRule().isAttrDefined(attribute, BuildType.LABEL_LIST)
+        || ruleContext.getRule().isAttrDefined(attribute, BuildType.LABEL))) {
       return NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     }
     NestedSetBuilder<Artifact> dependencySpecsBuilder = NestedSetBuilder.naiveLinkOrder();

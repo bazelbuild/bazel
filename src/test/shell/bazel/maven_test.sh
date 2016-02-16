@@ -138,13 +138,13 @@ maven_server(
 )
 
 maven_jar(
-    name = "thing-a-ma-bop",
+    name = "thing_a_ma_bop",
     artifact = "thing:amabop:1.9",
 )
 EOF
 
-  bazel build @thing-a-ma-bop//jar &> $TEST_log || fail "Building thing failed"
-  expect_log "Target @thing-a-ma-bop//jar:jar up-to-date"
+  bazel build @thing_a_ma_bop//jar &> $TEST_log || fail "Building thing failed"
+  expect_log "Target @thing_a_ma_bop//jar:jar up-to-date"
 }
 
 function test_settings() {
@@ -156,7 +156,7 @@ maven_server(
     settings_file = "settings.xml",
 )
 maven_jar(
-    name = "thing-a-ma-bop",
+    name = "thing_a_ma_bop",
     artifact = "thing:amabop:1.9",
     server = "x",
 )
@@ -172,9 +172,9 @@ EOF
 </settings>
 EOF
 
-  bazel build @thing-a-ma-bop//jar &> $TEST_log \
+  bazel build @thing_a_ma_bop//jar &> $TEST_log \
     || fail "Building thing failed"
-  expect_log "Target @thing-a-ma-bop//jar:jar up-to-date"
+  expect_log "Target @thing_a_ma_bop//jar:jar up-to-date"
 
   # Create an invalid settings.xml (by using a tag that isn't allowed in
   # settings).
@@ -188,7 +188,7 @@ EOF
 </settings>
 EOF
   bazel clean --expunge
-  bazel build @thing-a-ma-bop//jar &> $TEST_log \
+  bazel build @thing_a_ma_bop//jar &> $TEST_log \
     && fail "Building thing succeeded"
   expect_log "Unrecognised tag: 'repositories'"
 }
@@ -226,7 +226,7 @@ maven_server(
     settings_file = "settings.xml",
 )
 maven_jar(
-    name = "good-auth",
+    name = "good_auth",
     artifact = "thing:amabop:1.9",
     server = "x",
 )
@@ -237,7 +237,7 @@ maven_server(
     settings_file = "settings.xml",
 )
 maven_jar(
-    name = "bad-auth",
+    name = "bad_auth",
     artifact = "thing:amabop:1.9",
     server = "y",
 )
@@ -260,11 +260,11 @@ EOF
 </settings>
 EOF
 
-  bazel build @good-auth//jar &> $TEST_log \
+  bazel build @good_auth//jar &> $TEST_log \
     || fail "Expected correct password to work"
-  expect_log "Target @good-auth//jar:jar up-to-date"
+  expect_log "Target @good_auth//jar:jar up-to-date"
 
-  bazel build @bad-auth//jar &> $TEST_log \
+  bazel build @bad_auth//jar &> $TEST_log \
     && fail "Expected incorrect password to fail"
   expect_log "Unauthorized (401)"
 }

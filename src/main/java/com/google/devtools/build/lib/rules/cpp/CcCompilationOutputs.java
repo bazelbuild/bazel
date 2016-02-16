@@ -147,15 +147,18 @@ public class CcCompilationOutputs {
   }
   
   /**
-   * Returns the output files that are considered "copmiled" by this C++ compile action.
+   * Returns the output files that are considered "compiled" by this C++ compile action.
    */
-  NestedSet<Artifact> getFilesToCompile(boolean isLipoContextCollector, boolean usePic) {
+  NestedSet<Artifact> getFilesToCompile(
+      boolean isLipoContextCollector, boolean parseHeaders, boolean usePic) {
     if (isLipoContextCollector) {
       return NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
     }
     NestedSetBuilder<Artifact> files = NestedSetBuilder.stableOrder();
     files.addAll(getObjectFiles(usePic));
-    files.addAll(getHeaderTokenFiles());
+    if (parseHeaders) {
+      files.addAll(getHeaderTokenFiles());
+    }
     return files.build();
   }
 

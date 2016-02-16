@@ -1,0 +1,88 @@
+// Copyright 2015 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package build.remote;
+
+option java_package = "com.google.devtools.build.lib.remote";
+
+// A message for cache entry.
+message CacheEntry {
+  // A list of files stored in this cache entry.
+  repeated FileEntry files = 1;
+
+  // A blob for data that is a chunk of a file.
+  bytes file_content = 2;
+}
+
+// A message for storing a file in cache.
+message FileEntry {
+  // The path in the file system where to read this input artifact from. This is
+  // either a path relative to the execution root (the worker process is
+  // launched with the working directory set to the execution root), or an
+  // absolute path.
+  string path = 1;
+
+  // The cache key to locate the file content. This key is usually generated
+  // from
+  // the content of the file such that different keys means the file content are
+  // different.
+  string content_key = 2;
+
+  // Whether the file is an executable.
+  bool executable = 3;
+
+  // TODO(alpha): For large files we need to break down into chunks to store
+  // in the cache. For that case we need a index for the chunks of the file.
+}
+
+// A message for running a command remotely.
+message RemoteWorkRequest {
+  // The key for writing the output of this work request.
+  string output_key = 1;
+
+  // The arguments for running the command. The command itself is in
+  // arguments[0].
+  repeated string arguments = 2;
+
+  // The list of input files to this work request.
+  repeated FileEntry input_files = 3;
+
+  // A map of environment variables for this command.
+  map<string, string> environment = 4;
+
+  // The list of expected output files to this work request.
+  // The content keys for these entries will be empty since the files don't
+  // exist yet.
+  repeated FileEntry output_files = 5;
+
+  // Timeout for running this command.
+  int32 timeout = 6;
+}
+
+// A message for a work response.
+message RemoteWorkResponse {
+  // True if the work was successful.
+  bool success = 1;
+
+  // String from stdout of running the work.
+  string out = 2;
+
+  // String from stderr of running the work.
+  string err = 3;
+
+  // String for the exception when running this work.
+  string exception = 4;
+}

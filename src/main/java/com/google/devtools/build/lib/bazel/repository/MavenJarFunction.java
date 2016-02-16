@@ -26,8 +26,8 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
-import com.google.devtools.build.lib.skyframe.RepositoryValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -142,7 +142,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
         .setTargetName(downloader.getName())
         .setArchivePath(repositoryJar)
         .setRepositoryPath(outputDirectory).build());
-    return RepositoryValue.create(result);
+    return RepositoryDirectoryValue.create(result);
   }
 
   /**
@@ -170,13 +170,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
       this.name = name;
       this.outputDirectory = outputDirectory;
 
-      if (!mapper.get("artifact", Type.STRING).isEmpty()) {
-        this.artifact = mapper.get("artifact", Type.STRING);
-      } else {
-        this.artifact = mapper.get("group_id", Type.STRING) + ":"
-            + mapper.get("artifact_id", Type.STRING) + ":"
-            + mapper.get("version", Type.STRING);
-      }
+      this.artifact = mapper.get("artifact", Type.STRING);
       this.sha1 = (mapper.has("sha1", Type.STRING)) ? mapper.get("sha1", Type.STRING) : null;
       this.url = serverValue.getUrl();
       this.server = serverValue.getServer();

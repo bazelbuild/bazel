@@ -1,7 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
 load(
-    "/tools/build_defs/d/d",
+    "//tools/build_defs/d:d.bzl",
     "d_docs",
     "d_library",
     "d_source_library",

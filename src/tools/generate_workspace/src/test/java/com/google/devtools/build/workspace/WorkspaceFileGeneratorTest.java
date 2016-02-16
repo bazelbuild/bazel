@@ -72,13 +72,17 @@ public class WorkspaceFileGeneratorTest {
     resolver.writeWorkspace(outputStream);
     outputStream.close();
 
-    assertEquals("# The following dependencies were calculated from:\n"
-        + "# " + pom + "\n\n\n"
-        + "# com.google.appengine.demos:appengine-try-java:jar:1.0\n"
-        + "maven_jar(\n"
-        + "    name = \"com.google.appengine_appengine-api-1.0-sdk\",\n"
-        + "    artifact = \"com.google.appengine:appengine-api-1.0-sdk:1.9.20\",\n"
-        + ")\n\n", new String(Files.readAllBytes(Paths.get(outputFile))));
+    assertEquals(
+        "# The following dependencies were calculated from:\n"
+            + "# "
+            + pom
+            + "\n\n\n"
+            + "# com.google.appengine.demos:appengine-try-java:jar:1.0\n"
+            + "maven_jar(\n"
+            + "    name = \"com_google_appengine_appengine_api_1_0_sdk\",\n"
+            + "    artifact = \"com.google.appengine:appengine-api-1.0-sdk:1.9.20\",\n"
+            + ")\n\n",
+        new String(Files.readAllBytes(Paths.get(outputFile))));
     // We can't recursively fetch deps over the network.
     assertTrue(handler.hasErrors());
   }

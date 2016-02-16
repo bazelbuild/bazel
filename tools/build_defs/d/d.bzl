@@ -15,7 +15,11 @@
 """D rules for Bazel."""
 
 A_FILETYPE = FileType([".a"])
-D_FILETYPE = FileType([".d", ".di"])
+
+D_FILETYPE = FileType([
+    ".d",
+    ".di",
+])
 
 ZIP_PATH = "/usr/bin/zip"
 
@@ -402,13 +406,17 @@ _d_compile_attrs = {
     "_d_compiler": attr.label(
         default = Label("//tools/build_defs/d:dmd"),
         executable = True,
-        single_file = True),
+        single_file = True,
+    ),
     "_d_stdlib": attr.label(
-        default = Label("//tools/build_defs/d:libphobos2")),
+        default = Label("//tools/build_defs/d:libphobos2"),
+    ),
     "_d_stdlib_src": attr.label(
-        default = Label("//tools/build_defs/d:phobos-src")),
+        default = Label("//tools/build_defs/d:phobos-src"),
+    ),
     "_d_runtime_import_src": attr.label(
-        default = Label("//tools/build_defs/d:druntime-import-src")),
+        default = Label("//tools/build_defs/d:druntime-import-src"),
+    ),
 }
 
 d_library = rule(
@@ -426,14 +434,14 @@ d_source_library = rule(
 
 d_binary = rule(
     _d_binary_impl,
-    executable = True,
     attrs = _d_common_attrs + _d_compile_attrs,
+    executable = True,
 )
 
 d_test = rule(
     _d_test_impl,
-    executable = True,
     attrs = _d_common_attrs + _d_compile_attrs,
+    executable = True,
     test = True,
 )
 
@@ -449,17 +457,63 @@ d_docs = rule(
     },
 )
 
+DMD_BUILD_FILE = """
+package(default_visibility = ["//visibility:public"])
+
+config_setting(
+    name = "darwin",
+    values = {"host_cpu": "darwin"},
+)
+
+config_setting(
+    name = "k8",
+    values = {"host_cpu": "k8"},
+)
+
+filegroup(
+    name = "dmd",
+    srcs = select({
+        ":darwin": ["dmd2/osx/bin/dmd"],
+        ":k8": ["dmd2/linux/bin64/dmd"],
+    }),
+)
+
+filegroup(
+    name = "libphobos2",
+    srcs = select({
+        ":darwin": ["dmd2/osx/lib/libphobos2.a"],
+        ":k8": [
+            "dmd2/linux/lib64/libphobos2.a",
+            "dmd2/linux/lib64/libphobos2.so",
+        ],
+    }),
+)
+
+filegroup(
+    name = "phobos-src",
+    srcs = glob(["dmd2/src/phobos/**/*.*"]),
+)
+
+filegroup(
+    name = "druntime-import-src",
+    srcs = glob([
+        "dmd2/src/druntime/import/*.*",
+        "dmd2/src/druntime/import/**/*.*",
+    ]),
+)
+"""
+
 def d_repositories():
   native.new_http_archive(
-      name = "dmd-linux-x86_64",
-      url = "http://downloads.dlang.org/releases/2.x/2.067.1/dmd.2.067.1.linux.zip",
-      sha256 = "a5014886773853b4a42df19ee9591774cf281d33fbc511b265df30ba832926cd",
-      build_file = "tools/build_defs/d/dmd.BUILD",
+      name = "dmd_linux_x86_64",
+      url = "http://downloads.dlang.org/releases/2.x/2.070.0/dmd.2.070.0.linux.tar.xz",
+      sha256 = "42f48db8716f523076e881151f631e741342012881ec9b57353544ed46c4f774",
+      build_file_content = DMD_BUILD_FILE,
   )
 
   native.new_http_archive(
-      name = "dmd-darwin-x86_64",
-      url = "http://downloads.dlang.org/releases/2.x/2.067.1/dmd.2.067.1.linux.zip",
-      sha256 = "aa76bb83c38b3f7495516eb08977fc9700c664d7a945ba3ac3c0004a6a8509f2",
-      build_file = "tools/build_defs/d/dmd.BUILD",
+      name = "dmd_darwin_x86_64",
+      url = "http://downloads.dlang.org/releases/2.x/2.070.0/dmd.2.070.0.osx.tar.xz",
+      sha256 = "c1dd14ded8e099dcb2f136379013959b07790249f440010d556e67ff59fe44a0",
+      build_file_content = DMD_BUILD_FILE,
   )

@@ -208,7 +208,7 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     Attribute attr = ruleClass.getAttribute(index);
     if (attr.getType() != type) {
       throw new IllegalArgumentException("Attribute " + attrName
-          + " is not of type " + type + " in rule " + ruleLabel);
+          + " is of type " + attr.getType() + " and not of type " + type + " in rule " + ruleLabel);
     }
     return index;
   }

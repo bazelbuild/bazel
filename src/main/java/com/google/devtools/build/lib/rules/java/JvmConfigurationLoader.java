@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -157,10 +158,9 @@ public final class JvmConfigurationLoader implements ConfigurationFragmentFactor
       }
       throw new InvalidConfigurationException("No JVM target found under " + javaHome
           + " that would work for " + cpu);
-    } catch (NoSuchPackageException e) {
+    } catch (NoSuchPackageException | NoSuchTargetException e) {
+      lookup.getEventHandler().handle(Event.error(e.getMessage()));
       throw new InvalidConfigurationException(e.getMessage(), e);
-    } catch (NoSuchTargetException e) {
-      throw new InvalidConfigurationException("No such target: " + e.getMessage(), e);
     }
   }
 

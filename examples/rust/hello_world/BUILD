@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-load("/tools/build_rules/rust/rust", "rust_binary", "rust_doc", "rust_doc_test")
+load("//tools/build_rules/rust:rust.bzl", "rust_binary", "rust_doc", "rust_doc_test")
 
 rust_binary(
     name = "hello_world",

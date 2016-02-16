@@ -18,7 +18,8 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-import com.google.devtools.build.lib.unix.FilesystemUtils;
+import com.google.devtools.build.lib.unix.NativePosixFiles;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -68,7 +69,7 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
     Path regular = absolutize("regular");
     Path fifo = absolutize("fifo");
     FileSystemUtils.createEmptyFile(regular);
-    FilesystemUtils.mkfifo(fifo.toString(), 0777);
+    NativePosixFiles.mkfifo(fifo.toString(), 0777);
     assertTrue(regular.isFile());
     assertFalse(regular.isSpecialFile());
     assertTrue(regular.stat().isFile());

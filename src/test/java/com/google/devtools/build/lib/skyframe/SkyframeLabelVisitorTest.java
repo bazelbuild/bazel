@@ -405,15 +405,17 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
   public void testWithNoSubincludes() throws Exception {
     // This test uses the preprocessor.
     preprocessorFactorySupplier.inject(
-        new SubincludePreprocessor(scratch.getFileSystem(), skyframeExecutor.getPackageManager()));
-    skyframeExecutor.preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
-        ConstantRuleVisibility.PRIVATE,
-        true,
-        7,
-        ruleClassProvider.getDefaultsPackageContent(),
-        UUID.randomUUID());
-    this.visitor = skyframeExecutor.pkgLoader();
+        new SubincludePreprocessor(
+            scratch.getFileSystem(), getSkyframeExecutor().getPackageManager()));
+    getSkyframeExecutor()
+        .preparePackageLoading(
+            new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
+            ConstantRuleVisibility.PRIVATE,
+            true,
+            7,
+            ruleClassProvider.getDefaultsPackageContent(),
+            UUID.randomUUID());
+    this.visitor = getSkyframeExecutor().pkgLoader();
     scratch.file("pkg/BUILD", "sh_library(name = 'x', deps = ['z'])", "sh_library(name = 'z')");
     assertLabelsVisited(
         ImmutableSet.of("//pkg:x", "//pkg:z"),
@@ -446,15 +448,17 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
   public void testSubpackageBoundarySubincludes() throws Exception {
     // This test uses the python preprocessor.
     preprocessorFactorySupplier.inject(
-        new SubincludePreprocessor(scratch.getFileSystem(), skyframeExecutor.getPackageManager()));
-    skyframeExecutor.preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
-        ConstantRuleVisibility.PRIVATE,
-        true,
-        7,
-        ruleClassProvider.getDefaultsPackageContent(),
-        UUID.randomUUID());
-    this.visitor = skyframeExecutor.pkgLoader();
+        new SubincludePreprocessor(
+            scratch.getFileSystem(), getSkyframeExecutor().getPackageManager()));
+    getSkyframeExecutor()
+        .preparePackageLoading(
+            new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
+            ConstantRuleVisibility.PRIVATE,
+            true,
+            7,
+            ruleClassProvider.getDefaultsPackageContent(),
+            UUID.randomUUID());
+    this.visitor = getSkyframeExecutor().pkgLoader();
     scratch.file("a/BUILD", "subinclude('//b:c/d/foo')");
     scratch.file("b/BUILD", "exports_files(['c/d/foo'])");
     scratch.file("b/c/d/foo", "sh_library(name = 'a')");

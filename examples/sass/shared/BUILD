@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-load("/tools/build_defs/sass/sass", "sass_library")
+load("//tools/build_defs/sass:sass.bzl", "sass_library")
 
 # make a :colors target that any sass_binary rules can depend on.
 sass_library(

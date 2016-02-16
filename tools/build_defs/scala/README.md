@@ -5,25 +5,21 @@
   <ul>
     <li><a href="#scala_library">scala_library/scala_macro_library</a></li>
     <li><a href="#scala_binary">scala_binary</a></li>
+    <li><a href="#scala_test">scala_test</a></li>
   </ul>
 </div>
 
 ## Overview
 
 This rule is used for building [Scala][scala] projects with Bazel. There are
-currently three rules, `scala_library`, `scala_macro_library` and
-`scala_binary`. More features will be added in the future, e.g. `scala_test`.
+currently four rules, `scala_library`, `scala_macro_library`, `scala_binary`
+and `scala_test`.
 
-In order to use this build rule, you must add the following to your WORKSPACE
-file:
+In order to use `scala_library`, `scala_macro_library`, and `scala_binary`,
+you must add the following to your WORKSPACE file:
 ```python
-new_http_archive(
-    name = "scala",
-    strip_prefix = "scala-2.11.7",
-    sha256 = "ffe4196f13ee98a66cf54baffb0940d29432b2bd820bd0781a8316eec22926d0",
-    url = "http://downloads.typesafe.com/scala/2.11.7/scala-2.11.7.tgz",
-    build_file = "tools/build_defs/scala/scala.BUILD",
-)
+load("@bazel_tools//tools/build_defs/scala:scala.bzl", "scala_repositories")
+scala_repositories()
 ```
 
 [scala]: http://www.scala-lang.org/
@@ -234,3 +230,19 @@ A `scala_binary` requires a `main_class` attribute.
     </tr>
   </tbody>
 </table>
+
+<a name="scala_test"></a>
+## scala_test
+
+```python
+scala_test(name, srcs, suites, deps, data, main_class, resources, scalacopts, jvm_flags)
+```
+
+`scala_test` generates a Scala executable which runs unit test suites written
+using the `scalatest` library. It may depend on `scala_library`,
+`scala_macro_library` and `java_library` rules.
+
+A `scala_test` requires a `suites` attribute, specifying the fully qualified
+(canonical) names of the test suites to run. In a future version, we might
+investigate lifting this requirement.
+

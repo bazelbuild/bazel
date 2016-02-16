@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -56,9 +57,13 @@ public final class CommandHelper {
    * If the command is very long, then we write the command to a script file,
    * to avoid overflowing any limits on command-line length.
    * For short commands, we just use /bin/bash -c command.
+   *
+   * Maximum command line length on Windows is 32767[1], but for cmd.exe it is 8192[2].
+   * [1] https://msdn.microsoft.com/en-us/library/ms682425(VS.85).aspx
+   * [2] https://support.microsoft.com/en-us/kb/830473.
    */
   @VisibleForTesting
-  public static int maxCommandLength = 64000;
+  public static int maxCommandLength = OS.getCurrent() == OS.WINDOWS ? 8000 : 64000;
 
   /**
    *  A map of remote path prefixes and corresponding runfiles manifests for tools
@@ -268,11 +273,9 @@ public final class CommandHelper {
   public List<String> buildCommandLine(
       String command, NestedSetBuilder<Artifact> inputs, String scriptPostFix,
       Map<String, String> executionInfo) {
-    // Use vanilla /bin/bash for actions running on mac machines.
-    PathFragment shellPath = executionInfo.containsKey("requires-darwin")
-        ? new PathFragment("/bin/bash") : ruleContext.getConfiguration().getShExecutable();
     Pair<List<String>, Artifact> argvAndScriptFile =
-        buildCommandLineMaybeWithScriptFile(ruleContext, command, scriptPostFix, shellPath);
+        buildCommandLineMaybeWithScriptFile(ruleContext, command, scriptPostFix,
+            shellPath(executionInfo));
     if (argvAndScriptFile.second != null) {
       inputs.add(argvAndScriptFile.second);
     }
@@ -285,12 +288,22 @@ public final class CommandHelper {
    * Fixes up the input artifact list with the created bash script when required.
    */
   public List<String> buildCommandLine(
-      String command, List<Artifact> inputs, String scriptPostFix) {
+      String command, List<Artifact> inputs, String scriptPostFix,
+      Map<String, String> executionInfo) {
     Pair<List<String>, Artifact> argvAndScriptFile = buildCommandLineMaybeWithScriptFile(
-        ruleContext, command, scriptPostFix, ruleContext.getConfiguration().getShExecutable());
+        ruleContext, command, scriptPostFix, shellPath(executionInfo));
     if (argvAndScriptFile.second != null) {
       inputs.add(argvAndScriptFile.second);
     }
     return argvAndScriptFile.first;
+  }
+
+  /**
+   * Returns the path to the shell for an action with the given execution requirements.
+   */
+  private PathFragment shellPath(Map<String, String> executionInfo) {
+    // Use vanilla /bin/bash for actions running on mac machines.
+    return executionInfo.containsKey("requires-darwin")
+        ? new PathFragment("/bin/bash") : ruleContext.getConfiguration().getShExecutable();
   }
 }

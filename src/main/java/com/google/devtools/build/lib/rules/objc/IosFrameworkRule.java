@@ -40,7 +40,6 @@ public class IosFrameworkRule implements RuleDefinition {
             ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
         /* <!-- #BLAZE_RULE(ios_framework).ATTRIBUTE(binary) -->
         The binary target included in the framework bundle.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("binary", LABEL)
             .allowedRuleClasses("ios_framework_binary")
@@ -50,7 +49,6 @@ public class IosFrameworkRule implements RuleDefinition {
             .cfg(IosExtension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION))
         /* <!-- #BLAZE_RULE(ios_framework).ATTRIBUTE(hdrs) -->
         Public headers to include in the framework bundle.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("hdrs", LABEL_LIST)
             .direct_compile_time_input()

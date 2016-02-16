@@ -96,7 +96,10 @@ public final class SkyFunctions {
   public static final SkyFunctionName WORKSPACE_FILE = SkyFunctionName.create("WORKSPACE_FILE");
   public static final SkyFunctionName COVERAGE_REPORT = SkyFunctionName.create("COVERAGE_REPORT");
   public static final SkyFunctionName REPOSITORY = SkyFunctionName.create("REPOSITORY");
+  public static final SkyFunctionName REPOSITORY_DIRECTORY =
+      SkyFunctionName.create("REPOSITORY_DIRECTORY");
   public static final SkyFunctionName WORKSPACE_AST = SkyFunctionName.create("WORKSPACE_AST");
+  public static final SkyFunctionName EXTERNAL_PACKAGE = SkyFunctionName.create("EXTERNAL_PACKAGE");
 
   public static Predicate<SkyKey> isSkyFunction(final SkyFunctionName functionName) {
     return new Predicate<SkyKey>() {

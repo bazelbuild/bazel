@@ -1,7 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
 load(
-    "/tools/build_rules/rust/rust",
+    "//tools/build_rules/rust:rust.bzl",
     "rust_library",
     "rust_test",
     "rust_doc",

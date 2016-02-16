@@ -19,7 +19,7 @@ To use the D rules, add the following to your `WORKSPACE` file to add the
 external repositories for the D toolchain:
 
 ```python
-load("/tools/build_defs/d/d", "d_repositories")
+load("@bazel_tools//tools/build_defs/d:d.bzl", "d_repositories")
 
 d_repositories()
 ```
@@ -136,7 +136,7 @@ The library `foo` is built using a `d_library` target:
 `foo/BUILD`:
 
 ```python
-load("/tools/build_defs/d/d", "d_library")
+load("@bazel_tools//tools/build_defs/d/d", "d_library")
 
 d_binary(
     name = "foo",
@@ -263,7 +263,7 @@ Build the C library using the `cc_library` rule and then use the
 `greeter/BUILD`:
 
 ```python
-load("/tools/build_defs/d/d", "d_source_library")
+load("@bazel_tools//tools/build_defs/d/d", "d_source_library")
 
 cc_library(
     name = "native_greeter_lib",
@@ -284,7 +284,7 @@ the C library:
 `hello_world/BUILD`:
 
 ```python
-load("/tools/build_defs/d/d", "d_source_library")
+load("@bazel_tools//tools/build_defs/d/d", "d_source_library")
 
 d_binary(
     name = "hello_world",
@@ -401,7 +401,7 @@ The `hello_lib` library is built using a `d_library` target:
 `hello_lib/BUILD`:
 
 ```python
-load("/tools/build_defs/d/d", "d_library")
+load("@bazel_tools//tools/build_defs/d/d", "d_library")
 
 d_library(
     name = "hello_lib",
@@ -425,7 +425,7 @@ The `hello_world` binary is built using a `d_binary` target:
 `hello_world/BUILD`:
 
 ```python
-load("/tools/build_defs/d/d", "d_library")
+load("@bazel_tools//tools/build_defs/d/d", "d_library")
 
 d_binary(
     name = "hello_world",
@@ -574,7 +574,7 @@ To build the library and unit test:
 `hello_lib/BUILD`:
 
 ```python
-load("/tools/build_defs/d/d", "d_library", "d_test")
+load("@bazel_tools//tools/build_defs/d/d", "d_library", "d_test")
 
 d_library(
     name = "greeter",
@@ -655,7 +655,7 @@ that takes the `d_library` `foo` as its dependency:
 `foo/BUILD`:
 
 ```python
-load("/tools/build_defs/d/d", "d_library", "d_docs")
+load("@bazel_tools//tools/build_defs/d/d", "d_library", "d_docs")
 
 d_library(
     name = "foo",

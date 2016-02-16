@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
@@ -544,6 +545,18 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     assertThat(argv.get(1)).isEqualTo("-c");
     assertMatches("argv[2]", "A.*/mytool .*/mytool.sh B.*file3.dat", argv.get(2));
   }
+  
+  @Test
+  public void testResolveCommandExecutionRequirements() throws Exception {
+    // Tests that requires-darwin execution requirements result in the usage of /bin/bash.
+    evalRuleContextCode(
+        createRuleContext("//foo:resolve_me"),
+        "inputs, argv, manifests = ruleContext.resolve_command(",
+        "  execution_requirements={'requires-darwin': ''})");
+    @SuppressWarnings("unchecked")
+    List<String> argv = (List<String>) (List<?>) (MutableList) lookup("argv");
+    assertMatches("argv[0]", "^/bin/bash$", argv.get(0));
+  }
 
   @Test
   public void testResolveCommandScript() throws Exception {
@@ -831,10 +844,10 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   @Test
   public void testDefinedMakeVariable() throws Exception {
     SkylarkRuleContext ctx = createRuleContext("//foo:baz");
-    String javac = (String) evalRuleContextCode(ctx, "ruleContext.var['JAVAC']");
+    String java = (String) evalRuleContextCode(ctx, "ruleContext.var['JAVA']");
     // Get the last path segment
-    javac = javac.substring(javac.lastIndexOf('/'));
-    assertEquals("/javac", javac);
+    java = java.substring(java.lastIndexOf('/'));
+    assertEquals("/java", java);
   }
 
   @Test
@@ -948,6 +961,41 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_glob");
     assertContainsEvent("native.glob() can only be called during the loading phase");
+  }
+
+  @Test
+  public void testImplicitOutputsFromGlob() throws Exception {
+    scratch.file("test/glob.bzl",
+        "def _impl(ctx):",
+        "  outs = ctx.outputs",
+        "  for i in ctx.attr.srcs:",
+        "    o = getattr(outs, 'foo_' + i.label.name)",
+        "    ctx.file_action(",
+        "      output = o,",
+        "      content = 'hoho')",
+        "",
+        "def _foo(attr_map):",
+        "  outs = {}",
+        "  for i in attr_map.srcs:",
+        "    outs['foo_' + i.name] = i.name + '.out'",
+        "  return outs",
+        "",
+        "glob_rule = rule(",
+        "    attrs = {",
+        "        'srcs': attr.label_list(allow_files = True),",
+        "    },",
+        "    outputs = _foo,",
+        "    implementation = _impl,",
+        ")");
+    scratch.file("test/a.bar", "a");
+    scratch.file("test/b.bar", "b");
+    scratch.file("test/BUILD",
+        "load('/test/glob', 'glob_rule')",
+        "glob_rule(name = 'my_glob', srcs = glob(['*.bar']))");
+    ConfiguredTarget ct = getConfiguredTarget("//test:my_glob");
+    assertThat(ct).isNotNull();
+    assertThat(getGeneratingAction(getBinArtifact("a.bar.out", ct))).isNotNull();
+    assertThat(getGeneratingAction(getBinArtifact("b.bar.out", ct))).isNotNull();
   }
 
   private void setupThrowFunction(BuiltinFunction func) throws Exception {

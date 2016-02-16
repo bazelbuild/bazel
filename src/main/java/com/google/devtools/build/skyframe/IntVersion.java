@@ -13,29 +13,29 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import java.io.Serializable;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 
-/**
- * Versioning scheme based on integers.
- */
-public final class IntVersion implements Version, Serializable {
+/** Versioning scheme based on integers. */
+final class IntVersion implements Version {
+  private static final Interner<IntVersion> interner = Interners.newWeakInterner();
 
   private final long val;
 
-  public IntVersion(long val) {
+  private IntVersion(long val) {
     this.val = val;
   }
 
-  public long getVal() {
+  long getVal() {
     return val;
   }
 
-  public IntVersion next() {
-    return new IntVersion(val + 1);
+  IntVersion next() {
+    return of(val + 1);
   }
 
-  public IntVersion previous() {
-    return new IntVersion(val - 1);
+  static IntVersion of(long val) {
+    return interner.intern(new IntVersion(val));
   }
 
   @Override

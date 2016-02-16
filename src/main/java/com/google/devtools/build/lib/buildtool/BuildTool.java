@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.LoadedPackageProvider;
 import com.google.devtools.build.lib.pkgcache.LoadingCallback;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
+import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -197,8 +198,8 @@ public final class BuildTool {
       result.setActualTargets(analysisResult.getTargetsToBuild());
       result.setTestTargets(analysisResult.getTargetsToTest());
 
-      LoadedPackageProvider.Bridge bridge =
-          new LoadedPackageProvider.Bridge(env.getPackageManager(), env.getReporter());
+      LoadedPackageProvider bridge =
+          new LoadedPackageProvider(env.getPackageManager(), env.getReporter());
       checkTargetEnvironmentRestrictions(analysisResult.getTargetsToBuild(), bridge);
       reportTargets(analysisResult);
 
@@ -398,10 +399,13 @@ public final class BuildTool {
       }
     };
 
-    LoadingResult result = env.getLoadingPhaseRunner().execute(getReporter(),
-        env.getEventBus(), request.getTargets(), request.getLoadingOptions(),
-        runtime.createBuildOptions(request).getAllLabels(), keepGoing,
-        isLoadingEnabled(request), request.shouldRunTests(), callback);
+    LoadingPhaseRunner loadingPhaseRunner = runtime.getSkyframeExecutor().getLoadingPhaseRunner(
+        runtime.getPackageFactory().getRuleClassNames(),
+        request.getLoadingOptions().useSkyframeTargetPatternEvaluator);
+    LoadingResult result = loadingPhaseRunner.execute(getReporter(),
+        env.getEventBus(), request.getTargets(), env.getRelativeWorkingDirectory(),
+        request.getLoadingOptions(), runtime.createBuildOptions(request).getAllLabels(),
+        keepGoing, isLoadingEnabled(request), request.shouldRunTests(), callback);
     env.throwPendingException();
     return result;
   }

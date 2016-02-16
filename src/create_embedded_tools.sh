@@ -32,7 +32,8 @@ for i in $*; do
     *SingleJar_deploy.jar) OUTPUT_PATH=tools/jdk/SingleJar_deploy.jar ;;
     *GenClass_deploy.jar) OUTPUT_PATH=tools/jdk/GenClass_deploy.jar ;;
     *Runner_deploy.jar) OUTPUT_PATH=tools/jdk/TestRunner_deploy.jar ;;
-    *ijar) OUTPUT_PATH=tools/jdk/ijar ;;
+    *ijar.exe) OUTPUT_PATH=tools/jdk/ijar/ijar.exe ;;
+    *ijar) OUTPUT_PATH=tools/jdk/ijar/ijar ;;
     *src/objc_tools/*) OUTPUT_PATH=tools/objc/precomp_${i##*/} ;;
     *xcode*StdRedirect.dylib) OUTPUT_PATH=tools/objc/StdRedirect.dylib ;;
     *xcode*realpath) OUTPUT_PATH=tools/objc/realpath ;;
@@ -44,7 +45,9 @@ for i in $*; do
   cp "$i" "${PACKAGE_DIR}/${OUTPUT_PATH}"
 done
 
-touch "${PACKAGE_DIR}/WORKSPACE"
+cat > "${PACKAGE_DIR}/WORKSPACE" <<EOF
+workspace(name = "bazel_tools")
+EOF
 mkdir -p "${PACKAGE_DIR}/tools/defaults"
 touch "${PACKAGE_DIR}/tools/defaults/BUILD"
 for i in $(find "${PACKAGE_DIR}" -name BUILD.tools); do

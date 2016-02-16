@@ -14,77 +14,25 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.common.base.Optional;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
-import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
-
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
-import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
+import java.io.InputStream;
 import java.util.zip.GZIPInputStream;
 
 /**
- * Creates a  repository by unarchiving a .tar.gz file.
+ * Creates a repository by unarchiving a .tar.gz file.
  */
-public class TarGzFunction implements Decompressor {
+public class TarGzFunction extends CompressedTarFunction {
   public static final Decompressor INSTANCE = new TarGzFunction();
 
   private TarGzFunction() {
   }
 
   @Override
-  public Path decompress(DecompressorDescriptor descriptor) throws RepositoryFunctionException {
-    Optional<String> prefix = descriptor.prefix();
-    boolean foundPrefix = false;
-
-    try (GZIPInputStream gzipStream = new GZIPInputStream(
-        new FileInputStream(descriptor.archivePath().getPathFile()))) {
-      TarArchiveInputStream tarStream = new TarArchiveInputStream(gzipStream);
-      TarArchiveEntry entry;
-      while ((entry = tarStream.getNextTarEntry()) != null) {
-        StripPrefixedPath entryPath = StripPrefixedPath.maybeDeprefix(entry.getName(), prefix);
-        foundPrefix = foundPrefix || entryPath.foundPrefix();
-        if (entryPath.skip()) {
-          continue;
-        }
-
-        Path filename = descriptor.repositoryPath().getRelative(entryPath.getPathFragment());
-        FileSystemUtils.createDirectoryAndParents(filename.getParentDirectory());
-        if (entry.isDirectory()) {
-          FileSystemUtils.createDirectoryAndParents(filename);
-        } else {
-          if (entry.isSymbolicLink()) {
-            PathFragment linkName = new PathFragment(entry.getLinkName());
-            if (linkName.isAbsolute()) {
-              linkName = linkName.relativeTo(PathFragment.ROOT_DIR);
-              linkName = descriptor.repositoryPath().getRelative(linkName).asFragment();
-            }
-            FileSystemUtils.ensureSymbolicLink(filename, linkName);
-          } else {
-            Files.copy(
-                tarStream, filename.getPathFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
-            filename.chmod(entry.getMode());
-          }
-        }
-      }
-    } catch (IOException e) {
-      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
-    }
-
-    if (prefix.isPresent() && !foundPrefix) {
-      throw new RepositoryFunctionException(
-          new IOException("Prefix " + prefix.get() + " was given, but not found in the archive"),
-          Transience.PERSISTENT);
-    }
-
-    return descriptor.repositoryPath();
+  protected InputStream getDecompressorStream(DecompressorDescriptor descriptor)
+      throws IOException {
+    return new GZIPInputStream(new FileInputStream(descriptor.archivePath().getPathFile()));
   }
 }

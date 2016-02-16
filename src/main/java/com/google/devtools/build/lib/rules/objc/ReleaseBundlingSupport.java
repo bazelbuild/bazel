@@ -103,6 +103,8 @@ public final class ReleaseBundlingSupport {
   @VisibleForTesting
   static final String APP_BUNDLE_DIR_FORMAT = "Payload/%s.app";
   @VisibleForTesting
+  static final String XCTEST_BUNDLE_DIR_FORMAT = "Payload/%s.xctest";
+  @VisibleForTesting
   static final String EXTENSION_BUNDLE_DIR_FORMAT = "PlugIns/%s.appex";
   @VisibleForTesting
   static final String FRAMEWORK_BUNDLE_DIR_FORMAT = "Frameworks/%s.framework";
@@ -235,8 +237,8 @@ public final class ReleaseBundlingSupport {
 
   private void validateLaunchScreen() {
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("launch_storyboard")) {
-      DottedVersion minimumOs = ObjcRuleClasses.objcConfiguration(ruleContext).getMinimumOs();
-      if (ObjcRuleClasses.useLaunchStoryboard(ruleContext)) {
+      DottedVersion minimumOs = bundling.getMinimumOsVersion();
+      if (ObjcRuleClasses.useLaunchStoryboard(ruleContext, bundling.getMinimumOsVersion())) {
         if (ruleContext.attributes().isAttributeValueExplicitlySpecified("launch_image")) {
           ruleContext.attributeWarning(
               "launch_image",
@@ -301,7 +303,7 @@ public final class ReleaseBundlingSupport {
     registerEnvironmentPlistAction();
     registerAutomaticPlistAction();
 
-    if (ObjcRuleClasses.useLaunchStoryboard(ruleContext)) {
+    if (ObjcRuleClasses.useLaunchStoryboard(ruleContext, bundling.getMinimumOsVersion())) {
       registerLaunchStoryboardPlistAction();
     }
 
@@ -384,10 +386,9 @@ public final class ReleaseBundlingSupport {
             configuration.getBundlingPlatform().getLowerCaseNameInPlist(),
             configuration.getIosSdkVersion());
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnOnDarwinActionBuilder()
+        ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
             .setMnemonic("EnvironmentPlist")
-            .addInput(attributes.environmentPlistScript())
-            .setExecutable(attributes.environmentPlistScript())
+            .setExecutable(attributes.environmentPlist())
             .addArguments("--platform", platformWithVersion)
             .addArguments("--output", getGeneratedEnvironmentPlist().getExecPathString())
             .addOutput(getGeneratedEnvironmentPlist())
@@ -399,7 +400,7 @@ public final class ReleaseBundlingSupport {
         new FileWriteAction(
             ruleContext.getActionOwner(),
             getGeneratedAutomaticPlist(),
-            automaticEntries().toASCIIPropertyList(),
+            automaticEntries().toGnuStepASCIIPropertyList(),
             /*makeExecutable=*/ false));
   }
 
@@ -412,7 +413,6 @@ public final class ReleaseBundlingSupport {
         TargetDeviceFamily.UI_DEVICE_FAMILY_VALUES.get(bundleSupport.targetDeviceFamilies());
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     Platform platform = appleConfiguration.getBundlingPlatform();
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
 
     NSDictionary result = new NSDictionary();
 
@@ -424,7 +424,7 @@ public final class ReleaseBundlingSupport {
         "DTSDKName",
         NSObject.wrap(platform.getLowerCaseNameInPlist() + appleConfiguration.getIosSdkVersion()));
     result.put("CFBundleSupportedPlatforms", new NSArray(NSObject.wrap(platform.getNameInPlist())));
-    result.put("MinimumOSVersion", NSObject.wrap(objcConfiguration.getMinimumOs().toString()));
+    result.put("MinimumOSVersion", NSObject.wrap(bundling.getMinimumOsVersion().toString()));
 
     return result;
   }
@@ -568,7 +568,8 @@ public final class ReleaseBundlingSupport {
     if (attributes.appIcon() != null) {
       extraArgs.add("--app-icon", attributes.appIcon());
     }
-    if (attributes.launchImage() != null && !ObjcRuleClasses.useLaunchStoryboard(ruleContext)) {
+    if (attributes.launchImage() != null
+        && !ObjcRuleClasses.useLaunchStoryboard(ruleContext, bundling.getMinimumOsVersion())) {
       extraArgs.add("--launch-image", attributes.launchImage());
     }
     return new ExtraActoolArgs(extraArgs.build());
@@ -616,7 +617,7 @@ public final class ReleaseBundlingSupport {
             .setFallbackBundleId(fallbackBundleId)
             .setMinimumOsVersion(minimumOsVersion);
 
-    if (ObjcRuleClasses.useLaunchStoryboard(ruleContext)) {
+    if (ObjcRuleClasses.useLaunchStoryboard(ruleContext, minimumOsVersion)) {
       bundling.addInfoplistInput(getLaunchStoryboardPlist());
     }
 
@@ -658,7 +659,8 @@ public final class ReleaseBundlingSupport {
           .setValue(attributes.appIcon())
           .build());
     }
-    if (attributes.launchImage() != null && !ObjcRuleClasses.useLaunchStoryboard(ruleContext)) {
+    if (attributes.launchImage() != null
+        && !ObjcRuleClasses.useLaunchStoryboard(ruleContext, bundling.getMinimumOsVersion())) {
       buildSettings.add(XcodeprojBuildSetting.newBuilder()
           .setName("ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME")
           .setValue(attributes.launchImage())
@@ -747,7 +749,6 @@ public final class ReleaseBundlingSupport {
         .addInputArgument(bundleMergeControlArtifact)
         .addTransitiveInputs(bundleContentArtifacts)
         .addOutput(ipaUnsigned)
-        .setVerboseFailuresAndSubcommandsInEnv()
         .build(ruleContext));
   }
 
@@ -884,10 +885,6 @@ public final class ReleaseBundlingSupport {
             .setCommandLine(commandLine.build())
             .addOutput(intermediateArtifacts.swiftFrameworksFileZip())
             .addInput(intermediateArtifacts.combinedArchitectureBinary())
-            // TODO(dmaclach): Adding realpath and xcrunwrapper should not be required once
-            // https://github.com/google/bazel/issues/285 is fixed.
-            .addInput(attributes.realpath())
-            .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
             .build(ruleContext));
   }
 
@@ -1020,20 +1017,10 @@ public final class ReleaseBundlingSupport {
     }
 
     /**
-     * Returns the location of the realpath tool.
-     * TODO(dmaclach): Should not be required once https://github.com/google/bazel/issues/285
-     * is fixed.
+     * Returns the location of the environment_plist.
      */
-    Artifact realpath() {
-      return ruleContext.getPrerequisiteArtifact("$realpath", Mode.HOST);
-    }
-
-    /**
-     * Returns the location of the environment_plist.sh.
-     */
-    public Artifact environmentPlistScript() {
-      return checkNotNull(
-          ruleContext.getPrerequisiteArtifact("$environment_plist_sh", Mode.HOST));
+    public FilesToRunProvider environmentPlist() {
+      return ruleContext.getExecutablePrerequisite("$environment_plist", Mode.HOST);
     }
 
     String bundleId() {

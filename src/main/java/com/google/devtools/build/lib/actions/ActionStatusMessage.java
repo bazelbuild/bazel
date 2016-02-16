@@ -24,7 +24,7 @@ public class ActionStatusMessage {
   private final String message;
   public static final String PREPARING = "Preparing";
 
-  public ActionStatusMessage(ActionMetadata action, String message) {
+  private ActionStatusMessage(ActionMetadata action, String message) {
     this.action = action;
     this.message = message;
   }
@@ -35,11 +35,6 @@ public class ActionStatusMessage {
 
   public String getMessage() {
     return message;
-  }
-
-  /** Returns whether the message needs further interpolation of a 'strategy' when printed. */
-  public boolean needsStrategy() {
-    return false;
   }
 
   /** Creates "Analyzing" status message. */
@@ -57,13 +52,8 @@ public class ActionStatusMessage {
     return new ActionStatusMessage(action, "Scheduling");
   }
 
-  /** Creates "Running (%s)" status message (needs strategy interpolated). */
-  public static ActionStatusMessage runningStrategy(ActionMetadata action) {
-    return new ActionStatusMessage(action, "Running (%s)") {
-      @Override
-      public boolean needsStrategy() {
-        return true;
-      }
-    };
+  /** Creates "Running (strategy)" status message. */
+  public static ActionStatusMessage runningStrategy(ActionMetadata action, String strategy) {
+    return new ActionStatusMessage(action, String.format("Running (%s)", strategy));
   }
 }

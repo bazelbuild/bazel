@@ -34,9 +34,9 @@ import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
-import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
+import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
 import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -75,6 +75,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
                 "bind(name = 'tools/python', actual='//tools/python')"));
 
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[workspaceContents.size()]));
+    config.create("/bazel_tools_workspace/WORKSPACE", "workspace(name = 'bazel_tools')");
     config.create(
         "/bazel_tools_workspace/tools/jdk/BUILD",
         "package(default_visibility=['//visibility:public'])",
@@ -212,6 +213,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
         new AppleConfiguration.Loader(),
         new J2ObjcConfiguration.Loader(),
         new AndroidConfiguration.Loader());
+  }
+
+  @Override
+  public ConfigurationFactory createFullConfigurationFactory() {
+    return createConfigurationFactory();
   }
 
   @Override

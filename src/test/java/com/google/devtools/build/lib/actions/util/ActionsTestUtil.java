@@ -90,7 +90,7 @@ public final class ActionsTestUtil {
         metadataHandler, fileOutErr,
         actionGraph == null
             ? null
-            : ActionInputHelper.actionGraphMiddlemanExpander(actionGraph));
+            : ActionInputHelper.actionGraphArtifactExpander(actionGraph));
   }
 
   public static ActionExecutionContext createContextForInputDiscovery(Executor executor,
@@ -216,11 +216,6 @@ public final class ActionsTestUtil {
 
     public NullAction(Artifact... outputs) {
       super(NULL_ACTION_OWNER, Artifact.NO_ARTIFACTS, ImmutableList.copyOf(outputs));
-    }
-
-    @Override
-    public String describeStrategy(Executor executor) {
-      return "";
     }
 
     @Override

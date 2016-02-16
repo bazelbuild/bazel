@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.bazel.rules.java.BazelJavaRuleClasses.JavaR
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
-import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
@@ -41,8 +40,7 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
   public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
 
     return builder
-        .requiresConfigurationFragments(
-            JavaConfiguration.class, CppConfiguration.class, J2ObjcConfiguration.class)
+        .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
         .requiresHostConfigurationFragments(Jvm.class) // For BaseJavaCompilationHelper
         /* <!-- #BLAZE_RULE(java_library).IMPLICIT_OUTPUTS -->
         <ul>
@@ -55,7 +53,6 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
 
         /* <!-- #BLAZE_RULE(java_library).ATTRIBUTE(data) -->
         The list of files needed by this library at runtime.
-        ${SYNOPSIS}
         See general comments about <code>data</code> at
         <a href="common-definitions.html#common-attributes">Attributes common to all build rules
         </a>.
@@ -69,7 +66,6 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
 
         /* <!-- #BLAZE_RULE(java_library).ATTRIBUTE(deps) -->
         The list of libraries to link into this library.
-        ${SYNOPSIS}
         See general comments about <code>deps</code> at
         <a href="common-definitions.html#common-attributes">Attributes common to all build rules
         </a>.
@@ -87,7 +83,6 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
 
         /* <!-- #BLAZE_RULE(java_library).ATTRIBUTE(exports) -->
         Exported libraries.
-        ${SYNOPSIS}
         <p>
           Listing rules here will make them available to parent rules, as if the parents explicitly
           depended on these rules. This is not true for regular (non-exported) <code>deps</code>.
@@ -123,7 +118,6 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
 
         /* <!-- #BLAZE_RULE(java_library).ATTRIBUTE(neverlink) -->
         Whether this library should only be used for compilation and not at runtime.
-        ${SYNOPSIS}
         Useful if the library will be provided by the runtime environment during execution. Examples
         of such libraries are the IDE APIs for IDE plug-ins or <code>tools.jar</code> for anything
         running on a standard JDK.
@@ -145,7 +139,6 @@ public final class BazelJavaLibraryRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(java_library).ATTRIBUTE(exported_plugins) -->
         The list of <code><a href="#java_plugin">java_plugin</a></code>s (e.g. annotation
         processors) to export to libraries that directly depend on this library.
-        ${SYNOPSIS}
         <p>
           The specified list of <code>java_plugin</code>s will be applied to any library which
           directly depends on this library, just as if that library had explicitly declared these

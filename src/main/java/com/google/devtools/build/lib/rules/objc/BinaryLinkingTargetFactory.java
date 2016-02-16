@@ -99,7 +99,6 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
 
     CompilationSupport compilationSupport =
         new CompilationSupport(ruleContext)
-            .registerJ2ObjcCompileAndArchiveActions(objcProvider)
             .registerCompileAndArchiveActions(common)
             .addXcodeSettings(xcodeProviderBuilder, common)
             .registerLinkActions(
@@ -208,7 +207,6 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             .setIntermediateArtifacts(intermediateArtifacts)
             .setAlwayslink(false)
             .setHasModuleMap()
-            .addExtraImportLibraries(ObjcRuleClasses.j2ObjcLibraries(ruleContext))
             .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary());
 
     if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()) {

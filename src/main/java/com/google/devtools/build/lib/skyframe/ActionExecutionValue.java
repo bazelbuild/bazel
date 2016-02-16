@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Action.MiddlemanType;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactFile;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -36,19 +37,51 @@ import javax.annotation.Nullable;
 @Immutable
 @ThreadSafe
 public class ActionExecutionValue implements SkyValue {
-  private final ImmutableMap<Artifact, FileValue> artifactData;
+  /*
+  Concerning the data in this class:
+
+  We want to track all output data from an ActionExecutionValue. However, we want to separate
+  quickly-accessible Filesystem data from other kinds of data. We use FileValues
+  to represent data that may be quickly accessed, TreeArtifactValues to give us directory contents,
+  and FileArtifactValues inside TreeArtifactValues or the additionalOutputData map
+  to give us full mtime/digest information on all output files.
+
+  The reason for this separation is so that FileSystemValueChecker remains fast. When it checks
+  the validity of an ActionExecutionValue, it only checks the quickly-accessible data stored
+  in FileValues and TreeArtifactValues.
+   */
+
+  /**
+   * The FileValues of all files for this ActionExecutionValue. These FileValues can be
+   * read and checked quickly from the filesystem, unlike FileArtifactValues.
+   */
+  private final ImmutableMap<ArtifactFile, FileValue> artifactFileData;
+
+  /** The TreeArtifactValue of all TreeArtifacts output by this Action. */
+  private final ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData;
+
+  /**
+   * Contains all remaining data that weren't in the above maps. See
+   * {@link ActionMetadataHandler#getAdditionalOutputData}.
+   */
   private final ImmutableMap<Artifact, FileArtifactValue> additionalOutputData;
 
   /**
-   * @param artifactData Map from Artifacts to corresponding FileValues.
+   * @param artifactFileData Map from Artifacts to corresponding FileValues.
+   * @param treeArtifactData All tree artifact data.
    * @param additionalOutputData Map from Artifacts to values if the FileArtifactValue for this
    *     artifact cannot be derived from the corresponding FileValue (see {@link
    *     ActionMetadataHandler#getAdditionalOutputData} for when this is necessary).
+   *     These output data are not used by the {@link FilesystemValueChecker}
+   *     to invalidate ActionExecutionValues.
    */
-  ActionExecutionValue(Map<Artifact, FileValue> artifactData,
+  ActionExecutionValue(
+      Map<? extends ArtifactFile, FileValue> artifactFileData,
+      Map<Artifact, TreeArtifactValue> treeArtifactData,
       Map<Artifact, FileArtifactValue> additionalOutputData) {
-    this.artifactData = ImmutableMap.copyOf(artifactData);
+    this.artifactFileData = ImmutableMap.<ArtifactFile, FileValue>copyOf(artifactFileData);
     this.additionalOutputData = ImmutableMap.copyOf(additionalOutputData);
+    this.treeArtifactData = ImmutableMap.copyOf(treeArtifactData);
   }
 
   /**
@@ -65,18 +98,32 @@ public class ActionExecutionValue implements SkyValue {
    * @return The data for each non-middleman output of this action, in the form of the {@link
    * FileValue} that would be created for the file if it were to be read from disk.
    */
-  FileValue getData(Artifact artifact) {
-    Preconditions.checkState(!additionalOutputData.containsKey(artifact),
-        "Should not be requesting data for already-constructed FileArtifactValue: %s", artifact);
-    return artifactData.get(artifact);
+  FileValue getData(ArtifactFile file) {
+    Preconditions.checkState(!additionalOutputData.containsKey(file),
+        "Should not be requesting data for already-constructed FileArtifactValue: %s", file);
+    return artifactFileData.get(file);
+  }
+
+  TreeArtifactValue getTreeArtifactValue(Artifact artifact) {
+    Preconditions.checkArgument(artifact.isTreeArtifact());
+    return treeArtifactData.get(artifact);
   }
 
   /**
-   * @return The map from {@link Artifact} to the corresponding {@link FileValue} that would be
-   * returned by {@link #getData}. Should only be needed by {@link FilesystemValueChecker}.
+   * @return The map from {@link ArtifactFile}s to the corresponding {@link FileValue}s that would
+   * be returned by {@link #getData}. Should only be needed by {@link FilesystemValueChecker}.
    */
-  ImmutableMap<Artifact, FileValue> getAllOutputArtifactData() {
-    return artifactData;
+  ImmutableMap<ArtifactFile, FileValue> getAllFileValues() {
+    return artifactFileData;
+  }
+
+  /**
+   * @return The map from {@link Artifact}s to the corresponding {@link TreeArtifactValue}s that
+   * would be returned by {@link #getTreeArtifactValue}. Should only be needed by
+   * {@link FilesystemValueChecker}.
+   */
+  ImmutableMap<Artifact, TreeArtifactValue> getAllTreeArtifactValues() {
+    return treeArtifactData;
   }
 
   @ThreadSafe
@@ -111,7 +158,8 @@ public class ActionExecutionValue implements SkyValue {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(this)
-        .add("artifactData", artifactData)
+        .add("artifactFileData", artifactFileData)
+        .add("treeArtifactData", treeArtifactData)
         .add("additionalOutputData", additionalOutputData)
         .toString();
   }
@@ -125,12 +173,13 @@ public class ActionExecutionValue implements SkyValue {
       return false;
     }
     ActionExecutionValue o = (ActionExecutionValue) obj;
-    return artifactData.equals(o.artifactData)
+    return artifactFileData.equals(o.artifactFileData)
+        && treeArtifactData.equals(o.treeArtifactData)
         && additionalOutputData.equals(o.additionalOutputData);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(artifactData, additionalOutputData);
+    return Objects.hashCode(artifactFileData, treeArtifactData, additionalOutputData);
   }
 }

@@ -37,6 +37,12 @@ import javax.annotation.Nullable;
 public interface ConfigurationEnvironment {
 
   /**
+   * Returns an event handler to report errors to. Note that reporting an error does not cause the
+   * computation to abort - you also need to throw an exception.
+   */
+  EventHandler getEventHandler();
+
+  /**
    * Returns a target for the given label, loading it if necessary, and throwing an exception if it
    * does not exist.
    *
@@ -59,18 +65,23 @@ public interface ConfigurationEnvironment {
    * An implementation backed by a {@link PackageProvider} instance.
    */
   public static final class TargetProviderEnvironment implements ConfigurationEnvironment {
-    private final LoadedPackageProvider.Bridge packageProvider;
+    private final LoadedPackageProvider packageProvider;
     private final BlazeDirectories blazeDirectories;
 
     public TargetProviderEnvironment(PackageProvider packageProvider,
         EventHandler eventHandler, BlazeDirectories blazeDirectories) {
-      this.packageProvider = new LoadedPackageProvider.Bridge(packageProvider, eventHandler);
+      this.packageProvider = new LoadedPackageProvider(packageProvider, eventHandler);
       this.blazeDirectories = blazeDirectories;
     }
 
     public TargetProviderEnvironment(PackageProvider packageProvider,
         EventHandler eventHandler) {
       this(packageProvider, eventHandler, null);
+    }
+
+    @Override
+    public EventHandler getEventHandler() {
+      return packageProvider.getEventHandler();
     }
 
     @Override

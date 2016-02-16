@@ -42,6 +42,14 @@ public class DecompressorValueTest {
     DecompressorDescriptor.builder().setArchivePath(path).build();
     path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.zip");
     DecompressorDescriptor.builder().setArchivePath(path).build();
+    path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tar.gz");
+    DecompressorDescriptor.builder().setArchivePath(path).build();
+    path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tgz");
+    DecompressorDescriptor.builder().setArchivePath(path).build();
+    path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tar.xz");
+    DecompressorDescriptor.builder().setArchivePath(path).build();
+    path = fs.getPath("/foo/.external-repositories/some-repo/bar.baz.tar.bz2");
+    DecompressorDescriptor.builder().setArchivePath(path).build();
   }
 
   @Test

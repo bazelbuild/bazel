@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 def _groovy_jar_impl(ctx):
   """Creates a .jar file from Groovy sources. Users should rely on
   groovy_library instead of using this rule directly.
@@ -30,7 +29,7 @@ def _groovy_jar_impl(ctx):
   # Set up the output directory and set JAVA_HOME
   cmd = "rm -rf %s\n" % build_output
   cmd += "mkdir -p %s\n" % build_output
-  cmd += "export JAVA_HOME=external/local-jdk\n"
+  cmd += "export JAVA_HOME=external/local_jdk\n"
 
   # Set GROOVY_HOME by scanning through the groovy SDK to find the license file,
   # which should be at the root of the SDK.
@@ -46,12 +45,17 @@ def _groovy_jar_impl(ctx):
       " ".join([src.path for src in ctx.files.srcs]),
   )
 
-  # Jar them together to produce a single output. To make this work we have
-  # to cd into the output directory, run find to locate all of the generated
-  # class files, pass the result to cut to trim the leading "./", then pass
-  # the resulting paths to the zipper.
+  # Discover all of the generated class files and write their paths to a file.
+  # Run the paths through sed to trim out everything before the package root so
+  # that the paths match how they should look in the jar file.
+  cmd += "find . -name '*.class' | sed 's:^./%s/::' > %s/class_list\n" % (
+      build_output,
+      build_output,
+  )
+
+  # Create a jar file using the discovered paths
   cmd += "root=`pwd`\n"
-  cmd += "cd %s; $root/%s Cc ../%s `find . -name '*.class' | cut -c 3-`\n" % (
+  cmd += "cd %s; $root/%s Cc ../%s @class_list\n" % (
       build_output,
       ctx.executable._zipper.path,
       class_jar.basename,
@@ -76,26 +80,31 @@ def _groovy_jar_impl(ctx):
   )
 
 _groovy_jar = rule(
-    implementation = _groovy_jar_impl,
     attrs = {
         "srcs": attr.label_list(
-            non_empty=True,
-            allow_files=FileType([".groovy"])),
+            non_empty = True,
+            allow_files = FileType([".groovy"]),
+        ),
         "deps": attr.label_list(
-            mandatory=False,
-            allow_files=FileType([".jar"])),
+            mandatory = False,
+            allow_files = FileType([".jar"]),
+        ),
         "_groovysdk": attr.label(
-            default=Label("//external:groovy-sdk")),
+            default = Label("//external:groovy-sdk"),
+        ),
         "_jdk": attr.label(
-            default=Label("//tools/defaults:jdk")),
+            default = Label("//tools/defaults:jdk"),
+        ),
         "_zipper": attr.label(
-            default=Label("//third_party/ijar:zipper"),
-            executable=True,
-            single_file=True),
+            default = Label("//third_party/ijar:zipper"),
+            executable = True,
+            single_file = True,
+        ),
     },
     outputs = {
         "class_jar": "lib%{name}.jar",
     },
+    implementation = _groovy_jar_impl,
 )
 
 def groovy_library(name, srcs=[], deps=[], **kwargs):
@@ -111,9 +120,9 @@ def groovy_library(name, srcs=[], deps=[], **kwargs):
   native.java_import(
       name = name,
       jars = [name + "-impl"],
+      deps = deps,
       **kwargs
   )
-
 
 def groovy_and_java_library(name, srcs=[], deps=[], **kwargs):
   """Accepts .groovy and .java srcs to create a groovy_library and a
@@ -148,6 +157,7 @@ def groovy_and_java_library(name, srcs=[], deps=[], **kwargs):
   native.java_import(
       name = name,
       jars = jars,
+      deps = deps,
       **kwargs
   )
 
@@ -196,7 +206,7 @@ def _groovy_test_impl(ctx):
   classes = [path_to_class(src.path) for src in ctx.files.srcs]
 
   # Write a file that executes JUnit on the inferred classes
-  cmd = "external/local-jdk/bin/java %s -cp %s org.junit.runner.JUnitCore %s\n" % (
+  cmd = "external/local_jdk/bin/java %s -cp %s org.junit.runner.JUnitCore %s\n" % (
     " ".join(ctx.attr.jvm_flags),
     ":".join([dep.short_path for dep in all_deps]),
     " ".join(classes),
@@ -212,21 +222,26 @@ def _groovy_test_impl(ctx):
   )
 
 _groovy_test = rule(
-  implementation = _groovy_test_impl,
-  attrs = {
-    "srcs": attr.label_list(mandatory=True, allow_files=FileType([".groovy"])),
-    "deps": attr.label_list(allow_files=FileType([".jar"])),
-    "data": attr.label_list(allow_files=True),
-    "jvm_flags": attr.string_list(),
-    "_groovysdk": attr.label(
-      default=Label("//external:groovy-sdk")),
-    "_jdk": attr.label(
-      default=Label("//tools/defaults:jdk")),
-    "_implicit_deps": attr.label_list(default=[
-      Label("//external:junit"),
-    ]),
-  },
-  test = True,
+    attrs = {
+        "srcs": attr.label_list(
+            mandatory = True,
+            allow_files = FileType([".groovy"]),
+        ),
+        "deps": attr.label_list(allow_files = FileType([".jar"])),
+        "data": attr.label_list(allow_files = True),
+        "jvm_flags": attr.string_list(),
+        "_groovysdk": attr.label(
+            default = Label("//external:groovy-sdk"),
+        ),
+        "_jdk": attr.label(
+            default = Label("//tools/defaults:jdk"),
+        ),
+        "_implicit_deps": attr.label_list(default = [
+            Label("//external:junit"),
+        ]),
+    },
+    test = True,
+    implementation = _groovy_test_impl,
 )
 
 def groovy_test(
@@ -365,7 +380,18 @@ def groovy_repositories():
     name = "groovy-sdk-artifact",
     url = "http://dl.bintray.com/groovy/maven/apache-groovy-binary-2.4.4.zip",
     sha256 = "a7cc1e5315a14ea38db1b2b9ce0792e35174161141a6a3e2ef49b7b2788c258c",
-    build_file = "groovy.BUILD",
+    build_file_content = """
+filegroup(
+    name = "sdk",
+    srcs = glob(["groovy-2.4.4/**"], exclude_directories=0),
+    visibility = ["//visibility:public"],
+)
+java_import(
+    name = "groovy",
+    jars = ["groovy-2.4.4/lib/groovy-2.4.4.jar"],
+    visibility = ["//visibility:public"],
+)
+""",
   )
   native.bind(
     name = "groovy-sdk",

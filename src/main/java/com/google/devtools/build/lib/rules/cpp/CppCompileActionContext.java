@@ -70,11 +70,6 @@ public interface CppCompileActionContext extends ActionContext {
   ResourceSet estimateResourceConsumption(CppCompileAction action);
 
   /**
-   * Returns where the action actually runs.
-   */
-  String strategyLocality();
-
-  /**
    * Returns whether include scanning needs to be run.
    */
   boolean needsIncludeScanning();

@@ -335,8 +335,8 @@ public class RuleClassTest extends PackageLoadingTestCase {
       attributes.get("my-labellist-attr", Type.STRING); // wrong type
       fail();
     } catch (IllegalArgumentException e) {
-      assertThat(e).hasMessage("Attribute my-labellist-attr is not of type string "
-          + "in rule //testpackage:my-rule-A");
+      assertThat(e).hasMessage("Attribute my-labellist-attr is of type list(label) "
+          + "and not of type string in rule //testpackage:my-rule-A");
     }
   }
 

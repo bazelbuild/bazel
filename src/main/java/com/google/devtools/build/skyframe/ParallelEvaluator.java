@@ -139,6 +139,7 @@ public final class ParallelEvaluator implements Evaluator {
   private final EventHandler reporter;
   private final NestedSetVisitor<TaggedEvents> replayingNestedSetEventVisitor;
   private final boolean keepGoing;
+  private final boolean storeErrorsAlongsideValues;
   private final int threadCount;
   @Nullable private final ForkJoinPool forkJoinPool;
   @Nullable private final EvaluationProgressReceiver progressReceiver;
@@ -164,6 +165,7 @@ public final class ParallelEvaluator implements Evaluator {
     this.inflightKeysReceiver = inflightKeysReceiver;
     this.reporter = Preconditions.checkNotNull(reporter);
     this.keepGoing = keepGoing;
+    this.storeErrorsAlongsideValues = true;
     this.threadCount = threadCount;
     this.progressReceiver = progressReceiver;
     this.dirtyKeyTracker = Preconditions.checkNotNull(dirtyKeyTracker);
@@ -181,6 +183,7 @@ public final class ParallelEvaluator implements Evaluator {
       EmittedEventState emittedEventState,
       EventFilter storedEventFilter,
       boolean keepGoing,
+      boolean storeErrorsAlongsideValues,
       @Nullable EvaluationProgressReceiver progressReceiver,
       DirtyKeyTracker dirtyKeyTracker,
       Receiver<Collection<SkyKey>> inflightKeysReceiver,
@@ -191,6 +194,8 @@ public final class ParallelEvaluator implements Evaluator {
     this.inflightKeysReceiver = inflightKeysReceiver;
     this.reporter = Preconditions.checkNotNull(reporter);
     this.keepGoing = keepGoing;
+    this.storeErrorsAlongsideValues = storeErrorsAlongsideValues;
+    Preconditions.checkState(storeErrorsAlongsideValues || keepGoing);
     this.threadCount = 0;
     this.progressReceiver = progressReceiver;
     this.dirtyKeyTracker = Preconditions.checkNotNull(dirtyKeyTracker);
@@ -332,10 +337,16 @@ public final class ParallelEvaluator implements Evaluator {
      * <p>Child errors are remembered, if there are any and yet the parent recovered without
      * error, so that subsequent noKeepGoing evaluations can stop as soon as they encounter a
      * node whose (transitive) children had experienced an error, even if that (transitive)
-     * parent node had been able to recover from it during a keepGoing build.
+     * parent node had been able to recover from it during a keepGoing build. This behavior can be
+     * suppressed by setting {@link #storeErrorsAlongsideValues} to false, which will cause nodes
+     * with values to have no stored error info. This may be useful if this graph will only ever be
+     * used for keepGoing builds, since in that case storing errors from recovered nodes is
+     * pointless.
      */
     private void finalizeErrorInfo() {
-      if (errorInfo == null && !childErrorInfos.isEmpty()) {
+      if (errorInfo == null
+          && (storeErrorsAlongsideValues || value == null)
+          && !childErrorInfos.isEmpty()) {
         errorInfo = ErrorInfo.fromChildErrors(skyKey, childErrorInfos);
       }
     }
@@ -1065,7 +1076,8 @@ public final class ParallelEvaluator implements Evaluator {
       // just order it to be built.
       if (newDirectDeps.isEmpty()) {
         // TODO(bazel-team): This means a bug in the SkyFunction. What to do?
-        Preconditions.checkState(!env.childErrorInfos.isEmpty(), "%s %s", skyKey, state);
+        Preconditions.checkState(!env.childErrorInfos.isEmpty(),
+            "Evaluation of SkyKey failed and no dependencies were requested: %s %s", skyKey, state);
         env.commit(/*enqueueParents=*/keepGoing);
         if (!keepGoing) {
           throw SchedulerException.ofError(state.getErrorInfo(), skyKey);
@@ -1534,7 +1546,6 @@ public final class ParallelEvaluator implements Evaluator {
         bubbleErrorInfo);
     EvaluationResult.Builder<T> result = EvaluationResult.builder();
     List<SkyKey> cycleRoots = new ArrayList<>();
-    boolean hasError = false;
     for (SkyKey skyKey : skyKeys) {
       ValueWithMetadata valueWithMetadata = getValueMaybeFromError(skyKey, bubbleErrorInfo);
       // Cycle checking: if there is a cycle, evaluation cannot progress, therefore,
@@ -1544,7 +1555,6 @@ public final class ParallelEvaluator implements Evaluator {
         if (bubbleErrorInfo == null) {
           cycleRoots.add(skyKey);
         }
-        hasError = true;
         continue;
       }
       SkyValue value = valueWithMetadata.getValue();
@@ -1555,7 +1565,6 @@ public final class ParallelEvaluator implements Evaluator {
       replayingNestedSetEventVisitor.visit(valueWithMetadata.getTransitiveEvents());
       ErrorInfo errorInfo = valueWithMetadata.getErrorInfo();
       Preconditions.checkState(value != null || errorInfo != null, skyKey);
-      hasError = hasError || (errorInfo != null);
       if (!keepGoing && errorInfo != null) {
         // value will be null here unless the value was already built on a prior keepGoing build.
         result.addError(skyKey, errorInfo);
@@ -1574,9 +1583,6 @@ public final class ParallelEvaluator implements Evaluator {
       Preconditions.checkState(visitor != null, skyKeys);
       checkForCycles(cycleRoots, result, visitor, keepGoing);
     }
-    Preconditions.checkState(bubbleErrorInfo == null || hasError,
-        "If an error bubbled up, some top-level node must be in error", bubbleErrorInfo, skyKeys);
-    result.setHasError(hasError);
     if (catastrophe) {
       // We may not have a top-level node completed. Inform the caller of the catastrophic exception
       // that shut down the evaluation so that it has some context.
@@ -1591,7 +1597,14 @@ public final class ParallelEvaluator implements Evaluator {
           bubbleErrorInfo);
       result.setCatastrophe(errorInfo.getException());
     }
-    return result.build();
+    EvaluationResult<T> builtResult = result.build();
+    Preconditions.checkState(
+        bubbleErrorInfo == null || builtResult.hasError(),
+        "If an error bubbled up, some top-level node must be in error: %s %s %s",
+        bubbleErrorInfo,
+        skyKeys,
+        builtResult);
+    return builtResult;
   }
 
   private <T extends SkyValue> void checkForCycles(

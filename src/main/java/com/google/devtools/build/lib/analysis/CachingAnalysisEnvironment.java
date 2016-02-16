@@ -157,6 +157,9 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
 
   @Override
   public ImmutableSet<Artifact> getOrphanArtifacts() {
+    if (!allowRegisteringActions) {
+      return ImmutableSet.<Artifact>of();
+    }
     return ImmutableSet.copyOf(getOrphanArtifactMap().keySet());
   }
 
@@ -224,6 +227,14 @@ public class CachingAnalysisEnvironment implements AnalysisEnvironment {
     Preconditions.checkState(enabled);
     return trackArtifactAndOrigin(
         artifactFactory.getDerivedArtifact(rootRelativePath, root, getOwner()),
+        extendedSanityChecks ? new Throwable() : null);
+  }
+
+  @Override
+  public Artifact getTreeArtifact(PathFragment rootRelativePath, Root root) {
+    Preconditions.checkState(enabled);
+    return trackArtifactAndOrigin(
+        artifactFactory.getTreeArtifact(rootRelativePath, root, getOwner()),
         extendedSanityChecks ? new Throwable() : null);
   }
 

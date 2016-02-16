@@ -1,4 +1,4 @@
-load("/tools/build_defs/scala/scala", "scala_binary", "scala_library")
+load("//tools/build_defs/scala:scala.bzl", "scala_binary", "scala_library", "scala_test")
 
 # The examples below show how to combine Scala and Java rules.
 # ScalaBinary is the Scala equivalent of JavaBinary.
@@ -30,6 +30,19 @@ scala_library(
     deps = [
         "OtherJavaLib",
         "OtherLib",
+    ],
+)
+
+scala_test(
+    name = "HelloLibTest",
+    size = "small",  # Not a macro, can pass test-specific attributes.
+    srcs = ["HelloLibTest.scala"],
+    suites = [
+        "scala.test.ScalaSuite",
+        "scala.test.JavaSuite",
+    ],
+    deps = [
+        ":HelloLib",
     ],
 )
 

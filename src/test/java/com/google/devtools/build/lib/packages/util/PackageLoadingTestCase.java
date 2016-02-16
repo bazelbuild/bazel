@@ -67,7 +67,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
   private static final int GLOBBING_THREADS = 7;
   
   protected ConfiguredRuleClassProvider ruleClassProvider;
-  private SkyframeExecutor skyframeExecutor;
+  protected SkyframeExecutor skyframeExecutor;
 
   @Before
   public final void initializeSkyframeExecutor() throws Exception {

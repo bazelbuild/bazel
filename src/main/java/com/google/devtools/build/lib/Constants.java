@@ -34,10 +34,6 @@ public final class Constants {
   // Default value for the --package_path flag if not otherwise set.
   public static final ImmutableList<String> DEFAULT_PACKAGE_PATH = ImmutableList.of("%workspace%");
 
-  // The rule documentation generator iterates over all rules in the class by this name.
-  public static final String MAIN_RULE_CLASS_PROVIDER =
-      "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";
-
   // Native Java deps are all linked into a single file, which is named with this value + ".so".
   public static final String NATIVE_DEPS_LIB_SUFFIX = "_nativedeps";
 
@@ -50,8 +46,4 @@ public final class Constants {
 
   // Most other tools dependencies use this; we plan to split it into per-language repositories.
   public static final String TOOLS_REPOSITORY = "@bazel_tools".toString();
-
-  // The --cc_include_scanning flag does not work in Bazel, and will be removed imminently.
-  // We currently use this constant to disable it unconditionally.
-  public static final boolean ALLOW_CC_INCLUDE_SCANNING = new Boolean(false).booleanValue();
 }

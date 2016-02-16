@@ -29,7 +29,7 @@ bazel="${TEST_SRCDIR}/src/bazel"
 bazel_data="${TEST_SRCDIR}"
 
 # Java
-jdk_dir="${TEST_SRCDIR}/external/local-jdk"
+jdk_dir="${TEST_SRCDIR}/external/local_jdk"
 langtools="${TEST_SRCDIR}/src/test/shell/bazel/langtools.jar"
 
 # Tools directory location

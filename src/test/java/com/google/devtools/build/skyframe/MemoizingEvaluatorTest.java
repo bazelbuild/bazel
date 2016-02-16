@@ -18,6 +18,8 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertContainsEvent;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
+import static com.google.devtools.build.skyframe.ErrorInfoSubjectFactory.assertThatErrorInfo;
+import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 import static com.google.devtools.build.skyframe.GraphTester.CONCATENATE;
 import static com.google.devtools.build.skyframe.GraphTester.COPY;
 import static com.google.devtools.build.skyframe.GraphTester.NODE_TYPE;
@@ -1066,8 +1068,12 @@ public class MemoizingEvaluatorTest {
     assertThat(cycleInfo.getPathToCycle()).isEmpty();
   }
 
-  @Test
-  public void parentOfCycleAndTransient() throws Exception {
+  /**
+   * {@link ParallelEvaluator} can be configured to not store errors alongside recovered values.
+   * In that case, transient errors that are recovered from do not make the parent transient.
+   */
+  protected void parentOfCycleAndTransientInternal(boolean errorsStoredAlongsideValues)
+      throws Exception {
     initializeTester();
     SkyKey cycleKey1 = GraphTester.toSkyKey("cycleKey1");
     SkyKey cycleKey2 = GraphTester.toSkyKey("cycleKey2");
@@ -1083,21 +1089,32 @@ public class MemoizingEvaluatorTest {
     tester.getOrCreate(top).setBuilder(new ChainedFunction(topEvaluated, null, null, false,
         new StringValue("unused"), ImmutableList.of(mid, cycleKey1)));
     EvaluationResult<StringValue> evalResult = tester.eval(true, top);
-    assertTrue(evalResult.hasError());
+    assertThatEvaluationResult(evalResult).hasError();
     ErrorInfo errorInfo = evalResult.getError(top);
     assertThat(topEvaluated.getCount()).isEqualTo(1);
-    // The parent should be transitively transient, since it transitively depends on a transient
-    // error.
-    assertThat(errorInfo.isTransient()).isTrue();
+    if (errorsStoredAlongsideValues) {
+      // The parent should be transitively transient, since it transitively depends on a transient
+      // error.
+      assertThat(errorInfo.isTransient()).isTrue();
+      assertThat(errorInfo.getException()).hasMessage(NODE_TYPE.getName() + ":errorKey");
+      assertThat(errorInfo.getRootCauseOfException()).isEqualTo(errorKey);
+    } else {
+      assertThatErrorInfo(errorInfo).isNotTransient();
+      assertThatErrorInfo(errorInfo).hasExceptionThat().isNull();
+    }
     assertWithMessage(errorInfo.toString())
         .that(errorInfo.getCycleInfo())
         .containsExactly(
             new CycleInfo(ImmutableList.of(top), ImmutableList.of(cycleKey1, cycleKey2)));
-    assertThat(errorInfo.getException()).hasMessage(NODE_TYPE.getName() + ":errorKey");
-    assertThat(errorInfo.getRootCauseOfException()).isEqualTo(errorKey);
     // But the parent itself shouldn't have a direct dep on the special error transience node.
-    assertThat(evalResult.getWalkableGraph().getDirectDeps(ImmutableList.of(top)).get(top))
+    assertThatEvaluationResult(evalResult)
+        .hasDirectDepsInGraphThat(top)
         .doesNotContain(ErrorTransienceValue.KEY);
+  }
+
+  @Test
+  public void parentOfCycleAndTransient() throws Exception {
+    parentOfCycleAndTransientInternal(/*errorsStoredAlongsideValues=*/ true);
   }
 
   /**

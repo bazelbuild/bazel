@@ -123,7 +123,8 @@ public class ObjcProtoLibrary implements RuleConfiguredTargetFactory {
     CustomCommandLine.Builder commandLineBuilder = new CustomCommandLine.Builder()
         .add(compileProtos.getExecPathString())
         .add("--input-file-list").add(inputFileList.getExecPathString())
-        .add("--output-dir").add(workspaceRelativeOutputDir.getSafePathString());
+        .add("--output-dir").add(workspaceRelativeOutputDir.getSafePathString())
+        .add("--working-dir").add(".");
     if (optionsFile.isPresent()) {
         commandLineBuilder
             .add("--compiler-options-path")

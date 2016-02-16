@@ -207,11 +207,6 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
     }
 
     @Override
-    public String describeStrategy(Executor executor) {
-      return null;
-    }
-
-    @Override
     public String getMnemonic() {
       return null;
     }
@@ -653,11 +648,6 @@ public class SkyframeAwareActionTest extends TimestampBuilderTestCase {
       } catch (IOException e) {
         throw new ActionExecutionException(e, this, false);
       }
-    }
-
-    @Override
-    public String describeStrategy(Executor executor) {
-      return null;
     }
 
     @Override

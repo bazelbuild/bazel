@@ -97,8 +97,7 @@ public final class ExtraAction extends SpawnAction {
         getManifests(shadowedAction),
         mnemonic,
         false,
-        null,
-        false);
+        null);
     this.shadowedAction = shadowedAction;
     this.runfilesManifests = ImmutableMap.copyOf(runfilesManifests);
     this.createDummyOutput = createDummyOutput;

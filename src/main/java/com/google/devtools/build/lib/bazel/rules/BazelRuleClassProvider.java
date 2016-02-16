@@ -87,8 +87,6 @@ import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.genquery.GenQueryRule;
-import com.google.devtools.build.lib.rules.java.J2ObjcCommandLineOptions;
-import com.google.devtools.build.lib.rules.java.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JavaCpuSupplier;
 import com.google.devtools.build.lib.rules.java.JavaImportBaseRule;
@@ -103,6 +101,8 @@ import com.google.devtools.build.lib.rules.objc.IosExtensionRule;
 import com.google.devtools.build.lib.rules.objc.IosFrameworkBinaryRule;
 import com.google.devtools.build.lib.rules.objc.IosFrameworkRule;
 import com.google.devtools.build.lib.rules.objc.IosTestRule;
+import com.google.devtools.build.lib.rules.objc.J2ObjcCommandLineOptions;
+import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.J2ObjcLibraryBaseRule;
 import com.google.devtools.build.lib.rules.objc.ObjcBinaryRule;
 import com.google.devtools.build.lib.rules.objc.ObjcBuildInfoFactory;
@@ -230,6 +230,7 @@ public class BazelRuleClassProvider {
         .setConfigurationCollectionFactory(new BazelConfigurationCollection())
         .setPrelude("//tools/build_rules:prelude_bazel")
         .setRunfilesPrefix("")
+        .setToolsRepository("@bazel_tools")
         .setPrerequisiteValidator(new BazelPrerequisiteValidator());
 
     builder.addBuildOptions(BUILD_OPTIONS);

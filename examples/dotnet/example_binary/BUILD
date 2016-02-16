@@ -1,4 +1,4 @@
-load("/tools/build_defs/dotnet/csharp", "csharp_binary")
+load("//tools/build_defs/dotnet:csharp.bzl", "csharp_binary")
 
 csharp_binary(
     name = "hello",

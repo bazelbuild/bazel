@@ -48,6 +48,10 @@ import javax.annotation.Nullable;
  */
 @RunWith(JUnit4.class)
 public class SkylarkAspectsTest extends AnalysisTestCase {
+  protected boolean keepGoing() {
+    return false;
+  }
+
   @Test
   public void testAspect() throws Exception {
     scratch.file(
@@ -181,7 +185,64 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     Object ruleKinds = skylarkProviders.getValue("rule_kinds");
     assertThat(ruleKinds).isInstanceOf(SkylarkNestedSet.class);
     assertThat((SkylarkNestedSet) ruleKinds).containsExactly("java_library");
+  }
 
+  @Test
+  public void aspectsPropagatingForDefaultAndImplicit() throws Exception {
+    scratch.file(
+        "test/aspect.bzl",
+        "def _impl(target, ctx):",
+        "   s = set([target.label])",
+        "   c = set([ctx.rule.kind])",
+        "   a = ctx.rule.attr",
+        "   if hasattr(a, '_stl') and a._stl:",
+        "       s += a._stl.target_labels",
+        "       c += a._stl.rule_kinds",
+        "   if hasattr(a, '_stl_default') and a._stl_default:",
+        "       s += a._stl_default.target_labels",
+        "       c += a._stl_default.rule_kinds",
+        "   return struct(target_labels = s, rule_kinds = c)",
+        "",
+        "def _rule_impl(ctx):",
+        "   pass",
+        "",
+        "my_rule = rule(implementation = _rule_impl,",
+        "   attrs = { '_stl' : attr.label(default = Label('//test:xxx')) },",
+        ")",
+        "MyAspect = aspect(",
+        "   implementation=_impl,",
+        "   attr_aspects=['_stl', '_stl_default'],",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('/test/aspect', 'my_rule')",
+        "cc_library(",
+        "     name = 'xxx',",
+        ")",
+        "my_rule(",
+        "     name = 'yyy',",
+        ")"
+    );
+    AnalysisResult analysisResult =
+        update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:yyy");
+    AspectValue aspectValue = analysisResult.getAspects().iterator().next();
+    SkylarkProviders skylarkProviders =
+        aspectValue.getConfiguredAspect().getProvider(SkylarkProviders.class);
+    assertThat(skylarkProviders).isNotNull();
+    Object names = skylarkProviders.getValue("target_labels");
+    assertThat(names).isInstanceOf(SkylarkNestedSet.class);
+    assertThat(
+        transform(
+            (SkylarkNestedSet) names,
+            new Function<Object, String>() {
+              @Nullable
+              @Override
+              public String apply(Object o) {
+                assertThat(o).isInstanceOf(Label.class);
+                return ((Label) o).getName();
+              }
+            }))
+        .containsExactly("stl", "xxx", "yyy");
   }
 
   @Test
@@ -308,8 +369,9 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
-      fail();
+      AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
@@ -336,8 +398,9 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
-      fail();
+      AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
@@ -358,8 +421,9 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
-      fail();
+      AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
@@ -384,8 +448,9 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
-      fail();
+      AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
@@ -405,8 +470,9 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
-      fail();
+      AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
@@ -420,8 +486,9 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
-      fail();
+      AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
@@ -434,8 +501,9 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
-      fail();
+      AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
@@ -450,8 +518,9 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      update(ImmutableList.of("foo/aspect.bzl%MyAspect"), "//test:xxx");
-      fail();
+      AnalysisResult result = update(ImmutableList.of("foo/aspect.bzl%MyAspect"), "//test:xxx");
+      assertThat(keepGoing()).isTrue();
+      assertThat(result.hasError()).isTrue();
     } catch (ViewCreationFailedException e) {
       // expect to fail.
     }
@@ -525,7 +594,6 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     assertNoEvents();
   }
 
-
   private ConfiguredTarget getConfiguredTargetForAspectFragment(
       String fullFieldName,
       String fragments,
@@ -567,8 +635,25 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "     attr = ['yyy'],",
         ")");
 
-    update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+    AnalysisResult result = update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
+    if (result.hasError()) {
+      assertThat(keepGoing()).isTrue();
+      throw new ViewCreationFailedException("Analysis failed");
+    }
 
     return getConfiguredTarget("//test:xxx");
+  }
+
+  @RunWith(JUnit4.class)
+  public static final class WithKeepGoing extends SkylarkAspectsTest {
+    @Override
+    protected FlagBuilder defaultFlags() {
+      return new FlagBuilder().with(Flag.KEEP_GOING);
+    }
+
+    @Override
+    protected boolean keepGoing() {
+      return true;
+    }
   }
 }

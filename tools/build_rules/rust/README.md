@@ -25,7 +25,7 @@ To use the Rust rules, add the following to your `WORKSPACE` file to add the
 external repositories for the Rust toolchain:
 
 ```python
-load("/tools/build_rules/rust/rust", "rust_repositories")
+load("@bazel_tools//tools/build_rules/rust:rust.bzl", "rust_repositories")
 
 rust_repositories()
 ```
@@ -192,7 +192,7 @@ pub mod greeter;
 ```python
 package(default_visibility = ["//visibility:public"])
 
-load("/tools/build_rules/rust/rust", "rust_library")
+load("@bazel_tools//tools/build_rules/rust:rust.bzl", "rust_library")
 
 rust_library(
     name = "hello_lib",
@@ -360,7 +360,7 @@ impl Greeter {
 ```python
 package(default_visibility = ["//visibility:public"])
 
-load("/tools/build_rules/rust/rust", "rust_library")
+load("@bazel_tools//tools/build_rules/rust:rust.bzl", "rust_library")
 
 rust_library(
     name = "hello_lib",
@@ -382,7 +382,7 @@ fn main() {
 `hello_world/BUILD`:
 
 ```python
-load("/tools/build_rules/rust/rust", "rust_binary")
+load("@bazel_tools//tools/build_rules/rust:rust.bzl", "rust_binary")
 
 rust_binary(
     name = "hello_world",
@@ -560,7 +560,7 @@ only depends on the `hello_lib` `rust_library` target:
 ```python
 package(default_visibility = ["//visibility:public"])
 
-load("/tools/build_rules/rust/rust", "rust_library", "rust_test")
+load("@bazel_tools//tools/build_rules/rust:rust.bzl", "rust_library", "rust_test")
 
 rust_library(
     name = "hello_lib",
@@ -617,7 +617,7 @@ with `greeting.rs` in `srcs` and a dependency on the `hello_lib` target:
 ```python
 package(default_visibility = ["//visibility:public"])
 
-load("/tools/build_rules/rust/rust", "rust_library", "rust_test")
+load("@bazel_tools//tools/build_rules/rust:rust.bzl", "rust_library", "rust_test")
 
 rust_library(
     name = "hello_lib",
@@ -804,7 +804,7 @@ To build the benchmark test, simply add a `rust_bench_test` target:
 ```python
 package(default_visibility = ["//visibility:public"])
 
-load("/tools/build_rules/rust/rust", "rust_library", "rust_bench_test")
+load("@bazel_tools//tools/build_rules/rust:rust.bzl", "rust_library", "rust_bench_test")
 
 rust_library(
     name = "fibonacci",
@@ -913,7 +913,7 @@ a `rust_doc` rule that depends on the the `hello_lib` `rust_library` target:
 ```python
 package(default_visibility = ["//visibility:public"])
 
-load("/tools/build_rules/rust/rust", "rust_library", "rust_doc")
+load("@bazel_tools//tools/build_rules/rust:rust.bzl", "rust_library", "rust_doc")
 
 rust_library(
     name = "hello_lib",
@@ -991,7 +991,7 @@ To run [documentation tests][doc-test] for the `hello_lib` crate, define a
 ```python
 package(default_visibility = ["//visibility:public"])
 
-load("/tools/build_rules/rust/rust", "rust_library", "rust_doc_test")
+load("@bazel_tools//tools/build_rules/rust:rust.bzl", "rust_library", "rust_doc_test")
 
 rust_library(
     name = "hello_lib",

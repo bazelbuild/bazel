@@ -220,6 +220,10 @@ public class AndroidResourcesProcessorBuilder {
     List<Artifact> outs = new ArrayList<>();
     CustomCommandLine.Builder builder = new CustomCommandLine.Builder();
 
+    if (!Strings.isNullOrEmpty(sdk.getBuildToolsVersion())) {
+      builder.add("--buildToolsVersion").add(sdk.getBuildToolsVersion());
+    }
+
     builder.addExecPath("--aapt", sdk.getAapt().getExecutable());
     // Use a FluentIterable to avoid flattening the NestedSets
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.naiveLinkOrder();

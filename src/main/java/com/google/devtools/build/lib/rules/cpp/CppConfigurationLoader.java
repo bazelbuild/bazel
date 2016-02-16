@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -156,6 +157,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
               "The --fdo_optimize parameter you specified resolves to a file that does not exist");
         }
       } catch (NoSuchPackageException | NoSuchTargetException | LabelSyntaxException e) {
+        env.getEventHandler().handle(Event.error(e.getMessage()));
         throw new InvalidConfigurationException(e);
       }
     } else {

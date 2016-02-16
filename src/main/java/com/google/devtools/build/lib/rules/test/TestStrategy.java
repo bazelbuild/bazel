@@ -147,19 +147,6 @@ public abstract class TestStrategy implements TestActionContext {
   public abstract void exec(TestRunnerAction action, ActionExecutionContext actionExecutionContext)
       throws ExecException, InterruptedException;
 
-  @Override
-  public abstract String strategyLocality(TestRunnerAction action);
-
-  /**
-   * Callback for determining the strategy locality.
-   *
-   * @param action the test action
-   * @param localRun whether to run it locally
-   */
-  protected String strategyLocality(TestRunnerAction action, boolean localRun) {
-    return strategyLocality(action);
-  }
-
   /**
    * Returns mutable map of default testing shell environment. By itself it is incomplete and is
    * modified further by the specific test strategy implementations (mostly due to the fact that
@@ -358,9 +345,12 @@ public abstract class TestStrategy implements TestActionContext {
    * Returns the runfiles directory associated with the test executable,
    * creating/updating it if necessary and --build_runfile_links is specified.
    */
-  protected static Path getLocalRunfilesDirectory(TestRunnerAction testAction,
-      ActionExecutionContext actionExecutionContext, BinTools binTools) throws ExecException,
-      InterruptedException {
+  protected static Path getLocalRunfilesDirectory(
+      TestRunnerAction testAction,
+      ActionExecutionContext actionExecutionContext,
+      BinTools binTools,
+      PathFragment shExecutable)
+      throws ExecException, InterruptedException {
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
 
     // If the symlink farm is already created then return the existing directory. If not we
@@ -382,7 +372,8 @@ public abstract class TestStrategy implements TestActionContext {
     long startTime = Profiler.nanoTimeMaybe();
     synchronized (execSettings.getInputManifest()) {
       Profiler.instance().logSimpleTask(startTime, ProfilerTask.WAIT, testAction);
-      updateLocalRunfilesDirectory(testAction, runfilesDir, actionExecutionContext, binTools);
+      updateLocalRunfilesDirectory(
+          testAction, runfilesDir, actionExecutionContext, binTools, shExecutable);
     }
 
     return runfilesDir;
@@ -394,9 +385,13 @@ public abstract class TestStrategy implements TestActionContext {
    * $0.runfiles/MANIFEST, if it exists, are used a proxy for the set of existing symlinks, to avoid
    * the need for recursion.
    */
-  private static void updateLocalRunfilesDirectory(TestRunnerAction testAction, Path runfilesDir,
-      ActionExecutionContext actionExecutionContext, BinTools binTools) throws ExecException,
-      InterruptedException {
+  private static void updateLocalRunfilesDirectory(
+      TestRunnerAction testAction,
+      Path runfilesDir,
+      ActionExecutionContext actionExecutionContext,
+      BinTools binTools,
+      PathFragment shExecutable)
+      throws ExecException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
 
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
@@ -414,9 +409,11 @@ public abstract class TestStrategy implements TestActionContext {
     executor.getEventHandler().handle(Event.progress(
         "Building runfiles directory for '" + execSettings.getExecutable().prettyPrint() + "'."));
 
-    new SymlinkTreeHelper(execSettings.getInputManifest().getExecPath(),
-        runfilesDir.relativeTo(executor.getExecRoot()), /* filesetTree= */ false)
-        .createSymlinks(testAction, actionExecutionContext, binTools);
+    new SymlinkTreeHelper(
+            execSettings.getInputManifest().getExecPath(),
+            runfilesDir.relativeTo(executor.getExecRoot()), /* filesetTree= */
+            false)
+        .createSymlinks(testAction, actionExecutionContext, binTools, shExecutable);
 
     executor.getEventHandler().handle(Event.progress(testAction.getProgressMessage()));
   }

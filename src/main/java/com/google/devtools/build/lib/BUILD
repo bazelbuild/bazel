@@ -26,18 +26,19 @@ java_library(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/docgen:srcs",
+        "//src/main/java/com/google/devtools/build/lib/bazel/dash:srcs",
+        "//src/main/java/com/google/devtools/build/lib/query2:srcs",
+        "//src/main/java/com/google/devtools/build/lib/remote:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/apple:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
-        "//src/main/java/com/google/devtools/common/options:srcs",
-        "//src/main/java/com/google/devtools/build/lib/bazel/dash:srcs",
         "//src/main/java/com/google/devtools/build/lib/sandbox:srcs",
-        "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/build/lib/standalone:srcs",
         "//src/main/java/com/google/devtools/build/lib/worker:srcs",
-        "//src/main/java/com/google/devtools/build/lib/query2:srcs",
-        "//src/main/java/com/google/devtools/build/docgen:srcs",
+        "//src/main/java/com/google/devtools/build/skyframe:srcs",
+        "//src/main/java/com/google/devtools/common/options:srcs",
     ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
@@ -61,7 +62,11 @@ java_library(
     srcs = glob([
         "unix/*.java",
     ]) + ["UnixJniLoader.java"],
-    resources = ["//src/main/native:libunix.so"],
+    resources = select({
+        # todo(dslomov): Get rid of this whole library on Windows.
+        "//src:windows": [],
+        "//conditions:default": ["//src/main/native:libunix.so"],
+    }),
     deps = [
         ":common",
         ":shell",
@@ -483,6 +488,7 @@ java_library(
         ":build-info",
         ":collect",
         ":common",
+        ":concurrent",
         ":events",
         ":ideinfo",
         ":java-rules",
@@ -530,6 +536,7 @@ java_library(
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/bazel/dash",
+        "//src/main/java/com/google/devtools/build/lib/remote",
         "//src/main/java/com/google/devtools/build/lib/sandbox",
         "//src/main/java/com/google/devtools/build/lib/standalone",
         "//src/main/java/com/google/devtools/build/lib/worker",
@@ -599,6 +606,7 @@ java_library(
         "//third_party:maven",
         "//third_party:maven_model",
         "//third_party:plexus_component_annotations",
+        "//third_party:xz",
     ],
 )
 
@@ -897,7 +905,8 @@ genrule(
     cmd = (
         "mkdir -p $(@D)/be && " +
         "$(location //src/main/java/com/google/devtools/build/docgen:docgen_bin)" +
-        " $$PWD/src/main/java/com/google/devtools/build/lib" +
+        " $$PWD/src/main/java/com/google/devtools/build/lib " +
+        "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider" +
         " $(@D)/be &&" +
         "zip -qj $@ $(@D)/be/*"
     ),
@@ -918,7 +927,7 @@ genrule(
 
 # Bootstrapping SingleJar using Skylark rules
 #
-load("/tools/build_rules/java_rules_skylark", "bootstrap_java_library")
+load("//tools:build_rules/java_rules_skylark.bzl", "bootstrap_java_library")
 
 bootstrap_java_library(
     name = "shell-skylark",

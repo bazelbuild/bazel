@@ -238,11 +238,6 @@ final class BundleSupport {
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, storyboardInput))
               .addOutput(zipOutput)
               .addInput(storyboardInput)
-              // TODO(dmaclach): Adding realpath and xcrunwrapper should not be required once
-              // https://github.com/bazelbuild/bazel/issues/285 is fixed.
-              .addInput(attributes.realpath())
-              .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
-              .setVerboseFailuresAndSubcommandsInEnv()
               .build(ruleContext));
     }
   }
@@ -282,12 +277,7 @@ final class BundleSupport {
               .setExecutable(attributes.momcWrapper())
               .addOutput(outputZip)
               .addInputs(datamodel.getInputs())
-              // TODO(dmaclach): Adding realpath and xcrunwrapper should not be required once
-              // https://github.com/google/bazel/issues/285 is fixed.
-              .addInput(attributes.realpath())
-              .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
-              .setVerboseFailuresAndSubcommandsInEnv()
-             .setCommandLine(CustomCommandLine.builder()
+              .setCommandLine(CustomCommandLine.builder()
                   .addPath(outputZip.getExecPath())
                   .add(datamodel.archiveRootForMomczip())
                   .add("-XD_MOMC_SDKROOT=" + AppleToolchain.sdkDir())
@@ -316,11 +306,6 @@ final class BundleSupport {
               .setCommandLine(ibActionsCommandLine(archiveRoot, zipOutput, original))
               .addOutput(zipOutput)
               .addInput(original)
-              // TODO(dmaclach): Adding realpath and xcrunwrapper should not be required once
-              // https://github.com/bazelbuild/bazel/issues/285 is fixed.
-              .addInput(attributes.realpath())
-              .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
-              .setVerboseFailuresAndSubcommandsInEnv()
               .build(ruleContext));
     }
   }
@@ -375,7 +360,6 @@ final class BundleSupport {
             .addInputArgument(plMergeControlArtifact)
             .addTransitiveInputs(mergingContentArtifacts)
             .addOutput(ObjcRuleClasses.intermediateArtifacts(ruleContext).mergedInfoplist())
-            .setVerboseFailuresAndSubcommandsInEnv()
             .build(ruleContext));
   }
 
@@ -400,11 +384,6 @@ final class BundleSupport {
             .addTransitiveInputs(objcProvider.get(ASSET_CATALOG))
             .addOutput(zipOutput)
             .addOutput(actoolPartialInfoplist)
-            // TODO(dmaclach): Adding realpath and xcrunwrapper should not be required once
-            // https://github.com/google/bazel/issues/285 is fixed.
-            .addInput(attributes.realpath())
-            .addInput(CompilationSupport.xcrunwrapper(ruleContext).getExecutable())
-            .setVerboseFailuresAndSubcommandsInEnv()
             .setCommandLine(actoolzipCommandLine(
                 objcProvider,
                 zipOutput,
@@ -493,15 +472,6 @@ final class BundleSupport {
      */
     FilesToRunProvider ibtoolWrapper() {
       return ruleContext.getExecutablePrerequisite("$ibtoolwrapper", Mode.HOST);
-    }
-
-    /**
-     * Returns the location of the realpath tool.
-     * TODO(dmaclach): Should not be required once https://github.com/bazelbuild/bazel/issues/285
-     * is fixed.
-     */
-    Artifact realpath() {
-      return ruleContext.getPrerequisiteArtifact("$realpath", Mode.HOST);
     }
 
     /**

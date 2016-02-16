@@ -187,7 +187,15 @@ EOF
   expect_log "no such package '@common//carnivore'"
 }
 
-function test_new_local_repository() {
+function test_new_local_repository_with_build_file() {
+  do_new_local_repository_test "build_file"
+}
+
+function test_new_local_repository_with_build_file_content() {
+  do_new_local_repository_test "build_file_content"
+}
+
+function do_new_local_repository_test() {
   bazel clean
 
   # Create a non-Bazel directory.
@@ -210,14 +218,37 @@ public class Mongoose {
 }
 EOF
 
-  build_file=BUILD.carnivore
-  cat > WORKSPACE <<EOF
+  if [ "$1" == "build_file" ] ; then
+    build_file=BUILD.carnivore
+    cat > WORKSPACE <<EOF
 new_local_repository(
     name = 'endangered',
     path = '$project_dir',
     build_file = '$build_file',
 )
 EOF
+
+    cat > $build_file <<EOF
+java_library(
+    name = "mongoose",
+    srcs = ["carnivore/Mongoose.java"],
+    visibility = ["//visibility:public"],
+)
+EOF
+  else
+    cat > WORKSPACE <<EOF
+new_local_repository(
+    name = 'endangered',
+    path = '$project_dir',
+    build_file_content = """
+java_library(
+    name = "mongoose",
+    srcs = ["carnivore/Mongoose.java"],
+    visibility = ["//visibility:public"],
+)""",
+)
+EOF
+  fi
 
    mkdir -p zoo
    cat > zoo/BUILD <<EOF
@@ -239,13 +270,6 @@ public class BallPit {
 }
 EOF
 
-  cat > $build_file <<EOF
-java_library(
-    name = "mongoose",
-    srcs = ["carnivore/Mongoose.java"],
-    visibility = ["//visibility:public"],
-)
-EOF
   bazel fetch //zoo:ball-pit || fail "Fetch failed"
   bazel run //zoo:ball-pit >& $TEST_log || fail "Failed to build/run zoo"
   expect_log "Tra-la!"
@@ -308,12 +332,12 @@ EOF
 cc_binary(
     name = "greeter",
     srcs = ["greeter.cc"],
-    deps = ["@greet-ws//:greet_lib"],
+    deps = ["@greet_ws//:greet_lib"],
 )
 EOF
   cat > WORKSPACE <<EOF
 local_repository(
-    name = "greet-ws",
+    name = "greet_ws",
     path = "$external_ws",
 )
 EOF
@@ -362,7 +386,7 @@ EOF
 java_library(
     name = "b",
     srcs = ["B.java"],
-    deps = ["@x-repo//x"],
+    deps = ["@x_repo//x"],
     visibility = ["//visibility:public"],
 )
 EOF
@@ -387,14 +411,14 @@ EOF
 
   cat > WORKSPACE <<EOF
 local_repository(
-    name = "x-repo",
+    name = "x_repo",
     path = "$external_dir",
 )
 EOF
 
   bazel build //a:a >& $TEST_log && fail "Building //a:a should error out"
   expect_log "** Please add the following dependencies:"
-  expect_log "@x-repo//x  to //a:a"
+  expect_log "@x_repo//x  to //a:a"
 }
 
 function test_external_includes() {
@@ -421,7 +445,7 @@ EOF
 
   cat > WORKSPACE <<EOF
 local_repository(
-    name = "clib-repo",
+    name = "clib_repo",
     path = "$clib",
 )
 EOF
@@ -429,7 +453,7 @@ EOF
 cc_binary(
     name = "printer",
     srcs = ["printer.cc"],
-    deps = ["@clib-repo//:clib"],
+    deps = ["@clib_repo//:clib"],
 )
 EOF
   cat > printer.cc <<EOF
@@ -444,8 +468,8 @@ int main() {
 EOF
 
   bazel fetch //:printer || fail "Fetch failed"
-  bazel build @clib-repo//:clib >& $TEST_log \
-    || fail "Building @clib-repo//:clib failed"
+  bazel build @clib_repo//:clib >& $TEST_log \
+    || fail "Building @clib_repo//:clib failed"
   bazel run //:printer >& $TEST_log || fail "Running //:printer failed"
   expect_log "My number is 3"
 }
@@ -456,13 +480,13 @@ function test_external_query() {
   touch $external_dir/WORKSPACE
   cat > WORKSPACE <<EOF
 local_repository(
-    name = "my-repo",
+    name = "my_repo",
     path = "$external_dir",
 )
 EOF
-  bazel fetch //external:my-repo || fail "Fetch failed"
-  bazel query 'deps(//external:my-repo)' >& $TEST_log || fail "query failed"
-  expect_log "//external:my-repo"
+  bazel fetch //external:my_repo || fail "Fetch failed"
+  bazel query 'deps(//external:my_repo)' >& $TEST_log || fail "query failed"
+  expect_log "//external:my_repo"
 }
 
 function test_overlaid_build_file() {

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.EventHandler;
 
 import java.util.Collection;
@@ -24,6 +25,7 @@ import javax.annotation.Nullable;
  * Read-only graph that exposes the dependents, dependencies (reverse dependents), and value and
  * exception (if any) of a given node.
  */
+@ThreadSafe
 public interface WalkableGraph {
 
   /**

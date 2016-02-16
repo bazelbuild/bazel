@@ -14,7 +14,7 @@
 
 package com.google.devtools.build.lib.actions;
 
-import com.google.devtools.build.lib.actions.Artifact.MiddlemanExpander;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
@@ -32,32 +32,32 @@ public class ActionExecutionContext {
   private final ActionInputFileCache actionInputFileCache;
   private final MetadataHandler metadataHandler;
   private final FileOutErr fileOutErr;
-  private final MiddlemanExpander middlemanExpander;
+  private final ArtifactExpander artifactExpander;
   @Nullable
   private final Environment env;
 
   private ActionExecutionContext(Executor executor, ActionInputFileCache actionInputFileCache,
       MetadataHandler metadataHandler, FileOutErr fileOutErr,
-      @Nullable MiddlemanExpander middlemanExpander,
+      @Nullable ArtifactExpander artifactExpander,
       @Nullable SkyFunction.Environment env) {
     this.actionInputFileCache = actionInputFileCache;
     this.metadataHandler = metadataHandler;
     this.fileOutErr = fileOutErr;
     this.executor = executor;
-    this.middlemanExpander = middlemanExpander;
+    this.artifactExpander = artifactExpander;
     this.env = env;
   }
 
   public ActionExecutionContext(Executor executor, ActionInputFileCache actionInputFileCache,
-      MetadataHandler metadataHandler, FileOutErr fileOutErr, MiddlemanExpander middlemanExpander) {
-    this(executor, actionInputFileCache, metadataHandler, fileOutErr, middlemanExpander, null);
+      MetadataHandler metadataHandler, FileOutErr fileOutErr, ArtifactExpander artifactExpander) {
+    this(executor, actionInputFileCache, metadataHandler, fileOutErr, artifactExpander, null);
   }
 
   public static ActionExecutionContext normal(Executor executor,
       ActionInputFileCache actionInputFileCache, MetadataHandler metadataHandler,
-      FileOutErr fileOutErr, MiddlemanExpander middlemanExpander) {
+      FileOutErr fileOutErr, ArtifactExpander artifactExpander) {
     return new ActionExecutionContext(executor, actionInputFileCache, metadataHandler, fileOutErr,
-        middlemanExpander, null);
+        artifactExpander, null);
   }
 
   public static ActionExecutionContext forInputDiscovery(Executor executor,
@@ -79,8 +79,8 @@ public class ActionExecutionContext {
     return executor;
   }
 
-  public MiddlemanExpander getMiddlemanExpander() {
-    return middlemanExpander;
+  public ArtifactExpander getArtifactExpander() {
+    return artifactExpander;
   }
 
   /**
@@ -104,6 +104,6 @@ public class ActionExecutionContext {
    */
   public ActionExecutionContext withFileOutErr(FileOutErr fileOutErr) {
     return new ActionExecutionContext(executor, actionInputFileCache, metadataHandler, fileOutErr,
-        middlemanExpander, env);
+        artifactExpander, env);
   }
 }

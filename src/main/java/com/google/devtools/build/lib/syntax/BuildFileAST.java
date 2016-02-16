@@ -59,6 +59,30 @@ public class BuildFileAST extends ASTNode {
     setLocation(result.location);
   }
 
+  private BuildFileAST(
+      ImmutableList<Statement> stmts,
+      boolean containsErrors,
+      String contentHashCode,
+      Location location) {
+    this.stmts = stmts;
+    this.containsErrors = containsErrors;
+    this.contentHashCode = contentHashCode;
+    this.comments = ImmutableList.of();
+    this.setLocation(location);
+  }
+
+  /**
+   * Extract a subtree containing only statements from {@code firstStatement} (included) up to
+   * {@code lastStatement} excluded.
+   */
+  public BuildFileAST subTree(int firstStatement, int lastStatement) {
+    return new BuildFileAST(
+        stmts.subList(firstStatement, lastStatement),
+        containsErrors,
+        null,
+        stmts.get(firstStatement).getLocation());
+  }
+
   /** Collects all load statements */
   private ImmutableList<SkylarkImport> fetchLoads(List<Statement> stmts) {
     ImmutableList.Builder<SkylarkImport> imports = new ImmutableList.Builder<>();

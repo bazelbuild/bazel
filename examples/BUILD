@@ -11,5 +11,6 @@ filegroup(
         "//examples/proto:srcs",
         "//examples/py:srcs",
         "//examples/py_native:srcs",
+        "//examples/shell:srcs",
     ],
 )

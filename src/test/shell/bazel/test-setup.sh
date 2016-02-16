@@ -362,6 +362,7 @@ function create_new_workspace() {
   cd ${new_workspace_dir}
   mkdir tools
   mkdir -p third_party/java/jdk/langtools
+  mkdir -p tools/jdk/ijar
 
   copy_tools_directory
 
@@ -372,7 +373,7 @@ function create_new_workspace() {
   ln -s "${singlejar_path}"  tools/jdk/SingleJar_deploy.jar
   ln -s "${genclass_path}" tools/jdk/GenClass_deploy.jar
   ln -s "${junitrunner_path}" tools/jdk/TestRunner_deploy.jar
-  ln -s "${ijar_path}" tools/jdk/ijar
+  ln -s "${ijar_path}" tools/jdk/ijar/ijar
 
   touch WORKSPACE
 }

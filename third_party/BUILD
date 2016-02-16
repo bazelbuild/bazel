@@ -19,9 +19,10 @@ filegroup(
 filegroup(
     name = "protoc",
     srcs = select({
-        ":windows_mingw": ["protobuf/protoc-windows-x86_32.exe"],
-        ":windows_msys64_mingw64": ["protobuf/protoc-windows-x86_64.exe"],
-        ":windows_clang": ["protobuf/protoc-windows-x86_32.exe"],
+        ":windows_mingw": ["protobuf/protoc-mingw.exe"],
+        ":windows_msys64_mingw64": ["protobuf/protoc-mingw.exe"],
+        ":windows_msys64": ["protobuf/protoc-mingw.exe"],
+        ":windows_clang": ["protobuf/protoc-mingw.exe"],
         ":darwin": ["protobuf/protoc-osx-x86_32.exe"],
         ":k8": ["protobuf/protoc-linux-x86_64.exe"],
         ":piii": ["protobuf/protoc-linux-x86_32.exe"],
@@ -208,11 +209,19 @@ java_import(
 )
 
 java_import(
+    name = "hazelcast",
+    jars = [
+        "hazelcast/hazelcast-3.5.4.jar",
+        "hazelcast/hazelcast-client-3.5.4.jar",
+    ],
+)
+
+java_import(
     name = "error_prone",
     jars = [
-        "error_prone/error_prone_core-2.0.8-20151216.jar",
-        "error_prone/error_prone_annotations-2.0.8-20151216.jar",
-        "error_prone/error_prone_annotation-2.0.8-20151216.jar",
+        "error_prone/error_prone_core-2.0.9-20160129.jar",
+        "error_prone/error_prone_annotations-2.0.9-20160129.jar",
+        "error_prone/error_prone_annotation-2.0.9-20160129.jar",
     ],
     exports = [
         ":checker_framework_dataflow",
@@ -257,9 +266,9 @@ filegroup(
     name = "error_prone-jars",
     srcs = [
         "checker_framework_dataflow/dataflow-1.8.10.jar",
-        "error_prone/error_prone_annotation-2.0.8-20151216.jar",
-        "error_prone/error_prone_annotations-2.0.8-20151216.jar",
-        "error_prone/error_prone_core-2.0.8-20151216.jar",
+        "error_prone/error_prone_annotation-2.0.9-20160129.jar",
+        "error_prone/error_prone_annotations-2.0.9-20160129.jar",
+        "error_prone/error_prone_core-2.0.9-20160129.jar",
         "guava/guava-19.0.jar",
         "jcip_annotations/jcip-annotations-1.0-1.jar",
         "jformatstring/jFormatString-3.0.0.jar",
@@ -291,6 +300,11 @@ filegroup(
 java_import(
     name = "jgit",
     jars = ["jgit/org.eclipse.jgit-4.0.1.201506240215-r.jar"],
+)
+
+java_import(
+    name = "jimfs",
+    jars = ["jimfs/jimfs-1.1-rc1.jar"],
 )
 
 java_import(
@@ -398,6 +412,11 @@ java_import(
     jars = ["truth/truth-0.28.jar"],
 )
 
+java_import(
+    name = "xz",
+    jars = ["xz/xz-1.5.jar"],
+)
+
 cc_library(
     name = "gtest",
     srcs = [
@@ -427,6 +446,11 @@ filegroup(
 config_setting(
     name = "windows_mingw",
     values = {"compiler": "windows_mingw"},
+)
+
+config_setting(
+    name = "windows_msys64",
+    values = {"compiler": "windows_msys64"},
 )
 
 config_setting(

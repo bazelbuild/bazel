@@ -271,6 +271,14 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     Artifact explicitDwpFile = dwpFile;
     if (!cppConfiguration.useFission()) {
       explicitDwpFile = null;
+    } else {
+      // For cc_test rules, include the dwp in the runfiles if Fission is enabled and the test was
+      // built statically.
+      if (TargetUtils.isTestRule(ruleContext.getRule())
+          && linkStaticness != LinkStaticness.DYNAMIC
+          && cppConfiguration.shouldBuildTestDwp()) {
+        filesToBuild = NestedSetBuilder.fromNestedSet(filesToBuild).add(dwpFile).build();
+      }
     }
 
     // TODO(bazel-team): Do we need to put original shared libraries (along with
@@ -595,8 +603,11 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
     InstrumentedFilesProvider instrumentedFilesProvider = common.getInstrumentedFilesProvider(
         instrumentedObjectFiles, !TargetUtils.isTestRule(ruleContext.getRule()) && !fake);
 
-    NestedSet<Artifact> filesToCompile = ccCompilationOutputs.getFilesToCompile(
-        cppConfiguration.isLipoContextCollector(), CppHelper.usePic(ruleContext, false));
+    NestedSet<Artifact> filesToCompile =
+        ccCompilationOutputs.getFilesToCompile(
+            cppConfiguration.isLipoContextCollector(),
+            cppConfiguration.processHeadersInDependencies(),
+            CppHelper.usePic(ruleContext, false));
     builder
         .setFilesToBuild(filesToBuild)
         .add(CppCompilationContext.class, cppCompilationContext)
@@ -618,8 +629,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
                 dwoArtifacts.getDwoArtifacts(), dwoArtifacts.getPicDwoArtifacts()))
         .addOutputGroup(
             OutputGroupProvider.TEMP_FILES, getTemps(cppConfiguration, ccCompilationOutputs))
-        .addOutputGroup(
-            OutputGroupProvider.FILES_TO_COMPILE, filesToCompile)
+        .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, filesToCompile)
         .addOutputGroup(
             OutputGroupProvider.COMPILATION_PREREQUISITES,
             CcCommon.collectCompilationPrerequisites(ruleContext, cppCompilationContext));

@@ -22,6 +22,7 @@ import com.google.common.collect.Iterables;
 import com.google.devtools.build.buildjar.InvalidCommandLineException;
 import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 import com.google.errorprone.ErrorProneAnalyzer;
+import com.google.errorprone.ErrorProneError;
 import com.google.errorprone.ErrorProneOptions;
 import com.google.errorprone.InvalidCommandLineOptionException;
 import com.google.errorprone.bugpatterns.BugChecker;
@@ -166,7 +167,14 @@ public final class ErrorPronePlugin extends BlazeJavaCompilerPlugin {
   @Override
   public void postFlow(Env<AttrContext> env) {
     if (enabled) {
-      errorProneAnalyzer.finished(new TaskEvent(Kind.ANALYZE, env.toplevel, env.enclClass.sym));
+      try {
+        errorProneAnalyzer.finished(new TaskEvent(Kind.ANALYZE, env.toplevel, env.enclClass.sym));
+      } catch (ErrorProneError e) {
+        e.logFatalError(log);
+        // let the exception propagate to javac's main, where it will cause the compilation to
+        // terminate with Result.ABNORMAL
+        throw e;
+      }
     }
   }
 

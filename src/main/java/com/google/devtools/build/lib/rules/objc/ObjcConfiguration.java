@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -35,6 +35,7 @@ import javax.annotation.Nullable;
 /**
  * A compiler configuration containing flags required for Objective-C compilation.
  */
+@Immutable
 public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @VisibleForTesting
   static final ImmutableList<String> DBG_COPTS = ImmutableList.of("-O0", "-DDEBUG=1",
@@ -51,10 +52,10 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final String iosSimulatorDevice;
   private final boolean generateDebugSymbols;
   private final boolean runMemleaks;
-  private final List<String> copts;
+  private final ImmutableList<String> copts;
   private final CompilationMode compilationMode;
   private final String iosSplitCpu;
-  private final List<String> fastbuildOptions;
+  private final ImmutableList<String> fastbuildOptions;
   private final boolean enableBinaryStripping;
   private final boolean moduleMapsEnabled;
   private final ConfigurationDistinguisher configurationDistinguisher;
@@ -62,15 +63,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @Nullable private final Path clientWorkspaceRoot;
   private final String xcodeOverrideWorkspaceRoot;
   private final boolean useAbsolutePathsForActions;
-
-  // We only load these labels if the mode which uses them is enabled. That is known as part of the
-  // BuildConfiguration. This label needs to be part of a configuration because only configurations
-  // can conditionally cause loading.
-  // They are referenced from late bound attributes, and if loading wasn't forced in a
-  // configuration, the late bound attribute will fail to be initialized because it hasn't been
-  // loaded.
-  @Nullable private final Label gcovLabel;
-  @Nullable private final Label dumpSymsLabel;
+  private final boolean prioritizeStaticLibs;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
       @Nullable BlazeDirectories directories) {
@@ -83,8 +76,6 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.runMemleaks = objcOptions.runMemleaks;
     this.copts = ImmutableList.copyOf(objcOptions.copts);
     this.compilationMode = Preconditions.checkNotNull(options.compilationMode, "compilationMode");
-    this.gcovLabel = options.objcGcovBinary;
-    this.dumpSymsLabel = objcOptions.dumpSyms;
     this.iosSplitCpu = Preconditions.checkNotNull(objcOptions.iosSplitCpu, "iosSplitCpu");
     this.fastbuildOptions = ImmutableList.copyOf(objcOptions.fastbuildOptions);
     this.enableBinaryStripping = objcOptions.enableBinaryStripping;
@@ -94,6 +85,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.signingCertName = objcOptions.iosSigningCertName;
     this.xcodeOverrideWorkspaceRoot = objcOptions.xcodeOverrideWorkspaceRoot;
     this.useAbsolutePathsForActions = objcOptions.useAbsolutePathsForActions;
+    this.prioritizeStaticLibs = objcOptions.prioritizeStaticLibs;
   }
 
   /**
@@ -134,7 +126,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns the default set of clang options for the current compilation mode.
    */
-  public List<String> getCoptsForCompilationMode() {
+  public ImmutableList<String> getCoptsForCompilationMode() {
     switch (compilationMode) {
       case DBG:
         return DBG_COPTS;
@@ -151,24 +143,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    * Returns options passed to (Apple) clang when compiling Objective C. These options should be
    * applied after any default options but before options specified in the attributes of the rule.
    */
-  public List<String> getCopts() {
+  public ImmutableList<String> getCopts() {
     return copts;
-  }
-
-  /**
-   * Returns the label of the gcov binary, used to get test coverage data. Null iff not in coverage
-   * mode.
-   */
-  @Nullable public Label getGcovLabel() {
-    return gcovLabel;
-  }
-
-  /**
-   * Returns the label of the dump_syms binary, used to get debug symbols from a binary. Null iff
-   * !{@link #generateDebugSymbols}.
-   */
-  @Nullable public Label getDumpSymsLabel() {
-    return dumpSymsLabel;
   }
 
   /**
@@ -246,5 +222,13 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @Nullable
   public String getSigningCertName() {
     return this.signingCertName;
+  }
+  
+  /**
+   * Returns true if the linker invocation should contain static library includes before framework
+   * and system library includes.
+   */
+  public boolean shouldPrioritizeStaticLibs() {
+    return this.prioritizeStaticLibs;
   }
 }

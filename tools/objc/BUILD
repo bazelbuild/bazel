@@ -54,6 +54,11 @@ filegroup(
     srcs = [":memleaks_plugin_stub"],
 )
 
+filegroup(
+    name = "dump_syms",
+    srcs = [":dump_syms_stub"],
+)
+
 sh_binary(
     name = "ibtoolwrapper",
     srcs = [":ibtoolwrapper.sh"],
@@ -95,6 +100,16 @@ sh_binary(
     srcs = [":xcrunwrapper.sh"],
 )
 
+sh_binary(
+    name = "environment_plist",
+    srcs = [":environment_plist.sh"],
+)
+
+filegroup(
+    name = "gcov",
+    srcs = [":gcov_stub"],
+)
+
 xcode_config(
     name = "host_xcodes",
 )
@@ -103,4 +118,9 @@ xcode_config(
 py_library(
     name = "j2objc_dead_code_pruner",
     srcs = ["j2objc_dead_code_pruner.py"],
+)
+
+objc_library(
+    name = "dummy_lib",
+    srcs = ["dummy.c"],
 )

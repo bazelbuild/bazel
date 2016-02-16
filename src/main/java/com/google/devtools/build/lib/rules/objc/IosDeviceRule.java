@@ -33,14 +33,12 @@ public final class IosDeviceRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(ios_device).ATTRIBUTE(ios_version) -->
         The operating system version of the device. This corresponds to the
         <code>simctl</code> runtime.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("ios_version", STRING)
             .mandatory())
         /* <!-- #BLAZE_RULE(ios_device).ATTRIBUTE(type) -->
         The hardware type. This corresponds to the <code>simctl</code> device
         type.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("type", STRING)
             .mandatory())

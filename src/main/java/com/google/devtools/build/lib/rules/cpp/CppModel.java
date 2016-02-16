@@ -333,6 +333,7 @@ public final class CppModel {
       CppCompileActionBuilder builder,
       boolean usePic,
       PathFragment ccRelativeName,
+      PathFragment autoFdoImportPath,
       Artifact gcnoFile) {
     CcToolchainFeatures.Variables.Builder buildVariables =
         new CcToolchainFeatures.Variables.Builder();
@@ -367,7 +368,7 @@ public final class CppModel {
 
     if (ccRelativeName != null) {
       cppConfiguration.getFdoSupport().configureCompilation(builder, buildVariables, ruleContext,
-          ccRelativeName, usePic, featureConfiguration);
+          ccRelativeName, autoFdoImportPath, usePic, featureConfiguration);
     }
     if (gcnoFile != null) {
       buildVariables.addVariable("gcov_gcno_file", gcnoFile.getExecPathString());
@@ -426,7 +427,8 @@ public final class CppModel {
         .setDotdFile(outputName, ".h.d")
         // If we generate pic actions, we prefer the header actions to use the pic artifacts.
         .setPicMode(this.getGeneratePicActions());
-    setupBuildVariables(builder, this.getGeneratePicActions(), null, null);
+    setupBuildVariables(builder, this.getGeneratePicActions(), /*ccRelativeName=*/null,
+        /*autoFdoImportPath=*/null, /*gcnoFile=*/null);
     semantics.finalizeCompileActionBuilder(ruleContext, builder);
     CppCompileAction compileAction = builder.build();
     env.registerAction(compileAction);
@@ -458,7 +460,7 @@ public final class CppModel {
     if (fake) {
       boolean usePic = !generateNoPicAction;
       createFakeSourceAction(outputName, result, env, builder, outputExtension,
-          dependencyFileExtension, addObject, ccRelativeName, usePic);
+          dependencyFileExtension, addObject, ccRelativeName, sourceArtifact.getExecPath(), usePic);
     } else {
       // Create PIC compile actions (same as non-PIC, but use -fPIC and
       // generate .pic.o, .pic.d, .pic.gcno instead of .o, .d, .gcno.)
@@ -472,7 +474,8 @@ public final class CppModel {
         if (gcnoFile != null) {
           picBuilder.setGcnoFile(gcnoFile);
         }
-        setupBuildVariables(picBuilder, /*usePic=*/ true, ccRelativeName, gcnoFile);
+        setupBuildVariables(picBuilder, /*usePic=*/ true, ccRelativeName,
+            sourceArtifact.getExecPath(), gcnoFile);
 
         if (maySaveTemps) {
           result.addTemps(
@@ -512,7 +515,8 @@ public final class CppModel {
         if (gcnoFile != null) {
           builder.setGcnoFile(gcnoFile);
         }
-        setupBuildVariables(builder, /*usePic=*/ false, ccRelativeName, gcnoFile);
+        setupBuildVariables(builder, /*usePic=*/false, ccRelativeName, sourceArtifact.getExecPath(),
+            gcnoFile);
 
         if (maySaveTemps) {
           result.addTemps(
@@ -549,7 +553,7 @@ public final class CppModel {
   private void createFakeSourceAction(PathFragment outputName, CcCompilationOutputs.Builder result,
       AnalysisEnvironment env, CppCompileActionBuilder builder, String outputExtension,
       String dependencyFileExtension, boolean addObject, PathFragment ccRelativeName,
-      boolean usePic) {
+      PathFragment execPath, boolean usePic) {
     if (usePic) {
       outputExtension = ".pic" + outputExtension;
       dependencyFileExtension = ".pic" + dependencyFileExtension;
@@ -563,7 +567,7 @@ public final class CppModel {
         .setOutputFile(outputFile)
         .setDotdFile(outputName, dependencyFileExtension)
         .setTempOutputFile(tempOutputName);
-    setupBuildVariables(builder, getGeneratePicActions(), ccRelativeName, null);
+    setupBuildVariables(builder, getGeneratePicActions(), ccRelativeName, execPath, null);
     semantics.finalizeCompileActionBuilder(ruleContext, builder);
     CppCompileAction action = builder.build();
     env.registerAction(action);
@@ -772,9 +776,9 @@ public final class CppModel {
     String iExt = isCFile ? ".i" : ".ii";
     String picExt = usePic ? ".pic" : "";
     CppCompileActionBuilder dBuilder = new CppCompileActionBuilder(builder);
-    setupBuildVariables(dBuilder, usePic, ccRelativeName, null);
+    setupBuildVariables(dBuilder, usePic, ccRelativeName, source.getExecPath(), null);
     CppCompileActionBuilder sdBuilder = new CppCompileActionBuilder(builder);
-    setupBuildVariables(sdBuilder, usePic, ccRelativeName, null);
+    setupBuildVariables(sdBuilder, usePic, ccRelativeName, source.getExecPath(), null);
 
     dBuilder
         .setOutputFile(ruleContext.getRelatedArtifact(outputName, picExt + iExt))

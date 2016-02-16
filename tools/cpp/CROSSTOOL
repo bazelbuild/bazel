@@ -26,6 +26,10 @@ default_toolchain {
   cpu: "arm"
   toolchain_identifier: "local_linux"
 }
+default_toolchain {
+  cpu: "x64_windows"
+  toolchain_identifier: "local_windows_msys64"
+}
 
 toolchain {
   abi_version: "armeabi-v7a"
@@ -58,6 +62,7 @@ toolchain {
   tool_path { name: "objcopy" path: "/bin/false" }
   tool_path { name: "objdump" path: "/bin/false" }
   tool_path { name: "strip" path: "/bin/false" }
+  linking_mode_flags { mode: DYNAMIC }
 }
 
 toolchain {
@@ -181,6 +186,7 @@ toolchain {
     compiler_flag: "-fdata-sections"
     linker_flag: "-Wl,--gc-sections"
   }
+  linking_mode_flags { mode: DYNAMIC }
 }
 
 toolchain {
@@ -274,6 +280,7 @@ toolchain {
     compiler_flag: "-ffunction-sections"
     compiler_flag: "-fdata-sections"
   }
+  linking_mode_flags { mode: DYNAMIC }
 }
 
 toolchain {
@@ -325,7 +332,6 @@ toolchain {
 
   # Anticipated future default.
   unfiltered_cxx_flag: "-no-canonical-prefixes"
-  unfiltered_cxx_flag: "-fno-canonical-system-headers"
 
   # Make C++ compilation deterministic. Use linkstamping instead of these
   # compiler symbols.
@@ -396,6 +402,7 @@ toolchain {
     compiler_flag: "-fdata-sections"
     linker_flag: "-Wl,--gc-sections"
   }
+  linking_mode_flags { mode: DYNAMIC }
 }
 
 toolchain {
@@ -406,7 +413,7 @@ toolchain {
   host_system_name: "local"
   needsPic: false
   target_libc: "local"
-  target_cpu: "k8"
+  target_cpu: "x64_windows"
   target_system_name: "local"
   toolchain_identifier: "local_windows_mingw"
 
@@ -430,6 +437,7 @@ toolchain {
   objcopy_embed_flag: "binary"
   tool_path { name: "objdump" path: "C:/mingw/bin/objdump" }
   tool_path { name: "strip" path: "C:/mingw/bin/strip" }
+  linking_mode_flags { mode: DYNAMIC }
 }
 
 toolchain {
@@ -440,7 +448,7 @@ toolchain {
   host_system_name: "local"
   needsPic: false
   target_libc: "local"
-  target_cpu: "k8"
+  target_cpu: "x64_windows"
   target_system_name: "local"
   toolchain_identifier: "local_windows_msys64_mingw64"
 
@@ -463,6 +471,7 @@ toolchain {
   objcopy_embed_flag: "binary"
   tool_path { name: "objdump" path: "C:/msys64/mingw64/bin/objdump" }
   tool_path { name: "strip" path: "C:/msys64/mingw64/bin/strip" }
+  linking_mode_flags { mode: DYNAMIC }
 }
 
 toolchain {
@@ -473,7 +482,7 @@ toolchain {
   host_system_name: "local"
   needsPic: false
   target_libc: "local"
-  target_cpu: "k8"
+  target_cpu: "x64_windows"
   target_system_name: "local"
   toolchain_identifier: "local_windows_clang"
 
@@ -498,4 +507,42 @@ toolchain {
   objcopy_embed_flag: "binary"
   tool_path { name: "objdump" path: "C:/Program Files (x86)/LLVM/bin/objdump" }
   tool_path { name: "strip" path: "C:/Program Files (x86)/LLVM/bin/strip" }
+  linking_mode_flags { mode: DYNAMIC }
+}
+
+toolchain {
+   abi_version: "local"
+   abi_libc_version: "local"
+   builtin_sysroot: ""
+   compiler: "windows_msys64"
+   host_system_name: "local"
+   needsPic: false
+   target_libc: "local"
+   target_cpu: "x64_windows"
+   target_system_name: "local"
+   toolchain_identifier: "local_windows_msys64"
+
+   tool_path { name: "ar" path: "C:/msys64/usr/bin/ar" }
+   tool_path { name: "compat-ld" path: "C:/msys64/usr/bin/ld" }
+   tool_path { name: "cpp" path: "C:/msys64/usr/bin/cpp" }
+   tool_path { name: "dwp" path: "C:/msys64/usr/bin/dwp" }
+   # Use gcc instead of g++ so that C will compile correctly.
+   tool_path { name: "gcc" path: "C:/msys64/usr/bin/gcc" }
+   cxx_flag: "-std=gnu++0x"
+   linker_flag: "-lstdc++"
+   # TODO(bazel-team): In theory, the path here ought to exactly match the path
+   # used by gcc. That works because bazel currently doesn't track files at
+   # absolute locations and has no remote execution, yet. However, this will need
+   # to be fixed, maybe with auto-detection?
+   cxx_builtin_include_directory: "C:/msys64/"
+   cxx_builtin_include_directory: "/usr/"
+   tool_path { name: "gcov" path: "C:/msys64/usr/bin/gcov" }
+   tool_path { name: "ld" path: "C:/msys64/usr/bin/ld" }
+   tool_path { name: "nm" path: "C:/msys64/usr/bin/nm" }
+   tool_path { name: "objcopy" path: "C:/msys64/usr/bin/objcopy" }
+   objcopy_embed_flag: "-I"
+   objcopy_embed_flag: "binary"
+   tool_path { name: "objdump" path: "C:/msys64/usr/bin/objdump" }
+   tool_path { name: "strip" path: "C:/msys64/usr/bin/strip" }
+   linking_mode_flags { mode: DYNAMIC }
 }

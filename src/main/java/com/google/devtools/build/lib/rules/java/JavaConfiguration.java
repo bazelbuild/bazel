@@ -195,7 +195,7 @@ public final class JavaConfiguration extends Fragment {
       doc = "The default flags for the Java compiler.")
   // TODO(bazel-team): this is the command-line passed options, we should remove from skylark
   // probably.
-  public List<String> getDefaultJavacFlags() {
+  public ImmutableList<String> getDefaultJavacFlags() {
     return commandLineJavacFlags;
   }
 
@@ -255,15 +255,15 @@ public final class JavaConfiguration extends Fragment {
   /**
    * Returns the extra warnings enabled for Java compilation.
    */
-  public List<String> getJavaWarns() {
+  public ImmutableList<String> getJavaWarns() {
     return javaWarns;
   }
 
-  public List<String> getDefaultJvmFlags() {
+  public ImmutableList<String> getDefaultJvmFlags() {
     return defaultJvmFlags;
   }
 
-  public List<String> getCheckedConstraints() {
+  public ImmutableList<String> getCheckedConstraints() {
     return checkedConstraints;
   }
 
@@ -297,7 +297,7 @@ public final class JavaConfiguration extends Fragment {
     return javacExtdir;
   }
 
-  public List<String> getJavacOpts() {
+  public ImmutableList<String> getJavacOpts() {
     return javacOpts;
   }
 
@@ -312,14 +312,14 @@ public final class JavaConfiguration extends Fragment {
   /**
    * Returns all labels provided with --extra_proguard_specs.
    */
-  public List<Label> getExtraProguardSpecs() {
+  public ImmutableList<Label> getExtraProguardSpecs() {
     return extraProguardSpecs;
   }
 
   /**
    * Returns the raw translation targets.
    */
-  public List<Label> getTranslationTargets() {
+  public ImmutableList<Label> getTranslationTargets() {
     return translationTargets;
   }
 

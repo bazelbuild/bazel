@@ -50,11 +50,6 @@ public final class SpawnLinkStrategy implements CppLinkActionContext {
   }
 
   @Override
-  public String strategyLocality() {
-    return "spawn";
-  }
-
-  @Override
   public ResourceSet estimateResourceConsumption(CppLinkAction action) {
     return action.estimateResourceConsumptionLocal();
   }

@@ -14,14 +14,19 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
+import com.google.devtools.build.lib.packages.Package.NameConflictException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.skyframe.PackageFunction.PackageFunctionException;
+import com.google.devtools.build.lib.skyframe.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
+import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -53,42 +58,69 @@ public class WorkspaceFileFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env) throws WorkspaceFileFunctionException,
       InterruptedException {
 
-    RootedPath workspaceRoot = (RootedPath) skyKey.argument();
+    WorkspaceFileKey key = (WorkspaceFileKey) skyKey.argument();
+    RootedPath workspaceRoot = key.getPath();
     WorkspaceASTValue workspaceASTValue =
-        (WorkspaceASTValue) env.getValue(new SkyKey(SkyFunctions.WORKSPACE_AST, workspaceRoot));
+        (WorkspaceASTValue) env.getValue(WorkspaceASTValue.key(workspaceRoot));
     if (workspaceASTValue == null) {
       return null;
     }
 
     Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRelativePath());
     LegacyBuilder builder =
-        com.google.devtools.build.lib.packages.Package.newExternalPackageBuilder(
-            repoWorkspace, ruleClassProvider.getRunfilesPrefix());
+        Package.newExternalPackageBuilder(repoWorkspace, ruleClassProvider.getRunfilesPrefix());
+
+    if (workspaceASTValue.getASTs().isEmpty()) {
+      return new WorkspaceFileValue(
+          builder.build(), // resulting package
+          ImmutableMap.<String, Extension>of(), // list of imports
+          ImmutableMap.<String, Object>of(), // list of symbol bindings
+          workspaceRoot, // Workspace root
+          0, // first fragment, idx = 0
+          false); // last fragment
+    }
+    WorkspaceFactory parser;
     try (Mutability mutability = Mutability.create("workspace %s", repoWorkspace)) {
-      WorkspaceFactory parser =
+      parser =
           new WorkspaceFactory(
               builder,
               ruleClassProvider,
               packageFactory.getEnvironmentExtensions(),
               mutability,
+              key.getIndex() == 0,
               directories.getEmbeddedBinariesRoot(),
               directories.getWorkspace());
-      try {
-        BuildFileAST ast = workspaceASTValue.getAST();
-        PackageFunction.SkylarkImportResult importResult =
-            PackageFunction.fetchImportsFromBuildFile(
-                repoWorkspace, Label.EXTERNAL_PACKAGE_IDENTIFIER, ast, env, null);
-        if (importResult != null) {
-          parser.execute(ast, importResult.importMap);
-        } else {
+      if (key.getIndex() > 0) {
+        WorkspaceFileValue prevValue =
+            (WorkspaceFileValue)
+                env.getValue(WorkspaceFileValue.key(key.getPath(), key.getIndex() - 1));
+        if (prevValue == null) {
           return null;
         }
-      } catch (PackageFunctionException e) {
-        throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
+        if (prevValue.next() == null) {
+          return prevValue;
+        }
+        parser.setParent(prevValue.getPackage(), prevValue.getImportMap(), prevValue.getBindings());
       }
+      BuildFileAST ast = workspaceASTValue.getASTs().get(key.getIndex());
+      PackageFunction.SkylarkImportResult importResult =
+          PackageFunction.fetchImportsFromBuildFile(
+              repoWorkspace, Label.EXTERNAL_PACKAGE_IDENTIFIER, ast, env, null);
+      if (importResult == null) {
+        return null;
+      }
+      parser.execute(ast, importResult.importMap);
+    } catch (PackageFunctionException | NameConflictException e) {
+      throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     }
 
-    return new PackageValue(builder.build());
+    return new WorkspaceFileValue(
+        builder.build(),
+        parser.getImportMap(),
+        parser.getVariableBindings(),
+        workspaceRoot,
+        key.getIndex(),
+        key.getIndex() < workspaceASTValue.getASTs().size() - 1);
   }
 
   @Override

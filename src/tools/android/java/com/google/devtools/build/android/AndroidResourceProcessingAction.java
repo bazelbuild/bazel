@@ -31,9 +31,10 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.TriState;
 
-import com.android.builder.core.AndroidBuilder;
 import com.android.builder.core.VariantConfiguration;
 import com.android.builder.model.AaptOptions;
+import com.android.ide.common.internal.AaptCruncher;
+import com.android.ide.common.internal.CommandLineRunner;
 import com.android.ide.common.internal.LoggedErrorException;
 import com.android.ide.common.res2.MergingException;
 import com.android.sdklib.repository.FullRevision;
@@ -80,15 +81,14 @@ public class AndroidResourceProcessingAction {
 
   /** Flag specifications for this action. */
   public static final class Options extends OptionsBase {
-    @Option(name = "apiVersion",
-        defaultValue = "21.0.0",
+
+    @Option(name = "buildToolsVersion",
+        defaultValue = "null",
         converter = FullRevisionConverter.class,
         category = "config",
-        help = "ApiVersion indicates the version passed to the AndroidBuilder. ApiVersion must be"
-            + " > 19.10 when defined.")
-    // TODO(bazel-team): Determine what the API version changes in AndroidBuilder.
-    public FullRevision apiVersion;
-
+        help = "Version of the build tools (e.g. aapt) being used, e.g. 23.0.2")
+    public FullRevision buildToolsVersion;
+    
     @Option(name = "aapt",
         defaultValue = "null",
         converter = ExistingPathConverter.class,
@@ -282,32 +282,25 @@ public class AndroidResourceProcessingAction {
     options = optionsParser.getOptions(Options.class);
     FileSystem fileSystem = FileSystems.getDefault();
     Path working = fileSystem.getPath("").toAbsolutePath();
-    Path mergedAssets = working.resolve("merged_assets");
-    Path mergedResources = working.resolve("merged_resources");
-
     final AndroidResourceProcessor resourceProcessor =
         new AndroidResourceProcessor(STD_LOGGER);
 
-    final AndroidSdkTools sdkTools = new AndroidSdkTools(options.apiVersion,
-        options.aapt,
-        options.annotationJar,
-        options.adb,
-        options.zipAlign,
-        options.androidJar,
-        STD_LOGGER);
-
     try {
+      final Path tmp = Files.createTempDirectory("android_resources_tmp");
+      // Clean up the tmp file on exit to keep diskspace low.
+      tmp.toFile().deleteOnExit();
 
-      Path expandedOut = Files.createTempDirectory("tmp-expanded");
-      expandedOut.toFile().deleteOnExit();
-      Path deduplicatedOut = Files.createTempDirectory("tmp-deduplicated");
-      deduplicatedOut.toFile().deleteOnExit();
+      final Path expandedOut = tmp.resolve("tmp-expanded");
+      final Path deduplicatedOut = tmp.resolve("tmp-deduplicated");
+      final Path mergedAssets = tmp.resolve("merged_assets");
+      final Path mergedResources = tmp.resolve("merged_resources");
+      final Path filteredResources = tmp.resolve("resources-filtered");
+      final Path densityManifest = tmp.resolve("manifest-filtered/AndroidManifest.xml");
 
       Path generatedSources = null;
       if (options.srcJarOutput != null || options.rOutput != null
           || options.symbolsTxtOut != null) {
-        generatedSources = Files.createTempDirectory("generated_resources");
-        generatedSources.toFile().deleteOnExit();
+        generatedSources = tmp.resolve("generated_resources");
       }
 
       LOGGER.fine(String.format("Setup finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
@@ -324,7 +317,6 @@ public class AndroidResourceProcessingAction {
               .addAll(options.transitiveData)
               .build()
               .asList();
-      final AndroidBuilder builder = sdkTools.createAndroidBuilder();
 
       final MergedAndroidData mergedData = resourceProcessor.mergeData(
           options.primaryData,
@@ -332,20 +324,20 @@ public class AndroidResourceProcessingAction {
           mergedResources,
           mergedAssets,
           modifiers,
-          useAaptCruncher() ? builder.getAaptCruncher() : null,
+          useAaptCruncher() ?  new AaptCruncher(options.aapt.toString(),
+              new CommandLineRunner(STD_LOGGER)) : null,
           true);
 
       LOGGER.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-      final Path filteredResources = fileSystem.getPath("resources-filtered");
-      final Path densityManifest = fileSystem.getPath("manifest-filtered/AndroidManifest.xml");
       final DensityFilteredAndroidData filteredData = mergedData.filter(
-          new DensitySpecificResourceFilter(options.densities, filteredResources, working),
+          new DensitySpecificResourceFilter(options.densities, filteredResources, mergedResources),
           new DensitySpecificManifestProcessor(options.densities, densityManifest));
       LOGGER.fine(
           String.format("Density filtering finished at %sms",
               timer.elapsed(TimeUnit.MILLISECONDS)));
       resourceProcessor.processResources(
-          builder,
+          options.aapt,
+          options.androidJar,
           options.packageType,
           options.debug,
           options.packageForR,
@@ -356,11 +348,12 @@ public class AndroidResourceProcessingAction {
           options.versionName,
           filteredData,
           data,
-          working.resolve("manifest"),
+          tmp.resolve("processed_manifest"),
           generatedSources,
           options.packagePath,
           options.proguardOutput,
-          options.manifestOutput);
+          options.manifestOutput,
+          options.buildToolsVersion);
       LOGGER.fine(String.format("appt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       if (options.srcJarOutput != null) {
         resourceProcessor.createSrcJar(generatedSources, options.srcJarOutput,
@@ -387,8 +380,7 @@ public class AndroidResourceProcessingAction {
       System.exit(3);
     }
     LOGGER.fine(String.format("Resources processed in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-    // AOSP code can leave dangling threads.
-    System.exit(0);
+    resourceProcessor.shutdown();
   }
 
   private static boolean useAaptCruncher() {
@@ -411,7 +403,7 @@ public class AndroidResourceProcessingAction {
       if (!options.uncompressedExtensions.isEmpty()) {
         return options.uncompressedExtensions;
       }
-      return null;
+      return ImmutableList.of();
     }
 
     @Override

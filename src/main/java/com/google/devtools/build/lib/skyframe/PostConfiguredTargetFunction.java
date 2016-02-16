@@ -20,7 +20,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
+import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -101,6 +101,9 @@ public class PostConfiguredTargetFunction implements SkyFunction {
           buildViewProvider.getSkyframeBuildView().getHostConfiguration(ct.getConfiguration());
       SkyframeDependencyResolver resolver =
           buildViewProvider.getSkyframeBuildView().createDependencyResolver(env);
+      // We don't track root causes here - this function is only invoked for successfully analyzed
+      // targets - as long as we redo the exact same steps here as in ConfiguredTargetFunction, this
+      // can never fail.
       deps =
           resolver.dependentNodeMap(
               ctgValue, hostConfiguration, /*aspect=*/ null, configConditions);

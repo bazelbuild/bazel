@@ -65,6 +65,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   private final Artifact testLog;
   private final Artifact cacheStatus;
   private final PathFragment testWarningsPath;
+  private final PathFragment unusedRunfilesLogPath;
   private final PathFragment splitLogsPath;
   private final PathFragment splitLogsDir;
   private final PathFragment undeclaredOutputsDir;
@@ -87,6 +88,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
   private final int shardNum;
   private final int runNumber;
   private final String workspaceName;
+  private final PathFragment shExecutable;
 
   // Mutable state related to test caching.
   private boolean checkedCaching = false;
@@ -154,6 +156,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
         : null;
     this.xmlOutputPath = baseDir.getChild(namePrefix + ".xml");
     this.testWarningsPath = baseDir.getChild(namePrefix + ".warnings");
+    this.unusedRunfilesLogPath = baseDir.getChild(namePrefix + ".unused_runfiles_log");
     this.testStderr = baseDir.getChild(namePrefix + ".err");
     this.splitLogsDir = baseDir.getChild(namePrefix + ".raw_splitlogs");
     // See note in {@link #getSplitLogsPath} on the choice of file name.
@@ -165,6 +168,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     this.undeclaredOutputsAnnotationsPath = undeclaredOutputsAnnotationsDir.getChild("ANNOTATIONS");
     this.testInfrastructureFailure = baseDir.getChild(namePrefix + ".infrastructure_failure");
     this.workspaceName = workspaceName;
+    this.shExecutable = configuration.getShExecutable();
 
     Map<String, String> mergedTestEnv = new HashMap<>(configuration.getTestEnv());
     mergedTestEnv.putAll(extraTestEnv);
@@ -305,11 +309,6 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     return "Testing " + getTestName();
   }
 
-  @Override
-  public String describeStrategy(Executor executor) {
-    return executor.getContext(TestActionContext.class).strategyLocality(this);
-  }
-
   /**
    * Deletes <b>all</b> possible test outputs.
    *
@@ -327,6 +326,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     // We also need to remove *.(xml|data|shard|warnings|zip) files if they are present.
     execRoot.getRelative(xmlOutputPath).delete();
     execRoot.getRelative(testWarningsPath).delete();
+    execRoot.getRelative(unusedRunfilesLogPath).delete();
     // Note that splitLogsPath points to a file inside the splitLogsDir so
     // it's not necessary to delete it explicitly.
     FileSystemUtils.deleteTree(execRoot.getRelative(splitLogsDir));
@@ -420,6 +420,10 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   public PathFragment getTestWarningsPath() {
     return testWarningsPath;
+  }
+
+  public PathFragment getUnusedRunfilesLogPath() {
+    return unusedRunfilesLogPath;
   }
 
   public PathFragment getSplitLogsPath() {
@@ -554,6 +558,10 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
     throw new UserExecException("'" + basename + "' not found in test runtime");
   }
 
+  public PathFragment getShExecutable() {
+    return shExecutable;
+  }
+
   /**
    * The same set of paths as the parent test action, resolved against a given exec root.
    */
@@ -586,6 +594,10 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
     public Path getSplitLogsPath() {
       return getPath(splitLogsPath);
+    }
+
+    public Path getUnusedRunfilesLogPath() {
+      return getPath(unusedRunfilesLogPath);
     }
 
     /**

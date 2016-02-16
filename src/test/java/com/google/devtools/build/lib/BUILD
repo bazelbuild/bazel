@@ -397,6 +397,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
+        "//src/main/java/com/google/devtools/build/lib/rules/objc",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:extra_actions_base_proto",
         "//third_party:guava",
@@ -659,6 +660,7 @@ java_test(
     data = [
         ":shell/killmyself",
     ],
+    flaky = True,
     tags = ["shell"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
@@ -957,6 +959,20 @@ java_test(
 )
 
 java_test(
+    name = "objc-rules-tests",
+    srcs = glob(["rules/objc/XcodeProviderTest.java"]),
+    tags = ["rules"],
+    test_class = "com.google.devtools.build.lib.rules.objc.XcodeProviderTest",
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:cmdline",
+        "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/rules/objc",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "repository-rules-tests",
     srcs = glob(["rules/repository/*.java"]),
     tags = ["rules"],
@@ -992,13 +1008,16 @@ java_test(
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
+        ":analysis_testutil",
         ":foundations_testutil",
         ":test_runner",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
         "//src/main/java/com/google/devtools/build/lib:bazel-rules",
+        "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/protobuf:crosstool_config_proto",
         "//third_party:guava",
         "//third_party:junit4",

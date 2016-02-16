@@ -126,6 +126,7 @@ message JavaCompileInfo {
   repeated string javac_opt = 5;
   repeated string processor = 6;
   repeated string processorpath = 7;
+  repeated string bootclasspath = 8;
 }
 
 // Provides access to data that is specific to python rules.

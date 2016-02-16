@@ -33,7 +33,6 @@ public final class BazelPyLibraryRule implements RuleDefinition {
         .requiresConfigurationFragments(PythonConfiguration.class)
         /* <!-- #BLAZE_RULE(py_library).ATTRIBUTE(deps) -->
         The list of other libraries to be linked in to the library target.
-        ${SYNOPSIS}
         See general comments about <code>deps</code> at
         <a href="common-definitions.html#common-attributes">
         Attributes common to all build rules</a>.
@@ -44,7 +43,6 @@ public final class BazelPyLibraryRule implements RuleDefinition {
 
         /* <!-- #BLAZE_RULE(py_library).ATTRIBUTE(data) -->
         The list of files needed by this library at runtime.
-        ${SYNOPSIS}
         See general comments about <code>data</code> at
         <a href="common-definitions.html#common-attributes">
         Attributes common to all build rules</a>.
@@ -52,7 +50,6 @@ public final class BazelPyLibraryRule implements RuleDefinition {
 
         /* <!-- #BLAZE_RULE(py_library).ATTRIBUTE(srcs) -->
         The list of source files that are processed to create the target.
-        ${SYNOPSIS}
         This includes all your checked-in code and any generated source files.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("srcs", LABEL_LIST)

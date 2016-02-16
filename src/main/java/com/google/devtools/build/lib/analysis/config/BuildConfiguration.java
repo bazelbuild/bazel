@@ -29,13 +29,12 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
-import com.google.devtools.build.lib.analysis.DependencyResolver;
+import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection.Transitions;
@@ -121,6 +120,10 @@ public final class BuildConfiguration {
 
   /**
    * An interface for language-specific configurations.
+   *
+   * <p>All implementations must be immutable and communicate this as clearly as possible
+   * (e.g. declare {@link ImmutableList} signatures on their interfaces vs. {@link List}).
+   * This is because fragment instances may be shared across configurations.
    */
   public abstract static class Fragment {
     /**
@@ -155,11 +158,12 @@ public final class BuildConfiguration {
      * analysis. During the analysis phase disk I/O operations are disallowed.
      *
      * <p>This hook is called for all configurations after the loading phase is complete.
+     *
+     * <p>Do not use this method to change your fragment's state.
      */
     @SuppressWarnings("unused")
     public void prepareHook(Path execPath, ArtifactFactory artifactFactory,
-        PathFragment genfilesPath, PackageRootResolver resolver)
-        throws ViewCreationFailedException {
+        PackageRootResolver resolver) throws ViewCreationFailedException {
     }
 
     /**
@@ -444,6 +448,12 @@ public final class BuildConfiguration {
             return "darwin";
           case FREEBSD:
             return "freebsd";
+          case WINDOWS:
+            switch (CPU.getCurrent()) {
+              case X86_64:
+                return "x64_windows";
+            }
+            break; // We only support x64 Windows for now.
           case LINUX:
             switch (CPU.getCurrent()) {
               case X86_32:
@@ -836,22 +846,6 @@ public final class BuildConfiguration {
     )
     public List<Label> targetEnvironments;
 
-    @Option(name = "objc_gcov_binary",
-        converter = ToolsLabelConverter.class,
-        defaultValue = "//third_party/gcov:gcov_for_xcode_osx",
-        category = "undocumented")
-    public Label objcGcovBinary;
-
-    /** Converter for labels in the @bazel_tools repository. The @Options' defaultValues can't
-     * prepend TOOLS_REPOSITORY, unfortunately, because then the compiler thinks they're not
-     * constant. */
-    public static class ToolsLabelConverter extends LabelConverter {
-      @Override
-      public Label convert(String input) throws OptionsParsingException {
-        return convertLabel(Constants.TOOLS_REPOSITORY + input);
-      }
-    }
-
     @Option(name = "experimental_dynamic_configs",
         defaultValue = "false",
         category = "undocumented",
@@ -912,9 +906,6 @@ public final class BuildConfiguration {
       labelMap.putAll("plugins", pluginList);
       if ((runUnder != null) && (runUnder.getLabel() != null)) {
         labelMap.put("RunUnder", runUnder.getLabel());
-      }
-      if (collectCodeCoverage) {
-        labelMap.put("objc_gcov", objcGcovBinary);
       }
     }
   }
@@ -1195,7 +1186,7 @@ public final class BuildConfiguration {
     this.fragments = ImmutableSortedMap.copyOf(fragmentsMap, lexicalFragmentSorter);
 
     this.skylarkVisibleFragments = buildIndexOfSkylarkVisibleFragments();
-    
+
     this.buildOptions = buildOptions;
     this.options = buildOptions.get(Options.class);
 
@@ -1502,17 +1493,16 @@ public final class BuildConfiguration {
     Transitions getCurrentTransitions();
 
     /**
-     * Populates a {@link com.google.devtools.build.lib.analysis.DependencyResolver.Dependency}
+     * Populates a {@link com.google.devtools.build.lib.analysis.Dependency}
      * for each configuration represented by this instance.
      * TODO(bazel-team): this is a really ugly reverse dependency: factor this away.
      */
-    Iterable<DependencyResolver.Dependency> getDependencies(
-        Label label, ImmutableSet<Aspect> aspects);
+    Iterable<Dependency> getDependencies(Label label, ImmutableSet<Aspect> aspects);
   }
 
   /**
    * Transition applier for static configurations. This implementation populates
-   * {@link com.google.devtools.build.lib.analysis.DependencyResolver.Dependency} objects with
+   * {@link com.google.devtools.build.lib.analysis.Dependency} objects with
    * actual configurations.
    *
    * <p>Does not support split transitions (see {@link SplittableTransitionApplier}).
@@ -1580,16 +1570,17 @@ public final class BuildConfiguration {
     }
 
     @Override
-    public Iterable<DependencyResolver.Dependency> getDependencies(
-        Label label, ImmutableSet<Aspect> aspects) {
+    public Iterable<Dependency> getDependencies(Label label, ImmutableSet<Aspect> aspects) {
       return ImmutableList.of(
-          new DependencyResolver.Dependency(label, currentConfiguration, aspects));
+          currentConfiguration != null
+              ? Dependency.withConfigurationAndAspects(label, currentConfiguration, aspects)
+              : Dependency.withNullConfiguration(label));
     }
   }
 
   /**
    * Transition applier for dynamic configurations. This implementation populates
-   * {@link com.google.devtools.build.lib.analysis.DependencyResolver.Dependency} objects with
+   * {@link com.google.devtools.build.lib.analysis.Dependency} objects with
    * transition definitions that the caller subsequently creates configurations out of.
    *
    * <p>Does not support split transitions (see {@link SplittableTransitionApplier}).
@@ -1681,9 +1672,10 @@ public final class BuildConfiguration {
     }
 
     @Override
-    public Iterable<DependencyResolver.Dependency> getDependencies(
+    public Iterable<Dependency> getDependencies(
         Label label, ImmutableSet<Aspect> aspects) {
-      return ImmutableList.of(new DependencyResolver.Dependency(label, transition, aspects));
+      return ImmutableList.of(
+          Dependency.withTransitionAndAspects(label, transition, aspects));
     }
   }
 
@@ -1748,9 +1740,8 @@ public final class BuildConfiguration {
 
 
     @Override
-    public Iterable<DependencyResolver.Dependency> getDependencies(
-        Label label, ImmutableSet<Aspect> aspects) {
-      ImmutableList.Builder<DependencyResolver.Dependency> builder = ImmutableList.builder();
+    public Iterable<Dependency> getDependencies(Label label, ImmutableSet<Aspect> aspects) {
+      ImmutableList.Builder<Dependency> builder = ImmutableList.builder();
       for (TransitionApplier applier : appliers) {
         builder.addAll(applier.getDependencies(label, aspects));
       }
@@ -2144,7 +2135,7 @@ public final class BuildConfiguration {
   public String getMakeVariableDefault(String var) {
     return globalMakeEnv.get(var);
   }
-  
+
   /**
    * Returns a configuration fragment instances of the given class.
    */
@@ -2342,7 +2333,7 @@ public final class BuildConfiguration {
   public void prepareToBuild(Path execRoot, ArtifactFactory artifactFactory,
       PackageRootResolver resolver) throws ViewCreationFailedException {
     for (Fragment fragment : fragments.values()) {
-      fragment.prepareHook(execRoot, artifactFactory, getGenfilesFragment(), resolver);
+      fragment.prepareHook(execRoot, artifactFactory, resolver);
     }
   }
 

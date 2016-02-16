@@ -95,7 +95,7 @@ public final class FetchCommand implements BlazeCommand {
     ImmutableList.Builder<String> labelsToLoad = new ImmutableList.Builder<String>()
         .addAll(options.getResidue());
     if (String.valueOf(javaOptions.javaLangtoolsJar).equals(
-        Constants.TOOLS_REPOSITORY + JavaOptions.DEFAULT_LANGTOOLS)) {
+        runtime.getRuleClassProvider().getToolsRepository() + JavaOptions.DEFAULT_LANGTOOLS)) {
       labelsToLoad.add(javaOptions.javaBase);
     } else {
       // TODO(kchodroow): Remove this when OS X isn't as hacky about finding the JVM. Our test

@@ -112,7 +112,6 @@ public class ConfigRuleClasses {
       return builder
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(values) -->
           The set of configuration values that match this rule (expressed as Blaze flags)
-          ${SYNOPSIS}
 
           <i>(Dictionary mapping flags to expected values, both expressed as strings;
              mandatory)</i>
@@ -227,7 +226,7 @@ config_setting(
 </pre>
 
 <p>The following matches any Blaze invocation that builds for ARM and applies a custom define
-   (e.g. <code>blaze build --cpu=armeabi --define FOO=bar ...</code>), , when applied to a target
+   (e.g. <code>blaze build --cpu=armeabi --define FOO=bar ...</code>), when applied to a target
    configuration rule:
 </p>
 

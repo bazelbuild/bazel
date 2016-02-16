@@ -36,7 +36,6 @@ public final class GenQueryRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(genquery).ATTRIBUTE(scope) -->
         The scope of the query. The query is not allowed to
         touch targets outside the transitive closure of these targets.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("scope", LABEL_LIST).mandatory().legacyAllowAnyFileType())
         /* <!-- #BLAZE_RULE(genquery).ATTRIBUTE(strict) -->
@@ -44,12 +43,10 @@ public final class GenQueryRule implements RuleDefinition {
         scopes will fail to build. If false, Blaze will print a warning and skip
         whatever query path led it outside of the scope, while completing the rest
         of the query.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("strict", BOOLEAN).value(true))
         /* <!-- #BLAZE_RULE(genquery).ATTRIBUTE(expression) -->
         The query to be executed.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("expression", STRING).mandatory())
         /* <!-- #BLAZE_RULE(genquery).ATTRIBUTE(opts) -->
@@ -57,7 +54,6 @@ public final class GenQueryRule implements RuleDefinition {
         These correspond to the command line options that can be passed to
         <code>blaze query</code>. The only query options that are not allowed here
         are <code>--keep_going</code> and <code>--order_output</code>.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("opts", STRING_LIST))
         .build();

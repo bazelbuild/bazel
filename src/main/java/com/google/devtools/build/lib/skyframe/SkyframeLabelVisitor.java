@@ -52,7 +52,6 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
 
   private Set<PackageIdentifier> allVisitedPackages;
   private Set<PackageIdentifier> errorFreeVisitedPackages;
-  private Set<Label> visitedTargets;
   private Set<TransitiveTargetValue> previousBuildTargetValueSet = null;
   private boolean lastBuildKeepGoing;
   private final Multimap<Label, Label> rootCauses = HashMultimap.create();
@@ -214,16 +213,13 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
     }
     NestedSetBuilder<PackageIdentifier> nestedAllPkgsBuilder = NestedSetBuilder.stableOrder();
     NestedSetBuilder<PackageIdentifier> nestedErrorFreePkgsBuilder = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<Label> nestedTargetBuilder = NestedSetBuilder.stableOrder();
     for (TransitiveTargetValue value : targetValues) {
       nestedAllPkgsBuilder.addTransitive(value.getTransitiveSuccessfulPackages());
       nestedAllPkgsBuilder.addTransitive(value.getTransitiveUnsuccessfulPackages());
       nestedErrorFreePkgsBuilder.addTransitive(value.getTransitiveSuccessfulPackages());
-      nestedTargetBuilder.addTransitive(value.getTransitiveTargets());
     }
     allVisitedPackages = nestedAllPkgsBuilder.build().toSet();
     errorFreeVisitedPackages = nestedErrorFreePkgsBuilder.build().toSet();
-    visitedTargets = nestedTargetBuilder.build().toSet();
     previousBuildTargetValueSet = currentBuildTargetValueSet;
   }
 
@@ -235,17 +231,6 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
   @Override
   public Set<Package> getErrorFreeVisitedPackages(EventHandler eventHandler) {
     return transitivePackageLoader.retrievePackages(eventHandler, errorFreeVisitedPackages);
-  }
-
-  /**
-   * Doesn't necessarily include all top-level targets visited in error, because of issues with
-   * skyframe semantics (e.g. impossible to load a target if it transitively depends on a file
-   * symlink cycle). This is actually fine for the non-test usages of this method since such bad
-   * targets get filtered out.
-   */
-  @Override
-  public Set<Label> getVisitedTargets() {
-    return visitedTargets;
   }
 
   @Override

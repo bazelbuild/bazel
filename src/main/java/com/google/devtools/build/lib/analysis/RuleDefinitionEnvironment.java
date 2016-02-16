@@ -26,4 +26,10 @@ public interface RuleDefinitionEnvironment {
    * Label#parseAbsolute}. Throws a {@link IllegalArgumentException} if the parsing fails.
    */
   Label getLabel(String labelValue);
+
+  /**
+   * Prepends the tools repository path to the given string and parses the result
+   * using {@link RuleDefinitionEnvironment#getLabel}
+   */
+  Label getToolsLabel(String labelValue);
 }

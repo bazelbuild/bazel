@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -169,7 +170,8 @@ public final class PyCommon {
         .getPrerequisites("srcs", Mode.TARGET, FileProvider.class)) {
       // Make sure that none of the sources contain hyphens.
       if (Util.containsHyphen(src.getLabel().getPackageFragment())) {
-        ruleContext.attributeError("srcs", src.getLabel() + ": package name may not contain '-'");
+        ruleContext.attributeError("srcs",
+            src.getLabel() + ": paths to Python packages may not contain '-'");
       }
       Iterable<Artifact> pySrcs = FileType.filter(src.getFilesToBuild(),
           PyRuleClasses.PYTHON_SOURCE);
@@ -191,7 +193,7 @@ public final class PyCommon {
    */
   void validatePackageName() {
     if (Util.containsHyphen(ruleContext.getLabel().getPackageFragment())) {
-      ruleContext.ruleError("package name may not contain '-'");
+      ruleContext.ruleError("paths to Python packages may not contain '-'");
     }
   }
 
@@ -274,12 +276,29 @@ public final class PyCommon {
   }
 
   private NestedSet<Artifact> collectTransitivePythonSources() {
-    NestedSetBuilder<Artifact> builder =
-        NestedSetBuilder.compileOrder();
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.compileOrder();
     collectTransitivePythonSourcesFrom(getTargetDeps(), builder);
-    addSourceFiles(builder, ruleContext
-        .getPrerequisiteArtifacts("srcs", Mode.TARGET).filter(PyRuleClasses.PYTHON_SOURCE).list());
+    addSourceFiles(builder,
+        ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET)
+            .filter(PyRuleClasses.PYTHON_SOURCE).list());
     return builder.build();
+  }
+
+  public NestedSet<PathFragment> collectImports(
+      RuleContext ruleContext, PythonSemantics semantics) {
+    NestedSetBuilder<PathFragment> builder = NestedSetBuilder.compileOrder();
+    builder.addAll(semantics.getImports(ruleContext));
+    collectTransitivePythonImports(builder);
+    return builder.build();
+  }
+
+  private void collectTransitivePythonImports(NestedSetBuilder<PathFragment> builder) {
+    for (TransitiveInfoCollection dep : getTargetDeps()) {
+      if (dep.getProvider(PythonImportsProvider.class) != null) {
+        PythonImportsProvider provider = dep.getProvider(PythonImportsProvider.class);
+        builder.addTransitive(provider.getTransitivePythonImports());
+      }
+    }
   }
 
   /**
@@ -380,7 +399,9 @@ public final class PyCommon {
     for (Artifact source : sources) {
       Artifact pycFile = createPycFile(source, pythonBinary, pythonPrecompileAttribute,
           hostPython2RuntimeAttribute);
-      pycFiles.add(pycFile);
+      if (pycFile != null) {
+        pycFiles.add(pycFile);
+      }
     }
     return ImmutableList.copyOf(pycFiles);
   }
@@ -393,6 +414,13 @@ public final class PyCommon {
   public Artifact createPycFile(
       Artifact source, PathFragment pythonBinary,
       String pythonPrecompileAttribute, String hostPython2RuntimeAttribute) {
+    PackageIdentifier packageId = ruleContext.getLabel().getPackageIdentifier();
+    PackageIdentifier itemPackageId = source.getOwner().getPackageIdentifier();
+    if (!itemPackageId.equals(packageId)) {
+      // This will produce an error, so we skip this element.
+      return null;
+    }
+
     Artifact output =
         ruleContext.getRelatedArtifact(source.getRootRelativePath(), ".pyc");
 

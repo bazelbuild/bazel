@@ -299,7 +299,9 @@ public abstract class BaseFunction implements SkylarkValue {
       ArrayList<String> bothPosKey = new ArrayList<>();
       for (int i = 0; i < numPositionalArgs; i++) {
         String name = names.get(i);
-        if (kwargs.containsKey(name)) { bothPosKey.add(name); }
+        if (kwargs.containsKey(name)) {
+          bothPosKey.add(name);
+        }
       }
       if (!bothPosKey.isEmpty()) {
         throw new EvalException(loc,

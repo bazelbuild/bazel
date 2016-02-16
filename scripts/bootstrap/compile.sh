@@ -31,9 +31,6 @@ unset _JAVA_OPTIONS
 
 LDFLAGS=${LDFLAGS:-""}
 
-# Extension for executables (.exe on Windows).
-EXE_EXT=""
-
 MSYS_DLLS=""
 PATHSEP=":"
 
@@ -76,8 +73,6 @@ darwin)
 msys*|mingw*)
   # Use a simplified platform string.
   PLATFORM="mingw"
-  # Workaround for msys issue which causes omission of std::to_string.
-  EXE_EXT=".exe"
   PATHSEP=";"
   # Find the latest available version of the SDK.
   JAVA_HOME="${JAVA_HOME:-$(ls -d /c/Program\ Files/Java/jdk* | sort | tail -n 1)}"
@@ -214,7 +209,7 @@ cp src/main/tools/xcode_locator_stub.sh ${ARCHIVE_DIR}/_embedded_binaries/xcode-
 
 # bazel build using bootstrap version
 function bootstrap_build() {
-  $JAVA_HOME/bin/java \
+  "${JAVA_HOME}/bin/java" \
       -client -Xms256m -XX:NewRatio=4 -XX:+HeapDumpOnOutOfMemoryError -Xverify:none -Dfile.encoding=ISO-8859-1 \
       -XX:HeapDumpPath=${OUTPUT_DIR} \
       -Djava.util.logging.config.file=${OUTPUT_DIR}/javalog.properties \
@@ -227,6 +222,7 @@ function bootstrap_build() {
       --workspace_directory=${PWD} \
       --nodeep_execroot --nofatal_event_bus_exceptions \
       build \
+      --ignore_unsupported_sandboxing \
       --startup_time=329 --extract_data_time=523 \
       --rc_source=/dev/null --isatty=1 --terminal_columns=97 \
       --ignore_client_env \

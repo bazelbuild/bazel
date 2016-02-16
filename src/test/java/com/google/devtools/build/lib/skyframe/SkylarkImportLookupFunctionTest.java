@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -22,7 +23,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.ErrorInfo;
@@ -216,7 +216,7 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testLoadFromExternalRepoInWorkspaceFileDisallowed() throws Exception {
+  public void testLoadFromExternalRepoInWorkspaceFileAllowed() throws Exception {
     scratch.deleteFile("tools/build_rules/prelude_blaze");
     scratch.overwriteFile("WORKSPACE",
         "local_repository(",
@@ -234,11 +234,6 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), skylarkImportLookupKey, /*keepGoing=*/ false, reporter);
 
-    assertTrue(result.hasError());
-    ErrorInfo errorInfo = result.getError(skylarkImportLookupKey);
-    String errorMessage = errorInfo.getException().getMessage();
-    String expectedMsgTemplate = SkylarkImportFailedException.NO_EXT_WORKSPACE_LOAD_MSG_TEMPLATE;
-    assertEquals(String.format(expectedMsgTemplate, "@a_remote_repo//remote_pkg:ext.bzl"),
-        errorMessage);
+    assertFalse(result.hasError());
   }
 }

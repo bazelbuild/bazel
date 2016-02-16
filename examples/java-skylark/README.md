@@ -1,5 +1,4 @@
-Skylark Java Examples
-=====================
+# Skylark Java Examples
 
 Use the native Java rules (see the examples in _examples/java-native_) for
 building Java, not these. These files are examples of how Skylark rules can be

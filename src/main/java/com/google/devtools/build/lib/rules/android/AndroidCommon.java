@@ -136,6 +136,7 @@ public class AndroidCommon {
   private Artifact resourceClassJar;
   private Artifact resourceIJar;
   private Artifact resourceSourceJar;
+  private Artifact outputDepsProto;
 
   private Artifact manifestProtoOutput;
   private AndroidIdlHelper idlHelper;
@@ -530,7 +531,7 @@ public class AndroidCommon {
     srcJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR);
     helper.createSourceJarAction(srcJar, genSourceJar);
 
-    Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
+    outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
     helper.createCompileActionWithInstrumentation(classJar, manifestProtoOutput, genSourceJar,
         outputDepsProto, javaArtifactsBuilder);
 
@@ -575,7 +576,8 @@ public class AndroidCommon {
     idlHelper.addTransitiveInfoProviders(builder, classJar, manifestProtoOutput);
 
     JavaRuleOutputJarsProvider.Builder outputJarsBuilder = JavaRuleOutputJarsProvider.builder()
-        .addOutputJar(classJar, iJar, srcJar);
+        .addOutputJar(classJar, iJar, srcJar)
+        .setJdeps(outputDepsProto);
     if (resourceClassJar != null && resourceIJar != null && resourceSourceJar != null) {
       outputJarsBuilder.addOutputJar(resourceClassJar, resourceIJar, resourceSourceJar);
     }

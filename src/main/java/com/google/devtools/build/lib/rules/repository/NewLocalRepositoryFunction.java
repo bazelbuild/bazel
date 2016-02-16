@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.repository;
 
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -27,6 +26,7 @@ import com.google.devtools.build.skyframe.SkyValue;
  * Create a repository from a directory on the local filesystem.
  */
 public class NewLocalRepositoryFunction extends RepositoryFunction {
+
   @Override
   public boolean isLocal() {
     return true;
@@ -35,21 +35,25 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
   @Override
   public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
       throws SkyFunctionException {
-    FileValue buildFileValue = getBuildFileValue(rule, env);
-    if (env.valuesMissing()) {
+
+    NewRepositoryBuildFileHandler buildFileHandler =
+        new NewRepositoryBuildFileHandler(getWorkspace());
+    if (!buildFileHandler.prepareBuildFile(rule, env)) {
       return null;
     }
+
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
     PathFragment pathFragment = getTargetPath(rule, getWorkspace());
-    
+
     // Link x/y/z to /some/path/to/y/z.
     if (!symlinkLocalRepositoryContents(
         outputDirectory, getOutputBase().getFileSystem().getPath(pathFragment))) {
       return null;
     }
 
-    // Link x/BUILD to <build_root>/x.BUILD.
-    return symlinkBuildFile(buildFileValue, outputDirectory);
+    buildFileHandler.finishBuildFile(outputDirectory);
+    
+    return RepositoryDirectoryValue.create(outputDirectory);
   }
 
   @Override

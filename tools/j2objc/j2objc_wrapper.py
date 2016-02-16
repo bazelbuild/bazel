@@ -152,6 +152,31 @@ def _ReadDepMapping(input_file_queue, output_dep_mapping_queue,
       input_file_queue.task_done()
 
 
+def WriteArchiveSourceMappingFile(compiled_archive_file_path,
+                                  output_archive_source_mapping_file,
+                                  translated_source_files,
+                                  objc_file_path,
+                                  file_open=open):
+  """Writes a mapping file between archive file to associated ObjC source files.
+
+  Args:
+    compiled_archive_file_path: The path of the archive file.
+    output_archive_source_mapping_file: A path of the mapping file to write to.
+    translated_source_files: A comma-separated list of source files translated
+        by J2ObjC.
+    objc_file_path: The file path which represents a directory where the
+        generated ObjC files reside.
+    file_open: Reference to the builtin open function so it may be
+        overridden for testing.
+  Returns:
+    None.
+  """
+  with file_open(output_archive_source_mapping_file, 'w') as f:
+    for translated_source_file in translated_source_files.split(','):
+      file_path = os.path.relpath(translated_source_file, objc_file_path)
+      f.write(compiled_archive_file_path + ':' + file_path + '\n')
+
+
 def _ParseArgs(j2objc_args):
   """Separate arguments passed to J2ObjC into source files and J2ObjC flags.
 
@@ -207,6 +232,17 @@ if __name__ == '__main__':
       required=True,
       help=('The file path which represents a directory where the generated '
             'ObjC files reside.'))
+  parser.add_argument(
+      '--output_archive_source_mapping_file',
+      help='The file path of the mapping file containing mappings between the '
+           'translated source files and the to-be-generated archive file '
+           'compiled from those source files. --compile_archive_file_path must '
+           'be specified if this option is specified.')
+  parser.add_argument(
+      '--compiled_archive_file_path',
+      required=False,
+      help=('The archive file path that will be produced by ObjC compile action'
+            ' later'))
   args, pass_through_args = parser.parse_known_args()
 
   RunJ2ObjC(args.java,
@@ -217,3 +253,9 @@ if __name__ == '__main__':
   WriteDepMappingFile(args.translated_source_files,
                       args.objc_file_path,
                       args.output_dependency_mapping_file)
+
+  if args.output_archive_source_mapping_file:
+    WriteArchiveSourceMappingFile(args.compiled_archive_file_path,
+                                  args.output_archive_source_mapping_file,
+                                  args.translated_source_files,
+                                  args.objc_file_path)

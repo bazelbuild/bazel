@@ -77,11 +77,13 @@ public class FileSystemUtilsTest {
   Path file1;
   Path file2;
   Path aDir;
+  Path bDir;
   Path file3;
   Path innerDir;
   Path link1;
   Path dirLink;
   Path file4;
+  Path file5;
 
   /*
    * Build a directory tree that looks like:
@@ -92,7 +94,7 @@ public class FileSystemUtilsTest {
    *       file-3
    *       inner-dir/
    *         link-1 => file-4
-   *         dir-link => a-dir
+   *         dir-link => b-dir
    *   file-4
    */
   private void createTestDirectoryTree() throws IOException {
@@ -100,21 +102,25 @@ public class FileSystemUtilsTest {
     file1 = fileSystem.getPath("/top-dir/file-1");
     file2 = fileSystem.getPath("/top-dir/file-2");
     aDir = fileSystem.getPath("/top-dir/a-dir");
+    bDir = fileSystem.getPath("/top-dir/b-dir");
     file3 = fileSystem.getPath("/top-dir/a-dir/file-3");
     innerDir = fileSystem.getPath("/top-dir/a-dir/inner-dir");
     link1 = fileSystem.getPath("/top-dir/a-dir/inner-dir/link-1");
     dirLink = fileSystem.getPath("/top-dir/a-dir/inner-dir/dir-link");
     file4 = fileSystem.getPath("/file-4");
+    file5 = fileSystem.getPath("/top-dir/b-dir/file-5");
 
     topDir.createDirectory();
     FileSystemUtils.createEmptyFile(file1);
     FileSystemUtils.createEmptyFile(file2);
     aDir.createDirectory();
+    bDir.createDirectory();
     FileSystemUtils.createEmptyFile(file3);
     innerDir.createDirectory();
     link1.createSymbolicLink(file4);  // simple symlink
-    dirLink.createSymbolicLink(aDir); // creates link loop
+    dirLink.createSymbolicLink(bDir);
     FileSystemUtils.createEmptyFile(file4);
+    FileSystemUtils.createEmptyFile(file5);
   }
 
   private void checkTestDirectoryTreesBelow(Path toPath) throws IOException {
@@ -142,13 +148,12 @@ public class FileSystemUtilsTest {
 
     Path copiedLink1 = copiedInnerDir.getChild("link-1");
     assertTrue(copiedLink1.exists());
-    assertTrue(copiedLink1.isSymbolicLink());
-    assertEquals(copiedLink1.resolveSymbolicLinks(), file4);
+    assertFalse(copiedLink1.isSymbolicLink());
 
     Path copiedDirLink = copiedInnerDir.getChild("dir-link");
     assertTrue(copiedDirLink.exists());
-    assertTrue(copiedDirLink.isSymbolicLink());
-    assertEquals(copiedDirLink.resolveSymbolicLinks(), aDir);
+    assertTrue(copiedDirLink.isDirectory());
+    assertTrue(copiedDirLink.getChild("file-5").exists());
   }
 
   // tests
@@ -538,7 +543,7 @@ public class FileSystemUtilsTest {
         return !p.getPathString().contains("a-dir");
       }
     });
-    assertThat(paths).containsExactly(file1, file2);
+    assertThat(paths).containsExactly(file1, file2, bDir, file5);
   }
 
   @Test
@@ -553,7 +558,9 @@ public class FileSystemUtilsTest {
         link1,
         file1,
         file2,
-        dirLink);
+        dirLink,
+        bDir,
+        file5);
   }
 
   @Test

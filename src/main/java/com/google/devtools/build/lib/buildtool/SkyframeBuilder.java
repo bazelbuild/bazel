@@ -208,16 +208,6 @@ public class SkyframeBuilder implements Builder {
     }
   }
 
-  private static boolean resultHasCatastrophicError(EvaluationResult<?> result) {
-    for (ErrorInfo errorInfo : result.errorMap().values()) {
-      if (errorInfo.isCatastrophic()) {
-        return true;
-      }
-    }
-    // An unreported catastrophe manifests with hasError() being true but no errors visible.
-    return result.hasError() && result.errorMap().isEmpty();
-  }
-
   /**
    * Process the Skyframe update, taking into account the keepGoing setting.
    *
@@ -228,25 +218,29 @@ public class SkyframeBuilder implements Builder {
       boolean keepGoing, SkyframeExecutor skyframeExecutor)
           throws BuildFailedException, TestExecException {
     if (result.hasError()) {
-      boolean hasCycles = false;
       for (Map.Entry<SkyKey, ErrorInfo> entry : result.errorMap().entrySet()) {
         Iterable<CycleInfo> cycles = entry.getValue().getCycleInfo();
         skyframeExecutor.reportCycles(eventHandler, cycles, entry.getKey());
-        hasCycles |= !Iterables.isEmpty(cycles);
       }
-      boolean hasCatastrophe = resultHasCatastrophicError(result);
-      if (keepGoing && !hasCatastrophe) {
+
+      if (result.getCatastrophe() != null) {
+        rethrow(result.getCatastrophe());
+      }
+      if (keepGoing) {
+        // keepGoing doesn't throw if there were just ordinary errors.
         return false;
       }
-      if (hasCycles || result.errorMap().isEmpty()) {
-        // error map may be empty in the case of a catastrophe, but the
-        // catastrophe-causing exception may be available.
-        if (result.getCatastrophe() != null) {
-          rethrow(result.getCatastrophe());
-        }
-        throw new BuildFailedException(null, hasCatastrophe);
+      ErrorInfo errorInfo = Preconditions.checkNotNull(result.getError(), result);
+      Exception exception = errorInfo.getException();
+      if (exception == null) {
+        Preconditions.checkState(!Iterables.isEmpty(errorInfo.getCycleInfo()), errorInfo);
+        // If a keepGoing=false build found a cycle, that means there were no other errors thrown
+        // during evaluation (otherwise, it wouldn't have bothered to find a cycle). So the best
+        // we can do is throw a generic build failure exception, since we've already reported the
+        // cycles above.
+        throw new BuildFailedException(null, /*hasCatastrophe=*/ false);
       } else {
-        rethrow(Preconditions.checkNotNull(result.getError().getException()));
+        rethrow(exception);
       }
     }
     return true;

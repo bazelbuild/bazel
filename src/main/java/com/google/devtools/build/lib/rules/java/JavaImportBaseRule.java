@@ -37,14 +37,12 @@ public class JavaImportBaseRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
     return builder
-        .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class,
-            J2ObjcConfiguration.class)
+        .requiresConfigurationFragments(JavaConfiguration.class, CppConfiguration.class)
         .add(attr(":host_jdk", LABEL)
             .cfg(HOST)
             .value(JavaSemantics.HOST_JDK))
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(jars) -->
         The list of JAR files provided to Java targets that depend on this target.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("jars", LABEL_LIST)
             .mandatory()
@@ -52,7 +50,6 @@ public class JavaImportBaseRule implements RuleDefinition {
             .allowedFileTypes(JavaSemantics.JAR))
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(srcjar) -->
         A JAR file that contains source code for the compiled JAR files.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("srcjar", LABEL)
             .allowedFileTypes(JavaSemantics.SOURCE_JAR, JavaSemantics.JAR)
@@ -60,7 +57,6 @@ public class JavaImportBaseRule implements RuleDefinition {
         .removeAttribute("deps")  // only exports are allowed; nothing is compiled
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(neverlink) -->
         Only use this library for compilation and not at runtime.
-        ${SYNOPSIS}
         Useful if the library will be provided by the runtime environment
         during execution. Examples of libraries like this are IDE APIs
         for IDE plug-ins or <code>tools.jar</code> for anything running on
@@ -69,7 +65,6 @@ public class JavaImportBaseRule implements RuleDefinition {
         .add(attr("neverlink", BOOLEAN).value(false))
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(constraints) -->
         Extra constraints imposed on this rule as a Java library.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("constraints", STRING_LIST)
             .orderIndependent()

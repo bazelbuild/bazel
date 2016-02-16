@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -52,7 +51,6 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         .requiresConfigurationFragments(ObjcConfiguration.class, AppleConfiguration.class)
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(deps) -->
         The directly depended upon proto_library rules.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .override(attr("deps", LABEL_LIST)
             // Support for files in deps is for backwards compatibility.
@@ -61,32 +59,28 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(options_file) -->
         Optional options file to apply to protos which affects compilation (e.g. class
         whitelist/blacklist settings).
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(OPTIONS_FILE_ATTR, LABEL).legacyAllowAnyFileType().singleArtifact().cfg(HOST))
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(output_cpp) -->
         If true, output C++ rather than ObjC.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(OUTPUT_CPP_ATTR, BOOLEAN).value(false))
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(use_objc_header_names) -->
         If true, output headers with .pbobjc.h, rather than .pb.h.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(PER_PROTO_INCLUDES, BOOLEAN).value(false))
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(per_proto_includes) -->
         If true, always add all directories to objc_library includes,
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(COMPILE_PROTOS_ATTR, LABEL)
             .allowedFileTypes(FileType.of(".py"))
             .cfg(HOST)
             .singleArtifact()
-            .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:compile_protos")))
+            .value(env.getToolsLabel("//tools/objc:compile_protos")))
         .add(attr(PROTO_SUPPORT_ATTR, LABEL)
             .legacyAllowAnyFileType()
             .cfg(HOST)
-            .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:proto_support")))
+            .value(env.getToolsLabel("//tools/objc:proto_support")))
         .add(attr(USE_OBJC_HEADER_NAMES_ATTR, BOOLEAN).value(false))
         .add(attr(LIBPROTOBUF_ATTR, LABEL).allowedRuleClasses("objc_library")
             .value(new ComputedDefault(OUTPUT_CPP_ATTR) {
@@ -98,7 +92,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
               }
             }))
         .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
-            .value(env.getLabel(Constants.TOOLS_REPOSITORY + "//tools/objc:xcodegen")))
+            .value(env.getToolsLabel("//tools/objc:xcodegen")))
         .build();
   }
 

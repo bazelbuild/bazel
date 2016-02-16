@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
-import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider.ExtraArtifactSet;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -452,7 +451,6 @@ public class BuildView {
 
     List<AspectValueKey> aspectKeys = new ArrayList<>();
     for (String aspect : aspects) {
-
       // Syntax: label%aspect
       int delimiterPosition = aspect.indexOf('%');
       if (delimiterPosition >= 0) {
@@ -508,7 +506,6 @@ public class BuildView {
 
     int numTargetsToAnalyze = nodes.size();
     int numSuccessful = skyframeAnalysisResult.getConfiguredTargets().size();
-    boolean analysisSuccessful = (numSuccessful == numTargetsToAnalyze);
     if (0 < numSuccessful && numSuccessful < numTargetsToAnalyze) {
       String msg = String.format("Analysis succeeded for only %d of %d top-level targets",
                                     numSuccessful, numTargetsToAnalyze);
@@ -522,11 +519,7 @@ public class BuildView {
             loadingResult,
             topLevelOptions,
             viewOptions,
-            skyframeAnalysisResult.getConfiguredTargets(),
-            skyframeAnalysisResult.getAspects(),
-            skyframeAnalysisResult.getWalkableGraph(),
-            skyframeAnalysisResult.getPackageRoots(),
-            analysisSuccessful);
+            skyframeAnalysisResult);
     LOG.info("Finished analysis");
     return result;
   }
@@ -536,13 +529,10 @@ public class BuildView {
       LoadingResult loadingResult,
       TopLevelArtifactContext topLevelOptions,
       BuildView.Options viewOptions,
-      Collection<ConfiguredTarget> configuredTargets,
-      Collection<AspectValue> aspects,
-      final WalkableGraph graph,
-      ImmutableMap<PackageIdentifier, Path> packageRoots,
-      boolean analysisSuccessful)
-      throws InterruptedException {
+      SkyframeAnalysisResult skyframeAnalysisResult)
+          throws InterruptedException {
     Collection<Target> testsToRun = loadingResult.getTestsToRun();
+    Collection<ConfiguredTarget> configuredTargets = skyframeAnalysisResult.getConfiguredTargets();
     Collection<ConfiguredTarget> allTargetsToTest = null;
     if (testsToRun != null) {
       // Determine the subset of configured targets that are meant to be run as tests.
@@ -585,12 +575,13 @@ public class BuildView {
     // Tests. This must come last, so that the exclusive tests are scheduled after everything else.
     scheduleTestsIfRequested(parallelTests, exclusiveTests, topLevelOptions, allTargetsToTest);
 
-    String error = !loadingResult.hasLoadingError()
-          ? (analysisSuccessful
-            ? null
-            : "execution phase succeeded, but not all targets were analyzed")
-          : "execution phase succeeded, but there were loading phase errors";
+    String error = loadingResult.hasLoadingError() || skyframeAnalysisResult.hasLoadingError()
+          ? "execution phase succeeded, but there were loading phase errors"
+          : skyframeAnalysisResult.hasAnalysisError()
+            ? "execution phase succeeded, but not all targets were analyzed"
+            : null;
 
+    final WalkableGraph graph = skyframeAnalysisResult.getWalkableGraph();
     final ActionGraph actionGraph = new ActionGraph() {
       @Nullable
       @Override
@@ -606,7 +597,7 @@ public class BuildView {
     };
     return new AnalysisResult(
         configuredTargets,
-        aspects,
+        skyframeAnalysisResult.getAspects(),
         allTargetsToTest,
         error,
         actionGraph,
@@ -614,7 +605,7 @@ public class BuildView {
         parallelTests,
         exclusiveTests,
         topLevelOptions,
-        packageRoots);
+        skyframeAnalysisResult.getPackageRoots());
   }
 
   private static NestedSet<Artifact> getBaselineCoverageArtifacts(
@@ -762,7 +753,10 @@ public class BuildView {
         skyframeExecutor.getConfiguredTargets(
             eventHandler,
             configuration,
-            ImmutableList.of(new Dependency(label, configuration)),
+            ImmutableList.of(
+                configuration != null
+                    ? Dependency.withConfiguration(label, configuration)
+                    : Dependency.withNullConfiguration(label)),
             true),
         null);
   }
@@ -802,10 +796,15 @@ public class BuildView {
       }
 
       @Override
-      protected Target getTarget(Label label) {
+      protected void missingEdgeHook(Target from, Label to, NoSuchThingException e) {
+        // The error must have been reported already during analysis.
+      }
+
+      @Override
+      protected Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses) {
         if (targetCache == null) {
           try {
-            return LoadedPackageProvider.Bridge.getLoadedTarget(
+            return LoadedPackageProvider.getLoadedTarget(
                 skyframeExecutor.getPackageManager(), eventHandler, label);
           } catch (NoSuchThingException e) {
             throw new IllegalStateException(e);
@@ -856,18 +855,29 @@ public class BuildView {
     class SilentDependencyResolver extends DependencyResolver {
       @Override
       protected void invalidVisibilityReferenceHook(TargetAndConfiguration node, Label label) {
-        // The error must have been reported already during analysis.
+        throw new RuntimeException("bad visibility on " + label + " during testing unexpected");
       }
 
       @Override
       protected void invalidPackageGroupReferenceHook(TargetAndConfiguration node, Label label) {
-        // The error must have been reported already during analysis.
+        throw new RuntimeException("bad package group on " + label + " during testing unexpected");
       }
 
       @Override
-      protected Target getTarget(Label label) throws NoSuchThingException {
-        return LoadedPackageProvider.Bridge.getLoadedTarget(
-            skyframeExecutor.getPackageManager(), eventHandler, label);
+      protected void missingEdgeHook(Target from, Label to, NoSuchThingException e) {
+        throw new RuntimeException(
+            "missing dependency from " + from.getLabel() + " to " + to + ": " + e.getMessage(),
+            e);
+      }
+
+      @Override
+      protected Target getTarget(Target from, Label label, NestedSetBuilder<Label> rootCauses) {
+        try {
+          return LoadedPackageProvider.getLoadedTarget(
+              skyframeExecutor.getPackageManager(), eventHandler, label);
+        } catch (NoSuchThingException e) {
+          throw new IllegalStateException(e);
+        }
       }
     }
 

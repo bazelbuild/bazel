@@ -85,6 +85,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final StringBuilder defaultWorkspaceFile = new StringBuilder();
     private Label preludeLabel;
     private String runfilesPrefix;
+    private String toolsRepository;
     private final List<ConfigurationFragmentFactory> configurationFragments = new ArrayList<>();
     private final List<BuildInfoFactory> buildInfoFactories = new ArrayList<>();
     private final List<Class<? extends FragmentOptions>> configurationOptions = new ArrayList<>();
@@ -103,6 +104,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private Class<? extends BuildConfiguration.Fragment> universalFragment;
     private PrerequisiteValidator prerequisiteValidator;
     private ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses = ImmutableMap.of();
+    private ImmutableList.Builder<Class<?>> skylarkModules =
+        ImmutableList.<Class<?>>builder().addAll(SkylarkModules.MODULES);
     private final List<Class<? extends FragmentOptions>> buildOptions = Lists.newArrayList();
 
     public void addWorkspaceFile(String contents) {
@@ -127,6 +130,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     public Builder setRunfilesPrefix(String runfilesPrefix) {
       this.runfilesPrefix = runfilesPrefix;
+      return this;
+    }
+
+    public Builder setToolsRepository(String toolsRepository) {
+      this.toolsRepository = toolsRepository;
       return this;
     }
 
@@ -181,6 +189,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     public Builder setSkylarkAccessibleJavaClasses(ImmutableMap<String, SkylarkType> objects) {
       this.skylarkAccessibleJavaClasses = objects;
+      return this;
+    }
+
+    public Builder addSkylarkModule(Class<?>... modules) {
+      this.skylarkModules.add(modules);
       return this;
     }
 
@@ -246,6 +259,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return new ConfiguredRuleClassProvider(
           preludeLabel,
           runfilesPrefix,
+          toolsRepository,
           ImmutableMap.copyOf(ruleClassMap),
           ImmutableMap.copyOf(ruleDefinitionMap),
           ImmutableMap.copyOf(aspectFactoryMap),
@@ -257,12 +271,18 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           universalFragment,
           prerequisiteValidator,
           skylarkAccessibleJavaClasses,
+          skylarkModules.build(),
           buildOptions);
     }
 
     @Override
     public Label getLabel(String labelValue) {
       return LABELS.getUnchecked(labelValue);
+    }
+
+    @Override
+    public Label getToolsLabel(String labelValue) {
+      return getLabel(toolsRepository + labelValue);
     }
   }
 
@@ -297,6 +317,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
    * The default runfiles prefix.
    */
   private final String runfilesPrefix;
+
+  /**
+   * The path to the tools repository.
+   */
+  private final String toolsRepository;
 
   /**
    * Maps rule class name to the metaclass instance for that rule.
@@ -345,6 +370,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private ConfiguredRuleClassProvider(
       Label preludeLabel,
       String runfilesPrefix,
+      String toolsRepository,
       ImmutableMap<String, RuleClass> ruleClassMap,
       ImmutableMap<String, Class<? extends RuleDefinition>> ruleDefinitionMap,
       ImmutableMap<String, Class<? extends NativeAspectFactory>> aspectFactoryMap,
@@ -356,9 +382,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       Class<? extends BuildConfiguration.Fragment> universalFragment,
       PrerequisiteValidator prerequisiteValidator,
       ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses,
+      ImmutableList<Class<?>> skylarkModules,
       List<Class<? extends FragmentOptions>> buildOptions) {
     this.preludeLabel = preludeLabel;
     this.runfilesPrefix = runfilesPrefix;
+    this.toolsRepository = toolsRepository;
     this.ruleClassMap = ruleClassMap;
     this.ruleDefinitionMap = ruleDefinitionMap;
     this.aspectFactoryMap = aspectFactoryMap;
@@ -369,7 +397,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.configurationCollectionFactory = configurationCollectionFactory;
     this.universalFragment = universalFragment;
     this.prerequisiteValidator = prerequisiteValidator;
-    this.globals = createGlobals(skylarkAccessibleJavaClasses);
+    this.globals = createGlobals(skylarkAccessibleJavaClasses, skylarkModules);
     this.buildOptions = buildOptions;
   }
 
@@ -385,6 +413,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   @Override
   public String getRunfilesPrefix() {
     return runfilesPrefix;
+  }
+
+  @Override
+  public String getToolsRepository() {
+    return toolsRepository;
   }
 
   @Override
@@ -467,10 +500,11 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   private Environment.Frame createGlobals(
-      ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses) {
+      ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses,
+      ImmutableList<Class<?>> modules) {
     try (Mutability mutability = Mutability.create("ConfiguredRuleClassProvider globals")) {
       Environment env = createSkylarkRuleClassEnvironment(
-          mutability, SkylarkModules.GLOBALS, null, null, null);
+          mutability, SkylarkModules.getGlobals(modules), null, null, null);
       for (Map.Entry<String, SkylarkType> entry : skylarkAccessibleJavaClasses.entrySet()) {
         env.setup(entry.getKey(), entry.getValue().getType());
       }

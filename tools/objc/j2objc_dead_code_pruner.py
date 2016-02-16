@@ -31,6 +31,7 @@ import multiprocessing
 import os
 import Queue
 import shutil
+import subprocess
 import threading
 
 PRUNED_SRC_CONTENT = 'static int DUMMY_unused __attribute__((unused,used)) = 0;'
@@ -83,7 +84,8 @@ def BuildHeaderMapping(header_mapping_files, file_open=open):
   return header_mapping
 
 
-def BuildReachableFileSet(entry_classes, reachability_tree, header_mapping):
+def BuildReachableFileSet(entry_classes, reachability_tree, header_mapping,
+                          archive_source_file_mapping=None):
   """Builds a set of reachable translated files from entry Java classes.
 
   Args:
@@ -91,6 +93,8 @@ def BuildReachableFileSet(entry_classes, reachability_tree, header_mapping):
     reachability_tree: A dict mapping translated files to their direct
         dependencies.
     header_mapping: A dict mapping Java class names to translated source files.
+    archive_source_file_mapping: A dict mapping source files to the associated
+        archive file that contains them.
   Returns:
     A set of reachable translated files from the given list of entry classes.
   Raises:
@@ -104,6 +108,20 @@ def BuildReachableFileSet(entry_classes, reachability_tree, header_mapping):
                       'is not in the transitive Java deps of included ' +
                       'j2objc_library rules.')
     transpiled_entry_files.append(header_mapping[entry_class])
+
+  # Translated files going into the same static library archive with duplicated
+  # base names also need to be added to the set of entry files.
+  #
+  # This edge case is ignored because we currently cannot correctly perform
+  # dead code removal in this case. The object file entries in static library
+  # archives are named by the base names of the original source files. If two
+  # source files (e.g., foo/bar.m, bar/bar.m) go into the same archive and
+  # share the same base name (bar.m), their object file entries inside the
+  # archive will have the same name (bar.o). We cannot correctly handle this
+  # case because current archive tools (ar, ranlib, etc.) do not handle this
+  # case very well.
+  if archive_source_file_mapping:
+    transpiled_entry_files.extend(_DuplicatedFiles(archive_source_file_mapping))
 
   # Translated files from package-info.java are also added to the entry files
   # because they are needed to resolve ObjC class names with prefixes and these
@@ -188,9 +206,61 @@ def _PruneFile(file_queue, reachable_files, objc_file_path, file_open=open,
     file_queue.task_done()
 
 
-def PruneDeadCode(input_files, output_files, dependency_mapping_files,
-                  header_mapping_files, entry_classes, objc_file_path,
-                  file_open=open, file_shutil=shutil):
+def _DuplicatedFiles(archive_source_file_mapping):
+  """Returns a list of file with duplicated base names in each archive file.
+
+  Args:
+    archive_source_file_mapping: A dict mapping source files to the associated
+        archive file that contains them.
+  Returns:
+    A list containg files with duplicated base names.
+  """
+  duplicated_files = []
+  dict_with_duplicates = dict()
+
+  for archive, source_files in archive_source_file_mapping.iteritems():
+    for source_file in source_files:
+      file_basename = os.path.basename(source_file)
+      file_without_ext = os.path.splitext(source_file)[0]
+      if file_basename in dict_with_duplicates:
+        dict_with_duplicates[file_basename].append(file_without_ext)
+      else:
+        dict_with_duplicates[file_basename] = [file_without_ext]
+    for basename in dict_with_duplicates:
+      if len(dict_with_duplicates[basename]) > 1:
+        duplicated_files.extend(dict_with_duplicates[basename])
+    dict_with_duplicates = dict()
+
+  return duplicated_files
+
+
+def BuildArchiveSourceFileMapping(archive_source_mapping_files, file_open):
+  """Builds a mapping between archive files and their associated source files.
+
+  Args:
+    archive_source_mapping_files: A comma separated list of J2ObjC-generated
+        mapping between archive files and their associated source files.
+    file_open: Reference to the builtin open function so it may be
+        overridden for testing.
+  Returns:
+    A dict mapping between archive files and their associated source files.
+  """
+  tree = dict()
+  for archive_source_mapping_file in archive_source_mapping_files.split(','):
+    with file_open(archive_source_mapping_file, 'r') as f:
+      for line in f:
+        entry = line.strip().split(':')[0]
+        dep = line.strip().split(':')[1]
+        if entry in tree:
+          tree[entry].append(dep)
+        else:
+          tree[entry] = [dep]
+  return tree
+
+
+def PruneSourceFiles(input_files, output_files, dependency_mapping_files,
+                     header_mapping_files, entry_classes, objc_file_path,
+                     file_open=open, file_shutil=shutil):
   """Copies over translated files and remove the contents of unreachable files.
 
   Args:
@@ -210,8 +280,6 @@ def PruneDeadCode(input_files, output_files, dependency_mapping_files,
         overridden for testing.
     file_shutil: Reference to the builtin shutil module so it may be
         overridden for testing.
-  Returns:
-    None.
   """
   reachability_file_mapping = BuildReachabilityTree(
       dependency_mapping_files, file_open)
@@ -227,45 +295,145 @@ def PruneDeadCode(input_files, output_files, dependency_mapping_files,
              file_shutil)
 
 
+def PruneArchiveFile(input_archive, output_archive, dummy_archive,
+                     dependency_mapping_files, header_mapping_files,
+                     archive_source_mapping_files, entry_classes, xcrunwrapper,
+                     file_open=open, proc_exe=subprocess.check_call):
+  """Remove unreachable objects from archive file.
+
+  Args:
+    input_archive: The source archive file to prune.
+    output_archive: The location of the pruned archive file.
+    dummy_archive: A dummy archive file that contains no object.
+    dependency_mapping_files: A comma separated list of J2ObjC-generated
+        dependency mapping files.
+    header_mapping_files: A comma separated list of J2ObjC-generated
+        header mapping files.
+    archive_source_mapping_files: A comma separated list of J2ObjC-generated
+        mapping between archive files and their associated source files.
+    entry_classes: A comma separated list of Java entry classes.
+    xcrunwrapper: A wrapper script over xcrun.
+    file_open: Reference to the builtin open function so it may be
+        overridden for testing.
+    proc_exe: Object that can execute a command line process.
+  """
+  reachability_file_mapping = BuildReachabilityTree(
+      dependency_mapping_files, file_open)
+  header_map = BuildHeaderMapping(header_mapping_files, file_open)
+  archive_source_file_mapping = BuildArchiveSourceFileMapping(
+      archive_source_mapping_files, file_open)
+  reachable_files_set = BuildReachableFileSet(entry_classes,
+                                              reachability_file_mapping,
+                                              header_map,
+                                              archive_source_file_mapping)
+
+  j2objc_cmd = ''
+  if input_archive in archive_source_file_mapping:
+    source_files = archive_source_file_mapping[input_archive]
+    unreachable_object_names = []
+
+    for source_file in source_files:
+      if os.path.splitext(source_file)[0] not in reachable_files_set:
+        unreachable_object_names.append(
+            os.path.basename(os.path.splitext(source_file)[0]) + '.o')
+
+    # There are unreachable objects in the archive to prune
+    if unreachable_object_names:
+      # If all objects in the archive are unreachable, just copy over a dummy
+      # archive that contains no object
+      if len(unreachable_object_names) == len(source_files):
+        j2objc_cmd = 'cp %s %s' % (dummy_archive, output_archive)
+      # Else we need to prune the archive of unreachable objects
+      else:
+        # Copy the input archive to the output location
+        j2objc_cmd += 'cp %s %s;' % (input_archive, output_archive)
+        # Make the output archive editable
+        j2objc_cmd += 'chmod +w %s;' % (output_archive)
+        # Remove the unreachable objects from the archive
+        j2objc_cmd += '%s ar -d -s %s %s;' % (
+            xcrunwrapper, output_archive, ' '.join(unreachable_object_names))
+        # Update the table of content of the archive file
+        j2objc_cmd += '%s ranlib -a %s' % (xcrunwrapper, output_archive)
+    # There are no unreachable objects, we just copy over the original archive
+    else:
+      j2objc_cmd = 'cp %s %s' % (input_archive, output_archive)
+  # The archive cannot be pruned by J2ObjC dead code removal, just copy over
+  # the original archive
+  else:
+    j2objc_cmd = 'cp %s %s' % (input_archive, output_archive)
+
+  proc_exe(j2objc_cmd, stderr=subprocess.STDOUT, shell=True)
+
+
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(fromfile_prefix_chars='@')
+
+  # TODO(rduan): Remove these three flags once J2ObjC compile actions are fully
+  # moved to the edges.
   parser.add_argument(
       '--input_files',
-      required=True,
       help=('The comma-separated file paths of translated source files to '
             'prune.'))
   parser.add_argument(
       '--output_files',
-      required=True,
       help='The comma-separated file paths of pruned source files to write to.')
   parser.add_argument(
+      '--objc_file_path',
+      help='The file path which represents a directory where the generated ObjC'
+      ' files reside')
+
+  parser.add_argument(
+      '--input_archive',
+      help=('The path of the translated archive to prune.'))
+  parser.add_argument(
+      '--output_archive',
+      help='The path of the pruned archive file to write to.')
+  parser.add_argument(
+      '--dummy_archive',
+      help='The dummy archive file that contains no symbol.')
+  parser.add_argument(
       '--dependency_mapping_files',
-      required=True,
       help='The comma-separated file paths of dependency mapping files.')
   parser.add_argument(
       '--header_mapping_files',
-      required=True,
       help='The comma-separated file paths of header mapping files.')
   parser.add_argument(
+      '--archive_source_mapping_files',
+      help='The comma-separated file paths of archive to source mapping files.'
+           'These mapping files should contain mappings between the '
+           'translated source files and the archive file compiled from those '
+           'source files.')
+  parser.add_argument(
       '--entry_classes',
-      required=True,
       help=('The comma-separated list of Java entry classes to be used as entry'
             ' point of the dead code anlysis.'))
   parser.add_argument(
-      '--objc_file_path',
-      required=True,
-      help='The file path which represents a directory where the generated ObjC'
-      ' files reside')
+      '--xcrunwrapper',
+      help=('The xcrun wrapper script.'))
+
   args = parser.parse_args()
 
   if not args.entry_classes:
     raise Exception('J2objC dead code removal is on but no entry class is ',
                     'specified in any j2objc_library targets in the transitive',
                     ' closure')
-  PruneDeadCode(
-      args.input_files,
-      args.output_files,
-      args.dependency_mapping_files,
-      args.header_mapping_files,
-      args.entry_classes,
-      args.objc_file_path)
+  if args.input_archive and args.output_archive:
+    PruneArchiveFile(
+        args.input_archive,
+        args.output_archive,
+        args.dummy_archive,
+        args.dependency_mapping_files,
+        args.header_mapping_files,
+        args.archive_source_mapping_files,
+        args.entry_classes,
+        args.xcrunwrapper)
+  else:
+    # TODO(rduan): Remove once J2ObjC compile actions are fully moved to the
+    # edges.
+    PruneSourceFiles(
+        args.input_files,
+        args.output_files,
+        args.dependency_mapping_files,
+        args.header_mapping_files,
+        args.entry_classes,
+        args.objc_file_path)

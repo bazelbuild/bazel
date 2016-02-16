@@ -34,7 +34,6 @@ public class ObjcBundleRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(objc_bundle).ATTRIBUTE(bundle_imports) -->
         The list of files under a <code>.bundle</code> directory which are
         provided to Objective-C targets that depend on this target.
-        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("bundle_imports", LABEL_LIST)
             .allowedFileTypes(FileTypeSet.ANY_FILE)

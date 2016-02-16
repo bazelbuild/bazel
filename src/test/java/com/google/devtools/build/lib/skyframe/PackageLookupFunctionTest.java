@@ -97,6 +97,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
             new PackageFactory(
                 ruleClassProvider, new BazelRulesModule().getPackageEnvironmentExtension()),
             directories));
+    skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
     differencer = new RecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     driver = new SequentialBuildDriver(evaluator);

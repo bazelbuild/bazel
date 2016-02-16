@@ -69,4 +69,34 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     JavaSourceJarsProvider sourceJars = getInfo().getProvider(JavaSourceJarsProvider.class);
     return sourceJars.getTransitiveSourceJars();
   }
+
+  @SkylarkCallable(
+    name = "outputs",
+    doc = "Returns information about outputs of this Java target",
+    structField = true
+  )
+  public JavaRuleOutputJarsProvider getOutputJars() {
+    return getInfo().getProvider(JavaRuleOutputJarsProvider.class);
+  }
+
+  @SkylarkCallable(
+    name = "annotation_processing",
+    structField = true,
+    allowReturnNones = true,
+    doc = "Returns information about annotation processing for this Java target"
+  )
+  public JavaGenJarsProvider getGenJarsProvider() {
+    return getInfo().getProvider(JavaGenJarsProvider.class);
+  }
+
+  @SkylarkCallable(
+    name = "compilation_info",
+    structField = true,
+    allowReturnNones = true,
+    doc = "Returns compilation information for this Java target"
+  )
+  public JavaCompilationInfoProvider getCompilationInfoProvider() {
+    return getInfo().getProvider(JavaCompilationInfoProvider.class);
+  }
+
 }

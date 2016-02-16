@@ -77,7 +77,7 @@ function get_outputs_sum() {
 function bootstrap_test() {
   local BAZEL_BIN=$1
   local BAZEL_SUM=$2
-  local BAZEL_TARGET=${3:-//src:bazel}
+  local BAZEL_TARGET=${3:-src:bazel}
   [ -x "${BAZEL_BIN}" ] || fail "syntax: bootstrap bazel-binary"
   run_silent ${BAZEL_BIN} --nomaster_bazelrc --bazelrc=${BAZELRC} clean \
       --expunge || return $?

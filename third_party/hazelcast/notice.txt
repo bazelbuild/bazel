@@ -1,0 +1,19 @@
+**
+**  NOTICE file corresponding to the section 4 (d) of the Apache License,
+**  Version 2.0, in this case for the Hazelcast distribution.
+**
+
+The end-user documentation included with a redistribution, if any,
+must include the following acknowledgement:
+
+ "This product includes software developed by the Hazelcast
+  Project (http://www.hazelcast.com)."
+
+Alternately, this acknowledgement may appear in the software itself,
+if and wherever such third-party acknowledgements normally appear.
+
+The name "Hazelcast" must not be used to endorse or promote products
+derived from this software without prior written permission. For
+written permission, please contact talip@hazelcast.com or fuad@hazelcast.com
+
+Copyright (c) 2008-2015 Hazelcast Inc.  All rights reserved.

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -39,11 +40,29 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
   @Immutable
   public static class SourceDirectory {
     final PathFragment relativePath;
+    final PathFragment rootExecutionPathFragment;
     final PathFragment rootPath;
     final boolean isSource;
 
-    public SourceDirectory(PathFragment rootPath, PathFragment relativePath, boolean isSource) {
+    @VisibleForTesting
+    public static SourceDirectory fromSourceRoot(
+        PathFragment rootPath,
+        PathFragment relativePath) {
+      return new SourceDirectory(rootPath, PathFragment.EMPTY_FRAGMENT, relativePath, true);
+    }
+
+    public static SourceDirectory fromRoot(Root root, PathFragment relativePath) {
+      return new SourceDirectory(
+          root.getPath().asFragment(), root.getExecPath(), relativePath, root.isSourceRoot());
+    }
+
+    private SourceDirectory(
+        PathFragment rootPath,
+        PathFragment rootExecutionPathFragment,
+        PathFragment relativePath,
+        boolean isSource) {
       this.rootPath = rootPath;
+      this.rootExecutionPathFragment = rootExecutionPathFragment;
       this.relativePath = relativePath;
       this.isSource = isSource;
     }
@@ -62,6 +81,14 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
       return rootPath;
     }
 
+    /**
+     * The path from the execution root to the actual root. For source roots, this returns
+     * the empty fragment, {@link Root#getExecPath()}.
+     */
+    public PathFragment getRootExecutionPathFragment() {
+      return rootExecutionPathFragment;
+    }
+
     /** Indicates if the directory is in the gen files tree. */
     public boolean isSource() {
       return isSource;
@@ -69,7 +96,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
 
     @Override
     public int hashCode() {
-      return Objects.hash(relativePath, rootPath, isSource);
+      return Objects.hash(relativePath, rootPath, rootExecutionPathFragment, isSource);
     }
 
     @Override
@@ -77,6 +104,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
       if (other instanceof SourceDirectory) {
         SourceDirectory otherDir = (SourceDirectory) other;
         return Objects.equals(rootPath, otherDir.rootPath)
+            && Objects.equals(rootExecutionPathFragment, otherDir.rootExecutionPathFragment)
             && Objects.equals(relativePath, otherDir.relativePath)
             && Objects.equals(isSource, otherDir.isSource);
       }
@@ -86,7 +114,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     @Override
     public String toString() {
       return "SourceDirectory [relativePath=" + relativePath + ", rootPath=" + rootPath
-          + ", isSource=" + isSource + "]";
+          + ", executionRootPrefix=" + rootExecutionPathFragment + ", isSource=" + isSource + "]";
     }
   }
 
@@ -179,10 +207,9 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     private void addIdlDirs(Collection<Artifact> idlArtifacts) {
       for (Artifact idl : idlArtifacts) {
         this.idlDirs.add(
-            new SourceDirectory(
-                idl.getRoot().getPath().asFragment(),
-                idl.getRootRelativePath().getParentDirectory(),
-                idl.isSourceArtifact()));
+            SourceDirectory.fromRoot(
+                idl.getRoot(),
+                idl.getRootRelativePath().getParentDirectory()));
       }
     }
 
@@ -199,10 +226,9 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     public Builder addResourceSource(Artifact resource) {
       PathFragment resourceDir = LocalResourceContainer.Builder.findResourceDir(resource);
       resourceDirs.add(
-          new SourceDirectory(
-              resource.getRoot().getPath().asFragment(),
-              trimTo(resource.getRootRelativePath(), resourceDir),
-              resource.isSourceArtifact()));
+          SourceDirectory.fromRoot(
+              resource.getRoot(),
+              trimTo(resource.getRootRelativePath(), resourceDir)));
       return this;
     }
 
@@ -222,10 +248,9 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
 
     public Builder addAssetSource(Artifact asset, PathFragment assetDir) {
       assetDirs.add(
-          new SourceDirectory(
-              asset.getRoot().getPath().asFragment(),
-              trimTo(asset.getRootRelativePath(), assetDir),
-              asset.isSourceArtifact()));
+          SourceDirectory.fromRoot(
+              asset.getRoot(),
+              trimTo(asset.getRootRelativePath(), assetDir)));
       return this;
     }
 

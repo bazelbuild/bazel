@@ -113,13 +113,6 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       throws InconsistentFilesystemException, SkylarkImportFailedException, InterruptedException {
     PathFragment filePath = fileLabel.toPathFragment();
 
-    boolean loadingFromDefaultlRepo = fileLabel.getPackageIdentifier().getRepository().isDefault();
-    if (inWorkspace && !loadingFromDefaultlRepo) {
-      // Loads of files in external repos are currently prohibited in a WORKSPACE file to prevent
-      // circular skyframe dependencies.
-      throw SkylarkImportFailedException.noExternalLoadsFromWorkspace(fileLabel);
-    }
-
     // Load the AST corresponding to this file.
     ASTFileLookupValue astLookupValue;
     try {

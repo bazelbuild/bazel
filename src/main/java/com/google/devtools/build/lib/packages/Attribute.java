@@ -922,8 +922,13 @@ public final class Attribute implements Comparable<Attribute> {
      * The actual value for the attribute for the analysis phase, which depends on the build
      * configuration. Note that configurations transitions are applied after the late-bound
      * attribute was evaluated.
+     *
+     * @param rule the rule being evaluated
+     * @param attributes interface for retrieving the values of the rule's other attributes
+     * @param o the configuration to evaluate with
      */
-    Object getDefault(Rule rule, T o) throws EvalException, InterruptedException;
+    Object getDefault(Rule rule, AttributeMap attributes, T o)
+        throws EvalException, InterruptedException;
   }
 
   /**
@@ -976,7 +981,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     @Override
-    public abstract Label getDefault(Rule rule, T configuration);
+    public abstract Label getDefault(Rule rule, AttributeMap attributes, T configuration);
   }
 
   /**
@@ -1010,7 +1015,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     @Override
-    public abstract List<Label> getDefault(Rule rule, T configuration);
+    public abstract List<Label> getDefault(Rule rule, AttributeMap attributes, T configuration);
   }
 
   /**
@@ -1040,11 +1045,9 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     @Override
-    public Object getDefault(Rule rule, Object o) throws EvalException, InterruptedException {
+    public Object getDefault(Rule rule, AttributeMap attributes, Object o)
+        throws EvalException, InterruptedException {
       Map<String, Object> attrValues = new HashMap<>();
-      // TODO(bazel-team): support configurable attributes here. RawAttributeMapper will throw
-      // an exception on any instance of configurable attributes.
-      AttributeMap attributes = RawAttributeMapper.of(rule);
       for (Attribute attr : rule.getAttributes()) {
         if (!attr.isLateBound()) {
           Object value = attributes.get(attr.getName(), attr.getType());

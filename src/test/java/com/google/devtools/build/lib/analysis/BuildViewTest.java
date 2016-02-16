@@ -37,9 +37,8 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FailAction;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
-import com.google.devtools.build.lib.analysis.DependencyResolver.Dependency;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -49,6 +48,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.TargetPatternValue.TargetPatternKey;
 import com.google.devtools.build.lib.testutil.Suite;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.Pair;
@@ -77,7 +77,15 @@ import java.util.regex.Pattern;
  */
 @TestSpec(size = Suite.SMALL_TESTS)
 @RunWith(JUnit4.class)
-public final class BuildViewTest extends BuildViewTestBase {
+public class BuildViewTest extends BuildViewTestBase {
+  private static final Function<AnalysisFailureEvent, Pair<String, String>>
+      ANALYSIS_EVENT_TO_STRING_PAIR = new Function<AnalysisFailureEvent, Pair<String, String>>() {
+    @Override
+    public Pair<String, String> apply(AnalysisFailureEvent event) {
+      return Pair.of(
+          event.getFailedTarget().getLabel().toString(), event.getFailureReason().toString());
+    }
+  };
 
   @Test
   public void testRuleConfiguredTarget() throws Exception {
@@ -189,6 +197,9 @@ public final class BuildViewTest extends BuildViewTestBase {
 
   @Test
   public void testReportsLoadingRootCauses() throws Exception {
+    // This test checks that two simultaneous errors are both reported:
+    // - missing outs attribute,
+    // - package referenced in tools does not exist
     scratch.file("pkg/BUILD",
         "genrule(name='foo',",
         "        tools=['//nopackage:missing'],",
@@ -330,26 +341,23 @@ public final class BuildViewTest extends BuildViewTestBase {
     Dependency fileDependency;
     if (top.getConfiguration().useDynamicConfigurations()) {
       innerDependency =
-          new Dependency(
+          Dependency.withTransitionAndAspects(
               Label.parseAbsolute("//package:inner"),
               Attribute.ConfigurationTransition.NONE,
               ImmutableSet.<Aspect>of());
       fileDependency =
-          new Dependency(
+          Dependency.withTransitionAndAspects(
               Label.parseAbsolute("//package:file"),
               Attribute.ConfigurationTransition.NONE,
               ImmutableSet.<Aspect>of());
     } else {
       innerDependency =
-          new Dependency(
+          Dependency.withConfiguration(
               Label.parseAbsolute("//package:inner"),
-              getTargetConfiguration(),
-              ImmutableSet.<Aspect>of());
+              getTargetConfiguration());
       fileDependency =
-          new Dependency(
-              Label.parseAbsolute("//package:file"),
-              (BuildConfiguration) null,
-              ImmutableSet.<Aspect>of());
+          Dependency.withNullConfiguration(
+              Label.parseAbsolute("//package:file"));
     }
 
     assertThat(targets).containsExactly(innerDependency, fileDependency);
@@ -443,7 +451,7 @@ public final class BuildViewTest extends BuildViewTestBase {
     try {
       update("//foo:top");
       fail();
-    } catch (LoadingFailedException e) {
+    } catch (LoadingFailedException | ViewCreationFailedException e) {
       // Expected.
     }
     assertContainsEvent("no such target '//badbuild:isweird': target 'isweird' not declared in "
@@ -454,6 +462,25 @@ public final class BuildViewTest extends BuildViewTestBase {
       assertContainsEvent("cycle in dependency graph");
       assertEventCount(3, eventCollector);
     }
+  }
+
+  @Test
+  public void testErrorBelowCycleKeepGoing() throws Exception {
+    scratch.file("foo/BUILD",
+        "sh_library(name = 'top', deps = ['mid'])",
+        "sh_library(name = 'mid', deps = ['bad', 'cycle1'])",
+        "sh_library(name = 'bad', srcs = ['//badbuild:isweird'])",
+        "sh_library(name = 'cycle1', deps = ['cycle2', 'mid'])",
+        "sh_library(name = 'cycle2', deps = ['cycle1'])");
+    scratch.file("badbuild/BUILD", "");
+    reporter.removeHandler(failFastHandler);
+    update(defaultFlags().with(Flag.KEEP_GOING), "//foo:top");
+    assertContainsEvent("no such target '//badbuild:isweird': target 'isweird' not declared in "
+        + "package 'badbuild'");
+    assertContainsEvent("and referenced by '//foo:bad'");
+    assertContainsEvent("in sh_library rule //foo");
+    assertContainsEvent("cycle in dependency graph");
+    assertEventCount(3, eventCollector);
   }
 
   @Test
@@ -830,8 +857,7 @@ public final class BuildViewTest extends BuildViewTestBase {
         defaultFlags().with(Flag.KEEP_GOING),
         "//conflict:_objs/x/conflict/foo.pic.o",
         "//conflict:x");
-    // TODO(ulfjack): We print an error message but don't return an error, apparently.
-    //assertThat(result.hasError()).isTrue();
+    assertThat(result.hasError()).isTrue();
     // Expect to reach this line without a Precondition-triggered NullPointerException.
     assertContainsEvent(
         "file 'conflict/_objs/x/conflict/foo.pic.o' is generated by these conflicting actions");
@@ -843,13 +869,13 @@ public final class BuildViewTest extends BuildViewTestBase {
         "java_binary(name = 'java', srcs = ['DoesntMatter.java'])",
         "cc_binary(name = 'cpp', data = [':java'])");
     // Everything is fine - the dependency graph is acyclic.
-    update(defaultFlags(), "//foo:java", "//foo:cpp");
+    update("//foo:java", "//foo:cpp");
     // Now there will be an analysis-phase cycle because the java_binary now has an implicit dep on
     // the cc_binary launcher.
     useConfiguration("--java_launcher=//foo:cpp");
     reporter.removeHandler(failFastHandler);
     try {
-      update(defaultFlags(), "//foo:java", "//foo:cpp");
+      update("//foo:java", "//foo:cpp");
       fail();
     } catch (ViewCreationFailedException expected) {
       Truth.assertThat(expected.getMessage())
@@ -857,5 +883,268 @@ public final class BuildViewTest extends BuildViewTestBase {
     }
     assertContainsEvent("cycle in dependency graph");
     assertContainsEvent("This cycle occurred because of a configuration option");
+  }
+
+  @Test
+  public void testDependsOnBrokenTarget() throws Exception {
+    scratch.file("foo/BUILD",
+        "sh_test(name = 'test', srcs = ['test.sh'], data = ['//bar:data'])");
+    scratch.file("bar/BUILD",
+        "BROKEN BROKEN BROKEN!!!");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update("//foo:test");
+      fail();
+    } catch (LoadingFailedException expected) {
+      Truth.assertThat(expected.getMessage())
+          .matches("Loading failed; build aborted.*");
+    } catch (ViewCreationFailedException expected) {
+      Truth.assertThat(expected.getMessage())
+          .matches("Analysis of target '//foo:test' failed; build aborted.*");
+    }
+  }
+
+  /**
+   * Regression test: IllegalStateException in BuildView.update() on circular dependency instead of
+   * graceful failure.
+   */
+  @Test
+  public void testCircularDependency() throws Exception {
+    scratch.file("cycle/BUILD",
+        "cc_library(name = 'foo', srcs = ['foo.cc'], deps = [':bar'])",
+        "cc_library(name = 'bar', srcs = ['bar.cc'], deps = [':foo'])");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update("//cycle:foo");
+      fail();
+    } catch (LoadingFailedException | ViewCreationFailedException expected) {
+      assertContainsEvent("in cc_library rule //cycle:foo: cycle in dependency graph:");
+      // In the legacy case, SkyframeLabelVisitor prints the loading error for //cycle:foo. In the
+      // interleaved case, the SkyframeBuildView only throws the exception, but doesn't print the
+      // error - the error is printed by the BuildTool, which isn't used in this test.
+      if (defaultFlags().contains(Flag.SKYFRAME_LOADING_PHASE)) {
+        assertThat(expected.getMessage())
+            .contains("Analysis of target '//cycle:foo' failed; build aborted");
+      } else {
+        assertContainsEvent("Loading of target '//cycle:foo' failed; build aborted");
+      }
+    }
+  }
+
+  /**
+   * Regression test: IllegalStateException in BuildView.update() on circular dependency instead of
+   * graceful failure.
+   */
+  @Test
+  public void testCircularDependencyWithKeepGoing() throws Exception {
+    scratch.file("cycle/BUILD",
+        "cc_library(name = 'foo', srcs = ['foo.cc'], deps = [':bar'])",
+        "cc_library(name = 'bar', srcs = ['bar.cc'], deps = [':foo'])",
+        "cc_library(name = 'bat', srcs = ['bat.cc'], deps = [':bas'])",
+        "cc_library(name = 'bas', srcs = ['bas.cc'], deps = [':bau'])",
+        "cc_library(name = 'bau', srcs = ['bas.cc'], deps = [':bas'])",
+        "cc_library(name = 'baz', srcs = ['baz.cc'])");
+    reporter.removeHandler(failFastHandler);
+    EventBus eventBus = new EventBus();
+    LoadingFailureRecorder loadingFailureRecorder = new LoadingFailureRecorder();
+    AnalysisFailureRecorder analysisFailureRecorder = new AnalysisFailureRecorder();
+    eventBus.register(loadingFailureRecorder);
+    eventBus.register(analysisFailureRecorder);
+    update(eventBus, defaultFlags().with(Flag.KEEP_GOING),
+        "//cycle:foo", "//cycle:bat", "//cycle:baz");
+    assertContainsEvent("in cc_library rule //cycle:foo: cycle in dependency graph:");
+    assertContainsEvent(
+        "errors encountered while analyzing target '//cycle:foo': it will not be built");
+    assertContainsEvent("in cc_library rule //cycle:bas: cycle in dependency graph:");
+    assertContainsEvent(
+        "errors encountered while analyzing target '//cycle:bat': it will not be built");
+    if (defaultFlags().contains(Flag.SKYFRAME_LOADING_PHASE)) {
+      // With interleaved loading and analysis, we can no longer distinguish loading-phase cycles
+      // and analysis-phase cycles. This was previously reported as a loading-phase cycle, as it
+      // happens with any configuration (cycle is hard-coded in the BUILD files). Also see the
+      // test below.
+      assertThat(Iterables.transform(analysisFailureRecorder.events, ANALYSIS_EVENT_TO_STRING_PAIR))
+          .containsExactly(
+              Pair.of("//cycle:foo", "//cycle:foo"), Pair.of("//cycle:bat", "//cycle:bas"));
+    } else {
+      assertThat(Iterables.transform(loadingFailureRecorder.events,
+          new Function<Pair<Label, Label>, Pair<String, String>>() {
+            @Override
+            public Pair<String, String> apply(Pair<Label, Label> labelPair) {
+              return Pair.of(labelPair.getFirst().toString(), labelPair.getSecond().toString());
+            }
+          })).containsExactly(
+              Pair.of("//cycle:foo", "//cycle:foo"), Pair.of("//cycle:bat", "//cycle:bas"));
+    }
+  }
+
+  @Test
+  public void testCircularDependencyWithLateBoundLabel() throws Exception {
+    scratch.file("cycle/BUILD",
+        "cc_library(name = 'foo', deps = [':bar'])",
+        "cc_library(name = 'bar')");
+    useConfiguration("--experimental_stl=//cycle:foo");
+    reporter.removeHandler(failFastHandler);
+    EventBus eventBus = new EventBus();
+    LoadingFailureRecorder loadingFailureRecorder = new LoadingFailureRecorder();
+    AnalysisFailureRecorder analysisFailureRecorder = new AnalysisFailureRecorder();
+    eventBus.register(loadingFailureRecorder);
+    eventBus.register(analysisFailureRecorder);
+    AnalysisResult result = update(eventBus, defaultFlags().with(Flag.KEEP_GOING), "//cycle:foo");
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent("in cc_library rule //cycle:foo: cycle in dependency graph:");
+    // This needs to be reported as an anlysis-phase cycle; the cycle only occurs due to the stl
+    // command-line option, which is part of the configuration, and which is used due to the
+    // late-bound label.
+    assertThat(Iterables.transform(analysisFailureRecorder.events, ANALYSIS_EVENT_TO_STRING_PAIR))
+        .containsExactly(Pair.of("//cycle:foo", "//cycle:foo"));
+    assertThat(loadingFailureRecorder.events).isEmpty();
+  }
+
+  @Test
+  public void testLoadingErrorReportedCorrectly() throws Exception {
+    scratch.file("a/BUILD", "cc_library(name='a')");
+    scratch.file("b/BUILD", "cc_library(name='b', deps = ['//missing:lib'])");
+
+    reporter.removeHandler(failFastHandler);
+    AnalysisResult result = update(defaultFlags().with(Flag.KEEP_GOING), "//a", "//b");
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError())
+        .contains("execution phase succeeded, but there were loading phase errors");
+  }
+
+  @Test
+  public void testMissingLabelInConfiguration() throws Exception {
+    scratch.file("nobuild/BUILD",
+        "cc_library(name= 'lib')");
+    useConfiguration("--experimental_action_listener=//nobuild:bar");
+    reporter.removeHandler(failFastHandler);
+    String begin = String.format(
+        "Failed to load required %s target: '%s'", "action_listener", "//nobuild:bar");
+    try {
+      update(defaultFlags().with(Flag.KEEP_GOING), "//nobuild:lib");
+      fail();
+    } catch (InvalidConfigurationException e) {
+      // Interleaved loading and analysis - loading errors are found during configuration creation.
+      assertThat(e.getMessage()).startsWith(begin);
+    } catch (LoadingFailedException e) {
+      assertThat(e.getMessage()).startsWith(begin);
+    }
+    assertContainsEventWithFrequency(
+        "no such target '//nobuild:bar': target 'bar' not declared in package 'nobuild'", 1);
+  }
+
+  @Test
+  public void testBadLabelInConfiguration() throws Exception {
+    useConfiguration("--crosstool_top=//third_party/crosstool/v2");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update(defaultFlags().with(Flag.KEEP_GOING));
+      fail();
+    } catch (LoadingFailedException | InvalidConfigurationException e) {
+      assertContainsEvent(
+          "no such package 'third_party/crosstool/v2': BUILD file not found on package path");
+    }
+  }
+
+  @Test
+  public void testMissingFdoOptimize() throws Exception {
+    // The fdo_optimize flag uses a different code path, because it also accepts paths.
+    useConfiguration("--fdo_optimize=//does/not/exist");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update(defaultFlags().with(Flag.KEEP_GOING));
+      fail();
+    } catch (LoadingFailedException | InvalidConfigurationException e) {
+      assertContainsEvent(
+          "no such package 'does/not/exist': BUILD file not found on package path");
+    }
+  }
+
+  @Test
+  public void testMissingJavabase() throws Exception {
+    // The javabase flag uses yet another code path with its own redirection logic on top of the
+    // redirect chaser.
+    scratch.file("jdk/BUILD",
+        "filegroup(name = 'jdk', srcs = [",
+        "    '//does/not/exist:a-piii', '//does/not/exist:b-k8', '//does/not/exist:c-default'])");
+    scratch.file("does/not/exist/BUILD");
+    useConfigurationFactory(AnalysisMock.get().createFullConfigurationFactory());
+    useConfiguration("--javabase=//jdk");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update(defaultFlags().with(Flag.KEEP_GOING));
+      fail();
+    } catch (LoadingFailedException | InvalidConfigurationException e) {
+      if (TestConstants.THIS_IS_BAZEL) {
+        // TODO(ulfjack): Bazel ignores the --cpu setting and just uses "default" instead. This
+        // means all cross-platform Java builds are broken for checked-in JDKs.
+        assertContainsEvent(
+            "no such target '//does/not/exist:c-default': target 'c-default' not declared in");
+      } else {
+        assertContainsEvent(
+            "no such target '//does/not/exist:b-k8': target 'b-k8' not declared in package");
+      }
+    }
+  }
+
+  @Test
+  public void testMissingXcodeVersion() throws Exception {
+    // The xcode_version flag uses yet another code path on top of the redirect chaser.
+    // Note that the redirect chaser throws if it can't find a package, but doesn't throw if it
+    // can't find a label in a package - that's why we use an empty package here.
+    scratch.file("xcode/BUILD");
+    useConfiguration("--xcode_version=1.2", "--xcode_version_config=//xcode:does_not_exist");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update(defaultFlags().with(Flag.KEEP_GOING));
+      fail();
+    } catch (LoadingFailedException | InvalidConfigurationException e) {
+      assertContainsEvent(
+          "no such target '//xcode:does_not_exist': target 'does_not_exist' not declared");
+    }
+  }
+
+
+  @Test
+  public void testVisibilityReferencesNonexistentPackage() throws Exception {
+    scratch.file("z/a/BUILD",
+        "py_library(name='a', visibility=['//nonexistent:nothing'])");
+    scratch.file("z/b/BUILD",
+        "py_library(name='b', deps=['//z/a:a'])");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update("//z/b:b");
+      fail();
+    } catch (LoadingFailedException | ViewCreationFailedException expected) {
+      assertContainsEvent("no such package 'nonexistent'");
+    }
+  }
+
+  // regression test ("java.lang.IllegalStateException: cannot happen")
+  @Test
+  public void testDefaultVisibilityInNonexistentPackage() throws Exception {
+    scratch.file("z/a/BUILD",
+        "package(default_visibility=['//b'])",
+        "py_library(name='alib')");
+    scratch.file("z/b/BUILD",
+        "py_library(name='b', deps=['//z/a:alib'])");
+    reporter.removeHandler(failFastHandler);
+    try {
+      update("//z/b:b");
+      fail();
+    } catch (LoadingFailedException | ViewCreationFailedException expected) {
+      assertContainsEvent("no such package 'b'");
+    }
+  }
+
+  /** Runs the same test with the reduced loading phase. */
+  @TestSpec(size = Suite.SMALL_TESTS)
+  @RunWith(JUnit4.class)
+  public static class WithSkyframeLoadingPhase extends BuildViewTest {
+    @Override
+    protected FlagBuilder defaultFlags() {
+      return super.defaultFlags().with(Flag.SKYFRAME_LOADING_PHASE);
+    }
   }
 }

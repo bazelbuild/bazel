@@ -75,15 +75,24 @@ public interface ClassObject {
      * exactly one '%s' parameter to substitute the struct field name.
      */
     public SkylarkClassObject(Map<String, Object> values, String errorMessage) {
-      this.values = ImmutableMap.copyOf(values);
+      this.values = copyValues(values);
       this.creationLoc = null;
       this.errorMessage = Preconditions.checkNotNull(errorMessage);
     }
 
     public SkylarkClassObject(Map<String, Object> values, Location creationLoc) {
-      this.values = ImmutableMap.copyOf(values);
+      this.values = copyValues(values);
       this.creationLoc = Preconditions.checkNotNull(creationLoc);
       this.errorMessage = DEFAULT_ERROR_MESSAGE;
+    }
+
+    // Ensure that values are all acceptable to Skylark before to stuff them in a ClassObject
+    private ImmutableMap<String, Object> copyValues(Map<String, Object> values) {
+      ImmutableMap.Builder<String, Object> builder = ImmutableMap.builder();
+      for (Map.Entry<String, Object> e : values.entrySet()) {
+        builder.put(e.getKey(), SkylarkType.convertToSkylark(e.getValue(), null));
+      }
+      return builder.build();
     }
 
     @Override

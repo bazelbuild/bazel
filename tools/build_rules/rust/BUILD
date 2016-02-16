@@ -19,31 +19,31 @@ config_setting(
 filegroup(
     name = "rustc",
     srcs = select({
-        ":darwin": ["@rust-darwin-x86_64//:rustc"],
-        ":k8": ["@rust-linux-x86_64//:rustc"],
+        ":darwin": ["@rust_darwin_x86_64//:rustc"],
+        ":k8": ["@rust_linux_x86_64//:rustc"],
     }),
 )
 
 filegroup(
     name = "rustc_lib",
     srcs = select({
-        ":darwin": ["@rust-darwin-x86_64//:rustc_lib"],
-        ":k8": ["@rust-linux-x86_64//:rustc_lib"],
+        ":darwin": ["@rust_darwin_x86_64//:rustc_lib"],
+        ":k8": ["@rust_linux_x86_64//:rustc_lib"],
     }),
 )
 
 filegroup(
     name = "rustdoc",
     srcs = select({
-        ":darwin": ["@rust-darwin-x86_64//:rustdoc"],
-        ":k8": ["@rust-linux-x86_64//:rustdoc"],
+        ":darwin": ["@rust_darwin_x86_64//:rustdoc"],
+        ":k8": ["@rust_linux_x86_64//:rustdoc"],
     }),
 )
 
 filegroup(
     name = "rustlib",
     srcs = select({
-        ":darwin": ["@rust-darwin-x86_64//:rustlib"],
-        ":k8": ["@rust-linux-x86_64//:rustlib"],
+        ":darwin": ["@rust_darwin_x86_64//:rustlib"],
+        ":k8": ["@rust_linux_x86_64//:rustlib"],
     }),
 )

@@ -18,12 +18,16 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
 import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Helper utility to create ActionInput instances.
@@ -33,11 +37,11 @@ public final class ActionInputHelper {
   }
 
   @VisibleForTesting
-  public static Artifact.MiddlemanExpander actionGraphMiddlemanExpander(
+  public static ArtifactExpander actionGraphArtifactExpander(
       final ActionGraph actionGraph) {
-    return new Artifact.MiddlemanExpander() {
+    return new ArtifactExpander() {
       @Override
-      public void expand(Artifact mm, Collection<? super Artifact> output) {
+      public void expand(Artifact mm, Collection<? super ArtifactFile> output) {
         // Skyframe is stricter in that it checks that "mm" is a input of the action, because
         // it cannot expand arbitrary middlemen without access to a global action graph.
         // We could check this constraint here too, but it seems unnecessary. This code is
@@ -125,12 +129,72 @@ public final class ActionInputHelper {
   }
 
   /**
+   * Instantiates a concrete ArtifactFile with the given parent Artifact and path
+   * relative to that Artifact.
+   */
+  public static ArtifactFile artifactFile(Artifact parent, PathFragment relativePath) {
+    Preconditions.checkState(parent.isTreeArtifact(),
+        "Given parent %s must be a TreeArtifact", parent);
+    return new TreeArtifactFile(parent, relativePath);
+  }
+
+  /**
+   * Instantiates a concrete ArtifactFile with the given parent Artifact and path
+   * relative to that Artifact.
+   */
+  public static ArtifactFile artifactFile(Artifact parent, String relativePath) {
+    return artifactFile(parent, new PathFragment(relativePath));
+  }
+
+  /** Returns an Iterable of ArtifactFiles with the given parent and parent relative paths. */
+  public static Iterable<ArtifactFile> asArtifactFiles(
+      final Artifact parent, Iterable<? extends PathFragment> parentRelativePaths) {
+    Preconditions.checkState(parent.isTreeArtifact(),
+        "Given parent %s must be a TreeArtifact", parent);
+    return Iterables.transform(parentRelativePaths,
+        new Function<PathFragment, ArtifactFile>() {
+          @Override
+          public ArtifactFile apply(PathFragment pathFragment) {
+            return artifactFile(parent, pathFragment);
+          }
+        });
+  }
+
+  /** Returns an Collection of ArtifactFiles with the given parent and parent-relative paths. */
+  public static Collection<ArtifactFile> asArtifactFiles(
+      final Artifact parent, Collection<? extends PathFragment> parentRelativePaths) {
+    Preconditions.checkState(parent.isTreeArtifact(),
+        "Given parent %s must be a TreeArtifact", parent);
+    return Collections2.transform(parentRelativePaths,
+        new Function<PathFragment, ArtifactFile>() {
+          @Override
+          public ArtifactFile apply(PathFragment pathFragment) {
+            return artifactFile(parent, pathFragment);
+          }
+        });
+  }
+
+  /** Returns a Set of ArtifactFiles with the given parent and parent relative paths. */
+  public static Set<ArtifactFile> asArtifactFiles(
+      final Artifact parent, Set<? extends PathFragment> parentRelativePaths) {
+    Preconditions.checkState(parent.isTreeArtifact(),
+        "Given parent %s must be a TreeArtifact", parent);
+
+    ImmutableSet.Builder<ArtifactFile> builder = ImmutableSet.builder();
+    for (PathFragment path : parentRelativePaths) {
+      builder.add(artifactFile(parent, path));
+    }
+
+    return builder.build();
+  }
+
+  /**
    * Expands middleman artifacts in a sequence of {@link ActionInput}s.
    *
    * <p>Non-middleman artifacts are returned untouched.
    */
-  public static List<ActionInput> expandMiddlemen(Iterable<? extends ActionInput> inputs,
-      Artifact.MiddlemanExpander middlemanExpander) {
+  public static List<ActionInput> expandArtifacts(Iterable<? extends ActionInput> inputs,
+      ArtifactExpander artifactExpander) {
 
     List<ActionInput> result = new ArrayList<>();
     List<Artifact> containedArtifacts = new ArrayList<>();
@@ -141,11 +205,11 @@ public final class ActionInputHelper {
       }
       containedArtifacts.add((Artifact) input);
     }
-    Artifact.addExpandedArtifacts(containedArtifacts, result, middlemanExpander);
+    Artifact.addExpandedArtifacts(containedArtifacts, result, artifactExpander);
     return result;
   }
 
-  /** Formatter for execPath String output. Public because Artifact uses it directly. */
+  /** Formatter for execPath String output. Public because {@link Artifact} uses it directly. */
   public static final Function<ActionInput, String> EXEC_PATH_STRING_FORMATTER =
       new Function<ActionInput, String>() {
         @Override

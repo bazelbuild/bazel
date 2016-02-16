@@ -151,7 +151,7 @@ public class FakeCppCompileAction extends CppCompileAction {
     try {
       validateInclusions(
           discoveredInputs,
-          actionExecutionContext.getMiddlemanExpander(),
+          actionExecutionContext.getArtifactExpander(),
           executor.getEventHandler());
     } catch (ActionExecutionException e) {
       // TODO(bazel-team): (2009) make this into an error, once most of the current warnings
@@ -214,11 +214,6 @@ public class FakeCppCompileAction extends CppCompileAction {
 
   @Override
   public String getMnemonic() { return "FakeCppCompile"; }
-
-  @Override
-  public String describeStrategy(Executor executor) {
-    return "fake";
-  }
 
   @Override
   public ResourceSet estimateResourceConsumptionLocal() {

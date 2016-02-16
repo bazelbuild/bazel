@@ -33,6 +33,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.HEADER;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.IMPORTED_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.INCLUDE_SYSTEM;
+import static com.google.devtools.build.lib.rules.objc.ObjcProvider.J2OBJC_LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LIBRARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKED_BINARY;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.LINKOPT;
@@ -574,6 +575,11 @@ public final class ObjcCommon {
             .addAll(HEADER, artifacts.getAdditionalHdrs())
             .addAll(LIBRARY, artifacts.getArchive().asSet())
             .addAll(SOURCE, allSources);
+
+        if (artifacts.getArchive().isPresent()
+            && J2ObjcLibrary.J2OBJC_SUPPORTED_RULES.contains(context.getRule().getRuleClass())) {
+          objcProvider.addAll(J2OBJC_LIBRARY, artifacts.getArchive().asSet());
+        }
 
         boolean usesCpp = false;
         boolean usesSwift = false;

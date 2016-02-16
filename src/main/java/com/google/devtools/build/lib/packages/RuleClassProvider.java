@@ -72,4 +72,9 @@ public interface RuleClassProvider {
    * overwritten in the WORKSPACE file in the actual workspace.
    */
   String getDefaultWorkspaceFile();
+  
+  /**
+   * Returns the path to the tools repository
+   */
+  String getToolsRepository();
 }

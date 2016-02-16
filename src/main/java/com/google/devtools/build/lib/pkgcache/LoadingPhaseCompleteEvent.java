@@ -14,18 +14,18 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Target;
 
-import java.util.Collection;
-
 /**
  * This event is fired after the loading phase is complete.
  */
-public class LoadingPhaseCompleteEvent {
-  private final Collection<Target> targets;
-  private final Collection<Target> filteredTargets;
+public final class LoadingPhaseCompleteEvent {
+  private final ImmutableSet<Target> targets;
+  private final ImmutableSet<Target> filteredTargets;
   private final PackageManager.PackageManagerStatistics pkgManagerStats;
   private final long timeInMs;
 
@@ -35,11 +35,12 @@ public class LoadingPhaseCompleteEvent {
    * @param targets the set of active targets that remain
    * @param pkgManagerStats statistics about the package cache
    */
-  public LoadingPhaseCompleteEvent(Collection<Target> targets, Collection<Target> filteredTargets,
-      PackageManager.PackageManagerStatistics pkgManagerStats, long timeInMs) {
-    this.targets = targets;
-    this.filteredTargets = filteredTargets;
-    this.pkgManagerStats = pkgManagerStats;
+  public LoadingPhaseCompleteEvent(ImmutableSet<Target> targets,
+      ImmutableSet<Target> filteredTargets, PackageManager.PackageManagerStatistics pkgManagerStats,
+      long timeInMs) {
+    this.targets = Preconditions.checkNotNull(targets);
+    this.filteredTargets = Preconditions.checkNotNull(filteredTargets);
+    this.pkgManagerStats = Preconditions.checkNotNull(pkgManagerStats);
     this.timeInMs = timeInMs;
   }
 
@@ -47,14 +48,14 @@ public class LoadingPhaseCompleteEvent {
    * @return The set of active targets remaining, which is a subset of the
    *         targets we attempted to load.
    */
-  public Collection<Target> getTargets() {
+  public ImmutableSet<Target> getTargets() {
     return targets;
   }
 
   /**
    * @return The set of filtered targets.
    */
-  public Collection<Target> getFilteredTargets() {
+  public ImmutableSet<Target> getFilteredTargets() {
     return filteredTargets;
   }
 
