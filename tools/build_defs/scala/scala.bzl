@@ -124,7 +124,9 @@ def _collect_comp_run_jars(ctx):
     found = False
     if hasattr(target, "scala"):
       compile_jars += [target.scala.outputs.ijar]
+      compile_jars += target.scala.transitive_compile_exports
       runtime_jars += target.scala.transitive_runtime_deps
+      runtime_jars += target.scala.transitive_runtime_exports
       found = True
     if hasattr(target, "java"):
       # see JavaSkylarkApiProvider.java, this is just the compile-time deps
@@ -139,41 +141,71 @@ def _collect_comp_run_jars(ctx):
       compile_jars += target.files
   return (compile_jars, runtime_jars)
 
-def _scala_library_impl(ctx):
+def _trans_exports(ctx):
+  expcomp = set()
+  exprun = set()
+  for export in ctx.attr.exports:
+    found = False
+    if hasattr(export, "scala"):
+      expcomp += export.scala.transitive_compile_exports
+      expcomp += [export.scala.outputs.ijar]
+      exprun += export.scala.transitive_runtime_exports
+      exprun += [export.scala.outputs.class_jar]
+      found = True
+    if hasattr(export, "java"):
+      # see JavaSkylarkApiProvider.java, this is just the compile-time deps
+      # exports not yet available see: https://github.com/bazelbuild/bazel/issues/889
+      expcomp += export.java.transitive_deps
+      exprun += export.java.transitive_runtime_deps
+      found = True
+    if not found:
+      # support http_file pointed at a jar. http_jar uses ijar, which breaks scala macros
+      expcomp += export.files
+      exprun += export.files
+  return struct(compile_exports = exprun, runtime_exports = exprun)
+
+def _lib(ctx, use_ijar):
   (cjars, rjars) = _collect_comp_run_jars(ctx)
   _write_manifest(ctx)
-  _compile(ctx, cjars, True)
+  _compile(ctx, cjars, use_ijar)
 
   rjars += [ctx.outputs.jar]
-  scalaattr = struct(outputs = struct(ijar=ctx.outputs.ijar, class_jar=ctx.outputs.jar),
-                     transitive_runtime_deps = rjars)
+  for dep in ctx.attr.runtime_deps:
+    rjars += dep.files
+
+  ijar = None
+  if use_ijar:
+    ijar = ctx.outputs.ijar
+  else:
+    # macro code needs to be available at compiletime, so set ijar == jar
+    ijar = ctx.outputs.jar
+
+  texp = _trans_exports(ctx)
+  scalaattr = struct(outputs = struct(ijar=ijar, class_jar=ctx.outputs.jar),
+                     transitive_runtime_deps = rjars,
+                     transitive_compile_exports = texp.compile_exports,
+                     transitive_runtime_exports = texp.runtime_exports
+                     )
   runfiles = ctx.runfiles(
       files = list(rjars),
       collect_data = True)
   return struct(
       scala = scalaattr,
       runfiles=runfiles)
+
+def _scala_library_impl(ctx):
+  return _lib(ctx, True)
 
 def _scala_macro_library_impl(ctx):
-  (cjars, rjars) = _collect_comp_run_jars(ctx)
-  _write_manifest(ctx)
-  _compile(ctx, cjars, False)
-
-  rjars += [ctx.outputs.jar]
-  # macro code needs to be available at compiletime, so set ijar == jar
-  scalaattr = struct(outputs = struct(ijar=ctx.outputs.jar, class_jar=ctx.outputs.jar),
-                     transitive_runtime_deps = rjars)
-  runfiles = ctx.runfiles(
-      files = list(rjars),
-      collect_data = True)
-  return struct(
-      scala = scalaattr,
-      runfiles=runfiles)
+  return _lib(ctx, False) # don't build the ijar for macros
 
 # Common code shared by all scala binary implementations.
 def _scala_binary_common(ctx, cjars, rjars):
   _write_manifest(ctx)
-  _compile(ctx, cjars, False)
+  _compile(ctx, cjars, False) # no need to build an ijar for an executable
+
+  for dep in ctx.attr.runtime_deps:
+    rjars += dep.files
 
   runfiles = ctx.runfiles(
       files = list(rjars) + [ctx.outputs.executable] + [ctx.file._java] + ctx.files._jdk,
@@ -186,6 +218,8 @@ def _scala_binary_impl(ctx):
   (cjars, rjars) = _collect_comp_run_jars(ctx)
   cjars += [ctx.file._scalareflect]
   rjars += [ctx.outputs.jar, ctx.file._scalalib, ctx.file._scalareflect]
+  for dep in ctx.attr.runtime_deps:
+    rjars += dep.files
   _write_launcher(ctx, rjars)
   return _scala_binary_common(ctx, cjars, rjars)
 
@@ -213,6 +247,7 @@ _common_attrs = {
       allow_files=_scala_filetype,
       non_empty=True),
   "deps": attr.label_list(),
+  "runtime_deps": attr.label_list(),
   "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
   "resources": attr.label_list(allow_files=True),
   "scalacopts":attr.string_list(),
@@ -223,6 +258,7 @@ scala_library = rule(
   implementation=_scala_library_impl,
   attrs={
       "main_class": attr.string(),
+      "exports": attr.label_list(allow_files=False),
       } + _implicit_deps + _common_attrs,
   outputs={
       "jar": "%{name}_deploy.jar",
@@ -235,6 +271,7 @@ scala_macro_library = rule(
   implementation=_scala_macro_library_impl,
   attrs={
       "main_class": attr.string(),
+      "exports": attr.label_list(allow_files=False),
       "_scala-reflect": attr.label(default=Label("@scala//:lib/scala-reflect.jar"), single_file=True, allow_files=True),
       } + _implicit_deps + _common_attrs,
   outputs={
@@ -260,7 +297,7 @@ scala_test = rule(
   implementation=_scala_test_impl,
   attrs={
       "main_class": attr.string(default="org.scalatest.tools.Runner"),
-      "suites": attr.string_list(non_empty=True, mandatory=True),
+      "suites": attr.string_list(non_empty=True),
       "_scalatest": attr.label(executable=True, default=Label("@scalatest//file"), single_file=True, allow_files=True),
       "_java": attr.label(executable=True, default=Label("@bazel_tools//tools/jdk:java"), single_file=True, allow_files=True),
       } + _implicit_deps + _common_attrs,
