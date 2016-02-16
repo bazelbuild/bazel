@@ -179,6 +179,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    */
   private Collection<Artifact> additionalInputs = null;
 
+  private ImmutableList<Artifact> resolvedInputs = ImmutableList.<Artifact>of();
+
   /**
    * Creates a new action to compile C/C++ source files.
    *
@@ -368,6 +370,11 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return result;
   }
 
+  @VisibleForTesting
+  public void setResolvedInputsForTesting(ImmutableList<Artifact> resolvedInputs) {
+    this.resolvedInputs = resolvedInputs;
+  }
+
   @Override
   public boolean discoversInputs() {
     return true;
@@ -404,6 +411,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     for (Artifact artifact : getInputs()) {
       result.addAll(includeResolver.getInputsForIncludedFile(artifact, artifactResolver));
     }
+    // TODO(ulfjack): This only works if include scanning is enabled; the cleanup is in progress,
+    // and this needs to be fixed before we can even consider disabling it.
+    resolvedInputs = ImmutableList.copyOf(result);
     if (result.isEmpty()) {
       result = initialResult;
     } else {
@@ -699,6 +709,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       }
       allowedIncludes.add(input);
     }
+    allowedIncludes.addAll(resolvedInputs);
 
     if (optionalSourceFile != null) {
       allowedIncludes.add(optionalSourceFile);
