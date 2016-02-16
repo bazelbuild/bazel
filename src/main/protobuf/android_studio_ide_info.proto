@@ -22,9 +22,14 @@ option java_package = "com.google.devtools.build.lib.ideinfo.androidstudio";
 option java_generate_equals_and_hash = true;
 
 message ArtifactLocation {
-  string root_path = 1;
+  // deprecated -- this is not machine agnostic and will be removed in a future release
+  string root_path = 1 [deprecated=true];
+
   string relative_path = 2;
   bool is_source = 3;
+
+  // set for derived artifacts (isSource = false)
+  string root_execution_path_fragment = 4;
 }
 
 message LibraryArtifact {
@@ -73,7 +78,8 @@ message RuleIdeInfo {
 
   string label = 1;
   Kind kind = 2;
-  string build_file = 3;
+  // deprecated -- this is not machine agnostic and will be removed in a future release
+  string build_file = 3 [deprecated=true];
   repeated string dependencies = 4;
 
   // kind is ANDROID_SDK
@@ -85,4 +91,6 @@ message RuleIdeInfo {
 
   repeated string tags = 9;
   repeated string runtime_deps = 10;
+
+  ArtifactLocation build_file_artifact_location = 11;
 }

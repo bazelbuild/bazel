@@ -21,9 +21,23 @@ option java_package = "com.google.devtools.build.lib.ideinfo.androidstudio";
 
 option java_generate_equals_and_hash = true;
 
+// TODO(bazel-team): support proto => proto dependencies and remove this duplication
+message ArtifactLocation {
+  // deprecated -- this is not machine agnostic and will be removed in a future release
+  string root_path = 1 [deprecated=true];
+
+  string relative_path = 2;
+  bool is_source = 3;
+
+  // set for derived artifacts (isSource = false)
+  string root_execution_path_fragment = 4;
+}
+
 message JavaSourcePackage {
-  string absolute_path = 1;
+  // deprecated -- this is not machine agnostic and will be removed in a future release
+  string absolute_path = 1 [deprecated=true];
   string package_string = 2;
+  ArtifactLocation artifact_location = 3;
 }
 
 message PackageManifest {
