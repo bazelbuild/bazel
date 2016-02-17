@@ -315,7 +315,7 @@ public abstract class AbstractComprehension extends Expression {
 
   @Override
   Object doEval(Environment env) throws EvalException, InterruptedException {
-    OutputCollector collector = createCollector();
+    OutputCollector collector = createCollector(env);
     evalStep(env, collector, 0);
     return collector.getResult(env);
   }
@@ -375,7 +375,7 @@ public abstract class AbstractComprehension extends Expression {
    */
   abstract String printExpressions();
 
-  abstract OutputCollector createCollector();
+  abstract OutputCollector createCollector(Environment env);
 
   /**
    * Add byte code which initializes the collection and returns the variable it is saved in.

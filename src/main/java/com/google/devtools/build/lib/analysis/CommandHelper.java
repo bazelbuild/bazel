@@ -25,6 +25,9 @@ import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
+import com.google.devtools.build.lib.syntax.SkylarkList;
+import com.google.devtools.build.lib.syntax.SkylarkList.MutableList;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
@@ -69,14 +72,14 @@ public final class CommandHelper {
    *  A map of remote path prefixes and corresponding runfiles manifests for tools
    *  used by this rule.
    */
-  private final ImmutableMap<PathFragment, Artifact> remoteRunfileManifestMap;
+  private final SkylarkDict<PathFragment, Artifact> remoteRunfileManifestMap;
 
   /**
    * Use labelMap for heuristically expanding labels (does not include "outs")
    * This is similar to heuristic location expansion in LocationExpander
    * and should be kept in sync.
    */
-  private final ImmutableMap<Label, ImmutableCollection<Artifact>> labelMap;
+  private final SkylarkDict<Label, ImmutableCollection<Artifact>> labelMap;
 
   /**
    * The ruleContext this helper works on
@@ -86,7 +89,7 @@ public final class CommandHelper {
   /**
    * Output executable files from the 'tools' attribute.
    */
-  private final ImmutableList<Artifact> resolvedTools;
+  private final SkylarkList<Artifact> resolvedTools;
 
   /**
    * Creates a {@link CommandHelper}.
@@ -136,21 +139,21 @@ public final class CommandHelper {
       }
     }
 
-    this.resolvedTools = resolvedToolsBuilder.build();
-    this.remoteRunfileManifestMap = remoteRunfileManifestBuilder.build();
+    this.resolvedTools = new MutableList<>(resolvedToolsBuilder.build());
+    this.remoteRunfileManifestMap = SkylarkDict.copyOf(null, remoteRunfileManifestBuilder.build());
     ImmutableMap.Builder<Label, ImmutableCollection<Artifact>> labelMapBuilder =
         ImmutableMap.builder();
     for (Entry<Label, Collection<Artifact>> entry : tempLabelMap.entrySet()) {
       labelMapBuilder.put(entry.getKey(), ImmutableList.copyOf(entry.getValue()));
     }
-    this.labelMap = labelMapBuilder.build();
+    this.labelMap = SkylarkDict.copyOf(null, labelMapBuilder.build());
   }
 
-  public List<Artifact> getResolvedTools() {
+  public SkylarkList<Artifact> getResolvedTools() {
     return resolvedTools;
   }
 
-  public ImmutableMap<PathFragment, Artifact> getRemoteRunfileManifestMap() {
+  public SkylarkDict<PathFragment, Artifact> getRemoteRunfileManifestMap() {
     return remoteRunfileManifestMap;
   }
 
@@ -177,7 +180,8 @@ public final class CommandHelper {
       @Nullable String attribute,
       Boolean supportLegacyExpansion,
       Boolean allowDataInLabel) {
-    LocationExpander expander = new LocationExpander(ruleContext, labelMap, allowDataInLabel);
+    LocationExpander expander = new LocationExpander(
+        ruleContext, ImmutableMap.copyOf(labelMap), allowDataInLabel);
     if (attribute != null) {
       command = expander.expandAttribute(attribute, command);
     } else {

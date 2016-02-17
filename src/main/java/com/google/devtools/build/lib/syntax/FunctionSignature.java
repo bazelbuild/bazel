@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -150,7 +149,7 @@ public abstract class FunctionSignature implements Serializable {
         parameters.add(Tuple.class);
       }
       if (hasKwArg()) {
-        parameters.add(Map.class);
+        parameters.add(SkylarkDict.class);
       }
 
       return parameters;

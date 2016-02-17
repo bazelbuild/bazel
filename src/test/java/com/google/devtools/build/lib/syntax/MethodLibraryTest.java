@@ -418,8 +418,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testBuiltinFunctionErrorMessage() throws Exception {
     new BothModesTest()
         .testIfErrorContains(
-            "Method set.union(newElements: Iterable) is not applicable for arguments (string): "
-                + "'newElements' is string, but should be Iterable",
+            "Method set.union(new_elements: Iterable) is not applicable for arguments (string): "
+                + "'new_elements' is string, but should be Iterable",
             "set([]).union('a')")
         .testIfErrorContains(
             "Method string.startswith(sub: string, start: int, end: int or NoneType) is not "
@@ -1347,8 +1347,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testIfErrorContains("insufficient arguments received by union", "set(['a']).union()")
         .testIfErrorContains(
-            "Method set.union(newElements: Iterable) is not applicable for arguments (string): "
-                + "'newElements' is string, but should be Iterable",
+            "Method set.union(new_elements: Iterable) is not applicable for arguments (string): "
+                + "'new_elements' is string, but should be Iterable",
             "set(['a']).union('b')");
   }
 
