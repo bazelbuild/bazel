@@ -38,24 +38,30 @@ def gensrcjar_impl(ctx):
     use_default_shell_env = True)
 
 gensrcjar = rule(
-  gensrcjar_impl,
-  attrs={
-      "src": attr.label(allow_files=proto_filetype, single_file=True),
-      # TODO(bazel-team): this should be a hidden attribute with a default
-      # value, but Skylark needs to support select first.
-      "_proto_compiler": attr.label(
-          default=Label("@bazel_tools//third_party:protoc"),
-          allow_files=True,
-          single_file=True),
-      "_jar": attr.label(
-          default=Label("@bazel_tools//tools/jdk:jar"),
-          allow_files=True,
-          single_file=True),
-      "_jdk": attr.label(
-          default=Label("@bazel_tools//tools/jdk:jdk"),
-          allow_files=True),
-  },
-  outputs={"srcjar": "lib%{name}.srcjar"},
+    gensrcjar_impl,
+    attrs = {
+        "src": attr.label(
+            allow_files = proto_filetype,
+            single_file = True,
+        ),
+        # TODO(bazel-team): this should be a hidden attribute with a default
+        # value, but Skylark needs to support select first.
+        "_proto_compiler": attr.label(
+            default = Label("@bazel_tools//third_party:protoc"),
+            allow_files = True,
+            single_file = True,
+        ),
+        "_jar": attr.label(
+            default = Label("@bazel_tools//tools/jdk:jar"),
+            allow_files = True,
+            single_file = True,
+        ),
+        "_jdk": attr.label(
+            default = Label("@bazel_tools//tools/jdk:jdk"),
+            allow_files = True,
+        ),
+    },
+    outputs = {"srcjar": "lib%{name}.srcjar"},
 )
 
 # TODO(bazel-team): support proto => proto dependencies too
