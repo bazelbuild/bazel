@@ -20,21 +20,9 @@ load(
     "rust_binary",
     "rust_test",
 )
-
 load(
     "//tools:build_rules/test_rules.bzl",
-    "success_target",
-    "successful_test",
-    "failure_target",
-    "failed_test",
-    "assert_",
-    "strip_prefix",
-    "expectation_description",
-    "check_results",
-    "load_results",
-    "analysis_results",
     "rule_test",
-    "file_test",
 )
 
 def _rust_library_test(package):
@@ -48,14 +36,12 @@ def _rust_library_test(package):
       rule = package + "/hello_lib:hello_lib",
   )
 
-
 def _rust_binary_test(package):
   rule_test(
       name = "hello_world_rule_test",
       generates = ["hello_world"],
       rule = package + "/hello_world:hello_world",
   )
-
 
 def _rust_test_test(package):
   """Issue rule tests for rust_test."""
@@ -64,7 +50,6 @@ def _rust_test_test(package):
       generates = ["greeting"],
       rule = package + "/hello_lib:greeting",
   )
-
 
 def rust_rule_test(package):
   """Issue simple tests on rust rules."""
