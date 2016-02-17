@@ -20,6 +20,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 
@@ -681,5 +682,14 @@ public class CommandTest {
     assertTrue(result.getTerminationStatus().success());
     assertEquals(0, result.getStderr().length);
     assertEquals(expectedOutput, new String(result.getStdout()));
+  }
+
+  @Test
+  public void testRelativePath() throws Exception {
+    Command command = new Command(new String[]{"relative/path/to/binary"},
+        ImmutableMap.<String, String>of(),
+        new File("/working/directory"));
+    assertThat(command.getCommandLineElements()[0])
+        .isEqualTo("/working/directory/relative/path/to/binary");
   }
 }
