@@ -80,7 +80,7 @@ def closure_repositories():
       name = "closure_compiler",
       build_file_content = CLOSURE_COMPILER_BUILD_FILE,
       sha256 = "215ba5df026e5d92bda6634463a9c634d38a1aa4b6dab336da5c52e884cbde95",
-      url = "https://dl.google.com/closure-compiler/compiler-latest.zip",
+      url = "https://dl.google.com/closure-compiler/compiler-20160208.zip",
   )
 
   native.new_http_archive(
