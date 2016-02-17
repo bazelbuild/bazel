@@ -6,7 +6,7 @@ java_library(
     ],
     visibility = [
         "//src/tools/generate_workspace/src/main/java/com/google/devtools/build/workspace:__pkg__",
-        "//src/tools/generate_workspace/src/test/java/com/google/devtools/build/workspace:__pkg__",
+        "//src/tools/generate_workspace/src/test:__subpackages__",
     ],
     runtime_deps = [
         "//third_party:maven_model",
