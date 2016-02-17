@@ -1,4 +1,4 @@
-load("//tools:build_rules/java_rules_skylark.bzl", "java_library", "java_binary", "java_test")
+load("//tools/build_rules:java_rules_skylark.bzl", "java_library", "java_binary", "java_test")
 
 package(default_visibility = ["//visibility:public"])
 

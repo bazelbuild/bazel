@@ -86,7 +86,7 @@ java_library(
     deps = [],
 )
 
-load("//tools:build_rules/java_rules_skylark.bzl", "bootstrap_java_library", "bootstrap_java_binary")
+load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library", "bootstrap_java_binary")
 
 bootstrap_java_library(
     name = "skylark-deps",

@@ -9,6 +9,7 @@ filegroup(
     srcs = glob(["**"]) + [
         "//tools/android:srcs",
         "//tools/android/jack:srcs",
+        "//tools/build_rules:srcs",
         "//tools/jdk:srcs",
         "//tools/genrule:srcs",
         "//tools/cpp:srcs",
@@ -33,6 +34,7 @@ filegroup(
         "//tools/build_rules/closure:srcs",
         "//tools/build_rules/go:srcs",
         "//tools/build_rules/rust:srcs",
+        "//tools/build_rules:srcs",
         "//tools/buildstamp:srcs",
         "//tools/cpp:srcs",
         "//tools/genrule:srcs",
