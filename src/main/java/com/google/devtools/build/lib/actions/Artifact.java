@@ -439,12 +439,14 @@ public class Artifact implements FileType.HasFilename, ArtifactFile, SkylarkValu
    */
   @Override
   @SkylarkCallable(name = "path", structField = true,
-      doc = "The execution path of this file, relative to the execution directory. It consists of "
+      doc = "The execution path of this file, relative to the workspace's execution directory. It consists of "
       + "two parts, an optional first part called the <i>root</i> (see also the <a "
       + "href=\"root.html\">root</a> module), and the second part which is the "
       + "<code>short_path</code>. The root may be empty, which it usually is for non-generated "
       + "files. For generated files it usually contains a configuration-specific path fragment that"
-      + " encodes things like the target CPU architecture that was used while building said file.")
+      + " encodes things like the target CPU architecture that was used while building said file. "
+      + "Use the <code>short_path</code> for the path under which the file is mapped if it's in the "
+      + "runfiles of a binary.")
   public final String getExecPathString() {
     return getExecPath().getPathString();
   }
@@ -459,7 +461,7 @@ public class Artifact implements FileType.HasFilename, ArtifactFile, SkylarkValu
   @SkylarkCallable(name = "short_path", structField = true,
       doc = "The path of this file relative to its root. This excludes the aforementioned "
       + "<i>root</i>, i.e. configuration-specific fragments of the path. This is also the path "
-      + "under which the file is mapped if its in the runfiles of a binary.")
+      + "under which the file is mapped if it's in the runfiles of a binary.")
   public final String getRootRelativePathString() {
     return getRootRelativePath().getPathString();
   }
