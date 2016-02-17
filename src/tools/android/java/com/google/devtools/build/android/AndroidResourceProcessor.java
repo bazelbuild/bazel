@@ -20,6 +20,12 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.android.Converters.ExistingPathConverter;
+import com.google.devtools.build.android.Converters.FullRevisionConverter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.TriState;
 
 import com.android.annotations.Nullable;
 import com.android.builder.core.VariantConfiguration;
@@ -75,6 +81,113 @@ import javax.xml.parsers.ParserConfigurationException;
  * Provides a wrapper around the AOSP build tools for resource processing.
  */
 public class AndroidResourceProcessor {
+  /**
+   * Options class containing flags for Aapt setup.
+   */
+  public static final class AaptConfigOptions extends OptionsBase {
+    @Option(name = "buildToolsVersion",
+        defaultValue = "null",
+        converter = FullRevisionConverter.class,
+        category = "config",
+        help = "Version of the build tools (e.g. aapt) being used, e.g. 23.0.2")
+    public FullRevision buildToolsVersion;
+
+    @Option(name = "aapt",
+        defaultValue = "null",
+        converter = ExistingPathConverter.class,
+        category = "tool",
+        help = "Aapt tool location for resource packaging.")
+    public Path aapt;
+
+    @Option(name = "annotationJar",
+        defaultValue = "null",
+        converter = ExistingPathConverter.class,
+        category = "tool",
+        help = "Annotation Jar for builder invocations.")
+    public Path annotationJar;
+
+    @Option(name = "androidJar",
+        defaultValue = "null",
+        converter = ExistingPathConverter.class,
+        category = "tool",
+        help = "Path to the android jar for resource packaging and building apks.")
+    public Path androidJar;
+
+    @Option(name = "useAaptCruncher",
+        defaultValue = "auto",
+        category = "config",
+        help = "Use the legacy aapt cruncher, defaults to true for non-LIBRARY packageTypes. "
+            + " LIBRARY packages do not benefit from the additional processing as the resources"
+            + " will need to be reprocessed during the generation of the final apk. See"
+            + " https://code.google.com/p/android/issues/detail?id=67525 for a discussion of the"
+            + " different png crunching methods.")
+    public TriState useAaptCruncher;
+
+    @Option(name = "uncompressedExtensions",
+        defaultValue = "",
+        converter = CommaSeparatedOptionListConverter.class,
+        category = "config",
+        help = "A list of file extensions not to compress.")
+    public List<String> uncompressedExtensions;
+
+    @Option(name = "assetsToIgnore",
+        defaultValue = "",
+        converter = CommaSeparatedOptionListConverter.class,
+        category = "config",
+        help = "A list of assets extensions to ignore.")
+    public List<String> assetsToIgnore;
+
+    @Option(name = "debug",
+        defaultValue = "false",
+        category = "config",
+        help = "Indicates if it is a debug build.")
+    public boolean debug;
+
+    @Option(name = "resourceConfigs",
+        defaultValue = "",
+        converter = CommaSeparatedOptionListConverter.class,
+        category = "config",
+        help = "A list of resource config filters to pass to aapt.")
+    public List<String> resourceConfigs;
+  }
+
+  /**
+   * {@link AaptOptions} backed by an {@link AaptConfigOptions}.
+   */
+  public static final class FlagAaptOptions implements AaptOptions {
+    private final AaptConfigOptions options;
+
+    public FlagAaptOptions(AaptConfigOptions options) {
+      this.options = options;
+    }
+
+    @Override
+    public boolean getUseAaptPngCruncher() {
+      return options.useAaptCruncher != TriState.NO;
+    }
+
+    @Override
+    public Collection<String> getNoCompress() {
+      if (!options.uncompressedExtensions.isEmpty()) {
+        return options.uncompressedExtensions;
+      }
+      return ImmutableList.of();
+    }
+
+    @Override
+    public String getIgnoreAssets() {
+      if (!options.assetsToIgnore.isEmpty()) {
+        return Joiner.on(":").join(options.assetsToIgnore);
+      }
+      return null;
+    }
+
+    @Override
+    public boolean getFailOnMissingConfigEntry() {
+      return false;
+    }
+  }
+
   private static final Pattern HEX_REGEX = Pattern.compile("0x[0-9A-Fa-f]{8}");
   private final StdLogger stdLogger;
 
@@ -122,6 +235,7 @@ public class AndroidResourceProcessor {
         Files.walkFileTree(generatedSourcesRoot,
             new SymbolFileSrcJarBuildingVisitor(zip, generatedSourcesRoot, staticIds));
       }
+      // Set to the epoch for caching purposes.
       Files.setLastModifiedTime(srcJar, FileTime.fromMillis(0L));
     } catch (IOException e) {
       Throwables.propagate(e);
@@ -163,7 +277,8 @@ public class AndroidResourceProcessor {
       List<DependencyAndroidData> dependencyData,
       Path sourceOut,
       Path packageOut,
-      Path proguardOut)
+      Path proguardOut,
+      Path publicResourcesOut)
       throws IOException, InterruptedException, LoggedErrorException {
     List<SymbolFileProvider> libraries = new ArrayList<>();
     List<String> packages = new ArrayList<>();
@@ -201,6 +316,7 @@ public class AndroidResourceProcessor {
         .maybeAdd("--output-text-symbols", prepareOutputPath(sourceOut), sourceOut != null)
         .add("-F", packageOut)
         .add("-G", proguardOut)
+        .add("-P", publicResourcesOut)
         .maybeAdd("--debug-mode", debug)
         .add("--custom-package", customPackageForR)
         // If it is a library, do not generate final java ids.
@@ -230,6 +346,9 @@ public class AndroidResourceProcessor {
     }
     if (packageOut != null) {
       Files.setLastModifiedTime(packageOut, FileTime.fromMillis(0L));
+    }
+    if (publicResourcesOut != null) {
+      Files.setLastModifiedTime(publicResourcesOut, FileTime.fromMillis(0L));
     }
   }
 
