@@ -29,6 +29,7 @@ java_library(
     srcs = ["Rule.java"],
     visibility = [
         "//src/tools/generate_workspace/src/main/java/com/google/devtools/build/workspace:__pkg__",
+        "//src/tools/generate_workspace/src/test:__subpackages__",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:events",
