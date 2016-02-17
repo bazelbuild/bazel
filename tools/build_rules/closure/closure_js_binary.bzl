@@ -27,6 +27,8 @@ Example:
   closure_js_binary(
       name = "hello",
       compilation_level = "simple",
+      language_in = "ecmascript6",
+      language_out = "ecmascript3",
       externs = ["//third_party/javascript/google_cast/cast.js"],
       deps = [
           "@closure_library//:closure_library",
@@ -46,6 +48,21 @@ _COMPILATION_LEVELS = {
   "advanced": ["--compilation_level=ADVANCED"]
 }
 
+_SUPPORTED_LANGUAGES = {
+  "es3": ["ES3"],
+  "ecmascript3": ["ECMASCRIPT3"],
+  "es5": ["ES5"],
+  "ecmascript5": ["ECMASCRIPT5"],
+  "es5_strict": ["ES5_STRICT"],
+  "ecmascript5_strict": ["ECMASCRIPT5_STRICT"],
+  "es6": ["ES6"],
+  "ecmascript6": ["ECMASCRIPT6"],
+  "es6_strict": ["ES6_STRICT"],
+  "ecmascript6_strict": ["ECMASCRIPT6_STRICT"],
+  "es6_typed": ["ES6_TYPED"],
+  "ecmascript6_typed": ["ECMASCRIPT6_TYPED"],
+}
+
 def _impl(ctx):
   externs = set(order="compile")
   srcs = set(order="compile")
@@ -57,7 +74,7 @@ def _impl(ctx):
       "--closure_entry_point=%s" % ctx.attr.main,
       "--js_output_file=%s" % ctx.outputs.out.path,
       "--language_in=ECMASCRIPT5_STRICT",
-      "--manage_closure_dependencies",
+      "--dependency_mode=LOOSE",
       "--warning_level=VERBOSE",
   ] + (["--js=%s" % src.path for src in srcs] +
        ["--externs=%s" % extern.path for extern in externs])
@@ -68,6 +85,20 @@ def _impl(ctx):
   else:
     fail("Invalid compilation_level '%s', expected one of %s" %
          (ctx.attr.compilation_level, _COMPILATION_LEVELS.keys()))
+
+  # Set the language in.
+  if ctx.attr.language_in in _SUPPORTED_LANGUAGES:
+    args += "--language_in=" + _SUPPORTED_LANGUAGES[ctx.attr.language_in]
+  else:
+    fail("Invalid language_in '%s', expected one of %s" %
+         (ctx.attr.language_in, _SUPPORTED_LANGUAGES.keys()))
+
+  # Set the language out.
+  if ctx.attr.language_out in _SUPPORTED_LANGUAGES:
+    args += "--language_out=" + _SUPPORTED_LANGUAGES[ctx.attr.language_out]
+  else:
+    fail("Invalid language_out '%s', expected one of %s" %
+         (ctx.attr.language_out, _SUPPORTED_LANGUAGES.keys()))
 
   ctx.action(
       inputs=list(srcs) + list(externs),
@@ -85,6 +116,8 @@ closure_js_binary = rule(
             providers=["transitive_js_externs", "transitive_js_srcs"]),
         "main": attr.string(default="%{name}"),
         "compilation_level": attr.string(default="advanced"),
+        "language_in": attr.string(default="ecmascript6"),
+        "language_out": attr.string(default="ecmascript3"),
         "_closure_compiler": attr.label(
             default=Label("//external:closure_compiler_"),
             executable=True),
