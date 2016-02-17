@@ -192,7 +192,7 @@ appengine_war = rule(
             single_file = True,
         ),
         "_zipper": attr.label(
-            default = Label("@bazel_tools//third_party/ijar:zipper"),
+            default = Label("@bazel_tools//tools/zip:zipper"),
             single_file = True,
         ),
         "_runner_template": attr.label(

@@ -7,12 +7,6 @@ package(
 
 licenses(["notice"])  # Apache 2.0
 
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]),
-    visibility = ["//third_party:__pkg__"],
-)
-
 cc_library(
     name = "zip",
     srcs = [
