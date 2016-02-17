@@ -16,9 +16,15 @@ filegroup(
 cc_library(
     name = "zip",
     srcs = [
-        "mapped_file_unix.cc",
         "zip.cc",
-    ],
+    ] + select({
+        "//src:windows": [
+            "mapped_file_windows.cc",
+        ],
+        "//conditions:default": [
+            "mapped_file_unix.cc",
+        ],
+    }),
     hdrs = [
         "common.h",
         "mapped_file.h",
