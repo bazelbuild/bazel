@@ -107,9 +107,16 @@ genrule(
         "//third_party/ijar",
         "//third_party/java/apkbuilder:embedded_tools",
     ] + select({
-        ":darwin": [":darwin_tools"],
-        ":darwin_x86_64": [":darwin_tools"],
-        "//conditions:default": [],
+        ":darwin": [
+            ":darwin_tools",
+            "//third_party/ijar:zipper",
+        ],
+        ":darwin_x86_64": [
+            ":darwin_tools",
+            "//third_party/ijar:zipper",
+        ],
+        ":windows": [],  # Windows specifically exclude zipper for now.
+        "//conditions:default": ["//third_party/ijar:zipper"],
     }),
     outs = ["embedded_tools.zip"],
     cmd = "$(location :create_embedded_tools.sh) $@ $(SRCS)",

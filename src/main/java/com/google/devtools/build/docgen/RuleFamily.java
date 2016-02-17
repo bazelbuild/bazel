@@ -84,6 +84,10 @@ public class RuleFamily {
     return FAMILY_NAME_ESCAPER.escape(s.toLowerCase()).replaceAll("[-]+", "-");
   }
 
+  public int size() {
+    return rules.size();
+  }
+
   public String getName() {
     return name;
   }

@@ -96,7 +96,7 @@ _groovy_jar = rule(
             default = Label("//tools/defaults:jdk"),
         ),
         "_zipper": attr.label(
-            default = Label("//third_party/ijar:zipper"),
+            default = Label("@bazel_tools//tools/zip:zipper"),
             executable = True,
             single_file = True,
         ),

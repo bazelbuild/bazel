@@ -14,8 +14,8 @@
 
 package com.google.devtools.build.workspace.maven;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
-import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.bazel.repository.MavenConnector;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -25,10 +25,6 @@ import org.apache.maven.model.Exclusion;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.Objects;
 import java.util.Set;
 
@@ -38,10 +34,10 @@ import java.util.Set;
 public final class Rule implements Comparable<Rule> {
   private final Artifact artifact;
   private final Set<String> parents;
+  private final Set<String> exclusions;
+  private final Set<Rule> dependencies;
   private String repository;
   private String sha1;
-  private Set<String> exclusions;
-  private Set<Rule> dependencies;
 
   public Rule(String artifactStr) throws InvalidRuleException {
     try {
@@ -52,6 +48,7 @@ public final class Rule implements Comparable<Rule> {
     this.parents = Sets.newHashSet();
     this.dependencies = Sets.newTreeSet();
     this.exclusions = Sets.newHashSet();
+    this.repository = MavenConnector.MAVEN_CENTRAL_URL;
   }
 
   public Rule(Dependency dependency) throws InvalidRuleException {
@@ -127,22 +124,24 @@ public final class Rule implements Comparable<Rule> {
           + " attribute manually"));
     } else {
       this.repository = url.substring(0, uriStart);
-      String jarSha1Url = url.replaceAll("pom$", "jar.sha1");
-      try {
-        // Download the sha1 of the jar file from the repository.
-        HttpURLConnection connection = (HttpURLConnection) new URL(jarSha1Url).openConnection();
-        connection.setInstanceFollowRedirects(true);
-        connection.connect();
-        this.sha1 = CharStreams.toString(new InputStreamReader(connection.getInputStream())).trim();
-      } catch (IOException e) {
-        handler.handle(Event.warn("Failed to download the sha1 at " + jarSha1Url));
-      }
     }
+  }
+
+  public void setSha1(String sha1) {
+    this.sha1 = sha1;
   }
 
   private String getUri() {
     return groupId().replaceAll("\\.", "/") + "/" + artifactId() + "/" + version() + "/"
         + artifactId() + "-" + version() + ".pom";
+  }
+
+  /**
+   * @return The artifact's URL.
+   */
+  public String getUrl() {
+    Preconditions.checkState(repository.endsWith("/"));
+    return repository + getUri();
   }
 
   /**
@@ -164,7 +163,7 @@ public final class Rule implements Comparable<Rule> {
   }
 
   private boolean hasCustomRepository() {
-    return repository != null && !repository.equals(MavenConnector.getMavenCentral().getUrl());
+    return !MavenConnector.MAVEN_CENTRAL_URL.equals(repository);
   }
 
   @Override

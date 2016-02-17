@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -58,8 +59,15 @@ final class Worker {
     int workerId = pidCounter.getAndIncrement();
     Path logFile = logDir.getRelative("worker-" + workerId + "-" + key.getMnemonic() + ".log");
 
+    String[] command = key.getArgs().toArray(new String[0]);
+
+    // Follows the logic of {@link com.google.devtools.build.lib.shell.Command}.
+    File executable = new File(command[0]);
+    if (!executable.isAbsolute() && executable.getParent() != null) {
+      command[0] = new File(key.getWorkDir().getPathFile(), command[0]).getAbsolutePath();
+    }
     ProcessBuilder processBuilder =
-        new ProcessBuilder(key.getArgs().toArray(new String[0]))
+        new ProcessBuilder(command)
             .directory(key.getWorkDir().getPathFile())
             .redirectError(Redirect.appendTo(logFile.getPathFile()));
     processBuilder.environment().putAll(key.getEnv());

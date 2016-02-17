@@ -119,9 +119,13 @@ public class Resolver {
           modelResolver.addUserRepository(attributeMap.get("repository", Type.STRING));
           rule.setRepository(attributeMap.get("repository", Type.STRING), handler);
         }
+        if (attributeMap.isAttributeValueExplicitlySpecified("sha1")) {
+          rule.setSha1(attributeMap.get("sha1", Type.STRING));
+        } else {
+          rule.setSha1(resolver.downloadSha1(rule));
+        }
 
         ModelSource modelSource;
-
         try {
           modelSource = modelResolver.resolveModel(
               rule.groupId(), rule.artifactId(), rule.version());

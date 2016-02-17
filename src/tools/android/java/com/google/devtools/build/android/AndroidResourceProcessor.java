@@ -127,30 +127,43 @@ public class AndroidResourceProcessor {
       Throwables.propagate(e);
     }
   }
-  
-  // TODO(bazel-team): Clean up this method call -- 19 params is too many.
+
+  /**
+   * Copies the AndroidManifest.xml to the specified output location.
+   *
+   * @param androidData The MergedAndroidData which contains the manifest to be written to
+   *     manifestOut.
+   * @param manifestOut The Path to write the AndroidManifest.xml.
+   */
+  public void copyManifestToOutput(MergedAndroidData androidData, Path manifestOut) {
+    try {
+      Files.createDirectories(manifestOut.getParent());
+      Files.copy(androidData.getManifest(), manifestOut);
+      // Set to the epoch for caching purposes.
+      Files.setLastModifiedTime(manifestOut, FileTime.fromMillis(0L));
+    } catch (IOException e) {
+      Throwables.propagate(e);
+    }
+  }
+
+  // TODO(bazel-team): Clean up this method call -- 13 params is too many.
   /**
    * Processes resources for generated sources, configs and packaging resources.
    */
   public void processResources(
       Path aapt,
       Path androidJar,
+      @Nullable FullRevision buildToolsVersion,
       VariantConfiguration.Type variantType,
       boolean debug,
       String customPackageForR,
       AaptOptions aaptOptions,
       Collection<String> resourceConfigs,
-      String applicationId,
-      int versionCode,
-      String versionName,
       MergedAndroidData primaryData,
       List<DependencyAndroidData> dependencyData,
-      Path workingDirectory,
       Path sourceOut,
       Path packageOut,
-      Path proguardOut,
-      Path manifestOut,
-      @Nullable FullRevision buildToolsVersion)
+      Path proguardOut)
       throws IOException, InterruptedException, LoggedErrorException {
     List<SymbolFileProvider> libraries = new ArrayList<>();
     List<String> packages = new ArrayList<>();
@@ -160,17 +173,9 @@ public class AndroidResourceProcessor {
       packages.add(VariantConfiguration.getManifestPackage(library.getManifest()));
     }
 
-    Path androidManifest = processManifest(
-        variantType == VariantConfiguration.Type.DEFAULT ? applicationId : customPackageForR,
-        versionCode,
-        versionName,
-        primaryData,
-        workingDirectory,
-        variantType == VariantConfiguration.Type.DEFAULT
-            ? ManifestMerger2.MergeType.APPLICATION : ManifestMerger2.MergeType.LIBRARY);
-
-    Path resFolder = primaryData.getResourceDirFile().toPath();
-    Path assetsDir = primaryData.getAssetDirFile().toPath();
+    Path androidManifest = primaryData.getManifest();
+    Path resourceDir = primaryData.getResourceDir();
+    Path assetsDir = primaryData.getAssetDir();
 
     AaptCommandBuilder commandBuilder =
         new AaptCommandBuilder(aapt, buildToolsVersion, variantType, "package")
@@ -187,7 +192,7 @@ public class AndroidResourceProcessor {
         // Add the manifest for validation.
         .add("-M", androidManifest.toAbsolutePath())
         // Maybe add the resources if they exist
-        .maybeAdd("-S", resFolder, Files.isDirectory(resFolder))
+        .maybeAdd("-S", resourceDir, Files.isDirectory(resourceDir))
         // Maybe add the assets if they exist
         .maybeAdd("-A", assetsDir, Files.isDirectory(assetsDir))
         // Outputs
@@ -225,10 +230,6 @@ public class AndroidResourceProcessor {
     }
     if (packageOut != null) {
       Files.setLastModifiedTime(packageOut, FileTime.fromMillis(0L));
-    }
-    if (manifestOut != null) {
-      Files.copy(androidManifest, manifestOut);
-      Files.setLastModifiedTime(manifestOut, FileTime.fromMillis(0L));
     }
   }
 
@@ -287,21 +288,28 @@ public class AndroidResourceProcessor {
     }
   }
 
-  private Path processManifest(
-      String newManifestPackage,
+  public MergedAndroidData processManifest(
+      VariantConfiguration.Type variantType,
+      String customPackageForR,
+      String applicationId,
       int versionCode,
       String versionName,
       MergedAndroidData primaryData,
-      Path workingDirectory,
-      ManifestMerger2.MergeType mergeType) throws IOException {
+      Path processedManifest) throws IOException {
+
+    ManifestMerger2.MergeType mergeType = variantType == VariantConfiguration.Type.DEFAULT
+        ? ManifestMerger2.MergeType.APPLICATION : ManifestMerger2.MergeType.LIBRARY;
+
+    String newManifestPackage = variantType == VariantConfiguration.Type.DEFAULT
+        ? applicationId : customPackageForR;
+
     if (versionCode != -1 || versionName != null || newManifestPackage != null) {
-      Path androidManifest =
-          Files.createDirectories(workingDirectory).resolve("AndroidManifest.xml");
+      Files.createDirectories(processedManifest.getParent());
 
       // The generics on Invoker don't make sense, so ignore them.
       @SuppressWarnings("unchecked")
       Invoker<?> manifestMergerInvoker =
-          ManifestMerger2.newMerger(primaryData.getManifestFile(), stdLogger, mergeType);
+          ManifestMerger2.newMerger(primaryData.getManifest().toFile(), stdLogger, mergeType);
       // Stamp new package
       if (newManifestPackage != null) {
         manifestMergerInvoker.setOverride(SystemProperty.PACKAGE, newManifestPackage);
@@ -323,10 +331,10 @@ public class AndroidResourceProcessor {
         switch (mergingReport.getResult()) {
           case WARNING:
             mergingReport.log(stdLogger);
-            writeMergedManifest(mergingReport, androidManifest);
+            writeMergedManifest(mergingReport, processedManifest);
             break;
           case SUCCESS:
-            writeMergedManifest(mergingReport, androidManifest);
+            writeMergedManifest(mergingReport, processedManifest);
             break;
           case ERROR:
             mergingReport.log(stdLogger);
@@ -338,9 +346,10 @@ public class AndroidResourceProcessor {
           IOException | SAXException | ParserConfigurationException | MergeFailureException e) {
         Throwables.propagate(e);
       }
-      return androidManifest;
+      return new MergedAndroidData(primaryData.getResourceDir(), primaryData.getAssetDir(),
+          processedManifest);
     }
-    return primaryData.getManifestFile().toPath();
+    return primaryData;
   }
 
   private void writeMergedManifest(MergingReport mergingReport,

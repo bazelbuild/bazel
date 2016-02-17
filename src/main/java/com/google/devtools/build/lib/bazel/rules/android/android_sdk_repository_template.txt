@@ -98,7 +98,7 @@ android_library(
     resource_files = glob(["extras/android/support/v7/recyclerview/res/**"]),
     deps = [":recyclerview_v7_import"]
 )
-
+%org_apache_http_legacy_import%
 java_import(
     name = "appcompat_v4",
     jars = ["extras/android/support/v4/android-support-v4.jar"]

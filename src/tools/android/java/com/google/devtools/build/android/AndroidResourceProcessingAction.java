@@ -88,7 +88,7 @@ public class AndroidResourceProcessingAction {
         category = "config",
         help = "Version of the build tools (e.g. aapt) being used, e.g. 23.0.2")
     public FullRevision buildToolsVersion;
-    
+
     @Option(name = "aapt",
         defaultValue = "null",
         converter = ExistingPathConverter.class,
@@ -282,8 +282,7 @@ public class AndroidResourceProcessingAction {
     options = optionsParser.getOptions(Options.class);
     FileSystem fileSystem = FileSystems.getDefault();
     Path working = fileSystem.getPath("").toAbsolutePath();
-    final AndroidResourceProcessor resourceProcessor =
-        new AndroidResourceProcessor(STD_LOGGER);
+    final AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(STD_LOGGER);
 
     try {
       final Path tmp = Files.createTempDirectory("android_resources_tmp");
@@ -296,6 +295,7 @@ public class AndroidResourceProcessingAction {
       final Path mergedResources = tmp.resolve("merged_resources");
       final Path filteredResources = tmp.resolve("resources-filtered");
       final Path densityManifest = tmp.resolve("manifest-filtered/AndroidManifest.xml");
+      final Path processedManifest = tmp.resolve("manifest-processed/AndroidManifest.xml");
 
       Path generatedSources = null;
       if (options.srcJarOutput != null || options.rOutput != null
@@ -329,32 +329,42 @@ public class AndroidResourceProcessingAction {
           true);
 
       LOGGER.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+
       final DensityFilteredAndroidData filteredData = mergedData.filter(
           new DensitySpecificResourceFilter(options.densities, filteredResources, mergedResources),
           new DensitySpecificManifestProcessor(options.densities, densityManifest));
-      LOGGER.fine(
-          String.format("Density filtering finished at %sms",
+
+      LOGGER.fine(String.format("Density filtering finished at %sms",
               timer.elapsed(TimeUnit.MILLISECONDS)));
+
+      final MergedAndroidData processedManifestData = resourceProcessor.processManifest(
+          options.packageType,
+          options.packageForR,
+          options.applicationId,
+          options.versionCode,
+          options.versionName,
+          filteredData,
+          processedManifest);
+
       resourceProcessor.processResources(
           options.aapt,
           options.androidJar,
+          options.buildToolsVersion,
           options.packageType,
           options.debug,
           options.packageForR,
           new FlagAaptOptions(),
           options.resourceConfigs,
-          options.applicationId,
-          options.versionCode,
-          options.versionName,
-          filteredData,
+          processedManifestData,
           data,
-          tmp.resolve("processed_manifest"),
           generatedSources,
           options.packagePath,
-          options.proguardOutput,
-          options.manifestOutput,
-          options.buildToolsVersion);
+          options.proguardOutput);
       LOGGER.fine(String.format("appt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+
+      if (options.manifestOutput != null) {
+        resourceProcessor.copyManifestToOutput(processedManifestData, options.manifestOutput);
+      }
       if (options.srcJarOutput != null) {
         resourceProcessor.createSrcJar(generatedSources, options.srcJarOutput,
             VariantConfiguration.Type.LIBRARY == options.packageType);

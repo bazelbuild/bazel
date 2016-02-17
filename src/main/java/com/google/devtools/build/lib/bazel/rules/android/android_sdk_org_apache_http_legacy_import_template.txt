@@ -1,0 +1,7 @@
+
+# Android 23 removed most of org.apache.http from android.jar and moved it
+# to a separate jar.
+java_import(
+    name = "org_apache_http_legacy",
+    jars = ["platforms/android-%api_level%/optional/org.apache.http.legacy.jar"]
+)
