@@ -50,11 +50,6 @@ self_extract_binary(
         "//scripts:bash_completion",
     ],
     launcher = ":launcher_bin.sh",
-    resources = [
-        "//third_party:srcs",
-        "//third_party/java/jdk/langtools:srcs",
-        "//tools:package-srcs",
-    ],
 )
 
 load("//tools/build_defs/pkg:pkg.bzl", "pkg_tar", "pkg_deb")
