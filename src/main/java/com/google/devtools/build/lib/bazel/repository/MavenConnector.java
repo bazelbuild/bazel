@@ -34,7 +34,7 @@ import org.eclipse.aether.transport.http.HttpTransporterFactory;
  * Connections to Maven repositories.
  */
 public class MavenConnector {
-  private static final String MAVEN_CENTRAL_URL = "https://repo1.maven.org/maven2/";
+  public static final String MAVEN_CENTRAL_URL = "https://repo1.maven.org/maven2/";
 
   private final String localRepositoryPath;
 

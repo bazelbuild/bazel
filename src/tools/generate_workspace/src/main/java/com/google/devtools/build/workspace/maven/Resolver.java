@@ -17,6 +17,7 @@ package com.google.devtools.build.workspace.maven;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 
@@ -42,7 +43,11 @@ import org.apache.maven.model.resolution.UnresolvableModelException;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.nio.charset.Charset;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -187,6 +192,7 @@ public class Resolver {
               dependency.getGroupId(), dependency.getArtifactId(), dependency.getVersion());
           if (depModelSource != null) {
             artifactRule.setRepository(depModelSource.getLocation(), handler);
+            artifactRule.setSha1(downloadSha1(artifactRule));
             resolveEffectiveModel(depModelSource, localDepExclusions, artifactRule);
           } else {
             handler.handle(Event.error("Could not get a model for " + dependency));
@@ -283,5 +289,26 @@ public class Resolver {
 
   public void addRootDependency(Rule rule) {
     rootDependencies.add(rule);
+  }
+
+  static String getSha1Url(String url, String extension) {
+    return url.replaceAll(".pom$", "." + extension + ".sha1");
+  }
+
+  /**
+   * Downloads the SHA-1 for the given artifact.
+   */
+  public String downloadSha1(Rule rule) {
+    String sha1Url = getSha1Url(rule.getUrl(), rule.getArtifact().getExtension());
+    try {
+      HttpURLConnection connection = (HttpURLConnection) new URL(sha1Url).openConnection();
+      connection.setInstanceFollowRedirects(true);
+      connection.connect();
+      return CharStreams.toString(
+          new InputStreamReader(connection.getInputStream(), Charset.defaultCharset())).trim();
+    } catch (IOException e) {
+      handler.handle(Event.warn("Failed to download the sha1 at " + sha1Url));
+    }
+    return null;
   }
 }
