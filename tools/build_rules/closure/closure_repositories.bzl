@@ -79,21 +79,21 @@ def closure_repositories():
   native.new_http_archive(
       name = "closure_compiler",
       build_file_content = CLOSURE_COMPILER_BUILD_FILE,
-      sha256 = "215ba5df026e5d92bda6634463a9c634d38a1aa4b6dab336da5c52e884cbde95",
-      url = "https://dl.google.com/closure-compiler/compiler-latest.zip",
+      sha256 = "e4e0cb49ad21ec26dd47693bdbd48f67aefe2d94fe8d9239312d2bcc74986538",
+      url = "http://dl.google.com/closure-compiler/compiler-20150729.zip",
   )
 
-  native.new_http_archive(
+  native.new_git_repository(
       name = "closure_library",
       build_file_content = CLOSURE_LIBRARY_BUILD_FILE,
-      sha256 = "8f610300e4930190137505a574a54d12346426f2a7b4f179026e41674e452a86",
-      url = "https://github.com/google/closure-library/archive/20160208.zip",
+      commit = "748b32441093c1474db2e0b3d074250e0bc47778",
+      remote = "https://github.com/google/closure-library.git",
   )
 
   native.http_jar(
       name = "closure_stylesheets",
-      sha256 = "5308cb46f7677b9995237ade57770d27592aff69359d29be571220a2bf10e724",
-      url = "https://github.com/google/closure-stylesheets/releases/download/v1.1.0/closure-stylesheets.jar",
+      sha256 = "8b2ae8ec3733171ec0c2e6536566df0b3c6da3e59b4784993bc9e73125d29c82",
+      url = "https://closure-stylesheets.googlecode.com/files/closure-stylesheets-20111230.jar",
   )
 
   native.new_http_archive(
