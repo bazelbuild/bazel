@@ -17,7 +17,9 @@
   <li class="sidebar-nav-heading">Built-in Rules</li>
   <li><a href="${path}/functions.html">Functions</a></li>
 #foreach ($ruleFamily in $ruleFamilies)
+  #if ($ruleFamily.size() > 0)
   <li><a href="${path}/${ruleFamily.id}.html">${ruleFamily.name}</a></li>
+  #end
 #end
 
   <li class="sidebar-nav-heading">Skylark Rules</li>
