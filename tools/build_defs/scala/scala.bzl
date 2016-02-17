@@ -118,8 +118,7 @@ cd $0.runfiles
       content=content)
 
 def _collect_jars(targets):
-  """Compute the runtime ant compile-time dependencies from the given targets
-  """
+  """Compute the runtime and compile-time dependencies from the given targets"""
   compile_jars = set()  # not transitive
   runtime_jars = set()  # this is transitive
   for target in targets:
@@ -156,7 +155,7 @@ def _lib(ctx, use_ijar):
   if use_ijar:
     ijar = ctx.outputs.ijar
   else:
-    # macro code needs to be available at compiletime, so set ijar == jar
+    # macro code needs to be available at compile-time, so set ijar == jar
     ijar = ctx.outputs.jar
 
   texp = _collect_jars(ctx.attr.exports)
