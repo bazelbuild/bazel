@@ -570,7 +570,7 @@ java_library(
     name = "bazel-repository",
     srcs = glob(
         [
-            "bazel/repository/*.java",
+            "bazel/repository/**/*.java",
             "bazel/rules/workspace/*.java",
         ],
         exclude = ["bazel/repository/MavenConnector.java"],
@@ -596,6 +596,7 @@ java_library(
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
+        "//src/main/java/com/google/devtools/build/lib:skylarkinterface",
         "//src/main/java/com/google/devtools/build/lib:vfs",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:aether",

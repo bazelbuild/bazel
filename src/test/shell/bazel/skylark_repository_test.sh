@@ -216,6 +216,39 @@ EOF
   expect_log "Tra-la!"
 }
 
+function test_skylark_local_repository() {
+  create_new_workspace
+  repo2=$new_workspace_dir
+
+  cat > BUILD <<'EOF'
+genrule(name='bar', cmd='echo foo | tee $@', outs=['bar.txt'])
+EOF
+
+  cd ${WORKSPACE_DIR}
+  cat > WORKSPACE <<EOF
+load('/test', 'repo')
+repo(name='foo', path='$repo2')
+EOF
+
+  # Our custom repository rule
+  cat >test.bzl <<EOF
+def _impl(ctx):
+  ctx.symlink(ctx.path(ctx.attr.path), ctx.path(""))
+
+repo = repository_rule(
+    implementation=_impl,
+    local=True,
+    attrs={"path": attr.string(mandatory=True)})
+EOF
+  # Need to be in a package
+  cat > BUILD
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "foo"
+  cat bazel-genfiles/external/foo/bar.txt >$TEST_log
+  expect_log "foo"
+}
+
 function tear_down() {
   true
 }

@@ -1398,6 +1398,13 @@ public final class PackageFactory {
     public MakeEnvironment.Builder getMakeEnvironment() {
       return pkgBuilder.getMakeEnvironment();
     }
+
+    /**
+     * Returns the builder of this Package.
+     */
+    public Package.Builder getBuilder() {
+      return pkgBuilder;
+    }
   }
 
   private final ClassObject nativeModule;

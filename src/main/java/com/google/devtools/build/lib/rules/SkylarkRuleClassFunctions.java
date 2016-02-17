@@ -236,7 +236,7 @@ public class SkylarkRuleClassFunctions {
    * In native code, private values start with $.
    * In Skylark, private values start with _, because of the grammar.
    */
-  private static String attributeToNative(String oldName, Location loc, boolean isLateBound)
+  public static String attributeToNative(String oldName, Location loc, boolean isLateBound)
       throws EvalException {
     if (oldName.isEmpty()) {
       throw new EvalException(loc, "Attribute name cannot be empty");

@@ -30,6 +30,8 @@ import com.google.devtools.build.lib.bazel.repository.MavenServerFunction;
 import com.google.devtools.build.lib.bazel.repository.MavenServerRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewGitRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.NewHttpArchiveFunction;
+import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryFunction;
+import com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryModule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
@@ -151,6 +153,7 @@ public class BazelRepositoryModule extends BlazeModule {
       }
       builder.addRuleDefinition(ruleDefinition);
     }
+    builder.addSkylarkModule(SkylarkRepositoryModule.class);
   }
 
   @Override
@@ -171,9 +174,10 @@ public class BazelRepositoryModule extends BlazeModule {
     // Create the repository function everything flows through.
     builder.put(SkyFunctions.REPOSITORY, new RepositoryLoaderFunction());
 
-    // Helper SkyFunctions.
-    builder.put(SkyFunctions.REPOSITORY_DIRECTORY,
-        new RepositoryDelegatorFunction(directories, repositoryHandlers, isFetch));
+    builder.put(
+        SkyFunctions.REPOSITORY_DIRECTORY,
+        new RepositoryDelegatorFunction(
+            directories, repositoryHandlers, new SkylarkRepositoryFunction(), isFetch));
     builder.put(MavenServerFunction.NAME, new MavenServerFunction(directories));
     return builder.build();
   }

@@ -34,6 +34,8 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import javax.annotation.Nullable;
+
 /**
  * A {@link SkyFunction} that implements delegation to the correct repository fetcher.
  *
@@ -42,8 +44,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class RepositoryDelegatorFunction implements SkyFunction {
 
+  // A special repository delegate used to handle Skylark remote repositories if present.
+  public static final String SKYLARK_DELEGATE_NAME = "$skylark";
+
   // Mapping of rule class name to RepositoryFunction.
   private final ImmutableMap<String, RepositoryFunction> handlers;
+
+  // Delegate function to handle skylark remote repositories
+  private final RepositoryFunction skylarkHandler;
 
   // This is a reference to isFetch in BazelRepositoryModule, which tracks whether the current
   // command is a fetch. Remote repository lookups are only allowed during fetches.
@@ -51,10 +59,13 @@ public class RepositoryDelegatorFunction implements SkyFunction {
   private final BlazeDirectories directories;
 
   public RepositoryDelegatorFunction(
-      BlazeDirectories directories, ImmutableMap<String, RepositoryFunction> handlers,
+      BlazeDirectories directories,
+      ImmutableMap<String, RepositoryFunction> handlers,
+      @Nullable RepositoryFunction skylarkHandler,
       AtomicBoolean isFetch) {
     this.directories = directories;
     this.handlers = handlers;
+    this.skylarkHandler = skylarkHandler;
     this.isFetch = isFetch;
   }
 
@@ -77,7 +88,12 @@ public class RepositoryDelegatorFunction implements SkyFunction {
       return null;
     }
 
-    RepositoryFunction handler = handlers.get(rule.getRuleClass());
+    RepositoryFunction handler;
+    if (rule.getRuleClassObject().isSkylark()) {
+      handler = skylarkHandler;
+    } else {
+      handler = handlers.get(rule.getRuleClass());
+    }
     if (handler == null) {
       throw new RepositoryFunctionException(new EvalException(
           Location.fromFile(directories.getWorkspace().getRelative("WORKSPACE")),
@@ -87,7 +103,7 @@ public class RepositoryDelegatorFunction implements SkyFunction {
     Path repoRoot =
         RepositoryFunction.getExternalRepositoryDirectory(directories).getRelative(rule.getName());
 
-    if (handler.isLocal()) {
+    if (handler.isLocal(rule)) {
       // Local repositories are always fetched because the operation is generally fast and they do
       // not depend on non-local data, so it does not make much sense to try to catch from across
       // server instances.

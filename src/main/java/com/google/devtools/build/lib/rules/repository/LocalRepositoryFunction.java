@@ -33,7 +33,7 @@ import java.io.IOException;
  */
 public class LocalRepositoryFunction extends RepositoryFunction {
   @Override
-  public boolean isLocal() {
+  public boolean isLocal(Rule rule) {
     return true;
   }
 

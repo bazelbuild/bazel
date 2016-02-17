@@ -1028,12 +1028,14 @@ java_test(
 java_test(
     name = "repository_test",
     srcs = glob([
-        "bazel/repository/*.java",
+        "bazel/repository/**/*.java",
     ]),
     tags = ["rules"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
+        ":analysis_testutil",
         ":foundations_testutil",
+        ":packages_testutil",
         ":test_runner",
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib:bazel-main",
@@ -1042,6 +1044,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:collect",
         "//src/main/java/com/google/devtools/build/lib:inmemoryfs",
         "//src/main/java/com/google/devtools/build/lib:vfs",
+        "//src/main/java/com/google/devtools/build/skyframe",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:jsr305",
