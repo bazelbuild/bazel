@@ -261,6 +261,28 @@ public class TreePrunerTest {
     assertThat(prettyPrint(tree)).isEqualTo(Joiner.on('\n').join(expected));
   }
 
+  @Test
+  public void annotationDeclaration() {
+    String[] lines = {
+      "@interface Anno {",
+      "  int f() default CONST;",
+      "  int CONST = 42;",
+      "  int NONCONST = new Integer(42);",
+      "}",
+    };
+    JCCompilationUnit tree = parseLines(lines);
+    TreePruner.prune(tree);
+    String[] expected = {
+      "@interface Anno {",
+      "    ",
+      "    int f() default CONST;",
+      "    int CONST = 42;",
+      "    int NONCONST = new Integer(42);",
+      "}",
+    };
+    assertThat(prettyPrint(tree)).isEqualTo(Joiner.on('\n').join(expected));
+  }
+
   private String prettyPrint(JCCompilationUnit tree) {
     return tree.toString().trim();
   }

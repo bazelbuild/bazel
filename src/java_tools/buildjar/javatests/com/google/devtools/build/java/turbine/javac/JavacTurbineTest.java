@@ -861,4 +861,41 @@ public class JavacTurbineTest {
     };
     assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
   }
+
+  @Test
+  public void annotationDeclaration() throws Exception {
+    addSourceLines(
+        "Anno.java",
+        "import java.lang.annotation.Retention;",
+        "import java.lang.annotation.RetentionPolicy;",
+        "@Retention(RetentionPolicy.RUNTIME)",
+        "@interface Anno {",
+        "  public int value() default CONST;",
+        "  int CONST = 42;",
+        "  int NONCONST = new Integer(42);",
+        "}");
+    addSourceLines("Hello.java", "@Anno(value=Anno.CONST)", "class Hello {", "}");
+
+    compile();
+
+    Map<String, byte[]> outputs = collectOutputs();
+
+    assertThat(outputs.keySet()).containsExactly("Anno.class", "Hello.class");
+
+    String text = textify(outputs.get("Hello.class"));
+    String[] expected = {
+      "// class version 51.0 (51)",
+      "// access flags 0x20",
+      "class Hello {",
+      "",
+      "",
+      "  @LAnno;(value=42)",
+      "",
+      "  // access flags 0x0",
+      "  <init>()V",
+      "}",
+      ""
+    };
+    assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
+  }
 }

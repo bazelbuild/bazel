@@ -29,6 +29,7 @@ import com.sun.source.util.SimpleTreeVisitor;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCBlock;
+import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCExpression;
 import com.sun.tools.javac.tree.JCTree.JCExpressionStatement;
 import com.sun.tools.javac.tree.JCTree.JCIdent;
@@ -66,6 +67,17 @@ public class TreePruner {
   /** A {@link TreeScanner} that deletes method bodies and blocks from the AST. */
   private static final TreeScanner PRUNING_VISITOR =
       new TreeScanner() {
+
+        @Override
+        public void visitClassDef(JCClassDecl tree) {
+          if ((tree.mods.flags & Flags.ANNOTATION) == Flags.ANNOTATION) {
+            // Fields in annotation declarations are implicitly final.
+            // Field initializers that are definitely not constant expressions could still be
+            // pruned, but we currently don't bother.
+            return;
+          }
+          super.visitClassDef(tree);
+        }
 
         @Override
         public void visitMethodDef(JCMethodDecl tree) {
