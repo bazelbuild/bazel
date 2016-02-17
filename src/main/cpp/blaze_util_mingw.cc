@@ -44,16 +44,9 @@ void WarnFilesystemType(const string& output_base) {
 
 string GetSelfPath() {
   char buffer[PATH_MAX] = {};
-  ssize_t bytes = readlink("/proc/self/exe", buffer, sizeof(buffer));
-  if (bytes == sizeof(buffer)) {
-    // symlink contents truncated
-    bytes = -1;
-    errno = ENAMETOOLONG;
+  if (!GetModuleFileName(0, buffer, sizeof(buffer))) {
+    pdie(255, "Error %u getting executable file name\n", GetLastError());
   }
-  if (bytes == -1) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "error reading /proc/self/exe");
-  }
-  buffer[bytes] = '\0';  // readlink does not NUL-terminate
   return string(buffer);
 }
 
