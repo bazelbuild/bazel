@@ -829,4 +829,36 @@ public class JavacTurbineTest {
       assertThat(sw.toString()).contains("error reading");
     }
   }
+  
+  @Test
+  public void requiredConstructor() throws Exception {
+    addSourceLines("Super.java", "class Super {", "  public Super(int x) {}", "}");
+    addSourceLines(
+        "Hello.java",
+        "class Hello extends Super {",
+        "  public Hello() {",
+        "    super(42);",
+        "  }",
+        "}");
+
+    compile();
+
+    Map<String, byte[]> outputs = collectOutputs();
+
+    assertThat(outputs.keySet()).containsExactly("Super.class", "Hello.class");
+
+    String text = textify(outputs.get("Hello.class"));
+    String[] expected = {
+      "// class version 51.0 (51)",
+      "// access flags 0x20",
+      "class Hello extends Super  {",
+      "",
+      "",
+      "  // access flags 0x1",
+      "  public <init>()V",
+      "}",
+      ""
+    };
+    assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
+  }
 }
