@@ -172,6 +172,10 @@ public class BaseJavaCompilationHelper {
           .addInput(inputJar)
           .addOutput(interfaceJar)
           .setExecutable(ijarTarget)
+          // On Windows, ijar.exe needs msys-2.0.dll and zlib1.dll in PATH.
+          // Use default shell environment so that those can be found.
+          // TODO(dslomov): revisit this. If ijar is not msys-dependent, this is not needed.
+          .useDefaultShellEnvironment()
           .addArgument(inputJar.getExecPathString())
           .addArgument(interfaceJar.getExecPathString())
           .setProgressMessage("Extracting interface " + ruleContext.getLabel())
