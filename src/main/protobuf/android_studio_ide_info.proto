@@ -57,10 +57,6 @@ message AndroidRuleIdeInfo {
   bool generate_resource_class = 10;
 }
 
-message AndroidSdkRuleInfo {
-  string android_sdk_path = 1;
-}
-
 message RuleIdeInfo {
   enum Kind {
     ANDROID_BINARY = 0;
@@ -81,9 +77,6 @@ message RuleIdeInfo {
   // deprecated -- this is not machine agnostic and will be removed in a future release
   string build_file = 3 [deprecated=true];
   repeated string dependencies = 4;
-
-  // kind is ANDROID_SDK
-  AndroidSdkRuleInfo android_sdk_rule_info = 6;
 
   // kind is one of {JAVA,ANDROID}_{LIBRARY,BINARY,TEST} and JAVA_IMPORT
   JavaRuleIdeInfo java_rule_ide_info = 7;

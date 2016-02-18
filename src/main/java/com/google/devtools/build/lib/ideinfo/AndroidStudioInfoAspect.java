@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.AndroidRuleIdeInfo;
-import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.AndroidSdkRuleInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.ArtifactLocation;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.JavaRuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.LibraryArtifact;
@@ -71,7 +70,6 @@ import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.MessageLite;
 
@@ -267,15 +265,6 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
     return new DependenciesResult(dependencies, runtimeDepsBuilder.build());
   }
 
-  private static AndroidSdkRuleInfo makeAndroidSdkRuleInfo(AndroidSdkProvider provider) {
-    AndroidSdkRuleInfo.Builder sdkInfoBuilder = AndroidSdkRuleInfo.newBuilder();
-
-    Path androidSdkDirectory = provider.getAndroidJar().getPath().getParentDirectory();
-    sdkInfoBuilder.setAndroidSdkPath(androidSdkDirectory.toString());
-
-    return sdkInfoBuilder.build();
-  }
-
   private AndroidStudioInfoFilesProvider createIdeBuildArtifact(
       ConfiguredTarget base,
       RuleContext ruleContext,
@@ -330,10 +319,6 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
         || ruleKind == Kind.ANDROID_TEST) {
       outputBuilder.setAndroidRuleIdeInfo(
           makeAndroidRuleIdeInfo(ruleContext, base, ideResolveArtifacts));
-    }
-    if (ruleKind == Kind.ANDROID_SDK) {
-      outputBuilder.setAndroidSdkRuleInfo(
-          makeAndroidSdkRuleInfo(base.getProvider(AndroidSdkProvider.class)));
     }
 
     AndroidStudioInfoFilesProvider provider = providerBuilder.build();
