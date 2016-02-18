@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-load("//tools/build_rules:genproto.bzl", "proto_java_library")
+load("//tools/build_rules:genproto.bzl", "java_proto_library")
 
 FILES = [
     "build",
@@ -20,12 +20,12 @@ FILES = [
     "remote_protocol",
 ]
 
-[proto_java_library(
+[java_proto_library(
     name = s + "_proto",
     src = s + ".proto",
 ) for s in FILES]
 
-proto_java_library(
+java_proto_library(
     name = "build_proto_v2",
     src = "build.proto",
 )

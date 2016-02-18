@@ -65,7 +65,7 @@ gensrcjar = rule(
 )
 
 # TODO(bazel-team): support proto => proto dependencies too
-def proto_java_library(name, src):
+def java_proto_library(name, src):
   gensrcjar(name=name + "_srcjar", src=src)
   native.java_library(
     name=name,
@@ -74,3 +74,8 @@ def proto_java_library(name, src):
     # The generated code has lots of 'rawtypes' warnings.
     javacopts=["-Xlint:-rawtypes"],
 )
+
+def proto_java_library(name, src):
+  print("Deprecated: use java_proto_library() instead, proto_java_library " +
+        "will be removed in version 0.2.1")
+  java_proto_library(name, src)
