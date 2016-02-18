@@ -118,8 +118,10 @@ public class ProxyHelper {
       // We need to make sure the proxy password is not url encoded; some special characters in proxy passwords
       // require url encoding for shells and other tools to properly consume.
       String decodedPassword = URLDecoder.decode(password, "UTF-8");
-      System.setProperty(protocol + ".proxyUser", username);
-      System.setProperty(protocol + ".proxyPassword", decodedPassword);
+      System.setProperty("http.proxyUser", username);
+      System.setProperty("http.proxyPassword", decodedPassword);
+      System.setProperty("https.proxyUser", username);
+      System.setProperty("https.proxyPassword", decodedPassword);
 
       Authenticator.setDefault(
           new Authenticator() {
