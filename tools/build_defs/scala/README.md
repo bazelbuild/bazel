@@ -28,8 +28,8 @@ scala_repositories()
 ## scala\_library / scala\_macro_library
 
 ```python
-scala_library(name, srcs, deps, data, main_class, resources, scalacopts, jvm_flags)
-scala_macro_library(name, srcs, deps, data, main_class, resources, scalacopts, jvm_flags)
+scala_library(name, srcs, deps, runtime_deps, exports, data, main_class, resources, scalacopts, jvm_flags)
+scala_macro_library(name, srcs, deps, runtime_deps, exports, data, main_class, resources, scalacopts, jvm_flags)
 ```
 
 `scala_library` generates a `.jar` file from `.scala` source files. This rule
@@ -73,6 +73,22 @@ In order to make a java rule use this jar file, use the `java_import` rule.
       <td>
         <p><code>List of labels, optional</code></p>
         <p>List of other libraries to linked to this library target</p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>runtime_deps</code></td>
+      <td>
+        <p><code>List of labels, optional</code></p>
+        <p>List of other libraries to put on the classpath only at runtime. This is rarely needed in Scala.</p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>exports</code></td>
+      <td>
+        <p><code>List of labels, optional</code></p>
+        <p>List of targets to add to the dependencies of those that depend on this target. Similar
+        to the `java_library` parameter of the same name. Use this sparingly as it weakens the
+        precision of the build graph.</p>
       </td>
     </tr>
     <tr>
@@ -135,7 +151,7 @@ In order to make a java rule use this jar file, use the `java_import` rule.
 ## scala_binary
 
 ```python
-scala_binary(name, srcs, deps, data, main_class, resources, scalacopts, jvm_flags)
+scala_binary(name, srcs, deps, runtime_deps, data, main_class, resources, scalacopts, jvm_flags)
 ```
 
 `scala_binary` generates a Scala executable. It may depend on `scala_library`, `scala_macro_library`
@@ -173,6 +189,13 @@ A `scala_binary` requires a `main_class` attribute.
       <td>
         <p><code>List of labels, optional</code></p>
         <p>List of other libraries to linked to this binary target</p>
+      </td>
+    </tr>
+    <tr>
+      <td><code>runtime_deps</code></td>
+      <td>
+        <p><code>List of labels, optional</code></p>
+        <p>List of other libraries to put on the classpath only at runtime. This is rarely needed in Scala.</p>
       </td>
     </tr>
     <tr>
