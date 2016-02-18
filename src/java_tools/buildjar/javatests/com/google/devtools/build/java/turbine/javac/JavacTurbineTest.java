@@ -85,7 +85,7 @@ import javax.tools.StandardLocation;
 @RunWith(JUnit4.class)
 public class JavacTurbineTest {
 
-  @Rule public TemporaryFolder temp = new TemporaryFolder();
+  @Rule public final TemporaryFolder temp = new TemporaryFolder();
 
   Path sourcedir;
   List<Path> sources;
@@ -93,7 +93,7 @@ public class JavacTurbineTest {
   Path output;
   Path outputDeps;
 
-  TurbineOptions.Builder optionsBuilder = TurbineOptions.builder();
+  final TurbineOptions.Builder optionsBuilder = TurbineOptions.builder();
 
   @Before
   public void setUp() throws IOException {
