@@ -38,7 +38,7 @@ public class RuleTest {
 
   @Test
   public void testUrl() throws Exception {
-    Rule rule = new Rule("foo:bar:1.2.3");
+    Rule rule = new Rule(Resolver.getArtifact("foo:bar:1.2.3"));
     assertThat(rule.getUrl())
         .isEqualTo("https://repo1.maven.org/maven2/foo/bar/1.2.3/bar-1.2.3.pom");
     rule.setRepository("http://myrepo.com/foo/bar/1.2.3/bar-1.2.3.pom", handler);

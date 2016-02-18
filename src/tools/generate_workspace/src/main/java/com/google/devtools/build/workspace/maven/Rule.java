@@ -20,11 +20,10 @@ import com.google.devtools.build.lib.bazel.repository.MavenConnector;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 
-import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Exclusion;
 import org.eclipse.aether.artifact.Artifact;
-import org.eclipse.aether.artifact.DefaultArtifact;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -32,6 +31,7 @@ import java.util.Set;
  * A struct representing the fields of maven_jar to be written to the WORKSPACE file.
  */
 public final class Rule implements Comparable<Rule> {
+
   private final Artifact artifact;
   private final Set<String> parents;
   private final Set<String> exclusions;
@@ -39,24 +39,20 @@ public final class Rule implements Comparable<Rule> {
   private String repository;
   private String sha1;
 
-  public Rule(String artifactStr) throws InvalidRuleException {
-    try {
-      this.artifact = new DefaultArtifact(artifactStr);
-    } catch (IllegalArgumentException e) {
-      throw new InvalidRuleException(e.getMessage());
-    }
+  public Rule(Artifact artifact) {
+    this.artifact = artifact;
     this.parents = Sets.newHashSet();
     this.dependencies = Sets.newTreeSet();
     this.exclusions = Sets.newHashSet();
     this.repository = MavenConnector.MAVEN_CENTRAL_URL;
   }
 
-  public Rule(Dependency dependency) throws InvalidRuleException {
-    this(dependency.getGroupId() + ":" + dependency.getArtifactId() + ":"
-        + dependency.getVersion());
+  public Rule(Artifact artifact, List<Exclusion> exclusions) {
+    this(artifact);
 
-    for (Exclusion exclusion : dependency.getExclusions()) {
-      exclusions.add(String.format("%s:%s", exclusion.getGroupId(), exclusion.getArtifactId()));
+    for (Exclusion exclusion : exclusions) {
+      String coord = String.format("%s:%s", exclusion.getGroupId(), exclusion.getArtifactId());
+      this.exclusions.add(coord);
     }
   }
 
@@ -189,14 +185,5 @@ public final class Rule implements Comparable<Rule> {
   @Override
   public int compareTo(Rule o) {
     return name().compareTo(o.name());
-  }
-
-  /**
-   * Exception thrown if the rule could not be created.
-   */
-  public static class InvalidRuleException extends Exception {
-    InvalidRuleException(String message) {
-      super(message);
-    }
   }
 }

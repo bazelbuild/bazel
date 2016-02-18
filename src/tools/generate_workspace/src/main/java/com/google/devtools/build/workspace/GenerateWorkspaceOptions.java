@@ -36,6 +36,7 @@ public class GenerateWorkspaceOptions extends OptionsBase {
       abbrev = 'b',
       help = "Directory contains a Bazel project.",
       allowMultiple = true,
+      category = "input",
       defaultValue = ""
   )
   public List<String> bazelProjects;
@@ -45,15 +46,27 @@ public class GenerateWorkspaceOptions extends OptionsBase {
       abbrev = 'm',
       help = "Directory containing a Maven project.",
       allowMultiple = true,
+      category = "input",
       defaultValue = ""
   )
   public List<String> mavenProjects;
 
   @Option(
+      name = "artifact",
+      abbrev = 'a',
+      help = "Maven artifact coordinates (e.g. groupId:artifactId:version).",
+      allowMultiple = true,
+      category = "input",
+      defaultValue = ""
+  )
+  public List<String> artifacts;
+  
+  @Option(
       name = "output_dir",
       abbrev = 'o',
       help = "Output directory to store the WORKSPACE and BUILD files. If unspecified, a temporary"
           + " directory is used.",
+      category = "output",
       defaultValue = ""
   )
   public String outputDir;

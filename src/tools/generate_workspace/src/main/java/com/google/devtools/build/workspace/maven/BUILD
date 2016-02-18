@@ -17,6 +17,7 @@ java_library(
         ":rule",
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/main/java/com/google/devtools/build/lib:maven-connector",
+        "//third_party:aether",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:maven_model",

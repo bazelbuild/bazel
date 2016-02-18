@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.syntax.ParserInputSource;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.workspace.maven.DefaultModelResolver;
+import com.google.devtools.build.workspace.maven.Resolver;
+import com.google.devtools.build.workspace.maven.Resolver.InvalidArtifactCoordinateException;
 import com.google.devtools.build.workspace.maven.Rule;
 
 import org.apache.maven.model.building.ModelSource;
@@ -48,14 +50,14 @@ import java.util.List;
 /**
  * Finds the transitive dependencies of a WORKSPACE file.
  */
-public class Resolver {
+public class WorkspaceResolver {
 
   private final RuleClassProvider ruleClassProvider;
   private final ImmutableList<EnvironmentExtension> environmentExtensions;
   private final EventHandler handler;
   private final com.google.devtools.build.workspace.maven.Resolver resolver;
 
-  Resolver(com.google.devtools.build.workspace.maven.Resolver resolver, EventHandler handler) {
+  WorkspaceResolver(Resolver resolver, EventHandler handler) {
     this.resolver = resolver;
     this.handler = handler;
     ConfiguredRuleClassProvider.Builder ruleClassBuilder =
@@ -110,8 +112,8 @@ public class Resolver {
         AttributeMap attributeMap = AggregatingAttributeMapper.of(workspaceRule);
         Rule rule;
         try {
-          rule = new Rule(attributeMap.get("artifact", Type.STRING));
-        } catch (Rule.InvalidRuleException e) {
+          rule = new Rule(Resolver.getArtifact(attributeMap.get("artifact", Type.STRING)));
+        } catch (InvalidArtifactCoordinateException e) {
           handler.handle(Event.error(location, "Couldn't get attribute: " + e.getMessage()));
           return;
         }
