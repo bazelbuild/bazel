@@ -19,23 +19,20 @@ proto_filetype = FileType([".proto"])
 
 def gensrcjar_impl(ctx):
   out = ctx.outputs.srcjar
-  proto_output = out.path + ".proto_output"
-  proto_compiler = ctx.file._proto_compiler
-  sub_commands = [
-    "rm -rf " + proto_output,
-    "mkdir " + proto_output,
-    ' '.join([proto_compiler.path, "--java_out=" + proto_output,
-              ctx.file.src.path]),
-    "touch -t 198001010000 $(find " + proto_output + ")",
-    ctx.file._jar.path + " cMf " + out.path + " -C " + proto_output + " .",
-  ]
 
   ctx.action(
-    command=" && ".join(sub_commands),
-    inputs=[ctx.file.src, proto_compiler, ctx.file._jar] + ctx.files._jdk,
+    command=' '.join([
+        "JAR='%s'" % ctx.file._jar.path,
+        "OUTPUT='%s'" % out.path,
+        "PROTO_COMPILER='%s'" % ctx.file._proto_compiler.path,
+        "SOURCE='%s'" % ctx.file.src.path,
+        ctx.executable._gensrcjar.path,
+    ]),
+    inputs=([ctx.file.src] + ctx.files._gensrcjar + ctx.files._jar +
+            ctx.files._proto_compiler),
     outputs=[out],
     mnemonic="GenProtoSrcJar",
-    use_default_shell_env = True)
+    use_default_shell_env=True)
 
 gensrcjar = rule(
     gensrcjar_impl,
@@ -43,6 +40,11 @@ gensrcjar = rule(
         "src": attr.label(
             allow_files = proto_filetype,
             single_file = True,
+        ),
+        "_gensrcjar": attr.label(
+            default = Label("@bazel_tools//tools/build_rules:gensrcjar"),
+            allow_files = True,
+            executable = True,
         ),
         # TODO(bazel-team): this should be a hidden attribute with a default
         # value, but Skylark needs to support select first.
@@ -55,10 +57,6 @@ gensrcjar = rule(
             default = Label("@bazel_tools//tools/jdk:jar"),
             allow_files = True,
             single_file = True,
-        ),
-        "_jdk": attr.label(
-            default = Label("@bazel_tools//tools/jdk:jdk"),
-            allow_files = True,
         ),
     },
     outputs = {"srcjar": "lib%{name}.srcjar"},
