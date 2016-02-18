@@ -104,8 +104,8 @@ int main(int argc, const char * argv[]) {
     if (version == nil) {
       printf("xcode_locator <version_number>\n"
              "Given a version number, or partial version number in x.y.z format, will attempt "
-             "to return the path to the appropriate Xcode.app.\nOmitting a version number will "
-             "list all available versions in JSON format.\n");
+             "to return the path to the appropriate developer directory.\nOmitting a version "
+             "number will list all available versions in JSON format.\n");
       return 1;
     }
 
@@ -131,7 +131,9 @@ int main(int argc, const char * argv[]) {
         return 1;
       }
       version = ExpandVersion(version);
-      XcodeVersionEntry *entry = [[XcodeVersionEntry alloc] initWithVersion:version url:url];
+      NSURL *developerDir = [url URLByAppendingPathComponent:@"Contents/Developer"];
+      XcodeVersionEntry *entry =
+          [[XcodeVersionEntry alloc] initWithVersion:version url:developerDir];
       AddEntryToDictionary(entry, dict);
     }
 
