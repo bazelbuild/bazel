@@ -88,7 +88,6 @@ public class JavaOptions extends FragmentOptions {
     }
   }
 
-
   /** Converter for --singlejar_top. */
   public static class SingleJarConverter extends DefaultLabelConverter {
     public SingleJarConverter() {
@@ -233,6 +232,14 @@ public class JavaOptions extends FragmentOptions {
       category = "undocumented",
       help = "No-op. Kept here for backwards compatibility.")
   public boolean useSourceIjars;
+
+  @Option(
+    name = "experimental_java_header_compilation",
+    defaultValue = "false",
+    category = "undocumented",
+    help = "Experimental: compile ijars directly from source."
+  )
+  public boolean headerCompilation;
 
   @Deprecated
   @Option(name = "experimental_incremental_ijars",
@@ -413,6 +420,7 @@ public class JavaOptions extends FragmentOptions {
     host.javacOpts = javacOpts;
     host.javaLangtoolsJar = javaLangtoolsJar;
     host.javacExtdir = javacExtdir;
+    host.headerCompilation = headerCompilation;
     host.javaBuilderTop = javaBuilderTop;
     host.javaToolchain = javaToolchain;
     host.singleJarTop = singleJarTop;

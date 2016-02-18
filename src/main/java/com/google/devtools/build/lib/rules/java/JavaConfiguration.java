@@ -130,6 +130,7 @@ public final class JavaConfiguration extends Fragment {
   private final ImmutableList<String> defaultJavaBuilderJvmOpts;
   private final Label javaLangtoolsJar;
   private final boolean useIjars;
+  private final boolean useHeaderCompilation;
   private final boolean generateJavaDeps;
   private final JavaClasspathMode experimentalJavaClasspath;
   private final ImmutableList<String> javaWarns;
@@ -161,6 +162,7 @@ public final class JavaConfiguration extends Fragment {
     this.defaultJavaBuilderJvmOpts = defaultJavaBuilderJvmOpts;
     this.javaLangtoolsJar = javaOptions.javaLangtoolsJar;
     this.useIjars = javaOptions.useIjars;
+    this.useHeaderCompilation = javaOptions.headerCompilation;
     this.generateJavaDeps = generateJavaDeps;
     this.experimentalJavaClasspath = javaOptions.experimentalJavaClasspath;
     this.javaWarns = ImmutableList.copyOf(javaOptions.javaWarns);
@@ -239,6 +241,11 @@ public final class JavaConfiguration extends Fragment {
    */
   public boolean getUseIjars() {
     return useIjars;
+  }
+
+  /** Returns true iff Java header compilation is enabled. */
+  public boolean useHeaderCompilation() {
+    return useHeaderCompilation;
   }
 
   /**

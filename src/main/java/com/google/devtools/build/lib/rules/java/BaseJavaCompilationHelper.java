@@ -132,7 +132,7 @@ public class BaseJavaCompilationHelper {
   /**
    * Returns the javac bootclasspath artifacts.
    */
-  protected final Iterable<Artifact> getBootClasspath() {
+  protected final ImmutableList<Artifact> getBootClasspath() {
     return ruleContext.getPrerequisiteArtifacts("$javac_bootclasspath", Mode.HOST).list();
   }
 

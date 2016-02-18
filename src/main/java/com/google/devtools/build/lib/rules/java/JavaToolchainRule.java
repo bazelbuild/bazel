@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
@@ -23,6 +25,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
  * Rule definition for {@code java_toolchain}
@@ -30,7 +33,8 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder;
 public final class JavaToolchainRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-    return builder.requiresConfigurationFragments(JavaConfiguration.class)
+    return builder
+        .requiresConfigurationFragments(JavaConfiguration.class)
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(source_version) -->
         The Java source version (e.g., '6' or '7'). It specifies which set of code structures
         are allowed in the Java source code.
@@ -60,6 +64,7 @@ public final class JavaToolchainRule implements RuleDefinition {
         virtual machine documentation for the extensive list of possible flags for this option.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("jvm_opts", STRING_LIST).value(ImmutableList.<String>of("-client")))
+        .add(attr("header_compiler", LABEL).cfg(HOST).allowedFileTypes(FileTypeSet.ANY_FILE).exec())
         .build();
   }
 

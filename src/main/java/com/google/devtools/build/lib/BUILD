@@ -409,6 +409,7 @@ java_library(
     ],
     deps = [
         ":concurrent",
+        ":preconditions",
         "//src/main/protobuf:build_proto_v2",
         "//third_party:guava",
         "//third_party:protobuf",

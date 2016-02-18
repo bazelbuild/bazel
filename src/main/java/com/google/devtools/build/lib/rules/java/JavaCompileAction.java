@@ -560,7 +560,7 @@ public class JavaCompileAction extends AbstractAction {
       for (Artifact extjar : extdirInputs) {
         extdirs.add(extjar.getExecPath().getParentDirectory());
       }
-      result.add(Joiner.on(configuration.getHostPathSeparator()).join(extdirs)); 
+      result.add(Joiner.on(configuration.getHostPathSeparator()).join(extdirs));
     }
 
     if (!processorPath.isEmpty()) {
@@ -666,7 +666,7 @@ public class JavaCompileAction extends AbstractAction {
    * Builds the list of mappings between jars on the classpath and their
    * originating targets names.
    */
-  private static ImmutableList<String> addJarsToTargets(
+  static ImmutableList<String> addJarsToTargets(
       NestedSet<Artifact> classpath, Collection<Artifact> directJars) {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
     for (Artifact jar : classpath) {
