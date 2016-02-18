@@ -59,7 +59,7 @@ be refined if appropriate.
     <tr>
       <td rowspan="9"><b><a name="alpha"></a>Alpha</b></td>
       <td rowspan="9"><b>Alpha</b></td>
-      <td rowspan="9"><b>2015&#8209;03</b></td>
+      <td rowspan="9"><b>2015&#8209;03&#8209;24</b></td>
       <td>Linux &amp; OS X Support</td>
     </tr>
     <tr><td>C++ (<a href="http://bazel.io/docs/be/c-cpp.html#cc_binary">build</a> and <a href="http://bazel.io/docs/be/c-cpp.html#cc_test">test</a>)</td></tr>
@@ -72,9 +72,9 @@ be refined if appropriate.
     <tr><td>Support for fetching dependencies from <a href="http://bazel.io/docs/be/workspace.html#maven_jar">Maven repositories</a>
         and <a href="http://bazel.io/docs/be/workspace.html#http_archive">web servers</a></td></tr>
     <tr>
-      <td rowspan="19"><b><a name="beta"></a>Beta</b></td>
+      <td rowspan="21"><b><a name="beta"></a>Beta</b></td>
       <td rowspan="9"><b>0.1</b></td>
-      <td rowspan="9"><b>2015&#8209;09</b></td>
+      <td rowspan="9"><b>2015&#8209;09&#8209;01</b></td>
       <td>P0. Binary distribution for Linux & OS X</td<
     </tr>
     <tr><td>P0. Public <a href="http://ci.bazel.io">continuous integration system</a></td></tr>
@@ -87,15 +87,17 @@ be refined if appropriate.
     <tr><td>P2. AppEngine (<a href="http://bazel.io/docs/be/appengine.html">build and load</a>)</td></tr>
     <tr><td>P2. <a href="http://bazel.io/blog/2015/07/29/dashboard-dogfood.html">Test result dashboard</a></tr></td>
     <tr>
-      <td rowspan="3"><b>0.2</b></td>
-      <td rowspan="3"><b>2015&#8209;12</b></td>
-      <td>P0. Significantly increase test coverage</td>
+      <td rowspan="5"><b>0.2</b></td>
+      <td rowspan="5"><b>2016&#8209;02</b></td>
+      <td>P0. <a href="https://github.com/bazelbuild/bazel/tree/master/src/test/java/com/google/devtools">Significantly increase test coverage</a></td>
     </tr>
-    <tr><td>P0. Support for fetching remote Skylark rules</td></tr>
-    <tr><td>P2. Go language support (build and tests)</td></tr>
+    <tr><td>P0. Support for fetching <a href="http://bazel.io/docs/external.html">remote</a> <a href="http://bazel.io/docs/be/functions.html#load">Skylark rules</a></td></tr>
+    <tr><td>P2. <a href="http://bazel.io/docs/be/go.html">Go language support (build and tests)</a></td></tr>
+    <tr><td>P2. <a href="https://github.com/bazelbuild/bazel/releases/latest">Debian packages for Bazel</a></td></tr>
+    <tr><td>P2. <a href="http://braumeister.org/formula/bazel">OS X homebrew recipe for distributing Bazel</a></td></tr>
     <tr>
       <td rowspan="2"><b>0.3</b></td>
-      <td rowspan="2"><b>2016&#8209;02</b></td>
+      <td rowspan="2"><b>2016&#8209;03</b></td>
       <td>P0. Bazel can bootstrap itself on Windows without requiring admin privileges</td></tr>
     </tr>
     <tr><td>P1. Interface for IDE support</td></tr>
@@ -113,9 +115,9 @@ be refined if appropriate.
     </tr>
     <tr><td>P1. Distributed caching of build artifacts</td></tr>
     <tr>
-      <td rowspan="11"><b><a name="stable"></a>Stable</b></td>
-      <td rowspan="11"><b>1.0</b></td>
-      <td rowspan="11"><b>2016&#8209;12</b></td>
+      <td rowspan="10"><b><a name="stable"></a>Stable</b></td>
+      <td rowspan="10"><b>1.0</b></td>
+      <td rowspan="10"><b>2016&#8209;12</b></td>
       <td>P0. Extension APIs are stable and versioned</td>
     </tr>
     <tr><td>P0. Github repository is primary</td></tr>
@@ -125,8 +127,7 @@ be refined if appropriate.
     <tr><td>P1. Online repository of Skylark rules</td></tr>
     <tr><td>P2. Native protobuf support</td></tr>
     <tr><td>P2. Support testing using Google <a href="https://developers.google.com/cloud-test-lab/">Cloud Test Lab</a></td></tr>
-    <tr><td>P2. Debian packages for Bazel</td></tr>
-    <tr><td>P2. OS X homebrew recipe for distributing Bazel</td></tr>
+    <tr><td>P2. Bazel is available in the Ubuntu and Debian package managers</td></tr>
     <tr><td>P2. Reference ("pull") remote docker images as an input to the build process</td></tr>
   </tbody>
 </table>
