@@ -22,9 +22,9 @@ def gensrcjar_impl(ctx):
 
   ctx.action(
     command=' '.join([
-        "JAR='%s'" % ctx.file._jar.path,
+        "JAR='%s'" % ctx.executable._jar.path,
         "OUTPUT='%s'" % out.path,
-        "PROTO_COMPILER='%s'" % ctx.file._proto_compiler.path,
+        "PROTO_COMPILER='%s'" % ctx.executable._proto_compiler.path,
         "SOURCE='%s'" % ctx.file.src.path,
         ctx.executable._gensrcjar.path,
     ]),
@@ -51,11 +51,13 @@ gensrcjar = rule(
         "_proto_compiler": attr.label(
             default = Label("@bazel_tools//third_party:protoc"),
             allow_files = True,
+            executable = True,
             single_file = True,
         ),
         "_jar": attr.label(
             default = Label("@bazel_tools//tools/jdk:jar"),
             allow_files = True,
+            executable = True,
             single_file = True,
         ),
     },
