@@ -49,6 +49,18 @@ scala_test(
 scala_library(
     name = "OtherLib",
     srcs = ["OtherLib.scala"],
+    exports = ["Exported"],  # test of exported target
+)
+
+scala_library(
+    name = "Exported",
+    srcs = ["Exported.scala"],
+    runtime_deps = ["Runtime"],
+)
+
+scala_library(
+    name = "Runtime",
+    srcs = ["Runtime.scala"],
 )
 
 java_library(
