@@ -47,6 +47,11 @@ import java.util.List;
 public class NamespaceSandboxRunner {
   private static final String NAMESPACE_SANDBOX =
       "namespace-sandbox" + OsUtils.executableExtension();
+  private static final String SANDBOX_TIP =
+      "\n\nSandboxed execution failed, which may be legitimate (e.g. a compiler error), "
+          + "or due to missing dependencies. To enter the sandbox environment for easier debugging,"
+          + " run the following command in brackets. On command failure, "
+          + "a bash shell running inside the sandbox will then automatically be spawned\n\n";
   private final Path execRoot;
   private final Path sandboxPath;
   private final Path sandboxExecRoot;
@@ -198,8 +203,9 @@ public class NamespaceSandboxRunner {
       }
       String message =
           CommandFailureUtils.describeCommandFailure(
-              verboseFailures, spawnArguments, env, cwd.getPath());
-      throw new UserExecException(message, e, timedOut);
+              verboseFailures, commandLineArgs, env, cwd.getPath());
+      String finalMsg = (sandboxDebug && verboseFailures) ? SANDBOX_TIP + message : message;
+      throw new UserExecException(finalMsg, e, timedOut);
     } finally {
       copyOutputs(outputs);
     }
@@ -230,7 +236,7 @@ public class NamespaceSandboxRunner {
     if (sandboxPath.exists()) {
       FileSystemUtils.deleteTree(sandboxPath);
     }
-    if (argumentsFilePath.exists()) {
+    if (!sandboxDebug && argumentsFilePath.exists()) {
       argumentsFilePath.delete();
     }
   }
