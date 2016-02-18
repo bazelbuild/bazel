@@ -94,7 +94,7 @@ public final class SkylarkDict<K, V>
   }
 
   /**
-   * The underlying contents is a (usually) mutable data structure.
+   * @return The underlying contents is a (usually) mutable data structure.
    * Read access is forwarded to these contents.
    * This object must not be modified outside an {@link Environment}
    * with a correct matching {@link Mutability},
@@ -106,16 +106,64 @@ public final class SkylarkDict<K, V>
     return contents;
   }
 
+  /**
+   * Put an entry into a SkylarkDict.
+   * @param k the key
+   * @param v the associated value
+   * @param loc a {@link Location} in case of error
+   * @param env an {@link Environment}, to check Mutability
+   * @throws EvalException if the key is invalid
+   */
   public void put(K k, V v, Location loc, Environment env) throws EvalException {
     checkMutable(loc, env);
     EvalUtils.checkValidDictKey(k);
     contents.put(k, v);
   }
 
-  public void putAll(Map<? extends K, ? extends V> m, Location loc, Environment env)
+  /**
+   * Put all the entries from a given dict into the SkylarkDict.
+   * @param m the map to copy
+   * @param loc a {@link Location} in case of error
+   * @param env an {@link Environment}, to check Mutability
+   * @throws EvalException if some key is invalid
+   */
+  public <KK extends K, VV extends V> void putAll(Map<KK, VV> m, Location loc, Environment env)
       throws EvalException {
     checkMutable(loc, env);
-    putAllUnsafe(m);
+    for (Map.Entry<KK, VV> e : m.entrySet()) {
+      KK k = e.getKey();
+      EvalUtils.checkValidDictKey(k);
+      contents.put(k, e.getValue());
+    }
+  }
+
+  /** @return the first key in the dict */
+  K firstKey() {
+    return contents.firstKey();
+  }
+
+  /**
+   * Delete the entry associated to a key.
+   * @param key the key to delete
+   * @param loc a {@link Location} in case of error
+   * @param env an {@link Environment}, to check Mutability
+   * @return the value associated to the key, or {@code null} if not present
+   * @throws EvalException if the dict is frozen.
+   */
+  V remove(Object key, Location loc, Environment env) throws EvalException {
+    checkMutable(loc, env);
+    return contents.remove(key);
+  }
+
+  /**
+   * Clear the dict.
+   * @param loc a {@link Location} in case of error
+   * @param env an {@link Environment}, to check Mutability
+   * @throws EvalException if the dict is frozen.
+   */
+  void clear(Location loc, Environment env) throws EvalException {
+    checkMutable(loc, env);
+    contents.clear();
   }
 
   // Other methods

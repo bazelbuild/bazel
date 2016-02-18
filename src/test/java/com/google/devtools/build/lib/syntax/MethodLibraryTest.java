@@ -444,7 +444,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testDir() throws Exception {
     new SkylarkTest().testStatement(
-        "str(dir({}))", "[\"$index\", \"get\", \"items\", \"keys\", \"values\"]");
+        "str(dir({}))",
+        "[\"$index\", \"clear\", \"get\", \"items\", \"keys\","
+        + " \"pop\", \"popitem\", \"setdefault\", \"values\"]");
   }
 
   @Test
@@ -1315,6 +1317,60 @@ public class MethodLibraryTest extends EvaluationTestCase {
         .testEval("{}.items()", "[]")
         .testEval("{1: 3, 2: 5}.items()", "[(1, 3), (2, 5)]")
         .testEval("{'a': 5, 'c': 2, 'b': 4}.items()", "[('a', 5), ('b', 4), ('c', 2)]");
+  }
+
+  @Test
+  public void testDictionaryClear() throws Exception {
+    new SkylarkTest()
+        .testEval(
+            "d = {1: 'foo', 2: 'bar', 3: 'baz'}\n"
+            + "if len(d) != 3: fail('clear 1')\n"
+            + "if d.clear() != None: fail('clear 2')\n"
+            + "d",
+            "{}");
+  }
+
+  @Test
+  public void testDictionaryPop() throws Exception {
+    new SkylarkTest()
+        .testIfErrorContains(
+            "KeyError: 1",
+            "d = {1: 'foo', 2: 'bar', 3: 'baz'}\n"
+            + "if len(d) != 3: fail('pop 1')\n"
+            + "if d.pop(2) != 'bar': fail('pop 2')\n"
+            + "if d.pop(3, 'quux') != 'baz': fail('pop 3a')\n"
+            + "if d.pop(3, 'quux') != 'quux': fail('pop 3b')\n"
+            + "if d.pop(1) != 'foo': fail('pop 1')\n"
+            + "if d != {}: fail('pop 0')\n"
+            + "d.pop(1)");
+  }
+
+  @Test
+  public void testDictionaryPopItem() throws Exception {
+    new SkylarkTest()
+        .testIfErrorContains(
+            "popitem(): dictionary is empty",
+            "d = {2: 'bar', 3: 'baz', 1: 'foo'}\n"
+            + "if len(d) != 3: fail('popitem 0')\n"
+            + "if d.popitem() != (1, 'foo'): fail('popitem 1')\n"
+            + "if d.popitem() != (2, 'bar'): fail('popitem 2')\n"
+            + "if d.popitem() != (3, 'baz'): fail('popitem 3')\n"
+            + "if d != {}: fail('popitem 4')\n"
+            + "d.popitem()");
+  }
+
+  @Test
+  public void testDictionarySetDefault() throws Exception {
+    new SkylarkTest()
+        .testEval(
+            "d = {2: 'bar', 1: 'foo'}\n"
+            + "if len(d) != 2: fail('setdefault 0')\n"
+            + "if d.setdefault(1, 'a') != 'foo': fail('setdefault 1')\n"
+            + "if d.setdefault(2) != 'bar': fail('setdefault 2')\n"
+            + "if d.setdefault(3) != None: fail('setdefault 3')\n"
+            + "if d.setdefault(4, 'b') != 'b': fail('setdefault 4')\n"
+            + "d",
+            "{1: 'foo', 2: 'bar', 3: None, 4: 'b'}");
   }
 
   @Test

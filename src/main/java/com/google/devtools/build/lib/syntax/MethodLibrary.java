@@ -1342,7 +1342,8 @@ public class MethodLibrary {
     returnType = Object.class,
     doc =
         "Removes the item at the given position in the list, and returns it. "
-            + "If no index is specified, it removes and returns the last item in the list.",
+            + "If no <code>index</code> is specified, "
+            + "it removes and returns the last item in the list.",
     mandatoryPositionals = {
       @Param(name = "self", type = MutableList.class, doc = "This list."),
     },
@@ -1370,11 +1371,138 @@ public class MethodLibrary {
         }
       };
 
+  @SkylarkSignature(
+    name = "pop",
+    objectType = SkylarkDict.class,
+    returnType = Object.class,
+    doc =
+        "Removes a <code>key</code> from the dict, and returns the associated value. "
+            + "If entry with that key was found, return the specified <code>default</code> value;"
+            + "if no default value was specified, fail instead.",
+    mandatoryPositionals = {
+      @Param(name = "self", type = SkylarkDict.class, doc = "This dict."),
+      @Param(name = "key", type = Object.class, doc = "The key."),
+    },
+    optionalPositionals = {
+      @Param(name = "default", type = Object.class, defaultValue = "unbound",
+          doc = "a default value if the key is absent."),
+    },
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static BuiltinFunction dictPop =
+      new BuiltinFunction("pop") {
+        public Object invoke(SkylarkDict<Object, Object> self, Object key, Object defaultValue,
+            Location loc, Environment env)
+            throws EvalException {
+          Object value = self.get(key);
+          if (value != null) {
+            self.remove(key, loc, env);
+            return value;
+          }
+          if (defaultValue != Runtime.UNBOUND) {
+            return defaultValue;
+          }
+          throw new EvalException(loc, Printer.format("KeyError: %r", key));
+        }
+      };
+
+  @SkylarkSignature(
+    name = "popitem",
+    objectType = SkylarkDict.class,
+    returnType = Tuple.class,
+    doc =
+        "Remove and return an arbitrary <code>(key, value)</code> pair from the dictionary. "
+            + "<code>popitem()</code> is useful to destructively iterate over a dictionary, "
+            + "as often used in set algorithms. "
+            + "If the dictionary is empty, calling <code>popitem()</code> fails. "
+            + "Note that in Skylark, as opposed to Python, "
+            + "the dictionary keys are actually sorted, "
+            + "and it is deterministic which pair will returned: that with the first key, "
+            + "according to the builtin total order. "
+            + "Thus if keys are numbers, the smallest key is returned first; "
+            + "if they are lists or strings, they are compared lexicographically, etc.",
+    mandatoryPositionals = {
+      @Param(name = "self", type = SkylarkDict.class, doc = "This dict.")
+    },
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static BuiltinFunction dictPopItem =
+      new BuiltinFunction("popitem") {
+        public Tuple<Object> invoke(SkylarkDict<Object, Object> self,
+            Location loc, Environment env)
+            throws EvalException {
+          if (self.isEmpty()) {
+            throw new EvalException(loc, "popitem(): dictionary is empty");
+          }
+          Object key = self.firstKey();
+          Object value = self.get(key);
+          self.remove(key, loc, env);
+          return Tuple.<Object>of(key, value);
+        }
+      };
+
+  @SkylarkSignature(
+    name = "clear",
+    objectType = SkylarkDict.class,
+    returnType = Runtime.NoneType.class,
+    doc = "Remove all items from the dictionary.",
+    mandatoryPositionals = {
+      @Param(name = "self", type = SkylarkDict.class, doc = "This dict.")
+    },
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static BuiltinFunction dictClear =
+      new BuiltinFunction("clear") {
+        public Runtime.NoneType invoke(SkylarkDict<Object, Object> self,
+            Location loc, Environment env)
+            throws EvalException {
+          self.clear(loc, env);
+          return Runtime.NONE;
+        }
+      };
+
+  @SkylarkSignature(
+    name = "setdefault",
+    objectType = SkylarkDict.class,
+    returnType = Object.class,
+    doc =
+        "If <code>key</code> is in the dictionary, return its value. "
+            + "If not, insert key with a value of <code>default</code> "
+            + "and return <code>default</code>. "
+            + "<code>default</code> defaults to <code>None</code>.",
+    mandatoryPositionals = {
+      @Param(name = "self", type = SkylarkDict.class, doc = "This dict."),
+      @Param(name = "key", type = Object.class, doc = "The key."),
+    },
+    optionalPositionals = {
+      @Param(name = "default", type = Object.class, defaultValue = "None",
+          doc = "a default value if the key is absent."),
+    },
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static BuiltinFunction dictSetDefault =
+      new BuiltinFunction("setdefault") {
+        public Object invoke(SkylarkDict<Object, Object> self, Object key, Object defaultValue,
+            Location loc, Environment env)
+            throws EvalException {
+          Object value = self.get(key);
+          if (value != null) {
+            return value;
+          }
+          self.put(key, defaultValue, loc, env);
+          return defaultValue;
+        }
+      };
+
   // dictionary access operator
   @SkylarkSignature(name = "$index", documented = false, objectType = SkylarkDict.class,
       doc = "Looks up a value in a dictionary.",
       mandatoryPositionals = {
-        @Param(name = "self", type = SkylarkDict.class, doc = "This object."),
+        @Param(name = "self", type = SkylarkDict.class, doc = "This dict."),
         @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
       useLocation = true, useEnvironment = true)
   private static BuiltinFunction dictIndexOperator = new BuiltinFunction("$index") {
