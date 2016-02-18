@@ -71,9 +71,8 @@ def _impl(ctx):
     srcs += dep.transitive_js_srcs
 
   args = [
-      "--closure_entry_point=%s" % ctx.attr.main,
+      "--entry_point=goog:%s" % ctx.attr.main,
       "--js_output_file=%s" % ctx.outputs.out.path,
-      "--language_in=ECMASCRIPT5_STRICT",
       "--dependency_mode=LOOSE",
       "--warning_level=VERBOSE",
   ] + (["--js=%s" % src.path for src in srcs] +
