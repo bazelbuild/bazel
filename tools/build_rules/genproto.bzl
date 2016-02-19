@@ -19,23 +19,22 @@ proto_filetype = FileType([".proto"])
 
 def gensrcjar_impl(ctx):
   out = ctx.outputs.srcjar
-  proto_output = out.path + ".proto_output"
-  proto_compiler = ctx.file._proto_compiler
-  sub_commands = [
-    "rm -rf " + proto_output,
-    "mkdir " + proto_output,
-    ' '.join([proto_compiler.path, "--java_out=" + proto_output,
-              ctx.file.src.path]),
-    "touch -t 198001010000 $(find " + proto_output + ")",
-    ctx.file._jar.path + " cMf " + out.path + " -C " + proto_output + " .",
-  ]
 
   ctx.action(
-    command=" && ".join(sub_commands),
-    inputs=[ctx.file.src, proto_compiler, ctx.file._jar] + ctx.files._jdk,
+    command=' '.join([
+        "JAR='%s'" % ctx.executable._jar.path,
+        "OUTPUT='%s'" % out.path,
+        "PROTO_COMPILER='%s'" % ctx.executable._proto_compiler.path,
+        "SOURCE='%s'" % ctx.file.src.path,
+        ctx.executable._gensrcjar.path,
+    ]),
+    inputs=([ctx.file.src] + ctx.files._gensrcjar + ctx.files._jar +
+            ctx.files._jdk + ctx.files._proto_compiler),
     outputs=[out],
     mnemonic="GenProtoSrcJar",
-    use_default_shell_env = True)
+    use_default_shell_env=True)
+
+  return struct(runfiles=ctx.runfiles(collect_default=True))
 
 gensrcjar = rule(
     gensrcjar_impl,
@@ -44,23 +43,26 @@ gensrcjar = rule(
             allow_files = proto_filetype,
             single_file = True,
         ),
+        "_gensrcjar": attr.label(
+            default = Label("@bazel_tools//tools/build_rules:gensrcjar"),
+            executable = True,
+        ),
         # TODO(bazel-team): this should be a hidden attribute with a default
         # value, but Skylark needs to support select first.
         "_proto_compiler": attr.label(
             default = Label("@bazel_tools//third_party:protoc"),
-            allow_files = True,
             executable = True,
-            single_file = True,
         ),
         "_jar": attr.label(
             default = Label("@bazel_tools//tools/jdk:jar"),
-            allow_files = True,
             executable = True,
-            single_file = True,
         ),
+        # The jdk dependency is required to ensure dependent libraries are found
+        # when we invoke jar (see issue #938).
+        # TODO(bazel-team): Figure out why we need to pull this in explicitly;
+        # the jar dependency above should just do the right thing on its own.
         "_jdk": attr.label(
             default = Label("@bazel_tools//tools/jdk:jdk"),
-            allow_files = True,
         ),
     },
     outputs = {"srcjar": "lib%{name}.srcjar"},
