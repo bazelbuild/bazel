@@ -24,11 +24,11 @@ To build Bazel:
 *    Clone bazel git repository as normal.
 *    Set the environment variables:
 
-```
+```bash
 export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
 export TMPDIR=c:/temp
 export BAZEL_SH=c:/msys64/usr/bin/bash.exe
 ```
 
 *     Run ``compile.sh`` in Bazel directory.
-*     If all works fine, bazel will be build at ``output\bazel.exe``.
+*     If all works fine, bazel will be built at ``output\bazel.exe``.
