@@ -60,4 +60,8 @@ void ExecuteProgram(const string &exe, const vector<string> &args_vector) {
 std::string ConvertPath(const std::string &path) { return path; }
 
 std::string ListSeparator() { return ":"; }
+
+bool SymlinkDirectories(const string &target, const string &link) {
+  return symlink(target.c_str(), link.c_str()) == 0;
+}
 }   // namespace blaze.
