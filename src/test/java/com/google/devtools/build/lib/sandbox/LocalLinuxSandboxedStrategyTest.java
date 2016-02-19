@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.testutil.TestSpec;
-import com.google.devtools.build.lib.util.CommandFailureUtils;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -80,13 +79,6 @@ public class LocalLinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestC
       fail();
     } catch (UserExecException e) {
       assertThat(err()).isEqualTo("ERROR\n");
-      assertThat(e.getMessage())
-          .startsWith(
-              CommandFailureUtils.describeCommandFailure(
-                  true,
-                  spawn.getArguments(),
-                  spawn.getEnvironment(),
-                  blazeDirs.getExecRoot().toString()));
       assertThat(e.getCause()).isInstanceOf(BadExitStatusException.class);
     }
   }
