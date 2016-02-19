@@ -757,6 +757,8 @@ public class ObjcRuleClasses {
    * Common attributes for {@code objc_*} rules that create a bundle.
    */
   public static class BundlingRule implements RuleDefinition {
+    static final String INFOPLIST_ATTR = "infoplist";
+
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
@@ -772,7 +774,7 @@ public class ObjcRuleClasses {
              <li><code>${PRODUCT_NAME}</code>: This target's name.
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("infoplist", LABEL).allowedFileTypes(PLIST_TYPE))
+          .add(attr(INFOPLIST_ATTR, LABEL).allowedFileTypes(PLIST_TYPE))
           /* <!-- #BLAZE_RULE($objc_bundling_rule).ATTRIBUTE(infoplists) -->
            Infoplist files to be merged. The merged output corresponds to <i>appname</i>-Info.plist
            in Xcode projects.  Duplicate keys between infoplist files will cause an error if
@@ -972,13 +974,16 @@ public class ObjcRuleClasses {
    * Common attributes for {@code objc_*} rules that use the iOS simulator.
    */
   public static class SimulatorRule implements RuleDefinition {
+    static final String IOSSIM_ATTR = "$iossim";
+    static final String STD_REDIRECT_DYLIB_ATTR = "$std_redirect_dylib";
+
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           // Needed to run the binary in the simulator.
-          .add(attr("$iossim", LABEL).cfg(HOST).exec()
+          .add(attr(IOSSIM_ATTR, LABEL).cfg(HOST).exec()
               .value(env.getToolsLabel("//third_party/iossim:iossim")))
-          .add(attr("$std_redirect_dylib", LABEL).cfg(HOST).exec()
+          .add(attr(STD_REDIRECT_DYLIB_ATTR, LABEL).cfg(HOST).exec()
               .value(env.getToolsLabel("//tools/objc:StdRedirect.dylib")))
           .build();
     }

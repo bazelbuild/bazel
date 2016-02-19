@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SimulatorRule;
+
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -104,7 +106,7 @@ public class TestSupport {
     Artifact template;
     if (!runWithLabDevice()) {
       substitutions.addAll(substitutionsForSimulator());
-      template = ruleContext.getPrerequisiteArtifact("$test_template", Mode.TARGET);
+      template = ruleContext.getPrerequisiteArtifact(IosTest.TEST_TEMPLATE_ATTR, Mode.TARGET);
     } else {
       substitutions.addAll(substitutionsForLabDevice());
       template = testTemplateForLabDevice();
@@ -138,7 +140,7 @@ public class TestSupport {
 
   private IosTestSubstitutionProvider deviceSubstitutions() {
     return ruleContext.getPrerequisite(
-        "target_device", Mode.TARGET, IosTestSubstitutionProvider.class);
+        IosTest.TARGET_DEVICE, Mode.TARGET, IosTestSubstitutionProvider.class);
   }
 
   /*
@@ -154,7 +156,7 @@ public class TestSupport {
    */
   private Optional<Artifact> testHarnessIpa() {
     FileProvider fileProvider =
-        ruleContext.getPrerequisite("xctest_app", Mode.TARGET, FileProvider.class);
+        ruleContext.getPrerequisite(IosTest.XCTEST_APP_ATTR, Mode.TARGET, FileProvider.class);
     if (fileProvider == null) {
       return Optional.absent();
     }
@@ -170,18 +172,19 @@ public class TestSupport {
   }
 
   private Artifact iossim() {
-    return ruleContext.getPrerequisiteArtifact("$iossim", Mode.HOST);
+    return ruleContext.getPrerequisiteArtifact(SimulatorRule.IOSSIM_ATTR, Mode.HOST);
   }
 
   private Artifact stdRedirectDylib() {
-    return ruleContext.getPrerequisiteArtifact("$std_redirect_dylib", Mode.HOST);
+    return ruleContext.getPrerequisiteArtifact(SimulatorRule.STD_REDIRECT_DYLIB_ATTR, Mode.HOST);
   }
 
   /**
    * Gets the binary of the testrunner attribute, if there is one.
    */
   private Optional<Artifact> testRunner() {
-    return Optional.fromNullable(ruleContext.getPrerequisiteArtifact("$test_runner", Mode.TARGET));
+    return Optional.fromNullable(
+        ruleContext.getPrerequisiteArtifact(IosTest.TEST_RUNNER_ATTR, Mode.TARGET));
   }
 
   /**
@@ -198,18 +201,19 @@ public class TestSupport {
    */
   private Artifact testTemplateForLabDevice() {
     return ruleContext
-        .getPrerequisite("ios_test_target_device", Mode.TARGET, LabDeviceTemplateProvider.class)
+        .getPrerequisite(
+            IosTest.TEST_TARGET_DEVICE_ATTR, Mode.TARGET, LabDeviceTemplateProvider.class)
         .getLabDeviceTemplate();
   }
 
   @Nullable
   private IosTestSubstitutionProvider iosLabDeviceSubstitutions() {
     return ruleContext.getPrerequisite(
-        "ios_test_target_device", Mode.TARGET, IosTestSubstitutionProvider.class);
+        IosTest.TEST_TARGET_DEVICE_ATTR, Mode.TARGET, IosTestSubstitutionProvider.class);
   }
 
   private List<String> iosDeviceArgs() {
-    return ruleContext.attributes().get("ios_device_arg", Type.STRING_LIST);
+    return ruleContext.attributes().get(IosTest.DEVICE_ARG_ATTR, Type.STRING_LIST);
   }
 
   /**
@@ -248,7 +252,7 @@ public class TestSupport {
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       envBuilder.put("COVERAGE_GCOV_PATH",
-          ruleContext.getHostPrerequisiteArtifact(":gcov").getExecPathString());
+          ruleContext.getHostPrerequisiteArtifact(IosTest.GCOV_ATTR).getExecPathString());
     }
 
     return ImmutableMap.<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>of(
@@ -261,10 +265,10 @@ public class TestSupport {
   private NestedSet<Artifact> plugins() {
     NestedSetBuilder<Artifact> pluginArtifacts = NestedSetBuilder.stableOrder();
     pluginArtifacts.addTransitive(
-        PrerequisiteArtifacts.nestedSet(ruleContext, "plugins", Mode.TARGET));
+        PrerequisiteArtifacts.nestedSet(ruleContext, IosTest.PLUGINS_ATTR, Mode.TARGET));
     if (ruleContext.getFragment(ObjcConfiguration.class).runMemleaks()) {
       pluginArtifacts.addTransitive(
-          PrerequisiteArtifacts.nestedSet(ruleContext, IosTest.MEMLEAKS_PLUGIN, Mode.TARGET));
+          PrerequisiteArtifacts.nestedSet(ruleContext, IosTest.MEMLEAKS_PLUGIN_ATTR, Mode.TARGET));
     }
     return pluginArtifacts.build();
   }
@@ -273,7 +277,7 @@ public class TestSupport {
    * Runfiles required in order to use the specified target device.
    */
   private NestedSet<Artifact> deviceRunfiles() {
-    return ruleContext.getPrerequisite("target_device", Mode.TARGET, RunfilesProvider.class)
+    return ruleContext.getPrerequisite(IosTest.TARGET_DEVICE, Mode.TARGET, RunfilesProvider.class)
         .getDefaultRunfiles().getAllArtifacts();
   }
 
@@ -282,7 +286,7 @@ public class TestSupport {
    */
   private NestedSet<Artifact> labDeviceRunfiles() {
     return ruleContext
-        .getPrerequisite("ios_test_target_device", Mode.TARGET, RunfilesProvider.class)
+        .getPrerequisite(IosTest.TEST_TARGET_DEVICE_ATTR, Mode.TARGET, RunfilesProvider.class)
         .getDefaultRunfiles().getAllArtifacts();
   }
 
