@@ -66,9 +66,9 @@ J2ObjC site</a>
 <p>Custom J2ObjC transpilation flags can be specified using the build flag
 <code>--j2objc_translation_flags</code> in the command line.
 </p>
-<p>Please note that currently the translated files included in a j2objc_library target will be
-compiled using the same compilation configuration as the top level objc_binary target that depends
-on the j2objc_library target.
+<p>Please note that the translated files included in a j2objc_library target will be
+compiled using the default compilation configuration, same configuration as for the sources of an
+objc_library rule with no compilation options specified in attributes.
 </p>
 <p>Plus, generated code is de-duplicated at target level, not source level. If you have two
 different Java targets that include the same Java source files, you may see a duplicate symbol error
