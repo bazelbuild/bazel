@@ -119,7 +119,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     builder.setGensrcOutputJar(gensrcOutputJar);
     builder.setOutputDepsProto(outputDepsProto);
     builder.setMetadata(outputMetadata);
-    builder.setInstrumentationJars(getInstrumentationJars(semantics));
+    builder.setInstrumentationJars(getInstrumentationJars());
     builder.addSourceFiles(attributes.getSourceFiles());
     builder.addSourceJars(attributes.getSourceJars());
     builder.setJavacOpts(customJavacOpts);

@@ -19,14 +19,17 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -125,8 +128,15 @@ public class BaseJavaCompilationHelper {
   /**
    * Returns the instrumentation jar in the given semantics.
    */
-  protected final Iterable<Artifact> getInstrumentationJars(JavaSemantics semantics) {
-    return semantics.getInstrumentationJars(ruleContext);
+  protected Iterable<Artifact> getInstrumentationJars() {
+    TransitiveInfoCollection instrumentationTarget = ruleContext.getPrerequisite(
+        "$jacoco_instrumentation", Mode.HOST);
+    if (instrumentationTarget == null) {
+      return ImmutableList.<Artifact>of();
+    }
+    return FileType.filter(
+        instrumentationTarget.getProvider(FileProvider.class).getFilesToBuild(),
+        JavaSemantics.JAR);
   }
 
   /**

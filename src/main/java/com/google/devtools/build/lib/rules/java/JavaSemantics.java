@@ -241,11 +241,6 @@ public interface JavaSemantics {
   Artifact createInstrumentationMetadataArtifact(RuleContext ruleContext, Artifact outputJar);
 
   /**
-   * Returns the instrumentation libraries (jars) for the given context.
-   */
-  Iterable<Artifact> getInstrumentationJars(RuleContext context);
-
-  /**
    * May add extra command line options to the Java compile command line.
    */
   void buildJavaCommandLine(Collection<Artifact> outputs, BuildConfiguration configuration,
