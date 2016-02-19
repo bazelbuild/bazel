@@ -21,6 +21,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.Action.MiddlemanType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -796,6 +797,15 @@ public class Artifact
   public static List<PathFragment> asPathFragments(Iterable<? extends ArtifactFile> artifacts) {
     return ImmutableList.copyOf(Iterables.transform(artifacts, EXEC_PATH_FORMATTER));
   }
+
+  /**
+   * Returns the exec paths of the input artifacts in alphabetical order.
+   */
+  public static ImmutableList<PathFragment> asSortedPathFragments(Iterable<Artifact> input) {
+    return Ordering.natural().immutableSortedCopy(Iterables.transform(
+        input, EXEC_PATH_FORMATTER));
+  }
+
 
   static final ArtifactOwner DESERIALIZED_MARKER_OWNER = new ArtifactOwner() {
     @Override

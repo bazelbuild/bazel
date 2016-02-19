@@ -22,8 +22,8 @@ import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 
 import java.io.IOException;
@@ -129,12 +129,10 @@ public class TestAction extends AbstractAction {
 
   @Override
   protected String computeKey() {
-    List<String> outputsList = new ArrayList<>();
-    for (Artifact output : getOutputs()) {
-      outputsList.add(output.getPath().getPathString());
-    }
-    // This could use a functional iterable and avoid creating a list
-    return "test " + StringUtilities.combineKeys(outputsList);
+    Fingerprint f = new Fingerprint();
+    f.addPaths(Artifact.asSortedPathFragments(getOutputs()));
+    f.addPaths(Artifact.asSortedPathFragments(getMandatoryInputs()));
+    return f.hexDigestAndReset();
   }
 
   @Override
