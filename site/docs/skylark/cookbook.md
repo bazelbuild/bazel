@@ -52,7 +52,7 @@ load("/pkg/empty", "empty")
 
 def macro(name, visibility=None):
   # Creating the Skylark rule.
-  empty(name = name, visibility=visibility)
+  empty(name = name, visibility = visibility)
 ```
 
 `BUILD`:
@@ -63,7 +63,7 @@ load("/pkg/extension", "macro")
 macro(name = "myrule")
 ```
 
-## <a name="conditional-instantiation"></a>Conditional instantiation.
+## <a name="conditional-instantiation"></a>Conditional instantiation
 
 Macros can look at previously instantiated rules. This is done with
 `native.existing_rule`, which returns information on a single rule defined in the same
@@ -111,7 +111,7 @@ system_test_suite("thorough", flavors=["fast", "debug", "opt"], ["basic_test.py"
 ```
 
 
-## <a name="aggregation"></a>Aggregating over the BUILD file.
+## <a name="aggregation"></a>Aggregating over the BUILD file
 
 Macros can collect information from the BUILD file as processed so far.  We call
 this aggregation. The typical example is collecting data from all rules of a
@@ -210,8 +210,8 @@ the user. The output has the same name as the rule, with a `.size` suffix.
 While convenient, Shell commands should be used carefully. Generating the
 command-line can lead to escaping and injection issues. It can also create
 portability problems. It is often better to declare a binary target in a
-BUILD file and execute it. See the example "<a href="#execute-bin">
-executing a binary</a>".
+BUILD file and execute it. See the example
+"<a href="#execute-bin">executing a binary</a>".
 
 `size.bzl`:
 
@@ -343,7 +343,7 @@ sh_binary(
 `merge.sh`:
 
 ```python
-#! /bin/bash
+#!/bin/bash
 
 out=$1
 shift
@@ -410,7 +410,7 @@ execute = rule(
 `a.sh`:
 
 ```bash
-#! /bin/bash
+#!/bin/bash
 
 tr 'a-z' 'A-Z' < $1 > $2
 ```
@@ -573,14 +573,14 @@ Hello World!
 `comments.sh`:
 
 ```
-#! /bin/bash
+#!/bin/bash
 grep -v '^ *#' $1 > $2  # Remove lines with only a Python-style comment
 ```
 
 `spaces.sh`:
 
 ```
-#! /bin/bash
+#!/bin/bash
 tr -d ' ' < $1 > $2  # Remove spaces
 ```
 

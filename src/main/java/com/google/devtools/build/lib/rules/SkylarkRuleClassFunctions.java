@@ -393,12 +393,12 @@ public class SkylarkRuleClassFunctions {
 
 
   @SkylarkSignature(name = "aspect", doc =
-    "Creates a new aspect. The result of this fucntion must be stored in a global value.",
+    "Creates a new aspect. The result of this function must be stored in a global value.",
     returnType = SkylarkAspect.class,
     mandatoryPositionals = {
         @Param(name = "implementation", type = BaseFunction.class,
             doc = "the function implementing this aspect. Must have two parameters: "
-            + "<a href=\"Target.html\">Target</a> (the target to which the aspect is applied) and"
+            + "<a href=\"Target.html\">Target</a> (the target to which the aspect is applied) and "
             + "<a href=\"ctx.html\">ctx</a>. Attributes of the target are available via ctx.rule "
             + " field. The function is called during the analysis phase for each application of "
             + "an aspect to a target."
