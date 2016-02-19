@@ -14,13 +14,17 @@
 
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
+import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
@@ -28,6 +32,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
+import java.io.File;
 import java.io.IOException;
 
 /**
@@ -123,6 +128,52 @@ public class SkylarkRepositoryContext {
               "Could not create symlink from " + from + " to " + to + ": " + e.getMessage(), e),
           Transience.TRANSIENT);
     }
+  }
+
+  @SkylarkCallable(
+    name = "which",
+    doc =
+        "Returns the path of the corresponding program or None "
+            + "if there is no such program in the path"
+  )
+  public Object which(String program) throws EvalException {
+    if (program.contains("/") || program.contains("\\")) {
+       throw new EvalException(Location.BUILTIN,
+           "Program argument of which() may not contains a / or a \\ ('" + program + "' given)");
+    }
+    for (String p : pathEnv) {
+      PathFragment fragment = new PathFragment(p);
+      if (fragment.isAbsolute()) {
+        // We ignore relative path as they don't mean much here (relative to where? the workspace
+        // root?).
+        Path path = outputDirectory.getFileSystem().getPath(fragment).getChild(program);
+        try {
+          if (path.exists() && path.isExecutable()) {
+            return new SkylarkPath(path);
+          }
+        } catch (IOException e) {
+          // IOException when checking executable file means we cannot read the file data so
+          // we cannot executes it, swallow the exception.
+        }
+      }
+    }
+    return Runtime.NONE;
+  }
+
+  // This is non final so that test can overwrite it.
+  private static ImmutableList<String> pathEnv = getPathEnvironment();
+
+  @VisibleForTesting
+  static void setPathEnvironment(String... pathEnv) {
+    SkylarkRepositoryContext.pathEnv = ImmutableList.<String>copyOf(pathEnv);
+  }
+
+  private static ImmutableList<String> getPathEnvironment() {
+    String pathEnv = System.getenv("PATH");
+    if (pathEnv == null) {
+      return ImmutableList.of();
+    }
+    return ImmutableList.copyOf(pathEnv.split(File.pathSeparator));
   }
 
   @Override

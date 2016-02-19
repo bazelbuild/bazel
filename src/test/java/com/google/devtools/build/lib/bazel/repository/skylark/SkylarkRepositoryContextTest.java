@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.syntax.Argument.Passed;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Identifier;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
@@ -95,5 +96,23 @@ public class SkylarkRepositoryContextTest {
 
     assertThat(context.getAttr().getKeys()).contains("foo");
     assertThat(context.getAttr().getValue("foo")).isEqualTo("bar");
+  }
+
+  @Test
+  public void testWhich() throws Exception {
+    setUpContexForRule("test");
+    SkylarkRepositoryContext.setPathEnvironment("/bin", "/path/sbin", ".");
+    scratch.file("/bin/true").setExecutable(true);
+    scratch.file("/path/sbin/true").setExecutable(true);
+    scratch.file("/path/sbin/false").setExecutable(true);
+    scratch.file("/path/bin/undef").setExecutable(true);
+    scratch.file("/path/bin/def").setExecutable(true);
+    scratch.file("/bin/undef");
+
+    assertThat(context.which("anything")).isEqualTo(Runtime.NONE);
+    assertThat(context.which("def")).isEqualTo(Runtime.NONE);
+    assertThat(context.which("undef")).isEqualTo(Runtime.NONE);
+    assertThat(context.which("true").toString()).isEqualTo("/bin/true");
+    assertThat(context.which("false").toString()).isEqualTo("/path/sbin/false");
   }
 }
