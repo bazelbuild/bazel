@@ -11,12 +11,23 @@ d = d + {"c" : 5}           # d == {"a" : 1, "b" : 2, "c" : 5}</pre>Iterating on
 <div class="toc">
   <h2>Methods</h2>
   <ul>
-                <li><a href="#get">get</a></li>
+                <li><a href="#clear">clear</a></li>
+              <li><a href="#get">get</a></li>
               <li><a href="#items">items</a></li>
               <li><a href="#keys">keys</a></li>
+              <li><a href="#pop">pop</a></li>
+              <li><a href="#popitem">popitem</a></li>
+              <li><a href="#setdefault">setdefault</a></li>
               <li><a href="#values">values</a></li>
         </ul>
 </div>
+
+        <h2 id="clear">clear</h2>
+        <p><pre><a class="anchor" href="globals.html#None">None</a> dict.clear()
+</pre></p>
+
+    Remove all items from the dictionary.
+
 
         <h2 id="get">get</h2>
         <p><pre>unknown dict.get(key, default=None)
@@ -71,6 +82,89 @@ d = d + {"c" : 5}           # d == {"a" : 1, "b" : 2, "c" : 5}</pre>Iterating on
     Returns the list of keys. Dictionaries are always sorted by their keys:<pre class="language-python">{2: "a", 4: "b", 1: "c"}.keys() == [1, 2, 4]</pre>
 
 
+
+        <h2 id="pop">pop</h2>
+        <p><pre>unknown dict.pop(key, default=unbound)
+</pre></p>
+
+    Removes a <code>key</code> from the dict, and returns the associated value. If entry with that key was found, return the specified <code>default</code> value;if no default value was specified, fail instead.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="pop.key">
+              <code>key</code>
+            </td>
+            <td>
+                          <p>The key.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="pop.default">
+              <code>default</code>
+            </td>
+            <td>
+                          <p>a default value if the key is absent.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
+
+        <h2 id="popitem">popitem</h2>
+        <p><pre><a class="anchor" href="list.html">tuple</a> dict.popitem()
+</pre></p>
+
+    Remove and return an arbitrary <code>(key, value)</code> pair from the dictionary. <code>popitem()</code> is useful to destructively iterate over a dictionary, as often used in set algorithms. If the dictionary is empty, calling <code>popitem()</code> fails. Note that in Skylark, as opposed to Python, the dictionary keys are actually sorted, and it is deterministic which pair will returned: that with the first key, according to the builtin total order. Thus if keys are numbers, the smallest key is returned first; if they are lists or strings, they are compared lexicographically, etc.
+
+
+        <h2 id="setdefault">setdefault</h2>
+        <p><pre>unknown dict.setdefault(key, default=None)
+</pre></p>
+
+    If <code>key</code> is in the dictionary, return its value. If not, insert key with a value of <code>default</code> and return <code>default</code>. <code>default</code> defaults to <code>None</code>.
+
+          <h3>Parameters</h3>
+      <table class="table table-bordered table-condensed table-params">
+        <colgroup>
+          <col class="col-param">
+          <col class="param-description">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+          </tr>
+        </thead>
+        <tbody>
+                  <tr>
+            <td id="setdefault.key">
+              <code>key</code>
+            </td>
+            <td>
+                          <p>The key.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="setdefault.default">
+              <code>default</code>
+            </td>
+            <td>
+                          <p>a default value if the key is absent.</p>
+            </td>
+          </tr>
+                </tbody>
+      </table>
 
         <h2 id="values">values</h2>
         <p><pre><a class="anchor" href="list.html">list</a> dict.values()
