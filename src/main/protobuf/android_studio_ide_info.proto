@@ -28,7 +28,7 @@ message ArtifactLocation {
   string relative_path = 2;
   bool is_source = 3;
 
-  // set for derived artifacts (isSource = false)
+  // set for derived artifacts (is_source = false)
   string root_execution_path_fragment = 4;
 }
 

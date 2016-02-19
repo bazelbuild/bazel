@@ -68,12 +68,14 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(ruleIdeInfos.size()).isEqualTo(1);
     RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(
         "//com/google/example:simple", ruleIdeInfos);
+    ArtifactLocation location = ruleIdeInfo.getBuildFileArtifactLocation();
+    assertThat(location.getRelativePath()).isEqualTo("com/google/example/BUILD");
+    assertThat(location.getIsSource()).isTrue();
     if (isNativeTest()) {
+      // These will not be implemented in Skylark aspect.
       assertThat(ruleIdeInfo.getBuildFile()).isEqualTo(buildFilePath.toString());
-      ArtifactLocation location = ruleIdeInfo.getBuildFileArtifactLocation();
       assertThat(Paths.get(location.getRootPath(), location.getRelativePath()).toString())
           .isEqualTo(buildFilePath.toString());
-      assertThat(location.getRelativePath()).isEqualTo("com/google/example/BUILD");
     }
     assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.JAVA_LIBRARY);
     assertThat(ruleIdeInfo.getDependenciesCount()).isEqualTo(0);
@@ -918,7 +920,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
             .setRootPath(
                 isNativeTest() ? targetConfig.getGenfilesDirectory().getPath().getPathString() : "")
             .setRootExecutionPathFragment(
-                isNativeTest() ? targetConfig.getGenfilesDirectory().getExecPathString() : "")
+                targetConfig.getGenfilesDirectory().getExecPathString())
             .setRelativePath("com/google/example/gen.java")
             .setIsSource(false)
             .build(),
@@ -1055,7 +1057,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
    * Eventually Skylark aspect will be equivalent to a native one, and this method
    * will be removed.
    */
-  public boolean isNativeTest() {
+  protected boolean isNativeTest() {
     return true;
   }
 

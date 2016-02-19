@@ -52,12 +52,18 @@ def struct_omit_none(**kwargs):
 def artifact_location(file):
   if file == None:
     return None
-  return struct(
-      # todo(dslomov): return correct root_path
-      # root_path = file.root.path,
+  return struct_omit_none(
       relative_path = file.short_path,
       is_source = file.is_source,
+      root_execution_path_fragment = file.root.path if not file.is_source else None
   )
+
+def build_file_artifact_location(build_file_path):
+  return struct(
+      relative_path = build_file_path,
+      is_source = True,
+  )
+
 
 def library_artifact(java_output):
   if java_output == None or java_output.class_jar == None:
@@ -73,12 +79,6 @@ def annotation_processing_jars(annotation_processing):
         jar = artifact_location(annotation_processing.class_jar),
         source_jar = artifact_location(annotation_processing.source_jar),
   )
-
-def add_jar_to_set(s, file):
-  if  file != None and not file.is_source:
-    return s | set([file])
-  else:
-    return s
 
 def java_rule_ide_info(target, ctx):
   if hasattr(ctx.rule.attr, "srcs"):
@@ -137,7 +137,7 @@ def _aspect_impl(target, ctx):
           label = str(target.label),
           kind = kind,
           dependencies = all_deps,
-          # build_file = ???
+          build_file_artifact_location = build_file_artifact_location(ctx.build_file_path),
           java_rule_ide_info = java_rule_ide_info,
           tags = ctx.rule.attr.tags,
       )
@@ -146,7 +146,7 @@ def _aspect_impl(target, ctx):
           label = str(target.label),
           kind = kind,
           dependencies = all_deps,
-          # build_file = ???
+          build_file_artifact_location = build_file_artifact_location(ctx.build_file_path),
       )
   output = ctx.new_file(target.label.name + ".aswb-build.txt")
   ctx.file_action(output, info.to_proto())
