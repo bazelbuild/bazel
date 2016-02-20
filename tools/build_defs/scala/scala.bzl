@@ -142,20 +142,23 @@ def _collect_jars(targets):
       compile_jars += target.files
   return struct(compiletime = compile_jars, runtime = runtime_jars)
 
-def _lib(ctx, use_ijar):
+def _lib(ctx, non_macro_lib):
   jars = _collect_jars(ctx.attr.deps)
   (cjars, rjars) = (jars.compiletime, jars.runtime)
   _write_manifest(ctx)
-  _compile(ctx, cjars, use_ijar)
+  _compile(ctx, cjars, non_macro_lib)
 
   rjars += [ctx.outputs.jar]
   rjars += _collect_jars(ctx.attr.runtime_deps).runtime
 
   ijar = None
-  if use_ijar:
+  if non_macro_lib:
     ijar = ctx.outputs.ijar
   else:
-    # macro code needs to be available at compile-time, so set ijar == jar
+    #  macros need the scala reflect jar
+    cjars += [ctx.file._scalareflect]
+    rjars += [ctx.file._scalareflect]
+    #  macro code needs to be available at compile-time, so set ijar == jar
     ijar = ctx.outputs.jar
 
   texp = _collect_jars(ctx.attr.exports)
@@ -249,7 +252,6 @@ scala_macro_library = rule(
   attrs={
       "main_class": attr.string(),
       "exports": attr.label_list(allow_files=False),
-      "_scala-reflect": attr.label(default=Label("@scala//:lib/scala-reflect.jar"), single_file=True, allow_files=True),
       } + _implicit_deps + _common_attrs,
   outputs={
       "jar": "%{name}_deploy.jar",
