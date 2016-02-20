@@ -50,7 +50,13 @@ scala_test(
 scala_library(
     name = "OtherLib",
     srcs = ["OtherLib.scala"],
-    exports = ["Exported"],  # test of exported target
+    exports = ["ExportOnly"],  # test of exported target
+)
+
+# Test of library without src
+scala_library(
+    name = "ExportOnly",
+    exports = [ "Exported" ],
 )
 
 scala_library(

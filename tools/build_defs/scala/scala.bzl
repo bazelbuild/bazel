@@ -26,6 +26,40 @@ def _adjust_resources_path(path):
     return dir_1 + dir_2, rel_path
   return "", path
 
+def _build_nosrc_jar(ctx, buildijar):
+  res_cmd = ""
+  for f in ctx.files.resources:
+    c_dir, res_path = _adjust_resources_path(f.path)
+    change_dir = "-C " + c_dir if c_dir else ""
+    res_cmd = "\n{jar} uf {out} " + change_dir + " " + res_path
+  ijar_cmd = ""
+  if buildijar:
+    ijar_cmd = "\ncp {out} {ijar_out}".format(
+      out=ctx.outputs.jar.path,
+      ijar_out=ctx.outputs.ijar.path)
+  cmd = """
+set -e
+# Make jar file deterministic by setting the timestamp of files
+touch -t 198001010000 {manifest}
+{jar} cmf {manifest} {out}
+""" + ijar_cmd + res_cmd
+  cmd = cmd.format(
+      out=ctx.outputs.jar.path,
+      manifest=ctx.outputs.manifest.path,
+      jar=ctx.file._jar.path)
+  outs = [ctx.outputs.jar]
+  if buildijar:
+    outs.extend([ctx.outputs.ijar])
+  ctx.action(
+      inputs=
+          ctx.files.resources +
+          ctx.files._jdk +
+          [ctx.outputs.manifest, ctx.file._jar],
+      outputs=outs,
+      command=cmd,
+      progress_message="scala %s" % ctx.label,
+      arguments=[])
+
 def _compile(ctx, jars, buildijar):
   res_cmd = ""
   for f in ctx.files.resources:
@@ -70,6 +104,21 @@ touch -t 198001010000 {manifest}
       command=cmd,
       progress_message="scala %s" % ctx.label,
       arguments=[f.path for f in ctx.files.srcs])
+
+def _compile_or_empty(ctx, jars, buildijar):
+  if len(ctx.files.srcs) == 0:
+    _build_nosrc_jar(ctx, buildijar)
+    #  no need to build ijar when empty
+    return struct(ijar=ctx.outputs.jar, class_jar=ctx.outputs.jar)
+  else:
+    _compile(ctx, jars, buildijar)
+    ijar = None
+    if buildijar:
+      ijar = ctx.outputs.ijar
+    else:
+      #  macro code needs to be available at compile-time, so set ijar == jar
+      ijar = ctx.outputs.jar
+    return struct(ijar=ijar, class_jar=ctx.outputs.jar)
 
 def _write_manifest(ctx):
   # TODO(bazel-team): I don't think this classpath is what you want
@@ -146,23 +195,18 @@ def _lib(ctx, non_macro_lib):
   jars = _collect_jars(ctx.attr.deps)
   (cjars, rjars) = (jars.compiletime, jars.runtime)
   _write_manifest(ctx)
-  _compile(ctx, cjars, non_macro_lib)
+  outputs = _compile_or_empty(ctx, cjars, non_macro_lib)
 
   rjars += [ctx.outputs.jar]
   rjars += _collect_jars(ctx.attr.runtime_deps).runtime
 
-  ijar = None
-  if non_macro_lib:
-    ijar = ctx.outputs.ijar
-  else:
+  if not non_macro_lib:
     #  macros need the scala reflect jar
     cjars += [ctx.file._scalareflect]
     rjars += [ctx.file._scalareflect]
-    #  macro code needs to be available at compile-time, so set ijar == jar
-    ijar = ctx.outputs.jar
 
   texp = _collect_jars(ctx.attr.exports)
-  scalaattr = struct(outputs = struct(ijar=ijar, class_jar=ctx.outputs.jar),
+  scalaattr = struct(outputs = outputs,
                      transitive_runtime_deps = rjars,
                      transitive_compile_exports = texp.compiletime,
                      transitive_runtime_exports = texp.runtime
@@ -183,7 +227,7 @@ def _scala_macro_library_impl(ctx):
 # Common code shared by all scala binary implementations.
 def _scala_binary_common(ctx, cjars, rjars):
   _write_manifest(ctx)
-  _compile(ctx, cjars, False)  # no need to build an ijar for an executable
+  _compile_or_empty(ctx, cjars, False)  # no need to build an ijar for an executable
 
   runfiles = ctx.runfiles(
       files = list(rjars) + [ctx.outputs.executable] + [ctx.file._java] + ctx.files._jdk,
@@ -224,8 +268,7 @@ _implicit_deps = {
 # Common attributes reused across multiple rules.
 _common_attrs = {
   "srcs": attr.label_list(
-      allow_files=_scala_filetype,
-      non_empty=True),
+      allow_files=_scala_filetype),
   "deps": attr.label_list(),
   "runtime_deps": attr.label_list(),
   "data": attr.label_list(allow_files=True, cfg=DATA_CFG),
