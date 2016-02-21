@@ -1037,27 +1037,15 @@ public final class ParallelEvaluator implements Evaluator {
         SkyKey childErrorKey = env.getDepErrorKey();
         NodeEntry childErrorEntry = Preconditions.checkNotNull(graph.get(childErrorKey),
             "skyKey: %s, state: %s childErrorKey: %s", skyKey, state, childErrorKey);
-        if (!state.getTemporaryDirectDeps().contains(childErrorKey)) {
-          // This means the cached error was freshly requested (e.g. the parent has never been
-          // built before).
-          Preconditions.checkState(newDirectDeps.contains(childErrorKey), "%s %s %s", state,
-              childErrorKey, newDirectDeps);
-          state.addTemporaryDirectDeps(GroupedListHelper.create(ImmutableList.of(childErrorKey)));
-          DependencyState childErrorState = childErrorEntry.addReverseDepAndCheckIfDone(skyKey);
-          Preconditions.checkState(childErrorState == DependencyState.DONE,
-              "skyKey: %s, state: %s childErrorKey: %s", skyKey, state, childErrorKey,
-              childErrorEntry);
-        } else {
-          // This means the cached error was previously requested, and was then subsequently (after
-          // a restart) requested along with another sibling dep. This can happen on an incremental
-          // eval call when the parent is dirty and the child error is in a separate dependency
-          // group from the sibling dep.
-          Preconditions.checkState(!newDirectDeps.contains(childErrorKey), "%s %s %s", state,
-              childErrorKey, newDirectDeps);
-          Preconditions.checkState(childErrorEntry.isDone(),
-              "skyKey: %s, state: %s childErrorKey: %s", skyKey, state, childErrorKey,
-              childErrorEntry);
-        }
+        Preconditions.checkState(!state.getTemporaryDirectDeps().contains(childErrorKey),
+                "Done error was already know: %s %s %s %s", skyKey, state, childErrorKey, childErrorEntry);
+        Preconditions.checkState(newDirectDeps.contains(childErrorKey), "%s %s %s", state,
+            childErrorKey, newDirectDeps);
+        state.addTemporaryDirectDeps(GroupedListHelper.create(ImmutableList.of(childErrorKey)));
+        DependencyState childErrorState = childErrorEntry.addReverseDepAndCheckIfDone(skyKey);
+        Preconditions.checkState(childErrorState == DependencyState.DONE,
+            "skyKey: %s, state: %s childErrorKey: %s", skyKey, state, childErrorKey,
+            childErrorEntry);
         ErrorInfo childErrorInfo = Preconditions.checkNotNull(childErrorEntry.getErrorInfo());
         visitor.preventNewEvaluations();
         throw SchedulerException.ofError(childErrorInfo, childErrorKey);
