@@ -65,6 +65,17 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
   private final JavaSemantics semantics;
 
   public JavaCompilationHelper(RuleContext ruleContext, JavaSemantics semantics,
+      ImmutableList<String> javacOpts, JavaTargetAttributes.Builder attributes,
+      String implicitAttributesSuffix) {
+    super(ruleContext, implicitAttributesSuffix);
+    this.attributes = attributes;
+    this.customJavacOpts = javacOpts;
+    this.customJavacJvmOpts =
+        ImmutableList.copyOf(JavaToolchainProvider.getDefaultJavacJvmOptions(ruleContext));
+    this.semantics = semantics;
+  }
+
+  public JavaCompilationHelper(RuleContext ruleContext, JavaSemantics semantics,
       ImmutableList<String> javacOpts, JavaTargetAttributes.Builder attributes) {
     super(ruleContext);
     this.attributes = attributes;
@@ -316,7 +327,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
       .addInput(manifestProto)
       .addInput(classJar)
       .addOutput(genClassJar)
-      .addTransitiveInputs(getHostJavabaseInputs(getRuleContext()))
+      .addTransitiveInputs(getHostJavabaseInputsNonStatic(getRuleContext()))
       .setJarExecutable(
           getRuleContext().getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
           getRuleContext().getPrerequisiteArtifact("$genclass", Mode.HOST),
@@ -404,7 +415,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     JavaCompileAction.Builder builder = new JavaCompileAction.Builder(ruleContext, semantics);
     builder.setJavaExecutable(
         ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable());
-    builder.setJavaBaseInputs(BaseJavaCompilationHelper.getHostJavabaseInputs(ruleContext));
+    builder.setJavaBaseInputs(getHostJavabaseInputsNonStatic(ruleContext));
     return builder;
   }
 
