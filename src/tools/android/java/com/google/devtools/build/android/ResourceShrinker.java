@@ -33,9 +33,8 @@ import static com.android.SdkConstants.TAG_RESOURCES;
 import static com.android.SdkConstants.TAG_STYLE;
 import static com.android.utils.SdkUtils.endsWith;
 import static com.android.utils.SdkUtils.endsWithIgnoreCase;
-import static com.google.common.base.Charsets.UTF_8;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Charsets;
 import com.google.common.base.Joiner;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
@@ -194,19 +193,22 @@ public class ResourceShrinker {
     int resourceCount = unused.size() * 4; // *4: account for some resource folder repetition
     Set<File> skip = Sets.newHashSetWithExpectedSize(resourceCount);
     Set<File> rewrite = Sets.newHashSetWithExpectedSize(resourceCount);
+    Set<Resource> deleted = Sets.newHashSetWithExpectedSize(resourceCount);
     for (Resource resource : unused) {
       if (resource.declarations != null) {
         for (File file : resource.declarations) {
           String folder = file.getParentFile().getName();
           ResourceFolderType folderType = ResourceFolderType.getFolderType(folder);
           if (folderType != null && folderType != ResourceFolderType.VALUES) {
-            logger.info("Deleted unused resource " + file);
+            logger.fine("Deleted unused resource " + file);
             assert skip != null;
             skip.add(file);
+            deleted.add(resource);
           } else {
             // Can't delete values immediately; there can be many resources
             // in this file, so we have to process them all
             rewrite.add(file);
+            deleted.add(resource);
           }
         }
       }
@@ -214,11 +216,30 @@ public class ResourceShrinker {
     // Special case the base values.xml folder
     File values = new File(mergedResourceDir.toFile(),
         FD_RES_VALUES + File.separatorChar + "values.xml");
-    boolean valuesExists = values.exists();
-    if (valuesExists) {
+    if (values.exists()) {
       rewrite.add(values);
     }
+
     Map<File, String> rewritten = Maps.newHashMapWithExpectedSize(rewrite.size());
+    rewriteXml(rewrite, rewritten);
+    // TODO(apell): The graph traversal does not mark IDs as reachable or not, so they cannot be
+    // accurately removed from public.xml, but the declarations may be deleted if they occur in
+    // other files. IDs should be added to values.xml so that there are no definitions in public.xml
+    // without declarations.
+    createStubIds(values, rewritten);
+
+    File publicXml = new File(mergedResourceDir.toFile(),
+        FD_RES_VALUES + File.separatorChar + "public.xml");
+    trimPublicResources(publicXml, deleted, rewritten);
+
+    filteredCopy(mergedResourceDir.toFile(), destination, skip, rewritten);
+  }
+
+  /**
+   * Deletes unused resources from value XML files.
+   */
+  private void rewriteXml(Set<File> rewrite, Map<File, String> rewritten)
+      throws IOException, ParserConfigurationException, SAXException {
     // Delete value resources: Must rewrite the XML files
     for (File file : rewrite) {
       String xml = Files.toString(file, UTF_8);
@@ -227,13 +248,71 @@ public class ResourceShrinker {
       if (root != null && TAG_RESOURCES.equals(root.getTagName())) {
         List<String> removed = Lists.newArrayList();
         stripUnused(root, removed);
-        logger.info("Removed " + removed.size() + " unused resources from " + file + ":\n  "
+        logger.fine("Removed " + removed.size() + " unused resources from " + file + ":\n  "
             + Joiner.on(", ").join(removed));
         String formatted = XmlPrettyPrinter.prettyPrint(document, xml.endsWith("\n"));
         rewritten.put(file, formatted);
       }
     }
-    filteredCopy(mergedResourceDir.toFile(), destination, skip, rewritten);
+  }
+
+  /**
+   * Write stub values for IDs to values.xml to match those available in public.xml. 
+   */
+  private void createStubIds(File values, Map<File, String> rewritten)
+      throws IOException, ParserConfigurationException, SAXException {
+    if (values.exists()) {
+      String xml = rewritten.get(values);
+      if (xml == null) {
+        xml = Files.toString(values, UTF_8);
+      }
+      Document document = XmlUtils.parseDocument(xml, true);
+      Element root = document.getDocumentElement();
+      for (Resource resource : resources) {
+        if (resource.type == ResourceType.ID && !resource.hasDefault) {
+          Element item = document.createElement(TAG_ITEM);
+          item.setAttribute(ATTR_TYPE, resource.type.getName());
+          item.setAttribute(ATTR_NAME, resource.name);
+          root.appendChild(item);
+        }
+      }
+      String formatted = XmlPrettyPrinter.prettyPrint(document, xml.endsWith("\n"));
+      rewritten.put(values, formatted);
+    }
+  }
+
+  /**
+   * Remove public definitions of unused resources. 
+   */
+  private void trimPublicResources(File publicXml, Set<Resource> deleted,
+      Map<File, String> rewritten) throws IOException, ParserConfigurationException, SAXException {
+    if (publicXml.exists()) {
+      String xml = rewritten.get(publicXml);
+      if (xml == null) {
+        xml = Files.toString(publicXml, UTF_8);
+      }
+      Document document = XmlUtils.parseDocument(xml, true);
+      Element root = document.getDocumentElement();
+      if (root != null && TAG_RESOURCES.equals(root.getTagName())) {
+        NodeList children = root.getChildNodes();
+        for (int i = children.getLength() - 1; i >= 0; i--) {
+          Node child = children.item(i);
+          if (child.getNodeType() == Node.ELEMENT_NODE) {
+            Element resourceElement = (Element) child;
+            ResourceType type = ResourceType.getEnum(resourceElement.getAttribute(ATTR_TYPE));
+            String name = resourceElement.getAttribute(ATTR_NAME);
+            if (type != null && name != null) {
+              Resource resource = getResource(type, name);
+              if (resource != null && deleted.contains(resource)) {
+                root.removeChild(child);
+              }
+            }
+          }
+        }
+      }
+      String formatted = XmlPrettyPrinter.prettyPrint(document, xml.endsWith("\n"));
+      rewritten.put(publicXml, formatted);
+    }
   }
 
   /**
@@ -260,7 +339,7 @@ public class ResourceShrinker {
     } else if (!skip.contains(source) && source.isFile()) {
       String contents = replace.get(source);
       if (contents != null) {
-        Files.write(contents, destinationFile, Charsets.UTF_8);
+        Files.write(contents, destinationFile, UTF_8);
       } else {
         Files.copy(source, destinationFile);
       }
@@ -300,38 +379,10 @@ public class ResourceShrinker {
         stripUnused((Element) child, removed);
       }
     }
-    if (resource != null && !resource.reachable) {
+    if (resource != null && !resource.reachable && resource.isRelevantType()) {
       removed.add(resource.getUrl());
-      // for themes etc where .'s have been replaced by _'s
-      String name = element.getAttribute(ATTR_NAME);
-      if (name.isEmpty()) {
-        name = resource.name;
-      }
-      Node nextSibling = element.getNextSibling();
       Node parent = element.getParentNode();
-      NodeList oldChildren = element.getChildNodes();
       parent.removeChild(element);
-      Document document = element.getOwnerDocument();
-      element = document.createElement("item");
-      for (int i = 0; i < oldChildren.getLength(); i++) {
-        element.appendChild(oldChildren.item(i));
-      }
-      element.setAttribute(ATTR_NAME, name);
-      element.setAttribute(ATTR_TYPE, resource.type.getName());
-      String text = null;
-      switch (resource.type) {
-        case BOOL:
-          text = "true";
-          break;
-        case DIMEN:
-          text = "0dp";
-          break;
-        case INTEGER:
-          text = "0";
-          break;
-      }
-      element.setTextContent(text);
-      parent.insertBefore(element, nextSibling);
     }
   }
 
@@ -406,7 +457,7 @@ public class ResourceShrinker {
   private void dumpReferences() {
     for (Resource resource : resources) {
       if (resource.references != null) {
-        logger.info(resource + " => " + resource.references);
+        logger.fine(resource + " => " + resource.references);
       }
     }
   }

@@ -14,6 +14,14 @@ java_binary(
 )
 
 java_binary(
+    name = "ResourceShrinkerAction",
+    main_class = "com.google.devtools.build.android.ResourceShrinkerAction",
+    runtime_deps = [
+        ":classes",
+    ],
+)
+
+java_binary(
     name = "AarGeneratorAction",
     main_class = "com.google.devtools.build.android.AarGeneratorAction",
     runtime_deps = [

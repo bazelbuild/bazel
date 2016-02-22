@@ -36,21 +36,14 @@ import com.android.ide.common.internal.LoggedErrorException;
 import com.android.ide.common.res2.MergingException;
 import com.android.utils.StdLogger;
 
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
-import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
-import java.util.zip.CRC32;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 
 /**
@@ -204,7 +197,7 @@ public class AndroidResourceProcessingAction {
   private static AaptConfigOptions aaptConfigOptions;
   private static Options options;
 
-  public static void main(String[] args) {
+  public static void main(String[] args) throws Exception {
     final Stopwatch timer = Stopwatch.createStarted();
     OptionsParser optionsParser = OptionsParser.newOptionsParser(
         Options.class, AaptConfigOptions.class);
@@ -313,22 +306,24 @@ public class AndroidResourceProcessingAction {
             VariantConfiguration.Type.LIBRARY == options.packageType);
       }
       if (options.resourcesOutput != null) {
-        createResourcesZip(processedManifestData, options.resourcesOutput);
+        resourceProcessor.createResourcesZip(processedManifestData.getResourceDir(),
+            processedManifestData.getAssetDir(), options.resourcesOutput);
       }
       LOGGER.fine(String.format("Packaging finished at %sms",
           timer.elapsed(TimeUnit.MILLISECONDS)));
     } catch (MergingException e) {
       LOGGER.log(java.util.logging.Level.SEVERE, "Error during merging resources", e);
-      System.exit(1);
+      throw e;
     } catch (IOException | InterruptedException | LoggedErrorException e) {
       LOGGER.log(java.util.logging.Level.SEVERE, "Error during processing resources", e);
-      System.exit(2);
+      throw e;
     } catch (Exception e) {
       LOGGER.log(java.util.logging.Level.SEVERE, "Unexpected", e);
-      System.exit(3);
+      throw e;
+    } finally {
+      resourceProcessor.shutdown();
     }
     LOGGER.fine(String.format("Resources processed in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
-    resourceProcessor.shutdown();
   }
 
   private static boolean useAaptCruncher() {
@@ -338,49 +333,5 @@ public class AndroidResourceProcessingAction {
     }
     // By default png cruncher shouldn't be invoked on a library -- the work is just thrown away.
     return options.packageType != VariantConfiguration.Type.LIBRARY;
-  }
-
-  private static void createResourcesZip(MergedAndroidData data, Path output) throws IOException {
-    try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(output.toFile()))) {
-      Path resourcesRoot = data.getResourceDir();
-      Path assetsRoot = data.getAssetDir();
-      Files.walkFileTree(resourcesRoot, new ZipBuilderVisitor(zout, resourcesRoot, "res"));
-      if (Files.exists(assetsRoot)) {
-        Files.walkFileTree(assetsRoot, new ZipBuilderVisitor(zout, assetsRoot, "assets"));
-      }
-    }
-  }
-
-  private static final class ZipBuilderVisitor extends SimpleFileVisitor<Path> {
-    // The earliest date representable in a zip file, 1-1-1980.
-    private static final long ZIP_EPOCH = 315561600000L;
-    private final ZipOutputStream zip;
-    private final Path root;
-    private final String directory;
-
-    private ZipBuilderVisitor(ZipOutputStream zip, Path root, String directory) {
-      this.zip = zip;
-      this.root = root;
-      this.directory = directory;
-    }
-
-    @Override
-    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-      byte[] content = Files.readAllBytes(file);
-
-      CRC32 crc32 = new CRC32();
-      crc32.update(content);
-
-      ZipEntry entry = new ZipEntry(directory + "/" + root.relativize(file));
-      entry.setMethod(ZipEntry.STORED);
-      entry.setTime(ZIP_EPOCH);
-      entry.setSize(content.length);
-      entry.setCrc(crc32.getValue());
-
-      zip.putNextEntry(entry);
-      zip.write(content);
-      zip.closeEntry();
-      return FileVisitResult.CONTINUE;
-    }
   }
 }
