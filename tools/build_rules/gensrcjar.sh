@@ -18,7 +18,10 @@
 # We use environment variables instead of positional arguments or flags for
 # clarity in the caller .bzl file and for simplicity of processing.  There is no
 # need to implement a full-blown argument parser for this simple script.
-INPUT_VARS="JAR OUTPUT PROTO_COMPILER SOURCE"
+INPUT_VARS="JAR OUTPUT PREPROCESSOR PROTO_COMPILER SOURCE"
+
+# Now set defaults for optional input variables.
+: "${PREPROCESSOR:=cat}"
 
 # Basename of the script for error reporting purposes.
 PROGRAM_NAME="${0##*/}"
@@ -52,7 +55,17 @@ main() {
   rm -rf "${proto_output}"
   mkdir -p "${proto_output}"
 
-  "${PROTO_COMPILER}" --java_out="${proto_output}" "${SOURCE}" \
+  # Apply desired preprocessing to the input proto file.  For this to work, we
+  # must maintain the name of the original .proto file or else the generated
+  # classes in the JAR file would have an invalid name.
+  local processed_dir="${OUTPUT}.preprocessed"
+  rm -rf "${processed_dir}"
+  mkdir -p "${processed_dir}"
+  local processed_source="${processed_dir}/$(basename "${SOURCE}")"
+  "${PREPROCESSOR}" <"${SOURCE}" >"${processed_source}" \
+      || err "Preprocessor ${PREPROCESSOR} failed"
+
+  "${PROTO_COMPILER}" --java_out="${proto_output}" "${processed_source}" \
       || err "proto_compiler failed"
   find "${proto_output}" -exec touch -t "${TIMESTAMP}" '{}' \; \
       || err "Failed to reset timestamps"
