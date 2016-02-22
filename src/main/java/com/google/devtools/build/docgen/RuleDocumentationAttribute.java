@@ -122,11 +122,7 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
    * Returns the raw html documentation of the rule attribute.
    */
   public String getHtmlDocumentation() {
-    // Replace the instances of the SYNOPSIS variable in the rule attribute doc with the
-    // empty string since the variables are no longer used but are still present in the
-    // rule doc comments..
-    // TODO(dzc): Remove uses of ${SYNOPSIS} from Bazel doc comments.
-    return htmlDocumentation.replace("${" + DocgenConsts.VAR_SYNOPSIS + "}", "");
+    return htmlDocumentation;
   }
 
   private String getDefaultValue() {

@@ -41,10 +41,6 @@ public class RuleDocumentationTest {
     assertTrue(base + " is expected to contain " + value, base.contains(value));
   }
 
-  private static void assertNotContains(String base, String value) {
-    assertFalse(base + " is not expected to contain " + value, base.contains(value));
-  }
-
   private void checkAttributeForRule(RuleDocumentation rule, RuleDocumentationAttribute attr,
       boolean isCommonAttribute) {
     rule.addAttribute(attr);
@@ -73,51 +69,27 @@ public class RuleDocumentationTest {
   }
 
   @Test
-  public void testVariablesAreHidden() throws BuildEncyclopediaDocException {
-    RuleDocumentation ruleDoc = new RuleDocumentation(
-        "foo_binary", "OTHER", "FOO", Joiner.on("\n").join(new String[] {
-            "x",
-            "${ATTRIBUTE_SIGNATURE}",
-            "y",
-            "${ATTRIBUTE_DEFINITION}",
-            "z"}),
-        0, "", ImmutableSet.<String>of(), provider);
-    RuleDocumentationAttribute attributeDoc = RuleDocumentationAttribute.create(TestRule.class,
-        "srcs", "attribute doc", 0, NO_FLAGS);
-    ruleDoc.addAttribute(attributeDoc);
-    String htmlDoc = ruleDoc.getHtmlDocumentation();
-    assertContains(htmlDoc, "x\n");
-    assertContains(htmlDoc, "y\n");
-    assertContains(htmlDoc, "z");
-    assertNotContains(htmlDoc, "${ATTRIBUTE_SIGNATURE}");
-    assertNotContains(htmlDoc, "${ATTRIBUTE_DEFINITION}");
-  }
-
-  @Test
   public void testSignatureContainsCommonAttribute() throws Exception {
     RuleDocumentationAttribute licensesAttr = RuleDocumentationAttribute.create(
         "licenses", "common", "attribute doc");
-    checkAttributeForRule(new RuleDocumentation(
-        "java_binary", "BINARY", "JAVA", Joiner.on("\n").join(new String[] {
-            "${ATTRIBUTE_SIGNATURE}",
-            "${ATTRIBUTE_DEFINITION}"}),
-        0, "", ImmutableSet.<String>of(), provider), licensesAttr, true);
+    checkAttributeForRule(
+        new RuleDocumentation(
+            "java_binary", "BINARY", "JAVA", "", 0, "", ImmutableSet.<String>of(), provider),
+        licensesAttr, true);
   }
 
   @Test
   public void testInheritedAttributeGeneratesSignature() throws Exception {
     RuleDocumentationAttribute runtimeDepsAttr = RuleDocumentationAttribute.create(TestRule.class,
         "runtime_deps", "attribute doc", 0, NO_FLAGS);
-    checkAttributeForRule(new RuleDocumentation(
-        "java_binary", "BINARY", "JAVA", Joiner.on("\n").join(new String[] {
-            "${ATTRIBUTE_SIGNATURE}",
-            "${ATTRIBUTE_DEFINITION}"}),
-        0, "", ImmutableSet.<String>of(), provider), runtimeDepsAttr, false);
-    checkAttributeForRule(new RuleDocumentation(
-        "java_library", "LIBRARY", "JAVA", Joiner.on("\n").join(new String[] {
-            "${ATTRIBUTE_SIGNATURE}",
-            "${ATTRIBUTE_DEFINITION}"}),
-        0, "", ImmutableSet.<String>of(), provider), runtimeDepsAttr, false);
+    checkAttributeForRule(
+        new RuleDocumentation(
+            "java_binary", "BINARY", "JAVA", "", 0, "", ImmutableSet.<String>of(), provider),
+        runtimeDepsAttr, false);
+    checkAttributeForRule(
+        new RuleDocumentation(
+            "java_library", "LIBRARY", "JAVA", "", 0, "", ImmutableSet.<String>of(), provider),
+        runtimeDepsAttr, false);
   }
 
   @Test
@@ -133,9 +105,7 @@ public class RuleDocumentationTest {
     RuleDocumentation ruleDoc = new RuleDocumentation(
         "foo_binary", "OTHER", "FOO", Joiner.on("\n").join(new String[] {
             "x",
-            "${ATTRIBUTE_SIGNATURE}",
             "y",
-            "${ATTRIBUTE_DEFINITION}",
             "z",
             "${VAR}"}),
         0, "", ImmutableSet.<String>of(), provider);
@@ -143,7 +113,7 @@ public class RuleDocumentationTest {
     RuleDocumentationAttribute attributeDoc = RuleDocumentationAttribute.create(TestRule.class,
         "srcs", "attribute doc", 0, NO_FLAGS);
     ruleDoc.addAttribute(attributeDoc);
-    assertEquals("\nx\n\ny\n\nz\n\n", ruleDoc.getCommandLineDocumentation());
+    assertEquals("\nx\ny\nz\n\n", ruleDoc.getCommandLineDocumentation());
   }
 
   @Test
