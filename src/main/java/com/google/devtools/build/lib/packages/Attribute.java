@@ -314,7 +314,8 @@ public final class Attribute implements Comparable<Attribute> {
     private Predicate<AttributeMap> condition;
     private Set<PropertyFlag> propertyFlags = EnumSet.noneOf(PropertyFlag.class);
     private PredicateWithMessage<Object> allowedValues = null;
-    private ImmutableSet<String> mandatoryProviders = ImmutableSet.<String>of();
+    private ImmutableList<ImmutableSet<String>> mandatoryProvidersList =
+        ImmutableList.<ImmutableSet<String>>of();
     private Set<RuleAspect> aspects = new LinkedHashSet<>();
 
     /**
@@ -696,14 +697,23 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Sets a set of mandatory Skylark providers. Every configured target occurring in 
-     * this label type attribute has to provide all of these providers, otherwise an
-     * error is produces during the analysis phase for every missing provider.
+     * Sets a list of sets of mandatory Skylark providers. Every configured target occurring in
+     * this label type attribute has to provide all the providers from one of those sets,
+     * otherwise an error is produces during the analysis phase.
      */
-    public Builder<TYPE> mandatoryProviders(Iterable<String> providers) {
+    public Builder<TYPE> mandatoryProvidersList(Iterable<? extends Iterable<String>> providersList){
       Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
           "must be a label-valued type");
-      this.mandatoryProviders = ImmutableSet.copyOf(providers);
+      ImmutableList.Builder<ImmutableSet<String>> listBuilder = ImmutableList.builder();
+      for (Iterable<String> providers : providersList) {
+        listBuilder.add(ImmutableSet.copyOf(providers));
+      }
+      this.mandatoryProvidersList = listBuilder.build();
+      return this;
+    }
+
+    public Builder<TYPE> mandatoryProviders(Iterable<String> providers) {
+      mandatoryProvidersList(ImmutableList.of(providers));
       return this;
     }
 
@@ -826,11 +836,21 @@ public final class Attribute implements Comparable<Attribute> {
           allowedFileTypesForLabels = FileTypeSet.ANY_FILE;
         }
       }
-      return new Attribute(name, type, Sets.immutableEnumSet(propertyFlags),
-          valueSet ? value : type.getDefaultValue(), configTransition, configurator,
-          allowedRuleClassesForLabels, allowedRuleClassesForLabelsWarning,
-          allowedFileTypesForLabels, validityPredicate, condition,
-          allowedValues, mandatoryProviders, ImmutableSet.copyOf(aspects));
+      return new Attribute(
+          name,
+          type,
+          Sets.immutableEnumSet(propertyFlags),
+          valueSet ? value : type.getDefaultValue(),
+          configTransition,
+          configurator,
+          allowedRuleClassesForLabels,
+          allowedRuleClassesForLabelsWarning,
+          allowedFileTypesForLabels,
+          validityPredicate,
+          condition,
+          allowedValues,
+          mandatoryProvidersList,
+          ImmutableSet.copyOf(aspects));
     }
   }
 
@@ -1112,7 +1132,7 @@ public final class Attribute implements Comparable<Attribute> {
 
   private final PredicateWithMessage<Object> allowedValues;
 
-  private final ImmutableSet<String> mandatoryProviders;
+  private final ImmutableList<ImmutableSet<String>> mandatoryProvidersList;
 
   private final ImmutableSet<RuleAspect> aspects;
 
@@ -1131,8 +1151,12 @@ public final class Attribute implements Comparable<Attribute> {
    *        (which must be of type LABEL, LABEL_LIST, NODEP_LABEL or
    *        NODEP_LABEL_LIST).
    */
-  private Attribute(String name, Type<?> type, Set<PropertyFlag> propertyFlags,
-      Object defaultValue, Transition configTransition,
+  private Attribute(
+      String name,
+      Type<?> type,
+      Set<PropertyFlag> propertyFlags,
+      Object defaultValue,
+      Transition configTransition,
       Configurator<?, ?> configurator,
       Predicate<RuleClass> allowedRuleClassesForLabels,
       Predicate<RuleClass> allowedRuleClassesForLabelsWarning,
@@ -1140,7 +1164,7 @@ public final class Attribute implements Comparable<Attribute> {
       ValidityPredicate validityPredicate,
       Predicate<AttributeMap> condition,
       PredicateWithMessage<Object> allowedValues,
-      ImmutableSet<String> mandatoryProviders,
+      ImmutableList<ImmutableSet<String>> mandatoryProvidersList,
       ImmutableSet<RuleAspect> aspects) {
     Preconditions.checkNotNull(configTransition);
     Preconditions.checkArgument(
@@ -1173,7 +1197,7 @@ public final class Attribute implements Comparable<Attribute> {
     this.validityPredicate = validityPredicate;
     this.condition = condition;
     this.allowedValues = allowedValues;
-    this.mandatoryProviders = mandatoryProviders;
+    this.mandatoryProvidersList = mandatoryProvidersList;
     this.aspects = aspects;
   }
 
@@ -1347,10 +1371,10 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns the set of mandatory Skylark providers.
+   * Returns the list of sets of mandatory Skylark providers.
    */
-  public ImmutableSet<String> getMandatoryProviders() {
-    return mandatoryProviders;
+  public ImmutableList<ImmutableSet<String>> getMandatoryProvidersList() {
+    return mandatoryProvidersList;
   }
 
   public FileTypeSet getAllowedFileTypesPredicate() {
