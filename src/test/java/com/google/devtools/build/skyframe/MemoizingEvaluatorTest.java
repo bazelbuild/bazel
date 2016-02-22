@@ -220,6 +220,33 @@ public class MemoizingEvaluatorTest {
   }
 
   @Test
+  public void cachedErrorShutsDownThreadpool() throws Exception {
+    // When a node throws an error on the first build,
+    SkyKey cachedErrorKey = GraphTester.skyKey("error");
+    tester.getOrCreate(cachedErrorKey).setHasError(true);
+    assertThat(tester.evalAndGetError(cachedErrorKey)).isNotNull();
+    // And on the second build, it is requested as a dep,
+    SkyKey topKey = GraphTester.skyKey("top");
+    tester.getOrCreate(topKey).addDependency(cachedErrorKey).setComputedValue(CONCATENATE);
+    // And another node throws an error, but waits to throw until the child error is thrown,
+    SkyKey newErrorKey = GraphTester.skyKey("newError");
+    tester
+        .getOrCreate(newErrorKey)
+        .setBuilder(
+            new ChainedFunction.Builder()
+                .setWaitForException(true)
+                .setWaitToFinish(new CountDownLatch(0))
+                .setValue(null)
+                .build());
+    // Then when evaluation happens,
+    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ false, newErrorKey, topKey);
+    // The result has an error,
+    assertThatEvaluationResult(result).hasError();
+    // But the new error is not persisted to the graph, since the child error shut down evaluation.
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(newErrorKey).isNull();
+  }
+
+  @Test
   public void crashAfterInterruptCrashes() throws Exception {
     SkyKey failKey = GraphTester.skyKey("fail");
     SkyKey badInterruptkey = GraphTester.skyKey("bad-interrupt");
