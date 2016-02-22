@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.objc;
+package com.google.devtools.build.lib.analysis.actions;
 
 /**
  * Strings used to express requirements on action execution environments.

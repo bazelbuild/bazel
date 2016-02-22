@@ -417,6 +417,14 @@ java_library(
 )
 
 java_library(
+    name = "execution-requirements",
+    srcs = ["analysis/actions/ExecutionRequirements.java"],
+    visibility = [
+        "//src/main/java/com/google/devtools/build/lib/rules:__subpackages__",
+    ],
+)
+
+java_library(
     name = "build-base",
     srcs = glob(
         [
