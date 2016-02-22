@@ -273,6 +273,13 @@ $navbar-input-border-color: #4caf50;
   }
 }
 
+@media (max-width: 768px) {
+  #cse-search-box {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+}
+
 // Landing page features styles.
 $landing-feature-1-bg-color: #fff;
 $landing-feature-2-bg-color: #fafafa;

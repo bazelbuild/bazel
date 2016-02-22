@@ -15,7 +15,7 @@ To bootstrap Bazel on Windows, you will need:
 
 *    Java JDK 8 or later
 *    [msys2](https://msys2.github.io/) (need to be installed at ``C:\msys64\``).
-*    Several MSYS packages (gcc, git, curl): use ``pacman`` command
+*    Several MSYS packages (gcc, git, curl, zip, unzip): use ``pacman`` command
      to install those.
 
 To build Bazel:
@@ -24,11 +24,11 @@ To build Bazel:
 *    Clone bazel git repository as normal.
 *    Set the environment variables:
 
-```
+```bash
 export JAVA_HOME="$(ls -d C:/Program\ Files/Java/jdk* | sort | tail -n 1)"
 export TMPDIR=c:/temp
 export BAZEL_SH=c:/msys64/usr/bin/bash.exe
 ```
 
 *     Run ``compile.sh`` in Bazel directory.
-*     If all works fine, bazel will be build at ``output\bazel.exe``.
+*     If all works fine, bazel will be built at ``output\bazel.exe``.
