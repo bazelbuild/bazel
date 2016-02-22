@@ -33,7 +33,7 @@ if [[ "$JAVA_HOME" == "" ]]; then
 fi
 
 # These variables are temporarily needed for Bazel
-export BAZEL_SH="c:/msys64/usr/bin/bash.exe"
+export BAZEL_SH="c:/tools/msys64/usr/bin/bash.exe"
 export TMPDIR="c:/temp"
 
 # Even though there are no quotes around $* in the .bat file, arguments
