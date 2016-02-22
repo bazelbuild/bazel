@@ -229,7 +229,7 @@ public class JavaHeaderCompileActionBuilder {
     builder.useParameterFile(ParameterFileType.SHELL_QUOTED);
     builder.setCommandLine(buildCommandLine(ruleContext.getConfiguration().getHostPathSeparator()));
 
-    builder.addTransitiveInputs(JavaCompilationHelper.getHostJavabaseInputs(ruleContext));
+    builder.addTransitiveInputs(JavaHelper.getHostJavabaseInputs(ruleContext));
     builder.addInputs(classpathEntries);
     builder.addInputs(bootclasspathEntries);
     builder.addInputs(processorPath);

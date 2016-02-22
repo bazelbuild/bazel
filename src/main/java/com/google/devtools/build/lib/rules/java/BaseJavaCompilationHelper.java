@@ -69,16 +69,6 @@ public class BaseJavaCompilationHelper {
    * Returns the artifacts required to invoke {@code javahome} relative binary
    * in the action.
    */
-  public static NestedSet<Artifact> getHostJavabaseInputs(RuleContext ruleContext) {
-    // This must have a different name than above, because the middleman creation uses the rule's
-    // configuration, although it should use the host configuration.
-    return AnalysisUtils.getMiddlemanFor(ruleContext, ":host_jdk");
-  }
-
-  /**
-   * Returns the artifacts required to invoke {@code javahome} relative binary
-   * in the action.
-   */
   public NestedSet<Artifact> getHostJavabaseInputsNonStatic(RuleContext ruleContext) {
     // This must have a different name than above, because the middleman creation uses the rule's
     // configuration, although it should use the host configuration.
