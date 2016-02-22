@@ -99,7 +99,12 @@ public class CppOptions extends FragmentOptions {
   /**
    * The same as DynamicMode, but on command-line we also allow AUTO.
    */
-  public enum DynamicModeFlag { OFF, DEFAULT, FULLY, AUTO }
+  public enum DynamicModeFlag {
+    OFF,
+    DEFAULT,
+    FULLY,
+    AUTO
+  }
 
   /**
    * Converter for DynamicModeFlag
@@ -154,104 +159,138 @@ public class CppOptions extends FragmentOptions {
     }
   }
 
-  @Option(name = "lipo input collector",
-      defaultValue = "false",
-      category = "undocumented",
-      help = "Internal flag, only used to create configurations with the LIPO-collector flag set.")
+  @Option(
+    name = "lipo input collector",
+    defaultValue = "false",
+    category = "undocumented",
+    help = "Internal flag, only used to create configurations with the LIPO-collector flag set."
+  )
   public boolean lipoCollector;
 
-  @Option(name = "crosstool_top",
-          defaultValue = "",
-          category = "version",
-          converter = CrosstoolTopConverter.class,
-          help = "The label of the crosstool package to be used for compiling C++ code.")
+  @Option(
+    name = "crosstool_top",
+    defaultValue = "",
+    category = "version",
+    converter = CrosstoolTopConverter.class,
+    help = "The label of the crosstool package to be used for compiling C++ code."
+  )
   public Label crosstoolTop;
 
-  @Option(name = "compiler",
-          defaultValue = "null",
-          category = "version",
-          help = "The C++ compiler to use for compiling the target.")
+  @Option(
+    name = "compiler",
+    defaultValue = "null",
+    category = "version",
+    help = "The C++ compiler to use for compiling the target."
+  )
   public String cppCompiler;
 
-  @Option(name = "glibc",
-          defaultValue = "null",
-          category = "version",
-          help = "The version of glibc the target should be linked against. "
-                 + "By default, a suitable version is chosen based on --cpu.")
+  @Option(
+    name = "glibc",
+    defaultValue = "null",
+    category = "version",
+    help =
+        "The version of glibc the target should be linked against. "
+            + "By default, a suitable version is chosen based on --cpu."
+  )
   public String glibc;
 
-  @Option(name = "thin_archives",
-          defaultValue = "false",
-          category = "strategy",  // but also adds edges to the action graph
-          help = "Pass the 'T' flag to ar if supported by the toolchain. "
-                 + "All supported toolchains support this setting.")
+  @Option(
+    name = "thin_archives",
+    defaultValue = "false",
+    category = "strategy", // but also adds edges to the action graph
+    help =
+        "Pass the 'T' flag to ar if supported by the toolchain. "
+            + "All supported toolchains support this setting."
+  )
   public boolean useThinArchives;
 
   // O intrepid reaper of unused options: Be warned that the [no]start_end_lib
   // option, however tempting to remove, has a use case. Look in our telemetry data.
-  @Option(name = "start_end_lib",
-          defaultValue = "true",
-          category = "strategy",  // but also adds edges to the action graph
-          help = "Use the --start-lib/--end-lib ld options if supported by the toolchain.")
+  @Option(
+    name = "start_end_lib",
+    defaultValue = "true",
+    category = "strategy", // but also adds edges to the action graph
+    help = "Use the --start-lib/--end-lib ld options if supported by the toolchain."
+  )
   public boolean useStartEndLib;
 
-  @Option(name = "interface_shared_objects",
-      defaultValue = "true",
-      category = "strategy", // but also adds edges to the action graph
-      help = "Use interface shared objects if supported by the toolchain. " +
-             "All ELF toolchains currently support this setting.")
+  @Option(
+    name = "interface_shared_objects",
+    defaultValue = "true",
+    category = "strategy", // but also adds edges to the action graph
+    help =
+        "Use interface shared objects if supported by the toolchain. "
+            + "All ELF toolchains currently support this setting."
+  )
   public boolean useInterfaceSharedObjects;
 
-  @Option(name = "fission",
-          defaultValue = "no",
-          converter = FissionOptionConverter.class,
-          category = "semantics",
-          help = "Specifies which compilation modes use fission for C++ compilations and links. "
-          + " May be any combination of {'fastbuild', 'dbg', 'opt'} or the special values 'yes' "
-          + " to enable all modes and 'no' to disable all modes.")
+  @Option(
+    name = "fission",
+    defaultValue = "no",
+    converter = FissionOptionConverter.class,
+    category = "semantics",
+    help =
+        "Specifies which compilation modes use fission for C++ compilations and links. "
+            + " May be any combination of {'fastbuild', 'dbg', 'opt'} or the special values 'yes' "
+            + " to enable all modes and 'no' to disable all modes."
+  )
   public List<CompilationMode> fissionModes;
 
-  @Option(name = "build_test_dwp",
-          defaultValue = "false",
-          category = "semantics",
-          help = "If enabled, when building C++ tests statically and with fission the .dwp file "
-          + " for the test binary will be automatically built as well.")
+  @Option(
+    name = "build_test_dwp",
+    defaultValue = "false",
+    category = "semantics",
+    help =
+        "If enabled, when building C++ tests statically and with fission the .dwp file "
+            + " for the test binary will be automatically built as well."
+  )
   public boolean buildTestDwp;
 
-  @Option(name = "dynamic_mode",
-          defaultValue = "default",
-          converter = DynamicModeConverter.class,
-          category = "semantics",
-          help = "Determines whether C++ binaries will be linked dynamically.  'default' means "
+  @Option(
+    name = "dynamic_mode",
+    defaultValue = "default",
+    converter = DynamicModeConverter.class,
+    category = "semantics",
+    help =
+        "Determines whether C++ binaries will be linked dynamically.  'default' means "
             + "blaze will choose whether to link dynamically.  'fully' means all libraries "
             + "will be linked dynamically. 'off' means that all libraries will be linked "
-            + "in mostly static mode.")
+            + "in mostly static mode."
+  )
   public DynamicModeFlag dynamicMode;
 
-  @Option(name = "force_pic",
-          defaultValue = "false",
-          category = "semantics",
-          help = "If enabled, all C++ compilations produce position-independent code (\"-fPIC\"),"
+  @Option(
+    name = "force_pic",
+    defaultValue = "false",
+    category = "semantics",
+    help =
+        "If enabled, all C++ compilations produce position-independent code (\"-fPIC\"),"
             + " links prefer PIC pre-built libraries over non-PIC libraries, and links produce"
-            + " position-independent executables (\"-pie\").")
+            + " position-independent executables (\"-pie\")."
+  )
   public boolean forcePic;
 
-  @Option(name = "force_ignore_dash_static",
-          defaultValue = "false",
-          category = "semantics",
-          help = "If set, '-static' options in the linkopts of cc_* rules will be ignored.")
+  @Option(
+    name = "force_ignore_dash_static",
+    defaultValue = "false",
+    category = "semantics",
+    help = "If set, '-static' options in the linkopts of cc_* rules will be ignored."
+  )
   public boolean forceIgnoreDashStatic;
 
-  @Option(name = "experimental_skip_static_outputs",
-          defaultValue = "false",
-          category = "semantics",
-          help = "This flag is experimental and may go away at any time.  "
+  @Option(
+    name = "experimental_skip_static_outputs",
+    defaultValue = "false",
+    category = "semantics",
+    help =
+        "This flag is experimental and may go away at any time.  "
             + "If true, linker output for mostly-static C++ executables is a tiny amount of "
             + "dummy dependency information, and NOT a usable binary.  Kludge, but can reduce "
             + "network and disk I/O load (and thus, continuous build cycle times) by a lot.  "
-            + "NOTE: use of this flag REQUIRES --distinct_host_configuration.")
+            + "NOTE: use of this flag REQUIRES --distinct_host_configuration."
+  )
   public boolean skipStaticOutputs;
-  
+
   @Option(
     name = "process_headers_in_dependencies",
     defaultValue = "false",
@@ -262,143 +301,186 @@ public class CppOptions extends FragmentOptions {
   )
   public boolean processHeadersInDependencies;
 
-  @Option(name = "copt",
-          allowMultiple = true,
-          defaultValue = "",
-          category = "flags",
-          help = "Additional options to pass to gcc.")
+  @Option(
+    name = "copt",
+    allowMultiple = true,
+    defaultValue = "",
+    category = "flags",
+    help = "Additional options to pass to gcc."
+  )
   public List<String> coptList;
 
-  @Option(name = "cwarn",
-          converter = GccWarnConverter.class,
-          defaultValue = "",
-          category = "flags",
-          allowMultiple = true,
-          help = "Additional warnings to enable when compiling C or C++ source files.")
+  @Option(
+    name = "cwarn",
+    converter = GccWarnConverter.class,
+    defaultValue = "",
+    category = "flags",
+    allowMultiple = true,
+    help = "Additional warnings to enable when compiling C or C++ source files."
+  )
   public List<String> cWarns;
 
-  @Option(name = "cxxopt",
-          defaultValue = "",
-          category = "flags",
-          allowMultiple = true,
-          help = "Additional option to pass to gcc when compiling C++ source files.")
+  @Option(
+    name = "cxxopt",
+    defaultValue = "",
+    category = "flags",
+    allowMultiple = true,
+    help = "Additional option to pass to gcc when compiling C++ source files."
+  )
   public List<String> cxxoptList;
 
-  @Option(name = "conlyopt",
-          allowMultiple = true,
-          defaultValue = "",
-          category = "flags",
-          help = "Additional option to pass to gcc when compiling C source files.")
+  @Option(
+    name = "conlyopt",
+    allowMultiple = true,
+    defaultValue = "",
+    category = "flags",
+    help = "Additional option to pass to gcc when compiling C source files."
+  )
   public List<String> conlyoptList;
 
-  @Option(name = "linkopt",
-          defaultValue = "",
-          category = "flags",
-          allowMultiple = true,
-          help = "Additional option to pass to gcc when linking.")
+  @Option(
+    name = "linkopt",
+    defaultValue = "",
+    category = "flags",
+    allowMultiple = true,
+    help = "Additional option to pass to gcc when linking."
+  )
   public List<String> linkoptList;
 
-  @Option(name = "stripopt",
-          allowMultiple = true,
-          defaultValue = "",
-          category = "flags",
-          help = "Additional options to pass to strip when generating a '<name>.stripped' binary.")
+  @Option(
+    name = "stripopt",
+    allowMultiple = true,
+    defaultValue = "",
+    category = "flags",
+    help = "Additional options to pass to strip when generating a '<name>.stripped' binary."
+  )
   public List<String> stripoptList;
 
-  @Option(name = "custom_malloc",
-          defaultValue = "null",
-          category = "semantics",
-          help = "Specifies a custom malloc implementation. This setting overrides malloc " +
-                 "attributes in build rules.",
-          converter = LabelConverter.class)
+  @Option(
+    name = "custom_malloc",
+    defaultValue = "null",
+    category = "semantics",
+    help =
+        "Specifies a custom malloc implementation. This setting overrides malloc "
+            + "attributes in build rules.",
+    converter = LabelConverter.class
+  )
   public Label customMalloc;
 
-  @Option(name = "legacy_whole_archive",
-          defaultValue = "true",
-          category = "semantics",
-          help = "When on, use --whole-archive for cc_binary rules that have "
+  @Option(
+    name = "legacy_whole_archive",
+    defaultValue = "true",
+    category = "semantics",
+    help =
+        "When on, use --whole-archive for cc_binary rules that have "
             + "linkshared=1 and either linkstatic=1 or '-static' in linkopts. "
             + "This is for backwards compatibility only. "
-            + "A better alternative is to use alwayslink=1 where required.")
+            + "A better alternative is to use alwayslink=1 where required."
+  )
   public boolean legacyWholeArchive;
 
-  @Option(name = "strip",
-      defaultValue = "sometimes",
-      category = "flags",
-      help = "Specifies whether to strip binaries and shared libraries "
-          + " (using \"-Wl,--strip-debug\").  The default value of 'sometimes'"
-          + " means strip iff --compilation_mode=fastbuild.",
-      converter = StripModeConverter.class)
+  @Option(
+    name = "strip",
+    defaultValue = "sometimes",
+    category = "flags",
+    help =
+        "Specifies whether to strip binaries and shared libraries "
+            + " (using \"-Wl,--strip-debug\").  The default value of 'sometimes'"
+            + " means strip iff --compilation_mode=fastbuild.",
+    converter = StripModeConverter.class
+  )
   public StripMode stripBinaries;
 
-  @Option(name = "fdo_instrument",
-          defaultValue = "null",
-          converter = OptionsUtils.PathFragmentConverter.class,
-          category = "flags",
-          implicitRequirements = {"--copt=-Wno-error"},
-          help = "Generate binaries with FDO instrumentation. Specify the relative " +
-                 "directory name for the .gcda files at runtime. It also accepts " +
-                 "an LLVM profile output file path.")
+  @Option(
+    name = "fdo_instrument",
+    defaultValue = "null",
+    converter = OptionsUtils.PathFragmentConverter.class,
+    category = "flags",
+    implicitRequirements = {"--copt=-Wno-error"},
+    help =
+        "Generate binaries with FDO instrumentation. Specify the relative "
+            + "directory name for the .gcda files at runtime. It also accepts "
+            + "an LLVM profile output file path."
+  )
   public PathFragment fdoInstrument;
 
-  @Option(name = "fdo_optimize",
-          defaultValue = "null",
-          category = "flags",
-          help = "Use FDO profile information to optimize compilation. Specify the name " +
-                 "of the zip file containing the .gcda file tree or an afdo file containing " +
-                 "an auto profile. This flag also accepts files specified as labels, for " +
-                 "example //foo/bar:file.afdo. Such labels must refer to input files; you may " +
-                 "need to add an exports_files directive to the corresponding package to make " +
-                 "the file visible to Blaze. It also accepts an indexed LLVM profile file.")
+  @Option(
+    name = "fdo_optimize",
+    defaultValue = "null",
+    category = "flags",
+    help =
+        "Use FDO profile information to optimize compilation. Specify the name "
+            + "of the zip file containing the .gcda file tree or an afdo file containing "
+            + "an auto profile. This flag also accepts files specified as labels, for "
+            + "example //foo/bar:file.afdo. Such labels must refer to input files; you may "
+            + "need to add an exports_files directive to the corresponding package to make "
+            + "the file visible to Blaze. It also accepts an indexed LLVM profile file."
+  )
   public String fdoOptimize;
 
-  @Option(name = "autofdo_lipo_data",
-          defaultValue = "false",
-          category = "flags",
-          help = "If true then the directory name for non-LIPO targets will have a " +
-                 "'-lipodata' suffix in AutoFDO mode.")
+  @Option(
+    name = "autofdo_lipo_data",
+    defaultValue = "false",
+    category = "flags",
+    help =
+        "If true then the directory name for non-LIPO targets will have a "
+            + "'-lipodata' suffix in AutoFDO mode."
+  )
   public boolean autoFdoLipoData;
 
-  @Option(name = "lipo",
-      defaultValue = "off",
-      converter = LipoModeConverter.class,
-      category = "flags",
-      help = "Enable LIPO optimization (lightweight inter-procedural optimization, The allowed "
-          + "values for  this option are 'off' and 'binary', which enables LIPO. This option only "
-          + "has an effect when FDO is also enabled. Currently LIPO is only supported when "
-          + "building a single cc_binary rule.")
+  @Option(
+    name = "lipo",
+    defaultValue = "off",
+    converter = LipoModeConverter.class,
+    category = "flags",
+    help =
+        "Enable LIPO optimization (lightweight inter-procedural optimization, The allowed "
+            + "values for  this option are 'off' and 'binary', which enables LIPO. This option "
+            + "only has an effect when FDO is also enabled. Currently LIPO is only supported "
+            + "when building a single cc_binary rule."
+  )
   public LipoMode lipoMode;
 
-  @Option(name = "lipo_context",
-      defaultValue = "null",
-      category = "flags",
-      converter = LabelConverter.class,
-      implicitRequirements = {"--linkopt=-Wl,--warn-unresolved-symbols"},
-      help = "Specifies the binary from which the LIPO profile information comes.")
+  @Option(
+    name = "lipo_context",
+    defaultValue = "null",
+    category = "flags",
+    converter = LabelConverter.class,
+    implicitRequirements = {"--linkopt=-Wl,--warn-unresolved-symbols"},
+    help = "Specifies the binary from which the LIPO profile information comes."
+  )
   public Label lipoContext;
 
-  @Option(name = "experimental_stl",
-      converter = LabelConverter.class,
-      defaultValue = "null",
-      category = "version",
-      help = "If set, use this label instead of the default STL implementation. "
-          + "This option is EXPERIMENTAL and may go away in a future release.")
+  @Option(
+    name = "experimental_stl",
+    converter = LabelConverter.class,
+    defaultValue = "null",
+    category = "version",
+    help =
+        "If set, use this label instead of the default STL implementation. "
+            + "This option is EXPERIMENTAL and may go away in a future release."
+  )
   public Label stl;
 
-  @Option(name = "save_temps",
-      defaultValue = "false",
-      category = "what",
-      help = "If set, temporary outputs from gcc will be saved.  "
-          + "These include .s files (assembler code), .i files (preprocessed C) and "
-          + ".ii files (preprocessed C++).")
+  @Option(
+    name = "save_temps",
+    defaultValue = "false",
+    category = "what",
+    help =
+        "If set, temporary outputs from gcc will be saved.  "
+            + "These include .s files (assembler code), .i files (preprocessed C) and "
+            + ".ii files (preprocessed C++)."
+  )
   public boolean saveTemps;
 
-  @Option(name = "per_file_copt",
-      allowMultiple = true,
-      converter = PerLabelOptions.PerLabelOptionsConverter.class,
-      defaultValue = "",
-      category = "semantics",
-      help = "Additional options to selectively pass to gcc when compiling certain files. "
+  @Option(
+    name = "per_file_copt",
+    allowMultiple = true,
+    converter = PerLabelOptions.PerLabelOptionsConverter.class,
+    defaultValue = "",
+    category = "semantics",
+    help =
+        "Additional options to selectively pass to gcc when compiling certain files. "
             + "This option can be passed multiple times. "
             + "Syntax: regex_filter@option_1,option_2,...,option_n. Where regex_filter stands "
             + "for a list of include and exclude regular expression patterns (Also see "
@@ -408,82 +490,111 @@ public class CppOptions extends FragmentOptions {
             + "split the string. Example: "
             + "--per_file_copt=//foo/.*\\.cc,-//foo/bar\\.cc@-O0 adds the -O0 "
             + "command line option to the gcc command line of all cc files in //foo/ "
-            + "except bar.cc.")
+            + "except bar.cc."
+  )
   public List<PerLabelOptions> perFileCopts;
 
-  @Option(name = "host_crosstool_top",
-      defaultValue = "null",
-      converter = LabelConverter.class,
-      category = "semantics",
-      help = "By default, the --crosstool_top and --compiler options are also used " +
-          "for the host configuration. If this flag is provided, Blaze uses the default libc " +
-          "and compiler for the given crosstool_top.")
+  @Option(
+    name = "host_crosstool_top",
+    defaultValue = "null",
+    converter = LabelConverter.class,
+    category = "semantics",
+    help =
+        "By default, the --crosstool_top and --compiler options are also used "
+            + "for the host configuration. If this flag is provided, Blaze uses the default libc "
+            + "and compiler for the given crosstool_top."
+  )
   public Label hostCrosstoolTop;
 
-  @Option(name = "host_copt",
-      allowMultiple = true,
-      defaultValue = "",
-      category = "flags",
-      help = "Additional options to pass to gcc for host tools.")
+  @Option(
+    name = "host_copt",
+    allowMultiple = true,
+    defaultValue = "",
+    category = "flags",
+    help = "Additional options to pass to gcc for host tools."
+  )
   public List<String> hostCoptList;
 
-  @Option(name = "define",
-      converter = Converters.AssignmentConverter.class,
-      defaultValue = "",
-      category = "semantics",
-      allowMultiple = true,
-      help = "Each --define option specifies an assignment for a build variable.")
+  @Option(
+    name = "define",
+    converter = Converters.AssignmentConverter.class,
+    defaultValue = "",
+    category = "semantics",
+    allowMultiple = true,
+    help = "Each --define option specifies an assignment for a build variable."
+  )
   public List<Map.Entry<String, String>> commandLineDefinedVariables;
 
-  @Option(name = "grte_top",
-      defaultValue = "null", // The default value is chosen by the toolchain.
-      category = "version",
-      converter = LibcTopConverter.class,
-      help = "A label to a checked-in libc library. The default value is selected by the crosstool "
-          + "toolchain, and you almost never need to override it.")
+  @Option(
+    name = "grte_top",
+    defaultValue = "null", // The default value is chosen by the toolchain.
+    category = "version",
+    converter = LibcTopConverter.class,
+    help =
+        "A label to a checked-in libc library. The default value is selected by the crosstool "
+            + "toolchain, and you almost never need to override it."
+  )
   public LibcTop libcTop;
 
-  @Option(name = "host_grte_top",
-      defaultValue = "null", // The default value is chosen by the toolchain.
-      category = "version",
-      converter = LibcTopConverter.class,
-      help = "If specified, this setting overrides the libc top-level directory (--grte_top) "
-          + "for the host configuration.")
+  @Option(
+    name = "host_grte_top",
+    defaultValue = "null", // The default value is chosen by the toolchain.
+    category = "version",
+    converter = LibcTopConverter.class,
+    help =
+        "If specified, this setting overrides the libc top-level directory (--grte_top) "
+            + "for the host configuration."
+  )
   public LibcTop hostLibcTop;
 
-  @Option(name = "output_symbol_counts",
-      defaultValue = "false",
-      category = "flags",
-      help = "If enabled, every C++ binary linked with gold will store the number of used "
-          + "symbols per object file in a .sc file.")
+  @Option(
+    name = "output_symbol_counts",
+    defaultValue = "false",
+    category = "flags",
+    help =
+        "If enabled, every C++ binary linked with gold will store the number of used "
+            + "symbols per object file in a .sc file."
+  )
   public boolean symbolCounts;
 
-  @Option(name = "experimental_inmemory_dotd_files",
-      defaultValue = "false",
-      category = "experimental",
-      help = "If enabled, C++ .d files will be passed through in memory directly from the remote "
-          + "build nodes instead of being written to disk.")
+  @Option(
+    name = "experimental_inmemory_dotd_files",
+    defaultValue = "false",
+    category = "experimental",
+    help =
+        "If enabled, C++ .d files will be passed through in memory directly from the remote "
+            + "build nodes instead of being written to disk."
+  )
   public boolean inmemoryDotdFiles;
 
-  @Option(name = "use_isystem_for_includes",
-      defaultValue = "true",
-      category = "undocumented",
-      help = "Instruct C and C++ compilations to treat 'includes' paths as system header " +
-             "paths, by translating it into -isystem instead of -I.")
+  @Option(
+    name = "use_isystem_for_includes",
+    defaultValue = "true",
+    category = "undocumented",
+    help =
+        "Instruct C and C++ compilations to treat 'includes' paths as system header "
+            + "paths, by translating it into -isystem instead of -I."
+  )
   public boolean useIsystemForIncludes;
 
-  @Option(name = "experimental_omitfp",
-      defaultValue = "false",
-      category = "semantics",
-      help = "If true, use libunwind for stack unwinding, and compile with " +
-      "-fomit-frame-pointer and -fasynchronous-unwind-tables.")
+  @Option(
+    name = "experimental_omitfp",
+    defaultValue = "false",
+    category = "semantics",
+    help =
+        "If true, use libunwind for stack unwinding, and compile with "
+            + "-fomit-frame-pointer and -fasynchronous-unwind-tables."
+  )
   public boolean experimentalOmitfp;
 
-  @Option(name = "share_native_deps",
-      defaultValue = "true",
-      category = "strategy",
-      help = "If true, native libraries that contain identical functionality "
-          + "will be shared among different targets")
+  @Option(
+    name = "share_native_deps",
+    defaultValue = "true",
+    category = "strategy",
+    help =
+        "If true, native libraries that contain identical functionality "
+            + "will be shared among different targets"
+  )
   public boolean shareNativeDeps;
 
   @Override
@@ -566,9 +677,7 @@ public class CppOptions extends FragmentOptions {
       }
     }
 
-    return ImmutableMap.of(
-        "CROSSTOOL", crosstoolLabels,
-        "COVERAGE", ImmutableSet.<Label>of());
+    return ImmutableMap.of("CROSSTOOL", crosstoolLabels, "COVERAGE", ImmutableSet.<Label>of());
   }
 
   public boolean isFdo() {
@@ -580,13 +689,12 @@ public class CppOptions extends FragmentOptions {
   }
 
   public boolean isLipoOptimizationOrInstrumentation() {
-    return lipoMode == LipoMode.BINARY &&
-        ((fdoOptimize != null && lipoContext != null) || fdoInstrument != null);
+    return lipoMode == LipoMode.BINARY
+        && ((fdoOptimize != null && lipoContext != null) || fdoInstrument != null);
   }
 
   public Label getLipoContextLabel() {
-    return (lipoMode == LipoMode.BINARY && fdoOptimize != null)
-        ? lipoContext : null;
+    return (lipoMode == LipoMode.BINARY && fdoOptimize != null) ? lipoContext : null;
   }
 
   public LipoMode getLipoMode() {
