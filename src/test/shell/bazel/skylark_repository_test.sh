@@ -249,6 +249,43 @@ EOF
   expect_log "foo"
 }
 
+
+function test_skylark_repository_which_and_execute() {
+  create_new_workspace
+  local repo2=$new_workspace_dir
+
+  cat > bar.txt
+  echo "filegroup(name='bar', srcs=['bar.txt'])" > BUILD
+
+  cd "${WORKSPACE_DIR}"
+  cat > WORKSPACE <<EOF
+load('/test', 'repo')
+repo(name = 'foo')
+EOF
+
+  # Our custom repository rule
+  cat >test.bzl <<EOF
+def _impl(ctx):
+  bash = ctx.which("bash")
+  if bash == None:
+    fail("Bash not found!")
+  result = ctx.execute([bash, "--version"])
+  if result.return_code != 0:
+    fail("Non-zero return code from bash: " + result.return_code)
+  if result.stderr != "":
+    fail("Non-empty error output: " + result.stderr)
+  print(result.stdout)
+  # Symlink so a repository is created
+  ctx.symlink(ctx.path("$repo2"), ctx.path(""))
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+  # Need to be in a package
+  cat > BUILD
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "version"
+}
+
 function tear_down() {
   true
 }

@@ -34,6 +34,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Skylark API for the repository_rule's context.
@@ -131,6 +132,23 @@ public class SkylarkRepositoryContext {
   }
 
   @SkylarkCallable(
+    name = "execute",
+    doc =
+        "Executes the command given by the list of arguments. The execution time of the command"
+            + " is limited by <code>timeout</code> (in seconds, default 600 seconds). This method"
+            + " returns an <code>exec_result</code> structure containing the output of the"
+            + " command."
+  )
+  public SkylarkExecutionResult execute(List<Object> arguments, long timeout) throws EvalException {
+    return SkylarkExecutionResult.execute(arguments, timeout / 1000);
+  }
+
+  @SkylarkCallable(name = "execute", documented = false)
+  public SkylarkExecutionResult execute(List<Object> arguments) throws EvalException {
+    return SkylarkExecutionResult.execute(arguments, 600000);
+  }
+
+  @SkylarkCallable(
     name = "which",
     doc =
         "Returns the path of the corresponding program or None "
@@ -138,8 +156,9 @@ public class SkylarkRepositoryContext {
   )
   public Object which(String program) throws EvalException {
     if (program.contains("/") || program.contains("\\")) {
-       throw new EvalException(Location.BUILTIN,
-           "Program argument of which() may not contains a / or a \\ ('" + program + "' given)");
+      throw new EvalException(
+          Location.BUILTIN,
+          "Program argument of which() may not contains a / or a \\ ('" + program + "' given)");
     }
     for (String p : pathEnv) {
       PathFragment fragment = new PathFragment(p);
