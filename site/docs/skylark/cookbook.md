@@ -80,7 +80,7 @@ tests for diverse flavors of the same test.
 `extension.bzl`:
 
 ```python
-def system_test(test_file, flavor):
+def system_test(name, test_file, flavor):
   n = "system_test_%s_%s_test" % (test_file, flavor)
   if native.existing_rule(n) == None:
     native.py_test(
@@ -93,11 +93,11 @@ def system_test_suite(name, flavors=["default"], test_files):
   ts = []
   for flavor in flavors:
     for test in test_files:
-      ts.append(system_test(name, flavor, test))
+      ts.append(system_test(name, test, flavor))
   native.test_suite(name = name, tests = ts)
 ```
 
-In the following BUILD file, note how `(fast, basic_test.py)` is emitted for
+In the following BUILD file, note how `(basic_test.py, fast)` is emitted for
 both the `smoke` test suite and the `thorough` test suite.
 
 ```python
