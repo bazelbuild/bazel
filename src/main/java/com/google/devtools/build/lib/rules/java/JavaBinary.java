@@ -196,7 +196,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkInputs();
 
 
-    Iterables.addAll(jvmFlags, semantics.getJvmFlags(ruleContext, common, userJvmFlags));
+    Iterables.addAll(jvmFlags,
+        semantics.getJvmFlags(ruleContext, common.getSrcsArtifacts(), userJvmFlags));
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -241,7 +242,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     RunfilesSupport runfilesSupport = null;
     if (createExecutable) {
-      List<String> extraArgs = new ArrayList<>(semantics.getExtraArguments(ruleContext, common));
+      List<String> extraArgs =
+          new ArrayList<>(semantics.getExtraArguments(ruleContext, common.getSrcsArtifacts()));
       if (runProguard) {
         // Instead of changing the classpath written into the wrapper script, pass --singlejar when
         // running the script (which causes the deploy.jar written by Proguard to be used instead of

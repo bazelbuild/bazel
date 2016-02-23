@@ -323,7 +323,7 @@ public class BazelJavaSemantics implements JavaSemantics {
   
   @Override
   public Iterable<String> getJvmFlags(
-      RuleContext ruleContext, JavaCommon javaCommon, List<String> userJvmFlags) {
+      RuleContext ruleContext, ImmutableList<Artifact> sources, List<String> userJvmFlags) {
     ImmutableList.Builder<String> jvmFlags = ImmutableList.builder();
     jvmFlags.addAll(userJvmFlags);
 
@@ -332,7 +332,7 @@ public class BazelJavaSemantics implements JavaSemantics {
         String testClass = ruleContext.getRule().isAttrDefined("test_class", Type.STRING)
             ? ruleContext.attributes().get("test_class", Type.STRING) : "";
         if (testClass.isEmpty()) {
-          testClass = JavaCommon.determinePrimaryClass(ruleContext, javaCommon.getSrcsArtifacts());
+          testClass = JavaCommon.determinePrimaryClass(ruleContext, sources);
         }
 
         if (testClass == null) {
@@ -413,13 +413,13 @@ public class BazelJavaSemantics implements JavaSemantics {
   }
 
   @Override
-  public List<String> getExtraArguments(RuleContext ruleContext, JavaCommon javaCommon) {
+  public List<String> getExtraArguments(RuleContext ruleContext, ImmutableList<Artifact> sources) {
     if (ruleContext.getRule().getRuleClass().equals("java_test")) {
       if (useLegacyJavaTest(ruleContext)) {
         if (ruleContext.getConfiguration().getTestArguments().isEmpty()
             && !ruleContext.attributes().isAttributeValueExplicitlySpecified("args")) {
           ImmutableList.Builder<String> builder = ImmutableList.builder();
-          for (Artifact artifact : javaCommon.getSrcsArtifacts()) {
+          for (Artifact artifact : sources) {
             PathFragment path = artifact.getRootRelativePath();
             String className = JavaUtil.getJavaFullClassname(FileSystemUtils.removeExtension(path));
             if (className != null) {

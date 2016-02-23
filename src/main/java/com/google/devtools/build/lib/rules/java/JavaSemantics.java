@@ -307,7 +307,7 @@ public interface JavaSemantics {
    * Return the JVM flags to be used in a Java binary.
    */
   Iterable<String> getJvmFlags(
-      RuleContext ruleContext, JavaCommon javaCommon, List<String> userJvmFlags);
+      RuleContext ruleContext, ImmutableList<Artifact> srcsArtifacts, List<String> userJvmFlags);
 
   /**
    * Adds extra providers to a Java target.
@@ -390,7 +390,7 @@ public interface JavaSemantics {
   /**
    * @return a list of extra arguments to appends to the runfiles support.
    */
-  List<String> getExtraArguments(RuleContext ruleContext, JavaCommon javaCommon);
+  List<String> getExtraArguments(RuleContext ruleContext, ImmutableList<Artifact> sources);
 
   /**
    * @return main class (entry point) for the Java compiler.
