@@ -62,6 +62,13 @@ public final class IntermediateArtifacts {
   }
 
   /**
+   * Returns the location of this target's generated entitlements file.
+   */
+  public Artifact entitlements() {
+    return appendExtensionForEntitlementArtifact(".entitlements");
+  }
+
+  /**
    * Returns a derived artifact in the bin directory obtained by appending some extension to the end
    * of the given {@link PathFragment}.
    */
@@ -361,5 +368,12 @@ public final class IntermediateArtifacts {
         "_j2objc_pruned",
         prunedSourceArtifactPath,
         ruleContext.getBinOrGenfilesDirectory());
+  }
+
+  /**
+   * Returns the location of this target's merged but not post-processed or signed IPA.
+   */
+  public Artifact unprocessedIpa() {
+    return appendExtension(".unprocessed.ipa");
   }
 }

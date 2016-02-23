@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -967,6 +968,43 @@ public class ObjcRuleClasses {
           .name("$objc_release_bundling_rule")
           .type(RuleClassType.ABSTRACT)
           .ancestors(BundlingRule.class)
+          .build();
+    }
+  }
+
+  /**
+   * Common attributes for {@code objc_*} rules that create a signed IPA.
+   */
+  public static class IpaRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          /* <!-- #BLAZE_RULE($objc_signing_rule).ATTRIBUTE(ipa_post_processor) -->
+          A tool that edits this target's IPA output after it is assembled but before it is
+          (optionally) signed.
+          <p>
+          The tool is invoked with a single positional argument which represents the path to a
+          directory containing the unzipped contents of the IPA. The only entry in this directory
+          will be the <code>Payload</code> root directory of the IPA. Any changes made by the tool
+          must be made in this directory, whose contents will be (optionally) signed and then
+          zipped up as the final IPA after the tool terminates.
+          <p>
+          The tool's execution must be hermetic given these inputs to ensure that its result can be
+          safely cached.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(
+              attr("ipa_post_processor", LABEL)
+                  .allowedRuleClasses(ANY_RULE)
+                  .allowedFileTypes(FileTypeSet.ANY_FILE)
+                  .exec())
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$objc_ipa_rule")
+          .type(RuleClassType.ABSTRACT)
           .build();
     }
   }
