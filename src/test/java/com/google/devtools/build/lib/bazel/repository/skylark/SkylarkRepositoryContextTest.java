@@ -15,15 +15,18 @@
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.syntax.Argument.Passed;
 import com.google.devtools.build.lib.syntax.BuiltinFunction;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
@@ -38,6 +41,9 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 /**
@@ -114,5 +120,47 @@ public class SkylarkRepositoryContextTest {
     assertThat(context.which("undef")).isEqualTo(Runtime.NONE);
     assertThat(context.which("true").toString()).isEqualTo("/bin/true");
     assertThat(context.which("false").toString()).isEqualTo("/path/sbin/false");
+  }
+
+  @Test
+  public void testFile() throws Exception {
+    setUpContexForRule("test");
+    context.createFile(context.path("foobar"));
+    context.createFile(context.path("foo/bar"), "foobar");
+    context.createFile(context.path("bar/foo/bar"));
+
+    testOutputFile(outputDirectory.getChild("foobar"), "");
+    testOutputFile(outputDirectory.getRelative("foo/bar"), "foobar");
+    testOutputFile(outputDirectory.getRelative("bar/foo/bar"), "");
+
+    try {
+      context.createFile(context.path("/absolute"));
+      fail("Expected error on creating path outside of the output directory");
+    } catch (RepositoryFunctionException ex) {
+      assertThat(ex.getCause().getMessage())
+          .isEqualTo("Cannot write outside of the output directory for path /absolute");
+    }
+    try {
+      context.createFile(context.path("../somepath"));
+      fail("Expected error on creating path outside of the output directory");
+    } catch (RepositoryFunctionException ex) {
+      assertThat(ex.getCause().getMessage())
+          .isEqualTo("Cannot write outside of the output directory for path /somepath");
+    }
+    try {
+      context.createFile(context.path("foo/../../somepath"));
+      fail("Expected error on creating path outside of the output directory");
+    } catch (RepositoryFunctionException ex) {
+      assertThat(ex.getCause().getMessage())
+          .isEqualTo("Cannot write outside of the output directory for path /somepath");
+    }
+  }
+
+  private void testOutputFile(Path path, String content) throws IOException {
+    assertThat(path.exists()).isTrue();
+    assertThat(
+            CharStreams.toString(
+                new InputStreamReader(path.getInputStream(), StandardCharsets.UTF_8)))
+        .isEqualTo(content);
   }
 }

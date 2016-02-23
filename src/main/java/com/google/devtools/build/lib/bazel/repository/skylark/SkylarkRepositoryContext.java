@@ -34,6 +34,8 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 
@@ -124,12 +126,53 @@ public class SkylarkRepositoryContext {
   )
   public void symlink(SkylarkPath from, SkylarkPath to) throws RepositoryFunctionException {
     try {
+      checkInOutputDirectory(to);
       to.path.createSymbolicLink(from.path);
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
               "Could not create symlink from " + from + " to " + to + ": " + e.getMessage(), e),
           Transience.TRANSIENT);
+    }
+  }
+
+  private void checkInOutputDirectory(SkylarkPath path) throws RepositoryFunctionException {
+    if (!path.path.getPathString().startsWith(outputDirectory.getPathString())) {
+      throw new RepositoryFunctionException(
+          new IOException("Cannot write outside of the output directory for path " + path),
+          Transience.TRANSIENT);
+    }
+  }
+
+  @SkylarkCallable(name = "file", documented = false)
+  public void createFile(SkylarkPath path) throws RepositoryFunctionException {
+    createFile(path, "");
+  }
+
+  @SkylarkCallable(
+    name = "file",
+    doc = "Generate a file in the output directory with the provided content"
+  )
+  public void createFile(SkylarkPath path, String content) throws RepositoryFunctionException {
+    try {
+      checkInOutputDirectory(path);
+      makeDirectories(path.path);
+      try (OutputStream stream = path.path.getOutputStream()) {
+        stream.write(content.getBytes(StandardCharsets.UTF_8));
+      }
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  // Create parent directories for the given path
+  private void makeDirectories(Path path) throws IOException {
+    if (!path.isRootDirectory()) {
+      Path parent = path.getParentDirectory();
+      if (!parent.exists()) {
+        makeDirectories(path.getParentDirectory());
+        parent.createDirectory();
+      }
     }
   }
 
