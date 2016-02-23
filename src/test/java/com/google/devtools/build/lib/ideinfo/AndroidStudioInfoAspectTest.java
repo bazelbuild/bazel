@@ -590,10 +590,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
               transform(
                   ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
           .containsExactly("com/google/example/res");
-      assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
-          .isEqualTo("com/google/example/AndroidManifest.xml");
-      assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
     }
+    assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
+        .isEqualTo("com/google/example/AndroidManifest.xml");
+    assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
 
     assertThat(ruleInfo.getDependenciesList()).containsExactly("//com/google/example:l1");
     assertThat(getIdeResolveFiles()).containsExactly(
@@ -647,12 +647,13 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
               transform(
                   ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
           .containsExactly("com/google/example/res");
-      assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
-          .isEqualTo("com/google/example/AndroidManifest.xml");
-      assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
-      assertThat(ruleInfo.getAndroidRuleIdeInfo().getApk().getRelativePath())
-          .isEqualTo("com/google/example/b.apk");
     }
+    assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
+        .isEqualTo("com/google/example/AndroidManifest.xml");
+    assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
+    assertThat(ruleInfo.getAndroidRuleIdeInfo().getApk().getRelativePath())
+        .isEqualTo("com/google/example/b.apk");
+
 
     assertThat(ruleInfo.getDependenciesList()).containsExactly("//com/google/example:l1");
 
@@ -675,10 +676,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidInferredPackage() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "java/com/google/example/BUILD",
         "android_library(",
@@ -753,10 +750,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidLibraryGeneratedManifestIsAddedToOutputGroup() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "com/google/example/BUILD",
         "android_library(",
@@ -836,10 +829,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testNonConformingPackageName() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "bad/package/google/example/BUILD",
         "android_library(",

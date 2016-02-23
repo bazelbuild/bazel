@@ -112,6 +112,15 @@ def java_rule_ide_info(target, ctx):
           ),
           ide_resolve_files)
 
+def android_rule_ide_info(target, ctx):
+  if not hasattr(target, 'android'):
+    return None
+  return struct_omit_none(
+            java_package = target.android.java_package,
+            manifest = artifact_location(target.android.manifest),
+            apk = artifact_location(target.android.apk),
+        )
+
 
 def _aspect_impl(target, ctx):
   kind = get_kind(target, ctx)
@@ -133,12 +142,16 @@ def _aspect_impl(target, ctx):
     if is_java_rule(target, ctx):
       java_rule_ide_info, java_ide_resolve_files = java_rule_ide_info(target, ctx)
       ide_resolve_files = ide_resolve_files | java_ide_resolve_files
-      info = struct(
+
+      android_rule_ide_info = android_rule_ide_info(target, ctx)
+
+      info = struct_omit_none(
           label = str(target.label),
           kind = kind,
           dependencies = all_deps,
           build_file_artifact_location = build_file_artifact_location(ctx.build_file_path),
           java_rule_ide_info = java_rule_ide_info,
+          android_rule_ide_info = android_rule_ide_info,
           tags = ctx.rule.attr.tags,
       )
     else:

@@ -50,7 +50,7 @@ message AndroidRuleIdeInfo {
   repeated ArtifactLocation resources = 1;
   ArtifactLocation apk = 3;
   repeated ArtifactLocation dependency_apk = 4;
-  ArtifactLocation manifest= 5;
+  ArtifactLocation manifest = 5;
   string java_package = 7;
   bool has_idl_sources = 8;
   LibraryArtifact idl_jar = 9;

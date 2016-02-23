@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.SourceDirectory;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
@@ -429,7 +428,7 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
       builder.addResources(artifactLocation);
     }
 
-    builder.setJavaPackage(AndroidCommon.getJavaPackage(ruleContext));
+    builder.setJavaPackage(provider.getJavaPackage());
 
     boolean hasIdlSources = !provider.getIdlSrcs().isEmpty();
     builder.setHasIdlSources(hasIdlSources);

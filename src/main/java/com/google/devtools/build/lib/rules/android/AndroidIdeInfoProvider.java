@@ -127,6 +127,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     private Artifact apk = null;
     private Artifact idlClassJar = null;
     private Artifact idlSourceJar = null;
+    private String javaPackage = null;
     private final Set<SourceDirectory> resourceDirs = new LinkedHashSet<>();
     private final Set<SourceDirectory> assetDirs = new LinkedHashSet<>();
     private final Set<SourceDirectory> idlDirs = new LinkedHashSet<>();
@@ -136,6 +137,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
 
     public AndroidIdeInfoProvider build() {
       return new AndroidIdeInfoProvider(
+          javaPackage,
           manifest,
           generatedManifest,
           apk,
@@ -147,6 +149,11 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
           ImmutableList.copyOf(idlSrcs),
           ImmutableList.copyOf(idlGeneratedJavaFiles),
           ImmutableList.copyOf(apksUnderTest));
+    }
+
+    public Builder setJavaPackage(String javaPackage) {
+      this.javaPackage = javaPackage;
+      return this;
     }
 
     public Builder setApk(Artifact apk) {
@@ -315,6 +322,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     }
   }
 
+  private final String javaPackage;
   private final Artifact manifest;
   private final Artifact generatedManifest;
   private final Artifact signedApk;
@@ -327,7 +335,9 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
   private final ImmutableCollection<Artifact> idlGeneratedJavaFiles;
   private final ImmutableCollection<Artifact> apksUnderTest;
 
-  AndroidIdeInfoProvider(@Nullable Artifact manifest,
+  AndroidIdeInfoProvider(
+      String javaPackage,
+      @Nullable Artifact manifest,
       @Nullable Artifact generatedManifest,
       @Nullable Artifact signedApk,
       @Nullable Artifact idlClassJar,
@@ -338,6 +348,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
       ImmutableCollection<Artifact> idlSrcs,
       ImmutableCollection<Artifact> idlGeneratedJavaFiles,
       ImmutableCollection<Artifact> apksUnderTest) {
+    this.javaPackage = javaPackage;
     this.manifest = manifest;
     this.generatedManifest = generatedManifest;
     this.signedApk = signedApk;
@@ -349,6 +360,11 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     this.idlSrcs = idlSrcs;
     this.idlGeneratedJavaFiles = idlGeneratedJavaFiles;
     this.apksUnderTest = apksUnderTest;
+  }
+
+  /** Returns java package for this target. */
+  public String getJavaPackage() {
+    return javaPackage;
   }
 
   /** Returns the direct AndroidManifest. */
