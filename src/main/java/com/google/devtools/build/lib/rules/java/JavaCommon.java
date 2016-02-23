@@ -130,6 +130,10 @@ public class JavaCommon {
         ClasspathType.BOTH, bothDeps);
   }
 
+  public JavaSemantics getJavaSemantics() {
+    return semantics;
+  }
+
   /**
    * Validates that the packages listed under "deps" all have the given constraint. If a package
    * does not have this attribute, an error is generated.
@@ -671,10 +675,6 @@ public class JavaCommon {
     return JavaPluginInfoProvider.merge(Iterables.concat(
         getPluginInfoProvidersForAttribute(ruleContext, "exported_plugins", Mode.HOST),
         getPluginInfoProvidersForAttribute(ruleContext, "exports", Mode.TARGET)));
-  }
-
-  public Runfiles getRunfiles(boolean neverLink) {
-    return getRunfiles(ruleContext, semantics, getJavaCompilationArtifacts(), neverLink);
   }
 
   public static Runfiles getRunfiles(

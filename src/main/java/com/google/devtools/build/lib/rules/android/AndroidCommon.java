@@ -632,7 +632,9 @@ public class AndroidCommon {
           .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
           .build();
     }
-    return javaCommon.getRunfiles(asNeverLink);
+    return JavaCommon.getRunfiles(
+        ruleContext, javaCommon.getJavaSemantics(), javaCommon.getJavaCompilationArtifacts(),
+        asNeverLink);
   }
 
   public static PathFragment getAssetDir(RuleContext ruleContext) {
