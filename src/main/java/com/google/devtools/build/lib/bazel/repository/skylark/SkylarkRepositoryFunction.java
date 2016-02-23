@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
@@ -32,6 +33,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -39,6 +41,19 @@ import javax.annotation.Nullable;
  * A repository function to delegate work done by skylark remote repositories.
  */
 public class SkylarkRepositoryFunction extends RepositoryFunction {
+
+  private CommandEnvironment commandEnvironment = null;
+
+  public void setCommandEnvironment(CommandEnvironment commandEnvironment) {
+    this.commandEnvironment = commandEnvironment;
+  }
+
+  private Map<String, String> getClientEnvironment() {
+    return commandEnvironment != null
+        ? commandEnvironment.getClientEnv()
+        : ImmutableMap.<String, String>of();
+  }
+
   @Nullable
   @Override
   public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
@@ -52,7 +67,7 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               .setEventHandler(env.getListener())
               .build();
       SkylarkRepositoryContext skylarkRepositoryContext =
-          new SkylarkRepositoryContext(rule, outputDirectory);
+          new SkylarkRepositoryContext(rule, outputDirectory, getClientEnvironment());
       // This has side-effect, we don't care about the output.
       // Also we do a lot of stuff in there, maybe blocking operations and we should certainly make
       // it possible to return null and not block but it doesn't seem to be easy with Skylark

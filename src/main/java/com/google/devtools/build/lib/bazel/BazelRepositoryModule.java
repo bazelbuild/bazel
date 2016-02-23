@@ -55,8 +55,11 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryLoaderFunction;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeModule;
+import com.google.devtools.build.lib.runtime.Command;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
+import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -79,6 +82,8 @@ public class BazelRepositoryModule extends BlazeModule {
   // A map of repository handlers that can be looked up by rule class name.
   private final ImmutableMap<String, RepositoryFunction> repositoryHandlers;
   private final AtomicBoolean isFetch = new AtomicBoolean(false);
+  private final SkylarkRepositoryFunction skylarkRepositoryFunction =
+      new SkylarkRepositoryFunction();
 
   public BazelRepositoryModule() {
     repositoryHandlers =
@@ -177,8 +182,13 @@ public class BazelRepositoryModule extends BlazeModule {
     builder.put(
         SkyFunctions.REPOSITORY_DIRECTORY,
         new RepositoryDelegatorFunction(
-            directories, repositoryHandlers, new SkylarkRepositoryFunction(), isFetch));
+            directories, repositoryHandlers, skylarkRepositoryFunction, isFetch));
     builder.put(MavenServerFunction.NAME, new MavenServerFunction(directories));
     return builder.build();
+  }
+
+  @Override
+  public void beforeCommand(Command command, CommandEnvironment env) throws AbruptExitException {
+    skylarkRepositoryFunction.setCommandEnvironment(env);
   }
 }

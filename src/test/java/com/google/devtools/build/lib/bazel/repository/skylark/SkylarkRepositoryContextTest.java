@@ -81,7 +81,7 @@ public class SkylarkRepositoryContextTest {
             .externalPackageData()
             .createAndAddRepositoryRule(
                 packageBuilder, buildRuleClass(attributes), null, kwargs, ast);
-    context = new SkylarkRepositoryContext(rule, outputDirectory);
+    context = new SkylarkRepositoryContext(rule, outputDirectory, ImmutableMap.of("FOO", "BAR"));
   }
 
   protected void setUpContexForRule(String name) throws Exception {

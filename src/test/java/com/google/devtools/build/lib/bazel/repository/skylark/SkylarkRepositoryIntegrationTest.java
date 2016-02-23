@@ -61,7 +61,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
    * inject the SkylarkRepositoryFunction in the list of SkyFunctions. In Bazel, this function is
    * injected by the corresponding @{code BlazeModule}.
    */
-  private static class CustomAnalysisMock extends AnalysisMock {
+  private class CustomAnalysisMock extends AnalysisMock {
 
     private final AnalysisMock proxied;
 
@@ -75,7 +75,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
       // Add both the local repository and the skylark repository functions
       RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
       localRepositoryFunction.setDirectories(directories);
-      RepositoryFunction skylarkRepositoryFunction = new SkylarkRepositoryFunction();
+      SkylarkRepositoryFunction skylarkRepositoryFunction = new SkylarkRepositoryFunction();
       skylarkRepositoryFunction.setDirectories(directories);
       ImmutableMap<String, RepositoryFunction> repositoryHandlers =
           ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);

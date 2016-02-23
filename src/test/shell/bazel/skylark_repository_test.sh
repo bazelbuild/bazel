@@ -249,10 +249,9 @@ EOF
   expect_log "foo"
 }
 
-
-function test_skylark_repository_which_and_execute() {
+function setup_skylark_repository() {
   create_new_workspace
-  local repo2=$new_workspace_dir
+  repo2=$new_workspace_dir
 
   cat > bar.txt
   echo "filegroup(name='bar', srcs=['bar.txt'])" > BUILD
@@ -262,6 +261,12 @@ function test_skylark_repository_which_and_execute() {
 load('/test', 'repo')
 repo(name = 'foo')
 EOF
+  # Need to be in a package
+  cat > BUILD
+}
+
+function test_skylark_repository_which_and_execute() {
+  setup_skylark_repository
 
   # Our custom repository rule
   cat >test.bzl <<EOF
@@ -279,11 +284,32 @@ def _impl(ctx):
   ctx.symlink(ctx.path("$repo2"), ctx.path(""))
 repo = repository_rule(implementation=_impl, local=True)
 EOF
-  # Need to be in a package
-  cat > BUILD
 
   bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "version"
+}
+
+function test_skylark_repository_environ() {
+  setup_skylark_repository
+
+  # Our custom repository rule
+  cat >test.bzl <<EOF
+def _impl(ctx):
+  print(ctx.os.environ["FOO"])
+  # Symlink so a repository is created
+  ctx.symlink(ctx.path("$repo2"), ctx.path(""))
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  bazel shutdown
+  FOO=BAR bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "BAR"
+
+  FOO=BAR bazel clean >& $TEST_log
+  FOO=BAR bazel info >& $TEST_log
+
+  FOO=BAZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "BAZ"
 }
 
 function tear_down() {

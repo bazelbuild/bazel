@@ -601,6 +601,7 @@ java_library(
         ":concurrent",
         ":events",
         ":maven-connector",
+        ":runtime",
         ":util",
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
         "//src/main/java/com/google/devtools/build/lib:build-base",

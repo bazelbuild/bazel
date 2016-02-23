@@ -35,6 +35,7 @@ import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import java.io.File;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Skylark API for the repository_rule's context.
@@ -52,6 +53,7 @@ public class SkylarkRepositoryContext {
   private final Rule rule;
   private final Path outputDirectory;
   private final SkylarkClassObject attrObject;
+  private final SkylarkOS osObject;
 
   /**
    * In native code, private values start with $. In Skylark, private values start with _, because
@@ -65,12 +67,12 @@ public class SkylarkRepositoryContext {
   }
 
   /**
-   * Create a new context (ctx) object for a skylark repository rule ({@code rule} argument). The
-   * environment
+   * Create a new context (ctx) object for a skylark repository rule ({@code rule} argument).
    */
-  SkylarkRepositoryContext(Rule rule, Path outputDirectory) {
+  SkylarkRepositoryContext(Rule rule, Path outputDirectory, Map<String, String> env) {
     this.rule = rule;
     this.outputDirectory = outputDirectory;
+    this.osObject = new SkylarkOS(env);
     AggregatingAttributeMapper attrs = AggregatingAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
     for (String name : attrs.getAttributeNames()) {
@@ -129,6 +131,15 @@ public class SkylarkRepositoryContext {
               "Could not create symlink from " + from + " to " + to + ": " + e.getMessage(), e),
           Transience.TRANSIENT);
     }
+  }
+
+  @SkylarkCallable(
+    name = "os",
+    structField = true,
+    doc = "A struct to access information from the system "
+  )
+  public SkylarkOS getOS() {
+    return osObject;
   }
 
   @SkylarkCallable(
