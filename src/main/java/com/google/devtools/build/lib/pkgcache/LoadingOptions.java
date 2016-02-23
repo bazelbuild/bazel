@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.pkgcache;
 
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.packages.TestTimeout;
+import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.OptionsParsingException;
 
 import java.util.List;
 import java.util.Set;
@@ -28,8 +30,9 @@ import java.util.Set;
 public class LoadingOptions extends OptionsBase {
 
   @Option(name = "loading_phase_threads",
-      defaultValue = "200",
+      defaultValue = "-1",
       category = "undocumented",
+      converter = LoadingPhaseThreadCountConverter.class,
       help = "Number of parallel threads to use for the loading phase.")
   public int loadingPhaseThreads;
 
@@ -112,4 +115,31 @@ public class LoadingOptions extends OptionsBase {
       help = "Use the Skyframe-based target pattern evaluator; implies "
           + "--experimental_interleave_loading_and_analysis.")
   public boolean useSkyframeTargetPatternEvaluator;
+
+  /**
+   * A converter for loading phase thread count. Since the default is not a true constant, we
+   * create a converter here to implement the default logic.
+   */
+  public static final class LoadingPhaseThreadCountConverter implements Converter<Integer> {
+    @Override
+    public Integer convert(String input) throws OptionsParsingException {
+      if ("-1".equals(input)) {
+        // Reduce thread count while running tests. Test cases are typically small, and large thread
+        // pools vying for a relatively small number of CPU cores may induce non-optimal
+        // performance.
+        return System.getenv("TEST_TMPDIR") == null ? 200 : 5;
+      }
+
+      try {
+        return Integer.decode(input);
+      } catch (NumberFormatException e) {
+        throw new OptionsParsingException("'" + input + "' is not an int");
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "an integer";
+    }
+  }
 }
