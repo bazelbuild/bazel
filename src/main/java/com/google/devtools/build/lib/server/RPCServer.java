@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.server;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
@@ -223,15 +224,25 @@ public final class RPCServer {
           }
           idleChecker.busy();
 
+
+          List<String> request = null;
           try {
+            request = extractRequest(requestIo);
             cmdNum.incrementAndGet();
             inAction.set(true);
-            executeRequest(requestIo);
+            if (request != null) {
+              executeRequest(request, requestIo);
+            }
           } finally {
             inAction.set(false);
-            synchronized (interruptLock) {
-              allowingInterrupt.set(false);
-              Thread.interrupted(); // clears thread interrupted status
+            // Don't reset interruption unless we executed a request. Otherwise this is just a
+            // ping from the client verifying our existence, in which case we should retain the
+            // interrupt status for the subsequent request.
+            if (request != null) {
+              synchronized (interruptLock) {
+                allowingInterrupt.set(false);
+                Thread.interrupted(); // clears thread interrupted status
+              }
             }
             requestIo.shutdown();
             if (rpcService.isShutdown()) {
@@ -423,16 +434,21 @@ public final class RPCServer {
     return ImmutableList.copyOf(NULLTERMINATOR_SPLITTER.split(s));
   }
 
-  private void executeRequest(RequestIo requestIo) {
+  private static List<String> extractRequest(RequestIo requestIo) throws IOException {
+    List<String> request = readRequest(requestIo.in);
+    if (request == null) {
+      LOG.info("Short-circuiting empty request");
+      return null;
+    }
+    return request;
+  }
+
+  private void executeRequest(List<String> request, RequestIo requestIo) {
+    Preconditions.checkNotNull(request);
     int exitStatus = 2;
     try {
-      List<String> request = readRequest(requestIo.in);
-      if (request == null) {
-        LOG.info("Short-circuiting empty request");
-        return;
-      }
       exitStatus = rpcService.executeRequest(request, requestIo.requestOutErr,
-          requestIo.firstContactTime);
+              requestIo.firstContactTime);
       LOG.info("Finished executing request");
     } catch (UnknownCommandException e) {
       requestIo.requestOutErr.printErrLn("SERVER ERROR: " + e.getMessage());
@@ -460,7 +476,7 @@ public final class RPCServer {
   /**
    * Because it's a little complicated, this class factors out all the IO Hook
    * up we need per request, that is, in
-   * {@link RPCServer#executeRequest(RequestIo)}.
+   * {@link RPCServer#executeRequest(List, RequestIo)}.
    * It's unfortunately complicated, so it's explained here.
    */
   private static class RequestIo {
