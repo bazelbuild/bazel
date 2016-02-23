@@ -17,14 +17,18 @@ package com.google.devtools.build.xcode.plmerge;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableBiMap;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.Sets;
 import com.google.common.io.ByteSource;
 import com.google.devtools.build.xcode.common.Platform;
+import com.google.devtools.build.xcode.plmerge.proto.PlMergeProtos.Control;
 import com.google.devtools.build.xcode.util.Equaling;
 import com.google.devtools.build.xcode.util.Mapping;
 import com.google.devtools.build.xcode.util.Value;
@@ -44,6 +48,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.ParseException;
@@ -179,18 +185,29 @@ public class PlistMerging extends Value<PlistMerging> {
    * modifying them based on substitutions and keysToRemoveIfEmptyString.
    */
   public static PlistMerging from(
-      MergingArguments mergingArguments,
+      Control control,
       KeysToRemoveIfEmptyString keysToRemoveIfEmptyString)
       throws IOException {
-     
+
+    FileSystem fileSystem = FileSystems.getDefault();
+    
+    ImmutableList.Builder<Path> sourceFilePathsBuilder = new Builder<>();
+    for (String pathString : control.getSourceFileList()) {
+      sourceFilePathsBuilder.add(fileSystem.getPath(pathString));
+    }
+    ImmutableList.Builder<Path> immutableSourceFilePathsBuilder = new Builder<>();
+    for (String pathString : control.getImmutableSourceFileList()) {
+      immutableSourceFilePathsBuilder.add(fileSystem.getPath(pathString));
+    }
+
     return from(
-        mergingArguments.getSourceFilePaths(),
-        mergingArguments.getImmutableSourceFilePaths(),
-        mergingArguments.getVariableSubstitutions(),
+        sourceFilePathsBuilder.build(),
+        immutableSourceFilePathsBuilder.build(),
+        control.getVariableSubstitutionMap(),
         keysToRemoveIfEmptyString,
-        mergingArguments.getExecutableName());
+        Strings.emptyToNull(control.getExecutableName()));
   }
-  
+
   /**
    * Generates a Plistmerging combining values from sourceFiles and immutableSourceFiles, and
    * modifying them based on subsitutions and keysToRemoveIfEmptyString.
