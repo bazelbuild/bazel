@@ -226,7 +226,13 @@ public interface JavaSemantics {
   /**
    * Returns the main class of a Java binary.
    */
-  String getMainClass(RuleContext ruleContext, JavaCommon javaCommon);
+  String getMainClass(RuleContext ruleContext, ImmutableList<Artifact> srcsArtifacts);
+
+  /**
+   * Returns the primary class for a Java binary - either the main class, or, in case of a test,
+   * the test class (not the test runner main class).
+   */
+  String getPrimaryClass(RuleContext ruleContext, ImmutableList<Artifact> srcsArtifacts);
 
   /**
    * Returns the resources contributed by a Java rule (usually the contents of the

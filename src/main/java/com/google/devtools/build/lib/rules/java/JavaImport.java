@@ -73,7 +73,8 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     ImmutableList<Artifact> interfaceJars =
         processWithIjar(jars, helper, compilationToRuntimeJarMapBuilder);
 
-    common.setJavaCompilationArtifacts(collectJavaArtifacts(jars, interfaceJars));
+    JavaCompilationArtifacts javaArtifacts = collectJavaArtifacts(jars, interfaceJars);
+    common.setJavaCompilationArtifacts(javaArtifacts);
 
     CppCompilationContext transitiveCppDeps = common.collectTransitiveCppDeps();
     NestedSet<LinkerInput> transitiveJavaNativeLibraries =
@@ -95,7 +96,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         Runfiles.EMPTY :
         new Runfiles.Builder(ruleContext.getWorkspaceName())
             // add the jars to the runfiles
-            .addArtifacts(common.getJavaCompilationArtifacts().getRuntimeJars())
+            .addArtifacts(javaArtifacts.getRuntimeJars())
             .addTargets(targets, RunfilesProvider.DEFAULT_RUNFILES)
             .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
             .addTargets(targets, JavaRunfilesProvider.TO_RUNFILES)
@@ -152,7 +153,7 @@ public class JavaImport implements RuleConfiguredTargetFactory {
         .setFilesToBuild(filesToBuild)
         .add(JavaRuleOutputJarsProvider.class, ruleOutputJarsProvider.build())
         .add(JavaRuntimeJarProvider.class,
-            new JavaRuntimeJarProvider(common.getJavaCompilationArtifacts().getRuntimeJars()))
+            new JavaRuntimeJarProvider(javaArtifacts.getRuntimeJars()))
         .add(JavaNeverlinkInfoProvider.class, new JavaNeverlinkInfoProvider(neverLink))
         .add(RunfilesProvider.class, RunfilesProvider.simple(runfiles))
         .add(CcLinkParamsProvider.class, new CcLinkParamsProvider(ccLinkParamsStore))

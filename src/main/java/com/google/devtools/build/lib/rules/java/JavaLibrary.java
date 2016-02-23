@@ -126,9 +126,10 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     }
 
     boolean neverLink = JavaCommon.isNeverLink(ruleContext);
-    common.setJavaCompilationArtifacts(javaArtifactsBuilder.build());
+    JavaCompilationArtifacts javaArtifacts = javaArtifactsBuilder.build();
+    common.setJavaCompilationArtifacts(javaArtifacts);
     common.setClassPathFragment(new ClasspathConfiguredFragment(
-        common.getJavaCompilationArtifacts(), attributes, neverLink));
+        javaArtifacts, attributes, neverLink));
     CppCompilationContext transitiveCppDeps = common.collectTransitiveCppDeps();
 
     NestedSet<Artifact> transitiveSourceJars = common.collectTransitiveSourceJars(srcJar);
@@ -139,7 +140,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     JavaCompilationArgs recursiveJavaCompilationArgs = common.collectJavaCompilationArgs(
         true, neverLink, common.compilationArgsFromSources(), false);
     NestedSet<Artifact> compileTimeJavaDepArtifacts = common.collectCompileTimeDependencyArtifacts(
-        common.getJavaCompilationArtifacts().getCompileTimeDependencyArtifact());
+        javaArtifacts.getCompileTimeDependencyArtifact());
     NestedSet<Artifact> runTimeJavaDepArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     NestedSet<LinkerInput> transitiveJavaNativeLibraries =
         common.collectTransitiveJavaNativeLibraries();
@@ -173,8 +174,9 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
             .setJdeps(outputDepsProto)
             .build())
         .add(JavaRuntimeJarProvider.class,
-            new JavaRuntimeJarProvider(common.getJavaCompilationArtifacts().getRuntimeJars()))
-        .add(RunfilesProvider.class, RunfilesProvider.simple(common.getRunfiles(neverLink)))
+            new JavaRuntimeJarProvider(javaArtifacts.getRuntimeJars()))
+        .add(RunfilesProvider.class, RunfilesProvider.simple(JavaCommon.getRunfiles(
+            ruleContext, semantics, javaArtifacts, neverLink)))
         .setFilesToBuild(filesToBuild)
         .add(JavaNeverlinkInfoProvider.class, new JavaNeverlinkInfoProvider(neverLink))
         .add(CppCompilationContext.class, transitiveCppDeps)
