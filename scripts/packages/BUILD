@@ -128,10 +128,10 @@ pkg_deb(
     data = ":debian-data",
     depends = select({
         ":jdk7": [
-            "java7-jdk",
+            "java7-jdk | java7-sdk",
         ],
         "//conditions:default": [
-            "java8-jdk",
+            "java8-jdk | java8-sdk",
         ],
     }) + [
         "pkg-config",
