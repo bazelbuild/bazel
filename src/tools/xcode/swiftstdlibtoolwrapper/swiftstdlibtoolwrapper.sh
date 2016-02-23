@@ -27,7 +27,7 @@ WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 
 OUTZIP=$("${REALPATH}" "$1")
 shift 1
-TEMPDIR=$(mktemp -d -t swiftstdlibtoolZippingOutput)
+TEMPDIR=$(mktemp -d "${TMPDIR:-/tmp}/swiftstdlibtoolZippingOutput.XXXXXX")
 trap "rm -rf \"$TEMPDIR\"" EXIT
 
 FULLPATH="$TEMPDIR/Frameworks"
