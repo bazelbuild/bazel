@@ -4,7 +4,7 @@ java_test(
     srcs = ["PackageParserTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:package_manifest_proto",
+        "//src/main/protobuf:package_manifest_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android/ideinfo:package_parser_lib",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -20,7 +20,7 @@ java_test(
     srcs = ["ArtifactLocationConverterTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:package_manifest_proto",
+        "//src/main/protobuf:package_manifest_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android/ideinfo:package_parser_lib",
         "//third_party:guava",
         "//third_party:junit4",

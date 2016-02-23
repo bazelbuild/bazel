@@ -21,14 +21,9 @@ FILES = [
 ]
 
 [java_proto_library(
-    name = s + "_proto",
+    name = s + "_java_proto",
     src = s + ".proto",
 ) for s in FILES]
-
-java_proto_library(
-    name = "build_proto_v2",
-    src = "build.proto",
-)
 
 filegroup(
     name = "srcs",

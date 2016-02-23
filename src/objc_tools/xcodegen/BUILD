@@ -8,7 +8,7 @@ java_binary(
     deps = [
         ":xcodegen_lib",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:xcodegen_proto",
+        "//src/main/protobuf:xcodegen_java_proto",
         "//third_party:guava",
         "//third_party:protobuf",
         "//third_party/java/buck-ios-support",
@@ -25,7 +25,7 @@ java_library(
         ],
     ),
     deps = [
-        "//src/main/protobuf:xcodegen_proto",
+        "//src/main/protobuf:xcodegen_java_proto",
         "//src/objc_tools/plmerge:plmerge_lib",
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/common",
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/util",

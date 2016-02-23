@@ -8,7 +8,7 @@ java_binary(
     deps = [
         ":plmerge_lib",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:plmerge_proto",
+        "//src/main/protobuf:plmerge_java_proto",
         "//third_party:guava",
         "//third_party/java/dd_plist",
     ],
@@ -21,7 +21,7 @@ java_library(
     ),
     deps = [
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:plmerge_proto",
+        "//src/main/protobuf:plmerge_java_proto",
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/common",
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/util",
         "//third_party:guava",

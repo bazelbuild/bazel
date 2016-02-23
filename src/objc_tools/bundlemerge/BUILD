@@ -7,7 +7,7 @@ java_binary(
     visibility = ["//visibility:public"],
     deps = [
         ":bundlemerge_lib",
-        "//src/main/protobuf:bundlemerge_proto",
+        "//src/main/protobuf:bundlemerge_java_proto",
         "//src/objc_tools/plmerge:plmerge_lib",
         "//third_party:protobuf",
     ],
@@ -19,7 +19,7 @@ java_library(
     deps = [
         "//src/java_tools/singlejar:libSingleJar",
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
-        "//src/main/protobuf:bundlemerge_proto",
+        "//src/main/protobuf:bundlemerge_java_proto",
         "//src/objc_tools/plmerge:plmerge_lib",
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/common",
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/zip",

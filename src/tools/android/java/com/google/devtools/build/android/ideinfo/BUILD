@@ -29,7 +29,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:package_manifest_proto",
+        "//src/main/protobuf:package_manifest_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:guava",
         "//third_party:jsr305",

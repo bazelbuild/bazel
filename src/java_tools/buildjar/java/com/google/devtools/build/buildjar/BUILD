@@ -51,7 +51,7 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:errorprone",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:processing",
-        "//src/main/protobuf:worker_protocol_proto",
+        "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:guava",
         "//third_party/java/jdk/langtools:javac",
     ],
@@ -98,9 +98,9 @@ bootstrap_java_library(
     ],
     neverlink_jars = ["//tools/defaults:java_langtools"],
     srcjars = [
-        "//src/main/protobuf:deps_proto_srcjar",
-        "//src/main/protobuf:worker_protocol_proto_srcjar",
-        "//src/main/protobuf:java_compilation_proto_srcjar",
+        "//src/main/protobuf:deps_java_proto_srcjar",
+        "//src/main/protobuf:worker_protocol_java_proto_srcjar",
+        "//src/main/protobuf:java_compilation_java_proto_srcjar",
     ],
 )
 

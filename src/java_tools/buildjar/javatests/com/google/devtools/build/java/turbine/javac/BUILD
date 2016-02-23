@@ -5,7 +5,7 @@ java_test(
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:turbine_options",
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:javac_turbine",
-        "//src/main/protobuf:deps_proto",
+        "//src/main/protobuf:deps_java_proto",
         "//third_party:asm",
         "//third_party:asm-util",
         "//third_party:guava",

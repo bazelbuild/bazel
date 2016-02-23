@@ -25,7 +25,7 @@ java_library(
     srcs = glob(["dependency/*.java"]),
     deps = [
         ":plugins",
-        "//src/main/protobuf:deps_proto",
+        "//src/main/protobuf:deps_java_proto",
         "//third_party:guava",
         "//third_party/java/jdk/langtools:javac",
     ],
@@ -48,7 +48,7 @@ java_library(
     srcs = glob(["processing/*.java"]),
     deps = [
         ":plugins",
-        "//src/main/protobuf:java_compilation_proto",
+        "//src/main/protobuf:java_compilation_java_proto",
         "//third_party:guava",
         "//third_party/java/jdk/langtools:javac",
     ],
