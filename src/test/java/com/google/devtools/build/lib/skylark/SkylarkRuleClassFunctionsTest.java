@@ -184,6 +184,27 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   }
 
   @Test
+  public void testAttrWithProvidersList() throws Exception {
+    Attribute attr =
+            evalAttributeDefinition("attr.label_list(allow_files = True,"
+                    + " providers = [['a', 'b'], ['c']])")
+                    .build("a1");
+    assertThat(attr.getMandatoryProvidersList()).containsExactly(ImmutableSet.of("a", "b"),
+            ImmutableSet.of("c"));
+  }
+
+  @Test
+  public void testAttrWithWrongProvidersList() throws Exception {
+    checkErrorContains("Illegal argument: element in 'providers' is of unexpected type."
+            + " Should be list of string, but got list with an element of type int.",
+            "attr.label_list(allow_files = True,  providers = [['a', 1], ['c']])");
+
+    checkErrorContains("Illegal argument: element in 'providers' is of unexpected type."
+            + " Should be list of string, but got string.",
+            "attr.label_list(allow_files = True,  providers = [['a', 'b'], 'c'])");
+  }
+
+  @Test
   public void testLabelListWithAspects() throws Exception {
     SkylarkAttr.Descriptor attr =
         (SkylarkAttr.Descriptor) evalRuleClassCode(

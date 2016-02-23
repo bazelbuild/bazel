@@ -36,11 +36,13 @@ import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
 import com.google.devtools.build.lib.syntax.UserDefinedFunction;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -97,6 +99,11 @@ public final class SkylarkAttr {
   private static final String NON_EMPTY_DOC = "True if the attribute must not be empty";
 
   private static final String PROVIDERS_ARG = "providers";
+  private static final String PROVIDERS_DOC =
+          "mandatory providers list. It should be either a list of providers, or a "
+                  + "list of lists of providers. Every dependency should provide ALL providers "
+                  + "from at least ONE of these lists. A single list of providers will be "
+                  + "automatically converted to a list containing one list of providers.";
 
   private static final String SINGLE_FILE_ARG = "single_file";
 
@@ -180,14 +187,48 @@ public final class SkylarkAttr {
     }
 
     if (containsNonNoneKey(arguments, PROVIDERS_ARG)) {
-      builder.mandatoryProviders(SkylarkList.castSkylarkListOrNoneToList(
-          arguments.get(PROVIDERS_ARG), String.class, PROVIDERS_ARG));
+      Object obj = arguments.get(PROVIDERS_ARG);
+      SkylarkType.checkType(obj, SkylarkList.class, PROVIDERS_ARG);
+      boolean isSingleListOfStr = true;
+      for (Object o : (SkylarkList) obj) {
+        isSingleListOfStr = o instanceof String;
+        if (!isSingleListOfStr) {
+          break;
+        }
+      }
+      if (isSingleListOfStr) {
+        builder.mandatoryProviders(((SkylarkList<?>) obj).getContents(String.class, PROVIDERS_ARG));
+      } else {
+        builder.mandatoryProvidersList(getProvidersList((SkylarkList) obj));
+      }
     }
 
     if (containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
       builder.cfg((ConfigurationTransition) arguments.get(CONFIGURATION_ARG));
     }
     return builder;
+  }
+
+  private static List<List<String>> getProvidersList(SkylarkList skylarkList) throws EvalException {
+    List<List<String>> providersList = new ArrayList<>();
+    String errorMsg = "Illegal argument: element in '%s' is of unexpected type. "
+            + "Should be list of string, but got %s. "
+            + "Notice: one single list of string as 'providers' is still supported.";
+    for (Object o : skylarkList) {
+      if (!(o instanceof SkylarkList)) {
+        throw new EvalException(null, String.format(errorMsg, PROVIDERS_ARG,
+                EvalUtils.getDataTypeName(o, true)));
+      }
+      for (Object value : (SkylarkList) o) {
+        if (!(value instanceof String)) {
+          throw new EvalException(null, String.format(errorMsg, PROVIDERS_ARG,
+              "list with an element of type "
+                      + EvalUtils.getDataTypeNameFromClass(value.getClass())));
+        }
+      }
+      providersList.add(((SkylarkList<?>) o).getContents(String.class, PROVIDERS_ARG));
+    }
+    return providersList;
   }
 
   private static Descriptor createAttrDescriptor(
@@ -336,9 +377,8 @@ public final class SkylarkAttr {
       @Param(
         name = PROVIDERS_ARG,
         type = SkylarkList.class,
-        generic1 = String.class,
         defaultValue = "[]",
-        doc = "mandatory providers every dependency has to have"
+        doc = PROVIDERS_DOC
       ),
       @Param(
         name = ALLOW_RULES_ARG,
@@ -534,9 +574,8 @@ public final class SkylarkAttr {
       @Param(
         name = PROVIDERS_ARG,
         type = SkylarkList.class,
-        generic1 = String.class,
         defaultValue = "[]",
-        doc = "mandatory providers every dependency has to have"
+        doc = PROVIDERS_DOC
       ),
       @Param(
         name = FLAGS_ARG,

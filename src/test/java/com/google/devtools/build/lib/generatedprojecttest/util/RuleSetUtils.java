@@ -48,7 +48,8 @@ public class RuleSetUtils {
         RuleClassType.INVISIBLE.checkName(input);
         return true;
       } catch (IllegalArgumentException e) {
-        return input.equals("testing_dummy_rule");
+        return input.equals("testing_dummy_rule")
+            || input.equals("testing_rule_for_mandatory_providers");
       }
     }
   };

@@ -180,6 +180,83 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     }
   }
 
+  @Test
+  public void testMandatoryProvidersListWithSkylark() throws Exception {
+    scratch.file("test/BUILD",
+            "load('/test/rules', 'skylark_rule', 'my_rule', 'my_other_rule')",
+            "my_rule(name = 'mylib',",
+            "  srcs = ['a.py'])",
+            "skylark_rule(name = 'skyrule1',",
+            "  deps = [':mylib'])",
+            "my_other_rule(name = 'my_other_lib',",
+            "  srcs = ['a.py'])",
+            "skylark_rule(name = 'skyrule2',",
+            "  deps = [':my_other_lib'])");
+    scratch.file("test/rules.bzl",
+            "def _impl(ctx):",
+            "  return",
+            "skylark_rule = rule(",
+            "  implementation = _impl,",
+            "  attrs = {",
+            "    'deps': attr.label_list(providers = [['a'], ['b', 'c']],",
+            "    allow_files=True)",
+            "  }",
+            ")",
+            "def my_rule_impl(ctx):",
+            "  return struct(a = [])",
+            "my_rule = rule(implementation = my_rule_impl, ",
+            "  attrs = { 'srcs' : attr.label_list(allow_files=True)})",
+            "def my_other_rule_impl(ctx):",
+            "  return struct(b = [])",
+            "my_other_rule = rule(implementation = my_other_rule_impl, ",
+            "  attrs = { 'srcs' : attr.label_list(allow_files=True)})");
+    reporter.removeHandler(failFastHandler);
+    assertNotNull(getConfiguredTarget("//test:skyrule1"));
+
+    try {
+      createRuleContext("//test:skyrule2");
+      fail("Should have failed because of wrong mandatory providers");
+    } catch (Exception ex) {
+      assertContainsEvent("ERROR /workspace/test/BUILD:9:10: in deps attribute of "
+              + "skylark_rule rule //test:skyrule2: '//test:my_other_lib' does not have "
+              + "mandatory provider 'a' or 'c'");
+    }
+  }
+
+  @Test
+  public void testMandatoryProvidersListWithNative() throws Exception {
+    scratch.file("test/BUILD",
+            "load('/test/rules', 'my_rule', 'my_other_rule')",
+            "my_rule(name = 'mylib',",
+            "  srcs = ['a.py'])",
+            "testing_rule_for_mandatory_providers(name = 'skyrule1',",
+            "  deps = [':mylib'])",
+            "my_other_rule(name = 'my_other_lib',",
+            "  srcs = ['a.py'])",
+            "testing_rule_for_mandatory_providers(name = 'skyrule2',",
+            "  deps = [':my_other_lib'])");
+    scratch.file("test/rules.bzl",
+            "def my_rule_impl(ctx):",
+            "  return struct(a = [])",
+            "my_rule = rule(implementation = my_rule_impl, ",
+            "  attrs = { 'srcs' : attr.label_list(allow_files=True)})",
+            "def my_other_rule_impl(ctx):",
+            "  return struct(b = [])",
+            "my_other_rule = rule(implementation = my_other_rule_impl, ",
+            "  attrs = { 'srcs' : attr.label_list(allow_files=True)})");
+    reporter.removeHandler(failFastHandler);
+    assertNotNull(getConfiguredTarget("//test:skyrule1"));
+
+    try {
+      createRuleContext("//test:skyrule2");
+      fail("Should have failed because of wrong mandatory providers");
+    } catch (Exception ex) {
+      assertContainsEvent("ERROR /workspace/test/BUILD:9:10: in deps attribute of "
+              + "testing_rule_for_mandatory_providers rule //test:skyrule2: '//test:my_other_lib' "
+              + "does not have mandatory provider 'a' or 'c'");
+    }
+  }
+
   /* Sharing setup code between the testPackageBoundaryError*() methods is not possible since the
    * errors already happen when loading the file. Consequently, all tests would fail at the same
    * statement. */
