@@ -25,11 +25,7 @@ public final class TestExecException extends ExecException {
   @Override
   public ActionExecutionException toActionExecutionException(String messagePrefix,
       boolean verboseFailures, Action action) {
-    String message = messagePrefix + " failed" + getMessage();
-    if (verboseFailures) {
-      return new ActionExecutionException(message, this, action, isCatastrophic());
-    } else {
-      return new ActionExecutionException(message, action, isCatastrophic());
-    }
+    String message = messagePrefix + " failed";
+    return new ActionExecutionException(message, this, action, isCatastrophic());
   }
 }
