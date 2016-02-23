@@ -93,7 +93,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     JavaCompilationHelper helper = new JavaCompilationHelper(
         ruleContext, semantics, common.getJavacOpts(), attributesBuilder);
     helper.addLibrariesToAttributes(deps);
-    helper.addProvidersToAttributes(common.compilationArgsFromSources(), /* isNeverLink */ false);
+    helper.addProvidersToAttributes(
+        JavaCommon.compilationArgsFromSources(ruleContext), /* isNeverLink */ false);
     attributesBuilder.addNativeLibraries(
         collectNativeLibraries(common.targetsTreatedAsDeps(ClasspathType.BOTH)));
 

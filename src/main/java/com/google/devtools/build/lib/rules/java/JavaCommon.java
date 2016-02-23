@@ -630,7 +630,8 @@ public class JavaCommon {
     attributes.addInstrumentationMetadataEntries(args.getInstrumentationMetadata());
   }
 
-  public Iterable<SourcesJavaCompilationArgsProvider> compilationArgsFromSources() {
+  public static Iterable<SourcesJavaCompilationArgsProvider> compilationArgsFromSources(
+      RuleContext ruleContext) {
     return ruleContext.getPrerequisites("srcs", Mode.TARGET,
         SourcesJavaCompilationArgsProvider.class);
   }
@@ -651,24 +652,25 @@ public class JavaCommon {
 
   private ImmutableList<JavaPluginInfoProvider> collectPlugins() {
     List<JavaPluginInfoProvider> result = new ArrayList<>();
-    Iterables.addAll(result, getPluginInfoProvidersForAttribute(":java_plugins", Mode.HOST));
-    Iterables.addAll(result, getPluginInfoProvidersForAttribute("plugins", Mode.HOST));
-    Iterables.addAll(result, getPluginInfoProvidersForAttribute("deps", Mode.TARGET));
+    Iterables.addAll(result,
+        getPluginInfoProvidersForAttribute(ruleContext, ":java_plugins", Mode.HOST));
+    Iterables.addAll(result, getPluginInfoProvidersForAttribute(ruleContext, "plugins", Mode.HOST));
+    Iterables.addAll(result, getPluginInfoProvidersForAttribute(ruleContext, "deps", Mode.TARGET));
     return ImmutableList.copyOf(result);
   }
 
-  Iterable<JavaPluginInfoProvider> getPluginInfoProvidersForAttribute(String attribute,
-      Mode mode) {
+  private static Iterable<JavaPluginInfoProvider> getPluginInfoProvidersForAttribute(
+      RuleContext ruleContext, String attribute, Mode mode) {
     if (ruleContext.attributes().has(attribute, BuildType.LABEL_LIST)) {
       return ruleContext.getPrerequisites(attribute, mode, JavaPluginInfoProvider.class);
     }
     return ImmutableList.of();
   }
-  
-  public JavaPluginInfoProvider getTransitivePlugins() {
+
+  public static JavaPluginInfoProvider getTransitivePlugins(RuleContext ruleContext) {
     return JavaPluginInfoProvider.merge(Iterables.concat(
-        getPluginInfoProvidersForAttribute("exported_plugins", Mode.HOST),
-        getPluginInfoProvidersForAttribute("exports", Mode.TARGET)));
+        getPluginInfoProvidersForAttribute(ruleContext, "exported_plugins", Mode.HOST),
+        getPluginInfoProvidersForAttribute(ruleContext, "exports", Mode.TARGET)));
   }
 
   public Runfiles getRunfiles(boolean neverLink) {

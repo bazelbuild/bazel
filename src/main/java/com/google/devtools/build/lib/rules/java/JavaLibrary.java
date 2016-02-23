@@ -58,8 +58,10 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
     JavaCompilationHelper helper = new JavaCompilationHelper(
         ruleContext, semantics, common.getJavacOpts(), attributesBuilder);
     helper.addLibrariesToAttributes(common.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
-    helper.addProvidersToAttributes(common.compilationArgsFromSources(),
-        JavaCommon.isNeverLink(ruleContext));
+    Iterable<SourcesJavaCompilationArgsProvider> compilationArgsFromSources =
+        JavaCommon.compilationArgsFromSources(ruleContext);
+    helper.addProvidersToAttributes(
+        compilationArgsFromSources, JavaCommon.isNeverLink(ruleContext));
 
     if (ruleContext.hasErrors()) {
       return null;
@@ -136,9 +138,9 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
     // If sources are empty, treat this library as a forwarding node for dependencies.
     JavaCompilationArgs javaCompilationArgs = common.collectJavaCompilationArgs(
-        false, neverLink, common.compilationArgsFromSources(), false);
+        false, neverLink, compilationArgsFromSources, false);
     JavaCompilationArgs recursiveJavaCompilationArgs = common.collectJavaCompilationArgs(
-        true, neverLink, common.compilationArgsFromSources(), false);
+        true, neverLink, compilationArgsFromSources, false);
     NestedSet<Artifact> compileTimeJavaDepArtifacts = common.collectCompileTimeDependencyArtifacts(
         javaArtifacts.getCompileTimeDependencyArtifact());
     NestedSet<Artifact> runTimeJavaDepArtifacts = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -191,7 +193,7 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
         .add(JavaSourceJarsProvider.class, new JavaSourceJarsProvider(
             transitiveSourceJars, ImmutableList.of(srcJar)))
         // TODO(bazel-team): this should only happen for java_plugin
-        .add(JavaPluginInfoProvider.class, common.getTransitivePlugins())
+        .add(JavaPluginInfoProvider.class, JavaCommon.getTransitivePlugins(ruleContext))
         .add(ProguardSpecProvider.class, new ProguardSpecProvider(proguardSpecs))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars)
         .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, proguardSpecs);
