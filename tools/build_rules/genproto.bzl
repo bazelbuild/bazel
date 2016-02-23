@@ -51,11 +51,15 @@ gensrcjar = rule(
         # value, but Skylark needs to support select first.
         "_proto_compiler": attr.label(
             default = Label("@bazel_tools//third_party:protoc"),
+            allow_files = True,
             executable = True,
+            single_file = True,
         ),
         "_jar": attr.label(
             default = Label("@bazel_tools//tools/jdk:jar"),
+            allow_files = True,
             executable = True,
+            single_file = True,
         ),
         # The jdk dependency is required to ensure dependent libraries are found
         # when we invoke jar (see issue #938).
@@ -63,6 +67,7 @@ gensrcjar = rule(
         # the jar dependency above should just do the right thing on its own.
         "_jdk": attr.label(
             default = Label("@bazel_tools//tools/jdk:jdk"),
+            allow_files = True,
         ),
     },
     outputs = {"srcjar": "lib%{name}.srcjar"},
