@@ -452,25 +452,25 @@ toolchain {
   target_system_name: "local"
   toolchain_identifier: "local_windows_msys64_mingw64"
 
-  tool_path { name: "ar" path: "C:/msys64/mingw64/bin/ar" }
-  tool_path { name: "compat-ld" path: "C:/msys64/mingw64/bin/ld" }
-  tool_path { name: "cpp" path: "C:/msys64/mingw64/bin/cpp" }
-  tool_path { name: "dwp" path: "C:/msys64/mingw64/bin/dwp" }
-  tool_path { name: "gcc" path: "C:/msys64/mingw64/bin/gcc" }
+  tool_path { name: "ar" path: "C:/tools/msys64/mingw64/bin/ar" }
+  tool_path { name: "compat-ld" path: "C:/tools/msys64/mingw64/bin/ld" }
+  tool_path { name: "cpp" path: "C:/tools/msys64/mingw64/bin/cpp" }
+  tool_path { name: "dwp" path: "C:/tools/msys64/mingw64/bin/dwp" }
+  tool_path { name: "gcc" path: "C:/tools/msys64/mingw64/bin/gcc" }
   cxx_flag: "-std=c++0x"
   # TODO(bazel-team): In theory, the path here ought to exactly match the path
   # used by gcc. That works because bazel currently doesn't track files at
   # absolute locations and has no remote execution, yet. However, this will need
   # to be fixed, maybe with auto-detection?
-  cxx_builtin_include_directory: "C:/msys64/mingw64/x86_64-w64-mingw32/include"
-  tool_path { name: "gcov" path: "C:/msys64/mingw64/bin/gcov" }
-  tool_path { name: "ld" path: "C:/msys64/mingw64/bin/ld" }
-  tool_path { name: "nm" path: "C:/msys64/mingw64/bin/nm" }
-  tool_path { name: "objcopy" path: "C:/msys64/mingw64/bin/objcopy" }
+  cxx_builtin_include_directory: "C:/tools/msys64/mingw64/x86_64-w64-mingw32/include"
+  tool_path { name: "gcov" path: "C:/tools/msys64/mingw64/bin/gcov" }
+  tool_path { name: "ld" path: "C:/tools/msys64/mingw64/bin/ld" }
+  tool_path { name: "nm" path: "C:/tools/msys64/mingw64/bin/nm" }
+  tool_path { name: "objcopy" path: "C:/tools/msys64/mingw64/bin/objcopy" }
   objcopy_embed_flag: "-I"
   objcopy_embed_flag: "binary"
-  tool_path { name: "objdump" path: "C:/msys64/mingw64/bin/objdump" }
-  tool_path { name: "strip" path: "C:/msys64/mingw64/bin/strip" }
+  tool_path { name: "objdump" path: "C:/tools/msys64/mingw64/bin/objdump" }
+  tool_path { name: "strip" path: "C:/tools/msys64/mingw64/bin/strip" }
   linking_mode_flags { mode: DYNAMIC }
 }
 
@@ -522,27 +522,27 @@ toolchain {
    target_system_name: "local"
    toolchain_identifier: "local_windows_msys64"
 
-   tool_path { name: "ar" path: "C:/msys64/usr/bin/ar" }
-   tool_path { name: "compat-ld" path: "C:/msys64/usr/bin/ld" }
-   tool_path { name: "cpp" path: "C:/msys64/usr/bin/cpp" }
-   tool_path { name: "dwp" path: "C:/msys64/usr/bin/dwp" }
+   tool_path { name: "ar" path: "C:/tools/msys64/usr/bin/ar" }
+   tool_path { name: "compat-ld" path: "C:/tools/msys64/usr/bin/ld" }
+   tool_path { name: "cpp" path: "C:/tools/msys64/usr/bin/cpp" }
+   tool_path { name: "dwp" path: "C:/tools/msys64/usr/bin/dwp" }
    # Use gcc instead of g++ so that C will compile correctly.
-   tool_path { name: "gcc" path: "C:/msys64/usr/bin/gcc" }
+   tool_path { name: "gcc" path: "C:/tools/msys64/usr/bin/gcc" }
    cxx_flag: "-std=gnu++0x"
    linker_flag: "-lstdc++"
    # TODO(bazel-team): In theory, the path here ought to exactly match the path
    # used by gcc. That works because bazel currently doesn't track files at
    # absolute locations and has no remote execution, yet. However, this will need
    # to be fixed, maybe with auto-detection?
-   cxx_builtin_include_directory: "C:/msys64/"
+   cxx_builtin_include_directory: "C:/tools/msys64/"
    cxx_builtin_include_directory: "/usr/"
-   tool_path { name: "gcov" path: "C:/msys64/usr/bin/gcov" }
-   tool_path { name: "ld" path: "C:/msys64/usr/bin/ld" }
-   tool_path { name: "nm" path: "C:/msys64/usr/bin/nm" }
-   tool_path { name: "objcopy" path: "C:/msys64/usr/bin/objcopy" }
+   tool_path { name: "gcov" path: "C:/tools/msys64/usr/bin/gcov" }
+   tool_path { name: "ld" path: "C:/tools/msys64/usr/bin/ld" }
+   tool_path { name: "nm" path: "C:/tools/msys64/usr/bin/nm" }
+   tool_path { name: "objcopy" path: "C:/tools/msys64/usr/bin/objcopy" }
    objcopy_embed_flag: "-I"
    objcopy_embed_flag: "binary"
-   tool_path { name: "objdump" path: "C:/msys64/usr/bin/objdump" }
-   tool_path { name: "strip" path: "C:/msys64/usr/bin/strip" }
+   tool_path { name: "objdump" path: "C:/tools/msys64/usr/bin/objdump" }
+   tool_path { name: "strip" path: "C:/tools/msys64/usr/bin/strip" }
    linking_mode_flags { mode: DYNAMIC }
 }
