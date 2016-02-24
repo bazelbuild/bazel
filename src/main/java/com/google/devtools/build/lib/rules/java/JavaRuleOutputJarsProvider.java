@@ -41,6 +41,7 @@ public final class JavaRuleOutputJarsProvider implements TransitiveInfoProvider 
     name = "JavaOutput",
     doc = "Java classes jar, together with their associated source and interface archives"
   )
+  @Immutable
   public static class OutputJar {
     @Nullable private final Artifact classJar;
     @Nullable private final Artifact iJar;

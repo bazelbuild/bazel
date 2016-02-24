@@ -85,6 +85,13 @@ def annotation_processing_jars(annotation_processing):
         source_jar = artifact_location(annotation_processing.source_jar),
   )
 
+def jars_from_output(output):
+  if output == None:
+    return []
+  return [jar
+          for jar in [output.class_jar, output.ijar, output.source_jar]
+          if jar != None and not jar.is_source]
+
 def java_rule_ide_info(target, ctx):
   if hasattr(ctx.rule.attr, "srcs"):
      sources = [artifact_location(file)
@@ -96,8 +103,7 @@ def java_rule_ide_info(target, ctx):
   jars = [library_artifact(output) for output in target.java.outputs.jars]
   ide_resolve_files = set([jar
        for output in target.java.outputs.jars
-       for jar in [output.class_jar, output.ijar, output.source_jar]
-       if jar != None and not jar.is_source])
+       for jar in jars_from_output(output)])
 
   gen_jars = []
   if target.java.annotation_processing and target.java.annotation_processing.enabled:
@@ -119,12 +125,16 @@ def java_rule_ide_info(target, ctx):
 
 def android_rule_ide_info(target, ctx):
   if not hasattr(target, 'android'):
-    return None
-  return struct_omit_none(
+    return (None, set())
+  ide_resolve_files = set(jars_from_output(target.android.idl.output))
+  return (struct_omit_none(
             java_package = target.android.java_package,
             manifest = artifact_location(target.android.manifest),
             apk = artifact_location(target.android.apk),
-        )
+            has_idl_sources = target.android.idl.output != None,
+            idl_jar = library_artifact(target.android.idl.output),
+        ),
+        ide_resolve_files)
 
 def collect_transitive_labels(rule_attrs, attr_list):
      return [str(dep.label)
@@ -154,7 +164,8 @@ def _aspect_impl(target, ctx):
       java_rule_ide_info, java_ide_resolve_files = java_rule_ide_info(target, ctx)
       ide_resolve_files = ide_resolve_files | java_ide_resolve_files
 
-      android_rule_ide_info = android_rule_ide_info(target, ctx)
+      android_rule_ide_info, android_ide_resolve_files = android_rule_ide_info(target, ctx)
+      ide_resolve_files = ide_resolve_files | android_ide_resolve_files
 
       info = struct_omit_none(
           label = str(target.label),
