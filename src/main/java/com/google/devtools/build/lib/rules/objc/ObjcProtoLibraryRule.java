@@ -37,13 +37,16 @@ import com.google.devtools.build.lib.util.FileType;
  * This is a temporary rule until it is better known how to support proto_library rules.
  */
 public class ObjcProtoLibraryRule implements RuleDefinition {
-  static final String COMPILE_PROTOS_ATTR = "$googlemac_proto_compiler";
-  static final String PROTO_SUPPORT_ATTR = "$googlemac_proto_compiler_support";
   static final String OPTIONS_FILE_ATTR = "options_file";
   static final String OUTPUT_CPP_ATTR = "output_cpp";
   static final String USE_OBJC_HEADER_NAMES_ATTR = "use_objc_header_names";
-  static final String PER_PROTO_INCLUDES = "per_proto_includes";
-  static final String LIBPROTOBUF_ATTR = "$lib_protobuf";
+  static final String PER_PROTO_INCLUDES_ATTR = "per_proto_includes";
+  static final String PORTABLE_PROTO_FILTERS_ATTR = "portable_proto_filters";
+
+  static final String PROTO_COMPILER_ATTR = "$googlemac_proto_compiler";
+  static final String PROTO_COMPILER_SUPPORT_ATTR = "$googlemac_proto_compiler_support";
+  static final String PROTO_LIB_ATTR = "$lib_protobuf";
+  static final String XCODE_GEN_ATTR = "$xcodegen";
 
   @Override
   public RuleClass build(Builder builder, final RuleDefinitionEnvironment env) {
@@ -52,10 +55,11 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(deps) -->
         The directly depended upon proto_library rules.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .override(attr("deps", LABEL_LIST)
-            // Support for files in deps is for backwards compatibility.
-            .allowedRuleClasses("proto_library", "filegroup")
-            .legacyAllowAnyFileType())
+        .override(
+            attr("deps", LABEL_LIST)
+                // Support for files in deps is for backwards compatibility.
+                .allowedRuleClasses("proto_library", "filegroup")
+                .legacyAllowAnyFileType())
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(options_file) -->
         Optional options file to apply to protos which affects compilation (e.g. class
         whitelist/blacklist settings).
@@ -68,31 +72,69 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(use_objc_header_names) -->
         If true, output headers with .pbobjc.h, rather than .pb.h.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr(PER_PROTO_INCLUDES, BOOLEAN).value(false))
-        /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(per_proto_includes) -->
-        If true, always add all directories to objc_library includes,
-        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr(COMPILE_PROTOS_ATTR, LABEL)
-            .allowedFileTypes(FileType.of(".py"))
-            .cfg(HOST)
-            .singleArtifact()
-            .value(env.getToolsLabel("//tools/objc:compile_protos")))
-        .add(attr(PROTO_SUPPORT_ATTR, LABEL)
-            .legacyAllowAnyFileType()
-            .cfg(HOST)
-            .value(env.getToolsLabel("//tools/objc:proto_support")))
         .add(attr(USE_OBJC_HEADER_NAMES_ATTR, BOOLEAN).value(false))
-        .add(attr(LIBPROTOBUF_ATTR, LABEL).allowedRuleClasses("objc_library")
-            .value(new ComputedDefault(OUTPUT_CPP_ATTR) {
-              @Override
-              public Object getDefault(AttributeMap rule) {
-                return rule.get(OUTPUT_CPP_ATTR, Type.BOOLEAN)
-                    ? env.getLabel("//external:objc_proto_cpp_lib")
-                    : env.getLabel("//external:objc_proto_lib");
-              }
-            }))
-        .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
-            .value(env.getToolsLabel("//tools/objc:xcodegen")))
+        /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(per_proto_includes) -->
+        If true, always add all directories to objc_library includes.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(attr(PER_PROTO_INCLUDES_ATTR, BOOLEAN).value(false))
+        /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(portable_proto_filters) -->
+        List of portable proto filters to be passed on to the protobuf compiler. This attribute
+        cannot be used together with the options_file, output_cpp, per_proto_includes and
+        use_objc_header_names attributes.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+        .add(
+            attr(PORTABLE_PROTO_FILTERS_ATTR, LABEL_LIST)
+                .legacyAllowAnyFileType()
+                .allowedRuleClasses("filegroup")
+                .cfg(HOST))
+        .add(
+            attr(PROTO_COMPILER_ATTR, LABEL)
+                .allowedFileTypes(FileType.of(".py"))
+                .cfg(HOST)
+                .singleArtifact()
+                .value(
+                    new ComputedDefault(PORTABLE_PROTO_FILTERS_ATTR) {
+                      @Override
+                      public Object getDefault(AttributeMap rule) {
+                        return rule.isAttributeValueExplicitlySpecified(PORTABLE_PROTO_FILTERS_ATTR)
+                            ? env.getToolsLabel("//tools/objc:protobuf_compiler")
+                            : env.getToolsLabel("//tools/objc:compile_protos");
+                      }
+                    }))
+        .add(
+            attr(PROTO_COMPILER_SUPPORT_ATTR, LABEL)
+                .legacyAllowAnyFileType()
+                .cfg(HOST)
+                .value(
+                    new ComputedDefault(PORTABLE_PROTO_FILTERS_ATTR) {
+                      @Override
+                      public Object getDefault(AttributeMap rule) {
+                        return rule.isAttributeValueExplicitlySpecified(PORTABLE_PROTO_FILTERS_ATTR)
+                            ? env.getToolsLabel("//tools/objc:protobuf_compiler_support")
+                            : env.getToolsLabel("//tools/objc:proto_support");
+                      }
+                    }))
+        .add(
+            attr(PROTO_LIB_ATTR, LABEL)
+                .allowedRuleClasses("objc_library")
+                .value(
+                    new ComputedDefault(PORTABLE_PROTO_FILTERS_ATTR, OUTPUT_CPP_ATTR) {
+                      @Override
+                      public Object getDefault(AttributeMap rule) {
+                        if (rule.isAttributeValueExplicitlySpecified(PORTABLE_PROTO_FILTERS_ATTR)) {
+                          return env.getLabel("//external:objc_protobuf_lib");
+                        } else {
+                          return rule.get(OUTPUT_CPP_ATTR, Type.BOOLEAN)
+                              ? env.getLabel("//external:objc_proto_cpp_lib")
+                              : env.getLabel("//external:objc_proto_lib");
+                        }
+                      }
+                    }))
+        .add(
+            attr(XCODE_GEN_ATTR, LABEL)
+                .cfg(HOST)
+                .exec()
+                .value(env.getToolsLabel("//tools/objc:xcodegen")))
         .build();
   }
 

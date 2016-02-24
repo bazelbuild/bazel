@@ -71,6 +71,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
                 "  name = 'objc_proto_cpp_lib',",
                 "  actual = '//objcproto:ProtocolBuffersCPP_lib',",
                 ")",
+                "bind(",
+                "  name = 'objc_protobuf_lib',",
+                "  actual = '//objcproto:protobuf_lib',",
+                ")",
                 "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
                 "bind(name = 'tools/python', actual='//tools/python')"));
 
