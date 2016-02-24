@@ -36,6 +36,7 @@ import java.io.OutputStream;
 import java.net.Authenticator;
 import java.net.HttpURLConnection;
 import java.net.InetSocketAddress;
+import java.net.MalformedURLException;
 import java.net.PasswordAuthentication;
 import java.net.Proxy;
 import java.net.URL;
@@ -54,6 +55,7 @@ import javax.annotation.Nullable;
  * Helper class for downloading a file from a URL.
  */
 public class HttpDownloader {
+  private static final int MAX_REDIRECTS = 20;
   private static final int BUFFER_SIZE = 32 * 1024;
   private static final int KB = 1024;
   private static final String UNITS = " KMGTPEY";
@@ -238,16 +240,73 @@ public class HttpDownloader {
     }
 
     public static HttpConnection createAndConnect(URL url) throws IOException {
-      HttpURLConnection connection = (HttpURLConnection) url.openConnection(
-          createProxyIfNeeded(url.getProtocol()));
-      connection.setInstanceFollowRedirects(true);
-      connection.connect();
-      if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-        InputStream errorStream = connection.getErrorStream();
-        throw new IOException(connection.getResponseCode() + ": "
-            + new String(ByteStreams.toByteArray(errorStream), StandardCharsets.UTF_8));
+      int retries = MAX_REDIRECTS;
+      Proxy proxy = createProxyIfNeeded(url.getProtocol());
+      do {
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection(proxy);
+        try {
+          connection.connect();
+        } catch (IllegalArgumentException e) {
+          throw new IOException("Failed to connect to " + url + " : " + e.getMessage(), e);
+        }
+
+        int statusCode = connection.getResponseCode();
+        switch (statusCode) {
+          case HttpURLConnection.HTTP_OK:
+            return new HttpConnection(connection.getInputStream(), parseContentLength(connection));
+          case HttpURLConnection.HTTP_MOVED_PERM:
+          case HttpURLConnection.HTTP_MOVED_TEMP:
+            url = tryGetLocation(statusCode, connection);
+            connection.disconnect();
+            break;
+          case -1:
+            throw new IOException("An HTTP error occured");
+          default:
+            throw new IOException(String.format("%s %s: %s",
+                connection.getResponseCode(),
+                connection.getResponseMessage(),
+                readBody(connection)));
+          }
+      } while (retries-- > 0);
+      throw new IOException("Maximum redirects (" + MAX_REDIRECTS + ") exceeded");
+    }
+
+    private static URL tryGetLocation(int statusCode, HttpURLConnection connection)
+        throws IOException {
+      String newLocation = connection.getHeaderField("Location");
+      if (newLocation == null) {
+        throw new IOException(
+            "Remote returned " + statusCode + " but did not return location header.");
       }
-      return new HttpConnection(connection.getInputStream(), parseContentLength(connection));
+
+      URL newUrl;
+      try {
+        newUrl = new URL(newLocation);
+      } catch (MalformedURLException e) {
+        throw new IOException("Remote returned invalid location header: " + newLocation);
+      }
+
+      String newProtocol = newUrl.getProtocol();
+      if (!("http".equals(newProtocol) || "https".equals(newProtocol))) {
+        throw new IOException(
+            "Remote returned invalid location header: " + newLocation);
+      }
+
+      return newUrl;
+    }
+
+    private static String readBody(HttpURLConnection connection) throws IOException {
+      InputStream errorStream = connection.getErrorStream();
+      if (errorStream != null) {
+        return new String(ByteStreams.toByteArray(errorStream), StandardCharsets.UTF_8);
+      }
+
+      InputStream responseStream = connection.getInputStream();
+      if (responseStream != null) {
+        return new String(ByteStreams.toByteArray(responseStream), StandardCharsets.UTF_8);
+      }
+
+      return null;
     }
   }
 

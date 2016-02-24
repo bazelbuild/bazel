@@ -345,6 +345,31 @@ EOF
   expect_log "Tra-la!"
 }
 
+function test_http_to_https_redirect() {
+  http_response=$TEST_TMPDIR/http_response
+  cat > $http_response <<EOF
+HTTP/1.0 301 Moved Permantently
+Location: https://localhost:123456789/bad-port-shouldnt-work
+EOF
+  nc_port=$(pick_random_unused_tcp_port) || exit 1
+  nc_l $nc_port < $http_response &
+  nc_pid=$!
+
+  cd ${WORKSPACE_DIR}
+  cat > WORKSPACE <<EOF
+http_file(
+    name = 'toto',
+    url = 'http://localhost:$nc_port/toto',
+    sha256 = 'whatever'
+)
+EOF
+  bazel build @toto//file &> $TEST_log && fail "Expected run to fail"
+  kill_nc
+  # Observes that we tried to follow redirect, but failed due to ridiculous
+  # port.
+  expect_log "Failed to connect.*port out of range"
+}
+
 function test_http_404() {
   http_response=$TEST_TMPDIR/http_response
   cat > $http_response <<EOF
@@ -366,7 +391,7 @@ http_file(
 EOF
   bazel build @toto//file &> $TEST_log && fail "Expected run to fail"
   kill_nc
-  expect_log "404: Help, I'm lost!"
+  expect_log "404 Not Found: Help, I'm lost!"
 }
 
 # Tests downloading a file and using it as a dependency.
