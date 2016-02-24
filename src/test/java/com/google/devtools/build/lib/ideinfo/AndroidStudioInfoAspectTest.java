@@ -229,10 +229,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testJavaLibraryWithExports() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -281,10 +277,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testJavaLibraryWithTransitiveExports() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -369,10 +361,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testJavaImportWithExports() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -844,10 +832,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidLibraryWithoutSourcesExportsDependencies() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "java/com/google/example/BUILD",
         "android_library(",
