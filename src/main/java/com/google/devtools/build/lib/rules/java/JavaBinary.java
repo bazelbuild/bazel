@@ -69,7 +69,6 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     Runfiles.Builder runfilesBuilder = new Runfiles.Builder(ruleContext.getWorkspaceName());
     List<String> jvmFlags = new ArrayList<>();
 
-    common.initializeJavacOpts();
     JavaTargetAttributes.Builder attributesBuilder = common.initCommon();
     attributesBuilder.addClassPathResources(
         ruleContext.getPrerequisiteArtifacts("classpath_resources", Mode.TARGET).list());

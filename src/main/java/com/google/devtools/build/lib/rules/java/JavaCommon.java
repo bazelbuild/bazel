@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -428,11 +427,21 @@ public class JavaCommon {
   }
 
   public final void initializeJavacOpts() {
-    initializeJavacOpts(semantics.getExtraJavacOpts(ruleContext));
+    Preconditions.checkState(javacOpts == null);
+    javacOpts = computeJavacOpts(semantics.getExtraJavacOpts(ruleContext));
   }
 
+  /**
+   * For backwards compatibility, this method allows multiple calls to set the Javac opts. Do not
+   * use this.
+   */
+  @Deprecated
   public final void initializeJavacOpts(Iterable<String> extraJavacOpts) {
-    javacOpts =  ImmutableList.copyOf(Iterables.concat(
+    javacOpts = computeJavacOpts(extraJavacOpts);
+  }
+
+  private ImmutableList<String> computeJavacOpts(Iterable<String> extraJavacOpts) {
+    return ImmutableList.copyOf(Iterables.concat(
         JavaToolchainProvider.getDefaultJavacOptions(ruleContext),
         ruleContext.getTokenizedStringListAttr("javacopts"), extraJavacOpts));
   }
@@ -513,7 +522,7 @@ public class JavaCommon {
   }
 
   public JavaTargetAttributes.Builder initCommon() {
-    return initCommon(Collections.<Artifact>emptySet());
+    return initCommon(ImmutableList.<Artifact>of(), semantics.getExtraJavacOpts(ruleContext));
   }
 
   /**
@@ -524,8 +533,10 @@ public class JavaCommon {
    *
    * @return the processed attributes
    */
-  public JavaTargetAttributes.Builder initCommon(Collection<Artifact> extraSrcs) {
-    Preconditions.checkState(javacOpts != null);
+  public JavaTargetAttributes.Builder initCommon(
+      Collection<Artifact> extraSrcs, Iterable<String> extraJavacOpts) {
+    Preconditions.checkState(javacOpts == null);
+    javacOpts = computeJavacOpts(extraJavacOpts);
     activePlugins = collectPlugins();
 
     JavaTargetAttributes.Builder javaTargetAttributes = new JavaTargetAttributes.Builder(semantics);

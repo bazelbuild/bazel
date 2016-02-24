@@ -51,7 +51,6 @@ public class JavaLibrary implements RuleConfiguredTargetFactory {
 
   public RuleConfiguredTargetBuilder init(RuleContext ruleContext, final JavaCommon common)
       throws InterruptedException {
-    common.initializeJavacOpts();
     JavaTargetAttributes.Builder attributesBuilder = common.initCommon();
 
     // Collect the transitive dependencies.

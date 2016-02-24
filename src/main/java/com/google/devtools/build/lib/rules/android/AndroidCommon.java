@@ -404,9 +404,8 @@ public class AndroidCommon {
     classJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
     idlHelper = new AndroidIdlHelper(ruleContext, classJar);
 
-    javaCommon.initializeJavacOpts(androidSemantics.getJavacArguments());
     JavaTargetAttributes.Builder attributes = javaCommon
-        .initCommon(idlHelper.getIdlGeneratedJavaSources())
+        .initCommon(idlHelper.getIdlGeneratedJavaSources(), androidSemantics.getJavacArguments())
         .setBootClassPath(ImmutableList.of(
             AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar()));
 
