@@ -81,6 +81,15 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
     return getIdeInfoProvider().getApksUnderTest();
   }
 
+  @SkylarkCallable(
+    name = "defines_resources",
+    structField = true,
+    doc = "Returns true if the target defines any Android resources directly."
+  )
+  public boolean definesAndroidResources() {
+    return getIdeInfoProvider().definesAndroidResources();
+  }
+
 
   @SkylarkCallable(
       name = "idl",

@@ -71,8 +71,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     ArtifactLocation location = ruleIdeInfo.getBuildFileArtifactLocation();
     assertThat(location.getRelativePath()).isEqualTo("com/google/example/BUILD");
     assertThat(location.getIsSource()).isTrue();
-    if (isNativeTest()) {
-      // These will not be implemented in Skylark aspect.
+    if (isNativeTest()) {  // These will not be implemented in Skylark aspect.
       assertThat(ruleIdeInfo.getBuildFile()).isEqualTo(buildFilePath.toString());
       assertThat(Paths.get(location.getRootPath(), location.getRelativePath()).toString())
           .isEqualTo(buildFilePath.toString());
@@ -965,10 +964,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidLibraryGeneratesResourceClass() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "java/com/google/example/BUILD",
         "android_library(",

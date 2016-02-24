@@ -262,6 +262,7 @@ public class AndroidCommon {
     // from the android_resources rule in its direct dependencies, if such a thing exists.
     if (LocalResourceContainer.definesAndroidResources(ruleContext.attributes())) {
       ideInfoProviderBuilder
+          .setDefinesAndroidResources(true)
           .addResourceSources(resourceApk.getPrimaryResource().getArtifacts(ResourceType.RESOURCES))
           .addAssetSources(
               resourceApk.getPrimaryResource().getArtifacts(ResourceType.ASSETS),

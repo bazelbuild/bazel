@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.SourceDirectory;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
-import com.google.devtools.build.lib.rules.android.LocalResourceContainer;
 import com.google.devtools.build.lib.rules.java.JavaExportsProvider;
 import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
@@ -317,7 +316,7 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
         || ruleKind == Kind.ANDROID_BINARY
         || ruleKind == Kind.ANDROID_TEST) {
       outputBuilder.setAndroidRuleIdeInfo(
-          makeAndroidRuleIdeInfo(ruleContext, base, ideResolveArtifacts));
+          makeAndroidRuleIdeInfo(base, ideResolveArtifacts));
     }
 
     AndroidStudioInfoFilesProvider provider = providerBuilder.build();
@@ -404,7 +403,6 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
   }
 
   private static AndroidRuleIdeInfo makeAndroidRuleIdeInfo(
-      RuleContext ruleContext,
       ConfiguredTarget base,
       NestedSetBuilder<Artifact> ideResolveArtifacts) {
     AndroidRuleIdeInfo.Builder builder = AndroidRuleIdeInfo.newBuilder();
@@ -449,8 +447,7 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
       }
     }
 
-    builder.setGenerateResourceClass(
-        LocalResourceContainer.definesAndroidResources(ruleContext.attributes()));
+    builder.setGenerateResourceClass(provider.definesAndroidResources());
 
     return builder.build();
   }

@@ -133,6 +133,7 @@ def android_rule_ide_info(target, ctx):
             apk = artifact_location(target.android.apk),
             has_idl_sources = target.android.idl.output != None,
             idl_jar = library_artifact(target.android.idl.output),
+            generate_resource_class = target.android.defines_resources,
         ),
         ide_resolve_files)
 
