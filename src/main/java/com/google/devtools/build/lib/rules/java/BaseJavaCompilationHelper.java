@@ -92,6 +92,11 @@ public class BaseJavaCompilationHelper {
    * Returns the javac bootclasspath artifacts.
    */
   protected final ImmutableList<Artifact> getBootClasspath() {
+    NestedSet<Artifact> toolchainBootclasspath =
+        JavaToolchainProvider.getDefaultBootclasspath(ruleContext);
+    if (toolchainBootclasspath != null) {
+      return ImmutableList.copyOf(toolchainBootclasspath);
+    }
     return ruleContext.getPrerequisiteArtifacts(
         "$javac_bootclasspath" + implicitAttributesSuffix, Mode.HOST).list();
   }
@@ -100,6 +105,11 @@ public class BaseJavaCompilationHelper {
    * Returns the extdir artifacts.
    */
   protected final ImmutableList<Artifact> getExtdirInputs() {
+    NestedSet<Artifact> toolchainExtclasspath =
+        JavaToolchainProvider.getDefaultExtclasspath(ruleContext);
+    if (toolchainExtclasspath != null) {
+      return ImmutableList.copyOf(toolchainExtclasspath);
+    }
     return ruleContext.getPrerequisiteArtifacts(
         "$javac_extdir" + implicitAttributesSuffix, Mode.HOST).list();
   }
