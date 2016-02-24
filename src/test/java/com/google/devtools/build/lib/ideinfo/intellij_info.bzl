@@ -28,7 +28,7 @@ _kind_to_kind_id = {
 
 _unrecognized_rule = -1;
 
-DEPENDENCY_ATTRIBUTES = [
+DEPS = [
   "deps",
   "exports",
   "_robolectric", # From android_robolectric_test
@@ -36,8 +36,13 @@ DEPENDENCY_ATTRIBUTES = [
   "binary_under_test", #  From android_test
   "java_lib",# From proto_library
   "_proto1_java_lib", # From proto_library
+]
+
+RUNTIME_DEPS = [
   "runtime_deps",
 ]
+
+ALL_DEPS = DEPS + RUNTIME_DEPS
 
 def get_kind(target, ctx):
   return _kind_to_kind_id.get(ctx.rule.kind, _unrecognized_rule)
@@ -121,22 +126,28 @@ def android_rule_ide_info(target, ctx):
             apk = artifact_location(target.android.apk),
         )
 
+def collect_transitive_labels(rule_attrs, attr_list):
+     return [str(dep.label)
+         for attr_name in attr_list
+         if hasattr(rule_attrs, attr_name)
+         for dep in getattr(rule_attrs, attr_name)]
+
 
 def _aspect_impl(target, ctx):
   kind = get_kind(target, ctx)
   rule_attrs = ctx.rule.attr
 
+  compiletime_deps = collect_transitive_labels(rule_attrs, DEPS)
+  runtime_deps = collect_transitive_labels(rule_attrs, RUNTIME_DEPS)
+
   ide_info_text = set()
   ide_resolve_files = set()
-  all_deps = []
 
-  for attr_name in DEPENDENCY_ATTRIBUTES:
+  for attr_name in ALL_DEPS:
     if hasattr(rule_attrs, attr_name):
-      deps = getattr(rule_attrs, attr_name)
-      for dep in deps:
+      for dep in getattr(rule_attrs, attr_name):
         ide_info_text = ide_info_text | dep.intellij_info_files.ide_info_text
         ide_resolve_files = ide_resolve_files | dep.intellij_info_files.ide_resolve_files
-      all_deps += [str(dep.label) for dep in deps]
 
   if kind != _unrecognized_rule:
     if is_java_rule(target, ctx):
@@ -148,7 +159,8 @@ def _aspect_impl(target, ctx):
       info = struct_omit_none(
           label = str(target.label),
           kind = kind,
-          dependencies = all_deps,
+          dependencies = compiletime_deps,
+          runtime_deps = runtime_deps,
           build_file_artifact_location = build_file_artifact_location(ctx.build_file_path),
           java_rule_ide_info = java_rule_ide_info,
           android_rule_ide_info = android_rule_ide_info,
@@ -158,7 +170,8 @@ def _aspect_impl(target, ctx):
       info = struct(
           label = str(target.label),
           kind = kind,
-          dependencies = all_deps,
+          dependencies = compiletime_deps,
+          runtime_deps = runtime_deps,
           build_file_artifact_location = build_file_artifact_location(ctx.build_file_path),
       )
   output = ctx.new_file(target.label.name + ".aswb-build.txt")
@@ -177,5 +190,5 @@ def _aspect_impl(target, ctx):
     )
 
 intellij_info_aspect = aspect(implementation = _aspect_impl,
-    attr_aspects = DEPENDENCY_ATTRIBUTES
+    attr_aspects = ALL_DEPS
 )
