@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
@@ -26,6 +27,7 @@ import com.google.devtools.build.lib.syntax.BaseFunction;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Mutability;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -41,6 +43,26 @@ import javax.annotation.Nullable;
  * A repository function to delegate work done by skylark remote repositories.
  */
 public class SkylarkRepositoryFunction extends RepositoryFunction {
+
+  /**
+   * An exception thrown when a dependency is missing to notify the SkyFunction from a skylark
+   * evaluation.
+   */
+  private static class SkylarkRepositoryMissingDependencyException extends EvalException {
+
+    SkylarkRepositoryMissingDependencyException() {
+      super(Location.BUILTIN, "Internal exception");
+    }
+  }
+
+  /**
+   * Skylark repository context functions can use this function to notify the
+   * SkylarkRepositoryFunction that a dependency was missing and the evaluation of the function must
+   * be restarted.
+   */
+  static void restart() throws EvalException {
+    throw new SkylarkRepositoryMissingDependencyException();
+  }
 
   private CommandEnvironment commandEnvironment = null;
 
@@ -67,7 +89,8 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
               .setEventHandler(env.getListener())
               .build();
       SkylarkRepositoryContext skylarkRepositoryContext =
-          new SkylarkRepositoryContext(rule, outputDirectory, getClientEnvironment());
+          new SkylarkRepositoryContext(rule, outputDirectory, env, getClientEnvironment());
+
       // This has side-effect, we don't care about the output.
       // Also we do a lot of stuff in there, maybe blocking operations and we should certainly make
       // it possible to return null and not block but it doesn't seem to be easy with Skylark
@@ -88,6 +111,17 @@ public class SkylarkRepositoryFunction extends RepositoryFunction {
             Transience.PERSISTENT);
       }
     } catch (EvalException e) {
+      if (e.getCause() instanceof SkylarkRepositoryMissingDependencyException) {
+        // A dependency is missing, cleanup and returns null
+        try {
+          if (outputDirectory.exists()) {
+            FileSystemUtils.deleteTree(outputDirectory);
+          }
+        } catch (IOException e1) {
+          throw new RepositoryFunctionException(e1, Transience.TRANSIENT);
+        }
+        return null;
+      }
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
 

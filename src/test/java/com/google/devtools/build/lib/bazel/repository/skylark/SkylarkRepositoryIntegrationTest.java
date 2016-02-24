@@ -153,7 +153,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "def.bzl",
         "def _impl(ctx):",
-        "  ctx.symlink(ctx.path(ctx.attr.path), ctx.path(''))",
+        "  ctx.symlink(ctx.attr.path, '')",
         "",
         "repo = repository_rule(",
         "    implementation=_impl,",
@@ -164,6 +164,32 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
         rootDirectory.getRelative("WORKSPACE").getPathString(),
         "load('//:def.bzl', 'repo')",
         "repo(name='foo', path='/repo2')");
+    invalidatePackages();
+    ConfiguredTarget target = getConfiguredTarget("@foo//:bar");
+    Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
+    assertThat(path).isEqualTo("foo");
+  }
+
+  @Test
+  public void testSkylarkSymlinkFileFromRepository() throws Exception {
+    scratch.file("/repo2/bar.txt", "filegroup(name='bar', srcs=['foo.txt'], path='foo')");
+    scratch.file("/repo2/BUILD");
+    scratch.file("/repo2/WORKSPACE");
+    scratch.file(
+        "def.bzl",
+        "def _impl(ctx):",
+        "  ctx.symlink(Label('@repo2//:bar.txt'), 'BUILD')",
+        "  ctx.file('foo.txt', 'foo')",
+        "",
+        "repo = repository_rule(",
+        "    implementation=_impl,",
+        "    local=True)");
+    scratch.file(rootDirectory.getRelative("BUILD").getPathString());
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(),
+        "local_repository(name='repo2', path='/repo2')",
+        "load('//:def.bzl', 'repo')",
+        "repo(name='foo')");
     invalidatePackages();
     ConfiguredTarget target = getConfiguredTarget("@foo//:bar");
     Object path = target.getTarget().getAssociatedRule().getAttributeContainer().getAttr("path");
