@@ -157,8 +157,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
     if (attributes.hasMessages()) {
-      helper.addTranslations(semantics.translate(ruleContext, javaConfig,
-          attributes.getMessages()));
+      helper.setTranslations(
+          semantics.translate(ruleContext, javaConfig, attributes.getMessages()));
     }
 
     if (attributes.hasSourceFiles() || attributes.hasSourceJars()
