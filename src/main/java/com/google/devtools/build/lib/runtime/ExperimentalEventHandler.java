@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.OutErr;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.logging.Logger;
 
 /**
@@ -27,6 +28,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   private static Logger LOG = Logger.getLogger(ExperimentalEventHandler.class.getName());
 
   private final AnsiTerminal terminal;
+  private final boolean debugAllEvents;
 
   public final int terminalWidth;
 
@@ -34,10 +36,23 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     super(outErr, options);
     this.terminal = new AnsiTerminal(outErr.getErrorStream());
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
+    this.debugAllEvents = options.experimentalUiDebugAllEvents;
   }
 
   @Override
-  public void handle(Event event) {}
+  public void handle(Event event) {
+    // Debugging only: show all events visible to the new UI.
+    if (debugAllEvents) {
+      try {
+        outErr.getOutputStream().write((event + "\n").getBytes(StandardCharsets.UTF_8));
+        outErr.getOutputStream().flush();
+      } catch (IOException e) {
+        LOG.warning("IO Error writing to output stream: " + e);
+      }
+      return;
+    }
+    // The actual new UI.
+  }
 
   public void resetTerminal() {
     try {
