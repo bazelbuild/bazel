@@ -50,8 +50,8 @@ public class NamespaceSandboxRunner {
   private static final String SANDBOX_TIP =
       "\n\nSandboxed execution failed, which may be legitimate (e.g. a compiler error), "
           + "or due to missing dependencies. To enter the sandbox environment for easier debugging,"
-          + " run the following command in brackets. On command failure, "
-          + "a bash shell running inside the sandbox will then automatically be spawned\n\n";
+          + " run the following command in parentheses. On command failure, "
+          + "a bash shell running inside the sandbox will then automatically be spawned:\n\n";
   private final Path execRoot;
   private final Path sandboxPath;
   private final Path sandboxExecRoot;
