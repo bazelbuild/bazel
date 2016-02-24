@@ -3409,7 +3409,7 @@ attributes supported by <code>objc_library</code>.</p>
     objc_proto_library
   </h2>
 
-  <pre class="rule-signature">objc_proto_library(<a href="#objc_proto_library.name">name</a>, <a href="#objc_proto_library.deps">deps</a>, <a href="common-definitions.html#common.data">data</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#objc_proto_library.options_file">options_file</a>, <a href="#objc_proto_library.output_cpp">output_cpp</a>, <a href="#objc_proto_library.per_proto_includes">per_proto_includes</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#objc_proto_library.use_objc_header_names">use_objc_header_names</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">objc_proto_library(<a href="#objc_proto_library.name">name</a>, <a href="#objc_proto_library.deps">deps</a>, <a href="common-definitions.html#common.data">data</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#objc_proto_library.options_file">options_file</a>, <a href="#objc_proto_library.output_cpp">output_cpp</a>, <a href="#objc_proto_library.per_proto_includes">per_proto_includes</a>, <a href="#objc_proto_library.portable_proto_filters">portable_proto_filters</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#objc_proto_library.use_objc_header_names">use_objc_header_names</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>This rule produces a static library from the given proto_library dependencies, after applying an
@@ -3474,7 +3474,19 @@ options file.</p>
         </td>
         <td>
                     <p><code>Boolean; optional; default is 0</code></p>
-                            If true, always add all directories to objc_library includes,
+                            If true, always add all directories to objc_library includes.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="objc_proto_library.portable_proto_filters">
+          <code>portable_proto_filters</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                            List of portable proto filters to be passed on to the protobuf compiler. This attribute
+        cannot be used together with the options_file, output_cpp, per_proto_includes and
+        use_objc_header_names attributes.
 
         </td>
       </tr>
