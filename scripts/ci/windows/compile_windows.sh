@@ -34,7 +34,8 @@ fi
 
 # These variables are temporarily needed for Bazel
 export BAZEL_SH="c:/tools/msys64/usr/bin/bash.exe"
-export TMPDIR="c:/temp"
+export TMPDIR=${TMPDIR:-c:/bazel_ci/temp}
+mkdir -p "${TMPDIR}"  # mkdir does work with a path starting with 'c:/', wow
 
 # Even though there are no quotes around $* in the .bat file, arguments
 # containing spaces seem to be passed properly.
