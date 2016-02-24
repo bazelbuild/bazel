@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.rules;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.PrerequisiteValidator;
@@ -76,6 +77,7 @@ import com.google.devtools.build.lib.rules.android.AndroidBinaryOnlyRule;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
+import com.google.devtools.build.lib.rules.android.AndroidSkylarkCommon;
 import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
@@ -124,6 +126,7 @@ import com.google.devtools.build.lib.rules.repository.BindRule;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.WorkspaceBaseRule;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 
 import java.io.IOException;
@@ -222,6 +225,13 @@ public class BazelRuleClassProvider {
           AndroidConfiguration.Options.class
       );
 
+  /**
+   * Java objects accessible from Skylark rule implementations using this module.
+   */
+  public static final ImmutableMap<String, SkylarkType> skylarkBuiltinJavaObects =
+      ImmutableMap.of("android_common", SkylarkType.of(AndroidSkylarkCommon.class));
+
+
   public static void setup(ConfiguredRuleClassProvider.Builder builder) {
     builder
         .addBuildInfoFactory(new BazelJavaBuildInfoFactory())
@@ -231,7 +241,9 @@ public class BazelRuleClassProvider {
         .setPrelude("//tools/build_rules:prelude_bazel")
         .setRunfilesPrefix("")
         .setToolsRepository("@bazel_tools")
-        .setPrerequisiteValidator(new BazelPrerequisiteValidator());
+        .setPrerequisiteValidator(new BazelPrerequisiteValidator())
+        .setSkylarkAccessibleJavaClasses(ImmutableMap.<String, SkylarkType>of())
+        .setSkylarkAccessibleJavaClasses(skylarkBuiltinJavaObects);
 
     builder.addBuildOptions(BUILD_OPTIONS);
 

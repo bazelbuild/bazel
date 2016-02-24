@@ -292,6 +292,69 @@ public class AndroidCommon {
     }
   }
 
+  static PathFragment getSourceDirectoryRelativePathFromResource(Artifact resource) {
+    PathFragment resourceDir = LocalResourceContainer.Builder.findResourceDir(resource);
+    if (resourceDir == null) {
+      return null;
+    }
+    return trimTo(resource.getRootRelativePath(), resourceDir);
+  }
+
+  /**
+   * Finds the rightmost occurrence of the needle and returns subfragment of the haystack from
+   * left to the end of the occurrence inclusive of the needle.
+   *
+   * <pre>
+   * `Example:
+   *   Given the haystack:
+   *     res/research/handwriting/res/values/strings.xml
+   *   And the needle:
+   *     res
+   *   Returns:
+   *     res/research/handwriting/res
+   * </pre>
+   */
+  static PathFragment trimTo(PathFragment haystack, PathFragment needle) {
+    if (needle.equals(PathFragment.EMPTY_FRAGMENT)) {
+      return haystack;
+    }
+    // Compute the overlap offset for duplicated parts of the needle.
+    int[] overlap = new int[needle.segmentCount() + 1];
+    // Start overlap at -1, as it will cancel out the increment in the search.
+    // See http://en.wikipedia.org/wiki/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm for the
+    // details.
+    overlap[0] = -1;
+    for (int i = 0, j = -1; i < needle.segmentCount(); j++, i++, overlap[i] = j) {
+      while (j >= 0 && !needle.getSegment(i).equals(needle.getSegment(j))) {
+        // Walk the overlap until the bound is found.
+        j = overlap[j];
+      }
+    }
+    // TODO(corysmith): reverse the search algorithm.
+    // Keep the index of the found so that the rightmost index is taken.
+    int found = -1;
+    for (int i = 0, j = 0; i < haystack.segmentCount(); i++) {
+
+      while (j >= 0 && !haystack.getSegment(i).equals(needle.getSegment(j))) {
+        // Not matching, walk the needle index to attempt another match.
+        j = overlap[j];
+      }
+      j++;
+      // Needle index is exhausted, so the needle must match.
+      if (j == needle.segmentCount()) {
+        // Record the found index + 1 to be inclusive of the end index.
+        found = i + 1;
+        // Subtract one from the needle index to restart the search process
+        j = j - 1;
+      }
+    }
+    if (found != -1) {
+      // Return the subsection of the haystack.
+      return haystack.subFragment(0, found);
+    }
+    throw new IllegalArgumentException(String.format("%s was not found in %s", needle, haystack));
+  }
+
   Artifact compileDexWithJack(
       MultidexMode mode, Optional<Artifact> mainDexList, Collection<Artifact> proguardSpecs) {
     return jackCompilationHelper.compileAsDex(mode, mainDexList, proguardSpecs);

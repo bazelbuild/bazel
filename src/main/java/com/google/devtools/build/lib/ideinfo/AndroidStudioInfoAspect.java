@@ -315,8 +315,7 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
     if (ruleKind == Kind.ANDROID_LIBRARY
         || ruleKind == Kind.ANDROID_BINARY
         || ruleKind == Kind.ANDROID_TEST) {
-      outputBuilder.setAndroidRuleIdeInfo(
-          makeAndroidRuleIdeInfo(base, ideResolveArtifacts));
+      outputBuilder.setAndroidRuleIdeInfo(makeAndroidRuleIdeInfo(base, ideResolveArtifacts));
     }
 
     AndroidStudioInfoFilesProvider provider = providerBuilder.build();

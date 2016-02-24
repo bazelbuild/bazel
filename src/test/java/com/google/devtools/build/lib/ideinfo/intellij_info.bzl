@@ -63,6 +63,22 @@ def artifact_location(file):
       root_execution_path_fragment = file.root.path if not file.is_source else None
   )
 
+def source_directory_tuple(resource_file):
+  return (
+      str(android_common.resource_source_directory(resource_file)),
+      resource_file.is_source,
+      resource_file.root.path if not resource_file.is_source else None
+  )
+
+def all_unique_source_directories(resources):
+  # Sets can contain tuples, but cannot conntain structs.
+  # Use set of tuples to unquify source directories.
+  source_directory_tuples = set([source_directory_tuple(file) for file in resources])
+  return [struct_omit_none(relative_path = relative_path,
+                           is_source = is_source,
+                           root_execution_path_fragment = root_execution_path_fragment)
+          for (relative_path, is_source, root_execution_path_fragment) in source_directory_tuples]
+
 def build_file_artifact_location(build_file_path):
   return struct(
       relative_path = build_file_path,
@@ -134,6 +150,7 @@ def android_rule_ide_info(target, ctx):
             has_idl_sources = target.android.idl.output != None,
             idl_jar = library_artifact(target.android.idl.output),
             generate_resource_class = target.android.defines_resources,
+            resources = all_unique_source_directories(target.android.resources),
         ),
         ide_resolve_files)
 
