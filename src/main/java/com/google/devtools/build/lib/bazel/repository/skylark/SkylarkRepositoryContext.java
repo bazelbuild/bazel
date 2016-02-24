@@ -33,6 +33,8 @@ import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.util.StringUtilities;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -195,6 +197,34 @@ public class SkylarkRepositoryContext {
       makeDirectories(p.path);
       try (OutputStream stream = p.path.getOutputStream()) {
         stream.write(content.getBytes(StandardCharsets.UTF_8));
+      }
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  @SkylarkCallable(
+    name = "template",
+    doc =
+        "Generate a new file using a <code>template</code>. Every occurrence in "
+            + "<code>template</code> of a key of <code>substitutions</code> will be replaced by "
+            + "the corresponding value. The result is written in <code>path</code>."
+  )
+  public void createFileFromTemplate(
+      Object path, Object template, Map<String, String> substitutions)
+      throws RepositoryFunctionException, EvalException {
+    SkylarkPath p = getPath("template()", path);
+    SkylarkPath t = getPath("template()", template);
+    try {
+      checkInOutputDirectory(p);
+      makeDirectories(p.path);
+      String tpl = FileSystemUtils.readContent(t.path, StandardCharsets.UTF_8);
+      for (Map.Entry<String, String> substitution : substitutions.entrySet()) {
+        tpl =
+            StringUtilities.replaceAllLiteral(tpl, substitution.getKey(), substitution.getValue());
+      }
+      try (OutputStream stream = p.path.getOutputStream()) {
+        stream.write(tpl.getBytes(StandardCharsets.UTF_8));
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
