@@ -141,6 +141,14 @@ public class BlazeCommandEventHandler implements EventHandler {
         help = "Forces --experimental_external_repositories.")
     public boolean forceExternalRepositories;
 
+    @Option(
+      name = "experimental_ui",
+      defaultValue = "false",
+      category = "hidden",
+      help = "Enable the experimental new Bazel UI."
+    )
+    public boolean experimentalUi;
+
     public boolean useColor() {
       return useColorEnum == UseColor.YES || (useColorEnum == UseColor.AUTO && isATty);
     }
