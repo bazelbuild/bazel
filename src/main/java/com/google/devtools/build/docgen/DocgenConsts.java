@@ -93,6 +93,16 @@ public class DocgenConsts {
   }
 
   /**
+   * Reference to another rule or Build Encyclopedia section.
+   *
+   * <p>The format of a link reference is rule.attribute (e.g. cc_library.deps). In the case of
+   * static pages such as common definitions the format is page.heading
+   * (e.g. common-definitions.label-expansion).
+   */
+  public static final Pattern BLAZE_RULE_LINK = Pattern.compile(
+      "\\$\\{link (([a-z_-]+)(\\.([a-z_-]+))?)\\}");
+
+  /**
    * i.e. <!-- #BLAZE_RULE(NAME = RULE_NAME, TYPE = RULE_TYPE, FAMILY = RULE_FAMILY) -->
    * i.e. <!-- #BLAZE_RULE(...)[DEPRECATED] -->
    */

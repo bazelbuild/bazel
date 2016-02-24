@@ -214,7 +214,7 @@ public class SourceFileReader {
         // End of a attribute, create RuleDocumentationAttribute object
         docAttributes.put(attributeName, RuleDocumentationAttribute.create(
             ruleClassProvider.getRuleClassDefinition(ruleName),
-            attributeName, sb.toString(), startLineCnt, flags));
+            attributeName, sb.toString(), startLineCnt, javaSourceFilePath, flags));
         sb = new StringBuilder();
         inBlazeAttributeDocs = false;
       }

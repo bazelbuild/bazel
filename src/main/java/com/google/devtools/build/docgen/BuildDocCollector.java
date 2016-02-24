@@ -122,7 +122,22 @@ public class BuildDocCollector {
     }
 
     processAttributeDocs(ruleDocEntries.values(), attributeDocEntries);
+    RuleLinkExpander expander = buildRuleLinkExpander(ruleDocEntries.values());
+    for (RuleDocumentation rule : ruleDocEntries.values()) {
+      rule.setRuleLinkExpander(expander);
+    }
     return ruleDocEntries;
+  }
+
+  /**
+   * Generates an index mapping rule name to its normalized rule family name.
+   */
+  private RuleLinkExpander buildRuleLinkExpander(Iterable<RuleDocumentation> rules) {
+    Map<String, String> index = new HashMap<>();
+    for (RuleDocumentation rule : rules) {
+      index.put(rule.getRuleName(), RuleFamily.normalize(rule.getRuleFamily()));
+    }
+    return new RuleLinkExpander(index);
   }
 
   /**
