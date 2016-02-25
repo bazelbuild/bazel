@@ -288,6 +288,9 @@ public class BlazeCommandDispatcher {
       parseArgsAndConfigs(optionsParser, commandAnnotation, args, rcfileNotes, outErr);
 
       InvocationPolicyEnforcer optionsPolicyEnforcer =
+          new InvocationPolicyEnforcer(runtime.getInvocationPolicy());
+      optionsPolicyEnforcer.enforce(optionsParser, commandName);
+      optionsPolicyEnforcer =
           InvocationPolicyEnforcer.create(getRuntime().getStartupOptionsProvider());
       optionsPolicyEnforcer.enforce(optionsParser, commandName);
     } catch (OptionsParsingException e) {

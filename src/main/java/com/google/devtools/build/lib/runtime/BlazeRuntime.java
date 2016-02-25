@@ -71,6 +71,7 @@ import com.google.devtools.build.lib.runtime.commands.RunCommand;
 import com.google.devtools.build.lib.runtime.commands.ShutdownCommand;
 import com.google.devtools.build.lib.runtime.commands.TestCommand;
 import com.google.devtools.build.lib.runtime.commands.VersionCommand;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.RPCServer;
 import com.google.devtools.build.lib.server.ServerCommand;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
@@ -168,6 +169,8 @@ public final class BlazeRuntime {
   private final BinTools binTools;
   private final WorkspaceStatusAction.Factory workspaceStatusActionFactory;
   private final ProjectFile.Provider projectFileProvider;
+  @Nullable
+  private final InvocationPolicy invocationPolicy;
 
   // Workspace state (currently exactly one workspace per server)
   private final BlazeDirectories directories;
@@ -187,7 +190,7 @@ public final class BlazeRuntime {
       TimestampGranularityMonitor timestampGranularityMonitor,
       SubscriberExceptionHandler eventBusExceptionHandler,
       BinTools binTools, ProjectFile.Provider projectFileProvider,
-      Iterable<BlazeCommand> commands) {
+      InvocationPolicy invocationPolicy, Iterable<BlazeCommand> commands) {
     // Server state
     this.blazeModules = blazeModules;
     overrideCommands(commands);
@@ -196,6 +199,7 @@ public final class BlazeRuntime {
     this.packageFactory = pkgFactory;
     this.binTools = binTools;
     this.projectFileProvider = projectFileProvider;
+    this.invocationPolicy = invocationPolicy;
 
     this.ruleClassProvider = ruleClassProvider;
     this.configurationFactory = configurationFactory;
@@ -213,6 +217,21 @@ public final class BlazeRuntime {
       writeDoNotBuildHereFile();
     }
     setupExecRoot();
+  }
+
+  private static InvocationPolicy createInvocationPolicyFromModules(
+      InvocationPolicy initialInvocationPolicy,
+      Iterable<BlazeModule> modules) {
+    InvocationPolicy.Builder builder = InvocationPolicy.newBuilder();
+    builder.mergeFrom(initialInvocationPolicy);
+    // Merge the policies from the modules
+    for (BlazeModule module : modules) {
+      InvocationPolicy modulePolicy = module.getInvocationPolicy();
+      if (modulePolicy != null) {
+        builder.mergeFrom(module.getInvocationPolicy());
+      }
+    }
+    return builder.build();
   }
 
   @Nullable CoverageReportActionFactory getCoverageReportActionFactory() {
@@ -264,6 +283,11 @@ public final class BlazeRuntime {
     // EventBus does not have an unregister() method, so this is how we release memory associated
     // with handlers.
     skyframeExecutor.setEventBus(null);
+  }
+
+  @Nullable
+  public InvocationPolicy getInvocationPolicy() {
+    return invocationPolicy;
   }
 
   /**
@@ -1305,6 +1329,7 @@ public final class BlazeRuntime {
     private BinTools binTools;
     private UUID instanceId;
     private final List<BlazeCommand> commands = new ArrayList<>();
+    private InvocationPolicy invocationPolicy = InvocationPolicy.getDefaultInstance();
 
     public BlazeRuntime build() throws AbruptExitException {
       Preconditions.checkNotNull(directories);
@@ -1453,14 +1478,22 @@ public final class BlazeRuntime {
         }
       }
 
+      invocationPolicy = createInvocationPolicyFromModules(invocationPolicy, blazeModules);
+
       return new BlazeRuntime(directories, workspaceStatusActionFactory, skyframeExecutor,
           pkgFactory, ruleClassProvider, configurationFactory,
           clock, startupOptionsProvider, ImmutableList.copyOf(blazeModules),
-          timestampMonitor, eventBusExceptionHandler, binTools, projectFileProvider, commands);
+          timestampMonitor, eventBusExceptionHandler, binTools, projectFileProvider,
+          invocationPolicy, commands);
     }
 
     public Builder setBinTools(BinTools binTools) {
       this.binTools = binTools;
+      return this;
+    }
+
+    public Builder setInvocationPolicy(InvocationPolicy invocationPolicy) {
+      this.invocationPolicy = invocationPolicy;
       return this;
     }
 

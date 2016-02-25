@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Injected;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
@@ -412,6 +413,14 @@ public abstract class BlazeModule {
    */
   @Nullable
   public CoverageReportActionFactory getCoverageReportFactory() {
+    return null;
+  }
+
+  /**
+   * Optionally returns the invocation policy to override options in blaze.
+   */
+  @Nullable
+  public InvocationPolicy getInvocationPolicy() {
     return null;
   }
 }

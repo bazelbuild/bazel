@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.testutil;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 
 /**
  * Various constants required by the tests.
@@ -76,4 +77,7 @@ public class TestConstants {
 
   public static final ImmutableList<String> DOCS_RULES_PATHS = ImmutableList.of(
       "src/main/java/com/google/devtools/build/lib/rules");
+
+  public static final InvocationPolicy TEST_INVOCATION_POLICY =
+      InvocationPolicy.getDefaultInstance();
 }

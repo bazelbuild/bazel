@@ -37,9 +37,9 @@ public final class Constants {
   // Native Java deps are all linked into a single file, which is named with this value + ".so".
   public static final String NATIVE_DEPS_LIB_SUFFIX = "_nativedeps";
 
-  // Locations of implicit Android SDK and NDK dependencies.
+  // Locations of implicit Android SDK dependencies.
   public static final String ANDROID_DEFAULT_SDK = "//external:android/sdk".toString();
-  public static final String ANDROID_DEFAULT_CROSSTOOL = "//external:android/crosstool".toString();
+
   // If the --fat_apk_cpu flag is not set, we use this as the default value.
   public static final ImmutableList<String> ANDROID_DEFAULT_FAT_APK_CPUS =
       ImmutableList.<String>of("armeabi-v7a");

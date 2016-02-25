@@ -317,6 +317,22 @@ public final class BuildConfiguration {
   }
 
   /**
+   * A converter that returns null if the input string is empty, otherwise it converts
+   * the input to a label.
+   */
+  public static class EmptyToNullLabelConverter implements Converter<Label> {
+    @Override
+    public Label convert(String input) throws OptionsParsingException {
+      return input.isEmpty() ? null : convertLabel(input);
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a build target label";
+    }
+  }
+
+  /**
    * A label converter that returns a default value if the input string is empty.
    */
   public static class DefaultLabelConverter implements Converter<Label> {
