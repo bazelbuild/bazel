@@ -608,6 +608,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
             cppConfiguration.isLipoContextCollector(),
             cppConfiguration.processHeadersInDependencies(),
             CppHelper.usePic(ruleContext, false));
+    NestedSet<Artifact> artifactsToForce = collectHiddenTopLevelArtifacts(ruleContext);
     builder
         .setFilesToBuild(filesToBuild)
         .add(CppCompilationContext.class, cppCompilationContext)
@@ -630,9 +631,21 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
         .addOutputGroup(
             OutputGroupProvider.TEMP_FILES, getTemps(cppConfiguration, ccCompilationOutputs))
         .addOutputGroup(OutputGroupProvider.FILES_TO_COMPILE, filesToCompile)
+        .addOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL, artifactsToForce)
         .addOutputGroup(
             OutputGroupProvider.COMPILATION_PREREQUISITES,
             CcCommon.collectCompilationPrerequisites(ruleContext, cppCompilationContext));
+  }
+
+  private static NestedSet<Artifact> collectHiddenTopLevelArtifacts(RuleContext ruleContext) {
+    // Ensure that we build all the dependencies, otherwise users may get confused.
+    NestedSetBuilder<Artifact> artifactsToForceBuilder = NestedSetBuilder.stableOrder();
+    for (OutputGroupProvider dep :
+        ruleContext.getPrerequisites("deps", Mode.TARGET, OutputGroupProvider.class)) {
+      artifactsToForceBuilder.addTransitive(
+          dep.getOutputGroup(OutputGroupProvider.HIDDEN_TOP_LEVEL));
+    }
+    return artifactsToForceBuilder.build();
   }
 
   private static NestedSet<Artifact> collectExecutionDynamicLibraryArtifacts(
