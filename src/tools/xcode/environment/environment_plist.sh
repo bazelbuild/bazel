@@ -45,24 +45,20 @@ esac
 shift
 done
 
-XCODE_CONTENTS_DIR=$(dirname $(/usr/bin/xcode-select --print-path))
 PLATFORM_DIR=$(/usr/bin/xcrun --sdk "${PLATFORM}" --show-sdk-platform-path)
-SDK_DIR=$(/usr/bin/xcrun --sdk "${PLATFORM}" --show-sdk-path)
-XCODE_PLIST="${XCODE_CONTENTS_DIR}"/Info.plist
-XCODE_VERSION_PLIST="${XCODE_CONTENTS_DIR}"/version.plist
 PLATFORM_PLIST="${PLATFORM_DIR}"/Info.plist
-PLATFORM_VERSION_PLIST="${PLATFORM_DIR}"/version.plist
-SDK_VERSION_PLIST="${SDK_DIR}"/System/Library/CoreServices/SystemVersion.plist
 PLIST=$(mktemp -d "${TMPDIR:-/tmp}/bazel_environment.XXXXXX")/env.plist
 trap 'rm -rf "${PLIST}"' ERR EXIT
 
 os_build=$(/usr/bin/sw_vers -buildVersion)
-compiler=$(/usr/bin/defaults read "${PLATFORM_PLIST}" DefaultProperties | grep DEFAULT_COMPILER | cut -d '"' -f4)
-platform_version=$(/usr/bin/defaults read "${PLATFORM_PLIST}" Version)
-platform_build=$(/usr/bin/defaults read "${PLATFORM_VERSION_PLIST}" ProductBuildVersion)
-sdk_build=$(/usr/bin/defaults read "${SDK_VERSION_PLIST}" ProductBuildVersion)
-xcode_build=$(/usr/bin/defaults read "${XCODE_VERSION_PLIST}" ProductBuildVersion)
-xcode_version=$(/usr/bin/defaults read "${XCODE_PLIST}" DTXcode)
+compiler=$(/usr/libexec/PlistBuddy -c "print :DefaultProperties:DEFAULT_COMPILER" "${PLATFORM_PLIST}")
+platform_version=$(/usr/bin/xcodebuild -version -sdk "${PLATFORM}" PlatformVersion)
+sdk_build=$(/usr/bin/xcodebuild -version -sdk "${PLATFORM}" ProductBuildVersion)
+platform_build=$"${sdk_build}"
+xcode_build=$(/usr/bin/xcodebuild -version | grep Build | cut -d ' ' -f3)
+xcode_version_string=$(/usr/bin/xcodebuild -version | grep Xcode | cut -d ' ' -f2)
+xcode_version=$(/usr/bin/printf '%02d%d%d\n' $(echo "${xcode_version_string//./ }"))
+
 
 /usr/bin/defaults write "${PLIST}" DTPlatformBuild -string ${platform_build:-""}
 /usr/bin/defaults write "${PLIST}" DTSDKBuild -string ${sdk_build:-""}
