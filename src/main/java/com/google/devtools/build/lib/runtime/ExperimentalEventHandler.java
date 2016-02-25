@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.OutErr;
 
@@ -52,6 +54,18 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
       return;
     }
     // The actual new UI.
+  }
+
+  @Subscribe
+  public void loadingComplete(LoadingPhaseCompleteEvent event) {
+    try {
+      terminal.textGreen();
+      terminal.writeString("INFO:");
+      terminal.resetTerminal();
+      terminal.writeString(" " + event.getTargets().size() + " Target(s)\n");
+    } catch (IOException e) {
+      LOG.warning("IO Error writing to output stream: " + e);
+    }
   }
 
   public void resetTerminal() {
