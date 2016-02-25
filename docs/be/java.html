@@ -1460,7 +1460,7 @@ java_test(
     java_toolchain
   </h2>
 
-  <pre class="rule-signature">java_toolchain(<a href="#java_toolchain.name">name</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#java_toolchain.encoding">encoding</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#java_toolchain.jvm_opts">jvm_opts</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#java_toolchain.misc">misc</a>, <a href="#java_toolchain.source_version">source_version</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="#java_toolchain.target_version">target_version</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#java_toolchain.xlint">xlint</a>)</pre>
+  <pre class="rule-signature">java_toolchain(<a href="#java_toolchain.name">name</a>, <a href="#java_toolchain.bootclasspath">bootclasspath</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#java_toolchain.encoding">encoding</a>, <a href="#java_toolchain.extclasspath">extclasspath</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#java_toolchain.jvm_opts">jvm_opts</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#java_toolchain.misc">misc</a>, <a href="#java_toolchain.source_version">source_version</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="#java_toolchain.target_version">target_version</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#java_toolchain.xlint">xlint</a>)</pre>
 
 
 <p>
@@ -1479,6 +1479,7 @@ java_toolchain(
     name = "toolchain",
     source_version = "7",
     target_version = "7",
+    bootclasspath = ["//tools/jdk:bootclasspath"],
     encoding = "UTF-8",
     xlint = [ "classfile", "divzero", "empty", "options", "path" ],
     misc = [ "-g" ],
@@ -1507,13 +1508,33 @@ java_toolchain(
 
         </td>
       </tr>
-                                    <tr>
+                <tr>
+        <td id="java_toolchain.bootclasspath">
+          <code>bootclasspath</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                            The Java target exdir entries. Corresponds to javac's -bootclasspath flag.
+
+        </td>
+      </tr>
+                                          <tr>
         <td id="java_toolchain.encoding">
           <code>encoding</code>
         </td>
         <td>
                     <p><code>String; required</code></p>
                             The encoding of the java files (e.g., 'UTF-8').
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="java_toolchain.extclasspath">
+          <code>extclasspath</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                            The Java target exdir entries. Corresponds to javac's -extdir flag.
 
         </td>
       </tr>
