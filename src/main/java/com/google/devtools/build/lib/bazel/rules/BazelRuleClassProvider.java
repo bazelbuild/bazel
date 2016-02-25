@@ -242,7 +242,6 @@ public class BazelRuleClassProvider {
         .setRunfilesPrefix("")
         .setToolsRepository("@bazel_tools")
         .setPrerequisiteValidator(new BazelPrerequisiteValidator())
-        .setSkylarkAccessibleJavaClasses(ImmutableMap.<String, SkylarkType>of())
         .setSkylarkAccessibleJavaClasses(skylarkBuiltinJavaObects);
 
     builder.addBuildOptions(BUILD_OPTIONS);
