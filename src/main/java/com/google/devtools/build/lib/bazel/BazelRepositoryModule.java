@@ -110,6 +110,7 @@ public class BazelRepositoryModule extends BlazeModule {
     for (RepositoryFunction handler : repositoryHandlers.values()) {
       handler.setDirectories(directories);
     }
+    skylarkRepositoryFunction.setDirectories(directories);
   }
 
   /**
