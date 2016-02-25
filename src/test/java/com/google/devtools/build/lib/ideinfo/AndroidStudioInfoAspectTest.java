@@ -229,10 +229,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testJavaLibraryWithExports() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -281,10 +277,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testJavaLibraryWithTransitiveExports() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -369,10 +361,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testJavaImportWithExports() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -580,12 +568,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
                 "libl.jar", "libl-ijar.jar", "libl-src.jar"),
             jarString("com/google/example",
                 "l_resources.jar", "l_resources-ijar.jar", "l_resources-src.jar"));
-    if (isNativeTest()) {
-      assertThat(
-              transform(
-                  ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
-          .containsExactly("com/google/example/res");
-    }
+    assertThat(
+            transform(
+                ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
+        .containsExactly("com/google/example/res");
     assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
         .isEqualTo("com/google/example/AndroidManifest.xml");
     assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
@@ -637,12 +623,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
             jarString("com/google/example",
                 "b_resources.jar", "b_resources-ijar.jar", "b_resources-src.jar"));
 
-    if (isNativeTest()) {
-      assertThat(
-              transform(
-                  ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
-          .containsExactly("com/google/example/res");
-    }
+    assertThat(
+            transform(
+                ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
+        .containsExactly("com/google/example/res");
     assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
         .isEqualTo("com/google/example/AndroidManifest.xml");
     assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
@@ -848,10 +832,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidLibraryWithoutSourcesExportsDependencies() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "java/com/google/example/BUILD",
         "android_library(",

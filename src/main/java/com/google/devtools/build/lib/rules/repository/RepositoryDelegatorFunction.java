@@ -123,15 +123,12 @@ public class RepositoryDelegatorFunction implements SkyFunction {
     if (markerUpToDate && repoRoot.exists()) {
       // Now that we know that it exists, we can declare a Skyframe dependency on the repository
       // root.
-      FileValue repoRootValue = RepositoryFunction.getRepositoryDirectory(repoRoot, env);
+      RepositoryFunction.getRepositoryDirectory(repoRoot, env);
       if (env.valuesMissing()) {
         return null;
       }
 
-      // NB: This returns the wrong repository value for non-local new_* repository functions.
-      // This should sort itself out automatically once the ExternalFilesHelper refactoring is
-      // finally submitted.
-      return RepositoryDirectoryValue.create(repoRootValue.realRootedPath().asPath());
+      return RepositoryDirectoryValue.create(repoRoot);
     }
 
     if (isFetch.get()) {

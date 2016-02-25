@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 import java.util.List;
 
+import javax.annotation.Nullable;
+
 /**
  * Information about the JDK used by the <code>java_*</code> rules.
  *
@@ -33,6 +35,10 @@ public class JavaToolchainData {
 
   private final String sourceVersion;
   private final String targetVersion;
+  // TODO(cushon): remove @Nullable once migration from --javac_bootclasspath and --javac_extdir
+  // is complete, and java_toolchain.{bootclasspath,extclasspath} are mandatory
+  @Nullable private final Iterable<String> bootclasspath;
+  @Nullable private final Iterable<String> extclasspath;
   private final String encoding;
   private final ImmutableList<String> options;
   private final ImmutableList<String> jvmOpts;
@@ -40,12 +46,16 @@ public class JavaToolchainData {
   public JavaToolchainData(
       String sourceVersion,
       String targetVersion,
+      @Nullable Iterable<String> bootclasspath,
+      @Nullable Iterable<String> extclasspath,
       String encoding,
       List<String> xlint,
       List<String> misc,
       List<String> jvmOpts) {
     this.sourceVersion = checkNotNull(sourceVersion, "sourceVersion must not be null");
     this.targetVersion = checkNotNull(targetVersion, "targetVersion must not be null");
+    this.bootclasspath = bootclasspath;
+    this.extclasspath = extclasspath;
     this.encoding = checkNotNull(encoding, "encoding must not be null");
 
     this.jvmOpts = ImmutableList.copyOf(jvmOpts);
@@ -85,6 +95,16 @@ public class JavaToolchainData {
 
   public String getTargetVersion() {
     return targetVersion;
+  }
+
+  @Nullable
+  public Iterable<String> getBootclasspath() {
+    return bootclasspath;
+  }
+
+  @Nullable
+  public Iterable<String> getExtclasspath() {
+    return extclasspath;
   }
 
   public String getEncoding() {

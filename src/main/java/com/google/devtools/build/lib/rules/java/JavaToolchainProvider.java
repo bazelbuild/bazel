@@ -20,6 +20,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 
@@ -83,8 +86,40 @@ public final class JavaToolchainProvider implements TransitiveInfoProvider {
     return javaToolchain.getHeaderCompiler();
   }
 
+  /**
+   * Constructs the compilation bootclasspath.
+   *
+   * @param ruleContext The rule context of the current rule.
+   */
+  public static NestedSet<Artifact> getDefaultBootclasspath(RuleContext ruleContext) {
+    JavaToolchainProvider javaToolchain =
+        ruleContext.getPrerequisite(":java_toolchain", Mode.TARGET, JavaToolchainProvider.class);
+    if (javaToolchain == null) {
+      ruleContext.ruleError("The --java_toolchain option does not point to a java_toolchain rule.");
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+    return javaToolchain.getBootclasspath();
+  }
+
+  /**
+   * Constructs the compilation extclasspath.
+   *
+   * @param ruleContext The rule context of the current rule.
+   */
+  public static NestedSet<Artifact> getDefaultExtclasspath(RuleContext ruleContext) {
+    JavaToolchainProvider javaToolchain =
+        ruleContext.getPrerequisite(":java_toolchain", Mode.TARGET, JavaToolchainProvider.class);
+    if (javaToolchain == null) {
+      ruleContext.ruleError("The --java_toolchain option does not point to a java_toolchain rule.");
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+    return javaToolchain.getExtclasspath();
+  }
+
   private final String sourceVersion;
   private final String targetVersion;
+  @Nullable private final NestedSet<Artifact> bootclasspath;
+  @Nullable private final NestedSet<Artifact> extclasspath;
   private final String encoding;
   private final ImmutableList<String> javacOptions;
   private final ImmutableList<String> javacJvmOptions;
@@ -92,11 +127,15 @@ public final class JavaToolchainProvider implements TransitiveInfoProvider {
 
   public JavaToolchainProvider(
       JavaToolchainData data,
+      @Nullable NestedSet<Artifact> bootclasspath,
+      @Nullable NestedSet<Artifact> extclasspath,
       List<String> defaultJavacFlags,
       List<String> defaultJavacJvmOpts,
       @Nullable Artifact headerCompiler) {
     this.sourceVersion = checkNotNull(data.getSourceVersion(), "sourceVersion must not be null");
     this.targetVersion = checkNotNull(data.getTargetVersion(), "targetVersion must not be null");
+    this.bootclasspath = bootclasspath;
+    this.extclasspath = extclasspath;
     this.encoding = checkNotNull(data.getEncoding(), "encoding must not be null");
     this.headerCompiler = headerCompiler;
 
@@ -136,12 +175,24 @@ public final class JavaToolchainProvider implements TransitiveInfoProvider {
     return targetVersion;
   }
 
+  /** @return the target Java bootclasspath */
+  public NestedSet<Artifact> getBootclasspath() {
+    return bootclasspath;
+  }
+
+  /** @return the target Java extclasspath */
+  public NestedSet<Artifact> getExtclasspath() {
+    return extclasspath;
+  }
+
   /** @return the encoding for Java source files */
+  @Nullable
   public String getEncoding() {
     return encoding;
   }
 
   /** @return the {@link Artifact} of the Header Compiler deploy jar */
+  @Nullable
   public Artifact getHeaderCompiler() {
     return headerCompiler;
   }

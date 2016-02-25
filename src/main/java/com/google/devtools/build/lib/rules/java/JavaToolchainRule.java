@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
@@ -45,6 +46,16 @@ public final class JavaToolchainRule implements RuleDefinition {
         should be build.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("target_version", STRING).mandatory()) // javac -target flag value.
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(bootclasspath) -->
+        The Java target exdir entries. Corresponds to javac's -bootclasspath flag.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        // TODO(cushon): make mandatory once migration from --javac_bootclasspath is complete
+        .add(attr("bootclasspath", LABEL_LIST).cfg(HOST).allowedFileTypes(FileTypeSet.ANY_FILE))
+        /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(extclasspath) -->
+        The Java target exdir entries. Corresponds to javac's -extdir flag.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        // TODO(cushon): make mandatory once migration from --javac_extdir is complete
+        .add(attr("extclasspath", LABEL_LIST).cfg(HOST).allowedFileTypes(FileTypeSet.ANY_FILE))
         /* <!-- #BLAZE_RULE(java_toolchain).ATTRIBUTE(encoding) -->
         The encoding of the java files (e.g., 'UTF-8').
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
@@ -95,6 +106,7 @@ java_toolchain(
     name = "toolchain",
     source_version = "7",
     target_version = "7",
+    bootclasspath = ["//tools/jdk:bootclasspath"],
     encoding = "UTF-8",
     xlint = [ "classfile", "divzero", "empty", "options", "path" ],
     misc = [ "-g" ],

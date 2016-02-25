@@ -60,7 +60,10 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
   private final String attributeName;
   private final String htmlDocumentation;
   private final String commonType;
+  // Used to expand rule link references in the attribute documentation.
+  private RuleLinkExpander linkExpander;
   private int startLineCnt;
+  private String fileName;
   private Set<String> flags;
   private Attribute attribute;
 
@@ -71,7 +74,7 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
   static RuleDocumentationAttribute create(
       String attributeName, String commonType, String htmlDocumentation) {
     RuleDocumentationAttribute docAttribute = new RuleDocumentationAttribute(
-        null, attributeName, htmlDocumentation, 0, ImmutableSet.<String>of(), commonType);
+        null, attributeName, htmlDocumentation, 0, "", ImmutableSet.<String>of(), commonType);
     return docAttribute;
   }
 
@@ -80,14 +83,15 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
    * defined rule attributes.
    */
   static RuleDocumentationAttribute create(Class<? extends RuleDefinition> definitionClass,
-      String attributeName, String htmlDocumentation, int startLineCnt, Set<String> flags) {
+      String attributeName, String htmlDocumentation, int startLineCnt, String fileName,
+      Set<String> flags) {
     return new RuleDocumentationAttribute(definitionClass, attributeName, htmlDocumentation,
-        startLineCnt, flags, null);
+        startLineCnt, fileName, flags, null);
   }
 
   private RuleDocumentationAttribute(Class<? extends RuleDefinition> definitionClass,
-      String attributeName, String htmlDocumentation, int startLineCnt, Set<String> flags,
-      String commonType) {
+      String attributeName, String htmlDocumentation, int startLineCnt, String fileName,
+      Set<String> flags, String commonType) {
     Preconditions.checkNotNull(attributeName, "AttributeName must not be null.");
     this.definitionClass = definitionClass;
     this.attributeName = attributeName;
@@ -119,10 +123,25 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
   }
 
   /**
-   * Returns the raw html documentation of the rule attribute.
+   * Sets the {@link RuleLinkExpander} to be used to expand links in the HTML documentation.
    */
-  public String getHtmlDocumentation() {
-    return htmlDocumentation;
+  public void setRuleLinkExpander(RuleLinkExpander linkExpander) {
+    this.linkExpander = linkExpander;
+  }
+
+  /**
+   * Returns the html documentation of the rule attribute.
+   */
+  public String getHtmlDocumentation() throws BuildEncyclopediaDocException {
+    String expandedHtmlDoc = htmlDocumentation;
+    if (linkExpander != null) {
+      try {
+        expandedHtmlDoc = linkExpander.expand(expandedHtmlDoc);
+      } catch (IllegalArgumentException e) {
+        throw new BuildEncyclopediaDocException(fileName, startLineCnt, e.getMessage());
+      }
+    }
+    return expandedHtmlDoc;
   }
 
   private String getDefaultValue() {

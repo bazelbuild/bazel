@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -77,6 +78,15 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
   )
   public JavaRuleOutputJarsProvider getOutputJars() {
     return getInfo().getProvider(JavaRuleOutputJarsProvider.class);
+  }
+
+  @SkylarkCallable(
+    name = "transitive_exports",
+    structField = true,
+    doc = "Returns transitive set of labels that are being exported from this rule."
+  )
+  public NestedSet<Label> getTransitiveExports() {
+    return getInfo().getProvider(JavaExportsProvider.class).getTransitiveExports();
   }
 
   @SkylarkCallable(

@@ -63,12 +63,27 @@ def artifact_location(file):
       root_execution_path_fragment = file.root.path if not file.is_source else None
   )
 
+def source_directory_tuple(resource_file):
+  return (
+      str(android_common.resource_source_directory(resource_file)),
+      resource_file.is_source,
+      resource_file.root.path if not resource_file.is_source else None
+  )
+
+def all_unique_source_directories(resources):
+  # Sets can contain tuples, but cannot conntain structs.
+  # Use set of tuples to unquify source directories.
+  source_directory_tuples = set([source_directory_tuple(file) for file in resources])
+  return [struct_omit_none(relative_path = relative_path,
+                           is_source = is_source,
+                           root_execution_path_fragment = root_execution_path_fragment)
+          for (relative_path, is_source, root_execution_path_fragment) in source_directory_tuples]
+
 def build_file_artifact_location(build_file_path):
   return struct(
       relative_path = build_file_path,
       is_source = True,
   )
-
 
 def library_artifact(java_output):
   if java_output == None or java_output.class_jar == None:
@@ -93,6 +108,8 @@ def jars_from_output(output):
           if jar != None and not jar.is_source]
 
 def java_rule_ide_info(target, ctx):
+  if not hasattr(target, "java"):
+    return (None, set())
   if hasattr(ctx.rule.attr, "srcs"):
      sources = [artifact_location(file)
                 for src in ctx.rule.attr.srcs
@@ -134,22 +151,31 @@ def android_rule_ide_info(target, ctx):
             has_idl_sources = target.android.idl.output != None,
             idl_jar = library_artifact(target.android.idl.output),
             generate_resource_class = target.android.defines_resources,
+            resources = all_unique_source_directories(target.android.resources),
         ),
         ide_resolve_files)
 
-def collect_transitive_labels(rule_attrs, attr_list):
-     return [str(dep.label)
-         for attr_name in attr_list
-         if hasattr(rule_attrs, attr_name)
-         for dep in getattr(rule_attrs, attr_name)]
+def collect_labels(rule_attrs, attr_list):
+  return set([str(dep.label)
+      for attr_name in attr_list
+      if hasattr(rule_attrs, attr_name)
+      for dep in getattr(rule_attrs, attr_name)])
+
+def collect_export_deps(rule_attrs):
+  result = set()
+  for attr_name in DEPS:
+    if hasattr(rule_attrs, attr_name):
+      for dep in getattr(rule_attrs, attr_name):
+        result = result | dep.export_deps
+  return result
 
 
 def _aspect_impl(target, ctx):
   kind = get_kind(target, ctx)
   rule_attrs = ctx.rule.attr
 
-  compiletime_deps = collect_transitive_labels(rule_attrs, DEPS)
-  runtime_deps = collect_transitive_labels(rule_attrs, RUNTIME_DEPS)
+  compiletime_deps = collect_labels(rule_attrs, DEPS) | collect_export_deps(rule_attrs)
+  runtime_deps = collect_labels(rule_attrs, RUNTIME_DEPS)
 
   ide_info_text = set()
   ide_resolve_files = set()
@@ -160,32 +186,31 @@ def _aspect_impl(target, ctx):
         ide_info_text = ide_info_text | dep.intellij_info_files.ide_info_text
         ide_resolve_files = ide_resolve_files | dep.intellij_info_files.ide_resolve_files
 
-  if kind != _unrecognized_rule:
-    if is_java_rule(target, ctx):
-      java_rule_ide_info, java_ide_resolve_files = java_rule_ide_info(target, ctx)
-      ide_resolve_files = ide_resolve_files | java_ide_resolve_files
+  (java_rule_ide_info, java_ide_resolve_files) = java_rule_ide_info(target, ctx)
+  ide_resolve_files = ide_resolve_files | java_ide_resolve_files
 
-      android_rule_ide_info, android_ide_resolve_files = android_rule_ide_info(target, ctx)
-      ide_resolve_files = ide_resolve_files | android_ide_resolve_files
+  (android_rule_ide_info, android_ide_resolve_files) = android_rule_ide_info(target, ctx)
+  ide_resolve_files = ide_resolve_files | android_ide_resolve_files
 
-      info = struct_omit_none(
-          label = str(target.label),
-          kind = kind,
-          dependencies = compiletime_deps,
-          runtime_deps = runtime_deps,
-          build_file_artifact_location = build_file_artifact_location(ctx.build_file_path),
-          java_rule_ide_info = java_rule_ide_info,
-          android_rule_ide_info = android_rule_ide_info,
-          tags = ctx.rule.attr.tags,
-      )
-    else:
-      info = struct(
-          label = str(target.label),
-          kind = kind,
-          dependencies = compiletime_deps,
-          runtime_deps = runtime_deps,
-          build_file_artifact_location = build_file_artifact_location(ctx.build_file_path),
-      )
+  export_deps = set()
+  if hasattr(target, "java"):
+    export_deps = set([str(l) for l in target.java.transitive_exports])
+    # Empty android libraries export all their dependencies.
+    if ctx.rule.kind == "android_library" and \
+            (not hasattr(rule_attrs, "src") or not ctx.rule.attr.src):
+      export_deps = export_deps | compiletime_deps
+
+  info = struct_omit_none(
+      label = str(target.label),
+      kind = kind,
+      dependencies = list(compiletime_deps),
+      runtime_deps = list(runtime_deps),
+      build_file_artifact_location = build_file_artifact_location(ctx.build_file_path),
+      java_rule_ide_info = java_rule_ide_info,
+      android_rule_ide_info = android_rule_ide_info,
+      tags = ctx.rule.attr.tags,
+  )
+
   output = ctx.new_file(target.label.name + ".aswb-build.txt")
   ctx.file_action(output, info.to_proto())
   ide_info_text += set([output])
@@ -198,7 +223,8 @@ def _aspect_impl(target, ctx):
       intellij_info_files = struct(
         ide_info_text = ide_info_text,
         ide_resolve_files = ide_resolve_files,
-      )
+      ),
+      export_deps = export_deps,
     )
 
 intellij_info_aspect = aspect(implementation = _aspect_impl,

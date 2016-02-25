@@ -13,11 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionCompletionEvent;
+import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.util.io.AnsiTerminal;
+import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.OutErr;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.logging.Logger;
 
@@ -29,6 +39,8 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
 
   private final AnsiTerminal terminal;
   private final boolean debugAllEvents;
+  private final ExperimentalStateTracker stateTracker;
+  private int numLinesProgressBar;
 
   public final int terminalWidth;
 
@@ -37,21 +49,114 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     this.terminal = new AnsiTerminal(outErr.getErrorStream());
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     this.debugAllEvents = options.experimentalUiDebugAllEvents;
+    this.stateTracker = new ExperimentalStateTracker();
+    this.numLinesProgressBar = 0;
   }
 
   @Override
-  public void handle(Event event) {
-    // Debugging only: show all events visible to the new UI.
-    if (debugAllEvents) {
-      try {
+  public synchronized void handle(Event event) {
+    try {
+      clearProgressBar();
+      if (debugAllEvents) {
+        // Debugging only: show all events visible to the new UI.
+        terminal.flush();
         outErr.getOutputStream().write((event + "\n").getBytes(StandardCharsets.UTF_8));
         outErr.getOutputStream().flush();
-      } catch (IOException e) {
-        LOG.warning("IO Error writing to output stream: " + e);
+      } else {
+        switch (event.getKind()) {
+          case STDOUT:
+          case STDERR:
+            terminal.flush();
+            OutputStream stream =
+                event.getKind() == EventKind.STDOUT
+                    ? outErr.getOutputStream()
+                    : outErr.getErrorStream();
+            stream.write(event.getMessageBytes());
+            stream.write(new byte[] {10, 13});
+            stream.flush();
+            break;
+          case ERROR:
+          case WARNING:
+          case INFO:
+            setEventKindColor(event.getKind());
+            terminal.writeString(event.getKind() + ": ");
+            terminal.resetTerminal();
+            if (event.getLocation() != null) {
+              terminal.writeString(event.getLocation() + ": ");
+            }
+            if (event.getMessage() != null) {
+              terminal.writeString(event.getMessage());
+            }
+            crlf();
+            break;
+        }
       }
-      return;
+      addProgressBar();
+      terminal.flush();
+    } catch (IOException e) {
+      LOG.warning("IO Error writing to output stream: " + e);
     }
-    // The actual new UI.
+  }
+
+  private void setEventKindColor(EventKind kind) throws IOException {
+    switch (kind) {
+      case ERROR:
+        terminal.textRed();
+        terminal.textBold();
+        break;
+      case WARNING:
+        terminal.textMagenta();
+        break;
+      case INFO:
+        terminal.textGreen();
+        break;
+    }
+  }
+
+  @Subscribe
+  public void buildStarted(BuildStartingEvent event) {
+    stateTracker.buildStarted(event);
+    refresh();
+  }
+
+  @Subscribe
+  public void loadingComplete(LoadingPhaseCompleteEvent event) {
+    stateTracker.loadingComplete(event);
+    refresh();
+  }
+
+  @Subscribe
+  public void analysisComplete(AnalysisPhaseCompleteEvent event) {
+    stateTracker.analysisComplete(event);
+    refresh();
+  }
+
+  @Subscribe
+  public void buildComplete(BuildCompleteEvent event) {
+    stateTracker.buildComplete(event);
+    refresh();
+  }
+
+  @Subscribe
+  public void actionStarted(ActionStartedEvent event) {
+    stateTracker.actionStarted(event);
+    refresh();
+  }
+
+  @Subscribe
+  public void actionCompletion(ActionCompletionEvent event) {
+    stateTracker.actionCompletion(event);
+    refresh();
+  }
+
+  private synchronized void refresh() {
+    try {
+      clearProgressBar();
+      addProgressBar();
+      terminal.flush();
+    } catch (IOException e) {
+      LOG.warning("IO Error writing to output stream: " + e);
+    }
   }
 
   public void resetTerminal() {
@@ -59,6 +164,81 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
       terminal.resetTerminal();
     } catch (IOException e) {
       LOG.warning("IO Error writing to user terminal: " + e);
+    }
+  }
+
+  private void clearProgressBar() throws IOException {
+    for (int i = 0; i < numLinesProgressBar; i++) {
+      terminal.cr();
+      terminal.cursorUp(1);
+      terminal.clearLine();
+    }
+    numLinesProgressBar = 0;
+  }
+
+  private void crlf() throws IOException {
+    terminal.cr();
+    terminal.writeString("\n");
+  }
+
+  private void addProgressBar() throws IOException {
+    LineCountingAnsiTerminalWriter terminalWriter = new LineCountingAnsiTerminalWriter(terminal);
+    stateTracker.writeProgressBar(terminalWriter);
+    terminalWriter.newline();
+    numLinesProgressBar = terminalWriter.getWrittenLines();
+  }
+
+  private class LineCountingAnsiTerminalWriter implements AnsiTerminalWriter {
+
+    private final AnsiTerminal terminal;
+    private int lineCount;
+    private int currentLineLength;
+
+    LineCountingAnsiTerminalWriter(AnsiTerminal terminal) {
+      this.terminal = terminal;
+      this.lineCount = 0;
+    }
+
+    @Override
+    public AnsiTerminalWriter append(String text) throws IOException {
+      terminal.writeString(text);
+      currentLineLength += text.length();
+      return this;
+    }
+
+    @Override
+    public AnsiTerminalWriter newline() throws IOException {
+      terminal.cr();
+      terminal.writeString("\n");
+      // Besides the line ended by the newline() command, a line-shift can also happen
+      // by a string longer than the terminal width being wrapped around; account for
+      // this as well.
+      lineCount += 1 + currentLineLength / terminalWidth;
+      currentLineLength = 0;
+      return this;
+    }
+
+    @Override
+    public AnsiTerminalWriter okStatus() throws IOException {
+      terminal.textGreen();
+      return this;
+    }
+
+    @Override
+    public AnsiTerminalWriter failStatus() throws IOException {
+      terminal.textRed();
+      terminal.textBold();
+      return this;
+    }
+
+    @Override
+    public AnsiTerminalWriter normal() throws IOException {
+      terminal.resetTerminal();
+      return this;
+    }
+
+    public int getWrittenLines() throws IOException {
+      return lineCount;
     }
   }
 }

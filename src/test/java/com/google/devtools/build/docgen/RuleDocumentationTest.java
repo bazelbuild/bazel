@@ -81,7 +81,7 @@ public class RuleDocumentationTest {
   @Test
   public void testInheritedAttributeGeneratesSignature() throws Exception {
     RuleDocumentationAttribute runtimeDepsAttr = RuleDocumentationAttribute.create(TestRule.class,
-        "runtime_deps", "attribute doc", 0, NO_FLAGS);
+        "runtime_deps", "attribute doc", 0, "", NO_FLAGS);
     checkAttributeForRule(
         new RuleDocumentation(
             "java_binary", "BINARY", "JAVA", "", 0, "", ImmutableSet.<String>of(), provider),
@@ -111,7 +111,7 @@ public class RuleDocumentationTest {
         0, "", ImmutableSet.<String>of(), provider);
     ruleDoc.addDocVariable("VAR", "w");
     RuleDocumentationAttribute attributeDoc = RuleDocumentationAttribute.create(TestRule.class,
-        "srcs", "attribute doc", 0, NO_FLAGS);
+        "srcs", "attribute doc", 0, "", NO_FLAGS);
     ruleDoc.addAttribute(attributeDoc);
     assertEquals("\nx\ny\nz\n\n", ruleDoc.getCommandLineDocumentation());
   }

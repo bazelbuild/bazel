@@ -26,7 +26,7 @@ def macro(name, visibility=None):
 `BUILD`:
 
 ```python
-load("/pkg/extension", "macro")
+load("//pkg:extension.bzl", "macro")
 
 macro(name = "myrule")
 ```
@@ -48,7 +48,7 @@ empty = rule(implementation=_impl)
 
 ```python
 # Loading the Skylark rule. The rule doesn't have to be in a separate file.
-load("/pkg/empty", "empty")
+load("//pkg:empty.bzl", "empty")
 
 def macro(name, visibility=None):
   # Creating the Skylark rule.
@@ -58,7 +58,7 @@ def macro(name, visibility=None):
 `BUILD`:
 
 ```python
-load("/pkg/extension", "macro")
+load("//pkg:extension.bzl", "macro")
 
 macro(name = "myrule")
 ```
@@ -101,7 +101,7 @@ In the following BUILD file, note how `(basic_test.py, fast)` is emitted for
 both the `smoke` test suite and the `thorough` test suite.
 
 ```python
-load("/pkg/extension", "system_test_suite")
+load("//pkg:extension.bzl", "system_test_suite")
 
 # Run all files through the 'fast' flavor.
 system_test_suite("smoke", flavors=["fast"], glob(["*_test.py"]))
@@ -151,7 +151,7 @@ empty = rule(implementation=_impl)
 `BUILD`:
 
 ```python
-load("/pkg/empty", "empty")
+load("//pkg:empty.bzl", "empty")
 
 empty(name = "nothing")
 ```
@@ -186,7 +186,7 @@ printer = rule(
 `BUILD`:
 
 ```python
-load("/pkg/printer", "printer")
+load("//pkg:printer.bzl", "printer")
 
 printer(
     name = "nothing",
@@ -242,7 +242,7 @@ Hello
 `BUILD`:
 
 ```python
-load("/pkg/size", "size")
+load("//pkg:size.bzl", "size")
 
 size(
     name = "foo_size",
@@ -271,7 +271,7 @@ file = rule(
 `BUILD`:
 
 ```python
-load("/pkg/file", "file")
+load("//pkg:file.bzl", "file")
 
 file(
     name = "hello",
@@ -418,7 +418,7 @@ tr 'a-z' 'A-Z' < $1 > $2
 `BUILD`:
 
 ```python
-load("/pkg/execute", "execute")
+load("//pkg:execute.bzl", "execute")
 
 execute(
     name = "e",
@@ -472,7 +472,7 @@ Hello World!
 `BUILD`:
 
 ```python
-load("/pkg/execute", "execute")
+load("//pkg:execute.bzl", "execute")
 
 execute(
     name = "e",
@@ -545,7 +545,7 @@ hash = rule(
 `BUILD`:
 
 ```python
-load("/pkg/hash", "hash")
+load("//pkg:hash.bzl", "hash")
 
 hash(
     name = "hash",
@@ -617,7 +617,7 @@ sum = rule(
 `BUILD`:
 
 ```python
-load("/pkg/sum", "sum")
+load("//pkg:sum.bzl", "sum")
 
 sum(
   name = "n",
@@ -665,7 +665,7 @@ sum = rule(
 `BUILD`:
 
 ```python
-load("/pkg/sum", "sum")
+load("//pkg:sum.bzl", "sum")
 
 sum(
   name = "n",
@@ -708,7 +708,7 @@ executable_rule = rule(
 `BUILD`:
 
 ```python
-load("/pkg/extension", "executable_rule")
+load("//pkg:extension.bzl", "executable_rule")
 
 executable_rule(name = "my_rule")
 ```
@@ -740,7 +740,7 @@ rule_with_outputs = rule(
 `BUILD`:
 
 ```python
-load("/pkg/extension", "rule_with_outputs")
+load("//pkg:extension.bzl", "rule_with_outputs")
 
 rule_with_outputs(name = "my_rule")
 ```
@@ -774,7 +774,7 @@ rule_with_outputs = rule(
 `BUILD`:
 
 ```python
-load("/pkg/extension", "rule_with_outputs")
+load("//pkg:extension.bzl", "rule_with_outputs")
 
 rule_with_outputs(
     name = "my_rule",
@@ -833,7 +833,7 @@ def macro(name, cmd, input):
 `BUILD`:
 
 ```python
-load("/pkg/extension", "macro")
+load("//pkg:extension.bzl", "macro")
 
 # This creates the target :my_rule
 macro(
@@ -866,7 +866,7 @@ debug = rule(implementation=_impl)
 `BUILD`:
 
 ```python
-load("/pkg/debug", "debug")
+load("//pkg:debug.bzl", "debug")
 
 debug(
   name = "printing_rule"

@@ -13,9 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableCollection;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.SkylarkApiProvider;
+import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
+import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
@@ -98,6 +105,35 @@ public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
   )
   public IdlInfo getIdlInfo() {
     return idlInfo;
+  }
+
+  @SkylarkCallable(
+    name = "resources",
+    structField = true,
+    doc = "Returns resources defined by this target."
+  )
+  public NestedSet<Artifact> getResources() {
+    return collectDirectArtifacts(ResourceType.RESOURCES);
+  }
+
+  private NestedSet<Artifact> collectDirectArtifacts(final ResourceType resources) {
+    AndroidResourcesProvider provider = getInfo().getProvider(AndroidResourcesProvider.class);
+    if (provider == null) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
+    // This will iterate over all (direct) resources. If this turns out to be a performance
+    // problem, {@link ResourceContainer#getArtifacts} can be changed to return NestedSets.
+    return NestedSetBuilder.wrap(
+        Order.STABLE_ORDER,
+        Iterables.concat(
+            Iterables.transform(
+                provider.getDirectAndroidResources(),
+                new Function<ResourceContainer, Iterable<Artifact>>() {
+                  @Override
+                  public Iterable<Artifact> apply(ResourceContainer resourceContainer) {
+                    return resourceContainer.getArtifacts(resources);
+                  }
+                })));
   }
 
   /**

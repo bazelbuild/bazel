@@ -298,18 +298,49 @@ def _impl(ctx):
   print(ctx.os.environ["FOO"])
   # Symlink so a repository is created
   ctx.symlink(ctx.path("$repo2"), ctx.path(""))
-repo = repository_rule(implementation=_impl, local=True)
+repo = repository_rule(implementation=_impl, local=False)
 EOF
 
-  bazel shutdown
+  # TODO(dmarting): We should seriously have something better to force a refetch...
+  bazel clean --expunge
   FOO=BAR bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "BAR"
 
-  FOO=BAR bazel clean >& $TEST_log
+  FOO=BAR bazel clean --expunge >& $TEST_log
   FOO=BAR bazel info >& $TEST_log
 
   FOO=BAZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "BAZ"
+
+  # Test that we don't re-run on server restart.
+  FOO=BEZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_not_log "BEZ"
+  bazel shutdown >& $TEST_log
+  FOO=BEZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_not_log "BEZ"
+
+  # Test modifying test.bzl invalidate the repository
+  cat >test.bzl <<EOF
+def _impl(ctx):
+  print(ctx.os.environ["BAR"])
+  # Symlink so a repository is created
+  ctx.symlink(ctx.path("$repo2"), ctx.path(""))
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+  BAR=BEZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "BEZ"
+
+  # Shutdown and modify again
+  bazel shutdown
+  cat >test.bzl <<EOF
+def _impl(ctx):
+  print(ctx.os.environ["BAZ"])
+  # Symlink so a repository is created
+  ctx.symlink(ctx.path("$repo2"), ctx.path(""))
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+  BAZ=BOZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "BOZ"
 }
 
 function tear_down() {

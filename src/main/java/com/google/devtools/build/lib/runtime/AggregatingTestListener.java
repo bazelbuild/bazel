@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
+import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
@@ -58,7 +59,7 @@ public class AggregatingTestListener {
   private final EventBus eventBus;
   private final EventHandlerPreconditions preconditionHelper;
   private volatile boolean blazeHalted = false;
-
+  private volatile boolean skippedTestsBecauseOfEarlierFailure;
 
   // summaryLock guards concurrent access to these two collections, which should be kept
   // synchronized with each other.
@@ -162,7 +163,10 @@ public class AggregatingTestListener {
         // Not a test target; nothing to do.
         return;
       }
-      finalSummary = analyzer.markUnbuilt(summary, blazeHalted).build();
+      finalSummary =
+          analyzer
+              .markUnbuilt(summary, blazeHalted, skippedTestsBecauseOfEarlierFailure)
+              .build();
 
       // These are never going to run; removing them marks the target complete.
       remainingRuns.removeAll(label);
@@ -185,10 +189,13 @@ public class AggregatingTestListener {
 
   @Subscribe
   public void buildCompleteEvent(BuildCompleteEvent event) {
-    if (event.getResult().wasCatastrophe()) {
+    BuildResult result = event.getResult();
+    if (result.wasCatastrophe()) {
       blazeHalted = true;
+    } else if (result.skippedTargetsBecauseOfEarlierFailure()) {
+      skippedTestsBecauseOfEarlierFailure = true;
     }
-    buildComplete(event.getResult().getActualTargets(), event.getResult().getSuccessfulTargets());
+    buildComplete(result.getActualTargets(), result.getSuccessfulTargets());
   }
 
   @Subscribe

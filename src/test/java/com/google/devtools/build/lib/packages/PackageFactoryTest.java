@@ -590,6 +590,21 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     assertEvaluates(
         pkg,
         ImmutableList.of(
+            "BUILD",
+            "a.cc",
+            "foo",
+            "foo/bar.cc",
+            "foo/foo.cc",
+            "foo/wiz",
+            "foo/wiz/bam.cc",
+            "foo/wiz/bum.cc",
+            "foo/wiz/quid",
+            "foo/wiz/quid/gav.cc"),
+        "**");
+
+    assertEvaluates(
+        pkg,
+        ImmutableList.of(
             "a.cc",
             "foo/bar.cc",
             "foo/foo.cc",

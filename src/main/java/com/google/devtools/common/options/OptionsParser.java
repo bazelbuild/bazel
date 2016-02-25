@@ -154,19 +154,19 @@ public class OptionsParser implements OptionsProvider {
    * if "--help" appears anywhere within {@code args}.
    */
   public void parseAndExitUponError(OptionPriority priority, String source, String[] args) {
-    try {
-      parse(priority, source, Arrays.asList(args));
-    } catch (OptionsParsingException e) {
-      System.err.println("Error parsing command line: " + e.getMessage());
-      System.err.println("Try --help.");
-      System.exit(2);
-    }
     for (String arg : args) {
       if (arg.equals("--help")) {
         System.out.println(describeOptions(Collections.<String, String>emptyMap(),
                                            HelpVerbosity.LONG));
         System.exit(0);
       }
+    }
+    try {
+      parse(priority, source, Arrays.asList(args));
+    } catch (OptionsParsingException e) {
+      System.err.println("Error parsing command line: " + e.getMessage());
+      System.err.println("Try --help.");
+      System.exit(2);
     }
   }
 
