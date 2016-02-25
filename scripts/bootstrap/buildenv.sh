@@ -43,6 +43,11 @@ msys*|mingw*)
   EXE_EXT=".exe"
 esac
 
+# Whether we display build messages or not.  We set this conditionally because
+# the file including us or the user may already have defined VERBOSE to their
+# liking.
+: ${VERBOSE:=yes}
+
 # List of functions to invoke on exit.
 ATEXIT_HANDLERS=
 
@@ -109,12 +114,24 @@ eval "cleanup_phasefile() {
       }"
 atexit cleanup_phasefile
 
-function run_silent() {
-  echo "${@}" >${errfile}
-  # TODO(kchodorow): figure out why this doesn't exit on a non-zero exit code,
-  # even though errexit is set.
-  "${@}" >>${errfile} 2>&1 || exit $?
-  rm ${errfile}
+# Excutes a command respecting the current verbosity settings.
+#
+# If VERBOSE is yes, the command itself and its output are printed.
+# If VERBOSE is no, the command's output is only displayed in case of failure.
+#
+# Exits the script if the command fails.
+function run() {
+  if [ "${VERBOSE}" = yes ]; then
+    echo "${@}"
+    "${@}" || exit $?
+  else
+    echo "${@}" >"${errfile}"
+    # The exit here is needed because "set -e" on the shell does not cause
+    # errors in functions to exit in all cases.  We should probably disable
+    # "set -e" altogether and add explicit error handling where necessary.
+    "${@}" >>"${errfile}" 2>&1 || exit $?
+    rm "${errfile}"
+  fi
 }
 
 function fail() {

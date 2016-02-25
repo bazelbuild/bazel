@@ -125,13 +125,13 @@ function java_compilation() {
     cat "$paramfile" >&2
   fi
 
-  run_silent "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
+  run "${JAVAC}" -classpath "${classpath}" -sourcepath "${sourcepath}" \
       -d "${output}/classes" -source "$JAVA_VERSION" -target "$JAVA_VERSION" \
       -encoding UTF-8 "@${paramfile}"
 
   log "Extracting helper classes for $name..."
   for f in ${library_jars} ; do
-    run_silent unzip -qn ${f} -d "${output}/classes"
+    run unzip -qn ${f} -d "${output}/classes"
   done
 }
 
@@ -151,13 +151,13 @@ function create_deploy_jar() {
 
   log "Creating $name.jar..."
   echo "Main-Class: $mainClass" > $output/MANIFEST.MF
-  run_silent "$JAR" cmf $output/MANIFEST.MF $output/$name.jar $packages "$@"
+  run "$JAR" cmf $output/MANIFEST.MF $output/$name.jar $packages "$@"
 }
 
 if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
   log "Compiling Java stubs for protocol buffers..."
   for f in $PROTO_FILES ; do
-    run_silent "${PROTOC}" -Isrc/main/protobuf/ --java_out=${OUTPUT_DIR}/src "$f"
+    run "${PROTOC}" -Isrc/main/protobuf/ --java_out=${OUTPUT_DIR}/src "$f"
   done
 
   java_compilation "Bazel Java" "$DIRS" "$LIBRARY_JARS" "${OUTPUT_DIR}"

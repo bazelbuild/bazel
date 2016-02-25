@@ -24,6 +24,11 @@ set -o errexit
 
 cd "$(dirname "$0")"
 
+# Set the default verbose mode in buildenv.sh so that we do not display command
+# output unless there is a failure.  We do this conditionally to offer the user
+# a chance of overriding this in case they want to do so.
+: ${VERBOSE:=no}
+
 source scripts/bootstrap/buildenv.sh
 
 function usage() {

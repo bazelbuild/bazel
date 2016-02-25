@@ -79,9 +79,9 @@ function bootstrap_test() {
   local BAZEL_SUM=$2
   local BAZEL_TARGET=${3:-src:bazel}
   [ -x "${BAZEL_BIN}" ] || fail "syntax: bootstrap bazel-binary"
-  run_silent ${BAZEL_BIN} --nomaster_bazelrc --bazelrc=${BAZELRC} clean \
+  run ${BAZEL_BIN} --nomaster_bazelrc --bazelrc=${BAZELRC} clean \
       --expunge || return $?
-  run_silent ${BAZEL_BIN} --nomaster_bazelrc --bazelrc=${BAZELRC} build \
+  run ${BAZEL_BIN} --nomaster_bazelrc --bazelrc=${BAZELRC} build \
       ${EXTRA_BAZEL_ARGS-} \
       --strategy=Javac=worker --worker_quit_after_build \
       --fetch --nostamp \
