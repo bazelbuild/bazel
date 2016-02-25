@@ -458,7 +458,6 @@ public abstract class GlobFunctionTest {
   public void testDoubleStar() throws Exception {
     assertGlobMatches(
         "**",
-        "",
         "BUILD",
         "a1",
         "a1/b1",
@@ -487,7 +486,6 @@ public abstract class GlobFunctionTest {
   public void testDoubleDoubleStar() throws Exception {
     assertGlobMatches(
         "**/**",
-        "",
         "BUILD",
         "a1",
         "a1/b1",

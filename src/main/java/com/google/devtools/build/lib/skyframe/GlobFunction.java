@@ -90,7 +90,8 @@ public final class GlobFunction implements SkyFunction {
     // "**" also matches an empty segment, so try the case where it is not present.
     if ("**".equals(patternHead)) {
       if (patternTail == null) {
-        if (!glob.excludeDirs()) {
+        // Recursive globs aren't supposed to match the package's directory.
+        if (!glob.excludeDirs() && !globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
           matches.add(globSubdir);
         }
       } else {

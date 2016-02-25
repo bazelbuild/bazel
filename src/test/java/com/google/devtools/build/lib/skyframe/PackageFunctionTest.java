@@ -570,6 +570,46 @@ public class PackageFunctionTest extends BuildViewTestCase {
     assertThat(newValue.getPackage()).isNotSameAs(value.getPackage());
   }
 
+  // Regression test for Skyframe globbing incorrectly matching the package's directory path on
+  // 'glob(['**'], exclude_directories = 0)'. We test for this directly by triggering
+  // hybrid globbing (gives coverage for both legacy globbing and skyframe globbing).
+  @Test
+  public void testRecursiveGlobNeverMatchesPackageDirectory() throws Exception {
+    scratch.file("foo/BUILD",
+        "[sh_library(name = x + '-matched') for x in glob(['**'], exclude_directories = 0)]");
+    scratch.file("foo/bar");
+
+    getSkyframeExecutor().preparePackageLoading(
+        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
+        ConstantRuleVisibility.PUBLIC, true,
+        7, "", UUID.randomUUID());
+
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("foo"));
+    PackageValue value = validPackage(skyKey);
+    assertFalse(value.getPackage().containsErrors());
+    assertThat(value.getPackage().getTarget("bar-matched").getName()).isEqualTo("bar-matched");
+    try {
+      value.getPackage().getTarget("-matched");
+      fail();
+    } catch (NoSuchTargetException expected) {
+    }
+
+    scratch.overwriteFile("foo/BUILD",
+        "[sh_library(name = x + '-matched') for x in glob(['**'], exclude_directories = 0)]",
+        "#some-irrelevant-comment");
+    getSkyframeExecutor().invalidateFilesUnderPathForTesting(reporter,
+        ModifiedFileSet.builder().modify(new PathFragment("foo/BUILD")).build(), rootDirectory);
+
+    value = validPackage(skyKey);
+    assertFalse(value.getPackage().containsErrors());
+    assertThat(value.getPackage().getTarget("bar-matched").getName()).isEqualTo("bar-matched");
+    try {
+      value.getPackage().getTarget("-matched");
+      fail();
+    } catch (NoSuchTargetException expected) {
+    }
+  }
+
   private static class CustomInMemoryFs extends InMemoryFileSystem {
     private abstract static class FileStatusOrException {
       abstract FileStatus get() throws IOException;
