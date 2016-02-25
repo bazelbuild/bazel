@@ -279,11 +279,17 @@ public class TestResultAnalyzer {
     return summaryBuilder.setStatus(status);
   }
 
-  TestSummary.Builder markUnbuilt(TestSummary.Builder summary, boolean blazeHalted) {
-    BlazeTestStatus runStatus = blazeHalted ? BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING
-        : (executionOptions.testCheckUpToDate
-            ? BlazeTestStatus.NO_STATUS
-            : BlazeTestStatus.FAILED_TO_BUILD);
+  TestSummary.Builder markUnbuilt(
+      TestSummary.Builder summary, boolean blazeHalted, boolean stopOnFirstFailure) {
+    // stopOnFirstFailure = true means that at least on of the options keep_going and
+    // test_keep_going is set to false.
+    // Consequently, we mark all unbuilt targets with NO_STATUS instead of FAILED_TO_BUILD in 
+    // order to indicate that Blaze has skipped these targets.
+    BlazeTestStatus runStatus =
+        blazeHalted 
+            ? BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING : (
+                executionOptions.testCheckUpToDate || stopOnFirstFailure
+                    ? BlazeTestStatus.NO_STATUS : BlazeTestStatus.FAILED_TO_BUILD);
 
     return summary.setStatus(runStatus);
   }

@@ -35,6 +35,7 @@ public final class BuildResult {
 
   private Throwable crash = null;
   private boolean catastrophe = false;
+  private boolean stopOnFirstFailure;
   private ExitCode exitCondition = ExitCode.BLAZE_INTERNAL_ERROR;
 
   private BuildConfigurationCollection configurations;
@@ -112,6 +113,21 @@ public final class BuildResult {
    */
   public boolean wasCatastrophe() {
     return catastrophe;
+  }
+
+  /**
+   * Whether some targets were skipped because of {@code setStopOnFirstFailure}.
+   */
+  public boolean skippedTargetsBecauseOfEarlierFailure() {
+    return stopOnFirstFailure && !getSuccess();
+  }
+
+  /**
+   * Indicates that remaining targets should be skipped once a target breaks/fails.
+   * This will be set when --nokeep_going or --notest_keep_going is set.
+   */
+  public void setStopOnFirstFailure(boolean stopOnFirstFailure) {
+    this.stopOnFirstFailure = stopOnFirstFailure;
   }
 
   /**
