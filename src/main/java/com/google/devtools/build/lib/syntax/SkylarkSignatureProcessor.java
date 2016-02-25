@@ -189,6 +189,7 @@ public class SkylarkSignatureProcessor {
             .setGlobals(Environment.CONSTANTS_ONLY)
             .setEventHandler(Environment.FAIL_FAST_HANDLER)
             .build()
+            .update("unbound", Runtime.UNBOUND)
             .eval(param.defaultValue());
       } catch (Exception e) {
         throw new RuntimeException(String.format(

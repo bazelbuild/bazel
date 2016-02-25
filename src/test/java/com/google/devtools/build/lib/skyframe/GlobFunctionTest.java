@@ -676,6 +676,15 @@ public abstract class GlobFunctionTest {
     assertThat(errorInfo.getException().getMessage()).contains(expectedMessage);
   }
 
+  @Test
+  public void testSymlinks() throws Exception {
+    FileSystemUtils.createDirectoryAndParents(pkgPath.getRelative("symlinks"));
+    FileSystemUtils.ensureSymbolicLink(pkgPath.getRelative("symlinks/dangling.txt"), "nope");
+    FileSystemUtils.createEmptyFile(pkgPath.getRelative("symlinks/yup"));
+    FileSystemUtils.ensureSymbolicLink(pkgPath.getRelative("symlinks/existing.txt"), "yup");
+    assertGlobMatches("symlinks/*.txt", "symlinks/existing.txt");
+  }
+
   private class CustomInMemoryFs extends InMemoryFileSystem {
 
     private Map<Path, FileStatus> stubbedStats = Maps.newHashMap();

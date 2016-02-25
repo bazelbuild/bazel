@@ -220,6 +220,69 @@ public class TreePrunerTest {
     assertThat(printPruned("final int x = new X().y;")).isEqualTo("final int x");
   }
 
+  @Test
+  public void constructorChaining() {
+    String[] lines = {
+      "class Test {",
+      "  Test() {",
+      "    this(42);",
+      "    process();",
+      "  }",
+      "  Test() {",
+      "    this(42);",
+      "  }",
+      "  Test() {",
+      "    super(42);",
+      "  }",
+      "  Test() {}",
+      "}",
+    };
+    JCCompilationUnit tree = parseLines(lines);
+    TreePruner.prune(tree);
+    String[] expected = {
+      "class Test {",
+      "    ",
+      "    Test() {",
+      "        this(42);",
+      "    }",
+      "    ",
+      "    Test() {",
+      "        this(42);",
+      "    }",
+      "    ",
+      "    Test() {",
+      "        super(42);",
+      "    }",
+      "    ",
+      "    Test() {",
+      "    }",
+      "}",
+    };
+    assertThat(prettyPrint(tree)).isEqualTo(Joiner.on('\n').join(expected));
+  }
+
+  @Test
+  public void annotationDeclaration() {
+    String[] lines = {
+      "@interface Anno {",
+      "  int f() default CONST;",
+      "  int CONST = 42;",
+      "  int NONCONST = new Integer(42);",
+      "}",
+    };
+    JCCompilationUnit tree = parseLines(lines);
+    TreePruner.prune(tree);
+    String[] expected = {
+      "@interface Anno {",
+      "    ",
+      "    int f() default CONST;",
+      "    int CONST = 42;",
+      "    int NONCONST = new Integer(42);",
+      "}",
+    };
+    assertThat(prettyPrint(tree)).isEqualTo(Joiner.on('\n').join(expected));
+  }
+
   private String prettyPrint(JCCompilationUnit tree) {
     return tree.toString().trim();
   }

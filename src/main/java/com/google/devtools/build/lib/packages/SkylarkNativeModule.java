@@ -22,11 +22,10 @@ import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.FuncallExpression;
 import com.google.devtools.build.lib.syntax.Runtime;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
-
-import java.util.Map;
 
 /**
  * A class for the Skylark native module.
@@ -113,7 +112,7 @@ public class SkylarkNativeModule {
         public Object invoke(String name, FuncallExpression ast, Environment env)
             throws EvalException, InterruptedException {
           env.checkLoadingPhase("native.existing_rule", ast.getLocation());
-          Map<String, Object> rule = PackageFactory.callGetRuleFunction(name, ast, env);
+          SkylarkDict<String, Object> rule = PackageFactory.callGetRuleFunction(name, ast, env);
           if (rule != null) {
             return rule;
           }
@@ -129,7 +128,7 @@ public class SkylarkNativeModule {
   @SkylarkSignature(
     name = "existing_rules",
     objectType = SkylarkNativeModule.class,
-    returnType = Map.class,
+    returnType = SkylarkDict.class,
     doc =
         "Returns a dict containing all the rules instantiated so far. "
             + "The map key is the name of the rule. The map value is equivalent to the "
@@ -140,7 +139,8 @@ public class SkylarkNativeModule {
   )
   private static final BuiltinFunction existingRules =
       new BuiltinFunction("existing_rules") {
-        public Map<?, ?> invoke(FuncallExpression ast, Environment env)
+        public SkylarkDict<String, SkylarkDict<String, Object>> invoke(
+            FuncallExpression ast, Environment env)
             throws EvalException, InterruptedException {
           env.checkLoadingPhase("native.existing_rules", ast.getLocation());
           return PackageFactory.callGetRulesFunction(ast, env);

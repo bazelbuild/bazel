@@ -85,7 +85,7 @@ import javax.tools.StandardLocation;
 @RunWith(JUnit4.class)
 public class JavacTurbineTest {
 
-  @Rule public TemporaryFolder temp = new TemporaryFolder();
+  @Rule public final TemporaryFolder temp = new TemporaryFolder();
 
   Path sourcedir;
   List<Path> sources;
@@ -93,7 +93,7 @@ public class JavacTurbineTest {
   Path output;
   Path outputDeps;
 
-  TurbineOptions.Builder optionsBuilder = TurbineOptions.builder();
+  final TurbineOptions.Builder optionsBuilder = TurbineOptions.builder();
 
   @Before
   public void setUp() throws IOException {
@@ -828,5 +828,74 @@ public class JavacTurbineTest {
       assertThat(result).isEqualTo(Result.ERROR);
       assertThat(sw.toString()).contains("error reading");
     }
+  }
+  
+  @Test
+  public void requiredConstructor() throws Exception {
+    addSourceLines("Super.java", "class Super {", "  public Super(int x) {}", "}");
+    addSourceLines(
+        "Hello.java",
+        "class Hello extends Super {",
+        "  public Hello() {",
+        "    super(42);",
+        "  }",
+        "}");
+
+    compile();
+
+    Map<String, byte[]> outputs = collectOutputs();
+
+    assertThat(outputs.keySet()).containsExactly("Super.class", "Hello.class");
+
+    String text = textify(outputs.get("Hello.class"));
+    String[] expected = {
+      "// class version 51.0 (51)",
+      "// access flags 0x20",
+      "class Hello extends Super  {",
+      "",
+      "",
+      "  // access flags 0x1",
+      "  public <init>()V",
+      "}",
+      ""
+    };
+    assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
+  }
+
+  @Test
+  public void annotationDeclaration() throws Exception {
+    addSourceLines(
+        "Anno.java",
+        "import java.lang.annotation.Retention;",
+        "import java.lang.annotation.RetentionPolicy;",
+        "@Retention(RetentionPolicy.RUNTIME)",
+        "@interface Anno {",
+        "  public int value() default CONST;",
+        "  int CONST = 42;",
+        "  int NONCONST = new Integer(42);",
+        "}");
+    addSourceLines("Hello.java", "@Anno(value=Anno.CONST)", "class Hello {", "}");
+
+    compile();
+
+    Map<String, byte[]> outputs = collectOutputs();
+
+    assertThat(outputs.keySet()).containsExactly("Anno.class", "Hello.class");
+
+    String text = textify(outputs.get("Hello.class"));
+    String[] expected = {
+      "// class version 51.0 (51)",
+      "// access flags 0x20",
+      "class Hello {",
+      "",
+      "",
+      "  @LAnno;(value=42)",
+      "",
+      "  // access flags 0x0",
+      "  <init>()V",
+      "}",
+      ""
+    };
+    assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
   }
 }

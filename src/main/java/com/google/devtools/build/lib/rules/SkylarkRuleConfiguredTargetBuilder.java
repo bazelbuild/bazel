@@ -234,7 +234,8 @@ public final class SkylarkRuleConfiguredTargetBuilder {
           Location insLoc = insStruct.getCreationLoc();
           FileTypeSet fileTypeSet = FileTypeSet.ANY_FILE;
           if (insStruct.getKeys().contains("extensions")) {
-            List<String> exts = cast("extensions", insStruct, List.class, String.class, insLoc);
+            List<String> exts = cast(
+                "extensions", insStruct, SkylarkList.class, String.class, insLoc);
             if (exts.isEmpty()) {
               fileTypeSet = FileTypeSet.NO_FILE;
             } else {
@@ -248,12 +249,12 @@ public final class SkylarkRuleConfiguredTargetBuilder {
           List<String> dependencyAttributes = Collections.emptyList();
           if (insStruct.getKeys().contains("dependency_attributes")) {
             dependencyAttributes =
-                cast("dependency_attributes", insStruct, List.class, String.class, insLoc);
+                cast("dependency_attributes", insStruct, SkylarkList.class, String.class, insLoc);
           }
           List<String> sourceAttributes = Collections.emptyList();
           if (insStruct.getKeys().contains("source_attributes")) {
             sourceAttributes =
-                cast("source_attributes", insStruct, List.class, String.class, insLoc);
+                cast("source_attributes", insStruct, SkylarkList.class, String.class, insLoc);
           }
           InstrumentationSpec instrumentationSpec =
               new InstrumentationSpec(fileTypeSet)

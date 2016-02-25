@@ -246,6 +246,7 @@ public class AndroidCommon {
       Iterable<Artifact> apksUnderTest) {
     AndroidIdeInfoProvider.Builder ideInfoProviderBuilder =
         new AndroidIdeInfoProvider.Builder()
+            .setJavaPackage(getJavaPackage(ruleContext))
             .setIdlClassJar(idlHelper.getIdlClassJar())
             .setIdlSourceJar(idlHelper.getIdlSourceJar())
             .addIdlParcelables(idlHelper.getIdlParcelables())
@@ -261,6 +262,7 @@ public class AndroidCommon {
     // from the android_resources rule in its direct dependencies, if such a thing exists.
     if (LocalResourceContainer.definesAndroidResources(ruleContext.attributes())) {
       ideInfoProviderBuilder
+          .setDefinesAndroidResources(true)
           .addResourceSources(resourceApk.getPrimaryResource().getArtifacts(ResourceType.RESOURCES))
           .addAssetSources(
               resourceApk.getPrimaryResource().getArtifacts(ResourceType.ASSETS),
@@ -403,9 +405,8 @@ public class AndroidCommon {
     classJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
     idlHelper = new AndroidIdlHelper(ruleContext, classJar);
 
-    javaCommon.initializeJavacOpts(androidSemantics.getJavacArguments());
     JavaTargetAttributes.Builder attributes = javaCommon
-        .initCommon(idlHelper.getIdlGeneratedJavaSources())
+        .initCommon(idlHelper.getIdlGeneratedJavaSources(), androidSemantics.getJavacArguments())
         .setBootClassPath(ImmutableList.of(
             AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar()));
 
@@ -422,6 +423,13 @@ public class AndroidCommon {
         createJarJarActions(attributes, resourceApk.getResourceDependencies().getResources(),
             resourceApk.getPrimaryResource().getJavaPackage(), resourceClassJar);
       }
+    }
+
+    if (disallowDepsWithoutSrcs(ruleContext.getRule().getRuleClass())
+        && ruleContext.attributes().get("srcs", BuildType.LABEL_LIST).isEmpty()
+        && ruleContext.attributes().get("idl_srcs", BuildType.LABEL_LIST).isEmpty()
+        && !ruleContext.attributes().get("deps", BuildType.LABEL_LIST).isEmpty()) {
+      ruleContext.attributeError("deps", "deps not allowed without srcs; move to exports?");
     }
 
     JavaCompilationHelper helper = initAttributes(attributes, javaSemantics);
@@ -449,13 +457,19 @@ public class AndroidCommon {
     return helper.getAttributes();
   }
 
+  private boolean disallowDepsWithoutSrcs(String ruleClass) {
+    return ruleClass.equals("android_library")
+        && !ruleContext.getFragment(AndroidConfiguration.class).allowSrcsLessAndroidLibraryDeps();
+  }
+
   private JavaCompilationHelper initAttributes(
       JavaTargetAttributes.Builder attributes, JavaSemantics semantics) {
     JavaCompilationHelper helper = new JavaCompilationHelper(
         ruleContext, semantics, javaCommon.getJavacOpts(), attributes);
     
     helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
-    helper.addProvidersToAttributes(javaCommon.compilationArgsFromSources(), asNeverLink);
+    helper.addProvidersToAttributes(
+        JavaCommon.compilationArgsFromSources(ruleContext), asNeverLink);
     attributes.setStrictJavaDeps(getStrictAndroidDeps());
     attributes.setRuleKind(ruleContext.getRule().getRuleClass());
     attributes.setTargetLabel(ruleContext.getLabel());
@@ -589,12 +603,16 @@ public class AndroidCommon {
             JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(javaCommon.getJavaCompilationArtifacts().getRuntimeJars()))
         .add(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))
-        .add(
-            AndroidResourcesProvider.class, resourceApk.toResourceProvider(ruleContext.getLabel()))
+        .add(AndroidResourcesProvider.class, resourceApk.toResourceProvider(ruleContext.getLabel()))
         .add(
             AndroidIdeInfoProvider.class,
-            createAndroidIdeInfoProvider(ruleContext, androidSemantics, idlHelper,
-                resourceApk, zipAlignedApk, apksUnderTest))
+            createAndroidIdeInfoProvider(
+                ruleContext,
+                androidSemantics,
+                idlHelper,
+                resourceApk,
+                zipAlignedApk,
+                apksUnderTest))
         .add(
             JavaCompilationArgsProvider.class,
             new JavaCompilationArgsProvider(
@@ -607,6 +625,7 @@ public class AndroidCommon {
             asNeverLink
                 ? jackCompilationHelper.compileAsNeverlinkLibrary()
                 : jackCompilationHelper.compileAsLibrary())
+        .addSkylarkTransitiveInfo(AndroidSkylarkApiProvider.NAME, new AndroidSkylarkApiProvider())
         .addOutputGroup(
             OutputGroupProvider.HIDDEN_TOP_LEVEL, collectHiddenTopLevelArtifacts(ruleContext))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars);
@@ -619,7 +638,9 @@ public class AndroidCommon {
           .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
           .build();
     }
-    return javaCommon.getRunfiles(asNeverLink);
+    return JavaCommon.getRunfiles(
+        ruleContext, javaCommon.getJavaSemantics(), javaCommon.getJavaCompilationArtifacts(),
+        asNeverLink);
   }
 
   public static PathFragment getAssetDir(RuleContext ruleContext) {

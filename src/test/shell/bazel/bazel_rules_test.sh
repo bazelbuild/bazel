@@ -231,13 +231,13 @@ genrule(
 EOF
   local old_path="${PATH-}"
   local old_tmpdir="${TMPDIR-}"
-  export PATH=":/bin:/usr/bin:/random/path"
+  export PATH="/bin:/usr/bin:/random/path"
   export TMPDIR="/some/path"
   # batch mode to force reload of the environment
   bazel --batch build //pkg:test || fail "Failed to build //pkg:test"
   export PATH="$old_path"
   export TMPDIR="$old_tmpdir"
-  assert_contains "PATH=:/bin:/usr/bin:/random/path" \
+  assert_contains "PATH=/bin:/usr/bin:/random/path" \
     bazel-genfiles/pkg/test.out
   assert_contains "TMPDIR=/some/path" \
     bazel-genfiles/pkg/test.out

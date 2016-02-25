@@ -226,7 +226,13 @@ public interface JavaSemantics {
   /**
    * Returns the main class of a Java binary.
    */
-  String getMainClass(RuleContext ruleContext, JavaCommon javaCommon);
+  String getMainClass(RuleContext ruleContext, ImmutableList<Artifact> srcsArtifacts);
+
+  /**
+   * Returns the primary class for a Java binary - either the main class, or, in case of a test,
+   * the test class (not the test runner main class).
+   */
+  String getPrimaryClass(RuleContext ruleContext, ImmutableList<Artifact> srcsArtifacts);
 
   /**
    * Returns the resources contributed by a Java rule (usually the contents of the
@@ -239,11 +245,6 @@ public interface JavaSemantics {
    */
   @Nullable
   Artifact createInstrumentationMetadataArtifact(RuleContext ruleContext, Artifact outputJar);
-
-  /**
-   * Returns the instrumentation libraries (jars) for the given context.
-   */
-  Iterable<Artifact> getInstrumentationJars(RuleContext context);
 
   /**
    * May add extra command line options to the Java compile command line.
@@ -306,7 +307,7 @@ public interface JavaSemantics {
    * Return the JVM flags to be used in a Java binary.
    */
   Iterable<String> getJvmFlags(
-      RuleContext ruleContext, JavaCommon javaCommon, List<String> userJvmFlags);
+      RuleContext ruleContext, ImmutableList<Artifact> srcsArtifacts, List<String> userJvmFlags);
 
   /**
    * Adds extra providers to a Java target.
@@ -326,7 +327,7 @@ public interface JavaSemantics {
   /**
    * Translates XMB messages to translations artifact suitable for Java targets.
    */
-  Collection<Artifact> translate(RuleContext ruleContext, JavaConfiguration javaConfig,
+  ImmutableList<Artifact> translate(RuleContext ruleContext, JavaConfiguration javaConfig,
       List<Artifact> messages);
 
   /**
@@ -389,7 +390,7 @@ public interface JavaSemantics {
   /**
    * @return a list of extra arguments to appends to the runfiles support.
    */
-  List<String> getExtraArguments(RuleContext ruleContext, JavaCommon javaCommon);
+  List<String> getExtraArguments(RuleContext ruleContext, ImmutableList<Artifact> sources);
 
   /**
    * @return main class (entry point) for the Java compiler.

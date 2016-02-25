@@ -27,7 +27,7 @@ WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 
 OUTZIP=$("${REALPATH}" "$1")
 shift 1
-TEMPDIR=$(mktemp -d -t actoolZippingOutput)
+TEMPDIR=$(mktemp -d "${TMPDIR:-/tmp}/actoolZippingOutput.XXXXXX")
 trap "rm -rf \"$TEMPDIR\"" EXIT
 
 # actool needs to have absolute paths sent to it, so we call realpaths on

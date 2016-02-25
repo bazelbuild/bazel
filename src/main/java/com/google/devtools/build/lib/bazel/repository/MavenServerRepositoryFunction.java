@@ -33,7 +33,7 @@ import javax.annotation.Nullable;
 public class MavenServerRepositoryFunction extends RepositoryFunction {
 
   @Override
-  public boolean isLocal() {
+  public boolean isLocal(Rule rule) {
     return true;
   }
 

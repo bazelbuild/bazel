@@ -14,21 +14,16 @@
 
 package com.google.devtools.build.workspace.maven;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Sets;
-import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.bazel.repository.MavenConnector;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 
-import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Exclusion;
 import org.eclipse.aether.artifact.Artifact;
-import org.eclipse.aether.artifact.DefaultArtifact;
 
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -36,30 +31,28 @@ import java.util.Set;
  * A struct representing the fields of maven_jar to be written to the WORKSPACE file.
  */
 public final class Rule implements Comparable<Rule> {
+
   private final Artifact artifact;
   private final Set<String> parents;
+  private final Set<String> exclusions;
+  private final Set<Rule> dependencies;
   private String repository;
   private String sha1;
-  private Set<String> exclusions;
-  private Set<Rule> dependencies;
 
-  public Rule(String artifactStr) throws InvalidRuleException {
-    try {
-      this.artifact = new DefaultArtifact(artifactStr);
-    } catch (IllegalArgumentException e) {
-      throw new InvalidRuleException(e.getMessage());
-    }
+  public Rule(Artifact artifact) {
+    this.artifact = artifact;
     this.parents = Sets.newHashSet();
     this.dependencies = Sets.newTreeSet();
     this.exclusions = Sets.newHashSet();
+    this.repository = MavenConnector.MAVEN_CENTRAL_URL;
   }
 
-  public Rule(Dependency dependency) throws InvalidRuleException {
-    this(dependency.getGroupId() + ":" + dependency.getArtifactId() + ":"
-        + dependency.getVersion());
+  public Rule(Artifact artifact, List<Exclusion> exclusions) {
+    this(artifact);
 
-    for (Exclusion exclusion : dependency.getExclusions()) {
-      exclusions.add(String.format("%s:%s", exclusion.getGroupId(), exclusion.getArtifactId()));
+    for (Exclusion exclusion : exclusions) {
+      String coord = String.format("%s:%s", exclusion.getGroupId(), exclusion.getArtifactId());
+      this.exclusions.add(coord);
     }
   }
 
@@ -127,22 +120,24 @@ public final class Rule implements Comparable<Rule> {
           + " attribute manually"));
     } else {
       this.repository = url.substring(0, uriStart);
-      String jarSha1Url = url.replaceAll("pom$", "jar.sha1");
-      try {
-        // Download the sha1 of the jar file from the repository.
-        HttpURLConnection connection = (HttpURLConnection) new URL(jarSha1Url).openConnection();
-        connection.setInstanceFollowRedirects(true);
-        connection.connect();
-        this.sha1 = CharStreams.toString(new InputStreamReader(connection.getInputStream())).trim();
-      } catch (IOException e) {
-        handler.handle(Event.warn("Failed to download the sha1 at " + jarSha1Url));
-      }
     }
+  }
+
+  public void setSha1(String sha1) {
+    this.sha1 = sha1;
   }
 
   private String getUri() {
     return groupId().replaceAll("\\.", "/") + "/" + artifactId() + "/" + version() + "/"
         + artifactId() + "-" + version() + ".pom";
+  }
+
+  /**
+   * @return The artifact's URL.
+   */
+  public String getUrl() {
+    Preconditions.checkState(repository.endsWith("/"));
+    return repository + getUri();
   }
 
   /**
@@ -164,7 +159,7 @@ public final class Rule implements Comparable<Rule> {
   }
 
   private boolean hasCustomRepository() {
-    return repository != null && !repository.equals(MavenConnector.getMavenCentral().getUrl());
+    return !MavenConnector.MAVEN_CENTRAL_URL.equals(repository);
   }
 
   @Override
@@ -190,14 +185,5 @@ public final class Rule implements Comparable<Rule> {
   @Override
   public int compareTo(Rule o) {
     return name().compareTo(o.name());
-  }
-
-  /**
-   * Exception thrown if the rule could not be created.
-   */
-  public static class InvalidRuleException extends Exception {
-    InvalidRuleException(String message) {
-      super(message);
-    }
   }
 }

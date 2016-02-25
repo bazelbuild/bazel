@@ -20,6 +20,12 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
+import com.google.devtools.build.android.Converters.ExistingPathConverter;
+import com.google.devtools.build.android.Converters.FullRevisionConverter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.TriState;
 
 import com.android.annotations.Nullable;
 import com.android.builder.core.VariantConfiguration;
@@ -50,6 +56,7 @@ import com.android.utils.StdLogger;
 import org.xml.sax.SAXException;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
@@ -75,6 +82,113 @@ import javax.xml.parsers.ParserConfigurationException;
  * Provides a wrapper around the AOSP build tools for resource processing.
  */
 public class AndroidResourceProcessor {
+  /**
+   * Options class containing flags for Aapt setup.
+   */
+  public static final class AaptConfigOptions extends OptionsBase {
+    @Option(name = "buildToolsVersion",
+        defaultValue = "null",
+        converter = FullRevisionConverter.class,
+        category = "config",
+        help = "Version of the build tools (e.g. aapt) being used, e.g. 23.0.2")
+    public FullRevision buildToolsVersion;
+
+    @Option(name = "aapt",
+        defaultValue = "null",
+        converter = ExistingPathConverter.class,
+        category = "tool",
+        help = "Aapt tool location for resource packaging.")
+    public Path aapt;
+
+    @Option(name = "annotationJar",
+        defaultValue = "null",
+        converter = ExistingPathConverter.class,
+        category = "tool",
+        help = "Annotation Jar for builder invocations.")
+    public Path annotationJar;
+
+    @Option(name = "androidJar",
+        defaultValue = "null",
+        converter = ExistingPathConverter.class,
+        category = "tool",
+        help = "Path to the android jar for resource packaging and building apks.")
+    public Path androidJar;
+
+    @Option(name = "useAaptCruncher",
+        defaultValue = "auto",
+        category = "config",
+        help = "Use the legacy aapt cruncher, defaults to true for non-LIBRARY packageTypes. "
+            + " LIBRARY packages do not benefit from the additional processing as the resources"
+            + " will need to be reprocessed during the generation of the final apk. See"
+            + " https://code.google.com/p/android/issues/detail?id=67525 for a discussion of the"
+            + " different png crunching methods.")
+    public TriState useAaptCruncher;
+
+    @Option(name = "uncompressedExtensions",
+        defaultValue = "",
+        converter = CommaSeparatedOptionListConverter.class,
+        category = "config",
+        help = "A list of file extensions not to compress.")
+    public List<String> uncompressedExtensions;
+
+    @Option(name = "assetsToIgnore",
+        defaultValue = "",
+        converter = CommaSeparatedOptionListConverter.class,
+        category = "config",
+        help = "A list of assets extensions to ignore.")
+    public List<String> assetsToIgnore;
+
+    @Option(name = "debug",
+        defaultValue = "false",
+        category = "config",
+        help = "Indicates if it is a debug build.")
+    public boolean debug;
+
+    @Option(name = "resourceConfigs",
+        defaultValue = "",
+        converter = CommaSeparatedOptionListConverter.class,
+        category = "config",
+        help = "A list of resource config filters to pass to aapt.")
+    public List<String> resourceConfigs;
+  }
+
+  /**
+   * {@link AaptOptions} backed by an {@link AaptConfigOptions}.
+   */
+  public static final class FlagAaptOptions implements AaptOptions {
+    private final AaptConfigOptions options;
+
+    public FlagAaptOptions(AaptConfigOptions options) {
+      this.options = options;
+    }
+
+    @Override
+    public boolean getUseAaptPngCruncher() {
+      return options.useAaptCruncher != TriState.NO;
+    }
+
+    @Override
+    public Collection<String> getNoCompress() {
+      if (!options.uncompressedExtensions.isEmpty()) {
+        return options.uncompressedExtensions;
+      }
+      return ImmutableList.of();
+    }
+
+    @Override
+    public String getIgnoreAssets() {
+      if (!options.assetsToIgnore.isEmpty()) {
+        return Joiner.on(":").join(options.assetsToIgnore);
+      }
+      return null;
+    }
+
+    @Override
+    public boolean getFailOnMissingConfigEntry() {
+      return false;
+    }
+  }
+
   private static final Pattern HEX_REGEX = Pattern.compile("0x[0-9A-Fa-f]{8}");
   private final StdLogger stdLogger;
 
@@ -122,35 +236,68 @@ public class AndroidResourceProcessor {
         Files.walkFileTree(generatedSourcesRoot,
             new SymbolFileSrcJarBuildingVisitor(zip, generatedSourcesRoot, staticIds));
       }
+      // Set to the epoch for caching purposes.
       Files.setLastModifiedTime(srcJar, FileTime.fromMillis(0L));
     } catch (IOException e) {
       Throwables.propagate(e);
     }
   }
-  
-  // TODO(bazel-team): Clean up this method call -- 19 params is too many.
+
+  /**
+   * Copies the AndroidManifest.xml to the specified output location.
+   *
+   * @param androidData The MergedAndroidData which contains the manifest to be written to
+   *     manifestOut.
+   * @param manifestOut The Path to write the AndroidManifest.xml.
+   */
+  public void copyManifestToOutput(MergedAndroidData androidData, Path manifestOut) {
+    try {
+      Files.createDirectories(manifestOut.getParent());
+      Files.copy(androidData.getManifest(), manifestOut);
+      // Set to the epoch for caching purposes.
+      Files.setLastModifiedTime(manifestOut, FileTime.fromMillis(0L));
+    } catch (IOException e) {
+      Throwables.propagate(e);
+    }
+  }
+
+  /**
+   * Creates a zip file containing the provided android resources and assets.
+   *
+   * @param resourcesRoot The root containing android resources to be written.
+   * @param assetsRoot The root containing android assets to be written.
+   * @param output The path to write the zip file
+   * @throws IOException
+   */
+  public void createResourcesZip(Path resourcesRoot, Path assetsRoot, Path output)
+      throws IOException {
+    try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(output.toFile()))) {
+      Files.walkFileTree(resourcesRoot, new ZipBuilderVisitor(zout, resourcesRoot, "res"));
+      if (Files.exists(assetsRoot)) {
+        Files.walkFileTree(assetsRoot, new ZipBuilderVisitor(zout, assetsRoot, "assets"));
+      }
+    }
+  }
+
+  // TODO(bazel-team): Clean up this method call -- 13 params is too many.
   /**
    * Processes resources for generated sources, configs and packaging resources.
    */
   public void processResources(
       Path aapt,
       Path androidJar,
+      @Nullable FullRevision buildToolsVersion,
       VariantConfiguration.Type variantType,
       boolean debug,
       String customPackageForR,
       AaptOptions aaptOptions,
       Collection<String> resourceConfigs,
-      String applicationId,
-      int versionCode,
-      String versionName,
       MergedAndroidData primaryData,
       List<DependencyAndroidData> dependencyData,
-      Path workingDirectory,
       Path sourceOut,
       Path packageOut,
       Path proguardOut,
-      Path manifestOut,
-      @Nullable FullRevision buildToolsVersion)
+      Path publicResourcesOut)
       throws IOException, InterruptedException, LoggedErrorException {
     List<SymbolFileProvider> libraries = new ArrayList<>();
     List<String> packages = new ArrayList<>();
@@ -160,17 +307,9 @@ public class AndroidResourceProcessor {
       packages.add(VariantConfiguration.getManifestPackage(library.getManifest()));
     }
 
-    Path androidManifest = processManifest(
-        variantType == VariantConfiguration.Type.DEFAULT ? applicationId : customPackageForR,
-        versionCode,
-        versionName,
-        primaryData,
-        workingDirectory,
-        variantType == VariantConfiguration.Type.DEFAULT
-            ? ManifestMerger2.MergeType.APPLICATION : ManifestMerger2.MergeType.LIBRARY);
-
-    Path resFolder = primaryData.getResourceDirFile().toPath();
-    Path assetsDir = primaryData.getAssetDirFile().toPath();
+    Path androidManifest = primaryData.getManifest();
+    Path resourceDir = primaryData.getResourceDir();
+    Path assetsDir = primaryData.getAssetDir();
 
     AaptCommandBuilder commandBuilder =
         new AaptCommandBuilder(aapt, buildToolsVersion, variantType, "package")
@@ -187,7 +326,7 @@ public class AndroidResourceProcessor {
         // Add the manifest for validation.
         .add("-M", androidManifest.toAbsolutePath())
         // Maybe add the resources if they exist
-        .maybeAdd("-S", resFolder, Files.isDirectory(resFolder))
+        .maybeAdd("-S", resourceDir, Files.isDirectory(resourceDir))
         // Maybe add the assets if they exist
         .maybeAdd("-A", assetsDir, Files.isDirectory(assetsDir))
         // Outputs
@@ -196,6 +335,7 @@ public class AndroidResourceProcessor {
         .maybeAdd("--output-text-symbols", prepareOutputPath(sourceOut), sourceOut != null)
         .add("-F", packageOut)
         .add("-G", proguardOut)
+        .add("-P", publicResourcesOut)
         .maybeAdd("--debug-mode", debug)
         .add("--custom-package", customPackageForR)
         // If it is a library, do not generate final java ids.
@@ -226,9 +366,8 @@ public class AndroidResourceProcessor {
     if (packageOut != null) {
       Files.setLastModifiedTime(packageOut, FileTime.fromMillis(0L));
     }
-    if (manifestOut != null) {
-      Files.copy(androidManifest, manifestOut);
-      Files.setLastModifiedTime(manifestOut, FileTime.fromMillis(0L));
+    if (publicResourcesOut != null) {
+      Files.setLastModifiedTime(publicResourcesOut, FileTime.fromMillis(0L));
     }
   }
 
@@ -287,21 +426,28 @@ public class AndroidResourceProcessor {
     }
   }
 
-  private Path processManifest(
-      String newManifestPackage,
+  public MergedAndroidData processManifest(
+      VariantConfiguration.Type variantType,
+      String customPackageForR,
+      String applicationId,
       int versionCode,
       String versionName,
       MergedAndroidData primaryData,
-      Path workingDirectory,
-      ManifestMerger2.MergeType mergeType) throws IOException {
+      Path processedManifest) throws IOException {
+
+    ManifestMerger2.MergeType mergeType = variantType == VariantConfiguration.Type.DEFAULT
+        ? ManifestMerger2.MergeType.APPLICATION : ManifestMerger2.MergeType.LIBRARY;
+
+    String newManifestPackage = variantType == VariantConfiguration.Type.DEFAULT
+        ? applicationId : customPackageForR;
+
     if (versionCode != -1 || versionName != null || newManifestPackage != null) {
-      Path androidManifest =
-          Files.createDirectories(workingDirectory).resolve("AndroidManifest.xml");
+      Files.createDirectories(processedManifest.getParent());
 
       // The generics on Invoker don't make sense, so ignore them.
       @SuppressWarnings("unchecked")
       Invoker<?> manifestMergerInvoker =
-          ManifestMerger2.newMerger(primaryData.getManifestFile(), stdLogger, mergeType);
+          ManifestMerger2.newMerger(primaryData.getManifest().toFile(), stdLogger, mergeType);
       // Stamp new package
       if (newManifestPackage != null) {
         manifestMergerInvoker.setOverride(SystemProperty.PACKAGE, newManifestPackage);
@@ -323,10 +469,10 @@ public class AndroidResourceProcessor {
         switch (mergingReport.getResult()) {
           case WARNING:
             mergingReport.log(stdLogger);
-            writeMergedManifest(mergingReport, androidManifest);
+            writeMergedManifest(mergingReport, processedManifest);
             break;
           case SUCCESS:
-            writeMergedManifest(mergingReport, androidManifest);
+            writeMergedManifest(mergingReport, processedManifest);
             break;
           case ERROR:
             mergingReport.log(stdLogger);
@@ -338,9 +484,10 @@ public class AndroidResourceProcessor {
           IOException | SAXException | ParserConfigurationException | MergeFailureException e) {
         Throwables.propagate(e);
       }
-      return androidManifest;
+      return new MergedAndroidData(primaryData.getResourceDir(), primaryData.getAssetDir(),
+          processedManifest);
     }
-    return primaryData.getManifestFile().toPath();
+    return primaryData;
   }
 
   private void writeMergedManifest(MergingReport mergingReport,
@@ -510,6 +657,39 @@ public class AndroidResourceProcessor {
         zip.write(content);
         zip.closeEntry();
       }
+      return FileVisitResult.CONTINUE;
+    }
+  }
+
+  private static final class ZipBuilderVisitor extends SimpleFileVisitor<Path> {
+    // The earliest date representable in a zip file, 1-1-1980.
+    private static final long ZIP_EPOCH = 315561600000L;
+    private final ZipOutputStream zip;
+    private final Path root;
+    private final String directory;
+
+    public ZipBuilderVisitor(ZipOutputStream zip, Path root, String directory) {
+      this.zip = zip;
+      this.root = root;
+      this.directory = directory;
+    }
+
+    @Override
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+      byte[] content = Files.readAllBytes(file);
+
+      CRC32 crc32 = new CRC32();
+      crc32.update(content);
+
+      ZipEntry entry = new ZipEntry(directory + "/" + root.relativize(file));
+      entry.setMethod(ZipEntry.STORED);
+      entry.setTime(ZIP_EPOCH);
+      entry.setSize(content.length);
+      entry.setCrc(crc32.getValue());
+
+      zip.putNextEntry(entry);
+      zip.write(content);
+      zip.closeEntry();
       return FileVisitResult.CONTINUE;
     }
   }

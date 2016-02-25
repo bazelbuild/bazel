@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.packages.Attribute.ANY_RULE;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -515,7 +517,7 @@ public class ObjcRuleClasses {
           .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
               .value(env.getToolsLabel("//tools/objc:xcodegen")))
           .add(attr("$dummy_source", LABEL)
-              .value(env.getToolsLabel("//tools/objc:dummy.c")))
+              .value(env.getToolsLabel("//tools/objc:objc_dummy.m")))
           .build();
     }
     @Override
@@ -757,6 +759,8 @@ public class ObjcRuleClasses {
    * Common attributes for {@code objc_*} rules that create a bundle.
    */
   public static class BundlingRule implements RuleDefinition {
+    static final String INFOPLIST_ATTR = "infoplist";
+
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
@@ -772,7 +776,7 @@ public class ObjcRuleClasses {
              <li><code>${PRODUCT_NAME}</code>: This target's name.
           </ul>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("infoplist", LABEL).allowedFileTypes(PLIST_TYPE))
+          .add(attr(INFOPLIST_ATTR, LABEL).allowedFileTypes(PLIST_TYPE))
           /* <!-- #BLAZE_RULE($objc_bundling_rule).ATTRIBUTE(infoplists) -->
            Infoplist files to be merged. The merged output corresponds to <i>appname</i>-Info.plist
            in Xcode projects.  Duplicate keys between infoplist files will cause an error if
@@ -969,16 +973,56 @@ public class ObjcRuleClasses {
   }
 
   /**
+   * Common attributes for {@code objc_*} rules that create a signed IPA.
+   */
+  public static class IpaRule implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+          /* <!-- #BLAZE_RULE($objc_signing_rule).ATTRIBUTE(ipa_post_processor) -->
+          A tool that edits this target's IPA output after it is assembled but before it is
+          (optionally) signed.
+          <p>
+          The tool is invoked with a single positional argument which represents the path to a
+          directory containing the unzipped contents of the IPA. The only entry in this directory
+          will be the <code>Payload</code> root directory of the IPA. Any changes made by the tool
+          must be made in this directory, whose contents will be (optionally) signed and then
+          zipped up as the final IPA after the tool terminates.
+          <p>
+          The tool's execution must be hermetic given these inputs to ensure that its result can be
+          safely cached.
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(
+              attr("ipa_post_processor", LABEL)
+                  .allowedRuleClasses(ANY_RULE)
+                  .allowedFileTypes(FileTypeSet.ANY_FILE)
+                  .exec())
+          .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+          .name("$objc_ipa_rule")
+          .type(RuleClassType.ABSTRACT)
+          .build();
+    }
+  }
+
+  /**
    * Common attributes for {@code objc_*} rules that use the iOS simulator.
    */
   public static class SimulatorRule implements RuleDefinition {
+    static final String IOSSIM_ATTR = "$iossim";
+    static final String STD_REDIRECT_DYLIB_ATTR = "$std_redirect_dylib";
+
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           // Needed to run the binary in the simulator.
-          .add(attr("$iossim", LABEL).cfg(HOST).exec()
+          .add(attr(IOSSIM_ATTR, LABEL).cfg(HOST).exec()
               .value(env.getToolsLabel("//third_party/iossim:iossim")))
-          .add(attr("$std_redirect_dylib", LABEL).cfg(HOST).exec()
+          .add(attr(STD_REDIRECT_DYLIB_ATTR, LABEL).cfg(HOST).exec()
               .value(env.getToolsLabel("//tools/objc:StdRedirect.dylib")))
           .build();
     }

@@ -38,10 +38,14 @@ import javax.annotation.Nullable;
 @Immutable
 public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @VisibleForTesting
-  static final ImmutableList<String> DBG_COPTS = ImmutableList.of("-O0", "-DDEBUG=1",
-      "-fstack-protector", "-fstack-protector-all", "-D_GLIBCXX_DEBUG_PEDANTIC", "-D_GLIBCXX_DEBUG",
-      "-D_GLIBCPP_CONCEPT_CHECKS");
+  static final ImmutableList<String> DBG_COPTS =
+      ImmutableList.of("-O0", "-DDEBUG=1", "-fstack-protector", "-fstack-protector-all");
 
+  @VisibleForTesting
+  static final ImmutableList<String> GLIBCXX_DBG_COPTS =
+      ImmutableList.of(
+          "-D_GLIBCXX_DEBUG", "-D_GLIBCXX_DEBUG_PEDANTIC", "-D_GLIBCPP_CONCEPT_CHECKS");
+  
   @VisibleForTesting
   static final ImmutableList<String> OPT_COPTS =
       ImmutableList.of(
@@ -64,6 +68,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final String xcodeOverrideWorkspaceRoot;
   private final boolean useAbsolutePathsForActions;
   private final boolean prioritizeStaticLibs;
+  private final boolean debugWithGlibcxx;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
       @Nullable BlazeDirectories directories) {
@@ -86,6 +91,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.xcodeOverrideWorkspaceRoot = objcOptions.xcodeOverrideWorkspaceRoot;
     this.useAbsolutePathsForActions = objcOptions.useAbsolutePathsForActions;
     this.prioritizeStaticLibs = objcOptions.prioritizeStaticLibs;
+    this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
   }
 
   /**
@@ -129,7 +135,14 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   public ImmutableList<String> getCoptsForCompilationMode() {
     switch (compilationMode) {
       case DBG:
-        return DBG_COPTS;
+        if (this.debugWithGlibcxx) {
+          return ImmutableList.<String>builder()
+              .addAll(DBG_COPTS)
+              .addAll(GLIBCXX_DBG_COPTS)
+              .build();
+        } else {
+          return DBG_COPTS;
+        }
       case FASTBUILD:
         return fastbuildOptions;
       case OPT:

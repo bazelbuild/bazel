@@ -47,12 +47,7 @@ public class EnvironmentalExecException extends ExecException {
   @Override
   public ActionExecutionException toActionExecutionException(String messagePrefix,
         boolean verboseFailures, Action action) {
-    if (verboseFailures) {
-      return new ActionExecutionException(
-          messagePrefix + " failed (" + getMessage() + ")", this, action, isCatastrophic());
-    } else {
-      return new ActionExecutionException(
-          messagePrefix + " failed (" + getMessage() + ")", action, isCatastrophic());
-    }
+    String message = messagePrefix + " failed";
+    return new ActionExecutionException(message, this, action, isCatastrophic());
   }
 }

@@ -28,7 +28,7 @@ _kind_to_kind_id = {
 
 _unrecognized_rule = -1;
 
-DEPENDENCY_ATTRIBUTES = [
+DEPS = [
   "deps",
   "exports",
   "_robolectric", # From android_robolectric_test
@@ -36,8 +36,13 @@ DEPENDENCY_ATTRIBUTES = [
   "binary_under_test", #  From android_test
   "java_lib",# From proto_library
   "_proto1_java_lib", # From proto_library
+]
+
+RUNTIME_DEPS = [
   "runtime_deps",
 ]
+
+ALL_DEPS = DEPS + RUNTIME_DEPS
 
 def get_kind(target, ctx):
   return _kind_to_kind_id.get(ctx.rule.kind, _unrecognized_rule)
@@ -52,12 +57,18 @@ def struct_omit_none(**kwargs):
 def artifact_location(file):
   if file == None:
     return None
-  return struct(
-      # todo(dslomov): return correct root_path
-      # root_path = file.root.path,
+  return struct_omit_none(
       relative_path = file.short_path,
       is_source = file.is_source,
+      root_execution_path_fragment = file.root.path if not file.is_source else None
   )
+
+def build_file_artifact_location(build_file_path):
+  return struct(
+      relative_path = build_file_path,
+      is_source = True,
+  )
+
 
 def library_artifact(java_output):
   if java_output == None or java_output.class_jar == None:
@@ -74,11 +85,12 @@ def annotation_processing_jars(annotation_processing):
         source_jar = artifact_location(annotation_processing.source_jar),
   )
 
-def add_jar_to_set(s, file):
-  if  file != None and not file.is_source:
-    return s | set([file])
-  else:
-    return s
+def jars_from_output(output):
+  if output == None:
+    return []
+  return [jar
+          for jar in [output.class_jar, output.ijar, output.source_jar]
+          if jar != None and not jar.is_source]
 
 def java_rule_ide_info(target, ctx):
   if hasattr(ctx.rule.attr, "srcs"):
@@ -91,8 +103,7 @@ def java_rule_ide_info(target, ctx):
   jars = [library_artifact(output) for output in target.java.outputs.jars]
   ide_resolve_files = set([jar
        for output in target.java.outputs.jars
-       for jar in [output.class_jar, output.ijar, output.source_jar]
-       if jar != None and not jar.is_source])
+       for jar in jars_from_output(output)])
 
   gen_jars = []
   if target.java.annotation_processing and target.java.annotation_processing.enabled:
@@ -112,41 +123,68 @@ def java_rule_ide_info(target, ctx):
           ),
           ide_resolve_files)
 
+def android_rule_ide_info(target, ctx):
+  if not hasattr(target, 'android'):
+    return (None, set())
+  ide_resolve_files = set(jars_from_output(target.android.idl.output))
+  return (struct_omit_none(
+            java_package = target.android.java_package,
+            manifest = artifact_location(target.android.manifest),
+            apk = artifact_location(target.android.apk),
+            has_idl_sources = target.android.idl.output != None,
+            idl_jar = library_artifact(target.android.idl.output),
+            generate_resource_class = target.android.defines_resources,
+        ),
+        ide_resolve_files)
+
+def collect_transitive_labels(rule_attrs, attr_list):
+     return [str(dep.label)
+         for attr_name in attr_list
+         if hasattr(rule_attrs, attr_name)
+         for dep in getattr(rule_attrs, attr_name)]
+
 
 def _aspect_impl(target, ctx):
   kind = get_kind(target, ctx)
   rule_attrs = ctx.rule.attr
 
+  compiletime_deps = collect_transitive_labels(rule_attrs, DEPS)
+  runtime_deps = collect_transitive_labels(rule_attrs, RUNTIME_DEPS)
+
   ide_info_text = set()
   ide_resolve_files = set()
-  all_deps = []
 
-  for attr_name in DEPENDENCY_ATTRIBUTES:
+  for attr_name in ALL_DEPS:
     if hasattr(rule_attrs, attr_name):
-      deps = getattr(rule_attrs, attr_name)
-      for dep in deps:
+      for dep in getattr(rule_attrs, attr_name):
         ide_info_text = ide_info_text | dep.intellij_info_files.ide_info_text
         ide_resolve_files = ide_resolve_files | dep.intellij_info_files.ide_resolve_files
-      all_deps += [str(dep.label) for dep in deps]
 
   if kind != _unrecognized_rule:
     if is_java_rule(target, ctx):
       java_rule_ide_info, java_ide_resolve_files = java_rule_ide_info(target, ctx)
       ide_resolve_files = ide_resolve_files | java_ide_resolve_files
-      info = struct(
+
+      android_rule_ide_info, android_ide_resolve_files = android_rule_ide_info(target, ctx)
+      ide_resolve_files = ide_resolve_files | android_ide_resolve_files
+
+      info = struct_omit_none(
           label = str(target.label),
           kind = kind,
-          dependencies = all_deps,
-          # build_file = ???
+          dependencies = compiletime_deps,
+          runtime_deps = runtime_deps,
+          build_file_artifact_location = build_file_artifact_location(ctx.build_file_path),
           java_rule_ide_info = java_rule_ide_info,
+          android_rule_ide_info = android_rule_ide_info,
           tags = ctx.rule.attr.tags,
       )
     else:
       info = struct(
           label = str(target.label),
           kind = kind,
-          dependencies = all_deps,
-          # build_file = ???
+          dependencies = compiletime_deps,
+          runtime_deps = runtime_deps,
+          build_file_artifact_location = build_file_artifact_location(ctx.build_file_path),
       )
   output = ctx.new_file(target.label.name + ".aswb-build.txt")
   ctx.file_action(output, info.to_proto())
@@ -164,5 +202,5 @@ def _aspect_impl(target, ctx):
     )
 
 intellij_info_aspect = aspect(implementation = _aspect_impl,
-    attr_aspects = DEPENDENCY_ATTRIBUTES
+    attr_aspects = ALL_DEPS
 )

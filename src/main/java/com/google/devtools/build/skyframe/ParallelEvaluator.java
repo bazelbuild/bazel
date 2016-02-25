@@ -1037,28 +1037,26 @@ public final class ParallelEvaluator implements Evaluator {
         SkyKey childErrorKey = env.getDepErrorKey();
         NodeEntry childErrorEntry = Preconditions.checkNotNull(graph.get(childErrorKey),
             "skyKey: %s, state: %s childErrorKey: %s", skyKey, state, childErrorKey);
-        if (!state.getTemporaryDirectDeps().contains(childErrorKey)) {
-          // This means the cached error was freshly requested (e.g. the parent has never been
-          // built before).
-          Preconditions.checkState(newDirectDeps.contains(childErrorKey), "%s %s %s", state,
-              childErrorKey, newDirectDeps);
-          state.addTemporaryDirectDeps(GroupedListHelper.create(ImmutableList.of(childErrorKey)));
-          DependencyState childErrorState = childErrorEntry.addReverseDepAndCheckIfDone(skyKey);
-          Preconditions.checkState(childErrorState == DependencyState.DONE,
-              "skyKey: %s, state: %s childErrorKey: %s", skyKey, state, childErrorKey,
-              childErrorEntry);
-        } else {
-          // This means the cached error was previously requested, and was then subsequently (after
-          // a restart) requested along with another sibling dep. This can happen on an incremental
-          // eval call when the parent is dirty and the child error is in a separate dependency
-          // group from the sibling dep.
-          Preconditions.checkState(!newDirectDeps.contains(childErrorKey), "%s %s %s", state,
-              childErrorKey, newDirectDeps);
-          Preconditions.checkState(childErrorEntry.isDone(),
-              "skyKey: %s, state: %s childErrorKey: %s", skyKey, state, childErrorKey,
-              childErrorEntry);
-        }
+        Preconditions.checkState(
+            !state.getTemporaryDirectDeps().contains(childErrorKey),
+            "Done error was already know: %s %s %s %s",
+            skyKey,
+            state,
+            childErrorKey,
+            childErrorEntry);
+        Preconditions.checkState(
+            newDirectDeps.contains(childErrorKey), "%s %s %s", state, childErrorKey, newDirectDeps);
+        state.addTemporaryDirectDeps(GroupedListHelper.create(ImmutableList.of(childErrorKey)));
+        DependencyState childErrorState = childErrorEntry.addReverseDepAndCheckIfDone(skyKey);
+        Preconditions.checkState(
+            childErrorState == DependencyState.DONE,
+            "skyKey: %s, state: %s childErrorKey: %s",
+            skyKey,
+            state,
+            childErrorKey,
+            childErrorEntry);
         ErrorInfo childErrorInfo = Preconditions.checkNotNull(childErrorEntry.getErrorInfo());
+        visitor.preventNewEvaluations();
         throw SchedulerException.ofError(childErrorInfo, childErrorKey);
       }
 
@@ -1078,10 +1076,16 @@ public final class ParallelEvaluator implements Evaluator {
         // TODO(bazel-team): This means a bug in the SkyFunction. What to do?
         Preconditions.checkState(!env.childErrorInfos.isEmpty(),
             "Evaluation of SkyKey failed and no dependencies were requested: %s %s", skyKey, state);
-        env.commit(/*enqueueParents=*/keepGoing);
-        if (!keepGoing) {
-          throw SchedulerException.ofError(state.getErrorInfo(), skyKey);
-        }
+        Preconditions.checkState(
+            keepGoing,
+            "nokeep_going evaluation should have failed on first child error: %s %s %s",
+            skyKey,
+            state,
+            env.childErrorInfos);
+        // If the child error was catastrophic, committing this parent to the graph is not
+        // necessary, but since we don't do error bubbling in catastrophes, it doesn't violate any
+        // invariants either.
+        env.commit(/*enqueueParents=*/ true);
         return;
       }
 

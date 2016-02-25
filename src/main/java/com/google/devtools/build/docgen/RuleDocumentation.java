@@ -175,13 +175,6 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
       expandedDoc = expandedDoc.replace("${" + docVariable.getKey() + "}",
           expandBuiltInVariables(docVariable.getKey(), docVariable.getValue()));
     }
-    // Replace the instances of the ATTRIBUTE_SIGNATURE and ATTRIBUTE_DEFINITION variables
-    // with the empty string since the variables are no longer used but are still present
-    // in the rule doc comments..
-    // TODO(dzc): Remove uses of ${ATTRIBUTE_SIGNATURE} and ${ATTRIBUTE_DEFINITION} from Bazel
-    // doc comments.
-    expandedDoc = expandedDoc.replace("${" + DocgenConsts.VAR_ATTRIBUTE_SIGNATURE + "}", "");
-    expandedDoc = expandedDoc.replace("${" + DocgenConsts.VAR_ATTRIBUTE_DEFINITION + "}", "");
     return expandedDoc;
   }
 

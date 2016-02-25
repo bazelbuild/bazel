@@ -52,7 +52,7 @@ load("/pkg/empty", "empty")
 
 def macro(name, visibility=None):
   # Creating the Skylark rule.
-  empty(name = name, visibility=visibility)
+  empty(name = name, visibility = visibility)
 ```
 
 `BUILD`:
@@ -63,7 +63,7 @@ load("/pkg/extension", "macro")
 macro(name = "myrule")
 ```
 
-## <a name="conditional-instantiation"></a>Conditional instantiation.
+## <a name="conditional-instantiation"></a>Conditional instantiation
 
 Macros can look at previously instantiated rules. This is done with
 `native.existing_rule`, which returns information on a single rule defined in the same
@@ -80,7 +80,7 @@ tests for diverse flavors of the same test.
 `extension.bzl`:
 
 ```python
-def system_test(test_file, flavor):
+def system_test(name, test_file, flavor):
   n = "system_test_%s_%s_test" % (test_file, flavor)
   if native.existing_rule(n) == None:
     native.py_test(
@@ -93,11 +93,11 @@ def system_test_suite(name, flavors=["default"], test_files):
   ts = []
   for flavor in flavors:
     for test in test_files:
-      ts.append(system_test(name, flavor, test))
+      ts.append(system_test(name, test, flavor))
   native.test_suite(name = name, tests = ts)
 ```
 
-In the following BUILD file, note how `(fast, basic_test.py)` is emitted for
+In the following BUILD file, note how `(basic_test.py, fast)` is emitted for
 both the `smoke` test suite and the `thorough` test suite.
 
 ```python
@@ -111,7 +111,7 @@ system_test_suite("thorough", flavors=["fast", "debug", "opt"], ["basic_test.py"
 ```
 
 
-## <a name="aggregation"></a>Aggregating over the BUILD file.
+## <a name="aggregation"></a>Aggregating over the BUILD file
 
 Macros can collect information from the BUILD file as processed so far.  We call
 this aggregation. The typical example is collecting data from all rules of a
@@ -210,8 +210,8 @@ the user. The output has the same name as the rule, with a `.size` suffix.
 While convenient, Shell commands should be used carefully. Generating the
 command-line can lead to escaping and injection issues. It can also create
 portability problems. It is often better to declare a binary target in a
-BUILD file and execute it. See the example "<a href="#execute-bin">
-executing a binary</a>".
+BUILD file and execute it. See the example
+"<a href="#execute-bin">executing a binary</a>".
 
 `size.bzl`:
 
@@ -309,7 +309,8 @@ concat = rule(
   attrs={
       "srcs": attr.label_list(allow_files=True),
       "out": attr.output(mandatory=True),
-      "_merge_tool": attr.label(executable=True, default=Label("//pkg:merge"))
+      "_merge_tool": attr.label(executable=True, allow_files=True,
+                                default=Label("//pkg:merge"))
   }
 )
 ```
@@ -342,7 +343,7 @@ sh_binary(
 `merge.sh`:
 
 ```python
-#! /bin/bash
+#!/bin/bash
 
 out=$1
 shift
@@ -409,7 +410,7 @@ execute = rule(
 `a.sh`:
 
 ```bash
-#! /bin/bash
+#!/bin/bash
 
 tr 'a-z' 'A-Z' < $1 > $2
 ```
@@ -572,14 +573,14 @@ Hello World!
 `comments.sh`:
 
 ```
-#! /bin/bash
+#!/bin/bash
 grep -v '^ *#' $1 > $2  # Remove lines with only a Python-style comment
 ```
 
 `spaces.sh`:
 
 ```
-#! /bin/bash
+#!/bin/bash
 tr -d ' ' < $1 > $2  # Remove spaces
 ```
 

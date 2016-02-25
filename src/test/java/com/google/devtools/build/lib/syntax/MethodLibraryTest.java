@@ -418,8 +418,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
   public void testBuiltinFunctionErrorMessage() throws Exception {
     new BothModesTest()
         .testIfErrorContains(
-            "Method set.union(newElements: Iterable) is not applicable for arguments (string): "
-                + "'newElements' is string, but should be Iterable",
+            "Method set.union(new_elements: Iterable) is not applicable for arguments (string): "
+                + "'new_elements' is string, but should be Iterable",
             "set([]).union('a')")
         .testIfErrorContains(
             "Method string.startswith(sub: string, start: int, end: int or NoneType) is not "
@@ -444,7 +444,9 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testDir() throws Exception {
     new SkylarkTest().testStatement(
-        "str(dir({}))", "[\"$index\", \"get\", \"items\", \"keys\", \"values\"]");
+        "str(dir({}))",
+        "[\"$index\", \"clear\", \"get\", \"items\", \"keys\","
+        + " \"pop\", \"popitem\", \"setdefault\", \"values\"]");
   }
 
   @Test
@@ -1318,6 +1320,60 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testDictionaryClear() throws Exception {
+    new SkylarkTest()
+        .testEval(
+            "d = {1: 'foo', 2: 'bar', 3: 'baz'}\n"
+            + "if len(d) != 3: fail('clear 1')\n"
+            + "if d.clear() != None: fail('clear 2')\n"
+            + "d",
+            "{}");
+  }
+
+  @Test
+  public void testDictionaryPop() throws Exception {
+    new SkylarkTest()
+        .testIfErrorContains(
+            "KeyError: 1",
+            "d = {1: 'foo', 2: 'bar', 3: 'baz'}\n"
+            + "if len(d) != 3: fail('pop 1')\n"
+            + "if d.pop(2) != 'bar': fail('pop 2')\n"
+            + "if d.pop(3, 'quux') != 'baz': fail('pop 3a')\n"
+            + "if d.pop(3, 'quux') != 'quux': fail('pop 3b')\n"
+            + "if d.pop(1) != 'foo': fail('pop 1')\n"
+            + "if d != {}: fail('pop 0')\n"
+            + "d.pop(1)");
+  }
+
+  @Test
+  public void testDictionaryPopItem() throws Exception {
+    new SkylarkTest()
+        .testIfErrorContains(
+            "popitem(): dictionary is empty",
+            "d = {2: 'bar', 3: 'baz', 1: 'foo'}\n"
+            + "if len(d) != 3: fail('popitem 0')\n"
+            + "if d.popitem() != (1, 'foo'): fail('popitem 1')\n"
+            + "if d.popitem() != (2, 'bar'): fail('popitem 2')\n"
+            + "if d.popitem() != (3, 'baz'): fail('popitem 3')\n"
+            + "if d != {}: fail('popitem 4')\n"
+            + "d.popitem()");
+  }
+
+  @Test
+  public void testDictionarySetDefault() throws Exception {
+    new SkylarkTest()
+        .testEval(
+            "d = {2: 'bar', 1: 'foo'}\n"
+            + "if len(d) != 2: fail('setdefault 0')\n"
+            + "if d.setdefault(1, 'a') != 'foo': fail('setdefault 1')\n"
+            + "if d.setdefault(2) != 'bar': fail('setdefault 2')\n"
+            + "if d.setdefault(3) != None: fail('setdefault 3')\n"
+            + "if d.setdefault(4, 'b') != 'b': fail('setdefault 4')\n"
+            + "d",
+            "{1: 'foo', 2: 'bar', 3: None, 4: 'b'}");
+  }
+
+  @Test
   public void testSetUnionWithList() throws Exception {
     evaluateSet("set([]).union(['a', 'b', 'c'])", "a", "b", "c");
     evaluateSet("set(['a']).union(['b', 'c'])", "a", "b", "c");
@@ -1347,8 +1403,8 @@ public class MethodLibraryTest extends EvaluationTestCase {
     new BothModesTest()
         .testIfErrorContains("insufficient arguments received by union", "set(['a']).union()")
         .testIfErrorContains(
-            "Method set.union(newElements: Iterable) is not applicable for arguments (string): "
-                + "'newElements' is string, but should be Iterable",
+            "Method set.union(new_elements: Iterable) is not applicable for arguments (string): "
+                + "'new_elements' is string, but should be Iterable",
             "set(['a']).union('b')");
   }
 

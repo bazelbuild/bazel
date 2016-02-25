@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
  */
 @Immutable
 public final class JavaPrimaryClassProvider implements TransitiveInfoProvider {
-
   private final String primaryClass;
 
   public JavaPrimaryClassProvider(String primaryClass) {

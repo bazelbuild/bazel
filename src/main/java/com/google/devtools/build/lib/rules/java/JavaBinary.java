@@ -69,12 +69,11 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     Runfiles.Builder runfilesBuilder = new Runfiles.Builder(ruleContext.getWorkspaceName());
     List<String> jvmFlags = new ArrayList<>();
 
-    common.initializeJavacOpts();
     JavaTargetAttributes.Builder attributesBuilder = common.initCommon();
     attributesBuilder.addClassPathResources(
         ruleContext.getPrerequisiteArtifacts("classpath_resources", Mode.TARGET).list());
 
-    List<String> userJvmFlags = common.getJvmFlags();
+    List<String> userJvmFlags = JavaCommon.getJvmFlags(ruleContext);
 
     ruleContext.checkSrcsSamePackage(true);
     boolean createExecutable = ruleContext.attributes().get("create_executable", Type.BOOLEAN);
@@ -83,7 +82,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         Lists.<TransitiveInfoCollection>newArrayList(
             common.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
     semantics.checkRule(ruleContext, common);
-    String mainClass = semantics.getMainClass(ruleContext, common);
+    String mainClass = semantics.getMainClass(ruleContext, common.getSrcsArtifacts());
     String originalMainClass = mainClass;
     if (ruleContext.hasErrors()) {
       return null;
@@ -93,7 +92,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     JavaCompilationHelper helper = new JavaCompilationHelper(
         ruleContext, semantics, common.getJavacOpts(), attributesBuilder);
     helper.addLibrariesToAttributes(deps);
-    helper.addProvidersToAttributes(common.compilationArgsFromSources(), /* isNeverLink */ false);
+    helper.addProvidersToAttributes(
+        JavaCommon.compilationArgsFromSources(ruleContext), /* isNeverLink */ false);
     attributesBuilder.addNativeLibraries(
         collectNativeLibraries(common.targetsTreatedAsDeps(ClasspathType.BOTH)));
 
@@ -156,8 +156,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     JavaConfiguration javaConfig = ruleContext.getFragment(JavaConfiguration.class);
     if (attributes.hasMessages()) {
-      helper.addTranslations(semantics.translate(ruleContext, javaConfig,
-          attributes.getMessages()));
+      helper.setTranslations(
+          semantics.translate(ruleContext, javaConfig, attributes.getMessages()));
     }
 
     if (attributes.hasSourceFiles() || attributes.hasSourceJars()
@@ -168,7 +168,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(classJar, javaArtifactsBuilder);
 
-    common.setJavaCompilationArtifacts(javaArtifactsBuilder.build());
+    JavaCompilationArtifacts javaArtifacts = javaArtifactsBuilder.build();
+    common.setJavaCompilationArtifacts(javaArtifacts);
 
     Artifact manifestProtoOutput = helper.createManifestProtoOutput(classJar);
 
@@ -187,7 +188,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     helper.createSourceJarAction(srcJar, genSourceJar);
 
     common.setClassPathFragment(new ClasspathConfiguredFragment(
-        common.getJavaCompilationArtifacts(), attributes, false));
+        javaArtifacts, attributes, false));
 
     // Collect the action inputs for the runfiles collector here because we need to access the
     // analysis environment, and that may no longer be safe when the runfiles collector runs.
@@ -195,7 +196,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkInputs();
 
 
-    Iterables.addAll(jvmFlags, semantics.getJvmFlags(ruleContext, common, userJvmFlags));
+    Iterables.addAll(jvmFlags,
+        semantics.getJvmFlags(ruleContext, common.getSrcsArtifacts(), userJvmFlags));
     if (ruleContext.hasErrors()) {
       return null;
     }
@@ -203,20 +205,23 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     if (createExecutable) {
       // Create a shell stub for a Java application
       semantics.createStubAction(ruleContext, common, jvmFlags, executable, mainClass,
-          common.getJavaBinSubstitution(launcher));
+          JavaCommon.getJavaBinSubstitution(ruleContext, launcher));
     }
 
     NestedSet<Artifact> transitiveSourceJars = collectTransitiveSourceJars(common, srcJar);
 
     // TODO(bazel-team): if (getOptions().sourceJars) then make this a dummy prerequisite for the
     // DeployArchiveAction ? Needs a few changes there as we can't pass inputs
-    helper.createSourceJarAction(ImmutableMap.<PathFragment, Artifact>of(),
-        transitiveSourceJars.toCollection(),
+    SingleJarActionBuilder.createSourceJarAction(ruleContext,
+        ImmutableMap.<PathFragment, Artifact>of(), transitiveSourceJars.toCollection(),
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_DEPLOY_SOURCE_JAR));
 
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext);
-
+    builder.add(
+        JavaPrimaryClassProvider.class,
+        new JavaPrimaryClassProvider(
+            semantics.getPrimaryClass(ruleContext, common.getSrcsArtifacts())));
     semantics.addProviders(ruleContext, common, jvmFlags, classJar, srcJar,
             genClassJar, genSourceJar, ImmutableMap.<Artifact, Artifact>of(),
             filesBuilder, builder);
@@ -231,13 +236,14 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     // Need not include normal runtime classpath in runfiles if Proguard is used because _deploy.jar
     // is used as classpath instead.  Keeping runfiles unchanged has however the advantage that
     // manually running executable without --singlejar works (although it won't depend on Proguard).
-    collectDefaultRunfiles(runfilesBuilder, ruleContext, common, filesToBuild, launcher,
-        dynamicRuntimeActionInputs);
+    collectDefaultRunfiles(runfilesBuilder, ruleContext, common, javaArtifacts, filesToBuild,
+        launcher, dynamicRuntimeActionInputs);
     Runfiles defaultRunfiles = runfilesBuilder.build();
 
     RunfilesSupport runfilesSupport = null;
     if (createExecutable) {
-      List<String> extraArgs = new ArrayList<>(semantics.getExtraArguments(ruleContext, common));
+      List<String> extraArgs =
+          new ArrayList<>(semantics.getExtraArguments(ruleContext, common.getSrcsArtifacts()));
       if (runProguard) {
         // Instead of changing the classpath written into the wrapper script, pass --singlejar when
         // running the script (which causes the deploy.jar written by Proguard to be used instead of
@@ -278,7 +284,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         .setJavaStartClass(mainClass)
         .setDeployManifestLines(deployManifestLines)
         .setAttributes(attributes)
-        .addRuntimeJars(common.getJavaCompilationArtifacts().getRuntimeJars())
+        .addRuntimeJars(javaArtifacts.getRuntimeJars())
         .setIncludeBuildData(true)
         .setRunfilesMiddleman(
             runProguard || runfilesSupport == null ? null : runfilesSupport.getRunfilesMiddleman())
@@ -294,7 +300,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
           .setJavaStartClass(mainClass)
           .setDeployManifestLines(deployManifestLines)
           .setAttributes(attributes)
-          .addRuntimeJars(common.getJavaCompilationArtifacts().getRuntimeJars())
+          .addRuntimeJars(javaArtifacts.getRuntimeJars())
           .setIncludeBuildData(true)
           .setRunfilesMiddleman(
               runfilesSupport == null ? null : runfilesSupport.getRunfilesMiddleman())
@@ -346,11 +352,11 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
   }
 
   private void collectDefaultRunfiles(Runfiles.Builder builder, RuleContext ruleContext,
-      JavaCommon common, NestedSet<Artifact> filesToBuild, Artifact launcher,
-      Iterable<Artifact> dynamicRuntimeActionInputs) {
+      JavaCommon common, JavaCompilationArtifacts javaArtifacts, NestedSet<Artifact> filesToBuild,
+      Artifact launcher, Iterable<Artifact> dynamicRuntimeActionInputs) {
     // Convert to iterable: filesToBuild has a different order.
     builder.addArtifacts((Iterable<Artifact>) filesToBuild);
-    builder.addArtifacts(common.getJavaCompilationArtifacts().getRuntimeJars());
+    builder.addArtifacts(javaArtifacts.getRuntimeJars());
     if (launcher != null) {
       final TransitiveInfoCollection defaultLauncher =
           JavaHelper.launcherForTarget(semantics, ruleContext);
@@ -395,7 +401,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     semantics.addDependenciesForRunfiles(ruleContext, builder);
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
-      Artifact instrumentedJar = common.getJavaCompilationArtifacts().getInstrumentedJar();
+      Artifact instrumentedJar = javaArtifacts.getInstrumentedJar();
       if (instrumentedJar != null) {
         builder.addArtifact(instrumentedJar);
       }

@@ -132,16 +132,14 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     for (TestSummary summary : summaries) {
       if (TestResult.isBlazeTestStatusPassed(summary.getStatus())) {
         stats.passCount++;
+      } else if (summary.getStatus() == BlazeTestStatus.NO_STATUS) {
+        stats.noStatusCount++;
       } else if (summary.getStatus() == BlazeTestStatus.FAILED_TO_BUILD) {
         stats.failedToBuildCount++;
       } else if (summary.ranRemotely()) {
         stats.failedRemotelyCount++;
       } else {
         stats.failedLocallyCount++;
-      }
-
-      if (summary.getStatus() == BlazeTestStatus.NO_STATUS) {
-        stats.noStatusCount++;
       }
 
       if (summary.wasUnreportedWrongSize()) {
@@ -172,14 +170,15 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     printStats(stats);
   }
 
-  private void addToErrorList(List<String> list, String failureDescription, int count) {
+  private void addFailureToErrorList(List<String> list, String failureDescription, int count) {
+    addToErrorList(list, "fails", "fail", failureDescription, count);
+  }
+
+  private void addToErrorList(
+      List<String> list, String singularPrefix, String pluralPrefix, String message, int count) {
     if (count > 0) {
-      list.add(String.format("%s%d %s %s%s",
-              AnsiTerminalPrinter.Mode.ERROR,
-              count,
-              count == 1 ? "fails" : "fail",
-              failureDescription,
-              AnsiTerminalPrinter.Mode.DEFAULT));
+      list.add(String.format("%s%d %s %s%s", AnsiTerminalPrinter.Mode.ERROR, count,
+          count == 1 ? singularPrefix : pluralPrefix, message, AnsiTerminalPrinter.Mode.DEFAULT));
     }
   }
 
@@ -191,9 +190,10 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       } else if (stats.passCount > 0) {
         results.add(stats.passCount + " tests pass");
       }
-      addToErrorList(results, "to build", stats.failedToBuildCount);
-      addToErrorList(results, "locally", stats.failedLocallyCount);
-      addToErrorList(results, "remotely", stats.failedRemotelyCount);
+      addFailureToErrorList(results, "to build", stats.failedToBuildCount);
+      addFailureToErrorList(results, "locally", stats.failedLocallyCount);
+      addFailureToErrorList(results, "remotely", stats.failedRemotelyCount);
+      addToErrorList(results, "was", "were", "skipped", stats.noStatusCount);
       printer.print(String.format("\nExecuted %d out of %d tests: %s.\n",
               stats.numberOfExecutedTargets,
               stats.numberOfTargets,

@@ -34,6 +34,8 @@ for i in $*; do
     *Runner_deploy.jar) OUTPUT_PATH=tools/jdk/TestRunner_deploy.jar ;;
     *ijar.exe) OUTPUT_PATH=tools/jdk/ijar/ijar.exe ;;
     *ijar) OUTPUT_PATH=tools/jdk/ijar/ijar ;;
+    *zipper.exe) OUTPUT_PATH=tools/zip/zipper/zipper.exe ;;
+    *zipper) OUTPUT_PATH=tools/zip/zipper/zipper ;;
     *src/objc_tools/*) OUTPUT_PATH=tools/objc/precomp_${i##*/} ;;
     *xcode*StdRedirect.dylib) OUTPUT_PATH=tools/objc/StdRedirect.dylib ;;
     *xcode*realpath) OUTPUT_PATH=tools/objc/realpath ;;

@@ -25,7 +25,7 @@ java_library(
     srcs = glob(["dependency/*.java"]),
     deps = [
         ":plugins",
-        "//src/main/protobuf:deps_proto",
+        "//src/main/protobuf:deps_java_proto",
         "//third_party:guava",
         "//third_party/java/jdk/langtools:javac",
     ],
@@ -48,7 +48,7 @@ java_library(
     srcs = glob(["processing/*.java"]),
     deps = [
         ":plugins",
-        "//src/main/protobuf:java_compilation_proto",
+        "//src/main/protobuf:java_compilation_java_proto",
         "//third_party:guava",
         "//third_party/java/jdk/langtools:javac",
     ],
@@ -68,7 +68,7 @@ java_library(
 ## Bootstrapping using Skylark rules
 #
 
-load("//tools:build_rules/java_rules_skylark.bzl", "bootstrap_java_library", "bootstrap_java_binary")
+load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library", "bootstrap_java_binary")
 
 bootstrap_java_library(
     name = "bootstrap_plugins",

@@ -71,6 +71,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
                 "  name = 'objc_proto_cpp_lib',",
                 "  actual = '//objcproto:ProtocolBuffersCPP_lib',",
                 ")",
+                "bind(",
+                "  name = 'objc_protobuf_lib',",
+                "  actual = '//objcproto:protobuf_lib',",
+                ")",
                 "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
                 "bind(name = 'tools/python', actual='//tools/python')"));
 
@@ -90,7 +94,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         // "dummy" is needed so that RedirectChaser stops here
         "filegroup(name='java', srcs = ['jdk/jre/bin/java', 'dummy'])",
         "exports_files(['JavaBuilder_deploy.jar','SingleJar_deploy.jar','TestRunner_deploy.jar',",
-        "               'JavaBuilderCanary_deploy.jar', 'ijar', 'GenClass_deploy.jar'])");
+        "               'JavaBuilderCanary_deploy.jar', 'ijar', 'GenClass_deploy.jar',",
+        "               'turbine_deploy.jar'])");
 
 
     ImmutableList<String> androidBuildContents = createAndroidBuildContents();

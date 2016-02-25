@@ -13,12 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
@@ -42,13 +46,33 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
     final JavaToolchainData toolchainData =
         new JavaToolchainData(source, target, encoding, xlint, misc, jvmOpts);
     final JavaConfiguration configuration = ruleContext.getFragment(JavaConfiguration.class);
-    JavaToolchainProvider provider = new JavaToolchainProvider(toolchainData,
-        configuration.getDefaultJavacFlags(), configuration.getDefaultJavaBuilderJvmFlags());
+    Artifact headerCompiler = getTurbine(ruleContext);
+    JavaToolchainProvider provider =
+        new JavaToolchainProvider(
+            toolchainData,
+            configuration.getDefaultJavacFlags(),
+            configuration.getDefaultJavaBuilderJvmFlags(),
+            headerCompiler);
     RuleConfiguredTargetBuilder builder = new RuleConfiguredTargetBuilder(ruleContext)
         .add(JavaToolchainProvider.class, provider)
         .setFilesToBuild(new NestedSetBuilder<Artifact>(Order.STABLE_ORDER).build())
         .add(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY));
 
     return builder.build();
+  }
+
+  private Artifact getTurbine(RuleContext ruleContext) {
+    TransitiveInfoCollection prerequisite =
+        ruleContext.getPrerequisite("header_compiler", Mode.HOST);
+    if (prerequisite == null) {
+      return null;
+    }
+    Iterable<Artifact> artifacts = prerequisite.getProvider(FileProvider.class).getFilesToBuild();
+    if (Iterables.size(artifacts) != 1) {
+      ruleContext.attributeError(
+          "header_compiler", prerequisite.getLabel() + " expected a single artifact");
+      return null;
+    }
+    return Iterables.getOnlyElement(artifacts);
   }
 }

@@ -53,7 +53,7 @@ XCODE_VERSION_PLIST="${XCODE_CONTENTS_DIR}"/version.plist
 PLATFORM_PLIST="${PLATFORM_DIR}"/Info.plist
 PLATFORM_VERSION_PLIST="${PLATFORM_DIR}"/version.plist
 SDK_VERSION_PLIST="${SDK_DIR}"/System/Library/CoreServices/SystemVersion.plist
-PLIST=$(mktemp -d -t bazel_environment)/env.plist
+PLIST=$(mktemp -d "${TMPDIR:-/tmp}/bazel_environment.XXXXXX")/env.plist
 trap 'rm -rf "${PLIST}"' ERR EXIT
 
 os_build=$(/usr/bin/sw_vers -buildVersion)

@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -127,26 +128,40 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     private Artifact apk = null;
     private Artifact idlClassJar = null;
     private Artifact idlSourceJar = null;
+    private String javaPackage = null;
     private final Set<SourceDirectory> resourceDirs = new LinkedHashSet<>();
     private final Set<SourceDirectory> assetDirs = new LinkedHashSet<>();
     private final Set<SourceDirectory> idlDirs = new LinkedHashSet<>();
     private final Set<Artifact> idlSrcs = new LinkedHashSet<>();
     private final Set<Artifact> idlGeneratedJavaFiles = new LinkedHashSet<>();
     private final Set<Artifact> apksUnderTest = new LinkedHashSet<>();
+    private boolean definesAndroidResources;
 
     public AndroidIdeInfoProvider build() {
       return new AndroidIdeInfoProvider(
+          javaPackage,
           manifest,
           generatedManifest,
           apk,
           idlClassJar,
           idlSourceJar,
+          definesAndroidResources,
           ImmutableList.copyOf(assetDirs),
           ImmutableList.copyOf(resourceDirs),
           ImmutableList.copyOf(idlDirs),
           ImmutableList.copyOf(idlSrcs),
           ImmutableList.copyOf(idlGeneratedJavaFiles),
           ImmutableList.copyOf(apksUnderTest));
+    }
+
+    public Builder setJavaPackage(String javaPackage) {
+      this.javaPackage = javaPackage;
+      return this;
+    }
+
+    public Builder setDefinesAndroidResources(boolean definesAndroidResources) {
+      this.definesAndroidResources = definesAndroidResources;
+      return this;
     }
 
     public Builder setApk(Artifact apk) {
@@ -315,40 +330,52 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     }
   }
 
+  private final String javaPackage;
   private final Artifact manifest;
   private final Artifact generatedManifest;
   private final Artifact signedApk;
   @Nullable private final Artifact idlClassJar;
   @Nullable private final Artifact idlSourceJar;
   private final ImmutableCollection<SourceDirectory> resourceDirs;
+  private final boolean definesAndroidResources;
   private final ImmutableCollection<SourceDirectory> assetDirs;
   private final ImmutableCollection<SourceDirectory> idlImports;
   private final ImmutableCollection<Artifact> idlSrcs;
   private final ImmutableCollection<Artifact> idlGeneratedJavaFiles;
   private final ImmutableCollection<Artifact> apksUnderTest;
 
-  AndroidIdeInfoProvider(@Nullable Artifact manifest,
+  AndroidIdeInfoProvider(
+      String javaPackage,
+      @Nullable Artifact manifest,
       @Nullable Artifact generatedManifest,
       @Nullable Artifact signedApk,
       @Nullable Artifact idlClassJar,
       @Nullable Artifact idlSourceJar,
+      boolean definesAndroidResources,
       ImmutableCollection<SourceDirectory> assetDirs,
       ImmutableCollection<SourceDirectory> resourceDirs,
       ImmutableCollection<SourceDirectory> idlImports,
       ImmutableCollection<Artifact> idlSrcs,
       ImmutableCollection<Artifact> idlGeneratedJavaFiles,
       ImmutableCollection<Artifact> apksUnderTest) {
+    this.javaPackage = javaPackage;
     this.manifest = manifest;
     this.generatedManifest = generatedManifest;
     this.signedApk = signedApk;
     this.idlClassJar = idlClassJar;
     this.idlSourceJar = idlSourceJar;
+    this.definesAndroidResources = definesAndroidResources;
     this.assetDirs = assetDirs;
     this.resourceDirs = resourceDirs;
     this.idlImports = idlImports;
     this.idlSrcs = idlSrcs;
     this.idlGeneratedJavaFiles = idlGeneratedJavaFiles;
     this.apksUnderTest = apksUnderTest;
+  }
+
+  /** Returns java package for this target. */
+  public String getJavaPackage() {
+    return javaPackage;
   }
 
   /** Returns the direct AndroidManifest. */
@@ -363,6 +390,13 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     return generatedManifest;
   }
 
+  /**
+   * Returns true if the target defined Android resources.
+   * Exposes {@link LocalResourceContainer#definesAndroidResources(AttributeMap)}
+   */
+  public boolean definesAndroidResources() {
+    return this.definesAndroidResources;
+  }
 
   /** Returns the direct debug key signed apk, if there is one. */
   @Nullable

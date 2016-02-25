@@ -111,6 +111,7 @@ public class BazelJavaRuleClasses {
               .value(env.getLabel(JavaSemantics.SINGLEJAR_LABEL)))
           .add(attr("$genclass", LABEL).cfg(HOST)
               .value(env.getLabel(JavaSemantics.GENCLASS_LABEL)))
+          .add(attr("$jacoco_instrumentation", LABEL).cfg(HOST))
           .build();
     }
 

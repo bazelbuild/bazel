@@ -57,7 +57,7 @@ genrule(
     outs = ["java.version"],
     cmd = """
           VERSION_LINE=$$(cat $< | grep target_version);
-          JAVA_VERSION=$$(echo $${VERSION_LINE} | sed 's/.*value="\\([^"]\\)".*/\\1/');
+          JAVA_VERSION=$$(echo $${VERSION_LINE} | sed 's/.*value=\\"\\([^\\"]\\)\\".*/\\1/');
           if [ -z "$${JAVA_VERSION}" ]; then
             echo "1.8" >$@  # Java 8 is the default
           elif [[ "$${JAVA_VERSION}" =~ ^[0-9]+$$ ]]; then
@@ -107,9 +107,16 @@ genrule(
         "//third_party/ijar",
         "//third_party/java/apkbuilder:embedded_tools",
     ] + select({
-        ":darwin": [":darwin_tools"],
-        ":darwin_x86_64": [":darwin_tools"],
-        "//conditions:default": [],
+        ":darwin": [
+            ":darwin_tools",
+            "//third_party/ijar:zipper",
+        ],
+        ":darwin_x86_64": [
+            ":darwin_tools",
+            "//third_party/ijar:zipper",
+        ],
+        ":windows": [],  # Windows specifically exclude zipper for now.
+        "//conditions:default": ["//third_party/ijar:zipper"],
     }),
     outs = ["embedded_tools.zip"],
     cmd = "$(location :create_embedded_tools.sh) $@ $(SRCS)",

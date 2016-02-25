@@ -25,6 +25,14 @@ java_binary(
 )
 
 java_binary(
+    name = "ResourceShrinkerAction",
+    main_class = "com.google.devtools.build.android.ResourceShinkerAction",
+    runtime_deps = [
+        ":android_builder_lib",
+    ],
+)
+
+java_binary(
     name = "AarGeneratorAction",
     main_class = "com.google.devtools.build.android.AarGeneratorAction",
     runtime_deps = [
@@ -37,7 +45,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:package_manifest_proto",
+        "//src/main/protobuf:package_manifest_java_proto",
         "//third_party:android_common",
         "//third_party:apache_commons_compress",
         "//third_party:asm",

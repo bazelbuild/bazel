@@ -9,7 +9,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:dash_proto",
+        "//src/main/protobuf:dash_java_proto",
         "//third_party:apache_httpclient",
         "//third_party:apache_httpcore",
         "//third_party:guava",

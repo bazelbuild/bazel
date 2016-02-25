@@ -69,7 +69,7 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
     rootCauses.clear();
     lastBuildKeepGoing = false;
     EvaluationResult<TransitiveTargetValue> result = transitivePackageLoader.loadTransitiveTargets(
-        eventHandler, targetsToVisit, labelsToVisit, keepGoing);
+        eventHandler, targetsToVisit, labelsToVisit, keepGoing, parallelThreads);
     updateVisitedValues(result.values());
     lastBuildKeepGoing = keepGoing;
 

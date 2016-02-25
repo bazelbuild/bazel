@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2015 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,12 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.rules.objc;
-
-/**
- * Strings used to express requirements on action execution environments.
+/*
+ * Include this file in a target if it requires some source but you don't have
+ * any.
+ *
+ * ios_extension_binary rules only generate a static library Xcode target, and
+ * the ios_extension will generate an actual bundling Xcode target. Application
+ * and app extension targets need at least one source file for Xcode to be
+ * happy, so we can add this file for them.
  */
-public class ExecutionRequirements {
-  /** If an action would not successfully run other than on Darwin. */
-  public static final String REQUIRES_DARWIN = "requires-darwin";
-}
+
+static int dummy __attribute__((unused,used)) = 0;

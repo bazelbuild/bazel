@@ -111,7 +111,7 @@ public class RuleDocumentationAttributeTest {
     Attribute attribute = Attribute.attr("foo_version", Type.STRING)
         .value(defaultValue).build();
     RuleDocumentationAttribute attributeDoc = RuleDocumentationAttribute.create(
-        TestRule.class, "testrule", "${SYNOPSIS}", 0, NO_FLAGS);
+        TestRule.class, "testrule", "", 0, NO_FLAGS);
     attributeDoc.setAttribute(attribute);
     String doc = attributeDoc.getSynopsis();
     assertEquals("String; optional; default is \"" + defaultValue + "\"", doc);
@@ -123,7 +123,7 @@ public class RuleDocumentationAttributeTest {
     Attribute attribute = Attribute.attr("bar_limit", Type.INTEGER)
         .value(defaultValue).build();
     RuleDocumentationAttribute attributeDoc = RuleDocumentationAttribute.create(
-        TestRule.class, "testrule", "${SYNOPSIS}", 0, NO_FLAGS);
+        TestRule.class, "testrule", "", 0, NO_FLAGS);
     attributeDoc.setAttribute(attribute);
     String doc = attributeDoc.getSynopsis();
     assertEquals("Integer; optional; default is " + defaultValue, doc);
@@ -136,7 +136,7 @@ public class RuleDocumentationAttributeTest {
         .allowedFileTypes()
         .build();
     RuleDocumentationAttribute attributeDoc = RuleDocumentationAttribute.create(
-        TestRule.class, "testrule", "${SYNOPSIS}", 0, NO_FLAGS);
+        TestRule.class, "testrule", "", 0, NO_FLAGS);
     attributeDoc.setAttribute(attribute);
     String doc = attributeDoc.getSynopsis();
     assertEquals("List of <a href=\"../build-ref.html#labels\">labels</a>; optional", doc);
@@ -149,7 +149,7 @@ public class RuleDocumentationAttributeTest {
         .allowedFileTypes(CppFileTypes.CPP_HEADER)
         .build();
     RuleDocumentationAttribute attributeDoc = RuleDocumentationAttribute.create(
-        TestRule.class, "testrule", "${SYNOPSIS}", 0, NO_FLAGS);
+        TestRule.class, "testrule", "", 0, NO_FLAGS);
     attributeDoc.setAttribute(attribute);
     String doc = attributeDoc.getSynopsis();
     assertEquals("<a href=\"../build-ref.html#labels\">Label</a>; required", doc);

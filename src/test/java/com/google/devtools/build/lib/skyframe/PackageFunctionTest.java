@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
+import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.util.SubincludePreprocessor;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -511,6 +512,62 @@ public class PackageFunctionTest extends BuildViewTestCase {
             getSkyframeExecutor(), skyKey, /*keepGoing=*/ false, reporter);
     assertFalse(result.hasError());
     assertTrue(result.get(skyKey).getPackage().containsErrors());
+  }
+
+  // Regression test for the two ugly consequences of a bug where GlobFunction incorrectly matched
+  // dangling symlinks.
+  @Test
+  public void testIncrementalSkyframeHybridGlobbingOnDanglingSymlink() throws Exception {
+    Path packageDirPath = scratch.file("foo/BUILD",
+        "exports_files(glob(['*.txt']))").getParentDirectory();
+    scratch.file("foo/existing.txt");
+    FileSystemUtils.ensureSymbolicLink(packageDirPath.getChild("dangling.txt"), "nope");
+
+    getSkyframeExecutor().preparePackageLoading(
+        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
+        ConstantRuleVisibility.PUBLIC, true,
+        7, "", UUID.randomUUID());
+
+    SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("foo"));
+    PackageValue value = validPackage(skyKey);
+    assertFalse(value.getPackage().containsErrors());
+    assertThat(value.getPackage().getTarget("existing.txt").getName()).isEqualTo("existing.txt");
+    try {
+      value.getPackage().getTarget("dangling.txt");
+      fail();
+    } catch (NoSuchTargetException expected) {
+    }
+
+    scratch.overwriteFile("foo/BUILD",
+        "exports_files(glob(['*.txt'])),",
+        "#some-irrelevant-comment");
+
+    getSkyframeExecutor().invalidateFilesUnderPathForTesting(reporter,
+        ModifiedFileSet.builder().modify(new PathFragment("foo/BUILD")).build(), rootDirectory);
+
+    value = validPackage(skyKey);
+    assertFalse(value.getPackage().containsErrors());
+    assertThat(value.getPackage().getTarget("existing.txt").getName()).isEqualTo("existing.txt");
+    try {
+      value.getPackage().getTarget("dangling.txt");
+      fail();
+    } catch (NoSuchTargetException expected) {
+      // One consequence of the bug was that dangling symlinks were matched by globs evaluated by
+      // Skyframe globbing, meaning there would incorrectly be corresponding targets in packages
+      // that had skyframe cache hits during skyframe hybrid globbing.
+    }
+
+    scratch.file("foo/nope");
+    getSkyframeExecutor().invalidateFilesUnderPathForTesting(reporter,
+        ModifiedFileSet.builder().modify(new PathFragment("foo/nope")).build(), rootDirectory);
+
+    PackageValue newValue = validPackage(skyKey);
+    assertFalse(newValue.getPackage().containsErrors());
+    assertThat(newValue.getPackage().getTarget("existing.txt").getName()).isEqualTo("existing.txt");
+    // Another consequence of the bug is that change pruning would incorrectly cut off changes that
+    // caused a dangling symlink potentially matched by a glob to come into existence.
+    assertThat(newValue.getPackage().getTarget("dangling.txt").getName()).isEqualTo("dangling.txt");
+    assertThat(newValue.getPackage()).isNotSameAs(value.getPackage());
   }
 
   private static class CustomInMemoryFs extends InMemoryFileSystem {

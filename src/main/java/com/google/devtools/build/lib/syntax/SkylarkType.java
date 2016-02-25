@@ -174,8 +174,8 @@ public abstract class SkylarkType implements Serializable {
   /** The FUNCTION type, that contains all functions, otherwise dynamically typed at call-time */
   public static final SkylarkFunctionType FUNCTION = new SkylarkFunctionType("unknown", TOP);
 
-  /** The MAP type, that contains all Map's, and the generic combinator for maps */
-  public static final Simple MAP = Simple.of(Map.class);
+  /** The DICT type, that contains SkylarkDict */
+  public static final Simple DICT = Simple.of(SkylarkDict.class);
 
   /** The SEQUENCE type, that contains lists and tuples */
   // TODO(bazel-team): this was added for backward compatibility with the BUILD language,
@@ -313,6 +313,7 @@ public abstract class SkylarkType implements Serializable {
       this.argType = argType;
     }
 
+    @Override
     public boolean contains(Object value) {
       // The empty collection is member of compatible types
       if (value == null || !genericType.contains(value)) {
@@ -402,6 +403,7 @@ public abstract class SkylarkType implements Serializable {
       this.types = types;
     }
 
+    @Override
     public boolean contains(Object value) {
       for (SkylarkType type : types) {
         if (type.contains(value)) {
@@ -551,6 +553,7 @@ public abstract class SkylarkType implements Serializable {
           + "function";
     }
 
+    @Override
     public boolean contains(Object value) {
       // This returns true a bit too much, not looking at the result type.
       return value instanceof BaseFunction;
@@ -715,13 +718,13 @@ public abstract class SkylarkType implements Serializable {
    */
   public static Object convertToSkylark(Object object, @Nullable Environment env) {
     if (object instanceof List && !(object instanceof SkylarkList)) {
-      return new MutableList((List<?>) object, env);
+      return new MutableList<>((List<?>) object, env);
     }
     if (object instanceof SkylarkValue) {
       return object;
     }
-    if (object instanceof List) {
-      return new MutableList((List<?>) object, env);
+    if (object instanceof Map) {
+      return SkylarkDict.<Object, Object>copyOf(env, (Map<?, ?>) object);
     }
     // TODO(bazel-team): ensure everything is a SkylarkValue at all times.
     // Preconditions.checkArgument(EvalUtils.isSkylarkAcceptable(
@@ -730,5 +733,16 @@ public abstract class SkylarkType implements Serializable {
     //    object,
     //    object.getClass());
     return object;
+  }
+
+  public static void checkType(Object object, Class<?> type, @Nullable Object description)
+      throws EvalException {
+    if (!type.isInstance(object)) {
+      throw new EvalException(null,
+          Printer.format("Illegal argument: expected type %r %sbut got type %s instead",
+              type,
+              description == null ? "" : String.format("for %s ", description),
+              EvalUtils.getDataTypeName(object)));
+      }
   }
 }

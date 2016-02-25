@@ -26,7 +26,6 @@ import net.bytebuddy.implementation.bytecode.StackManipulation;
 
 import java.lang.reflect.Field;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -69,6 +68,31 @@ public final class Runtime {
       Printer.append(buffer, "None");
     }
   }
+
+  /** Marker for unbound variables in cases where neither Java null nor Skylark None is suitable. */
+  @Immutable
+  public static final class UnboundMarker implements SkylarkValue {
+    private UnboundMarker() {}
+
+    @Override
+    public String toString() {
+      return "<unbound>";
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true;
+    }
+
+    @Override
+    public void write(Appendable buffer, char quotationMark) {
+      Printer.append(buffer, "<unbound>");
+    }
+  }
+
+  @SkylarkSignature(name = "<unbound>", returnType = UnboundMarker.class, documented = false,
+      doc = "Marker for unbound values in cases where neither Skylark None nor Java null can do.")
+  public static final UnboundMarker UNBOUND = new UnboundMarker();
 
   /**
    * Load {@link #NONE} on the stack.
@@ -120,18 +144,13 @@ public final class Runtime {
    */
   public static void registerFunction(Class<?> nameSpace, BaseFunction function) {
     Preconditions.checkNotNull(nameSpace);
-    // TODO(bazel-team): fix our code so that the two checks below work.
-    // Preconditions.checkArgument(function.getObjectType().equals(nameSpace));
-    // Preconditions.checkArgument(nameSpace.equals(getCanonicalRepresentation(nameSpace)));
-    nameSpace = getCanonicalRepresentation(nameSpace);
+    Preconditions.checkArgument(nameSpace.equals(getCanonicalRepresentation(nameSpace)));
+    Preconditions.checkArgument(
+        getCanonicalRepresentation(function.getObjectType()).equals(nameSpace));
     if (!functions.containsKey(nameSpace)) {
       functions.put(nameSpace, new HashMap<String, BaseFunction>());
     }
     functions.get(nameSpace).put(function.getName(), function);
-  }
-
-  static Map<String, BaseFunction> getNamespaceFunctions(Class<?> nameSpace) {
-    return functions.get(getCanonicalRepresentation(nameSpace));
   }
 
   /**
@@ -143,18 +162,15 @@ public final class Runtime {
    */
   // TODO(bazel-team): make everything a SkylarkValue, and remove this function.
   public static Class<?> getCanonicalRepresentation(Class<?> clazz) {
-    if (SkylarkValue.class.isAssignableFrom(clazz)) {
-      return clazz;
-    }
-    if (Map.class.isAssignableFrom(clazz)) {
-      return MethodLibrary.DictModule.class;
-    }
     if (String.class.isAssignableFrom(clazz)) {
       return MethodLibrary.StringModule.class;
     }
-    Preconditions.checkArgument(
-        !List.class.isAssignableFrom(clazz), "invalid non-SkylarkList list class");
-    return clazz;
+    return EvalUtils.getSkylarkType(clazz);
+  }
+
+
+  static Map<String, BaseFunction> getNamespaceFunctions(Class<?> nameSpace) {
+    return functions.get(getCanonicalRepresentation(nameSpace));
   }
 
   /**

@@ -44,16 +44,9 @@ void WarnFilesystemType(const string& output_base) {
 
 string GetSelfPath() {
   char buffer[PATH_MAX] = {};
-  ssize_t bytes = readlink("/proc/self/exe", buffer, sizeof(buffer));
-  if (bytes == sizeof(buffer)) {
-    // symlink contents truncated
-    bytes = -1;
-    errno = ENAMETOOLONG;
+  if (!GetModuleFileName(0, buffer, sizeof(buffer))) {
+    pdie(255, "Error %u getting executable file name\n", GetLastError());
   }
-  if (bytes == -1) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "error reading /proc/self/exe");
-  }
-  buffer[bytes] = '\0';  // readlink does not NUL-terminate
   return string(buffer);
 }
 
@@ -122,12 +115,11 @@ void ReplaceAll(
     pos += with.length();
   }
 }
-}  // namespace
 
-// Replace the current process with the given program in the given working
-// directory, using the given argument vector.
-// This function does not return on success.
-void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
+// Run the given program in the current working directory,
+// using the given argument vector.
+DWORD CreateProcessWrapper(
+    const string& exe, const vector<string>& args_vector) {
   if (VerboseLogging()) {
     string dbg;
     for (const auto& s : args_vector) {
@@ -219,9 +211,16 @@ void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
   GetExitCodeProcess(pi.hProcess, &exit_code);
   CloseHandle(pi.hProcess);
   CloseHandle(pi.hThread);
+  return exit_code;
+}
+}  // namespace
 
+// Replace the current process with the given program in the current working
+// directory, using the given argument vector.
+// This function does not return on success.
+void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
   // Emulate execv.
-  exit(exit_code);
+  exit(CreateProcessWrapper(exe, args_vector));
 }
 
 string ListSeparator() { return ";"; }
@@ -232,6 +231,19 @@ string ConvertPath(const string& path) {
   string result(wpath);
   free(wpath);
   return result;
+}
+
+bool SymlinkDirectories(const string &target, const string &link) {
+  const string target_win = ConvertPath(target);
+  const string link_win = ConvertPath(link);
+  vector<string> args;
+  args.push_back("cmd");
+  args.push_back("/C");
+  args.push_back("mklink");
+  args.push_back("/J");
+  args.push_back(link_win);
+  args.push_back(target_win);
+  return CreateProcessWrapper("cmd", args) == 0;
 }
 
 }  // namespace blaze

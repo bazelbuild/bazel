@@ -55,49 +55,51 @@ title: Build Encyclopedia
 #macro(summaryTable $ruleFamilies)
   <tbody>
   #foreach($ruleFamily in $ruleFamilies)
-    <tr>
-      <td class="lang">${ruleFamily.name}</td>
-      <td>
-    #foreach($ruleDoc in $ruleFamily.binaryRules)
-      <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-          ${ruleDoc.ruleName}
-        </a>
-        <br />
+    #if($ruleFamily.size() > 0)
+      <tr>
+        <td class="lang">${ruleFamily.name}</td>
+        <td>
+      #foreach($ruleDoc in $ruleFamily.binaryRules)
+        <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+            ${ruleDoc.ruleName}
+          </a>
+          <br />
+      #end
+        </td>
+        <td>
+      #foreach($ruleDoc in $ruleFamily.libraryRules)
+        <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+            ${ruleDoc.ruleName}
+          </a>
+          <br />
+      #end
+        </td>
+        <td>
+      #foreach($ruleDoc in $ruleFamily.testRules)
+        <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+            ${ruleDoc.ruleName}
+          </a>
+          <br />
+      #end
+        </td>
+        <td>
+      #foreach($ruleDoc in $ruleFamily.otherRules1)
+        <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+            ${ruleDoc.ruleName}
+          </a>
+          <br />
+      #end
+        </td>
+        <td>
+      #foreach($ruleDoc in $ruleFamily.otherRules2)
+        <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
+            ${ruleDoc.ruleName}
+          </a>
+          <br />
+      #end
+        </td>
+      </tr>
     #end
-      </td>
-      <td>
-    #foreach($ruleDoc in $ruleFamily.libraryRules)
-      <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-          ${ruleDoc.ruleName}
-        </a>
-        <br />
-    #end
-      </td>
-      <td>
-    #foreach($ruleDoc in $ruleFamily.testRules)
-      <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-          ${ruleDoc.ruleName}
-        </a>
-        <br />
-    #end
-      </td>
-      <td>
-    #foreach($ruleDoc in $ruleFamily.otherRules1)
-      <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-          ${ruleDoc.ruleName}
-        </a>
-        <br />
-    #end
-      </td>
-      <td>
-    #foreach($ruleDoc in $ruleFamily.otherRules2)
-      <a href="${ruleFamily.id}.html#${ruleDoc.ruleName}"#if($ruleDoc.isDeprecated()) class="deprecated"#end>
-          ${ruleDoc.ruleName}
-        </a>
-        <br />
-    #end
-      </td>
-    </tr>
   #end
   </tbody>
 #end

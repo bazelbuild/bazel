@@ -28,7 +28,7 @@ import com.google.devtools.build.skyframe.SkyValue;
 public class NewLocalRepositoryFunction extends RepositoryFunction {
 
   @Override
-  public boolean isLocal() {
+  public boolean isLocal(Rule rule) {
     return true;
   }
 

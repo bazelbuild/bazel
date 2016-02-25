@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import java.io.File;
 import java.nio.file.Path;
 
 /**
@@ -38,16 +37,16 @@ class MergedAndroidData {
     this.manifest = manifest;
   }
 
-  public File getResourceDirFile() {
-    return resourceDir.toFile();
+  public Path getResourceDir() {
+    return resourceDir;
   }
 
-  public File getAssetDirFile() {
-    return assetDir != null ? assetDir.toFile() : null;
+  public Path getAssetDir() {
+    return assetDir;
   }
 
-  public File getManifestFile() {
-    return manifest.toFile();
+  public Path getManifest() {
+    return manifest;
   }
 
   public DensityFilteredAndroidData filter(

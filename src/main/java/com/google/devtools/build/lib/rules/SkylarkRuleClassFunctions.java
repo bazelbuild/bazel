@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TestSize;
 import com.google.devtools.build.lib.rules.SkylarkAttr.Descriptor;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkSignature.Param;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkValue;
@@ -86,6 +87,7 @@ import com.google.devtools.build.lib.syntax.FunctionSignature;
 import com.google.devtools.build.lib.syntax.Printer;
 import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SkylarkCallbackFunction;
+import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.syntax.SkylarkSignatureProcessor;
@@ -234,7 +236,7 @@ public class SkylarkRuleClassFunctions {
    * In native code, private values start with $.
    * In Skylark, private values start with _, because of the grammar.
    */
-  private static String attributeToNative(String oldName, Location loc, boolean isLateBound)
+  public static String attributeToNative(String oldName, Location loc, boolean isLateBound)
       throws EvalException {
     if (oldName.isEmpty()) {
       throw new EvalException(loc, "Attribute name cannot be empty");
@@ -269,7 +271,8 @@ public class SkylarkRuleClassFunctions {
             doc = "Whether this rule is a test rule. "
             + "If True, the rule must end with <code>_test</code> (otherwise it must not), "
             + "and there must be an action that generates <code>ctx.outputs.executable</code>."),
-        @Param(name = "attrs", type = Map.class, noneable = true, defaultValue = "None", doc =
+        @Param(name = "attrs", type = SkylarkDict.class, noneable = true, defaultValue = "None",
+            doc =
             "dictionary to declare all the attributes of the rule. It maps from an attribute name "
             + "to an attribute object (see <a href=\"attr.html\">attr</a> module). "
             + "Attributes starting with <code>_</code> are private, and can be used to add "
@@ -278,7 +281,7 @@ public class SkylarkRuleClassFunctions {
             + "<code>deprecation</code>, <code>tags</code>, <code>testonly</code>, and "
             + "<code>features</code> are implicitly added and might be overriden."),
             // TODO(bazel-team): need to give the types of these builtin attributes
-        @Param(name = "outputs", type = Map.class, callbackEnabled = true, noneable = true,
+        @Param(name = "outputs", type = SkylarkDict.class, callbackEnabled = true, noneable = true,
             defaultValue = "None", doc = "outputs of this rule. "
             + "It is a dictionary mapping from string to a template name. "
             + "For example: <code>{\"ext\": \"%{name}.ext\"}</code>. <br>"
@@ -390,12 +393,12 @@ public class SkylarkRuleClassFunctions {
 
 
   @SkylarkSignature(name = "aspect", doc =
-    "Creates a new aspect. The result of this fucntion must be stored in a global value.",
+    "Creates a new aspect. The result of this function must be stored in a global value.",
     returnType = SkylarkAspect.class,
     mandatoryPositionals = {
         @Param(name = "implementation", type = BaseFunction.class,
             doc = "the function implementing this aspect. Must have two parameters: "
-            + "<a href=\"Target.html\">Target</a> (the target to which the aspect is applied) and"
+            + "<a href=\"Target.html\">Target</a> (the target to which the aspect is applied) and "
             + "<a href=\"ctx.html\">ctx</a>. Attributes of the target are available via ctx.rule "
             + " field. The function is called during the analysis phase for each application of "
             + "an aspect to a target."
@@ -407,7 +410,7 @@ public class SkylarkRuleClassFunctions {
         doc = "List of attribute names.  The aspect propagates along dependencies specified by "
         + " attributes of a target with this name"
       ),
-      @Param(name = "attrs", type = Map.class, noneable = true, defaultValue = "None",
+      @Param(name = "attrs", type = SkylarkDict.class, noneable = true, defaultValue = "None",
         doc = "dictionary to declare all the attributes of the aspect.  "
         + "It maps from an attribute name to an attribute object "
         + "(see <a href=\"attr.html\">attr</a> module). "
@@ -751,6 +754,7 @@ public class SkylarkRuleClassFunctions {
   /**
    * A Skylark value that is a result of 'aspect(..)' function call.
    */
+  @SkylarkModule(name = "aspect", doc = "", documented = false)
   public static final class SkylarkAspect implements SkylarkValue {
     private final BaseFunction implementation;
     private final ImmutableList<String> attributeAspects;
@@ -893,10 +897,12 @@ public class SkylarkRuleClassFunctions {
       return aspectDefinition;
     }
 
+    @Override
     public Label getExtensionLabel() {
       return extensionLabel;
     }
 
+    @Override
     public String getExportedName() {
       return exportedName;
     }

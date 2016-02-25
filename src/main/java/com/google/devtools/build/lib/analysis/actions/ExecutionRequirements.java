@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2014 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package scala.test;
+package com.google.devtools.build.lib.analysis.actions;
 
-/** Example class */
-public class OtherJavaLib {
-  public static String getMessage() {
-    return "java!";
-  }
+/**
+ * Strings used to express requirements on action execution environments.
+ */
+public class ExecutionRequirements {
+  /** If an action would not successfully run other than on Darwin. */
+  public static final String REQUIRES_DARWIN = "requires-darwin";
 }

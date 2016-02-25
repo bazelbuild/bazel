@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
@@ -1660,12 +1661,40 @@ public final class RuleContext extends TargetContext
     }
 
     private void validateMandatoryProviders(ConfiguredTarget prerequisite, Attribute attribute) {
-      for (String provider : attribute.getMandatoryProviders()) {
-        if (prerequisite.get(provider) == null) {
-          attributeError(attribute.getName(), "'" + prerequisite.getLabel()
-              + "' does not have mandatory provider '" + provider + "'");
+      List<ImmutableSet<String>> mandatoryProvidersList = attribute.getMandatoryProvidersList();
+      if (mandatoryProvidersList.isEmpty()) {
+        return;
+      }
+      List<List<String>> missingProvidersList = new ArrayList<>();
+      for (ImmutableSet<String> providers : mandatoryProvidersList) {
+        List<String> missing = new ArrayList<>();
+        for (String provider : providers) {
+          if (prerequisite.get(provider) == null) {
+            missing.add(provider);
+          }
+        }
+        if (missing.isEmpty()) {
+          return;
+        } else {
+          missingProvidersList.add(missing);
         }
       }
+      StringBuilder missingProviders = new StringBuilder();
+      Joiner joinProvider = Joiner.on("', '");
+      for (List<String> providers : missingProvidersList) {
+        if (missingProviders.length() > 0) {
+          missingProviders.append(" or ");
+        }
+        missingProviders.append((providers.size() > 1) ? "[" : "")
+                        .append("'");
+        joinProvider.appendTo(missingProviders, providers);
+        missingProviders.append("'")
+                        .append((providers.size() > 1) ? "]" : "");
+      }
+      attributeError(
+          attribute.getName(),
+          "'" + prerequisite.getLabel() + "' does not have mandatory provider "
+                  + missingProviders);
     }
 
     private void validateDirectPrerequisite(Attribute attribute, ConfiguredTarget prerequisite) {

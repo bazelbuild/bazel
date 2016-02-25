@@ -230,6 +230,11 @@ message CToolchain {
   // makes it output normalized archives that don't contain timestamps.
   optional bool supports_normalizing_ar = 26 [default = false];
   optional bool supports_fission = 43 [default = false];
+  // Can generate dsym debug symbol information.
+  optional bool supports_dsym = 51 [default = false];
+  // Can generate a breakpad file. Requires that support_dsym=true,
+  // otherwise an error will be thrown.
+  optional bool supports_breakpad = 52 [default = false];
   optional bool needsPic = 12 [default = false];
 
   // Compiler flags for C/C++/Asm compilation.
@@ -328,7 +333,7 @@ message CToolchain {
   // why they are recorded here.
   repeated string debian_extra_requires = 33;
 
-  // Next free id: 51
+  // Next free id: 53
 }
 
 message ToolPath {

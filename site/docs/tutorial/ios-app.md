@@ -13,9 +13,11 @@ Here, you'll do the following:
 
 *   Review the source files for the app
 *   Create a `BUILD` file
-*   Run the build
+*   Build the app for the simulator
 *   Find the build outputs
-*   Run the app
+*   Run/Debug the app on the simulator
+*   Build the app for a device
+*   Install the app on a device
 
 Note that, unlike with the Android app, you don't have to modify your
 `WORKSPACE` file to add iOS-specific external dependencies.
@@ -110,7 +112,7 @@ Now, save and close the file. You can compare your `BUILD` file to the
 [completed example](https://github.com/bazelbuild/examples/blob/master/tutorial/ios-app/BUILD)
 in the `master` branch of the GitHub repo.
 
-## Run the build
+## Build the app for the simulator
 
 Make sure that your current working directory is inside your Bazel workspace:
 
@@ -140,7 +142,7 @@ INFO: Elapsed time: 3.765s, Critical Path: 3.44s
 The `.ipa` file and other outputs are located in the
 `$WORKSPACE/bazel-bin/ios-app` directory.
 
-## Run the app
+## Run/Debug the app on the simulator
 
 You can now run the app from Xcode using the iOS Simulator. To run the app,
 open the project directory `$WORKSPACE/bazel-bin/ios-app/ios-app.xcodeproj` in
@@ -150,6 +152,53 @@ button.
 **Note:** If you change anything about the project file set in Xcode (for
 example, if you add or remove a file, or add or change a dependency), you must
 rebuild the app using Bazel and then re-open the project.
+
+## Build the app for a device
+
+You need to set up bazel so that it can find the appropriate provisioning
+profile for the device you want to build for. To set up the "default"
+provisioning profile for all bazel builds:
+
+   1. Go to [Apple Profiles](https://developer.apple.com/account/ios/profile/profileList.action)
+      and download the appropriate provisioning profile for your device.
+      If this is confusing, please refer to [Apple's documentation](https://developer.apple.com/library/ios/documentation/IDEs/Conceptual/AppDistributionGuide/MaintainingProfiles/MaintainingProfiles.html).
+   1. Move your profile into `$WORKSPACE/tools/objc`.
+   1. Optional - You may want to add your profile to your `.gitignore`.
+   1. Edit `$WORKSPACE/tools/objc/BUILD` and add:
+
+      ```python
+      filegroup(
+          name = "default_provisioning_profile",
+          srcs = ["<NAME OF YOUR PROFILE>.mobileprovision"],
+      )
+      ```
+
+Now you should be able to build the app for your device:
+
+```bash
+$ bazel build //ios-app:ios-app --ios_multi_cpus=armv7,arm64
+```
+
+This will build the app "fat". If you would prefer just to build for
+your specific device architecture you can designate a single architecture.
+
+If you would like to select a specific Xcode version/SDK version you can do so
+with the `--xcode_version=7.2 --ios_sdk_version=9.2` options. Make sure that
+the Xcode version that you select has the appropriate SDK installed in it.
+
+If you would like to specify a minimum version of iOS to run against, you can
+do so with the `--ios_minimum_os=7.0` option.
+
+## Install the app on a device
+
+The easiest way to install the app on the device is to launch Xcode and use the
+`Windows > Devices` command. Select your plugged in device from the list on the
+left, and then add the app by clicking on the "plus" sign under installed apps
+and selecting the `.ipa` that you built.
+
+If your app does not launch, please make sure that your device was on your
+provisioning profile. The `View Device Logs` button on the `Devices` screen in
+Xcode may provide other information as to what has gone wrong.
 
 ## What's next
 

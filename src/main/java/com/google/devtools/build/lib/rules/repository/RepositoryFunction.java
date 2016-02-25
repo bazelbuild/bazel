@@ -159,7 +159,7 @@ public abstract class RepositoryFunction {
    * <p>If this is false, Bazel may decide not to re-fetch the repository, for example when the
    * {@code --nofetch} command line option is used.
    */
-  protected abstract boolean isLocal();
+  protected abstract boolean isLocal(Rule rule);
 
   /**
    * Returns a block of data that must be equal for two Rules for them to be considered the same.

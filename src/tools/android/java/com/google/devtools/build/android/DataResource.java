@@ -11,12 +11,20 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+package com.google.devtools.build.android;
 
-package scala.test;
+import java.io.IOException;
+import java.nio.file.Path;
 
-/** Example class */
-public class JavaBinary {
-  public static void main(String[] args) {
-    HelloLib.printMessage("Hello");
-  }
+/**
+ * Represents an Android Resource parsed from an xml or binary file.
+ */
+public interface DataResource {
+
+  /**
+   * Writes the resource to the given resource directory.
+   * @param newResourceDirectory The new directory for this resource.
+   * @throws IOException if there are issues with writing the resource.
+   */
+  void write(Path newResourceDirectory) throws IOException;
 }

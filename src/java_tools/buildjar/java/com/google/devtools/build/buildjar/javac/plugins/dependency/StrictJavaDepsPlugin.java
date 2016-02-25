@@ -67,7 +67,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   private static final boolean USE_COLOR = true;
   private ImplicitDependencyExtractor implicitDependencyExtractor;
   private CheckingTreeScanner checkingTreeScanner;
-  private DependencyModule dependencyModule;
+  private final DependencyModule dependencyModule;
 
   /** Marks seen compilation toplevels and their import sections */
   private final Set<JCTree.JCCompilationUnit> toplevels;

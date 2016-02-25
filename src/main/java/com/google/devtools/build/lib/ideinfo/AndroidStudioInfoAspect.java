@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.AndroidRuleIdeInfo;
-import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.AndroidSdkRuleInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.ArtifactLocation;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.JavaRuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.LibraryArtifact;
@@ -60,18 +59,15 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.SourceDirectory;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
-import com.google.devtools.build.lib.rules.android.LocalResourceContainer;
 import com.google.devtools.build.lib.rules.java.JavaExportsProvider;
 import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.MessageLite;
 
@@ -267,15 +263,6 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
     return new DependenciesResult(dependencies, runtimeDepsBuilder.build());
   }
 
-  private static AndroidSdkRuleInfo makeAndroidSdkRuleInfo(AndroidSdkProvider provider) {
-    AndroidSdkRuleInfo.Builder sdkInfoBuilder = AndroidSdkRuleInfo.newBuilder();
-
-    Path androidSdkDirectory = provider.getAndroidJar().getPath().getParentDirectory();
-    sdkInfoBuilder.setAndroidSdkPath(androidSdkDirectory.toString());
-
-    return sdkInfoBuilder.build();
-  }
-
   private AndroidStudioInfoFilesProvider createIdeBuildArtifact(
       ConfiguredTarget base,
       RuleContext ruleContext,
@@ -329,11 +316,7 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
         || ruleKind == Kind.ANDROID_BINARY
         || ruleKind == Kind.ANDROID_TEST) {
       outputBuilder.setAndroidRuleIdeInfo(
-          makeAndroidRuleIdeInfo(ruleContext, base, ideResolveArtifacts));
-    }
-    if (ruleKind == Kind.ANDROID_SDK) {
-      outputBuilder.setAndroidSdkRuleInfo(
-          makeAndroidSdkRuleInfo(base.getProvider(AndroidSdkProvider.class)));
+          makeAndroidRuleIdeInfo(base, ideResolveArtifacts));
     }
 
     AndroidStudioInfoFilesProvider provider = providerBuilder.build();
@@ -420,7 +403,6 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
   }
 
   private static AndroidRuleIdeInfo makeAndroidRuleIdeInfo(
-      RuleContext ruleContext,
       ConfiguredTarget base,
       NestedSetBuilder<Artifact> ideResolveArtifacts) {
     AndroidRuleIdeInfo.Builder builder = AndroidRuleIdeInfo.newBuilder();
@@ -444,7 +426,7 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
       builder.addResources(artifactLocation);
     }
 
-    builder.setJavaPackage(AndroidCommon.getJavaPackage(ruleContext));
+    builder.setJavaPackage(provider.getJavaPackage());
 
     boolean hasIdlSources = !provider.getIdlSrcs().isEmpty();
     builder.setHasIdlSources(hasIdlSources);
@@ -465,8 +447,7 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
       }
     }
 
-    builder.setGenerateResourceClass(
-        LocalResourceContainer.definesAndroidResources(ruleContext.attributes()));
+    builder.setGenerateResourceClass(provider.definesAndroidResources());
 
     return builder.build();
   }

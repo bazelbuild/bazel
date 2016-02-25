@@ -54,7 +54,7 @@ bool IsSharedLibrary(const std::string& filename);
 // (must be an absolute directory).
 std::string GetDefaultHostJavabase();
 
-// Replace the current process with the given program in the given working
+// Replace the current process with the given program in the current working
 // directory, using the given argument vector.
 // This function does not return on success.
 void ExecuteProgram(const string& exe, const std::vector<string>& args_vector);
@@ -67,6 +67,11 @@ std::string ConvertPath(const std::string& path);
 
 // Return a string used to separate paths in a list.
 std::string ListSeparator();
+
+// Create a symlink to directory ``target`` at location ``link``.
+// Returns true on success, false on failure.
+// Implemented via junctions on Windows.
+bool SymlinkDirectories(const string &target, const string &link);
 
 }  // namespace blaze
 

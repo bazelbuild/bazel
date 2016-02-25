@@ -1294,7 +1294,7 @@ public class Package {
       return pkg;
     }
 
-    protected ExternalPackageBuilder externalPackageData() {
+    public ExternalPackageBuilder externalPackageData() {
       return externalPackageData;
     }
 

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.rules.genrule;
 
 import static com.google.devtools.build.lib.analysis.RunfilesProvider.withData;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -132,13 +133,13 @@ public class GenRule implements RuleConfiguredTargetFactory {
     ruleContext.registerAction(
         new GenRuleAction(
             ruleContext.getActionOwner(),
-            commandHelper.getResolvedTools(),
+            ImmutableList.copyOf(commandHelper.getResolvedTools()),
             inputs.build(),
             filesToBuild,
             argv,
             env,
             ImmutableMap.copyOf(executionInfo),
-            commandHelper.getRemoteRunfileManifestMap(),
+            ImmutableMap.copyOf(commandHelper.getRemoteRunfileManifestMap()),
             message + ' ' + ruleContext.getLabel()));
 
     RunfilesProvider runfilesProvider = withData(

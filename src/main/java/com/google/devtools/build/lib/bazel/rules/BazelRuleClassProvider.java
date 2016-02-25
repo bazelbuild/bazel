@@ -343,6 +343,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new ObjcRuleClasses.CompileDependencyRule());
     builder.addRuleDefinition(new ObjcRuleClasses.ResourceToolsRule());
     builder.addRuleDefinition(new ObjcRuleClasses.XcrunRule());
+    builder.addRuleDefinition(new ObjcRuleClasses.IpaRule());
     builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule());
     builder.addRuleDefinition(new IosApplicationRule());
     builder.addRuleDefinition(new IosExtensionBinaryRule());

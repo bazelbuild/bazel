@@ -93,7 +93,11 @@ filegroup(
 
 filegroup(
     name = "jdk-bin",
-    srcs = glob(["bin/**"]),
+    srcs = glob(
+        ["bin/**"],
+        # The JDK on Windows sometimes contains a directory called
+        # "%systemroot%", which is not a valid label.
+        exclude = ["**/*%*/**"]),
 )
 
 filegroup(
@@ -105,7 +109,7 @@ filegroup(
     name = "jdk-lib",
     srcs = glob(
         ["lib/**"],
-        exclude= [
+        exclude = [
             "lib/missioncontrol/**",
             "lib/visualvm/**",
         ]),

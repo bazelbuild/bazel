@@ -68,12 +68,13 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     assertThat(ruleIdeInfos.size()).isEqualTo(1);
     RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(
         "//com/google/example:simple", ruleIdeInfos);
-    if (isNativeTest()) {
+    ArtifactLocation location = ruleIdeInfo.getBuildFileArtifactLocation();
+    assertThat(location.getRelativePath()).isEqualTo("com/google/example/BUILD");
+    assertThat(location.getIsSource()).isTrue();
+    if (isNativeTest()) {  // These will not be implemented in Skylark aspect.
       assertThat(ruleIdeInfo.getBuildFile()).isEqualTo(buildFilePath.toString());
-      ArtifactLocation location = ruleIdeInfo.getBuildFileArtifactLocation();
       assertThat(Paths.get(location.getRootPath(), location.getRelativePath()).toString())
           .isEqualTo(buildFilePath.toString());
-      assertThat(location.getRelativePath()).isEqualTo("com/google/example/BUILD");
     }
     assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.JAVA_LIBRARY);
     assertThat(ruleIdeInfo.getDependenciesCount()).isEqualTo(0);
@@ -462,10 +463,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAspectIsPropagatedAcrossExports() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -588,10 +585,10 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
               transform(
                   ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
           .containsExactly("com/google/example/res");
-      assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
-          .isEqualTo("com/google/example/AndroidManifest.xml");
-      assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
     }
+    assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
+        .isEqualTo("com/google/example/AndroidManifest.xml");
+    assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
 
     assertThat(ruleInfo.getDependenciesList()).containsExactly("//com/google/example:l1");
     assertThat(getIdeResolveFiles()).containsExactly(
@@ -645,12 +642,13 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
               transform(
                   ruleInfo.getAndroidRuleIdeInfo().getResourcesList(), ARTIFACT_TO_RELATIVE_PATH))
           .containsExactly("com/google/example/res");
-      assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
-          .isEqualTo("com/google/example/AndroidManifest.xml");
-      assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
-      assertThat(ruleInfo.getAndroidRuleIdeInfo().getApk().getRelativePath())
-          .isEqualTo("com/google/example/b.apk");
     }
+    assertThat(ruleInfo.getAndroidRuleIdeInfo().getManifest().getRelativePath())
+        .isEqualTo("com/google/example/AndroidManifest.xml");
+    assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage()).isEqualTo("com.google.example");
+    assertThat(ruleInfo.getAndroidRuleIdeInfo().getApk().getRelativePath())
+        .isEqualTo("com/google/example/b.apk");
+
 
     assertThat(ruleInfo.getDependenciesList()).containsExactly("//com/google/example:l1");
 
@@ -673,10 +671,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidInferredPackage() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "java/com/google/example/BUILD",
         "android_library(",
@@ -699,10 +693,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidLibraryWithoutAidlHasNoIdlJars() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "java/com/google/example/BUILD",
         "android_library(",
@@ -719,10 +709,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidLibraryWithAidlHasIdlJars() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "java/com/google/example/BUILD",
         "android_library(",
@@ -751,10 +737,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidLibraryGeneratedManifestIsAddedToOutputGroup() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "com/google/example/BUILD",
         "android_library(",
@@ -834,10 +816,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testNonConformingPackageName() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "bad/package/google/example/BUILD",
         "android_library(",
@@ -918,7 +896,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
             .setRootPath(
                 isNativeTest() ? targetConfig.getGenfilesDirectory().getPath().getPathString() : "")
             .setRootExecutionPathFragment(
-                isNativeTest() ? targetConfig.getGenfilesDirectory().getExecPathString() : "")
+                targetConfig.getGenfilesDirectory().getExecPathString())
             .setRelativePath("com/google/example/gen.java")
             .setIsSource(false)
             .build(),
@@ -953,10 +931,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testRuntimeDepsAddedToProto() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "com/google/example/BUILD",
         "java_library(",
@@ -990,10 +964,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testAndroidLibraryGeneratesResourceClass() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "java/com/google/example/BUILD",
         "android_library(",
@@ -1026,10 +996,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
 
   @Test
   public void testJavaPlugin() throws Exception {
-    if (!isNativeTest()) {
-      return;
-    }
-
     scratch.file(
         "java/com/google/example/BUILD",
         "java_plugin(",
@@ -1055,7 +1021,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
    * Eventually Skylark aspect will be equivalent to a native one, and this method
    * will be removed.
    */
-  public boolean isNativeTest() {
+  protected boolean isNativeTest() {
     return true;
   }
 

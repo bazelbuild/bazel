@@ -178,9 +178,19 @@ public final class Command {
 
   /**
    * Creates a new {@link Command} for the given command line elements. The
-   * command line is executed exactly as given, without a shell. The given
-   * environment variables and working directory are used in subsequent
+   * command line is executed without a shell.
+   *
+   * The given environment variables and working directory are used in subsequent
    * calls to {@link #execute()}.
+   *
+   * This command treats the  0-th element of {@code commandLineElement}
+   * (the name of an executable to run) specially.
+   * <ul>
+   *  <li>If it is an absolute path, it is used as it</li>
+   *  <li>If it is a single file name, the PATH lookup is performed</li>
+   *  <li>If it is a relative path that is not a single file name, the command will attempt to
+   *       execute the the binary at that path relative to {@code workingDirectory}.</li>
+   * </ul>
    *
    * @param commandLineElements elements of raw command line to execute
    * @param environmentVariables environment variables to replace JVM's
@@ -189,12 +199,20 @@ public final class Command {
    * working directory is used
    * @throws IllegalArgumentException if commandLine is null or empty
    */
-  public Command(final String[] commandLineElements,
-                 final Map<String, String> environmentVariables,
-                 final File workingDirectory) {
+  public Command(
+      String[] commandLineElements,
+      final Map<String, String> environmentVariables,
+      final File workingDirectory) {
     if (commandLineElements == null || commandLineElements.length == 0) {
       throw new IllegalArgumentException("command line is null or empty");
     }
+
+    File executable = new File(commandLineElements[0]);
+    if (!executable.isAbsolute() && executable.getParent() != null) {
+      commandLineElements = commandLineElements.clone();
+      commandLineElements[0] = new File(workingDirectory, commandLineElements[0]).getAbsolutePath();
+    }
+
     this.processBuilder =
       new ProcessBuilder(commandLineElements);
     if (environmentVariables != null) {
@@ -604,6 +622,7 @@ public final class Command {
    *  E.g., you could pass {@link System#out} as <code>stdOut</code>.
    * @param stdErr the process will write its standard error into this stream.
    *  E.g., you could pass {@link System#err} as <code>stdErr</code>.
+   * @param closeOutput whether to close stdout / stderr when the process closes its output streams.
    * @return An object that can be used to check if the process terminated and
    *  obtain the process results.
    * @throws ExecFailedException if {@link Runtime#exec(String[])} fails for any
@@ -613,7 +632,8 @@ public final class Command {
   public FutureCommandResult executeAsynchronously(final InputStream stdinInput,
                                     final KillableObserver observer,
                                     final OutputStream stdOut,
-                                    final OutputStream stdErr)
+                                    final OutputStream stdErr,
+                                    final boolean closeOutput)
       throws CommandException {
     // supporting "null" here for backwards compatibility
     final KillableObserver theObserver =
@@ -622,7 +642,14 @@ public final class Command {
     return doExecute(new InputStreamInputSource(stdinInput),
         theObserver,
         Consumers.createStreamingConsumers(stdOut, stdErr),
-        /*killSubprocess=*/false, /*closeOutput=*/false);
+        /*killSubprocess=*/false, closeOutput);
+  }
+  public FutureCommandResult executeAsynchronously(final InputStream stdinInput,
+      final KillableObserver observer,
+      final OutputStream stdOut,
+      final OutputStream stdErr)
+      throws CommandException {
+    return executeAsynchronously(stdinInput, observer, stdOut, stdErr, /*closeOutput=*/false);
   }
 
   // End of public API -------------------------------------------------------

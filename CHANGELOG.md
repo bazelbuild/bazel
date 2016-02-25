@@ -1,3 +1,42 @@
+## Release 0.2.0 (2016-02-18)
+
+```
+Baseline: 9e100ac
+```
+
+Incompatible changes:
+
+  - ObjC compile actions for J2ObjC-translated code now only has
+    access to headers from the java deps of the associated original
+    java rule.
+    These compile actions no longer takes the compiler options
+    specified in "copts" attribute on objc_binary/ios_test rules.
+    J2ObjC dead code removal (enabled through flag
+    "--j2objc_dead_code_removal") now happens *after* ObjC
+    compilation.
+  - maven_jar no longer supports separate artifact_id, group_id, and
+    verison fields. This information should be provided in the
+    artifact field,
+    instead.
+
+New features:
+
+  - Better support for toolchains that don't have a dynamic linker.
+  - build_file_content attribute added to new_git_repository,
+    new_http_archive, and new_local_repository.
+  - Add support for .tar.bz2 archives to http_archive rules.
+
+Important changes:
+
+  - The --skyframe flag is no longer available for the build command.
+  - The --artifacts flag was removed from the dump command.
+  - The sha256 attribute is now optional (although recommended!) for
+    remote repository rules.
+  - Add instrumented file provider support to Skylark rules.
+  - Add imports attribute to native Python rules.
+  - Allow overriding -gsplit-dwarf from copts.
+  - Improved sandbox performance on XFS filesystems.
+
 ## Release 0.1.5 (2016-02-05)
 
 ```

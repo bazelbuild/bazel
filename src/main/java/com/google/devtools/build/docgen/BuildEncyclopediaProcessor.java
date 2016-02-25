@@ -135,7 +135,9 @@ public class BuildEncyclopediaProcessor {
     writeOverviewPage(outputDir, langSpecificRuleFamilies, genericRuleFamilies);
     writeBeNav(outputDir, allRuleFamilies);
     for (RuleFamily ruleFamily : allRuleFamilies) {
-      writeRuleDoc(outputDir, ruleFamily);
+      if (ruleFamily.size() > 0) {
+        writeRuleDoc(outputDir, ruleFamily);
+      }
     }
   }
 

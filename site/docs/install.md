@@ -17,6 +17,11 @@ Java:
 *   Java JDK 8 or later ([JDK 7](#jdk7) is still supported
     but deprecated).
 
+Windows Support
+
+*   Currently, Windows support is highly experimental. For more information, see
+    [Building Bazel on Windows](windows.html).
+
 ## Install dependencies
 
 ### Ubuntu

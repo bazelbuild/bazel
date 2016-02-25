@@ -640,6 +640,13 @@ public class SpawnAction extends AbstractAction {
       return this;
     }
 
+    /**
+     * Checks whether the action produces any outputs
+     */
+    public boolean hasOutputs() {
+      return !outputs.isEmpty();
+    }
+
     public Builder setResources(ResourceSet resourceSet) {
       this.resourceSet = resourceSet;
       return this;
