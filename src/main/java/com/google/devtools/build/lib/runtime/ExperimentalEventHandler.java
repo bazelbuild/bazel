@@ -14,6 +14,11 @@
 package com.google.devtools.build.lib.runtime;
 
 import com.google.common.eventbus.Subscribe;
+import com.google.devtools.build.lib.actions.ActionCompletionEvent;
+import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
@@ -80,6 +85,12 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   }
 
   @Subscribe
+  public void buildStarted(BuildStartingEvent event) {
+    stateTracker.buildStarted(event);
+    refresh();
+  }
+
+  @Subscribe
   public void loadingComplete(LoadingPhaseCompleteEvent event) {
     stateTracker.loadingComplete(event);
     try {
@@ -89,6 +100,40 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
       terminal.resetTerminal();
       terminal.writeString(" " + event.getTargets().size() + " Target(s)\n");
       addProgressBar();
+    } catch (IOException e) {
+      LOG.warning("IO Error writing to output stream: " + e);
+    }
+  }
+
+  @Subscribe
+  public void analysisComplete(AnalysisPhaseCompleteEvent event) {
+    stateTracker.analysisComplete(event);
+    refresh();
+  }
+
+  @Subscribe
+  public void buildComplete(BuildCompleteEvent event) {
+    stateTracker.buildComplete(event);
+    refresh();
+  }
+
+  @Subscribe
+  public void actionStarted(ActionStartedEvent event) {
+    stateTracker.actionStarted(event);
+    refresh();
+  }
+
+  @Subscribe
+  public void actionCompletion(ActionCompletionEvent event) {
+    stateTracker.actionCompletion(event);
+    refresh();
+  }
+
+  private synchronized void refresh() {
+    try {
+      clearProgressBar();
+      addProgressBar();
+      terminal.flush();
     } catch (IOException e) {
       LOG.warning("IO Error writing to output stream: " + e);
     }

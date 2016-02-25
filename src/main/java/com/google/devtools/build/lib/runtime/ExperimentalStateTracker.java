@@ -13,28 +13,102 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.devtools.build.lib.actions.ActionCompletionEvent;
+import com.google.devtools.build.lib.actions.ActionStartedEvent;
+import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 
 import java.io.IOException;
+import java.util.ArrayDeque;
+import java.util.Deque;
 
 /**
  * An experimental state tracker for the new experimental UI.
  */
 class ExperimentalStateTracker {
 
-  private String statusMessage;
+  static final int SAMPLE_SIZE = 3;
+
+  private String status;
+  private String additionalMessage;
+  private int actionsStarted;
+  private int actionsCompleted;
+  private final Deque<String> runningActions;
+  private boolean ok;
 
   ExperimentalStateTracker() {
-    statusMessage = "Loading";
+    this.runningActions = new ArrayDeque<>();
+    this.ok = true;
+  }
+
+  void buildStarted(BuildStartingEvent event) {
+    status = "Loading";
+    additionalMessage = "";
   }
 
   void loadingComplete(LoadingPhaseCompleteEvent event) {
     int count = event.getTargets().size();
-    statusMessage = "Loaded " + count + " targets, continuing work...";
+    status = "Analysing";
+    additionalMessage = "" + count + " targets";
   }
 
-  void writeProgressBar(AnsiTerminalWriter terminalWriter) throws IOException {
-    terminalWriter.okStatus().append("NOW:").normal().append(" " + statusMessage);
+  void analysisComplete(AnalysisPhaseCompleteEvent event) {
+    status = null;
+  }
+
+  void buildComplete(BuildCompleteEvent event) {
+    if (event.getResult().getSuccess()) {
+      status = "INFO";
+      additionalMessage = "Build completed successfully, " + actionsCompleted + " total actions";
+    } else {
+      ok = false;
+      status = "FAILED";
+      additionalMessage = "Build did NOT complete successfully";
+    }
+  }
+
+  synchronized void actionStarted(ActionStartedEvent event) {
+    actionsStarted++;
+    String name = event.getAction().getPrimaryOutput().getPath().getPathString();
+    runningActions.addLast(name);
+  }
+
+  synchronized void actionCompletion(ActionCompletionEvent event) {
+    actionsCompleted++;
+    String name = event.getAction().getPrimaryOutput().getPath().getPathString();
+    runningActions.remove(name);
+  }
+
+  private void sampleOldestActions(AnsiTerminalWriter terminalWriter) throws IOException {
+    int count = 0;
+    for (String action : runningActions) {
+      count++;
+      terminalWriter.newline().append("    " + action);
+      if (count >= SAMPLE_SIZE) {
+        break;
+      }
+    }
+    if (count < runningActions.size()) {
+      terminalWriter.newline().append("    ...");
+    }
+  }
+
+  synchronized void writeProgressBar(AnsiTerminalWriter terminalWriter) throws IOException {
+    if (status != null) {
+      if (ok) {
+        terminalWriter.okStatus();
+      } else {
+        terminalWriter.failStatus();
+      }
+      terminalWriter.append(status + ":").normal().append(" " + additionalMessage);
+      return;
+    }
+    String statusMessage = " " + actionsCompleted + " actions completed, "
+        + (actionsStarted - actionsCompleted) + " actions running";
+    terminalWriter.okStatus().append("Building:").normal().append(" " + statusMessage);
+    sampleOldestActions(terminalWriter);
   }
 }
