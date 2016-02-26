@@ -19,10 +19,9 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Executor;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -342,8 +341,7 @@ public class TemplateExpansionAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public DeterministicWriter newDeterministicWriter(EventHandler eventHandler,
-                                                    Executor executor) throws IOException {
+  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) throws IOException {
     final byte[] bytes = getFileContents().getBytes(Template.DEFAULT_CHARSET);
     return new DeterministicWriter() {
       @Override

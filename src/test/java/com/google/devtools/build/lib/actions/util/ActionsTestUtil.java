@@ -87,7 +87,8 @@ public final class ActionsTestUtil {
     return new ActionExecutionContext(
         executor,
         new SingleBuildFileCache(execRoot.getPathString(), execRoot.getFileSystem()),
-        metadataHandler, fileOutErr,
+        metadataHandler,
+        fileOutErr,
         actionGraph == null
             ? null
             : ActionInputHelper.actionGraphArtifactExpander(actionGraph));
@@ -102,7 +103,11 @@ public final class ActionsTestUtil {
         metadataHandler, fileOutErr,
         new BlockingSkyFunctionEnvironment(buildDriver,
             executor == null ? null : executor.getEventHandler()));
+  }
 
+  public static ActionExecutionContext createContext(EventHandler eventHandler) {
+    DummyExecutor dummyExecutor = new DummyExecutor(eventHandler);
+    return new ActionExecutionContext(dummyExecutor, null, null, null, null);
   }
 
 

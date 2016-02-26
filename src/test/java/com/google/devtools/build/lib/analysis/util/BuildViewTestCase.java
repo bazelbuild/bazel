@@ -1569,7 +1569,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       BaselineCoverageAction baselineAction =
           (BaselineCoverageAction) getGeneratingAction(baselineCoverage);
       ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-      baselineAction.newDeterministicWriter(null, null).writeOutputFile(bytes);
+      baselineAction.newDeterministicWriter(ActionsTestUtil.createContext(reporter))
+          .writeOutputFile(bytes);
 
       for (String line : new String(bytes.toByteArray(), StandardCharsets.UTF_8).split("\n")) {
         if (line.startsWith("SF:")) {
