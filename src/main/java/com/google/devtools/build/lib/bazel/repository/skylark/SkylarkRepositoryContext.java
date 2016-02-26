@@ -184,12 +184,21 @@ public class SkylarkRepositoryContext {
   public void createFile(Object path) throws RepositoryFunctionException, EvalException {
     createFile(path, "");
   }
+  @SkylarkCallable(
+      name = "file",
+      documented = false
+  )
+  public void createFile(Object path, String content)
+      throws RepositoryFunctionException, EvalException {
+    createFile(path, content, true);
+  }
 
   @SkylarkCallable(
     name = "file",
-    doc = "Generate a file in the output directory with the provided content"
+    doc = "Generate a file in the output directory with the provided content. An optional third "
+        + "argument set the executable bit to on or off (default to True)."
   )
-  public void createFile(Object path, String content)
+  public void createFile(Object path, String content, Boolean executable)
       throws RepositoryFunctionException, EvalException {
     SkylarkPath p = getPath("file()", path);
     try {
@@ -198,21 +207,36 @@ public class SkylarkRepositoryContext {
       try (OutputStream stream = p.path.getOutputStream()) {
         stream.write(content.getBytes(StandardCharsets.UTF_8));
       }
+      if (executable) {
+        p.path.setExecutable(true);
+      }
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
   }
 
   @SkylarkCallable(
-    name = "template",
-    doc =
-        "Generate a new file using a <code>template</code>. Every occurrence in "
-            + "<code>template</code> of a key of <code>substitutions</code> will be replaced by "
-            + "the corresponding value. The result is written in <code>path</code>."
+      name = "template",
+      documented = false
   )
   public void createFileFromTemplate(
       Object path, Object template, Map<String, String> substitutions)
       throws RepositoryFunctionException, EvalException {
+    createFileFromTemplate(path, template, substitutions, true);
+  }
+
+  @SkylarkCallable(
+      name = "template",
+      doc =
+          "Generate a new file using a <code>template</code>. Every occurrence in "
+              + "<code>template</code> of a key of <code>substitutions</code> will be replaced by "
+              + "the corresponding value. The result is written in <code>path</code>. An optional"
+              + "<code>executable</code> argument (default to true) can be set to turn on or off"
+              + "the executable bit."
+  )
+  public void createFileFromTemplate(
+        Object path, Object template, Map<String, String> substitutions, Boolean executable)
+    throws RepositoryFunctionException, EvalException {
     SkylarkPath p = getPath("template()", path);
     SkylarkPath t = getPath("template()", template);
     try {
@@ -225,6 +249,9 @@ public class SkylarkRepositoryContext {
       }
       try (OutputStream stream = p.path.getOutputStream()) {
         stream.write(tpl.getBytes(StandardCharsets.UTF_8));
+      }
+      if (executable) {
+        p.path.setExecutable(true);
       }
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);

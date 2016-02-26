@@ -343,6 +343,28 @@ EOF
   expect_log "BOZ"
 }
 
+function test_skylark_repository_executable_flag() {
+  setup_skylark_repository
+
+  # Our custom repository rule
+  cat >test.bzl <<EOF
+def _impl(ctx):
+  ctx.file("test.sh", "exit 0")
+  ctx.file("BUILD", "sh_binary(name='bar',srcs=['test.sh'])", False)
+  ctx.template("test2", Label("//:bar"), {}, False)
+  ctx.template("test2.sh", Label("//:bar"), {}, True)
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+  cat >bar
+
+  bazel run @foo//:bar >& $TEST_log || fail "Execution of @foo//:bar failed"
+  output_base=$(bazel info output_base)
+  test -x "${output_base}/external/foo/test.sh" || fail "test.sh is not executable"
+  test -x "${output_base}/external/foo/test2.sh" || fail "test2.sh is not executable"
+  test ! -x "${output_base}/external/foo/BUILD" || fail "BUILD is executable"
+  test ! -x "${output_base}/external/foo/test2" || fail "test2 is executable"
+}
+
 function tear_down() {
   true
 }
