@@ -3506,7 +3506,7 @@ options file.</p>
     ios_test
   </h2>
 
-  <pre class="rule-signature">ios_test(<a href="#ios_test.name">name</a>, <a href="#ios_test.deps">deps</a>, <a href="#ios_test.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#ios_test.resources">resources</a>, <a href="#ios_test.hdrs">hdrs</a>, <a href="#ios_test.app_icon">app_icon</a>, <a href="common-definitions.html#test.args">args</a>, <a href="#ios_test.asset_catalogs">asset_catalogs</a>, <a href="#ios_test.bridging_header">bridging_header</a>, <a href="#ios_test.bundle_id">bundle_id</a>, <a href="#ios_test.bundles">bundles</a>, <a href="#ios_test.copts">copts</a>, <a href="#ios_test.datamodels">datamodels</a>, <a href="#ios_test.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_test.enable_modules">enable_modules</a>, <a href="#ios_test.entitlements">entitlements</a>, <a href="#ios_test.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="#ios_test.includes">includes</a>, <a href="#ios_test.infoplist">infoplist</a>, <a href="#ios_test.infoplists">infoplists</a>, <a href="#ios_test.ios_device_arg">ios_device_arg</a>, <a href="#ios_test.ios_test_target_device">ios_test_target_device</a>, <a href="#ios_test.launch_image">launch_image</a>, <a href="#ios_test.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="#ios_test.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_test.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_test.pch">pch</a>, <a href="#ios_test.plugins">plugins</a>, <a href="#ios_test.provisioning_profile">provisioning_profile</a>, <a href="#ios_test.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_test.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_test.sdk_includes">sdk_includes</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="#ios_test.storyboards">storyboards</a>, <a href="#ios_test.strings">strings</a>, <a href="#ios_test.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#ios_test.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_test.xibs">xibs</a>)</pre>
+  <pre class="rule-signature">ios_test(<a href="#ios_test.name">name</a>, <a href="#ios_test.deps">deps</a>, <a href="#ios_test.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#ios_test.resources">resources</a>, <a href="#ios_test.hdrs">hdrs</a>, <a href="#ios_test.app_icon">app_icon</a>, <a href="common-definitions.html#test.args">args</a>, <a href="#ios_test.asset_catalogs">asset_catalogs</a>, <a href="#ios_test.bridging_header">bridging_header</a>, <a href="#ios_test.bundle_id">bundle_id</a>, <a href="#ios_test.bundles">bundles</a>, <a href="#ios_test.copts">copts</a>, <a href="#ios_test.datamodels">datamodels</a>, <a href="#ios_test.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_test.enable_modules">enable_modules</a>, <a href="#ios_test.entitlements">entitlements</a>, <a href="#ios_test.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="#ios_test.includes">includes</a>, <a href="#ios_test.infoplist">infoplist</a>, <a href="#ios_test.infoplists">infoplists</a>, <a href="#ios_test.ios_device_arg">ios_device_arg</a>, <a href="#ios_test.ios_test_target_device">ios_test_target_device</a>, <a href="#ios_test.launch_image">launch_image</a>, <a href="#ios_test.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="#ios_test.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_test.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_test.pch">pch</a>, <a href="#ios_test.plugins">plugins</a>, <a href="#ios_test.provisioning_profile">provisioning_profile</a>, <a href="#ios_test.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_test.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_test.sdk_includes">sdk_includes</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="#ios_test.storyboards">storyboards</a>, <a href="#ios_test.strings">strings</a>, <a href="#ios_test.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="#ios_test.target_device">target_device</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#ios_test.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_test.xctest">xctest</a>, <a href="#ios_test.xctest_app">xctest_app</a>, <a href="#ios_test.xibs">xibs</a>)</pre>
 
 
 <p>This rule provides a way to build iOS unit tests written in KIF, GTM and XCTest test frameworks
@@ -4051,7 +4051,17 @@ on both iOS simulator and real devices.
 
         </td>
       </tr>
-                                          <tr>
+                                <tr>
+        <td id="ios_test.target_device">
+          <code>target_device</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional; default is <code>@bazel_tools//tools/objc/sim_devices:default</code></code></p>
+                            The device against which to run the test.
+
+        </td>
+      </tr>
+                                <tr>
         <td id="ios_test.textual_hdrs">
           <code>textual_hdrs</code>
         </td>
@@ -4076,6 +4086,28 @@ on both iOS simulator and real devices.
           In difference to regularly linked SDK frameworks, symbols
           from weakly linked frameworks do not cause an error if they
           are not present at runtime.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_test.xctest">
+          <code>xctest</code>
+        </td>
+        <td>
+                    <p><code>Boolean; optional; default is 1</code></p>
+                            Whether this target contains tests using the XCTest testing framework.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_test.xctest_app">
+          <code>xctest_app</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                            A <code>objc_binary</code> or <code>ios_application</code> target that contains the
+        app bundle to test against in XCTest.
+        This attribute is only valid if <code>xctest</code> is true.
 
         </td>
       </tr>
