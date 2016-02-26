@@ -424,7 +424,7 @@ public class JavaCompileAction extends AbstractAction {
 
   @Override
   public ResourceSet estimateResourceConsumption(Executor executor) {
-    if (getContext(executor).isRemotable(getMnemonic(), true)) {
+    if (getContext(executor).willExecuteRemotely(true)) {
       return ResourceSet.ZERO;
     }
     return LOCAL_RESOURCES;

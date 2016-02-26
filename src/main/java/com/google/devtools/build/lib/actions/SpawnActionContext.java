@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-
 /**
  * A context that allows execution of {@link Spawn} instances.
  */
@@ -25,13 +24,13 @@ public interface SpawnActionContext extends Executor.ActionContext {
       throws ExecException, InterruptedException;
 
   /**
-   * This implements a tri-state mode. There are three possible cases: (1) implementations of this
-   * class can unconditionally execute spawns locally, (2) they can follow whatever is set for the
-   * corresponding spawn (see {@link Spawn#isRemotable}), or (3) they can unconditionally execute
-   * spawns remotely, i.e., force remote execution.
-   *
-   * <p>Passing the spawns remotable flag to this method returns whether the spawn will actually be
+   * Passing a spawns remotable flag to this method returns whether the spawn will actually be
    * executed remotely.
+   *
+   * <p>This implements a tri-state mode. There are three possible cases: (1) implementations of
+   * this class can unconditionally execute spawns locally, (2) they can follow whatever is set for
+   * the corresponding spawn (see {@link Spawn#isRemotable}), or (3) they can unconditionally
+   * execute spawns remotely, i.e., force remote execution.
    */
-  boolean isRemotable(String mnemonic, boolean remotable);
+  boolean willExecuteRemotely(boolean remotable);
 }

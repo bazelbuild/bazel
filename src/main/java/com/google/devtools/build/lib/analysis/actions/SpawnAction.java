@@ -375,18 +375,10 @@ public class SpawnAction extends AbstractAction {
   @Override
   public ResourceSet estimateResourceConsumption(Executor executor) {
     SpawnActionContext context = getContext(executor);
-    if (context.isRemotable(getMnemonic(), isRemotable())) {
+    if (context.willExecuteRemotely(!executionInfo.containsKey("local"))) {
       return ResourceSet.ZERO;
     }
     return resourceSet;
-  }
-
-  /**
-   * Returns true if this can be run remotely.
-   */
-  public final boolean isRemotable() {
-    // TODO(bazel-team): get rid of this method.
-    return !executionInfo.containsKey("local");
   }
 
   /**
