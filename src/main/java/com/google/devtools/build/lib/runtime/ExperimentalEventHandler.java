@@ -56,16 +56,19 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   @Override
   public synchronized void handle(Event event) {
     try {
-      clearProgressBar();
       if (debugAllEvents) {
         // Debugging only: show all events visible to the new UI.
+        clearProgressBar();
         terminal.flush();
         outErr.getOutputStream().write((event + "\n").getBytes(StandardCharsets.UTF_8));
         outErr.getOutputStream().flush();
+        addProgressBar();
+        terminal.flush();
       } else {
         switch (event.getKind()) {
           case STDOUT:
           case STDERR:
+            clearProgressBar();
             terminal.flush();
             OutputStream stream =
                 event.getKind() == EventKind.STDOUT
@@ -74,10 +77,13 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
             stream.write(event.getMessageBytes());
             stream.write(new byte[] {10, 13});
             stream.flush();
+            addProgressBar();
+            terminal.flush();
             break;
           case ERROR:
           case WARNING:
           case INFO:
+            clearProgressBar();
             setEventKindColor(event.getKind());
             terminal.writeString(event.getKind() + ": ");
             terminal.resetTerminal();
@@ -88,11 +94,11 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
               terminal.writeString(event.getMessage());
             }
             crlf();
+            addProgressBar();
+            terminal.flush();
             break;
         }
       }
-      addProgressBar();
-      terminal.flush();
     } catch (IOException e) {
       LOG.warning("IO Error writing to output stream: " + e);
     }
