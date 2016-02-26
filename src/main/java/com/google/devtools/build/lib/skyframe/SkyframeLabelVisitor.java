@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.SkyframeTransitivePackageLoader;
@@ -51,7 +50,6 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
   private final AtomicReference<CyclesReporter> skyframeCyclesReporter;
 
   private Set<PackageIdentifier> allVisitedPackages;
-  private Set<PackageIdentifier> errorFreeVisitedPackages;
   private Set<TransitiveTargetValue> previousBuildTargetValueSet = null;
   private boolean lastBuildKeepGoing;
   private final Multimap<Label, Label> rootCauses = HashMultimap.create();
@@ -212,25 +210,17 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
       return;
     }
     NestedSetBuilder<PackageIdentifier> nestedAllPkgsBuilder = NestedSetBuilder.stableOrder();
-    NestedSetBuilder<PackageIdentifier> nestedErrorFreePkgsBuilder = NestedSetBuilder.stableOrder();
     for (TransitiveTargetValue value : targetValues) {
       nestedAllPkgsBuilder.addTransitive(value.getTransitiveSuccessfulPackages());
       nestedAllPkgsBuilder.addTransitive(value.getTransitiveUnsuccessfulPackages());
-      nestedErrorFreePkgsBuilder.addTransitive(value.getTransitiveSuccessfulPackages());
     }
     allVisitedPackages = nestedAllPkgsBuilder.build().toSet();
-    errorFreeVisitedPackages = nestedErrorFreePkgsBuilder.build().toSet();
     previousBuildTargetValueSet = currentBuildTargetValueSet;
   }
 
   @Override
   public Set<PackageIdentifier> getVisitedPackageNames() {
     return allVisitedPackages;
-  }
-
-  @Override
-  public Set<Package> getErrorFreeVisitedPackages(EventHandler eventHandler) {
-    return transitivePackageLoader.retrievePackages(eventHandler, errorFreeVisitedPackages);
   }
 
   @Override

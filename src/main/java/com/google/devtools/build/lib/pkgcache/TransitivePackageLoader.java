@@ -17,7 +17,6 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
 
 import java.util.Set;
@@ -53,16 +52,6 @@ public interface TransitivePackageLoader {
    * <p>Not thread-safe; do not call during visitation.
    */
   Set<PackageIdentifier> getVisitedPackageNames();
-
-  /**
-   * Returns a read-only view of the set of the actual packages visited without error since this
-   * visitor was constructed.
-   *
-   * <p>Use {@link #getVisitedPackageNames()} instead when possible.
-   *
-   * <p>Not thread-safe; do not call during visitation.
-   */
-  Set<Package> getErrorFreeVisitedPackages(EventHandler eventHandler);
 
   /**
    * Return a mapping between the specified top-level targets and root causes. Note that targets in

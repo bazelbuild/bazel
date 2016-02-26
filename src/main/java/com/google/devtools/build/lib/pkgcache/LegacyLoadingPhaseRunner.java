@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
@@ -30,13 +29,11 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
-import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TestTargetUtils;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Collection;
@@ -229,7 +226,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
 
     postLoadingLogging(eventBus, targetsToLoad, expandedResult.getTargets(), timer);
     return new LoadingResult(targets.hasError(), expandedResult.hasError(),
-        expandedResult.getTargets(), testsToRun, ImmutableMap.<PackageIdentifier, Path>of());
+        expandedResult.getTargets(), testsToRun);
   }
 
   /**
@@ -259,7 +256,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     postLoadingLogging(eventBus, baseResult.getTargets(), expandedResult.getTargets(), timer);
     LoadingResult loadingResult = new LoadingResult(targets.hasError(),
         !baseResult.isSuccesful() || expandedResult.hasError(),
-        expandedResult.getTargets(), testsToRun, baseResult.roots);
+        expandedResult.getTargets(), testsToRun);
     return loadingResult;
   }
 
@@ -293,7 +290,6 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     // packages/targets have been visited since the last sync/clear.
     boolean loadingSuccessful = pkgLoader.sync(eventHandler, targetsToLoad, labelsToLoad,
           keepGoing, loadingPhaseThreads, Integer.MAX_VALUE);
-    Set<Package> errorFreePackages = pkgLoader.getErrorFreeVisitedPackages(eventHandler);
 
     ImmutableSet<Target> targetsToAnalyze;
     if (loadingSuccessful) {
@@ -307,9 +303,7 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
     } else {
       throw new LoadingFailedException("Loading failed; build aborted");
     }
-    return new BaseLoadingResult(
-        targetsToAnalyze, loadingSuccessful,
-        LoadingPhaseRunner.collectPackageRoots(errorFreePackages));
+    return new BaseLoadingResult(targetsToAnalyze, loadingSuccessful);
   }
 
   private void reportAboutPartiallySuccesfulLoading(ImmutableSet<Target> requestedTargets,
@@ -340,13 +334,10 @@ public final class LegacyLoadingPhaseRunner extends LoadingPhaseRunner {
   private static class BaseLoadingResult {
     private final ImmutableSet<Target> targets;
     private final boolean succesful;
-    private final ImmutableMap<PackageIdentifier, Path> roots;
 
-    BaseLoadingResult(ImmutableSet<Target> targets, boolean succesful,
-        ImmutableMap<PackageIdentifier, Path> roots) {
+    BaseLoadingResult(ImmutableSet<Target> targets, boolean succesful) {
       this.targets = targets;
       this.succesful = succesful;
-      this.roots = roots;
     }
 
     ImmutableSet<Target> getTargets() {

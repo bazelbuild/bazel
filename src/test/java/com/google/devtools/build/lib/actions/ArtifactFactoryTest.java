@@ -251,37 +251,4 @@ public class ArtifactFactoryTest {
       return result;
     }
   }
-
-  @Test
-  public void testArtifactDeserializationWithoutReusedArtifacts() throws Exception {
-    PathFragment derivedPath = outRoot.getExecPath().getRelative("fruit/banana");
-    artifactFactory.clear();
-    artifactFactory.setDerivedArtifactRoots(ImmutableList.of(outRoot));
-    MockPackageRootResolver rootResolver = new MockPackageRootResolver();
-    rootResolver.setPackageRoots(
-        ImmutableMap.of(PackageIdentifier.createInDefaultRepo(""), clientRoot));
-    Artifact artifact1 = artifactFactory.deserializeArtifact(derivedPath, rootResolver);
-    Artifact artifact2 = artifactFactory.deserializeArtifact(derivedPath, rootResolver);
-    assertEquals(artifact1, artifact2);
-    assertNull(artifact1.getOwner());
-    assertNull(artifact2.getOwner());
-    assertEquals(derivedPath, artifact1.getExecPath());
-    assertEquals(derivedPath, artifact2.getExecPath());
-
-    // Source artifacts are always reused
-    PathFragment sourcePath = clientRoot.getExecPath().getRelative("fruit/mango");
-    artifact1 = artifactFactory.deserializeArtifact(sourcePath, rootResolver);
-    artifact2 = artifactFactory.deserializeArtifact(sourcePath, rootResolver);
-    assertSame(artifact1, artifact2);
-    assertEquals(sourcePath, artifact1.getExecPath());
-  }
-
-  @Test
-  public void testDeserializationWithInvalidPath() throws Exception {
-    artifactFactory.clear();
-    PathFragment randomPath = new PathFragment("maracuja/lemon/kiwi");
-    Artifact artifact = artifactFactory.deserializeArtifact(randomPath,
-        new MockPackageRootResolver());
-    assertNull(artifact);
-  }
 }

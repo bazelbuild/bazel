@@ -25,7 +25,6 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
@@ -59,7 +58,6 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailureEvent;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseRunner;
-import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.skyframe.AspectFunction.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectValueKey;
 import com.google.devtools.build.lib.skyframe.BuildInfoCollectionValue.BuildInfoKeyAndConfig;
@@ -68,7 +66,6 @@ import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ConflictExc
 import com.google.devtools.build.lib.skyframe.SkylarkImportLookupFunction.SkylarkImportFailedException;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.CycleInfo;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationProgressReceiver;
@@ -78,7 +75,6 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -198,43 +194,6 @@ public final class SkyframeBuildView {
     skyframeExecutor.clearAnalysisCache(topLevelTargets);
   }
 
-  private void setDeserializedArtifactOwners() throws ViewCreationFailedException {
-    Map<PathFragment, Artifact> deserializedArtifactMap =
-        artifactFactory.getDeserializedArtifacts();
-    Set<Artifact> deserializedArtifacts = new HashSet<>();
-    for (Artifact artifact : deserializedArtifactMap.values()) {
-      if (!artifact.getExecPath().getBaseName().endsWith(".gcda")) {
-        // gcda files are classified as generated artifacts, but are not actually generated. All
-        // others need owners.
-        deserializedArtifacts.add(artifact);
-      }
-    }
-    if (deserializedArtifacts.isEmpty()) {
-      // If there are no deserialized artifacts to process, don't pay the price of iterating over
-      // the graph.
-      return;
-    }
-    for (Map.Entry<SkyKey, ActionLookupValue> entry :
-      skyframeExecutor.getActionLookupValueMap().entrySet()) {
-      for (Action action : entry.getValue().getActionsForFindingArtifactOwners()) {
-        for (Artifact output : action.getOutputs()) {
-          Artifact deserializedArtifact = deserializedArtifactMap.get(output.getExecPath());
-          if (deserializedArtifact != null) {
-            deserializedArtifact.setArtifactOwner((ActionLookupKey) entry.getKey().argument());
-            deserializedArtifacts.remove(deserializedArtifact);
-          }
-        }
-      }
-    }
-    if (!deserializedArtifacts.isEmpty()) {
-      throw new ViewCreationFailedException("These artifacts were read in from the FDO profile but"
-      + " have no generating action that could be found. If you are confident that your profile was"
-      + " collected from the same source state at which you're building, please report this:\n"
-      + Artifact.asExecPaths(deserializedArtifacts));
-    }
-    artifactFactory.clearDeserializedArtifacts();
-  }
-
   /**
    * Analyzes the specified targets using Skyframe as the driving framework.
    *
@@ -285,7 +244,6 @@ public final class SkyframeBuildView {
         LoadingPhaseRunner.collectPackageRoots(packages.build().toCollection());
 
     if (!result.hasError() && badActions.isEmpty()) {
-      setDeserializedArtifactOwners();
       return new SkyframeAnalysisResult(
           /*hasLoadingError=*/false, /*hasAnalysisError=*/false,
           ImmutableList.copyOf(goodCts),
@@ -412,7 +370,7 @@ public final class SkyframeBuildView {
         }
       }
     }
-    setDeserializedArtifactOwners();
+
     return new SkyframeAnalysisResult(
         hasLoadingError,
         result.hasError() || !badActions.isEmpty(),
