@@ -22,6 +22,12 @@ Bazel went](https://www.pgrs.net/2015/09/01/migrating-from-gradle-to-bazel/).
 Makani, now a Google subsidiary, develops energy kites and uses
 Bazel to build their software (including their embedded C++ software).
 
+## [Peloton Technology](www.peloton-tech.com)
+
+Peleton Technology is an automated vehicule technology company that tackles
+truck accidents and fuel use. They use Bazel to _enable reliable builds for
+automotive safety systems_.
+
 # Open-source projects using Bazel
 
 If you'd like your project listed here, please
@@ -36,6 +42,11 @@ function.
 
 Catches common Java mistakes as compile-time errors. (Migration to Bazel is
 in progress.)
+
+## [FFruit](https://gitlab.com/perezd/ffruit/)
+
+FFruit is a free & open source Android application to the popular service
+[Falling Fruit](https://fallingfruit.org).
 
 ## [GRPC](http://www.grpc.io)
 
