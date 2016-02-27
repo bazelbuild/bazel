@@ -319,12 +319,12 @@ go_library_attrs = {
         ],
     ),
     "toolchain": attr.label(
-        default = Label("@//tools/build_rules/go/toolchain:toolchain"),
+        default = Label("@bazel_tools//tools/build_rules/go/toolchain:toolchain"),
         allow_files = True,
         cfg = HOST_CFG,
     ),
     "go_tool": attr.label(
-        default = Label("@//tools/build_rules/go/toolchain:go_tool"),
+        default = Label("@bazel_tools//tools/build_rules/go/toolchain:go_tool"),
         single_file = True,
         allow_files = True,
         cfg = HOST_CFG,
@@ -366,7 +366,8 @@ go_test = rule(
     attrs = go_library_attrs + {
         "test_generator": attr.label(
             executable = True,
-            default = Label("//tools/build_rules/go/tools:generate_test_main"),
+            default = Label(
+                "@bazel_tools//tools/build_rules/go/tools:generate_test_main"),
             cfg = HOST_CFG,
         ),
     },
