@@ -5,6 +5,11 @@ title: Bazel Users
 
 # Corporate users of Bazel
 
+## [Ascend.io](https://ascend.io)
+
+Ascend is a Paolo Alto startup that offer solution for large data sets analysis.
+Their motto is _Big data is hard. We make it easy_.
+
 ## [Braintree](https://www.braintreepayments.com)
 
 Braintree, a PayPal subsidiary, develops payment solutions for websites and
@@ -16,6 +21,12 @@ Bazel went](https://www.pgrs.net/2015/09/01/migrating-from-gradle-to-bazel/).
 
 Makani, now a Google subsidiary, develops energy kites and uses
 Bazel to build their software (including their embedded C++ software).
+
+## [Peloton Technology](www.peloton-tech.com)
+
+Peleton Technology is an automated vehicule technology company that tackles
+truck accidents and fuel use. They use Bazel to _enable reliable builds for
+automotive safety systems_.
 
 # Open-source projects using Bazel
 
@@ -31,6 +42,11 @@ function.
 
 Catches common Java mistakes as compile-time errors. (Migration to Bazel is
 in progress.)
+
+## [FFruit](https://gitlab.com/perezd/ffruit/)
+
+FFruit is a free & open source Android application to the popular service
+[Falling Fruit](https://fallingfruit.org).
 
 ## [GRPC](http://www.grpc.io)
 
@@ -67,3 +83,8 @@ grpc (maybe thrift).
 ## [Turbo Santa](https://github.com/turbo-santa/turbo-santa-common)
 
 A platform-independent GameBoy emulator.
+
+## [XIOSim](https://github.com/s-kanev/XIOSim)
+
+XIOSim is a detailed user-mode microarchitectural simulator for the x86 architecture.
+
