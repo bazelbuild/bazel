@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
@@ -33,11 +31,8 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.Authenticator;
 import java.net.HttpURLConnection;
-import java.net.InetSocketAddress;
 import java.net.MalformedURLException;
-import java.net.PasswordAuthentication;
 import java.net.Proxy;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -46,8 +41,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
@@ -241,7 +234,7 @@ public class HttpDownloader {
 
     public static HttpConnection createAndConnect(URL url) throws IOException {
       int retries = MAX_REDIRECTS;
-      Proxy proxy = createProxyIfNeeded(url.getProtocol());
+      Proxy proxy = ProxyHelper.createProxyIfNeeded(url.toString());
       do {
         HttpURLConnection connection = (HttpURLConnection) url.openConnection(proxy);
         try {
@@ -307,76 +300,6 @@ public class HttpDownloader {
       }
 
       return null;
-    }
-  }
-
-  private static Proxy createProxyIfNeeded(String protocol) throws IOException {
-    if (protocol.equals("https")) {
-      return createProxy(System.getenv("HTTPS_PROXY"));
-    } else if (protocol.equals("http")) {
-      return createProxy(System.getenv("HTTP_PROXY"));
-    }
-    return Proxy.NO_PROXY;
-  }
-
-  @VisibleForTesting
-  static Proxy createProxy(String proxyAddress) throws IOException {
-    if (Strings.isNullOrEmpty(proxyAddress)) {
-      return Proxy.NO_PROXY;
-    }
-
-    // Here there be dragons.
-    Pattern urlPattern =
-        Pattern.compile("^(https?)://(?:([^:@]+?)(?::([^@]+?))?@)?(?:[^:]+)(?::(\\d+))?$");
-    Matcher matcher = urlPattern.matcher(proxyAddress);
-    if (!matcher.matches()) {
-      throw new IOException("Proxy address " + proxyAddress + " is not a valid URL");
-    }
-
-    String protocol = matcher.group(1);
-    final String username = matcher.group(2);
-    final String password = matcher.group(3);
-    String port = matcher.group(4);
-
-    boolean https;
-    switch (protocol) {
-      case "https":
-        https = true;
-        break;
-      case "http":
-        https = false;
-        break;
-      default:
-        throw new IOException("Invalid proxy protocol for " + proxyAddress);
-    }
-
-    if (username != null) {
-      if (password == null) {
-        throw new IOException("No password given for proxy " + proxyAddress);
-      }
-      System.setProperty(protocol + ".proxyUser", username);
-      System.setProperty(protocol + ".proxyPassword", password);
-
-      Authenticator.setDefault(
-          new Authenticator() {
-            @Override
-            public PasswordAuthentication getPasswordAuthentication() {
-              return new PasswordAuthentication(username, password.toCharArray());
-            }
-          });
-    }
-
-    if (port == null) {
-      return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyAddress, https ? 443 : 80));
-    }
-
-    try {
-      return new Proxy(
-          Proxy.Type.HTTP,
-          new InetSocketAddress(
-              proxyAddress.substring(0, proxyAddress.lastIndexOf(':')), Integer.parseInt(port)));
-    } catch (NumberFormatException e) {
-      throw new IOException("Error parsing proxy port: " + proxyAddress);
     }
   }
 
