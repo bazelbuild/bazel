@@ -31,9 +31,9 @@ function set_up() {
   if [[ ! -z "${workers}" ]]; then
     kill $workers
 
-    # Wait at most 3 seconds for all workers to shut down.
-    for i in 0 1 2 3; do
-      still_running_workers=$(for pid in $workers; do ps -p $pid | sed 1d; done)
+    # Wait at most 10 seconds for all workers to shut down.
+    for i in 0 1 2 3 4 5 6 7 8 9; do
+      still_running_workers=$(for pid in $workers; do kill -0 $pid &>/dev/null && echo $pid || true; done)
 
       if [[ ! -z "${still_running_workers}" ]]; then
         if [[ $i -eq 3 ]]; then
@@ -96,7 +96,7 @@ function shutdown_and_print_unkilled_workers() {
 
   # Wait at most 10 seconds for all workers to shut down, then print the remaining (if any).
   for i in 0 1 2 3 4 5 6 7 8 9; do
-    still_running_workers=$(for pid in $workers; do ps -p $pid | sed 1d; done)
+    still_running_workers=$(for pid in $workers; do kill -0 $pid &>/dev/null && echo $pid || true; done)
     if [[ ! -z "${still_running_workers}" ]]; then
       sleep 1
     fi
