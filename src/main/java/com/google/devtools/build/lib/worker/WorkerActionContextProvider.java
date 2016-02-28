@@ -37,7 +37,6 @@ final class WorkerActionContextProvider extends ActionContextProvider {
             new WorkerSpawnStrategy(
                 runtime.getDirectories(),
                 buildRequest,
-                eventBus,
                 workers,
                 verboseFailures,
                 maxRetries));

@@ -48,16 +48,6 @@ public class WorkerOptions extends OptionsBase {
   public int workerMaxInstances;
 
   @Option(
-    name = "worker_max_changed_files",
-    defaultValue = "0",
-    category = "strategy",
-    help =
-        "Don't run local worker if more files than this were changed. 0 means always use "
-            + "workers."
-  )
-  public int workerMaxChangedFiles;
-
-  @Option(
     name = "worker_max_retries",
     defaultValue = "3",
     category = "strategy",

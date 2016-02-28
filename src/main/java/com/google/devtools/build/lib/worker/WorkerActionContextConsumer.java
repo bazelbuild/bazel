@@ -37,6 +37,7 @@ public class WorkerActionContextConsumer implements ActionContextConsumer {
   @Override
   public Multimap<Class<? extends ActionContext>, String> getActionContexts() {
     Builder<Class<? extends ActionContext>, String> contexts = ImmutableMultimap.builder();
+    contexts.put(SpawnActionContext.class, "standalone");
     contexts.put(SpawnActionContext.class, "worker");
     return contexts.build();
   }
