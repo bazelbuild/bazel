@@ -307,7 +307,7 @@ public class SkylarkRepositoryContext {
           Location.BUILTIN,
           "Program argument of which() may not contains a / or a \\ ('" + program + "' given)");
     }
-    for (String p : pathEnv) {
+    for (String p : getPathEnvironment()) {
       PathFragment fragment = new PathFragment(p);
       if (fragment.isAbsolute()) {
         // We ignore relative path as they don't mean much here (relative to where? the workspace
@@ -326,20 +326,23 @@ public class SkylarkRepositoryContext {
     return Runtime.NONE;
   }
 
-  // This is non final so that test can overwrite it.
-  private static ImmutableList<String> pathEnv = getPathEnvironment();
+  // This is just for test to overwrite the path environment
+  private static ImmutableList<String> pathEnv = null;
 
   @VisibleForTesting
   static void setPathEnvironment(String... pathEnv) {
     SkylarkRepositoryContext.pathEnv = ImmutableList.<String>copyOf(pathEnv);
   }
 
-  private static ImmutableList<String> getPathEnvironment() {
-    String pathEnv = System.getenv("PATH");
-    if (pathEnv == null) {
+  private ImmutableList<String> getPathEnvironment() {
+    if (pathEnv != null) {
+      return pathEnv;
+    }
+    String pathEnviron = osObject.getEnviron().get("PATH");
+    if (pathEnviron == null) {
       return ImmutableList.of();
     }
-    return ImmutableList.copyOf(pathEnv.split(File.pathSeparator));
+    return ImmutableList.copyOf(pathEnviron.split(File.pathSeparator));
   }
 
   @Override

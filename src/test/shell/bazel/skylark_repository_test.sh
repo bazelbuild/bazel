@@ -268,12 +268,22 @@ EOF
 function test_skylark_repository_which_and_execute() {
   setup_skylark_repository
 
+  bazel info
+
+  # Test we are using the client environment, not the server one
+  echo "#!/bin/bash" > bin.sh
+  echo "exit 0" >> bin.sh
+  chmod +x bin.sh
+
   # Our custom repository rule
   cat >test.bzl <<EOF
 def _impl(ctx):
   bash = ctx.which("bash")
   if bash == None:
     fail("Bash not found!")
+  bin = ctx.which("bin.sh")
+  if bin == None:
+    fail("bin.sh not found!")
   result = ctx.execute([bash, "--version"])
   if result.return_code != 0:
     fail("Non-zero return code from bash: " + result.return_code)
@@ -285,7 +295,7 @@ def _impl(ctx):
 repo = repository_rule(implementation=_impl, local=True)
 EOF
 
-  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  PATH="${PATH}:${PWD}" bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
   expect_log "version"
 }
 
