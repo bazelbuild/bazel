@@ -580,6 +580,37 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
   }
 
   @Test
+  public void multipleExecutablesInTarget() throws Exception {
+    scratch.file("foo/extension.bzl",
+        "def _aspect_impl(target, ctx):",
+        "   return struct()",
+        "my_aspect = aspect(_aspect_impl)",
+        "def _main_rule_impl(ctx):",
+        "   pass",
+        "my_rule = rule(_main_rule_impl,",
+        "   attrs = { ",
+        "      'exe1' : attr.label(executable = True, allow_files = True),",
+        "      'exe2' : attr.label(executable = True, allow_files = True),",
+        "   },",
+        ")"
+    );
+
+    scratch.file("foo/tool.sh", "#!/bin/bash");
+    scratch.file("foo/BUILD",
+        "load('extension',  'my_rule')",
+        "my_rule(name = 'main', exe1 = ':tool.sh', exe2 = ':tool.sh')"
+    );
+    AnalysisResult analysisResultOfRule =
+        update(ImmutableList.<String>of(), "//foo:main");
+    assertThat(analysisResultOfRule.hasError()).isFalse();
+
+    AnalysisResult analysisResultOfAspect =
+        update(ImmutableList.<String>of("/foo/extension.bzl%my_aspect"), "//foo:main");
+    assertThat(analysisResultOfAspect.hasError()).isFalse();
+  }
+
+
+  @Test
   public void testAspectFragmentAccessSuccess() throws Exception {
     getConfiguredTargetForAspectFragment(
         "ctx.fragments.cpp.compiler", "'cpp'", "", "", "");

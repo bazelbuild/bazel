@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -279,6 +280,7 @@ public final class SkylarkRuleContext {
     Builder<Artifact, FilesToRunProvider> executableRunfilesbuilder = new Builder<>();
     Builder<String, Object> fileBuilder = new Builder<>();
     Builder<String, Object> filesBuilder = new Builder<>();
+    HashSet<Artifact> seenExecutables = new HashSet<>();
     for (Attribute a : attributes) {
       Type<?> type = a.getType();
       Object val = attributeValueExtractor.apply(a);
@@ -296,7 +298,16 @@ public final class SkylarkRuleContext {
         if (provider != null && provider.getExecutable() != null) {
           Artifact executable = provider.getExecutable();
           executableBuilder.put(skyname, executable);
-          executableRunfilesbuilder.put(executable, provider);
+          if (!seenExecutables.contains(executable)) {
+            // todo(dslomov,laurentlb): In general, this is incorrect.
+            // We associate the first encountered FilesToRunProvider with
+            // the executable (this provider is later used to build the spawn).
+            // However ideally we should associate a provider with the attribute name,
+            // and pass the correct FilesToRunProvider to the spawn depending on
+            // what attribute is used to access the executable.
+            executableRunfilesbuilder.put(executable, provider);
+            seenExecutables.add(executable);
+          }
         } else {
           executableBuilder.put(skyname, Runtime.NONE);
         }
