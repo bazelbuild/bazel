@@ -24,7 +24,7 @@ Bazel to build their software (including their embedded C++ software).
 
 ## [Peloton Technology](www.peloton-tech.com)
 
-Peleton Technology is an automated vehicule technology company that tackles
+Peloton Technology is an automated vehicule technology company that tackles
 truck accidents and fuel use. They use Bazel to _enable reliable builds for
 automotive safety systems_.
 
