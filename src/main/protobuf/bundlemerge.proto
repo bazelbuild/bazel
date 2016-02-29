@@ -22,26 +22,16 @@ option java_package = "com.google.devtools.build.xcode.bundlemerge.proto";
 // bundle.
 // Next Id: 17
 message Control {
-  // Paths to the plist files to merge into the final Plist.info file. These
-  // can be binary, XML, or ASCII format.
-  // This field is deprecated, but is supported for backwards compatibility.
-  // If bundle_info_plist_file is not supplied, this key will be used instead.
-  repeated string source_plist_file = 1;
+  // Previously used fields.
+  reserved 1, 3, 9, 11, 13;
 
   // The single info.plist file to be bundled into the archive. This plist will
   // not be modified by bundlemerge.
-  // This field replaces source_plist_file.
   optional string bundle_info_plist_file = 16;
 
   // Path to the .ipa file to write. This is the final application bundle. Note
   // this is ignored for nested bundles.
   optional string out_file = 2;
-
-  // Which devices the app targets, which corresponds to the UIDeviceFamily
-  // setting. Should be one or more of the symbols in the
-  // com.google.devtools.build.xcode.common.TargetDeviceFamily enum (e.g.
-  // "IPAD", "IPHONE").
-  repeated string target_device_family = 3;
 
   // One of the symbols in the com.google.devtools.build.xcode.common.Platform
   // (e.g. "DEVICE", "SIMULATOR").
@@ -63,8 +53,6 @@ message Control {
   // as Info.plist and PkgInfo. This should include the application binary.
   repeated BundleFile bundle_file = 8;
 
-  repeated string merge_without_name_prefix_zip = 9 [deprecated=true];
-
   // Zip files to merge with the final zip. Note that bundle_root is ignored
   // when merging zips, so to place items in the bundle root, you should do one
   // of the following:
@@ -75,21 +63,9 @@ message Control {
   // - they are not relative to the containing bundle.
   repeated MergeZip merge_zip = 10;
 
-  // Variable substitutions to perform on property values in the merged
-  // .plist file.
-  // This field is deprecated, and will not be used if a bundle_info_plist_file
-  // is specified.  For backwards compatibility, if a bundle_info_plist_file
-  // is not specified, source_plist_file will be used instead and variable
-  // substitutions will be applied.
-  repeated VariableSubstitution variable_substitution = 11;
-
   // Bundles that are nested within this one. bundle_root in these bundles is
   // relative to the containing bundle's bundle_root.
   repeated Control nested_bundle = 12;
-
-  // Name of the executable for this bundle or unset if no such executable
-  // exists.
-  optional string executable_name = 13;
 
   // A reverse-DNS string identifier for this bundle.
   optional string primary_bundle_identifier = 14;
@@ -102,7 +78,7 @@ message Control {
 message MergeZip {
   // The prefix to prepend to every entry name before putting it in the final
   // zip. For instance, "Payload/Foo.app/" (notice the final slash).
-  optional string entry_name_prefix = 1 [default = ""];
+  optional string entry_name_prefix = 1;
 
   // The path to the source file to merge.
   optional string source_path = 2;
@@ -119,12 +95,4 @@ message BundleFile {
   // .zip file. If omitted, the ZipInputEntry.DEFAULT_EXTERNAL_FILE_ATTRIBUTE
   // constant is used.
   optional int32 external_file_attribute = 3;
-}
-
-message VariableSubstitution {
-  // The name of the varaible to substitute.
-  required string name = 1;
-
-  // The substitution value.
-  required string value = 2;
 }

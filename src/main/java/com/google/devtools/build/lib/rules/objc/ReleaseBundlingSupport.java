@@ -761,8 +761,7 @@ public final class ReleaseBundlingSupport {
         new BundleMergeControlBytes(
             bundling,
             intermediateArtifacts.unprocessedIpa(),
-            ruleContext.getFragment(AppleConfiguration.class),
-            bundleSupport.targetDeviceFamilies());
+            ruleContext.getFragment(AppleConfiguration.class));
 
     ruleContext.registerAction(
         new BinaryFileWriteAction(
