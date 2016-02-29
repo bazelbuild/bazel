@@ -26,42 +26,51 @@ import java.io.IOException;
 import java.net.Proxy;
 
 /**
- * Tests for @{link HttpDownloader}.
+ * Tests for @{link ProxyHelper}.
  */
 @RunWith(JUnit4.class)
-public class HttpDownloaderTest {
+public class ProxyHelperTest {
+
   @Test
   public void testNoProxy() throws Exception {
     // Empty address.
-    Proxy proxy = HttpDownloader.createProxy(null);
+    Proxy proxy = ProxyHelper.createProxy(null);
     assertEquals(Proxy.NO_PROXY, proxy);
-    proxy = HttpDownloader.createProxy("");
+    proxy = ProxyHelper.createProxy("");
     assertEquals(Proxy.NO_PROXY, proxy);
   }
 
   @Test
   public void testProxyDefaultPort() throws Exception {
-    Proxy proxy = HttpDownloader.createProxy("http://my.example.com");
+    Proxy proxy = ProxyHelper.createProxy("http://my.example.com");
     assertEquals(Proxy.Type.HTTP, proxy.type());
     assertThat(proxy.toString()).endsWith(":80");
+    assertEquals(System.getProperty("http.proxyHost"), "my.example.com");
+    assertEquals(System.getProperty("http.proxyPort"), "80");
 
-    proxy = HttpDownloader.createProxy("https://my.example.com");
+    proxy = ProxyHelper.createProxy("https://my.example.com");
     assertThat(proxy.toString()).endsWith(":443");
+    assertEquals(System.getProperty("https.proxyHost"), "my.example.com");
+    assertEquals(System.getProperty("https.proxyPort"), "443");
   }
 
   @Test
   public void testProxyExplicitPort() throws Exception {
-    Proxy proxy = HttpDownloader.createProxy("http://my.example.com:12345");
+    Proxy proxy = ProxyHelper.createProxy("http://my.example.com:12345");
     assertThat(proxy.toString()).endsWith(":12345");
+    assertEquals(System.getProperty("http.proxyHost"), "my.example.com");
+    assertEquals(System.getProperty("http.proxyPort"), "12345");
 
-    proxy = HttpDownloader.createProxy("https://my.example.com:12345");
+    proxy = ProxyHelper.createProxy("https://my.example.com:12345");
     assertThat(proxy.toString()).endsWith(":12345");
+    assertEquals(System.getProperty("https.proxyHost"), "my.example.com");
+    assertEquals(System.getProperty("https.proxyPort"), "12345");
   }
 
   @Test
   public void testProxyNoProtocol() throws Exception {
     try {
-      HttpDownloader.createProxy("my.example.com");
+      ProxyHelper.createProxy("my.example.com");
       fail("Expected protocol error");
     } catch (IOException e) {
       assertThat(e.getMessage()).contains("Proxy address my.example.com is not a valid URL");
@@ -71,7 +80,7 @@ public class HttpDownloaderTest {
   @Test
   public void testProxyNoProtocolWithPort() throws Exception {
     try {
-      HttpDownloader.createProxy("my.example.com:12345");
+      ProxyHelper.createProxy("my.example.com:12345");
       fail("Expected protocol error");
     } catch (IOException e) {
       assertThat(e.getMessage()).contains("Proxy address my.example.com:12345 is not a valid URL");
@@ -81,7 +90,7 @@ public class HttpDownloaderTest {
   @Test
   public void testProxyPortParsingError() throws Exception {
     try {
-      HttpDownloader.createProxy("http://my.example.com:foo");
+      ProxyHelper.createProxy("http://my.example.com:foo");
       fail("Should have thrown an error for invalid port");
     } catch (IOException e) {
       assertThat(e.getMessage())
@@ -91,26 +100,40 @@ public class HttpDownloaderTest {
 
   @Test
   public void testProxyAuth() throws Exception {
-    Proxy proxy = HttpDownloader.createProxy("http://foo:barbaz@my.example.com");
+    Proxy proxy = ProxyHelper.createProxy("http://foo:barbaz@my.example.com");
     assertEquals(Proxy.Type.HTTP, proxy.type());
     assertThat(proxy.toString()).endsWith(":80");
+    assertEquals(System.getProperty("http.proxyHost"), "my.example.com");
+    assertEquals(System.getProperty("http.proxyPort"), "80");
     assertEquals(System.getProperty("http.proxyUser"), "foo");
     assertEquals(System.getProperty("http.proxyPassword"), "barbaz");
 
-    proxy = HttpDownloader.createProxy("https://biz:bat@my.example.com");
+    proxy = ProxyHelper.createProxy("https://biz:bat@my.example.com");
     assertThat(proxy.toString()).endsWith(":443");
+    assertEquals(System.getProperty("https.proxyHost"), "my.example.com");
+    assertEquals(System.getProperty("https.proxyPort"), "443");
     assertEquals(System.getProperty("https.proxyUser"), "biz");
     assertEquals(System.getProperty("https.proxyPassword"), "bat");
   }
 
   @Test
+  public void testEncodedProxyAuth() throws Exception {
+    Proxy proxy = ProxyHelper.createProxy("http://foo:b%40rb%40z@my.example.com");
+    assertEquals(Proxy.Type.HTTP, proxy.type());
+    assertThat(proxy.toString()).endsWith(":80");
+    assertEquals(System.getProperty("http.proxyHost"), "my.example.com");
+    assertEquals(System.getProperty("http.proxyPort"), "80");
+    assertEquals(System.getProperty("http.proxyUser"), "foo");
+    assertEquals(System.getProperty("http.proxyPassword"), "b@rb@z");
+  }
+
+  @Test
   public void testInvalidAuth() throws Exception {
     try {
-      HttpDownloader.createProxy("http://foo@my.example.com");
+      ProxyHelper.createProxy("http://foo@my.example.com");
       fail("Should have thrown an error for invalid auth");
     } catch (IOException e) {
       assertThat(e.getMessage()).contains("No password given for proxy");
     }
   }
-
 }
