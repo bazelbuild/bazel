@@ -683,7 +683,7 @@ public class SkylarkRuleClassFunctions {
           printTextMessage((ClassObject) value, sb, indent + 1, loc);
           print(sb, "}", indent);
         } else if (value instanceof String) {
-          print(sb, key + ": \"" + escape((String) value) + "\"", indent);
+          print(sb, key + ": \"" + escapeString((String) value) + "\"", indent);
         } else if (value instanceof Integer) {
           print(sb, key + ": " + value, indent);
         } else if (value instanceof Boolean) {
@@ -710,11 +710,6 @@ public class SkylarkRuleClassFunctions {
         }
       }
 
-      private String escape(String string) {
-        // TODO(bazel-team): use guava's SourceCodeEscapers when it's released.
-        return string.replace("\"", "\\\"").replace("\n", "\\n");
-      }
-
       private void print(StringBuilder sb, String text, int indent) {
         for (int i = 0; i < indent; i++) {
           sb.append("  ");
@@ -723,6 +718,83 @@ public class SkylarkRuleClassFunctions {
       sb.append("\n");
       }
     };
+
+  // Escapes the given string for use in Proto messages or JSON strings.
+  private static String escapeString(String string) {
+    // TODO(bazel-team): use guava's SourceCodeEscapers when it's released.
+    return string.replace("\"", "\\\"").replace("\n", "\\n");
+  }
+
+  @SkylarkSignature(name = "to_json",
+      doc = "Creates a JSON string from the struct parameter. This method only works if all "
+          + "struct elements (recursively) are strings, ints, booleans, other structs or a "
+          + "list of these types. Quotes and new lines in strings are escaped. "
+          + "Examples:<br><pre class=language-python>"
+          + "struct(key=123).to_json()\n# {\"key\":123}\n\n"
+          + "struct(key=True).to_json()\n# {\"key\":true}\n\n"
+          + "struct(key=[1, 2, 3]).to_json()\n# {\"key\":[1,2,3]}\n\n"
+          + "struct(key='text').to_json()\n# {\"key\":\"text\"}\n\n"
+          + "struct(key=struct(inner_key='text')).to_json()\n"
+          + "# {\"key\":{\"inner_key\":\"text\"}}\n\n"
+          + "struct(key=[struct(inner_key=1), struct(inner_key=2)]).to_json()\n"
+          + "# {\"key\":[{\"inner_key\":1},{\"inner_key\":2}]}\n\n"
+          + "struct(key=struct(inner_key=struct(inner_inner_key='text'))).to_json()\n"
+          + "# {\"key\":{\"inner_key\":{\"inner_inner_key\":\"text\"}}}\n</pre>",
+      objectType = SkylarkClassObject.class, returnType = String.class,
+      mandatoryPositionals = {
+          // TODO(bazel-team): shouldn't we accept any ClassObject?
+          @Param(name = "self", type = SkylarkClassObject.class,
+              doc = "this struct")},
+      useLocation = true)
+  private static final BuiltinFunction toJson = new BuiltinFunction("to_json") {
+    public String invoke(SkylarkClassObject self, Location loc) throws EvalException {
+      StringBuilder sb = new StringBuilder();
+      printJson(self, sb, loc, "struct field", null);
+      return sb.toString();
+    }
+
+    private void printJson(Object value, StringBuilder sb, Location loc, String container,
+        String key) throws EvalException {
+      if (value == Runtime.NONE) {
+        sb.append("null");
+      } else if (value instanceof ClassObject) {
+        sb.append("{");
+
+        String join = "";
+        for (String subKey : ((ClassObject) value).getKeys()) {
+          sb.append(join);
+          join = ",";
+          sb.append("\"");
+          sb.append(subKey);
+          sb.append("\":");
+          printJson(((ClassObject) value).getValue(subKey), sb, loc, "struct field", subKey);
+        }
+        sb.append("}");
+      } else if (value instanceof List) {
+        sb.append("[");
+        String join = "";
+        for (Object item : ((List) value)) {
+          sb.append(join);
+          join = ",";
+          printJson(item, sb, loc, "list element in struct field", key);
+        }
+        sb.append("]");
+      } else if (value instanceof String) {
+        sb.append("\"");
+        sb.append(escapeString((String) value));
+        sb.append("\"");
+      } else if (value instanceof Integer || value instanceof Boolean) {
+        sb.append(value);
+      } else {
+        String errorMessage = "Invalid text format, expected a struct, a string, a bool, or an int "
+            + "but got a " + EvalUtils.getDataTypeName(value) + " for " + container;
+        if (key != null) {
+          errorMessage += " '" + key + "'";
+        }
+        throw new EvalException(loc, errorMessage);
+      }
+    }
+  };
 
   @SkylarkSignature(name = "output_group",
       documented = false, //  TODO(dslomov): document.
