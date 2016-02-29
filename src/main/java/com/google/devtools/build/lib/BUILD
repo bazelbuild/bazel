@@ -27,6 +27,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//src/main/java/com/google/devtools/build/docgen:srcs",
+        "//src/main/java/com/google/devtools/build/lib/actions:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/dash:srcs",
         "//src/main/java/com/google/devtools/build/lib/query2:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote:srcs",
@@ -40,7 +41,10 @@ filegroup(
         "//src/main/java/com/google/devtools/build/skyframe:srcs",
         "//src/main/java/com/google/devtools/common/options:srcs",
     ],
-    visibility = ["//src/test/shell/bazel:__pkg__"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/test/shell/bazel:__pkg__",
+    ],
 )
 
 # This package provides a general-purpose directed graph utility class with

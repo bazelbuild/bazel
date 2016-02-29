@@ -61,3 +61,9 @@ genrule(
     cmd = "cp $< $@",
     visibility = ["//src:__subpackages__"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__pkg__"],
+)

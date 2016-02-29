@@ -18,3 +18,9 @@ java_library(
         "//third_party:maven_model",
     ],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + ["//src/tools/generate_workspace/src/main/java/com/google/devtools/build/workspace/maven:srcs"],
+    visibility = ["//src/tools/generate_workspace:__pkg__"],
+)

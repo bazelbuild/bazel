@@ -83,3 +83,9 @@ filegroup(
 exports_files([
     "build_interface_so",
 ])
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__pkg__"],
+)

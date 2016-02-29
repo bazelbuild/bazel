@@ -122,3 +122,13 @@ bootstrap_java_binary(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:bootstrap_plugins",
     ],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:srcs",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:srcs",
+    ],
+    visibility = ["//src/java_tools/buildjar:__pkg__"],
+)

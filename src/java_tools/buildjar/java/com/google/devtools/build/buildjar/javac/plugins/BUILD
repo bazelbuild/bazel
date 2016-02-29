@@ -80,3 +80,9 @@ bootstrap_java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:skylark-deps",
     ],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:__pkg__"],
+)

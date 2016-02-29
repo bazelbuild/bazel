@@ -99,3 +99,9 @@ java_library(
         "//third_party/java/jdk/langtools:javac",
     ],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:__pkg__"],
+)

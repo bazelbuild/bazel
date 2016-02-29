@@ -6,3 +6,9 @@ java_binary(
     visibility = ["//visibility:public"],
     runtime_deps = ["//src/tools/generate_workspace/src/main/java/com/google/devtools/build/workspace"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + ["//src/tools/generate_workspace/src/main/java/com/google/devtools/build/workspace:srcs"],
+    visibility = ["//src:__pkg__"],
+)

@@ -36,3 +36,9 @@ java_library(
         "//third_party:jsr305",
     ],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/tools/android/java/com/google/devtools/build/android:__pkg__"],
+)

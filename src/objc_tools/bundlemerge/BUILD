@@ -29,3 +29,9 @@ java_library(
         "//third_party/java/dd_plist",
     ],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__pkg__"],
+)

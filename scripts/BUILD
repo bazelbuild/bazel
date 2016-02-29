@@ -31,3 +31,9 @@ sh_test(
         "//src/test/shell:bashunit",
     ],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//:__pkg__"],
+)

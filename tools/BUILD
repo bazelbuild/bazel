@@ -9,7 +9,19 @@ filegroup(
     srcs = glob(["**"]) + [
         "//tools/android:srcs",
         "//tools/android/jack:srcs",
+        "//tools/buildstamp:srcs",
+        "//tools/build_defs/d:srcs",
+        "//tools/build_defs/docker:srcs",
+        "//tools/build_defs/dotnet:srcs",
+        "//tools/build_defs/jsonnet:srcs",
+        "//tools/build_defs/pkg:srcs",
+        "//tools/build_defs/sass:srcs",
+        "//tools/build_defs/scala:srcs",
         "//tools/build_rules:srcs",
+        "//tools/build_rules/appengine:srcs",
+        "//tools/build_rules/closure:srcs",
+        "//tools/build_rules/go:srcs",
+        "//tools/build_rules/rust:srcs",
         "//tools/jdk:srcs",
         "//tools/genrule:srcs",
         "//tools/cpp:srcs",
@@ -17,6 +29,7 @@ filegroup(
         "//tools/objc:srcs",
         "//tools/test:srcs",
         "//tools/python:srcs",
+        "//tools/zip:srcs",
     ],
 )
 

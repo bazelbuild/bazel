@@ -40,7 +40,7 @@ filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
         "//tools/objc/memleaks:srcs",
-        "//tools/objc/sim_devices:BUILD",
+        "//tools/objc/sim_devices:srcs",
     ],
 )
 

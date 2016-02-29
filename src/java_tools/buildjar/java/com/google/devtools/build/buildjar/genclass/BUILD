@@ -39,3 +39,9 @@ bootstrap_java_binary(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:bootstrap_jarhelper",
     ],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:__pkg__"],
+)

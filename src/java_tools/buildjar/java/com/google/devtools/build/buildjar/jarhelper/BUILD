@@ -16,7 +16,10 @@ filegroup(
     name = "srcs",
     # include this BUILD file for the default android tools repository
     srcs = glob(["**"]),
-    visibility = ["//src:__pkg__"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:__pkg__",
+    ],
 )
 
 # JarHelper library for GenClass so it can create the gen jar.

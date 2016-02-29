@@ -26,3 +26,13 @@ java_library(
         "//src/java_tools/buildjar/java/com/google/devtools/build/java/bazel:BazelJavaCompiler",
     ],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + [
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:srcs",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/bazel:srcs",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine:srcs",
+    ],
+    visibility = ["//src:__pkg__"],
+)
