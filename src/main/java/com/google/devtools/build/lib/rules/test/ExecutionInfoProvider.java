@@ -34,7 +34,7 @@ public final class ExecutionInfoProvider implements TransitiveInfoProvider {
 
   /**
    * Returns a map to indicate special execution requirements, such as hardware
-   * platforms, web browsers, etc. Rule tags, such as "requires-XXX", may also be added
+   * platforms, etc. Rule tags, such as "requires-XXX", may also be added
    * as keys to the map.
    */
   public ImmutableMap<String, String> getExecutionInfo() {
