@@ -1177,7 +1177,7 @@ bool OutputZipFile::Open() {
   if (!output_file->Opened()) {
     snprintf(errmsg, sizeof(errmsg), "%s", output_file->Error());
     delete output_file;
-    return NULL;
+    return false;
   }
 
   output_file_ = output_file;
