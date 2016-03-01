@@ -49,16 +49,19 @@ public final class AspectValue extends ActionLookupValue {
    */
   public static final class AspectKey extends AspectValueKey {
     private final Label label;
-    private final BuildConfiguration configuration;
+    private final BuildConfiguration aspectConfiguration;
+    private final BuildConfiguration baseConfiguration;
     private final Aspect aspect;
 
     protected AspectKey(
         Label label,
-        BuildConfiguration configuration,
+        BuildConfiguration aspectConfiguration,
+        BuildConfiguration baseConfiguration,
         AspectClass aspectClass,
         AspectParameters parameters) {
       this.label = label;
-      this.configuration = configuration;
+      this.aspectConfiguration = aspectConfiguration;
+      this.baseConfiguration = baseConfiguration;
       this.aspect = new Aspect(aspectClass, parameters);
     }
 
@@ -91,13 +94,45 @@ public final class AspectValue extends ActionLookupValue {
       return String.format("%s of %s", aspect.getAspectClass().getName(), getLabel());
     }
 
-    public BuildConfiguration getConfiguration() {
-      return configuration;
+    /**
+     * Returns the configuration to be used for the evaluation of the aspect itself.
+     *
+     * <p>In dynamic configuration mode, the aspect may require more fragments than the target on
+     * which it is being evaluated; in addition to configuration fragments required by the target
+     * and its dependencies, an aspect has configuration fragment requirements of its own, as well
+     * as dependencies of its own with their own configuration fragment requirements.
+     *
+     * <p>The aspect configuration contains all of these fragments, and is used to create the
+     * aspect's RuleContext and to retrieve the dependencies. Note that dependencies will have their
+     * configurations trimmed from this one as normal.
+     *
+     * <p>Because of these properties, this configuration is always a superset of that returned by
+     * {@link #getBaseConfiguration()}. In static configuration mode, this configuration will be
+     * equivalent to that returned by {@link #getBaseConfiguration()}.
+     *
+     * @see #getBaseConfiguration()
+     */
+    public BuildConfiguration getAspectConfiguration() {
+      return aspectConfiguration;
+    }
+
+    /**
+     * Returns the configuration to be used for the base target.
+     *
+     * <p>In dynamic configuration mode, the configured target this aspect is attached to may have
+     * a different configuration than the aspect itself (see the documentation for
+     * {@link #getAspectConfiguration()} for an explanation why). The base configuration is the one
+     * used to construct a key to look up the base configured target.
+     *
+     * @see #getAspectConfiguration()
+     */
+    public BuildConfiguration getBaseConfiguration() {
+      return baseConfiguration;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(label, configuration, aspect);
+      return Objects.hashCode(label, aspectConfiguration, baseConfiguration, aspect);
     }
 
     @Override
@@ -112,7 +147,8 @@ public final class AspectValue extends ActionLookupValue {
 
       AspectKey that = (AspectKey) other;
       return Objects.equal(label, that.label)
-          && Objects.equal(configuration, that.configuration)
+          && Objects.equal(aspectConfiguration, that.aspectConfiguration)
+          && Objects.equal(baseConfiguration, that.baseConfiguration)
           && Objects.equal(aspect, that.aspect);
     }
 
@@ -122,7 +158,9 @@ public final class AspectValue extends ActionLookupValue {
           + "#"
           + aspect.getAspectClass().getName()
           + " "
-          + (configuration == null ? "null" : configuration.checksum())
+          + (aspectConfiguration == null ? "null" : aspectConfiguration.checksum())
+          + " "
+          + (baseConfiguration == null ? "null" : baseConfiguration.checksum())
           + " "
           + aspect.getParameters();
     }
@@ -134,16 +172,19 @@ public final class AspectValue extends ActionLookupValue {
   public static class SkylarkAspectLoadingKey extends AspectValueKey {
 
     private final Label targetLabel;
+    private final BuildConfiguration aspectConfiguration;
     private final BuildConfiguration targetConfiguration;
     private final PathFragment extensionFile;
     private final String skylarkValueName;
 
     private SkylarkAspectLoadingKey(
         Label targetLabel,
+        BuildConfiguration aspectConfiguration,
         BuildConfiguration targetConfiguration,
         PathFragment extensionFile,
         String skylarkFunctionName) {
       this.targetLabel = targetLabel;
+      this.aspectConfiguration = aspectConfiguration;
       this.targetConfiguration = targetConfiguration;
 
       this.extensionFile = extensionFile;
@@ -167,6 +208,16 @@ public final class AspectValue extends ActionLookupValue {
       return targetLabel;
     }
 
+    /**
+     * @see AspectKey#getAspectConfiguration()
+     */
+    public BuildConfiguration getAspectConfiguration() {
+      return aspectConfiguration;
+    }
+
+    /**
+     * @see AspectKey#getBaseConfiguration()
+     */
     public BuildConfiguration getTargetConfiguration() {
       return targetConfiguration;
     }
@@ -220,14 +271,19 @@ public final class AspectValue extends ActionLookupValue {
     return transitivePackages;
   }
 
+  /**
+   * Constructs a new SkyKey containing an AspectKey.
+   */
   public static SkyKey key(
       Label label,
-      BuildConfiguration configuration,
+      BuildConfiguration aspectConfiguration,
+      BuildConfiguration baseConfiguration,
       AspectClass aspectFactory,
       AspectParameters additionalConfiguration) {
     return new SkyKey(
         SkyFunctions.ASPECT,
-        new AspectKey(label, configuration, aspectFactory, additionalConfiguration));
+        new AspectKey(
+            label, aspectConfiguration, baseConfiguration, aspectFactory, additionalConfiguration));
   }
 
   public static SkyKey key(AspectValueKey aspectKey) {
@@ -235,16 +291,21 @@ public final class AspectValue extends ActionLookupValue {
   }
 
   public static AspectKey createAspectKey(
-      Label label, BuildConfiguration configuration, AspectClass aspectFactory) {
-    return new AspectKey(label, configuration, aspectFactory, AspectParameters.EMPTY);
+      Label label,
+      BuildConfiguration aspectConfiguration,
+      BuildConfiguration baseConfiguration,
+      AspectClass aspectFactory) {
+    return new AspectKey(
+        label, aspectConfiguration, baseConfiguration, aspectFactory, AspectParameters.EMPTY);
   }
 
   public static SkylarkAspectLoadingKey createSkylarkAspectKey(
       Label targetLabel,
+      BuildConfiguration aspectConfiguration,
       BuildConfiguration targetConfiguration,
       PathFragment skylarkFile,
       String skylarkExportName) {
     return new SkylarkAspectLoadingKey(
-        targetLabel, targetConfiguration, skylarkFile, skylarkExportName);
+        targetLabel, aspectConfiguration, targetConfiguration, skylarkFile, skylarkExportName);
   }
 }

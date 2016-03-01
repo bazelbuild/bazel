@@ -34,7 +34,7 @@ import org.junit.runners.JUnit4;
 public class AspectValueTest extends AnalysisTestCase {
 
   @Test
-  public void equality() throws Exception {
+  public void keyEquality() throws Exception {
     update();
     BuildConfiguration c1 = getTargetConfiguration();
     BuildConfiguration c2 = getHostConfiguration();
@@ -44,25 +44,166 @@ public class AspectValueTest extends AnalysisTestCase {
     AspectParameters i1 = new AspectParameters.Builder()
         .addAttribute("foo", "bar")
         .build();
+    AspectParameters i1b = new AspectParameters.Builder()
+        .addAttribute("foo", "bar")
+        .build();
     AspectParameters i2 = new AspectParameters.Builder()
         .addAttribute("foo", "baz")
         .build();
-    NativeAspectClass a1 = new NativeAspectClass(AttributeAspect.class);
-    NativeAspectClass a2 = new NativeAspectClass(ExtraAttributeAspect.class);
+    NativeAspectClass<AttributeAspect> a1 =
+        new NativeAspectClass<AttributeAspect>(AttributeAspect.class);
+    NativeAspectClass<AttributeAspect> a1b =
+        new NativeAspectClass<AttributeAspect>(AttributeAspect.class);
+    NativeAspectClass<ExtraAttributeAspect> a2 =
+        new NativeAspectClass<ExtraAttributeAspect>(ExtraAttributeAspect.class);
+
+    // label: //a:l1 or //a:l2
+    // aspectConfiguration: target or host
+    // baseConfiguration: target or host
+    // aspect: Attribute or ExtraAttribute
+    // parameters: bar or baz
 
     new EqualsTester()
-        .addEqualityGroup(AspectValue.key(l1, c1, a1, AspectParameters.EMPTY),
-            AspectValue.key(l1b, c1, a1, AspectParameters.EMPTY))
-        .addEqualityGroup(AspectValue.key(l1, c1, a1, i1))
-        .addEqualityGroup(AspectValue.key(l1, c1, a1, i2))
-        .addEqualityGroup(AspectValue.key(l2, c1, a1, AspectParameters.EMPTY))
-        .addEqualityGroup(AspectValue.key(l1, c2, a1, AspectParameters.EMPTY))
-        .addEqualityGroup(AspectValue.key(l2, c2, a1, AspectParameters.EMPTY))
-        .addEqualityGroup(AspectValue.key(l1, c1, a2, AspectParameters.EMPTY))
-        .addEqualityGroup(AspectValue.key(l2, c1, a2, AspectParameters.EMPTY))
-        .addEqualityGroup(AspectValue.key(l1, c2, a2, AspectParameters.EMPTY))
-        .addEqualityGroup(AspectValue.key(l2, c2, a2, AspectParameters.EMPTY))
-        .addEqualityGroup(l1)  // A random object
+        .addEqualityGroup(
+            AspectValue.key(l1, c1, c1, a1, i1),
+            AspectValue.key(l1, c1, c1, a1, i1b),
+            AspectValue.key(l1, c1, c1, a1b, i1),
+            AspectValue.key(l1, c1, c1, a1b, i1b),
+            AspectValue.key(l1b, c1, c1, a1, i1),
+            AspectValue.key(l1b, c1, c1, a1, i1b),
+            AspectValue.key(l1b, c1, c1, a1b, i1),
+            AspectValue.key(l1b, c1, c1, a1b, i1b))
+        .addEqualityGroup(
+            AspectValue.key(l1, c1, c1, a1, i2),
+            AspectValue.key(l1, c1, c1, a1b, i2),
+            AspectValue.key(l1b, c1, c1, a1, i2),
+            AspectValue.key(l1b, c1, c1, a1b, i2))
+        .addEqualityGroup(
+            AspectValue.key(l1, c1, c1, a2, i1),
+            AspectValue.key(l1, c1, c1, a2, i1b),
+            AspectValue.key(l1b, c1, c1, a2, i1),
+            AspectValue.key(l1b, c1, c1, a2, i1b))
+        .addEqualityGroup(
+            AspectValue.key(l1, c1, c1, a2, i2),
+            AspectValue.key(l1b, c1, c1, a2, i2))
+        .addEqualityGroup(
+            AspectValue.key(l1, c1, c2, a1, i1),
+            AspectValue.key(l1, c1, c2, a1, i1b),
+            AspectValue.key(l1, c1, c2, a1b, i1),
+            AspectValue.key(l1, c1, c2, a1b, i1b),
+            AspectValue.key(l1b, c1, c2, a1, i1),
+            AspectValue.key(l1b, c1, c2, a1, i1b),
+            AspectValue.key(l1b, c1, c2, a1b, i1),
+            AspectValue.key(l1b, c1, c2, a1b, i1b))
+        .addEqualityGroup(
+            AspectValue.key(l1, c1, c2, a1, i2),
+            AspectValue.key(l1, c1, c2, a1b, i2),
+            AspectValue.key(l1b, c1, c2, a1, i2),
+            AspectValue.key(l1b, c1, c2, a1b, i2))
+        .addEqualityGroup(
+            AspectValue.key(l1, c1, c2, a2, i1),
+            AspectValue.key(l1, c1, c2, a2, i1b),
+            AspectValue.key(l1b, c1, c2, a2, i1),
+            AspectValue.key(l1b, c1, c2, a2, i1b))
+        .addEqualityGroup(
+            AspectValue.key(l1, c1, c2, a2, i2),
+            AspectValue.key(l1b, c1, c2, a2, i2))
+        .addEqualityGroup(
+            AspectValue.key(l1, c2, c1, a1, i1),
+            AspectValue.key(l1, c2, c1, a1, i1b),
+            AspectValue.key(l1, c2, c1, a1b, i1),
+            AspectValue.key(l1, c2, c1, a1b, i1b),
+            AspectValue.key(l1b, c2, c1, a1, i1),
+            AspectValue.key(l1b, c2, c1, a1, i1b),
+            AspectValue.key(l1b, c2, c1, a1b, i1),
+            AspectValue.key(l1b, c2, c1, a1b, i1b))
+        .addEqualityGroup(
+            AspectValue.key(l1, c2, c1, a1, i2),
+            AspectValue.key(l1, c2, c1, a1b, i2),
+            AspectValue.key(l1b, c2, c1, a1, i2),
+            AspectValue.key(l1b, c2, c1, a1b, i2))
+        .addEqualityGroup(
+            AspectValue.key(l1, c2, c1, a2, i1),
+            AspectValue.key(l1, c2, c1, a2, i1b),
+            AspectValue.key(l1b, c2, c1, a2, i1),
+            AspectValue.key(l1b, c2, c1, a2, i1b))
+        .addEqualityGroup(
+            AspectValue.key(l1, c2, c1, a2, i2),
+            AspectValue.key(l1b, c2, c1, a2, i2))
+        .addEqualityGroup(
+            AspectValue.key(l1, c2, c2, a1, i1),
+            AspectValue.key(l1, c2, c2, a1, i1b),
+            AspectValue.key(l1, c2, c2, a1b, i1),
+            AspectValue.key(l1, c2, c2, a1b, i1b),
+            AspectValue.key(l1b, c2, c2, a1, i1),
+            AspectValue.key(l1b, c2, c2, a1, i1b),
+            AspectValue.key(l1b, c2, c2, a1b, i1),
+            AspectValue.key(l1b, c2, c2, a1b, i1b))
+        .addEqualityGroup(
+            AspectValue.key(l1, c2, c2, a1, i2),
+            AspectValue.key(l1, c2, c2, a1b, i2),
+            AspectValue.key(l1b, c2, c2, a1, i2),
+            AspectValue.key(l1b, c2, c2, a1b, i2))
+        .addEqualityGroup(
+            AspectValue.key(l1, c2, c2, a2, i1),
+            AspectValue.key(l1, c2, c2, a2, i1b),
+            AspectValue.key(l1b, c2, c2, a2, i1),
+            AspectValue.key(l1b, c2, c2, a2, i1b))
+        .addEqualityGroup(
+            AspectValue.key(l1, c2, c2, a2, i2),
+            AspectValue.key(l1b, c2, c2, a2, i2))
+        .addEqualityGroup(
+            AspectValue.key(l2, c1, c1, a1, i1),
+            AspectValue.key(l2, c1, c1, a1, i1b),
+            AspectValue.key(l2, c1, c1, a1b, i1),
+            AspectValue.key(l2, c1, c1, a1b, i1b))
+        .addEqualityGroup(
+            AspectValue.key(l2, c1, c1, a1, i2),
+            AspectValue.key(l2, c1, c1, a1b, i2))
+        .addEqualityGroup(
+            AspectValue.key(l2, c1, c1, a2, i1),
+            AspectValue.key(l2, c1, c1, a2, i1b))
+        .addEqualityGroup(
+            AspectValue.key(l2, c1, c1, a2, i2))
+        .addEqualityGroup(
+            AspectValue.key(l2, c1, c2, a1, i1),
+            AspectValue.key(l2, c1, c2, a1, i1b),
+            AspectValue.key(l2, c1, c2, a1b, i1),
+            AspectValue.key(l2, c1, c2, a1b, i1b))
+        .addEqualityGroup(
+            AspectValue.key(l2, c1, c2, a1, i2),
+            AspectValue.key(l2, c1, c2, a1b, i2))
+        .addEqualityGroup(
+            AspectValue.key(l2, c1, c2, a2, i1),
+            AspectValue.key(l2, c1, c2, a2, i1b))
+        .addEqualityGroup(
+            AspectValue.key(l2, c1, c2, a2, i2))
+        .addEqualityGroup(
+            AspectValue.key(l2, c2, c1, a1, i1),
+            AspectValue.key(l2, c2, c1, a1, i1b),
+            AspectValue.key(l2, c2, c1, a1b, i1),
+            AspectValue.key(l2, c2, c1, a1b, i1b))
+        .addEqualityGroup(
+            AspectValue.key(l2, c2, c1, a1, i2),
+            AspectValue.key(l2, c2, c1, a1b, i2))
+        .addEqualityGroup(
+            AspectValue.key(l2, c2, c1, a2, i1),
+            AspectValue.key(l2, c2, c1, a2, i1b))
+        .addEqualityGroup(
+            AspectValue.key(l2, c2, c1, a2, i2))
+        .addEqualityGroup(
+            AspectValue.key(l2, c2, c2, a1, i1),
+            AspectValue.key(l2, c2, c2, a1, i1b),
+            AspectValue.key(l2, c2, c2, a1b, i1),
+            AspectValue.key(l2, c2, c2, a1b, i1b))
+        .addEqualityGroup(
+            AspectValue.key(l2, c2, c2, a1, i2),
+            AspectValue.key(l2, c2, c2, a1b, i2))
+        .addEqualityGroup(
+            AspectValue.key(l2, c2, c2, a2, i1),
+            AspectValue.key(l2, c2, c2, a2, i1b))
+        .addEqualityGroup(
+            AspectValue.key(l2, c2, c2, a2, i2))
         .testEquals();
   }
 }

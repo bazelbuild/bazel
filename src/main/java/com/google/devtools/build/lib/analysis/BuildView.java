@@ -464,6 +464,9 @@ public class BuildView {
           aspectKeys.add(
               AspectValue.createSkylarkAspectKey(
                   targetSpec.getLabel(),
+                  // For invoking top-level aspects, use the top-level configuration for both the
+                  // aspect and the base target while the top-level configuration is untrimmed.
+                  targetSpec.getConfiguration(),
                   targetSpec.getConfiguration(),
                   bzlFile,
                   skylarkFunctionName));
@@ -477,6 +480,9 @@ public class BuildView {
             aspectKeys.add(
                 AspectValue.createAspectKey(
                     targetSpec.getLabel(),
+                    // For invoking top-level aspects, use the top-level configuration for both the
+                    // aspect and the base target while the top-level configuration is untrimmed.
+                    targetSpec.getConfiguration(),
                     targetSpec.getConfiguration(),
                     new NativeAspectClass<ConfiguredNativeAspectFactory>(aspectFactoryClass)));
           }

@@ -907,6 +907,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             AspectValue.key(
                     owner.getLabel(),
                     owner.getConfiguration(),
+                    owner.getConfiguration(),
                     new NativeAspectClass(creatingAspectFactory),
                     AspectParameters.EMPTY)
                 .argument());
@@ -971,6 +972,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         (AspectValue.AspectKey)
             AspectValue.key(
                     owner.getLabel(),
+                    owner.getConfiguration(),
                     owner.getConfiguration(),
                     new NativeAspectClass(creatingAspectFactory),
                     AspectParameters.EMPTY)
