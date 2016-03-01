@@ -7,7 +7,7 @@ title: Bazel Users
 
 ## [Ascend.io](https://ascend.io)
 
-Ascend is a Paolo Alto startup that offer solution for large data sets analysis.
+Ascend is a Palo Alto startup that offer solution for large data sets analysis.
 Their motto is _Big data is hard. We make it easy_.
 
 ## [Braintree](https://www.braintreepayments.com)
@@ -22,9 +22,9 @@ Bazel went](https://www.pgrs.net/2015/09/01/migrating-from-gradle-to-bazel/).
 Makani, now a Google subsidiary, develops energy kites and uses
 Bazel to build their software (including their embedded C++ software).
 
-## [Peloton Technology](www.peloton-tech.com)
+## [Peloton Technology](http://www.peloton-tech.com)
 
-Peloton Technology is an automated vehicule technology company that tackles
+Peloton Technology is an automated vehicle technology company that tackles
 truck accidents and fuel use. They use Bazel to _enable reliable builds for
 automotive safety systems_.
 
