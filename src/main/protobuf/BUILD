@@ -18,6 +18,7 @@ FILES = [
     "worker_protocol",
     "invocation_policy",
     "remote_protocol",
+    "apk_manifest",
 ]
 
 [java_proto_library(

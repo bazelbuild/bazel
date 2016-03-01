@@ -736,6 +736,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:apk_manifest_java_proto",
         "//third_party:jsr305",
         "//third_party:protobuf",
     ],

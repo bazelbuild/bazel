@@ -76,7 +76,7 @@ public abstract class AbstractFileWriteAction extends AbstractAction {
    */
   public abstract DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
       throws IOException, InterruptedException, ExecException;
-
+  
   /**
    * This hook is called after the File has been successfully written to disk.
    *

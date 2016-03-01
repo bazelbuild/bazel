@@ -343,6 +343,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       JavaTargetAttributes resourceClasses,
       ImmutableList<Artifact> apksUnderTest,
       Artifact proguardMapping) throws InterruptedException {
+
     ImmutableList<Artifact> proguardSpecs = ProguardHelper.collectTransitiveProguardSpecs(
         ruleContext, ImmutableList.of(resourceApk.getResourceProguardConfig()));
 
@@ -555,6 +556,28 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .add(splitDeployMarker)
         .build();
 
+    Artifact apkManifest =
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.APK_MANIFEST);
+    createApkManifestAction(
+        ruleContext,
+        apkManifest,
+        false, // text proto
+        androidCommon,
+        resourceClasses,
+        resourceApk,
+        nativeLibs);
+
+    Artifact apkManifestText =
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.APK_MANIFEST_TEXT);
+    createApkManifestAction(
+        ruleContext,
+        apkManifestText,
+        true, // text proto
+        androidCommon,
+        resourceClasses,
+        resourceApk,
+        nativeLibs);
+    
     androidCommon.addTransitiveInfoProviders(
         builder, androidSemantics, resourceApk, zipAlignedApk, apksUnderTest);
     androidSemantics.addTransitiveInfoProviders(
@@ -584,7 +607,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .add(AndroidPreDexJarProvider.class, new AndroidPreDexJarProvider(jarToDex))
         .addOutputGroup("mobile_install_full", fullDeployMarker)
         .addOutputGroup("mobile_install_incremental", incrementalDeployMarker)
-        .addOutputGroup("mobile_install_split", splitOutputGroup);
+        .addOutputGroup("mobile_install_split", splitOutputGroup)
+        .addOutputGroup("apk_manifest", apkManifest)
+        .addOutputGroup("apk_manifest_text", apkManifestText);
   }
 
   private static void createSplitInstallAction(RuleContext ruleContext,
@@ -706,6 +731,32 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         null);
 
     return stubDex;
+  }
+
+  private static void createApkManifestAction(
+      RuleContext ruleContext,
+      Artifact apkManfiest,
+      boolean textProto,
+      AndroidCommon androidCommon,
+      JavaTargetAttributes resourceClasses,
+      ResourceApk resourceApk,
+      NativeLibs nativeLibs) {
+
+    Iterable<Artifact> jars = Iterables.concat(
+        resourceClasses.getArchiveInputs(true), androidCommon.getRuntimeJars());
+
+    AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);
+    
+    ApkManifestAction manifestAction = new ApkManifestAction(
+        ruleContext.getActionOwner(),
+        apkManfiest,
+        textProto,
+        sdk,
+        jars,
+        resourceApk.getArtifact(),
+        nativeLibs);
+
+    ruleContext.registerAction(manifestAction);
   }
 
   /** Generates an uncompressed _deploy.jar of all the runtime jars. */
