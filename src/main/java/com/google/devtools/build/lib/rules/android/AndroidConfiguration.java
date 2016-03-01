@@ -189,6 +189,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       labelMap.put("android_sdk", sdk);
     }
 
+    @Override
+    public FragmentOptions getHost(boolean fallback) {
+      Options host = (Options) super.getHost(fallback);
+      host.androidCrosstoolTop = androidCrosstoolTop;
+      return host;
+    }
+
     // This method is here because Constants.ANDROID_DEFAULT_FAT_APK_CPUS cannot be a constant
     // because we replace the class file in the .jar after compilation. However, that means that we
     // cannot use it as an attribute value in an annotation.
