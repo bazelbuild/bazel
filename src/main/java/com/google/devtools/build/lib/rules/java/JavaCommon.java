@@ -442,7 +442,7 @@ public class JavaCommon {
 
   private ImmutableList<String> computeJavacOpts(Iterable<String> extraJavacOpts) {
     return ImmutableList.copyOf(Iterables.concat(
-        JavaToolchainProvider.getDefaultJavacOptions(ruleContext),
+        JavaToolchainProvider.fromRuleContext(ruleContext).getJavacOptions(),
         extraJavacOpts,
         ruleContext.getTokenizedStringListAttr("javacopts")));
   }

@@ -75,6 +75,10 @@ public class BazelJavaRuleClasses {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .add(attr("$ijar", LABEL).cfg(HOST).exec().value(env.getLabel("//tools/defaults:ijar")))
+          .add(
+              attr(":java_toolchain", LABEL)
+                  .allowedRuleClasses("java_toolchain")
+                  .value(JavaSemantics.JAVA_TOOLCHAIN))
           .setPreferredDependencyPredicate(JavaSemantics.JAVA_SOURCE)
           .build();
     }
@@ -98,7 +102,6 @@ public class BazelJavaRuleClasses {
       return builder
           .add(attr(":jvm", LABEL).cfg(HOST).value(JavaSemantics.JVM))
           .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
-          .add(attr(":java_toolchain", LABEL).value(JavaSemantics.JAVA_TOOLCHAIN))
           .add(attr("$javac_extdir", LABEL).cfg(HOST)
               .value(env.getLabel(JavaSemantics.JAVAC_EXTDIR_LABEL)))
           .add(attr("$java_langtools", LABEL).cfg(HOST)

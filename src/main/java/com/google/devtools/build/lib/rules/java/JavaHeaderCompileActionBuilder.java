@@ -241,14 +241,15 @@ public class JavaHeaderCompileActionBuilder {
     Artifact langtools = ruleContext.getPrerequisiteArtifact("$java_langtools", Mode.HOST);
     builder.addTool(langtools);
 
+    JavaToolchainProvider javaToolchain = JavaToolchainProvider.fromRuleContext(ruleContext);
     List<String> jvmArgs =
         ImmutableList.<String>builder()
-            .addAll(JavaToolchainProvider.getDefaultJavacJvmOptions(ruleContext))
+            .addAll(javaToolchain.getJavacJvmOptions())
             .add("-Xbootclasspath/p:" + langtools.getExecPath().getPathString())
             .build();
     builder.setJarExecutable(
         ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
-        JavaToolchainProvider.getHeaderCompilerJar(ruleContext),
+        javaToolchain.getHeaderCompiler(),
         jvmArgs);
 
     builder.setResources(RESOURCE_SET);

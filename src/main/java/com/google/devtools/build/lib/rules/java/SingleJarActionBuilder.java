@@ -60,7 +60,7 @@ public final class SingleJarActionBuilder {
     PathFragment javaPath =
         ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable();
     NestedSet<Artifact> hostJavabaseInputs = JavaHelper.getHostJavabaseInputs(ruleContext);
-    Artifact singleJar = ruleContext.getPrerequisiteArtifact("$singlejar", Mode.HOST);
+    Artifact singleJar = getSingleJar(ruleContext);
     ruleContext.registerAction(new SpawnAction.Builder()
         .addOutput(outputJar)
         .addInputs(resources.values())
@@ -75,6 +75,15 @@ public final class SingleJarActionBuilder {
         .setProgressMessage("Building source jar " + outputJar.prettyPrint())
         .setMnemonic("JavaSourceJar")
         .build(ruleContext));
+  }
+
+  /** Returns the SingleJar deploy jar Artifact. */
+  private static Artifact getSingleJar(RuleContext ruleContext) {
+    Artifact singleJar = JavaToolchainProvider.fromRuleContext(ruleContext).getSingleJar();
+    if (singleJar != null) {
+      return singleJar;
+    }
+    return ruleContext.getPrerequisiteArtifact("$singlejar", Mode.HOST);
   }
 
   private static CommandLine sourceJarCommandLine(Artifact outputJar,

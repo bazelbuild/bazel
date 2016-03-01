@@ -244,12 +244,21 @@ public class DeployArchiveBuilder {
         .setResources(resourceSet)
         .setJarExecutable(
             ruleContext.getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
-            ruleContext.getPrerequisiteArtifact("$singlejar", Mode.HOST),
+            getSingleJar(ruleContext),
             jvmArgs)
         .setCommandLine(commandLine)
         .useParameterFile(ParameterFileType.SHELL_QUOTED)
         .setProgressMessage("Building deploy jar " + outputJar.prettyPrint())
         .setMnemonic("JavaDeployJar")
         .build(ruleContext));
+  }
+
+  /** Returns the SingleJar deploy jar Artifact. */
+  private static Artifact getSingleJar(RuleContext ruleContext) {
+    Artifact singleJar = JavaToolchainProvider.fromRuleContext(ruleContext).getSingleJar();
+    if (singleJar != null) {
+      return singleJar;
+    }
+    return ruleContext.getPrerequisiteArtifact("$singlejar", Mode.HOST);
   }
 }

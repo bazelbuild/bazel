@@ -17,14 +17,12 @@ import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuildType;
 
 import java.util.List;
 
@@ -36,84 +34,9 @@ import javax.annotation.Nullable;
 @Immutable
 public final class JavaToolchainProvider implements TransitiveInfoProvider {
 
-  /**
-   * Constructs the list of javac options.
-   *
-   * @param ruleContext The rule context of the current rule.
-   * @return the list of flags provided by the {@code java_toolchain} rule merged with the one
-   *         provided by the {@link JavaConfiguration} fragment.
-   */
-  public static List<String> getDefaultJavacOptions(RuleContext ruleContext) {
-    JavaToolchainProvider javaToolchain =
-        ruleContext.getPrerequisite(":java_toolchain", Mode.TARGET, JavaToolchainProvider.class);
-    if (javaToolchain == null) {
-      ruleContext.ruleError("The --java_toolchain option does not point to a java_toolchain rule.");
-      return ImmutableList.of();
-    }
-    return javaToolchain.getJavacOptions();
-  }
-
-  /**
-   * Constructs the list of options to pass to the JVM running the java compiler.
-   *
-   * @param ruleContext The rule context of the current rule.
-   * @return the list of flags provided by the {@code java_toolchain} rule merged with the one
-   *         provided by the {@link JavaConfiguration} fragment.
-   */
-  public static List<String> getDefaultJavacJvmOptions(RuleContext ruleContext) {
-    if (!ruleContext.getRule().isAttrDefined(":java_toolchain", BuildType.LABEL)) {
-      // As some rules might not have java_toolchain dependency (e.g., java_import), we silently
-      // ignore it. The rules needing it will error in #getDefaultJavacOptions(RuleContext) anyway.
-      return ImmutableList.of();
-    }
-    JavaToolchainProvider javaToolchain =
-        ruleContext.getPrerequisite(":java_toolchain", Mode.TARGET, JavaToolchainProvider.class);
-    if (javaToolchain == null) {
-      ruleContext.ruleError("The --java_toolchain option does not point to a java_toolchain rule.");
-      return ImmutableList.of();
-    }
-    return javaToolchain.getJavacJvmOptions();
-  }
-
-  /** Returns the {@link Artifact} of the header compiler deploy jar. */
-  public static Artifact getHeaderCompilerJar(RuleContext ruleContext) {
-    JavaToolchainProvider javaToolchain =
-        ruleContext.getPrerequisite(":java_toolchain", Mode.TARGET, JavaToolchainProvider.class);
-    if (javaToolchain == null) {
-      ruleContext.ruleError("The --java_toolchain option does not point to a java_toolchain rule.");
-      return null;
-    }
-    return javaToolchain.getHeaderCompiler();
-  }
-
-  /**
-   * Constructs the compilation bootclasspath.
-   *
-   * @param ruleContext The rule context of the current rule.
-   */
-  public static NestedSet<Artifact> getDefaultBootclasspath(RuleContext ruleContext) {
-    JavaToolchainProvider javaToolchain =
-        ruleContext.getPrerequisite(":java_toolchain", Mode.TARGET, JavaToolchainProvider.class);
-    if (javaToolchain == null) {
-      ruleContext.ruleError("The --java_toolchain option does not point to a java_toolchain rule.");
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-    return javaToolchain.getBootclasspath();
-  }
-
-  /**
-   * Constructs the compilation extclasspath.
-   *
-   * @param ruleContext The rule context of the current rule.
-   */
-  public static NestedSet<Artifact> getDefaultExtclasspath(RuleContext ruleContext) {
-    JavaToolchainProvider javaToolchain =
-        ruleContext.getPrerequisite(":java_toolchain", Mode.TARGET, JavaToolchainProvider.class);
-    if (javaToolchain == null) {
-      ruleContext.ruleError("The --java_toolchain option does not point to a java_toolchain rule.");
-      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-    }
-    return javaToolchain.getExtclasspath();
+  /** Returns the Java Toolchain associated with the rule being analyzed or {@code null}. */
+  public static JavaToolchainProvider fromRuleContext(RuleContext ruleContext) {
+    return ruleContext.getPrerequisite(":java_toolchain", Mode.TARGET, JavaToolchainProvider.class);
   }
 
   private final String sourceVersion;
@@ -123,7 +46,12 @@ public final class JavaToolchainProvider implements TransitiveInfoProvider {
   private final String encoding;
   private final ImmutableList<String> javacOptions;
   private final ImmutableList<String> javacJvmOptions;
+  @Nullable private final Artifact javac;
+  @Nullable private final Artifact javaBuilder;
   @Nullable private final Artifact headerCompiler;
+  @Nullable private final Artifact singleJar;
+  @Nullable private final Artifact genClass;
+  @Nullable private final FilesToRunProvider ijar;
 
   public JavaToolchainProvider(
       JavaToolchainData data,
@@ -131,13 +59,23 @@ public final class JavaToolchainProvider implements TransitiveInfoProvider {
       @Nullable NestedSet<Artifact> extclasspath,
       List<String> defaultJavacFlags,
       List<String> defaultJavacJvmOpts,
-      @Nullable Artifact headerCompiler) {
+      @Nullable Artifact javac,
+      @Nullable Artifact javaBuilder,
+      @Nullable Artifact headerCompiler,
+      @Nullable Artifact singleJar,
+      @Nullable Artifact genClass,
+      @Nullable FilesToRunProvider ijar) {
     this.sourceVersion = checkNotNull(data.getSourceVersion(), "sourceVersion must not be null");
     this.targetVersion = checkNotNull(data.getTargetVersion(), "targetVersion must not be null");
     this.bootclasspath = bootclasspath;
     this.extclasspath = extclasspath;
     this.encoding = checkNotNull(data.getEncoding(), "encoding must not be null");
+    this.javac = javac;
+    this.javaBuilder = javaBuilder;
     this.headerCompiler = headerCompiler;
+    this.singleJar = singleJar;
+    this.genClass = genClass;
+    this.ijar = ijar;
 
     // merges the defaultJavacFlags from
     // {@link JavaConfiguration} with the flags from the {@code java_toolchain} rule.
@@ -191,9 +129,39 @@ public final class JavaToolchainProvider implements TransitiveInfoProvider {
     return encoding;
   }
 
+  /** Returns the {@link Artifact} of the javac jar */
+  @Nullable
+  public Artifact getJavac() {
+    return javac;
+  }
+
+  /** Returns the {@link Artifact} of the JavaBuilder deploy jar */
+  @Nullable
+  public Artifact getJavaBuilder() {
+    return javaBuilder;
+  }
+
   /** @return the {@link Artifact} of the Header Compiler deploy jar */
   @Nullable
   public Artifact getHeaderCompiler() {
     return headerCompiler;
+  }
+
+  /** Returns the {@link Artifact} of the SingleJar deploy jar */
+  @Nullable
+  public Artifact getSingleJar() {
+    return singleJar;
+  }
+
+  /** Returns the {@link Artifact} of the GenClass deploy jar */
+  @Nullable
+  public Artifact getGenClass() {
+    return genClass;
+  }
+
+  /** Returns the ijar executable */
+  @Nullable
+  public FilesToRunProvider getIjar() {
+    return ijar;
   }
 }

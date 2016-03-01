@@ -72,8 +72,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     super(ruleContext, implicitAttributesSuffix);
     this.attributes = attributes;
     this.customJavacOpts = javacOpts;
-    this.customJavacJvmOpts =
-        ImmutableList.copyOf(JavaToolchainProvider.getDefaultJavacJvmOptions(ruleContext));
+    this.customJavacJvmOpts = javaToolchain.getJavacJvmOptions();
     this.semantics = semantics;
   }
 
@@ -232,7 +231,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     if (!attributes.hasSourceFiles() && !attributes.hasSourceJars()) {
       return false;
     }
-    if (JavaToolchainProvider.getHeaderCompilerJar(getRuleContext()) == null) {
+    if (javaToolchain.getHeaderCompiler() == null) {
       getRuleContext().ruleError(
           "header compilation was requested but it is not support by the current Java toolchain;"
               + " see the java_toolchain.header_compiler attribute");
@@ -343,7 +342,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
       .addTransitiveInputs(getHostJavabaseInputsNonStatic(getRuleContext()))
       .setJarExecutable(
           getRuleContext().getHostConfiguration().getFragment(Jvm.class).getJavaExecutable(),
-          getRuleContext().getPrerequisiteArtifact("$genclass", Mode.HOST),
+          getGenClassJar(ruleContext),
           ImmutableList.of("-client", GENCLASS_MAX_MEMORY))
       .setCommandLine(CustomCommandLine.builder()
           .addExecPath("--manifest_proto", manifestProto)
@@ -355,6 +354,15 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
       .setProgressMessage("Building genclass jar " + genClassJar.prettyPrint())
       .setMnemonic("JavaSourceJar")
       .build(getRuleContext()));
+  }
+
+  /** Returns the GenClass deploy jar Artifact. */
+  private Artifact getGenClassJar(RuleContext ruleContext) {
+    Artifact genClass = javaToolchain.getGenClass();
+    if (genClass != null) {
+      return genClass;
+    }
+    return ruleContext.getPrerequisiteArtifact("$genclass", Mode.HOST);
   }
 
   /**
@@ -415,10 +423,8 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     builder.setClassDirectory(classDir(resourceJar));
     builder.setJavaBuilderJar(getJavaBuilderJar());
     builder.setJavacOpts(getDefaultJavacOptsFromRule(getRuleContext()));
-    builder.setJavacJvmOpts(
-        ImmutableList.copyOf(JavaToolchainProvider.getDefaultJavacOptions(getRuleContext())));
-    builder.setJavacJvmOpts(
-        ImmutableList.copyOf(JavaToolchainProvider.getDefaultJavacJvmOptions(getRuleContext())));
+    builder.setJavacJvmOpts(ImmutableList.copyOf(javaToolchain.getJavacOptions()));
+    builder.setJavacJvmOpts(ImmutableList.copyOf(javaToolchain.getJavacJvmOptions()));
     getAnalysisEnvironment().registerAction(builder.build());
     return resourceJar;
   }
@@ -621,7 +627,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
    */
   private static ImmutableList<String> getDefaultJavacOptsFromRule(RuleContext ruleContext) {
     return ImmutableList.copyOf(Iterables.concat(
-        JavaToolchainProvider.getDefaultJavacOptions(ruleContext),
+        JavaToolchainProvider.fromRuleContext(ruleContext).getJavacJvmOptions(),
         ruleContext.getTokenizedStringListAttr("javacopts")));
   }
 
