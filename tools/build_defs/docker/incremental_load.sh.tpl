@@ -14,13 +14,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This is a generated files that load all docker layer built by "docker_build".
+# This is a generated files that loads all docker layer built by "docker_build".
 
-RUNFILES=${BASH_SOURCE[0]}.runfiles
+RUNFILES="${PYTHON_RUNFILES:-${BASH_SOURCE[0]}.runfiles}"
+
+DOCKER="${DOCKER:-docker}"
 
 # List all images identifier (only the identifier) from the local
 # docker registry.
-IMAGES="$(docker images -aq)"
+IMAGES="$("${DOCKER}" images -aq)"
 IMAGE_LEN=$(for i in $IMAGES; do echo -n $i | wc -c; done | sort -g | head -1 | xargs)
 
 [ -n "$IMAGE_LEN" ] || IMAGE_LEN=64
@@ -33,7 +35,7 @@ function incr_load() {
     echo "Skipping $name, already loaded."
   else
     echo "Loading $name..."
-    docker load -i ${RUNFILES}/$2
+    "${DOCKER}" load -i ${RUNFILES}/$2
   fi
 }
 
@@ -45,5 +47,5 @@ function incr_load() {
 if [ -n "${name}" ]; then
   TAG="${1:-%{repository}:%{tag}}"
   echo "Tagging ${name} as ${TAG}"
-  docker tag -f ${name} ${TAG}
+  "${DOCKER}" tag -f ${name} ${TAG}
 fi
