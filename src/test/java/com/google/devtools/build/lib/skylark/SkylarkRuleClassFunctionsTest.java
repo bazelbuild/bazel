@@ -599,7 +599,10 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testJsonEscapes() throws Exception {
     checkJson("struct(name='a\"b').to_json()", "{\"name\":\"a\\\"b\"}");
     checkJson("struct(name='a\\'b').to_json()", "{\"name\":\"a'b\"}");
+    checkJson("struct(name='a\\\\b').to_json()", "{\"name\":\"a\\\\b\"}");
     checkJson("struct(name='a\\nb').to_json()", "{\"name\":\"a\\nb\"}");
+    checkJson("struct(name='a\\rb').to_json()", "{\"name\":\"a\\rb\"}");
+    checkJson("struct(name='a\\tb').to_json()", "{\"name\":\"a\\tb\"}");
   }
 
   @Test

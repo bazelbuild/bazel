@@ -781,7 +781,7 @@ public class SkylarkRuleClassFunctions {
         sb.append("]");
       } else if (value instanceof String) {
         sb.append("\"");
-        sb.append(escapeString((String) value));
+        sb.append(jsonEscapeString((String) value));
         sb.append("\"");
       } else if (value instanceof Integer || value instanceof Boolean) {
         sb.append(value);
@@ -793,6 +793,12 @@ public class SkylarkRuleClassFunctions {
         }
         throw new EvalException(loc, errorMessage);
       }
+    }
+
+    private String jsonEscapeString(String string) {
+      return escapeString(string.replace("\\", "\\\\")
+          .replace("\r", "\\r")
+          .replace("\t", "\\t"));
     }
   };
 
