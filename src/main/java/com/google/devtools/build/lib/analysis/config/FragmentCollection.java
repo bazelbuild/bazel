@@ -65,4 +65,9 @@ public class FragmentCollection implements ClassObject {
   public static String getConfigurationName(ConfigurationTransition config) {
     return (config == ConfigurationTransition.HOST) ? "host" : "target";
   }
+
+  @Override
+  public String toString() {
+    return getConfigurationName(config) + ": [ " + printKeys() + "]";
+  }
 }
