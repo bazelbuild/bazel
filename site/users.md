@@ -7,8 +7,8 @@ title: Bazel Users
 
 ## [Ascend.io](https://ascend.io)
 
-Ascend is a Palo Alto startup that offer solution for large data sets analysis.
-Their motto is _Big data is hard. We make it easy_.
+Ascend is a Palo Alto startup that offers solutions for large data sets
+analysis. Their motto is _Big data is hard. We make it easy_.
 
 ## [Braintree](https://www.braintreepayments.com)
 
