@@ -32,6 +32,7 @@ public class RuleLinkExpanderTest {
         .put("cc_library", "c-cpp")
         .put("cc_binary", "c-cpp")
         .put("java_binary", "java")
+        .put("Fileset", "fileset")
         .put("proto_library", "protocol-buffer")
         .build());
   }
@@ -45,6 +46,12 @@ public class RuleLinkExpanderTest {
   @Test public void testRuleAndAttribute() {
     String docs = "<a href=\"${link java_binary.runtime_deps}\">runtime_deps attribute</a>";
     String expected = "<a href=\"java.html#java_binary.runtime_deps\">runtime_deps attribute</a>";
+    assertEquals(expected, expander.expand(docs));
+  }
+
+  @Test public void testUpperCaseRule() {
+    String docs = "<a href=\"${link Fileset.entries}\">entries</a>";
+    String expected = "<a href=\"fileset.html#Fileset.entries\">entries</a>";
     assertEquals(expected, expander.expand(docs));
   }
 
@@ -69,6 +76,14 @@ public class RuleLinkExpanderTest {
   @Test public void testStaticPageWithHeadingRef() {
     String docs = "<a href=\"${link common-definitions.label-expansion}\">Label Expansion</a>";
     String expected = "<a href=\"common-definitions.html#label-expansion\">Label Expansion</a>";
+    assertEquals(expected, expander.expand(docs));
+  }
+
+  @Test public void testStaticPageWithPeriodsInHeading() {
+    String docs =
+        "<a href=\"${link make-variables.predefined_variables.genrule.cmd}\">genrule cmd</a>";
+    String expected =
+        "<a href=\"make-variables.html#predefined_variables.genrule.cmd\">genrule cmd</a>";
     assertEquals(expected, expander.expand(docs));
   }
 

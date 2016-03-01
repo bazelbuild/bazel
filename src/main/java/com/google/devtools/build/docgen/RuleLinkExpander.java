@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.docgen;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -28,16 +30,32 @@ import java.util.regex.Matcher;
 class RuleLinkExpander {
   private static final String EXAMPLES_SUFFIX = "_examples";
   private static final String ARGS_SUFFIX = "_args";
+  private static final String FUNCTIONS_PAGE = "functions";
 
   private static final Set<String> STATIC_PAGES = ImmutableSet.<String>of(
       "common-definitions",
       "make-variables",
       "predefined-python-variables");
+  private static final Map<String, String> FUNCTIONS = ImmutableMap.<String, String>builder()
+      .put("load", FUNCTIONS_PAGE)
+      .put("subinclude", FUNCTIONS_PAGE)
+      .put("PYTHON-PREPROCESSING-REQUIRED", FUNCTIONS_PAGE)
+      .put("package", FUNCTIONS_PAGE)
+      .put("package_group", FUNCTIONS_PAGE)
+      .put("description", FUNCTIONS_PAGE)
+      .put("distribs", FUNCTIONS_PAGE)
+      .put("licenses", FUNCTIONS_PAGE)
+      .put("exports_files", FUNCTIONS_PAGE)
+      .put("glob", FUNCTIONS_PAGE)
+      .put("select", FUNCTIONS_PAGE)
+      .put("workspace", FUNCTIONS_PAGE)
+      .build();
 
-  private final Map<String, String> ruleIndex;
+  private final Map<String, String> ruleIndex = new HashMap<>();
 
   RuleLinkExpander(Map<String, String> ruleIndex) {
-    this.ruleIndex = ruleIndex;
+    this.ruleIndex.putAll(ruleIndex);
+    this.ruleIndex.putAll(FUNCTIONS);
   }
 
   private void appendRuleLink(Matcher matcher, StringBuffer sb, String ruleName, String ref) {

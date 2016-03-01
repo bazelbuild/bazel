@@ -100,7 +100,7 @@ public class DocgenConsts {
    * (e.g. common-definitions.label-expansion).
    */
   public static final Pattern BLAZE_RULE_LINK = Pattern.compile(
-      "\\$\\{link (([a-z_-]+)(\\.([a-z_-]+))?)\\}");
+      "\\$\\{link (([a-zA-Z_-]+)(\\.([a-zA-Z_\\.-]+))?)\\}");
 
   /**
    * i.e. <!-- #BLAZE_RULE(NAME = RULE_NAME, TYPE = RULE_TYPE, FAMILY = RULE_FAMILY) -->

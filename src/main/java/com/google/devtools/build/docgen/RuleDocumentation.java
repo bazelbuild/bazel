@@ -209,10 +209,18 @@ public class RuleDocumentation implements Comparable<RuleDocumentation> {
    * Returns a string containing any extra documentation for the name attribute for this
    * rule.
    */
-  public String getNameExtraHtmlDoc() {
-    return docVariables.containsKey(DocgenConsts.VAR_NAME)
+  public String getNameExtraHtmlDoc() throws BuildEncyclopediaDocException {
+    String expandedDoc = docVariables.containsKey(DocgenConsts.VAR_NAME)
         ? docVariables.get(DocgenConsts.VAR_NAME)
         : "";
+    if (linkExpander != null) {
+      try {
+        expandedDoc = linkExpander.expand(expandedDoc);
+      } catch (IllegalArgumentException e) {
+        throw new BuildEncyclopediaDocException(fileName, startLineCount, e.getMessage());
+      }
+    }
+    return expandedDoc;
   }
 
   /**
