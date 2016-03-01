@@ -1460,7 +1460,7 @@ java_test(
     java_toolchain
   </h2>
 
-  <pre class="rule-signature">java_toolchain(<a href="#java_toolchain.name">name</a>, <a href="#java_toolchain.bootclasspath">bootclasspath</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#java_toolchain.encoding">encoding</a>, <a href="#java_toolchain.extclasspath">extclasspath</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#java_toolchain.jvm_opts">jvm_opts</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#java_toolchain.misc">misc</a>, <a href="#java_toolchain.source_version">source_version</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="#java_toolchain.target_version">target_version</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#java_toolchain.xlint">xlint</a>)</pre>
+  <pre class="rule-signature">java_toolchain(<a href="#java_toolchain.name">name</a>, <a href="#java_toolchain.bootclasspath">bootclasspath</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#java_toolchain.encoding">encoding</a>, <a href="#java_toolchain.extclasspath">extclasspath</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#java_toolchain.genclass">genclass</a>, <a href="#java_toolchain.ijar">ijar</a>, <a href="#java_toolchain.javabuilder">javabuilder</a>, <a href="#java_toolchain.javac">javac</a>, <a href="#java_toolchain.jvm_opts">jvm_opts</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#java_toolchain.misc">misc</a>, <a href="#java_toolchain.singlejar">singlejar</a>, <a href="#java_toolchain.source_version">source_version</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="#java_toolchain.target_version">target_version</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#java_toolchain.xlint">xlint</a>)</pre>
 
 
 <p>
@@ -1483,6 +1483,7 @@ java_toolchain(
     encoding = "UTF-8",
     xlint = [ "classfile", "divzero", "empty", "options", "path" ],
     misc = [ "-g" ],
+    javabuilder = ":JavaBuilder_deploy.jar",
 )
 </pre>
 
@@ -1539,6 +1540,46 @@ java_toolchain(
         </td>
       </tr>
                                 <tr>
+        <td id="java_toolchain.genclass">
+          <code>genclass</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                            Label of the GenClass deploy jar.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="java_toolchain.ijar">
+          <code>ijar</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                            Label of the ijar executable.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="java_toolchain.javabuilder">
+          <code>javabuilder</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                            Label of the JavaBuilder deploy jar.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="java_toolchain.javac">
+          <code>javac</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                            Label of the javac jar.
+
+        </td>
+      </tr>
+                      <tr>
         <td id="java_toolchain.jvm_opts">
           <code>jvm_opts</code>
         </td>
@@ -1557,6 +1598,16 @@ java_toolchain(
                     <p><code>List of strings; optional</code></p>
                             The list of extra arguments for the Java compiler. Please refer to the Java compiler
         documentation for the extensive list of possible Java compiler flags.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="java_toolchain.singlejar">
+          <code>singlejar</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                            Label of the SingleJar deploy jar.
 
         </td>
       </tr>
