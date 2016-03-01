@@ -2,13 +2,12 @@
 layout: documentation
 title: Skylark Cookbook
 ---
-Skylark cookbook
-================
+# Skylark cookbook
 
 ## <a name="macro_native"></a>Macro creating a native rule
 
 An example of a macro creating a native rule. Native rules are accessed using
-the `native` module.
+the <a href="lib/native.html">native</a> module.
 
 `extension.bzl`:
 
@@ -115,10 +114,11 @@ system_test_suite("thorough", flavors=["fast", "debug", "opt"], ["basic_test.py"
 
 Macros can collect information from the BUILD file as processed so far.  We call
 this aggregation. The typical example is collecting data from all rules of a
-certain kind.  This is done by calling `native.existing_rules`, which returns a
-dictionary representing all rules defined so far in the current BUILD file. The
-dictionary has entries of the form `name` => `rule`, with the values using the
-same format as `native.existing_rule`.
+certain kind.  This is done by calling
+<a href="lib/native.html#existing_rules">native.existing\_rules</a>, which
+returns a dictionary representing all rules defined so far in the current BUILD
+file. The dictionary has entries of the form `name` => `rule`, with the values
+using the same format as `native.existing_rule`.
 
 ```python
 def archive_cc_src_files(tag):
@@ -210,8 +210,7 @@ the user. The output has the same name as the rule, with a `.size` suffix.
 While convenient, Shell commands should be used carefully. Generating the
 command-line can lead to escaping and injection issues. It can also create
 portability problems. It is often better to declare a binary target in a
-BUILD file and execute it. See the example
-"<a href="#execute-bin">executing a binary</a>".
+BUILD file and execute it. See the example [executing a binary](#execute-bin).
 
 `size.bzl`:
 
@@ -845,7 +844,8 @@ macro(
 
 ## <a name="debugging-tips"></a>Debugging tips
 
-Here are some examples on how to debug Skylark macros and rules.
+Here are some examples on how to debug Skylark macros and rules using
+<a href="lib/globals.html#print">print</a>.
 
 `debug.bzl`:
 
