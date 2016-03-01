@@ -51,21 +51,11 @@ public class ConfigurationFragmentValue implements SkyValue {
   @ThreadSafe
   public static SkyKey key(BuildOptions buildOptions, Class<? extends Fragment> fragmentType,
       RuleClassProvider ruleClassProvider) {
-    // For dynamic configurations, trim the options down to just those used by this fragment.
-    // This ensures we don't end up with different Skyframe keys due to trimming of unrelated
-    // options.
-    //
-    // We don't trim for static configurations because static configurations need to support
-    // LIPO and trimming breaks LIPO: it results in CppConfiguration instances being shared
-    // across configurations. That isn't safe because CppConfiguration mutates its state
-    // in prepareHook() for each configuration.
     BuildOptions optionsKey =
-        buildOptions.get(BuildConfiguration.Options.class).useDynamicConfigurations
-        ? buildOptions.trim(
-              BuildConfiguration.getOptionsClasses(
-                  ImmutableList.<Class<? extends BuildConfiguration.Fragment>>of(fragmentType),
-                  ruleClassProvider))
-        : buildOptions;
+        buildOptions.trim(
+            BuildConfiguration.getOptionsClasses(
+                ImmutableList.<Class<? extends BuildConfiguration.Fragment>>of(fragmentType),
+                ruleClassProvider));
     return new SkyKey(SkyFunctions.CONFIGURATION_FRAGMENT,
         new ConfigurationFragmentKey(optionsKey, fragmentType));
   }

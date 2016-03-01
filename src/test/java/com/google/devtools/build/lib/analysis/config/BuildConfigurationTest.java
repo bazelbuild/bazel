@@ -322,30 +322,16 @@ public class BuildConfigurationTest extends ConfigurationTestCase {
   }
 
   @Test
-  public void testDynamicConfigFragmentsAreShareableAcrossConfigurations() throws Exception {
+  public void testConfigFragmentsAreShareableAcrossConfigurations() throws Exception {
     // Note we can't use any fragments that load files (e.g. CROSSTOOL) because those get
     // Skyframe-invalidated between create() calls.
-    BuildConfiguration config1 = create("--experimental_dynamic_configs", "--javacopt=foo");
-    BuildConfiguration config2 = create("--experimental_dynamic_configs", "--javacopt=bar");
-    BuildConfiguration config3 =
-        create("--experimental_dynamic_configs", "--j2objc_translation_flags=baz");
+    BuildConfiguration config1 = create("--javacopt=foo");
+    BuildConfiguration config2 = create("--javacopt=bar");
+    BuildConfiguration config3 = create("--j2objc_translation_flags=baz");
     // Shared because all j2objc options are the same:
     assertThat(config1.getFragment(J2ObjcConfiguration.class))
         .isSameAs(config2.getFragment(J2ObjcConfiguration.class));
     // Distinct because the j2objc options differ:
-    assertThat(config1.getFragment(J2ObjcConfiguration.class))
-        .isNotSameAs(config3.getFragment(J2ObjcConfiguration.class));
-  }
-
-  @Test
-  public void testStaticConfigFragmentsDistinctAcrossConfigurations() throws Exception {
-    BuildConfiguration config1 = create("--javacopt=foo");
-    BuildConfiguration config2 = create("--javacopt=foo");
-    BuildConfiguration config3 = create("--javacopt=bar");
-    // Shared because global build options are identical:
-    assertThat(config1.getFragment(J2ObjcConfiguration.class))
-        .isSameAs(config2.getFragment(J2ObjcConfiguration.class));
-    // Distinct because global build options differ (even though j2objc options are the same).
     assertThat(config1.getFragment(J2ObjcConfiguration.class))
         .isNotSameAs(config3.getFragment(J2ObjcConfiguration.class));
   }
