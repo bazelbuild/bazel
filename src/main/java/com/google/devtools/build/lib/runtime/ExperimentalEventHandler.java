@@ -23,7 +23,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.util.io.AnsiTerminal;
-import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
+import com.google.devtools.build.lib.util.io.LineCountingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineWrappingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.OutErr;
 
@@ -194,53 +194,5 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
         new LineWrappingAnsiTerminalWriter(terminalWriter, terminalWidth - 1));
     terminalWriter.newline();
     numLinesProgressBar = terminalWriter.getWrittenLines();
-  }
-
-  private class LineCountingAnsiTerminalWriter implements AnsiTerminalWriter {
-
-    private final AnsiTerminal terminal;
-    private int lineCount;
-
-    LineCountingAnsiTerminalWriter(AnsiTerminal terminal) {
-      this.terminal = terminal;
-      this.lineCount = 0;
-    }
-
-    @Override
-    public AnsiTerminalWriter append(String text) throws IOException {
-      terminal.writeString(text);
-      return this;
-    }
-
-    @Override
-    public AnsiTerminalWriter newline() throws IOException {
-      terminal.cr();
-      terminal.writeString("\n");
-      lineCount++;
-      return this;
-    }
-
-    @Override
-    public AnsiTerminalWriter okStatus() throws IOException {
-      terminal.textGreen();
-      return this;
-    }
-
-    @Override
-    public AnsiTerminalWriter failStatus() throws IOException {
-      terminal.textRed();
-      terminal.textBold();
-      return this;
-    }
-
-    @Override
-    public AnsiTerminalWriter normal() throws IOException {
-      terminal.resetTerminal();
-      return this;
-    }
-
-    public int getWrittenLines() throws IOException {
-      return lineCount;
-    }
   }
 }
