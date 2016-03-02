@@ -114,8 +114,7 @@ xcode_config(
     name = "host_xcodes",
 )
 
-# TODO(bazel-team): Open-source the script once J2ObjC support is open-sourced.
-py_library(
+filegroup(
     name = "j2objc_dead_code_pruner",
     srcs = ["j2objc_dead_code_pruner.py"],
 )
