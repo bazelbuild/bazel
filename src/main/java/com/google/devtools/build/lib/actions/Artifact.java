@@ -295,6 +295,13 @@ public class Artifact
     return owner;
   }
 
+  @SkylarkCallable(name = "owner", structField = true, allowReturnNones = true,
+    doc = "A label of a target that produces this File. Can be None."
+  )
+  public Label getOwnerLabel() {
+    return owner.getLabel();
+  }
+
   /**
    * Returns the root beneath which this Artifact resides, if any. This may be one of the
    * package-path entries (for source Artifacts), or one of the bin, genfiles or includes dirs
