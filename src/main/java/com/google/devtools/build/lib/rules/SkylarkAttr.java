@@ -65,7 +65,7 @@ public final class SkylarkAttr {
 
   private static final String ALLOW_FILES_ARG = "allow_files";
   private static final String ALLOW_FILES_DOC =
-      "whether File targets are allowed. Can be True, False (default), or " + "a FileType filter.";
+      "whether File targets are allowed. Can be True, False (default), or a FileType filter.";
 
   private static final String ALLOW_RULES_ARG = "allow_rules";
   private static final String ALLOW_RULES_DOC =
@@ -78,7 +78,7 @@ public final class SkylarkAttr {
 
   private static final String CONFIGURATION_ARG = "cfg";
   private static final String CONFIGURATION_DOC =
-      "configuration of the attribute. " + "For example, use DATA_CFG or HOST_CFG.";
+      "configuration of the attribute. For example, use DATA_CFG or HOST_CFG.";
 
   private static final String DEFAULT_ARG = "default";
   private static final String DEFAULT_DOC = "the default value of the attribute.";
@@ -265,7 +265,7 @@ public final class SkylarkAttr {
         name = DEFAULT_ARG,
         type = Integer.class,
         defaultValue = "0",
-        doc = DEFAULT_DOC + " If not specified, default is 0."
+        doc = DEFAULT_DOC
       ),
       @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
       ),
@@ -302,7 +302,7 @@ public final class SkylarkAttr {
 
   @SkylarkSignature(
     name = "string",
-    doc = "Creates an attribute of type string.",
+    doc = "Creates an attribute of type <a href=\"string.html\">string</a>.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
     optionalNamedOnly = {
@@ -310,7 +310,7 @@ public final class SkylarkAttr {
         name = DEFAULT_ARG,
         type = String.class,
         defaultValue = "''",
-        doc = DEFAULT_DOC + " If not specified, default is \"\"."
+        doc = DEFAULT_DOC
       ),
       @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
       ),
@@ -347,10 +347,11 @@ public final class SkylarkAttr {
   @SkylarkSignature(
     name = "label",
     doc =
-        "Creates an attribute of type Label. "
+        "Creates an attribute of type <a href=\"Target.html\">Target</a> which is the target "
+            + "referred to by the label. "
             + "It is the only way to specify a dependency to another target. "
-            + "If you need a dependency that the user cannot overwrite, make the attribute "
-            + "private (starts with <code>_</code>).",
+            + "If you need a dependency that the user cannot overwrite, "
+            + "<a href=\"../rules.html#private-attributes\">make the attribute private</a>.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
     optionalNamedOnly = {
@@ -362,8 +363,9 @@ public final class SkylarkAttr {
         defaultValue = "None",
         doc =
             DEFAULT_DOC
-                + " If not specified, default is None. "
-                + "Use the <code>Label</code> function to specify a default value."
+                + " Use the <a href=\"globals.html#Label\"><code>Label</code></a> function to "
+                + "specify a default value ex:</p>"
+                + "<code>attr.label(default = Label(\"//a:b\"))</code>"
       ),
       @Param(
         name = EXECUTABLE_ARG,
@@ -393,7 +395,7 @@ public final class SkylarkAttr {
         type = Boolean.class,
         defaultValue = "False",
         doc =
-            "if True, the label must correspond to a single File. "
+            "if True, the label must correspond to a single <a href=\"file.html\">File</a>. "
                 + "Access it through <code>ctx.file.&lt;attribute_name&gt;</code>."
       ),
       @Param(
@@ -449,7 +451,8 @@ public final class SkylarkAttr {
 
   @SkylarkSignature(
     name = "string_list",
-    doc = "Creates an attribute of type list of strings",
+    doc = "Creates an attribute which is a <a href=\"list.html\">list</a> of "
+        + "<a href=\"string.html\">strings</a>.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
     optionalPositionals = {
@@ -458,7 +461,7 @@ public final class SkylarkAttr {
         type = SkylarkList.class,
         generic1 = String.class,
         defaultValue = "[]",
-        doc = DEFAULT_DOC + " If not specified, default is []."
+        doc = DEFAULT_DOC
       ),
       @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
       ),
@@ -495,7 +498,7 @@ public final class SkylarkAttr {
 
   @SkylarkSignature(
     name = "int_list",
-    doc = "Creates an attribute of type list of ints",
+    doc = "Creates an attribute which is a <a href=\"list.html\">list</a> of ints",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
     optionalPositionals = {
@@ -504,7 +507,7 @@ public final class SkylarkAttr {
         type = SkylarkList.class,
         generic1 = Integer.class,
         defaultValue = "[]",
-        doc = DEFAULT_DOC + " If not specified, default is []."
+        doc = DEFAULT_DOC
       ),
       @Param(name = MANDATORY_ARG, type = Boolean.class, defaultValue = "False", doc = MANDATORY_DOC
       ),
@@ -542,7 +545,8 @@ public final class SkylarkAttr {
   @SkylarkSignature(
     name = "label_list",
     doc =
-        "Creates an attribute of type list of labels. "
+        "Creates an attribute which is a <a href=\"list.html\">list</a> of type "
+            + "<a href=\"Target.html\">Target</a> which are specified by the labels in the list. "
             + "See <a href=\"attr.html#label\">label</a> for more information.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
@@ -555,8 +559,9 @@ public final class SkylarkAttr {
         defaultValue = "[]",
         doc =
             DEFAULT_DOC
-                + " If not specified, default is []. "
-                + "Use the <code>Label</code> function to specify a default value."
+                + " Use the <a href=\"globals.html#Label\"><code>Label</code></a> function to "
+                + "specify default values ex:</p>"
+                + "<code>attr.label_list(default = [ Label(\"//a:b\"), Label(\"//a:c\") ])</code>"
       ),
       @Param(
         name = ALLOW_FILES_ARG, // bool or FileType filter
@@ -654,7 +659,7 @@ public final class SkylarkAttr {
 
   @SkylarkSignature(
     name = "bool",
-    doc = "Creates an attribute of type bool. Its default value is False.",
+    doc = "Creates an attribute of type bool.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
     optionalNamedOnly = {
@@ -683,7 +688,7 @@ public final class SkylarkAttr {
   @SkylarkSignature(
     name = "output",
     doc =
-        "Creates an attribute of type output. Its default value is None. "
+        "Creates an attribute of type output. "
             + "The user provides a file name (string) and the rule must create an action that "
             + "generates the file.",
     objectType = SkylarkAttr.class,
@@ -721,8 +726,8 @@ public final class SkylarkAttr {
   @SkylarkSignature(
     name = "output_list",
     doc =
-        "Creates an attribute of type list of outputs. Its default value is <code>[]</code>. "
-            + "See <a href=\"attr.html#output\">output</a> above for more information.",
+        "Creates an attribute which is a <a href=\"list.html\">list</a> of outputs. "
+            + "See <a href=\"attr.html#output\">output</a> for more information.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
     optionalNamedOnly = {
@@ -768,9 +773,8 @@ public final class SkylarkAttr {
 
   @SkylarkSignature(
     name = "string_dict",
-    doc =
-        "Creates an attribute of type dictionary, mapping from string to string. "
-            + "Its default value is dict().",
+    doc = "Creates an attribute of type <a href=\"dict.html\">dict</a>, mapping from "
+        + "<a href=\"string.html\">string</a> to <a href=\"string.html\">string</a>.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
     optionalNamedOnly = {
@@ -804,9 +808,9 @@ public final class SkylarkAttr {
 
   @SkylarkSignature(
     name = "string_list_dict",
-    doc =
-        "Creates an attribute of type dictionary, mapping from string to list of string. "
-            + "Its default value is dict().",
+    doc = "Creates an attribute of type <a href=\"dict.html\">dict</a>, mapping from "
+        + "<a href=\"string.html\">string</a> to <a href=\"list.html\">list</a> of "
+        + "<a href=\"string.html\">string</a>.",
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
     optionalNamedOnly = {
@@ -840,7 +844,7 @@ public final class SkylarkAttr {
 
   @SkylarkSignature(
     name = "license",
-    doc = "Creates an attribute of type license. Its default value is NO_LICENSE.",
+    doc = "Creates an attribute of type license.",
     // TODO(bazel-team): Implement proper license support for Skylark.
     objectType = SkylarkAttr.class,
     returnType = Descriptor.class,
