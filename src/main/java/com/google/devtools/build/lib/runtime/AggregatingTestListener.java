@@ -18,7 +18,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.Sets;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
@@ -53,7 +53,7 @@ import java.util.concurrent.ConcurrentMap;
  */
 @ThreadSafety.ThreadSafe
 public class AggregatingTestListener {
-  private final ConcurrentMap<Artifact, TestResult> statusMap = new MapMaker().makeMap();
+  private final ConcurrentMap<Artifact, TestResult> statusMap = new ConcurrentHashMap<>();
 
   private final TestResultAnalyzer analyzer;
   private final EventBus eventBus;

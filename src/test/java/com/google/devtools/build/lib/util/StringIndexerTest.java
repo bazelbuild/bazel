@@ -23,7 +23,6 @@ import static org.junit.Assert.assertTrue;
 import com.google.common.base.Function;
 import com.google.common.base.Strings;
 import com.google.common.collect.Lists;
-import com.google.common.collect.MapMaker;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.testutil.TestUtils;
 
@@ -35,6 +34,7 @@ import org.junit.runners.JUnit4;
 import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -252,8 +252,7 @@ public abstract class StringIndexerTest {
   public static class CanonicalStringIndexerTest extends StringIndexerTest{
     @Override
     protected StringIndexer newIndexer() {
-      return new CanonicalStringIndexer(new MapMaker().<String, Integer>makeMap(),
-                                        new MapMaker().<Integer, String>makeMap());
+      return new CanonicalStringIndexer(new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
     }
 
     @Test

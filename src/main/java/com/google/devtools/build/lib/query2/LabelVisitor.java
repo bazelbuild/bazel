@@ -19,7 +19,6 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.MapMaker;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.SetMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.pkgcache.TargetEdgeObserver;
 
 import java.util.Collection;
 import java.util.Map.Entry;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -188,7 +188,7 @@ final class LabelVisitor {
   private final DependencyFilter edgeFilter;
   private final SetMultimap<Package, Target> visitedMap =
       Multimaps.synchronizedSetMultimap(HashMultimap.<Package, Target>create());
-  private final ConcurrentMap<Label, Integer> visitedTargets = new MapMaker().makeMap();
+  private final ConcurrentMap<Label, Integer> visitedTargets = new ConcurrentHashMap<>();
 
   private VisitationAttributes lastVisitation;
 
