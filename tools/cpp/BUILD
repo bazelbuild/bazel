@@ -25,6 +25,12 @@ filegroup(
 # protobuf.
 filegroup(
     name = "toolchain",
+    srcs = ["//external:cc_toolchain"],
+)
+
+# Hardcoded toolchain, legacy behaviour.
+filegroup(
+    name = "default-toolchain",
     srcs = [
         ":cc-compiler-armeabi-v7a",
         ":cc-compiler-darwin",
