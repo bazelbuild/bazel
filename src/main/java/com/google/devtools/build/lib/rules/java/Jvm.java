@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.common.collect.ImmutableMap.Builder;
-import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -52,13 +51,6 @@ public final class Jvm extends BuildConfiguration.Fragment {
     this.javac = getJavaHome().getRelative("bin/javac" + OsUtils.executableExtension());
     this.jar = getJavaHome().getRelative("bin/jar" + OsUtils.executableExtension());
     this.java = getJavaHome().getRelative("bin/java" + OsUtils.executableExtension());
-  }
-
-  @Override
-  public void addImplicitLabels(Multimap<String, Label> implicitLabels) {
-    if (jvmLabel != null) {
-      implicitLabels.put("Jvm", jvmLabel);
-    }
   }
 
   /**
