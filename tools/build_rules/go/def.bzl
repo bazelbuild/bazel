@@ -396,7 +396,6 @@ filegroup(
 )
 """
 
-
 def go_repositories():
   native.new_http_archive(
     name=  "golang_linux_amd64",
@@ -411,3 +410,4 @@ def go_repositories():
     build_file_content = GO_TOOLCHAIN_BUILD_FILE,
     sha256 = "8b686ace24c0166738fd9f6003503f9d55ce03b7f24c963b043ba7bb56f43000"
   )
+
