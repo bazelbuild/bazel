@@ -30,8 +30,8 @@ import java.util.Set;
  * <pre>expr ::= RDEPS '(' expr ',' expr ')'</pre>
  * <pre>       | RDEPS '(' expr ',' expr ',' WORD ')'</pre>
  */
-final class RdepsFunction extends AllRdepsFunction {
-  RdepsFunction() {}
+public final class RdepsFunction extends AllRdepsFunction {
+  public RdepsFunction() {}
 
   @Override
   public String getName() {

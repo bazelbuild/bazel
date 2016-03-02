@@ -36,6 +36,14 @@ public class FunctionExpression extends QueryExpression {
     this.args = ImmutableList.copyOf(args);
   }
 
+  public QueryFunction getFunction() {
+    return function;
+  }
+
+  public List<Argument> getArgs() {
+    return args;
+  }
+
   @Override
   public <T> void eval(QueryEnvironment<T> env, Callback<T> callback)
       throws QueryException, InterruptedException {
@@ -49,6 +57,11 @@ public class FunctionExpression extends QueryExpression {
         arg.getExpression().collectTargetPatterns(literals);
       }
     }
+  }
+
+  @Override
+  public QueryExpression getMapped(QueryExpressionMapper mapper) {
+    return mapper.map(this);
   }
 
   @Override
