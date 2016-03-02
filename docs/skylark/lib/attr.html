@@ -28,7 +28,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
         <p><pre>Descriptor attr.bool(default=False, mandatory=False)
 </pre></p>
 
-    Creates an attribute of type bool. Its default value is False.
+    Creates an attribute of type bool.
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
@@ -89,7 +89,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
             </td>
             <td>
                           <p><code>int</code></p>
-                          <p>the default value of the attribute. If not specified, default is 0.</p>
+                          <p>the default value of the attribute.</p>
             </td>
           </tr>
                   <tr>
@@ -117,7 +117,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
         <p><pre>Descriptor attr.int_list(default=[], mandatory=False, non_empty=False)
 </pre></p>
 
-    Creates an attribute of type list of ints
+    Creates an attribute which is a <a href="list.html">list</a> of ints
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
@@ -138,7 +138,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
             </td>
             <td>
                           <p><code><a class="anchor" href="list.html">sequence</a> of ints</code></p>
-                          <p>the default value of the attribute. If not specified, default is [].</p>
+                          <p>the default value of the attribute.</p>
             </td>
           </tr>
                   <tr>
@@ -166,7 +166,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
         <p><pre>Descriptor attr.label(default=None, executable=False, allow_files=False, mandatory=False, providers=[], allow_rules=None, single_file=False, cfg=None)
 </pre></p>
 
-    Creates an attribute of type Label. It is the only way to specify a dependency to another target. If you need a dependency that the user cannot overwrite, make the attribute private (starts with <code>_</code>).
+    Creates an attribute of type <a href="Target.html">Target</a> which is the target referred to by the label. It is the only way to specify a dependency to another target. If you need a dependency that the user cannot overwrite, <a href="../rules.html#private-attributes">make the attribute private</a>.
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
@@ -187,7 +187,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
             </td>
             <td>
                           <p><code><a class="anchor" href="Label.html">Label</a></code></p>
-                          <p>the default value of the attribute. If not specified, default is None. Use the <code>Label</code> function to specify a default value.</p>
+                          <p>the default value of the attribute. Use the <a href="globals.html#Label"><code>Label</code></a> function to specify a default value ex:</p><code>attr.label(default = Label("//a:b"))</code></p>
             </td>
           </tr>
                   <tr>
@@ -240,7 +240,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
             </td>
             <td>
                           <p><code><a class="anchor" href="globals.html#bool">bool</a></code></p>
-                          <p>if True, the label must correspond to a single File. Access it through <code>ctx.file.&lt;attribute_name&gt;</code>.</p>
+                          <p>if True, the label must correspond to a single <a href="file.html">File</a>. Access it through <code>ctx.file.&lt;attribute_name&gt;</code>.</p>
             </td>
           </tr>
                   <tr>
@@ -259,7 +259,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
         <p><pre>Descriptor attr.label_list(default=[], allow_files=False, allow_rules=None, providers=[], flags=[], mandatory=False, non_empty=False, cfg=None, aspects=[])
 </pre></p>
 
-    Creates an attribute of type list of labels. See <a href="attr.html#label">label</a> for more information.
+    Creates an attribute which is a <a href="list.html">list</a> of type <a href="Target.html">Target</a> which are specified by the labels in the list. See <a href="attr.html#label">label</a> for more information.
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
@@ -280,7 +280,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
             </td>
             <td>
                           <p><code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="Label.html">Label</a>s</code></p>
-                          <p>the default value of the attribute. If not specified, default is []. Use the <code>Label</code> function to specify a default value.</p>
+                          <p>the default value of the attribute. Use the <a href="globals.html#Label"><code>Label</code></a> function to specify default values ex:</p><code>attr.label_list(default = [ Label("//a:b"), Label("//a:c") ])</code></p>
             </td>
           </tr>
                   <tr>
@@ -361,7 +361,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
         <p><pre>Descriptor attr.license(default=None, mandatory=False)
 </pre></p>
 
-    Creates an attribute of type license. Its default value is NO_LICENSE.
+    Creates an attribute of type license.
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
@@ -400,7 +400,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
         <p><pre>Descriptor attr.output(default=None, mandatory=False)
 </pre></p>
 
-    Creates an attribute of type output. Its default value is None. The user provides a file name (string) and the rule must create an action that generates the file.
+    Creates an attribute of type output. The user provides a file name (string) and the rule must create an action that generates the file.
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
@@ -440,7 +440,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
         <p><pre>Descriptor attr.output_list(default=[], mandatory=False, non_empty=False)
 </pre></p>
 
-    Creates an attribute of type list of outputs. Its default value is <code>[]</code>. See <a href="attr.html#output">output</a> above for more information.
+    Creates an attribute which is a <a href="list.html">list</a> of outputs. See <a href="attr.html#output">output</a> for more information.
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
@@ -489,7 +489,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
         <p><pre>Descriptor attr.string(default='', mandatory=False, values=[])
 </pre></p>
 
-    Creates an attribute of type string.
+    Creates an attribute of type <a href="string.html">string</a>.
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
@@ -510,7 +510,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
             </td>
             <td>
                           <p><code><a class="anchor" href="string.html">string</a></code></p>
-                          <p>the default value of the attribute. If not specified, default is "".</p>
+                          <p>the default value of the attribute.</p>
             </td>
           </tr>
                   <tr>
@@ -538,7 +538,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
         <p><pre>Descriptor attr.string_dict(default={}, mandatory=False, non_empty=False)
 </pre></p>
 
-    Creates an attribute of type dictionary, mapping from string to string. Its default value is dict().
+    Creates an attribute of type <a href="dict.html">dict</a>, mapping from <a href="string.html">string</a> to <a href="string.html">string</a>.
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
@@ -587,7 +587,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
         <p><pre>Descriptor attr.string_list(default=[], mandatory=False, non_empty=False)
 </pre></p>
 
-    Creates an attribute of type list of strings
+    Creates an attribute which is a <a href="list.html">list</a> of <a href="string.html">strings</a>.
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">
@@ -608,7 +608,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
             </td>
             <td>
                           <p><code><a class="anchor" href="list.html">sequence</a> of <a class="anchor" href="string.html">string</a>s</code></p>
-                          <p>the default value of the attribute. If not specified, default is [].</p>
+                          <p>the default value of the attribute.</p>
             </td>
           </tr>
                   <tr>
@@ -636,7 +636,7 @@ Module for creating new attributes. They are only for use with the <a href="glob
         <p><pre>Descriptor attr.string_list_dict(default={}, mandatory=False, non_empty=False)
 </pre></p>
 
-    Creates an attribute of type dictionary, mapping from string to list of string. Its default value is dict().
+    Creates an attribute of type <a href="dict.html">dict</a>, mapping from <a href="string.html">string</a> to <a href="list.html">list</a> of <a href="string.html">string</a>.
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">

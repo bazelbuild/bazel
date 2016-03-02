@@ -12,6 +12,7 @@ This type represents a file used by the build system. It can be either a source 
           <li><a href="#basename">basename</a></li>
               <li><a href="#dirname">dirname</a></li>
               <li><a href="#is_source">is_source</a></li>
+              <li><a href="#owner">owner</a></li>
               <li><a href="#path">path</a></li>
               <li><a href="#root">root</a></li>
               <li><a href="#short_path">short_path</a></li>
@@ -35,6 +36,13 @@ This type represents a file used by the build system. It can be either a source 
 
     Returns true if this is a source file, i.e. it is not generated
 
+
+        <h2 id="owner">owner</h2>
+        <p><pre><a class="anchor" href="Label.html">Label</a> File.owner</pre></p>
+
+    A label of a target that produces this File. Can be None.
+
+         May return <code>None</code>.
 
         <h2 id="path">path</h2>
         <p><pre><a class="anchor" href="string.html">string</a> File.path</pre></p>

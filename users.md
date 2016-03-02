@@ -10,12 +10,28 @@ title: Bazel Users
 Ascend is a Palo Alto startup that offers solutions for large data sets
 analysis. Their motto is _Big data is hard. We make it easy_.
 
+## [Beeswax](https://www.beeswax.com/) (_in their own words_)
+
+"_Beeswax is a New York based startup that provides real time bidding as
+service. Bazel powers their Jenkins based continuous integration and deployment
+framework. Beeswax loves Bazel because it is blazingly fast, correct and well
+supported across many languages and platforms._"
+
 ## [Braintree](https://www.braintreepayments.com)
 
 Braintree, a PayPal subsidiary, develops payment solutions for websites and
 applications. They use Bazel for parts of their internal build and Paul Gross
 even posted a [nice piece about how their switch to
 Bazel went](https://www.pgrs.net/2015/09/01/migrating-from-gradle-to-bazel/).
+
+## Databricks(https://databricks.com)
+
+Databricks provide cloud-base integrated workspace based on Apache Spark™.
+
+## [Interaxon](https://www.choosemuse.com/)
+
+InteraXon is a thought-controlled computing firm that creates hardware and
+software platforms to convert brainwaves into digital signals.
 
 ## [Makani](https://www.google.com/makani)
 

@@ -1,0 +1,148 @@
+---
+layout: documentation
+title: cpp
+---
+<h1 id="modules.cpp">cpp</h1>
+
+A configuration fragment for C++
+
+<div class="toc">
+  <h2>Methods</h2>
+  <ul>
+          <li><a href="#ar_executable">ar_executable</a></li>
+              <li><a href="#c_options">c_options</a></li>
+              <li><a href="#compiler">compiler</a></li>
+              <li><a href="#compiler_executable">compiler_executable</a></li>
+              <li><a href="#compiler_options">compiler_options</a></li>
+              <li><a href="#cpu">cpu</a></li>
+              <li><a href="#cxx_options">cxx_options</a></li>
+              <li><a href="#dynamic_link_options">dynamic_link_options</a></li>
+              <li><a href="#fully_static_link_options">fully_static_link_options</a></li>
+              <li><a href="#libc">libc</a></li>
+              <li><a href="#link_options">link_options</a></li>
+              <li><a href="#mostly_static_link_options">mostly_static_link_options</a></li>
+              <li><a href="#nm_executable">nm_executable</a></li>
+              <li><a href="#objcopy_executable">objcopy_executable</a></li>
+              <li><a href="#objdump_executable">objdump_executable</a></li>
+              <li><a href="#strip_executable">strip_executable</a></li>
+              <li><a href="#sysroot">sysroot</a></li>
+              <li><a href="#target_gnu_system_name">target_gnu_system_name</a></li>
+              <li><a href="#unfiltered_compiler_options">unfiltered_compiler_options</a></li>
+        </ul>
+</div>
+
+      <h2 id="ar_executable">ar_executable</h2>
+        <p><pre>PathFragment cpp.ar_executable</pre></p>
+
+    Path to GNU binutils 'ar' binary
+
+
+        <h2 id="c_options">c_options</h2>
+        <p><pre>List cpp.c_options</pre></p>
+
+    Returns the list of additional C-specific options to use for compiling C. These should be go on the command line after the common options returned by <code>compiler_options</code>
+
+
+        <h2 id="compiler">compiler</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> cpp.compiler</pre></p>
+
+    C++ compiler.
+
+
+        <h2 id="compiler_executable">compiler_executable</h2>
+        <p><pre>PathFragment cpp.compiler_executable</pre></p>
+
+    Path to C/C++ compiler binary
+
+
+        <h2 id="compiler_options">compiler_options</h2>
+        <p><pre>List cpp.compiler_options(Iterable)</pre></p>
+
+    Returns the default options to use for compiling C, C++, and assembler. This is just the options that should be used for all three languages. There may be additional C-specific or C++-specific options that should be used, in addition to the ones returned by this method
+
+
+        <h2 id="cpu">cpu</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> cpp.cpu</pre></p>
+
+    Target CPU of the C++ toolchain.
+
+
+        <h2 id="cxx_options">cxx_options</h2>
+        <p><pre>List cpp.cxx_options(Iterable)</pre></p>
+
+    Returns the list of additional C++-specific options to use for compiling C++. These should be go on the command line after the common options returned by <code>compiler_options</code>
+
+
+        <h2 id="dynamic_link_options">dynamic_link_options</h2>
+        <p><pre>List cpp.dynamic_link_options(Iterable, <a class="anchor" href="globals.html#bool">bool</a>)</pre></p>
+
+    Returns the immutable list of linker options for artifacts that are not fully or mostly statically linked. Does not include command-line options passed via --linkopt or --linkopts.
+
+
+        <h2 id="fully_static_link_options">fully_static_link_options</h2>
+        <p><pre>List cpp.fully_static_link_options(Iterable, <a class="anchor" href="globals.html#bool">bool</a>)</pre></p>
+
+    Returns the immutable list of linker options for fully statically linked outputs. Does not include command-line options passed via --linkopt or --linkopts.
+
+
+        <h2 id="libc">libc</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> cpp.libc</pre></p>
+
+    libc version string.
+
+
+        <h2 id="link_options">link_options</h2>
+        <p><pre>List cpp.link_options</pre></p>
+
+    Returns the set of command-line linker options, including any flags inferred from the command-line options.
+
+
+        <h2 id="mostly_static_link_options">mostly_static_link_options</h2>
+        <p><pre>List cpp.mostly_static_link_options(Iterable, <a class="anchor" href="globals.html#bool">bool</a>)</pre></p>
+
+    Returns the immutable list of linker options for mostly statically linked outputs. Does not include command-line options passed via --linkopt or --linkopts.
+
+
+        <h2 id="nm_executable">nm_executable</h2>
+        <p><pre>PathFragment cpp.nm_executable</pre></p>
+
+    Path to GNU binutils 'nm' binary
+
+
+        <h2 id="objcopy_executable">objcopy_executable</h2>
+        <p><pre>PathFragment cpp.objcopy_executable</pre></p>
+
+    Path to GNU binutils 'objcopy' binary
+
+
+        <h2 id="objdump_executable">objdump_executable</h2>
+        <p><pre>PathFragment cpp.objdump_executable</pre></p>
+
+    Path to GNU binutils 'objdump' binary
+
+
+        <h2 id="strip_executable">strip_executable</h2>
+        <p><pre>PathFragment cpp.strip_executable</pre></p>
+
+    Path to GNU binutils 'strip' binary
+
+
+        <h2 id="sysroot">sysroot</h2>
+        <p><pre>PathFragment cpp.sysroot</pre></p>
+
+    Returns the sysroot to be used. If the toolchain compiler does not support different sysroots, or the sysroot is the same as the default sysroot, then this method returns <code>None</code>.
+
+
+        <h2 id="target_gnu_system_name">target_gnu_system_name</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> cpp.target_gnu_system_name</pre></p>
+
+    The GNU System Name.
+
+
+        <h2 id="unfiltered_compiler_options">unfiltered_compiler_options</h2>
+        <p><pre>List cpp.unfiltered_compiler_options(Iterable)</pre></p>
+
+    Returns the default list of options which cannot be filtered by BUILD rules. These should be appended to the command line after filtering.
+
+
+
