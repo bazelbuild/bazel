@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.TriState;
+import com.google.devtools.build.lib.rules.python.PyCommon;
 import com.google.devtools.build.lib.rules.python.PyRuleClasses;
 import com.google.devtools.build.lib.rules.python.PythonVersion;
 import com.google.devtools.build.lib.util.FileType;
@@ -39,11 +40,6 @@ import com.google.devtools.build.lib.util.FileType;
  */
 public final class BazelPyRuleClasses {
   public static final FileType PYTHON_SOURCE = FileType.of(".py");
-
-  public static final String[] ALLOWED_RULES_IN_DEPS = new String[] {
-      "py_binary",
-      "py_library",
-  };
 
   /**
    * Base class for Python rule definitions.
@@ -63,7 +59,7 @@ public final class BazelPyRuleClasses {
           <a href="c-cpp.html#cc_library"><code>cc_library</code></a> rules,
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .override(builder.copy("deps")
-              .allowedRuleClasses(ALLOWED_RULES_IN_DEPS)
+              .mandatoryProviders(ImmutableList.of(PyCommon.PYTHON_SKYLARK_PROVIDER_NAME))
               .allowedFileTypes())
           /* <!-- #BLAZE_RULE($base_py).ATTRIBUTE(imports) -->
           List of import directories to be added to the <code>PYTHONPATH</code>.

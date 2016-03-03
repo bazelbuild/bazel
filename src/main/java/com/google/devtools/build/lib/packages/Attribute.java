@@ -713,7 +713,9 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     public Builder<TYPE> mandatoryProviders(Iterable<String> providers) {
-      mandatoryProvidersList(ImmutableList.of(providers));
+      if (providers.iterator().hasNext()) {
+        mandatoryProvidersList(ImmutableList.of(providers));
+      }
       return this;
     }
 
