@@ -127,5 +127,5 @@ cc_toolchain(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["**"]),
+    srcs = glob(["**"]) + ["//tools/cpp/test:srcs"],
 )
