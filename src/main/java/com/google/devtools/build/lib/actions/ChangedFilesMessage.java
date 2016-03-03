@@ -20,17 +20,32 @@ import java.util.Set;
 
 /**
  * A message sent conveying a set of changed files. This is sent over the event bus if a build is
- * discovered to have few changed files. If many files have changed, it will not be sent at all.
+ * discovered to have changed files. If many files have changed, the set of changed files will
+ * be empty, but {@link #getChangedFileCount} will still return the correct number.
  */
 public class ChangedFilesMessage {
 
   private final Set<PathFragment> changedFiles;
+  private final int changedFileCount;
 
-  public ChangedFilesMessage(Set<PathFragment> changedFiles) {
+  public ChangedFilesMessage(Set<PathFragment> changedFiles, int changedFileCount) {
     this.changedFiles = ImmutableSet.copyOf(changedFiles);
+    this.changedFileCount = changedFileCount;
   }
 
+  /**
+   * Returns a set with one PathFragment for each file that was changed since the last build, or
+   * an empty set if the set is unknown or would be too big.
+   */
   public Set<PathFragment> getChangedFiles() {
     return changedFiles;
+  }
+
+  /**
+   * Returns the number of changed files. This will always be the correct number of files, even when
+   * {@link #getChangedFiles} might return an empty set, because the actual set would be too big.
+   */
+  public int getChangedFileCount() {
+    return changedFileCount;
   }
 }
