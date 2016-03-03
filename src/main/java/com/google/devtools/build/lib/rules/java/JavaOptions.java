@@ -405,7 +405,7 @@ public class JavaOptions extends FragmentOptions {
   public JavaOptimizationMode javaOptimizationMode;
 
   @Option(name = "legacy_bazel_java_test",
-      defaultValue = "true",
+      defaultValue = "false",
       category = "undocumented",
       help = "Use the legacy mode of Bazel for java_test.")
   public boolean legacyBazelJavaTest;
