@@ -192,11 +192,12 @@ _jsonnet_common_attrs = {
                             allow_files = False),
     "imports": attr.string_list(),
     "_jsonnet": attr.label(
-        default = Label("//tools/build_defs/jsonnet:jsonnet"),
+        default = Label("@bazel_tools//tools/build_defs/jsonnet:jsonnet"),
         executable = True,
         single_file = True),
-    "_std": attr.label(default = Label("//tools/build_defs/jsonnet:std"),
-                       single_file = True),
+    "_std": attr.label(
+        default = Label("@bazel_tools//tools/build_defs/jsonnet:std"),
+        single_file = True),
 }
 
 _jsonnet_library_attrs = {
