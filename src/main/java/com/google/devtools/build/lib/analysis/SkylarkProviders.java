@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.HashSet;
@@ -46,6 +48,18 @@ public final class SkylarkProviders implements TransitiveInfoProvider {
    */
   public Object getValue(String key) {
     return skylarkProviders.get(key);
+  }
+
+  /**
+   * Returns a Skylark provider and try to cast it into the specified type
+   */
+  public <TYPE> TYPE getValue(String key, Class<TYPE> type) throws EvalException {
+    Object obj = skylarkProviders.get(key);
+    if (obj == null) {
+      return null;
+    }
+    SkylarkType.checkType(obj, type, key);
+    return type.cast(obj);
   }
 
   /**

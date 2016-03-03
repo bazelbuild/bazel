@@ -74,38 +74,38 @@ public final class PrecomputedValue implements SkyValue {
   }
 
   public static final Precomputed<String> DEFAULTS_PACKAGE_CONTENTS =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "default_pkg"));
+      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "default_pkg"));
 
   public static final Precomputed<PathFragment> BLACKLISTED_PACKAGE_PREFIXES_FILE =
-          new Precomputed<>(
-              new SkyKey(SkyFunctions.PRECOMPUTED, "blacklisted_package_prefixes_file"));
+      new Precomputed<>(
+          SkyKey.create(SkyFunctions.PRECOMPUTED, "blacklisted_package_prefixes_file"));
 
   public static final Precomputed<RuleVisibility> DEFAULT_VISIBILITY =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "default_visibility"));
+      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "default_visibility"));
 
   static final Precomputed<UUID> BUILD_ID =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "build_id"));
+      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "build_id"));
 
   static final Precomputed<WorkspaceStatusAction> WORKSPACE_STATUS_KEY =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "workspace_status_action"));
+      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "workspace_status_action"));
 
-  static final Precomputed<ImmutableList <Action>> COVERAGE_REPORT_KEY =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "coverage_report_actions"));
+  static final Precomputed<ImmutableList<Action>> COVERAGE_REPORT_KEY =
+      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "coverage_report_actions"));
 
   static final Precomputed<TopLevelArtifactContext> TOP_LEVEL_CONTEXT =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "top_level_context"));
+      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "top_level_context"));
 
   public static final Precomputed<Map<BuildInfoKey, BuildInfoFactory>> BUILD_INFO_FACTORIES =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "build_info_factories"));
+      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "build_info_factories"));
 
   static final Precomputed<BlazeDirectories> BLAZE_DIRECTORIES =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "blaze_directories"));
+      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "blaze_directories"));
 
   static final Precomputed<ImmutableMap<Action, ConflictException>> BAD_ACTIONS =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "bad_actions"));
+      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "bad_actions"));
 
   public static final Precomputed<PathPackageLocator> PATH_PACKAGE_LOCATOR =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "path_package_locator"));
+      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "path_package_locator"));
 
   private final Object value;
 

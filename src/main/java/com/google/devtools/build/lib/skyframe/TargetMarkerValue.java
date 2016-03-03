@@ -45,6 +45,6 @@ public final class TargetMarkerValue implements SkyValue {
 
   @ThreadSafe
   public static SkyKey key(Label label) {
-    return new SkyKey(SkyFunctions.TARGET_MARKER, label);
+    return SkyKey.create(SkyFunctions.TARGET_MARKER, label);
   }
 }

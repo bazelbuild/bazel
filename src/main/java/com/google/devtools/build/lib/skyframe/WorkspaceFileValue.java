@@ -135,7 +135,7 @@ public class WorkspaceFileValue implements SkyValue {
   }
 
   static SkyKey key(RootedPath path, int idx) {
-    return new SkyKey(SkyFunctions.WORKSPACE_FILE, new WorkspaceFileKey(path, idx));
+    return SkyKey.create(SkyFunctions.WORKSPACE_FILE, new WorkspaceFileKey(path, idx));
   }
 
   public static SkyKey key(RootedPath path) {

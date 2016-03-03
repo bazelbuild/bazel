@@ -28,12 +28,16 @@ import java.util.Set;
  *
  * <pre>expr ::= NAME | WORD</pre>
  */
-final class TargetLiteral extends QueryExpression {
+public final class TargetLiteral extends QueryExpression {
 
   private final String pattern;
 
   TargetLiteral(String pattern) {
     this.pattern = Preconditions.checkNotNull(pattern);
+  }
+
+  public String getPattern() {
+    return pattern;
   }
 
   public boolean isVariableReference() {
@@ -60,6 +64,11 @@ final class TargetLiteral extends QueryExpression {
     if (!isVariableReference()) {
       literals.add(pattern);
     }
+  }
+
+  @Override
+  public QueryExpression getMapped(QueryExpressionMapper mapper) {
+    return mapper.map(this);
   }
 
   @Override

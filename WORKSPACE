@@ -23,6 +23,10 @@ bind(
     actual = "//:dummy",
 )
 
+# For tools/cpp/test/...
+load("//tools/cpp/test:docker_repository.bzl", "docker_repository")
+docker_repository()
+
 # In order to run the Android integration tests, run
 # scripts/workspace_user.sh and uncomment the next two lines.
 # load("/WORKSPACE.user", "android_repositories")

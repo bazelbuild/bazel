@@ -157,7 +157,7 @@ public class GraphTester {
   }
 
   public static SkyKey skyKey(String key) {
-    return new SkyKey(NODE_TYPE, key);
+    return SkyKey.create(NODE_TYPE, key);
   }
 
   /**
@@ -260,7 +260,7 @@ public class GraphTester {
   public static SkyKey[] toSkyKeys(String... names) {
     SkyKey[] result = new SkyKey[names.length];
     for (int i = 0; i < names.length; i++) {
-      result[i] = new SkyKey(GraphTester.NODE_TYPE, names[i]);
+      result[i] = SkyKey.create(GraphTester.NODE_TYPE, names[i]);
     }
     return result;
   }

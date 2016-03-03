@@ -37,15 +37,17 @@ public class TargetCompletionValue implements SkyValue {
   }
 
   public static SkyKey key(LabelAndConfiguration labelAndConfiguration) {
-    return new SkyKey(SkyFunctions.TARGET_COMPLETION, labelAndConfiguration);
+    return SkyKey.create(SkyFunctions.TARGET_COMPLETION, labelAndConfiguration);
   }
 
   public static Iterable<SkyKey> keys(Collection<ConfiguredTarget> targets) {
-    return Iterables.transform(targets, new Function<ConfiguredTarget, SkyKey>() {
-      @Override
-      public SkyKey apply(ConfiguredTarget ct) {
-        return new SkyKey(SkyFunctions.TARGET_COMPLETION, new LabelAndConfiguration(ct));
-      }
-    });
+    return Iterables.transform(
+        targets,
+        new Function<ConfiguredTarget, SkyKey>() {
+          @Override
+          public SkyKey apply(ConfiguredTarget ct) {
+            return SkyKey.create(SkyFunctions.TARGET_COMPLETION, new LabelAndConfiguration(ct));
+          }
+        });
   }
 }

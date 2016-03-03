@@ -45,6 +45,14 @@ class BinaryOperatorExpression extends QueryExpression {
     this.operands = ImmutableList.copyOf(operands);
   }
 
+  Lexer.TokenKind getOperator() {
+    return operator;
+  }
+
+  ImmutableList<QueryExpression> getOperands() {
+    return operands;
+  }
+
   @Override
   public <T> void eval(QueryEnvironment<T> env, Callback<T> callback)
       throws QueryException, InterruptedException {
@@ -82,6 +90,11 @@ class BinaryOperatorExpression extends QueryExpression {
     for (QueryExpression subExpression : operands) {
       subExpression.collectTargetPatterns(literals);
     }
+  }
+
+  @Override
+  public QueryExpression getMapped(QueryExpressionMapper mapper) {
+    return mapper.map(this);
   }
 
   @Override

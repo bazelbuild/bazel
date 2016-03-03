@@ -37,7 +37,7 @@ public class MavenServerValue implements SkyValue {
 
   public static SkyKey key(String serverName) {
     Preconditions.checkNotNull(serverName);
-    return new SkyKey(MavenServerFunction.NAME, serverName);
+    return SkyKey.create(MavenServerFunction.NAME, serverName);
   }
 
   public static MavenServerValue createFromUrl(String url) {

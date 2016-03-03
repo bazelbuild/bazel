@@ -66,7 +66,7 @@ while kill -0 "$IOS_PID" &>/dev/null; do
 done
 
 # If the simulator wasn't running when we started, then we should clean it up.
-if [ SIMULATOR_RUNNING == "false" ]; then
+if [ "${SIMULATOR_RUNNING}" = false ]; then
   osascript -e "tell application \"iOS Simulator\" to quit"
 fi
 

@@ -76,7 +76,7 @@ public abstract class PyBinary implements RuleConfiguredTargetFactory {
     Runfiles commonRunfiles = collectCommonRunfiles(ruleContext, common, semantics);
 
     Runfiles.Builder defaultRunfilesBuilder = new Runfiles.Builder(ruleContext.getWorkspaceName())
-        .merge(commonRunfiles);
+                                    .merge(commonRunfiles);
     semantics.collectDefaultRunfilesForBinary(ruleContext, defaultRunfilesBuilder);
     Runfiles defaultRunfiles = defaultRunfilesBuilder.build();
 

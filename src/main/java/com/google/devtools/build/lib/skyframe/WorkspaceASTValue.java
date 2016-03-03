@@ -57,7 +57,7 @@ public class WorkspaceASTValue implements SkyValue {
   }
 
   public static SkyKey key(RootedPath path) {
-    return new SkyKey(SkyFunctions.WORKSPACE_AST, path);
+    return SkyKey.create(SkyFunctions.WORKSPACE_AST, path);
   }
 }
 

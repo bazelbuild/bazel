@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
-import static com.google.devtools.build.skyframe.SkyKeyInterner.SKY_KEY_INTERNER;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
@@ -414,12 +412,6 @@ public final class ParallelEvaluator implements Evaluator {
     protected ImmutableMap<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
         Set<SkyKey> depKeys) {
       checkActive();
-      Set<SkyKey> keys = Sets.newLinkedHashSetWithExpectedSize(depKeys.size());
-      for (SkyKey depKey : depKeys) {
-        // Canonicalize SkyKeys to save memory.
-        keys.add(SKY_KEY_INTERNER.intern(depKey));
-      }
-      depKeys = keys;
       Map<SkyKey, ValueWithMetadata> values = getValuesMaybeFromError(depKeys, bubbleErrorInfo);
       ImmutableMap.Builder<SkyKey, ValueOrUntypedException> builder = ImmutableMap.builder();
       for (SkyKey depKey : depKeys) {
@@ -1637,7 +1629,7 @@ public final class ParallelEvaluator implements Evaluator {
    * ArrayDeque does not permit null elements.
    */
   private static final SkyKey CHILDREN_FINISHED =
-      new SkyKey(SkyFunctionName.create("MARKER"), "MARKER");
+      SkyKey.create(SkyFunctionName.create("MARKER"), "MARKER");
 
   /** The max number of cycles we will report to the user for a given root, to avoid OOMing. */
   private static final int MAX_CYCLES = 20;

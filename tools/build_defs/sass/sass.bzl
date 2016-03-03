@@ -77,7 +77,7 @@ sass_binary = rule(
         "output_style": attr.string(default = "compressed"),
         "deps": sass_deps_attr,
         "_sassc": attr.label(
-            default = Label("//tools/build_defs/sass:sassc"),
+            default = Label("@bazel_tools//tools/build_defs/sass:sassc"),
             executable = True,
             single_file = True,
         ),
@@ -109,7 +109,7 @@ cc_library(
 """
 
 SASSC_BUILD_FILE = """
-package(default_visibility = ["//tools/build_defs/sass:__pkg__"])
+package(default_visibility = ["//visibility:public"])
 
 cc_binary(
     name = "sassc",

@@ -129,7 +129,7 @@ public class ActionExecutionValue implements SkyValue {
   @ThreadSafe
   @VisibleForTesting
   public static SkyKey key(Action action) {
-    return new SkyKey(SkyFunctions.ACTION_EXECUTION, action);
+    return SkyKey.create(SkyFunctions.ACTION_EXECUTION, action);
   }
 
   /**

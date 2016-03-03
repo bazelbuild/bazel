@@ -94,7 +94,7 @@ import javax.annotation.Nullable;
  */
 public class GenQuery implements RuleConfiguredTargetFactory {
   public static final Precomputed<ImmutableList<OutputFormatter>> QUERY_OUTPUT_FORMATTERS =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "query_output_formatters"));
+      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "query_output_formatters"));
 
   @Override
   @Nullable

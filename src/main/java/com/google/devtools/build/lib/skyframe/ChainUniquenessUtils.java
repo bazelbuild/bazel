@@ -33,7 +33,7 @@ class ChainUniquenessUtils {
    */
   static SkyKey key(SkyFunctionName functionName, ImmutableList<? extends Object> chain) {
     Preconditions.checkState(!chain.isEmpty());
-    return new SkyKey(functionName, canonicalize(chain));
+    return SkyKey.create(functionName, canonicalize(chain));
   }
 
   private static ImmutableList<Object> canonicalize(ImmutableList<? extends Object> cycle) {

@@ -11,6 +11,12 @@ filegroup(
 )
 
 filegroup(
+    name = "workspace-file",
+    srcs = [":WORKSPACE"],
+    visibility = ["//tools/cpp/test:__pkg__"],
+)
+
+filegroup(
     name = "srcs",
     srcs = glob(
         ["**"],

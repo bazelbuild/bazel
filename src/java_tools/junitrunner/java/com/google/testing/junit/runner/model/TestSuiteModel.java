@@ -25,7 +25,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Ticker;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
-import com.google.common.collect.MapMaker;
 import com.google.testing.junit.junit4.runner.DynamicTestException;
 import com.google.testing.junit.runner.sharding.ShardingEnvironment;
 import com.google.testing.junit.runner.sharding.ShardingFilters;
@@ -40,6 +39,7 @@ import java.io.StringWriter;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.annotation.Nullable;
@@ -254,7 +254,7 @@ public class TestSuiteModel {
    */
   public static class Builder {
     private final Ticker ticker;
-    private final Map<Description, TestNode> testsMap = new MapMaker().makeMap();
+    private final Map<Description, TestNode> testsMap = new ConcurrentHashMap<>();
     private final ShardingEnvironment shardingEnvironment;
     private final ShardingFilters shardingFilters;
     private final XmlResultWriter xmlResultWriter;

@@ -119,7 +119,7 @@ public abstract class FileValue implements SkyValue {
    */
   @ThreadSafe
   public static SkyKey key(RootedPath rootedPath) {
-    return new SkyKey(SkyFunctions.FILE, rootedPath);
+    return SkyKey.create(SkyFunctions.FILE, rootedPath);
   }
 
   /**

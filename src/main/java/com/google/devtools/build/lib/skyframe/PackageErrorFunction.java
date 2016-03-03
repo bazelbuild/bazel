@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
  */
 public class PackageErrorFunction implements SkyFunction {
   public static SkyKey key(PackageIdentifier packageIdentifier) {
-    return new SkyKey(SkyFunctions.PACKAGE_ERROR, packageIdentifier);
+    return SkyKey.create(SkyFunctions.PACKAGE_ERROR, packageIdentifier);
   }
 
   @Nullable

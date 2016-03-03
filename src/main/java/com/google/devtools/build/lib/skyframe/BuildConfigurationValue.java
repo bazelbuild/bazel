@@ -51,8 +51,7 @@ public class BuildConfigurationValue implements SkyValue {
   @ThreadSafe
   public static SkyKey key(Set<Class<? extends BuildConfiguration.Fragment>> fragments,
       BuildOptions buildOptions) {
-    return new SkyKey(SkyFunctions.BUILD_CONFIGURATION,
-        new Key(fragments, buildOptions, true));
+    return SkyKey.create(SkyFunctions.BUILD_CONFIGURATION, new Key(fragments, buildOptions, true));
   }
 
   /**
@@ -66,8 +65,7 @@ public class BuildConfigurationValue implements SkyValue {
   public static SkyKey disabledActionsKey(
       Set<Class<? extends BuildConfiguration.Fragment>> fragments,
       BuildOptions buildOptions) {
-    return new SkyKey(SkyFunctions.BUILD_CONFIGURATION,
-        new Key(fragments, buildOptions, false));
+    return SkyKey.create(SkyFunctions.BUILD_CONFIGURATION, new Key(fragments, buildOptions, false));
   }
 
   static final class Key implements Serializable {

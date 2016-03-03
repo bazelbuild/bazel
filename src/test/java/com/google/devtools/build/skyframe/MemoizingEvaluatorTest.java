@@ -145,7 +145,7 @@ public class MemoizingEvaluatorTest {
   }
 
   protected static SkyKey toSkyKey(String name) {
-    return new SkyKey(NODE_TYPE, name);
+    return SkyKey.create(NODE_TYPE, name);
   }
 
   @Test

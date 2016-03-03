@@ -206,7 +206,7 @@ public class PrepareDepsOfPatternValue implements SkyValue {
 
     @Override
     public SkyKey getSkyKey() throws TargetParsingException {
-      return new SkyKey(SkyFunctions.PREPARE_DEPS_OF_PATTERN, targetPatternKey);
+      return SkyKey.create(SkyFunctions.PREPARE_DEPS_OF_PATTERN, targetPatternKey);
     }
 
     @Override

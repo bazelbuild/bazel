@@ -40,7 +40,7 @@ public class AspectCompletionValue implements SkyValue {
         new Function<AspectValue, SkyKey>() {
           @Override
           public SkyKey apply(AspectValue aspectValue) {
-            return new SkyKey(SkyFunctions.ASPECT_COMPLETION, aspectValue.getKey());
+            return SkyKey.create(SkyFunctions.ASPECT_COMPLETION, aspectValue.getKey());
           }
         });
   }

@@ -100,6 +100,18 @@ public interface ClassObject {
       return values.get(name);
     }
 
+    /**
+     *  Returns a value and try to cast it into specified type
+     */
+    public <TYPE> TYPE getValue(String key, Class<TYPE> type) throws EvalException {
+      Object obj = values.get(key);
+      if (obj == null) {
+        return null;
+      }
+      SkylarkType.checkType(obj, type, key);
+      return type.cast(obj);
+    }
+
     @Override
     public ImmutableCollection<String> getKeys() {
       return values.keySet();

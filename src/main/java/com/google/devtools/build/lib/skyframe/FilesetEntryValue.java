@@ -44,7 +44,7 @@ public final class FilesetEntryValue implements SkyValue {
   }
 
   public static SkyKey key(FilesetTraversalParams params) {
-    return new SkyKey(SkyFunctions.FILESET_ENTRY, params);
+    return SkyKey.create(SkyFunctions.FILESET_ENTRY, params);
   }
 
   @Override

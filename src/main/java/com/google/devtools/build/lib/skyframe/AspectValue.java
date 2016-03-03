@@ -280,14 +280,14 @@ public final class AspectValue extends ActionLookupValue {
       BuildConfiguration baseConfiguration,
       AspectClass aspectFactory,
       AspectParameters additionalConfiguration) {
-    return new SkyKey(
+    return SkyKey.create(
         SkyFunctions.ASPECT,
         new AspectKey(
             label, aspectConfiguration, baseConfiguration, aspectFactory, additionalConfiguration));
   }
 
   public static SkyKey key(AspectValueKey aspectKey) {
-    return new SkyKey(aspectKey.getType(), aspectKey);
+    return SkyKey.create(aspectKey.getType(), aspectKey);
   }
 
   public static AspectKey createAspectKey(

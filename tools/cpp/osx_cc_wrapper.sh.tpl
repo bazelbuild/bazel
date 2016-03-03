@@ -14,12 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# OS X rpath is not really working. This is a wrapper script around gcc
-# to simulate rpath behavior.
+# OS X relpath is not really working. This is a wrapper script around gcc
+# to simulate relpath behavior.
 #
 # This wrapper uses install_name_tool to replace all paths in the binary
 # (bazel-out/.../path/to/original/library.so) by the paths relative to
-# the binary. It parses the command line to behaves as rpath is supposed
+# the binary. It parses the command line to behave as rpath is supposed
 # to work.
 #
 # See https://blogs.oracle.com/dipol/entry/dynamic_libraries_rpath_and_mac
@@ -27,7 +27,6 @@
 #
 set -eu
 
-GCC="/usr/bin/gcc"
 INSTALL_NAME_TOOL="/usr/bin/install_name_tool"
 
 LIBS=
@@ -53,8 +52,8 @@ for i in "$@"; do
     fi
 done
 
-# Call gcc
-${GCC} "$@"
+# Call the C++ compiler
+%{cc} "$@"
 
 function get_library_path() {
     for libdir in ${LIB_DIRS}; do

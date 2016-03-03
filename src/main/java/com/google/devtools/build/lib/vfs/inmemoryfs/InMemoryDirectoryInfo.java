@@ -13,11 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs.inmemoryfs;
 
-import com.google.common.collect.MapMaker;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Clock;
 
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 /**
@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentMap;
 class InMemoryDirectoryInfo extends InMemoryContentInfo {
 
   private final ConcurrentMap<String, InMemoryContentInfo> directoryContent =
-      new MapMaker().makeMap();
+      new ConcurrentHashMap<>();
 
   InMemoryDirectoryInfo(Clock clock) {
     this(clock, true);

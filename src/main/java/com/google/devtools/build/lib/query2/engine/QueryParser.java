@@ -68,6 +68,9 @@ final class QueryParser {
   }
 
   private QueryParser(List<Lexer.Token> tokens, QueryEnvironment<?> env) {
+    // TODO(bazel-team): We only need QueryEnvironment#getFunctions, consider refactoring users of
+    // QueryParser#parse to instead just pass in the set of functions to make testing, among other
+    // things, simpler.
     this.functions = new HashMap<>();
     for (QueryFunction queryFunction : env.getFunctions()) {
       this.functions.put(queryFunction.getName(), queryFunction);

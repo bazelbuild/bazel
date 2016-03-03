@@ -41,9 +41,11 @@ public abstract class ArtifactValue implements SkyValue {
 
   @ThreadSafe
   public static SkyKey key(Artifact artifact, boolean isMandatory) {
-    return new SkyKey(SkyFunctions.ARTIFACT, artifact.isSourceArtifact()
-        ? new OwnedArtifact(artifact, isMandatory)
-        : new OwnedArtifact(artifact));
+    return SkyKey.create(
+        SkyFunctions.ARTIFACT,
+        artifact.isSourceArtifact()
+            ? new OwnedArtifact(artifact, isMandatory)
+            : new OwnedArtifact(artifact));
   }
 
   private static final Function<Artifact, SkyKey> TO_MANDATORY_KEY =

@@ -1434,7 +1434,7 @@ public class ParallelEvaluatorTest {
     class ParentFunction implements SkyFunction {
       @Override
       public SkyValue compute(SkyKey skyKey, Environment env) {
-        SkyValue dep = env.getValue(new SkyKey(childType, "billy the kid"));
+        SkyValue dep = env.getValue(SkyKey.create(childType, "billy the kid"));
         if (dep == null) {
           return null;
         }
@@ -1451,7 +1451,7 @@ public class ParallelEvaluatorTest {
         skyFunctions, false);
 
     try {
-      evaluator.eval(ImmutableList.of(new SkyKey(parentType, "octodad")));
+      evaluator.eval(ImmutableList.of(SkyKey.create(parentType, "octodad")));
       fail();
     } catch (RuntimeException e) {
       assertEquals("I WANT A PONY!!!", e.getCause().getMessage());
