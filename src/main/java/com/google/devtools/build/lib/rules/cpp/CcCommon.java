@@ -463,7 +463,10 @@ public final class CcCommon {
         CppFileTypes.LINKER_SCRIPT);
   }
 
-  InstrumentedFilesProvider getInstrumentedFilesProvider(Iterable<Artifact> files,
+  /**
+   * Provides support for instrumentation.
+   */
+  public InstrumentedFilesProvider getInstrumentedFilesProvider(Iterable<Artifact> files,
       boolean withBaselineCoverage) {
     return cppConfiguration.isLipoContextCollector()
         ? InstrumentedFilesProviderImpl.EMPTY
