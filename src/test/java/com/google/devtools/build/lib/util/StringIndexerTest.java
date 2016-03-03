@@ -252,7 +252,8 @@ public abstract class StringIndexerTest {
   public static class CanonicalStringIndexerTest extends StringIndexerTest{
     @Override
     protected StringIndexer newIndexer() {
-      return new CanonicalStringIndexer(new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
+      return new CanonicalStringIndexer(new ConcurrentHashMap<String, Integer>(),
+          new ConcurrentHashMap<Integer, String>());
     }
 
     @Test
