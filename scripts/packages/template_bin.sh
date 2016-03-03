@@ -155,9 +155,6 @@ echo -n .
 ln -s "${base}/bin/bazel" "${bin}/bazel"
 echo -n .
 
-# Uncompress the bazel base install for faster startup time
-"${bin}/bazel" help >/dev/null
-
 if [ -f "${bazelrc}" ]; then
   echo
   echo "${bazelrc} already exists, moving it to ${bazelrc}.bak."
@@ -166,8 +163,11 @@ fi
 
 # Not necessary, but this way it matches the Debian package.
 touch "${bazelrc}"
-if [ "${UID}" == 0 ]; then
+if [ "${UID}" -eq 0 ]; then
   chmod 0644 "${bazelrc}"
+else
+  # Uncompress the bazel base install for faster startup time
+  "${bin}/bazel" help >/dev/null
 fi
 echo .
 
