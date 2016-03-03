@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.skyframe.SkyKeyInterner.SKY_KEY_INTERNER;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -127,7 +125,6 @@ public class TransitiveTraversalValue implements SkyValue {
 
   @ThreadSafe
   public static SkyKey key(Label label) {
-    // Intern in order to save memory.
-    return SKY_KEY_INTERNER.intern(new SkyKey(SkyFunctions.TRANSITIVE_TRAVERSAL, label));
+    return SkyKey.create(SkyFunctions.TRANSITIVE_TRAVERSAL, label);
   }
 }

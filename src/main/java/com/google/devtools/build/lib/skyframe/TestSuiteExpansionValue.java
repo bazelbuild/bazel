@@ -70,7 +70,8 @@ public final class TestSuiteExpansionValue implements SkyValue {
    */
   @ThreadSafe
   public static SkyKey key(Collection<Label> targets) {
-    return new SkyKey(SkyFunctions.TEST_SUITE_EXPANSION,
+    return SkyKey.create(
+        SkyFunctions.TEST_SUITE_EXPANSION,
         new TestSuiteExpansion(ImmutableSortedSet.copyOf(targets)));
   }
 

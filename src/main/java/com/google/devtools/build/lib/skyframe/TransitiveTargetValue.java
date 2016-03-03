@@ -170,6 +170,6 @@ public class TransitiveTargetValue implements SkyValue {
 
   @ThreadSafe
   public static SkyKey key(Label label) {
-    return new SkyKey(SkyFunctions.TRANSITIVE_TARGET, label);
+    return SkyKey.create(SkyFunctions.TRANSITIVE_TARGET, label);
   }
 }

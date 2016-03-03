@@ -102,7 +102,8 @@ public final class GlobValue implements SkyValue {
   @ThreadSafe
   static SkyKey internalKey(PackageIdentifier packageId, Path packageRoot, PathFragment subdir,
       String pattern, boolean excludeDirs) {
-    return new SkyKey(SkyFunctions.GLOB,
+    return SkyKey.create(
+        SkyFunctions.GLOB,
         new GlobDescriptor(packageId, packageRoot, subdir, pattern, excludeDirs));
   }
 

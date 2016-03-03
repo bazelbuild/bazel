@@ -60,6 +60,6 @@ public class ExternalPackageFunction implements SkyFunction {
    * Returns a SkyKey to find the WORKSPACE file at the given path.
    */
   public static SkyKey key(RootedPath workspacePath) {
-    return new SkyKey(SkyFunctions.EXTERNAL_PACKAGE, workspacePath);
+    return SkyKey.create(SkyFunctions.EXTERNAL_PACKAGE, workspacePath);
   }
 }

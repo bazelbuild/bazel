@@ -54,7 +54,7 @@ public class PackageValue implements NotComparableSkyValue {
   }
 
   public static SkyKey key(PackageIdentifier pkgIdentifier) {
-    return new SkyKey(SkyFunctions.PACKAGE, pkgIdentifier);
+    return SkyKey.create(SkyFunctions.PACKAGE, pkgIdentifier);
   }
 
   public static List<SkyKey> keys(Iterable<PackageIdentifier> pkgIdentifiers) {

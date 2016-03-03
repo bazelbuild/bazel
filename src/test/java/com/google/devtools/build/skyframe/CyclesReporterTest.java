@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @RunWith(JUnit4.class)
 public class CyclesReporterTest {
 
-  private static final SkyKey DUMMY_KEY = new SkyKey(SkyFunctionName.create("func"), "key");
+  private static final SkyKey DUMMY_KEY = SkyKey.create(SkyFunctionName.create("func"), "key");
 
   @Test
   public void nullEventHandler() {

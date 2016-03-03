@@ -95,6 +95,6 @@ abstract class ASTFileLookupValue implements SkyValue {
   }
 
   static SkyKey key(Label astFileLabel) {
-    return new SkyKey(SkyFunctions.AST_FILE_LOOKUP, astFileLabel);
+    return SkyKey.create(SkyFunctions.AST_FILE_LOOKUP, astFileLabel);
   }
 }

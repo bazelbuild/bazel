@@ -22,7 +22,7 @@ import java.io.ObjectOutputStream;
  */
 public final class ErrorTransienceValue implements SkyValue {
   public static final SkyFunctionName FUNCTION_NAME = SkyFunctionName.create("ERROR_TRANSIENCE");
-  public static final SkyKey KEY = new SkyKey(FUNCTION_NAME, "ERROR_TRANSIENCE");
+  public static final SkyKey KEY = SkyKey.create(FUNCTION_NAME, "ERROR_TRANSIENCE");
   public static final ErrorTransienceValue INSTANCE = new ErrorTransienceValue();
 
   private ErrorTransienceValue() {}

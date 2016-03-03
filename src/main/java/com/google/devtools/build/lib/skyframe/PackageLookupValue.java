@@ -97,7 +97,7 @@ public abstract class PackageLookupValue implements SkyValue {
   }
 
   public static SkyKey key(PackageIdentifier pkgIdentifier) {
-    return new SkyKey(SkyFunctions.PACKAGE_LOOKUP, pkgIdentifier);
+    return SkyKey.create(SkyFunctions.PACKAGE_LOOKUP, pkgIdentifier);
   }
 
   private static class SuccessfulPackageLookupValue extends PackageLookupValue {

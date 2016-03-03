@@ -14,6 +14,8 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.base.Function;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.io.Serializable;
@@ -22,6 +24,8 @@ import java.io.Serializable;
  * A {@link SkyKey} is effectively a pair (type, name) that identifies a Skyframe value.
  */
 public final class SkyKey implements Serializable {
+  private static final Interner<SkyKey> SKY_KEY_INTERNER = Interners.newWeakInterner();
+
   private final SkyFunctionName functionName;
 
   /**
@@ -39,13 +43,18 @@ public final class SkyKey implements Serializable {
    */
   private transient int hashCode;
 
-  public SkyKey(SkyFunctionName functionName, Object valueName) {
+  private SkyKey(SkyFunctionName functionName, Object argument) {
     this.functionName = Preconditions.checkNotNull(functionName);
-    this.argument = Preconditions.checkNotNull(valueName);
+    this.argument = Preconditions.checkNotNull(argument);
     // 'hashCode' is non-volatile and non-final, so this write may in fact *not* be visible to other
     // threads. But this isn't a concern from a correctness perspective. See the comments in
     // #hashCode for more details.
     this.hashCode = computeHashCode();
+  }
+
+  public static SkyKey create(SkyFunctionName functionName, Object argument) {
+    // Intern to save memory.
+    return SKY_KEY_INTERNER.intern(new SkyKey(functionName, argument));
   }
 
   public SkyFunctionName functionName() {

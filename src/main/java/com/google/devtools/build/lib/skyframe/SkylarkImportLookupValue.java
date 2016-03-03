@@ -93,7 +93,7 @@ public class SkylarkImportLookupValue implements SkyValue {
   }
 
   static SkyKey key(Label importLabel, boolean inWorkspace) {
-    return new SkyKey(
+    return SkyKey.create(
         SkyFunctions.SKYLARK_IMPORTS_LOOKUP, new SkylarkImportLookupKey(importLabel, inWorkspace));
   }
 }

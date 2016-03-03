@@ -55,8 +55,8 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
 
   @ThreadSafe
   public static SkyKey key(ImmutableList<String> patterns, String offset) {
-    return new SkyKey(SkyFunctions.PREPARE_DEPS_OF_PATTERNS,
-        new TargetPatternSequence(patterns, offset));
+    return SkyKey.create(
+        SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new TargetPatternSequence(patterns, offset));
   }
 
   /** The argument value for {@link SkyKey}s of {@link PrepareDepsOfPatternsFunction}. */

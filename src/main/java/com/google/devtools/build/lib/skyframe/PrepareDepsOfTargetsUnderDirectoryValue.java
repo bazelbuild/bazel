@@ -61,10 +61,10 @@ public final class PrepareDepsOfTargetsUnderDirectoryValue implements SkyValue {
   @ThreadSafe
   public static SkyKey key(RepositoryName repository, RootedPath rootedPath,
       ImmutableSet<PathFragment> excludedPaths, FilteringPolicy filteringPolicy) {
-    return new SkyKey(SkyFunctions.PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY,
+    return SkyKey.create(
+        SkyFunctions.PREPARE_DEPS_OF_TARGETS_UNDER_DIRECTORY,
         new PrepareDepsOfTargetsUnderDirectoryKey(
-            new RecursivePkgKey(repository, rootedPath, excludedPaths),
-            filteringPolicy));
+            new RecursivePkgKey(repository, rootedPath, excludedPaths), filteringPolicy));
   }
 
   /**

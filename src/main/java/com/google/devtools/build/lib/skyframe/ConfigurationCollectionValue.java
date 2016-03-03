@@ -44,7 +44,8 @@ public class ConfigurationCollectionValue implements SkyValue {
 
   @ThreadSafe
   public static SkyKey key(BuildOptions buildOptions, ImmutableSet<String> multiCpu) {
-    return new SkyKey(SkyFunctions.CONFIGURATION_COLLECTION, 
+    return SkyKey.create(
+        SkyFunctions.CONFIGURATION_COLLECTION,
         new ConfigurationCollectionKey(buildOptions, multiCpu));
   }
 

@@ -26,7 +26,7 @@ public class BlacklistedPackagePrefixesValue implements SkyValue {
   private final ImmutableSet<PathFragment> patterns;
 
   private static final SkyKey BLACKLIST_KEY =
-      new SkyKey(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES, "");
+      SkyKey.create(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES, "");
 
   public BlacklistedPackagePrefixesValue(ImmutableSet<PathFragment> exclusions) {
     this.patterns = Preconditions.checkNotNull(exclusions);

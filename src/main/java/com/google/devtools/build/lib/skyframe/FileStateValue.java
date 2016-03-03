@@ -103,7 +103,7 @@ public abstract class FileStateValue implements SkyValue {
   @VisibleForTesting
   @ThreadSafe
   public static SkyKey key(RootedPath rootedPath) {
-    return new SkyKey(SkyFunctions.FILE_STATE, rootedPath);
+    return SkyKey.create(SkyFunctions.FILE_STATE, rootedPath);
   }
 
   public abstract Type getType();

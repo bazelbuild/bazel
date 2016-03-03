@@ -36,7 +36,7 @@ public class SkyKeyTest {
     assertThat(hashCodeSpy.getNumberOfTimesHashCodeCalled()).isEqualTo(0);
 
     // When a SkyKey is constructed with that HashCodeSpy as its argument,
-    SkyKey originalKey = new SkyKey(SkyFunctionName.create("TEMP"), hashCodeSpy);
+    SkyKey originalKey = SkyKey.create(SkyFunctionName.create("TEMP"), hashCodeSpy);
 
     // Then the HashCodeSpy reports that its hashcode method was called once.
     assertThat(hashCodeSpy.getNumberOfTimesHashCodeCalled()).isEqualTo(1);

@@ -125,8 +125,15 @@ public final class TargetPatternPhaseValue implements SkyValue {
   public static SkyKey key(ImmutableList<String> targetPatterns, String offset,
       boolean compileOneDependency, boolean buildTestsOnly, boolean determineTests,
       @Nullable TestFilter testFilter) {
-    return new SkyKey(SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternList(
-        targetPatterns, offset, compileOneDependency, buildTestsOnly, determineTests, testFilter));
+    return SkyKey.create(
+        SkyFunctions.TARGET_PATTERN_PHASE,
+        new TargetPatternList(
+            targetPatterns,
+            offset,
+            compileOneDependency,
+            buildTestsOnly,
+            determineTests,
+            testFilter));
   }
 
   /**

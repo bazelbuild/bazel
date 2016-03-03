@@ -56,7 +56,8 @@ public class ConfigurationFragmentValue implements SkyValue {
             BuildConfiguration.getOptionsClasses(
                 ImmutableList.<Class<? extends BuildConfiguration.Fragment>>of(fragmentType),
                 ruleClassProvider));
-    return new SkyKey(SkyFunctions.CONFIGURATION_FRAGMENT,
+    return SkyKey.create(
+        SkyFunctions.CONFIGURATION_FRAGMENT,
         new ConfigurationFragmentKey(optionsKey, fragmentType));
   }
 
