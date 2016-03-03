@@ -26,7 +26,7 @@ load(
 def warning(rule):
   return """This rule has moved out of @bazel_tools!
 
-The scala rules have moved to https://github.com/bazelbuild/scala_rules, you
+The scala rules have moved to https://github.com/bazelbuild/rules_scala, you
 should now refer them via @io_bazel_rules_scala, use:
 
 load('@io_bazel_rules_scala//scala:scala.bzl', '%s')
