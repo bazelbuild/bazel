@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skylark;
 
 import static com.google.common.collect.Iterables.transform;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Function;
@@ -529,54 +528,6 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
         "Every .bzl file must have a corresponding package, but 'foo' does not have one. "
         + "Please create a BUILD file in the same or any parent directory. "
         + "Note that this BUILD file does not need to do anything except exist.");
-  }
-
-  @Test
-  public void aspectOutputsToBinDirectory() throws Exception {
-    scratch.file("foo/extension.bzl",
-        "def _aspect_impl(target, ctx):",
-        "   file = ctx.new_file('aspect-output-' + target.label.name)",
-        "   ctx.file_action(file, 'data')",
-        "   return struct(aspect_file = file)",
-        "my_aspect = aspect(_aspect_impl)",
-        "def _rule_impl(ctx):",
-        "   pass",
-        "rule_bin_out = rule(_rule_impl, output_to_genfiles=False)",
-        "rule_gen_out = rule(_rule_impl, output_to_genfiles=True)",
-        "def _main_rule_impl(ctx):",
-        "   s = set()",
-        "   for d in ctx.attr.deps:",
-        "       s = s | set([d.aspect_file])",
-        "   return struct(aspect_files = s)",
-        "main_rule = rule(_main_rule_impl,",
-        "   attrs = { 'deps' : attr.label_list(aspects = [my_aspect]) },",
-        ")"
-    );
-
-    scratch.file("foo/BUILD",
-        "load('extension', 'rule_bin_out', 'rule_gen_out', 'main_rule')",
-        "rule_bin_out(name = 'rbin')",
-        "rule_gen_out(name = 'rgen')",
-        "main_rule(name = 'main', deps = [':rbin', ':rgen'])"
-    );
-    AnalysisResult analysisResult = update(ImmutableList.<String>of(), "//foo:main");
-    ConfiguredTarget target = analysisResult.getTargetsToBuild().iterator().next();
-    NestedSet<Artifact> aspectFiles =
-        ((SkylarkNestedSet) target.getProvider(SkylarkProviders.class).getValue("aspect_files"))
-            .getSet(Artifact.class);
-    assertThat(transform(aspectFiles, new Function<Artifact, String>() {
-      @Override
-      public String apply(Artifact artifact) {
-        return artifact.getFilename();
-      }
-    })).containsExactly("aspect-output-rbin", "aspect-output-rgen");
-    for (Artifact aspectFile : aspectFiles) {
-      String rootPath = aspectFile.getRoot().getExecPath().toString();
-      assertWithMessage("Artifact %s should not be in genfiles", aspectFile)
-          .that(rootPath).doesNotContain("genfiles");
-      assertWithMessage("Artifact %s should be in bin", aspectFile)
-          .that(rootPath).endsWith("bin");
-    }
   }
 
   @Test

@@ -560,23 +560,13 @@ public final class SkylarkRuleContext {
     }
   }
 
-  private boolean isForAspect() {
-    return ruleAttributesCollection != null;
-  }
-
   @SkylarkCallable(
     doc =
         "Creates a file object with the given filename, in the current package. "
             + DOC_NEW_FILE_TAIL
   )
   public Artifact newFile(String filename) {
-    return newFile(newFileRoot(), filename);
-  }
-
-  private Root newFileRoot() {
-    return isForAspect()
-        ? getConfiguration().getBinDirectory()
-        : ruleContext.getBinOrGenfilesDirectory();
+    return newFile(ruleContext.getBinOrGenfilesDirectory(), filename);
   }
 
   // Kept for compatibility with old code.
@@ -591,7 +581,8 @@ public final class SkylarkRuleContext {
   public Artifact newFile(Artifact baseArtifact, String newBaseName) {
     PathFragment original = baseArtifact.getRootRelativePath();
     PathFragment fragment = original.replaceName(newBaseName);
-    return ruleContext.getDerivedArtifact(fragment, newFileRoot());
+    Root root = ruleContext.getBinOrGenfilesDirectory();
+    return ruleContext.getDerivedArtifact(fragment, root);
   }
 
   // Kept for compatibility with old code.
