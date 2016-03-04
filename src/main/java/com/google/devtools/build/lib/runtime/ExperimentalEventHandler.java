@@ -43,6 +43,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   private final boolean debugAllEvents;
   private final ExperimentalStateTracker stateTracker;
   private int numLinesProgressBar;
+  private boolean buildComplete;
 
   public final int terminalWidth;
 
@@ -70,17 +71,23 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
         switch (event.getKind()) {
           case STDOUT:
           case STDERR:
-            clearProgressBar();
-            terminal.flush();
+            if (!buildComplete) {
+              clearProgressBar();
+              terminal.flush();
+            }
             OutputStream stream =
                 event.getKind() == EventKind.STDOUT
                     ? outErr.getOutputStream()
                     : outErr.getErrorStream();
             stream.write(event.getMessageBytes());
-            stream.write(new byte[] {10, 13});
+            if (!buildComplete) {
+              stream.write(new byte[] {10, 13});
+            }
             stream.flush();
-            addProgressBar();
-            terminal.flush();
+            if (!buildComplete) {
+              addProgressBar();
+              terminal.flush();
+            }
             break;
           case ERROR:
           case WARNING:
@@ -148,6 +155,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   public void buildComplete(BuildCompleteEvent event) {
     stateTracker.buildComplete(event);
     refresh();
+    buildComplete = true;
   }
 
   @Subscribe
