@@ -13,11 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
+import com.google.devtools.build.lib.buildtool.ExecutionProgressReceiver;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 
@@ -34,10 +37,11 @@ class ExperimentalStateTracker {
 
   private String status;
   private String additionalMessage;
-  private int actionsStarted;
-  private int actionsCompleted;
   private final Deque<String> runningActions;
+  private int actionsCompleted;
   private boolean ok;
+
+  private ExecutionProgressReceiver executionProgressReceiver;
 
   ExperimentalStateTracker() {
     this.runningActions = new ArrayDeque<>();
@@ -59,6 +63,10 @@ class ExperimentalStateTracker {
     status = null;
   }
 
+  void progressReceiverAvailable(ExecutionProgressReceiverAvailableEvent event) {
+    executionProgressReceiver = event.getExecutionProgressReceiver();
+  }
+
   void buildComplete(BuildCompleteEvent event) {
     if (event.getResult().getSuccess()) {
       status = "INFO";
@@ -71,15 +79,20 @@ class ExperimentalStateTracker {
   }
 
   synchronized void actionStarted(ActionStartedEvent event) {
-    actionsStarted++;
     String name = event.getAction().getPrimaryOutput().getPath().getPathString();
     runningActions.addLast(name);
   }
 
   synchronized void actionCompletion(ActionCompletionEvent event) {
     actionsCompleted++;
-    String name = event.getAction().getPrimaryOutput().getPath().getPathString();
+    Action action = event.getAction();
+    String name = action.getPrimaryOutput().getPath().getPathString();
     runningActions.remove(name);
+
+    // As callers to the experimental state tracker assume we will fully report the new state once
+    // informed of an action completion, we need to make sure the progress receiver is aware of the
+    // completion, even though it might be called later on the event bus.
+    executionProgressReceiver.actionCompleted(action);
   }
 
   private void sampleOldestActions(AnsiTerminalWriter terminalWriter) throws IOException {
@@ -106,9 +119,18 @@ class ExperimentalStateTracker {
       terminalWriter.append(status + ":").normal().append(" " + additionalMessage);
       return;
     }
-    String statusMessage = " " + actionsCompleted + " actions completed, "
-        + (actionsStarted - actionsCompleted) + " actions running";
-    terminalWriter.okStatus().append("Building:").normal().append(" " + statusMessage);
-    sampleOldestActions(terminalWriter);
+    if (executionProgressReceiver != null) {
+      terminalWriter.okStatus().append(executionProgressReceiver.getProgressString());
+    } else {
+      terminalWriter.okStatus().append("Building:");
+    }
+    if (runningActions.size() == 1) {
+      String statusMessage = "running action: " + runningActions.peekFirst();
+      terminalWriter.normal().append(" " + statusMessage);
+    } else {
+      String statusMessage = " " + runningActions.size() + " actions running";
+      terminalWriter.normal().append(" " + statusMessage);
+      sampleOldestActions(terminalWriter);
+    }
   }
 }
