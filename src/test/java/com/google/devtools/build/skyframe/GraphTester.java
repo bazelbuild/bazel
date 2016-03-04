@@ -122,7 +122,8 @@ public class GraphTester {
           } else {
             deps.put(dep.first, value);
           }
-          Preconditions.checkState(oneMissing == env.valuesMissing());
+          Preconditions.checkState(
+              oneMissing == env.valuesMissing(), "%s %s %s", dep, value, env.valuesMissing());
         }
         if (env.valuesMissing()) {
           return null;
