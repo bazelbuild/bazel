@@ -329,6 +329,12 @@ public final class PyCommon {
     return builder.build();
   }
 
+  public NestedSet<Artifact> collectTransitivePythonSourcesWithoutLocal() {
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.compileOrder();
+    collectTransitivePythonSourcesFrom(getTargetDeps(), builder);
+    return builder.build();
+  }
+
   public NestedSet<PathFragment> collectImports(
       RuleContext ruleContext, PythonSemantics semantics) {
     NestedSetBuilder<PathFragment> builder = NestedSetBuilder.compileOrder();
