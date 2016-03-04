@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
 import com.google.devtools.build.lib.events.Location;
+import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.shell.CommandResult;
@@ -43,6 +44,15 @@ public class SkylarkExecutionResult {
     this.returnCode = returnCode;
     this.stdout = stdout;
     this.stderr = stderr;
+  }
+
+  private SkylarkExecutionResult(CommandResult result) {
+    // TODO(dmarting): if a lot of data is sent to stdout, this will use all the memory and
+    // Bazel will crash. Maybe we should use custom output streams that throw an appropriate
+    // exception when reaching a specific size.
+    this.stdout = new String(result.getStdout(), StandardCharsets.UTF_8);
+    this.stderr = new String(result.getStderr(), StandardCharsets.UTF_8);
+    this.returnCode = result.getTerminationStatus().getExitCode();
   }
 
   @SkylarkCallable(
@@ -89,13 +99,9 @@ public class SkylarkExecutionResult {
         argsArray[i] = arg.toString();
       }
       CommandResult result = new Command(argsArray).execute(new byte[] {}, timeout, false);
-      // TODO(dmarting): if a lot of data is sent to stdout, this will use all the memory and
-      // Bazel will crash. Maybe we should use custom output streams that throw an appropriate
-      // exception when reaching a specific size.
-      String stdout = new String(result.getStdout(), StandardCharsets.UTF_8);
-      String stderr = new String(result.getStderr(), StandardCharsets.UTF_8);
-      return new SkylarkExecutionResult(
-          result.getTerminationStatus().getExitCode(), stdout, stderr);
+      return new SkylarkExecutionResult(result);
+    } catch (BadExitStatusException e) {
+      return new SkylarkExecutionResult(e.getResult());
     } catch (CommandException e) {
       return new SkylarkExecutionResult(256, "", e.getMessage());
     }

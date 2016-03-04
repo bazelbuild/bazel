@@ -299,6 +299,26 @@ EOF
   expect_log "version"
 }
 
+function test_skylark_repository_execute_stderr() {
+  setup_skylark_repository
+
+  cat >test.bzl <<EOF
+def _impl(ctx):
+  result = ctx.execute([str(ctx.which("bash")), "-c", "echo erf >&2; exit 1"])
+  if result.return_code != 1:
+    fail("Incorrect return code from bash (should be 1): " + result.return_code)
+  if result.stdout != "":
+    fail("Non-empty output: %s (stderr was %s)" % (result.stdout, result.stderr))
+  print(result.stderr)
+  # Symlink so a repository is created
+  ctx.symlink(ctx.path("$repo2"), ctx.path(""))
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "erf"
+}
+
 function test_skylark_repository_environ() {
   setup_skylark_repository
 
