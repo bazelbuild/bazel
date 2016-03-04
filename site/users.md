@@ -26,7 +26,7 @@ Bazel went](https://www.pgrs.net/2015/09/01/migrating-from-gradle-to-bazel/).
 
 ## [Databricks](https://databricks.com)
 
-Databricks provide cloud-base integrated workspace based on Apache Spark™.
+Databricks provides cloud-based integrated workspaces based on Apache Spark™.
 
 ## [Interaxon](https://www.choosemuse.com/)
 
