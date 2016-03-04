@@ -300,5 +300,5 @@ def appengine_repositories():
 
   native.maven_jar(
       name = "org_apache_commons_collections",
-      artifact = "commons-collections:commons-collections:3.2.1",
+      artifact = "commons-collections:commons-collections:3.2.2",
   )

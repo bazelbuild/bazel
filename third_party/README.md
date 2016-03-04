@@ -23,7 +23,7 @@ a minimal set of extra dependencies.
 
 ## [apache_commons_collections](http://commons.apache.org/proper/commons-collections/)
 
-* Version: 3.2.1
+* Version: 3.2.2
 * License: Apache License 2.0.
 
 

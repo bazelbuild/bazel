@@ -77,7 +77,7 @@ java_import(
 
 java_import(
     name = "apache_commons_collections",
-    jars = ["apache_commons_collections/commons-collections-3.2.1.jar"],
+    jars = ["apache_commons_collections/commons-collections-3.2.2.jar"],
 )
 
 java_import(

@@ -125,11 +125,6 @@ maven_jar(
 )
 
 maven_jar(
-    name = "org_apache_commons_collections",
-    artifact = "commons-collections:commons-collections:3.2.1",
-)
-
-maven_jar(
     name = "javax_servlet_api",
     artifact = "javax.servlet:servlet-api:2.5",
 )
