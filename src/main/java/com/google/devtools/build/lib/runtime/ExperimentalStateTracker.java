@@ -27,6 +27,8 @@ import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Deque;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * An experimental state tracker for the new experimental UI.
@@ -37,7 +39,12 @@ class ExperimentalStateTracker {
 
   private String status;
   private String additionalMessage;
+
+  // currently running actions, using the path of the primary
+  // output as unique identifier.
   private final Deque<String> runningActions;
+  private final Map<String, Action> actions;
+
   private int actionsCompleted;
   private boolean ok;
 
@@ -45,6 +52,7 @@ class ExperimentalStateTracker {
 
   ExperimentalStateTracker() {
     this.runningActions = new ArrayDeque<>();
+    this.actions = new TreeMap<>();
     this.ok = true;
   }
 
@@ -79,8 +87,10 @@ class ExperimentalStateTracker {
   }
 
   synchronized void actionStarted(ActionStartedEvent event) {
-    String name = event.getAction().getPrimaryOutput().getPath().getPathString();
+    Action action = event.getAction();
+    String name = action.getPrimaryOutput().getPath().getPathString();
     runningActions.addLast(name);
+    actions.put(name, action);
   }
 
   synchronized void actionCompletion(ActionCompletionEvent event) {
@@ -88,6 +98,7 @@ class ExperimentalStateTracker {
     Action action = event.getAction();
     String name = action.getPrimaryOutput().getPath().getPathString();
     runningActions.remove(name);
+    actions.remove(name);
 
     // As callers to the experimental state tracker assume we will fully report the new state once
     // informed of an action completion, we need to make sure the progress receiver is aware of the
@@ -95,11 +106,20 @@ class ExperimentalStateTracker {
     executionProgressReceiver.actionCompleted(action);
   }
 
+  private String describeAction(String name) {
+    Action action = actions.get(name);
+    String message = action.getProgressMessage();
+    if (message != null) {
+      return message;
+    }
+    return action.prettyPrint();
+  }
+
   private void sampleOldestActions(AnsiTerminalWriter terminalWriter) throws IOException {
     int count = 0;
     for (String action : runningActions) {
       count++;
-      terminalWriter.newline().append("    " + action);
+      terminalWriter.newline().append("    " + describeAction(action));
       if (count >= SAMPLE_SIZE) {
         break;
       }
@@ -125,7 +145,7 @@ class ExperimentalStateTracker {
       terminalWriter.okStatus().append("Building:");
     }
     if (runningActions.size() == 1) {
-      String statusMessage = "running action: " + runningActions.peekFirst();
+      String statusMessage = describeAction(runningActions.peekFirst());
       terminalWriter.normal().append(" " + statusMessage);
     } else {
       String statusMessage = " " + runningActions.size() + " actions running";
