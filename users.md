@@ -24,7 +24,7 @@ applications. They use Bazel for parts of their internal build and Paul Gross
 even posted a [nice piece about how their switch to
 Bazel went](https://www.pgrs.net/2015/09/01/migrating-from-gradle-to-bazel/).
 
-## Databricks(https://databricks.com)
+## [Databricks](https://databricks.com)
 
 Databricks provide cloud-base integrated workspace based on Apache Spark™.
 
