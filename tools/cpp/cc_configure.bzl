@@ -84,7 +84,7 @@ def _ld_library_paths(ctx):
 
 def _get_cpu_value(ctx):
   """Compute the cpu_value based on the OS name."""
-  return "darwin" if ctx.os.name.lower().startswith("mac os") else "local"
+  return "darwin" if ctx.os.name.lower().startswith("mac os") else "k8"
 
 
 _INC_DIR_MARKER_BEGIN = "#include <...> search starts here:"
@@ -225,8 +225,8 @@ def _find_cc(ctx):
     cc = ctx.which("gcc")
     if cc == None:
       fail(
-          "Cannot find gcc, either correct your path or set the CC environment"
-          " variable")
+          "Cannot find gcc, either correct your path or set the CC" +
+          " ennvironment variable")
     return cc
 
 
@@ -249,7 +249,7 @@ def _impl(ctx):
       "%{name}": cpu_value,
       "%{supports_param_files}": "0" if darwin else "1"
   })
-  _tpl(ctx, "osx_gcc_wrapper.sh", {"%{cc}": str(cc)})
+  _tpl(ctx, "osx_cc_wrapper.sh", {"%{cc}": str(cc)})
   _tpl(ctx, "CROSSTOOL", {
       "%{cpu}": cpu_value,
       "%{content}": _build_crosstool(crosstool_content) + "\n" +

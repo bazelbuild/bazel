@@ -45,7 +45,7 @@ genrule(
     outs = ["WORKSPACE"],
     cmd = """
     cat <<EOF >$@
-load("//tools/cpp:cc_configure.bzl", "cc_configure")
+load("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_configure")
 cc_configure()
 EOF
     cat $(location //:workspace-file) >>$@
