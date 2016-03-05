@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Implementaion of AndroidStudio-specific information collecting aspect.
+
+# A map to convert rule names to a RuleIdeInfo.Kind
 _kind_to_kind_id = {
   "android_binary"  : 0,
   "android_library" : 1,
@@ -28,6 +31,13 @@ _kind_to_kind_id = {
 
 _unrecognized_rule = -1;
 
+def get_kind(target, ctx):
+  """ Gets kind of a rule given a target and rule context.
+  """
+  return _kind_to_kind_id.get(ctx.rule.kind, _unrecognized_rule)
+
+
+# Compile-time dependency attributes list
 DEPS = [
   "deps",
   "exports",
@@ -38,23 +48,23 @@ DEPS = [
   "_proto1_java_lib", # From proto_library
 ]
 
+# Run-time dependecy attributes list
 RUNTIME_DEPS = [
   "runtime_deps",
 ]
 
+# All dependency attributes along which the aspect propagates
 ALL_DEPS = DEPS + RUNTIME_DEPS
 
-def get_kind(target, ctx):
-  return _kind_to_kind_id.get(ctx.rule.kind, _unrecognized_rule)
-
-def is_java_rule(target, ctx):
-  return ctx.rule.kind != "android_sdk";
-
 def struct_omit_none(**kwargs):
+    """ A replacement for standard `struct` function that omits the fields with None value.
+    """
     d = {name: kwargs[name] for name in kwargs if kwargs[name] != None}
     return struct(**d)
 
 def artifact_location(file):
+  """ Creates an ArtifactLocation proto from a File.
+  """
   if file == None:
     return None
   return struct_omit_none(
@@ -64,6 +74,8 @@ def artifact_location(file):
   )
 
 def source_directory_tuple(resource_file):
+  """ Creates a tuple of (source directory, is_source, root execution path) from an android resource file.
+  """
   return (
       str(android_common.resource_source_directory(resource_file)),
       resource_file.is_source,
@@ -71,6 +83,8 @@ def source_directory_tuple(resource_file):
   )
 
 def all_unique_source_directories(resources):
+  """ Builds a list of ArtifactLocation protos for all source directories for a list of Android resources.
+  """
   # Sets can contain tuples, but cannot conntain structs.
   # Use set of tuples to unquify source directories.
   source_directory_tuples = set([source_directory_tuple(file) for file in resources])
@@ -80,12 +94,16 @@ def all_unique_source_directories(resources):
           for (relative_path, is_source, root_execution_path_fragment) in source_directory_tuples]
 
 def build_file_artifact_location(build_file_path):
+  """ Creates an ArtifactLocation proto representing a location of a given BUILD file.
+  """
   return struct(
       relative_path = build_file_path,
       is_source = True,
   )
 
 def library_artifact(java_output):
+  """ Creates a LibraryArtifact representing a given java_output.
+  """
   if java_output == None or java_output.class_jar == None:
     return None
   return struct_omit_none(
@@ -95,19 +113,28 @@ def library_artifact(java_output):
   )
 
 def annotation_processing_jars(annotation_processing):
+  """ Creates a LibraryArtifact representing Java annotation processing jars.
+  """
   return struct_omit_none(
         jar = artifact_location(annotation_processing.class_jar),
         source_jar = artifact_location(annotation_processing.source_jar),
   )
-
 def jars_from_output(output):
+  """ Collect jars for ide-resolve-files from Java output.
+  """
   if output == None:
     return []
   return [jar
           for jar in [output.class_jar, output.ijar, output.source_jar]
           if jar != None and not jar.is_source]
 
+
 def java_rule_ide_info(target, ctx):
+  """ Build JavaRuleIdeInfo.
+
+  Returns a pair of (JavaRuleIdeInfo proto, a set of ide-resolve-files).
+  (or (None, empty set) if the rule is not Java rule).
+  """
   if not hasattr(target, "java"):
     return (None, set())
   if hasattr(ctx.rule.attr, "srcs"):
@@ -141,6 +168,11 @@ def java_rule_ide_info(target, ctx):
           ide_resolve_files)
 
 def android_rule_ide_info(target, ctx):
+  """ Build AndroidRuleIdeInfo.
+
+  Returns a pair of (AndroidRuleIdeInfo proto, a set of ide-resolve-files).
+  (or (None, empty set) if the rule is not Android rule).
+  """
   if not hasattr(target, 'android'):
     return (None, set())
   ide_resolve_files = set(jars_from_output(target.android.idl.output))
@@ -156,12 +188,19 @@ def android_rule_ide_info(target, ctx):
         ide_resolve_files)
 
 def collect_labels(rule_attrs, attr_list):
+  """ Collect labels from attribute values.
+
+  Assuming that values of attributes from attr_list in rule_atrs
+  are label lists, collect a set of string representation of those labels.
+  """
   return set([str(dep.label)
       for attr_name in attr_list
       if hasattr(rule_attrs, attr_name)
       for dep in getattr(rule_attrs, attr_name)])
 
 def collect_export_deps(rule_attrs):
+  """ Build a union of all export dependencies.
+  """
   result = set()
   for attr_name in DEPS:
     if hasattr(rule_attrs, attr_name):
@@ -169,11 +208,13 @@ def collect_export_deps(rule_attrs):
         result = result | dep.export_deps
   return result
 
-
 def _aspect_impl(target, ctx):
+  """ Aspect implementation function
+  """
   kind = get_kind(target, ctx)
   rule_attrs = ctx.rule.attr
 
+  # Collect transitive values
   compiletime_deps = collect_labels(rule_attrs, DEPS) | collect_export_deps(rule_attrs)
   runtime_deps = collect_labels(rule_attrs, RUNTIME_DEPS)
 
@@ -186,12 +227,15 @@ def _aspect_impl(target, ctx):
         ide_info_text = ide_info_text | dep.intellij_info_files.ide_info_text
         ide_resolve_files = ide_resolve_files | dep.intellij_info_files.ide_resolve_files
 
+  # Collect Java-specific information
   (java_rule_ide_info, java_ide_resolve_files) = java_rule_ide_info(target, ctx)
   ide_resolve_files = ide_resolve_files | java_ide_resolve_files
 
+  # Collect Android-specific information
   (android_rule_ide_info, android_ide_resolve_files) = android_rule_ide_info(target, ctx)
   ide_resolve_files = ide_resolve_files | android_ide_resolve_files
 
+  # Collect information about exports.
   export_deps = set()
   if hasattr(target, "java"):
     export_deps = set([str(l) for l in target.java.transitive_exports])
@@ -200,6 +244,7 @@ def _aspect_impl(target, ctx):
             (not hasattr(rule_attrs, "src") or not ctx.rule.attr.src):
       export_deps = export_deps | compiletime_deps
 
+  # Build RuleIdeInfo proto
   info = struct_omit_none(
       label = str(target.label),
       kind = kind,
@@ -211,10 +256,12 @@ def _aspect_impl(target, ctx):
       tags = ctx.rule.attr.tags,
   )
 
+  # Output the ide information file.
   output = ctx.new_file(target.label.name + ".aswb-build.txt")
   ctx.file_action(output, info.to_proto())
   ide_info_text += set([output])
 
+  # Return providers.
   return struct(
       output_groups = {
         "ide-info-text" : ide_info_text,
