@@ -45,7 +45,7 @@ public class TurbineOptionsParser {
   }
 
   private static final Splitter ARG_SPLITTER =
-      Splitter.on(CharMatcher.BREAKING_WHITESPACE).omitEmptyStrings().trimResults();
+      Splitter.on(CharMatcher.breakingWhitespace()).omitEmptyStrings().trimResults();
 
   /**
    * Pre-processes an argument list, expanding arguments of the form {@code @filename}
