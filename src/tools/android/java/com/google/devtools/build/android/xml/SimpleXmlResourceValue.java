@@ -28,10 +28,10 @@ import javax.xml.namespace.QName;
 /**
  * Represents a simple Android resource xml value.
  *
- * <p>There is a class of resources that are simple name/value pairs: string(http://developer
- * .android.com/guide/topics/resources/string-resource.html), bool
- * (http://developer.android.com/guide/topics/resources/more-resources.html#Bool), color
- * (http://developer.android.com/guide/topics/resources/more-resources.html#Color), and
+ * <p>There is a class of resources that are simple name/value pairs:
+ * string (http://developer.android.com/guide/topics/resources/string-resource.html),
+ * bool (http://developer.android.com/guide/topics/resources/more-resources.html#Bool),
+ * color (http://developer.android.com/guide/topics/resources/more-resources.html#Color), and
  * dimen (http://developer.android.com/guide/topics/resources/more-resources.html#Dimension).
  * These are defined in xml as &lt;<em>resource type</em> name="<em>name</em>"
  * value="<em>value</em>"&gt;. In the interest of keeping the parsing svelte, these are

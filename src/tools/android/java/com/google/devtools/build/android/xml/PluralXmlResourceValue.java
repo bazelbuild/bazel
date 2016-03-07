@@ -24,9 +24,9 @@ import java.util.Objects;
 /**
  * Represents an Android Plural Resource.
  *
- * <p>Plurals are a localization construct (http://developer.android
- * .com/guide/topics/resources/string-resource.html#Plurals) that are basically a map of key to
- * value. They are defined in xml as:
+ * <p>Plurals are a localization construct (http://developer.android.com/guide/topics/resources/
+ * string-resource.html#Plurals) that are basically a map of key to value. They are defined in
+ * xml as:
  * <code>
  *   &lt;plurals name="plural_name"&gt;
  *     &lt;item quantity=["zero" | "one" | "two" | "few" | "many" | "other"]&gt;
