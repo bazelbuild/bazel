@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamException;
+
 /**
  * Represents a collection of Android Resources.
  *
@@ -44,6 +47,7 @@ public class AndroidDataSet {
     private final List<Exception> errors = new ArrayList<>();
     private boolean inValuesSubtree;
     private FullyQualifiedName.Factory fqnFactory;
+    private final XMLInputFactory xmlInputFactory = XMLInputFactory.newFactory();
 
     public ResourceFileVisitor(
         List<DataResource> overwritingResources, List<DataResource> nonOverwritingResources) {
@@ -73,13 +77,14 @@ public class AndroidDataSet {
       try {
         if (!Files.isDirectory(path)) {
           if (inValuesSubtree) {
-            // TODO(corysmith): Replace with xml resource processing.
-            throw new UnsupportedOperationException();
+            XmlDataResource.fromPath(xmlInputFactory, path, fqnFactory,
+                overwritingResources,
+                nonOverwritingResources);
           } else {
             overwritingResources.add(FileDataResource.fromPath(path, fqnFactory));
           }
         }
-      } catch (IllegalArgumentException e) {
+      } catch (IllegalArgumentException | XMLStreamException e) {
         errors.add(e);
       }
       return super.visitFile(path, attrs);
@@ -98,7 +103,7 @@ public class AndroidDataSet {
    *
    * The adding process parses out all the provided symbol into DataResource objects.
    *
-   * @param androidData The dependendency data to parse into DataResources.
+   * @param androidData The dependency data to parse into DataResources.
    * @throws IOException when there are issues with reading files.
    * @throws MergingException when there is invalid resource information.
    */
@@ -109,7 +114,7 @@ public class AndroidDataSet {
     if (!visitor.getErrors().isEmpty()) {
       StringBuilder errors = new StringBuilder();
       for (Exception e : visitor.getErrors()) {
-        errors.append(e.getMessage());
+        errors.append("\n").append(e.getMessage());
       }
       throw new MergingException(errors.toString());
     }
@@ -118,7 +123,7 @@ public class AndroidDataSet {
   /**
    * Returns a list of resources that would overwrite other values when defined.
    *
-   * Example:
+   * <p>Example:
    *
    * A string resource (string.Foo=bar) could be redefined at string.Foo=baz.
    *
@@ -131,7 +136,7 @@ public class AndroidDataSet {
   /**
    * Returns a list of resources that would not overwrite other values when defined.
    *
-   * Example:
+   * <p>Example:
    *
    * A id resource (id.Foo) could be redefined at id.Foo with no adverse effects.
    *
