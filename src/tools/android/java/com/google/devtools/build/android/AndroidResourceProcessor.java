@@ -644,9 +644,9 @@ public class AndroidResourceProcessor {
 
     @Override
     public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-      if (file.getFileName().endsWith("R.java")) {
+      if (file.getFileName().endsWith("R.java") || file.getFileName().endsWith("Manifest.java")) {
         byte[] content = Files.readAllBytes(file);
-        if (staticIds) {
+        if (staticIds && file.getFileName().endsWith("R.java")) {
           content = replaceIdsWithStaticIds(UTF_8.decode(
               ByteBuffer.wrap(content)).toString()).getBytes(UTF_8);
         }
