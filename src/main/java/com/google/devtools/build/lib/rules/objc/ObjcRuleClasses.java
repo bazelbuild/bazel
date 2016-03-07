@@ -986,7 +986,7 @@ public class ObjcRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          /* <!-- #BLAZE_RULE($objc_signing_rule).ATTRIBUTE(ipa_post_processor) -->
+          /* <!-- #BLAZE_RULE($objc_ipa_rule).ATTRIBUTE(ipa_post_processor) -->
           A tool that edits this target's IPA output after it is assembled but before it is
           (optionally) signed.
           <p>
