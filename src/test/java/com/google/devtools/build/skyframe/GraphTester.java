@@ -218,6 +218,11 @@ public class GraphTester {
       return this;
     }
 
+    public TestFunction unsetComputedValue() {
+      this.computer = null;
+      return this;
+    }
+
     public TestFunction setBuilder(SkyFunction builder) {
       Preconditions.checkState(this.value == null);
       Preconditions.checkState(this.computer == null);
