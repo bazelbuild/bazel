@@ -18,6 +18,18 @@ def assert_true(value):
 load("//examples/skylark-testing/rule:my_rule.bzl", "my_rule")
 
 
+# One test NAME boilerplate
+#
+# def _test_NAME(ctx):
+#   <Testing logic>
+#
+# test_NAME_rule = test(_test_NAME)
+#
+# def test_NAME():
+#   <Project setup>
+#   test_NAME_rule(name = "test_NAME", targets = [<Targets from the setup above>])
+
+
 # Test one dependency
 def _test_my_rule_provider_one_dependency(ctx):
     # Testing logic goes here.
