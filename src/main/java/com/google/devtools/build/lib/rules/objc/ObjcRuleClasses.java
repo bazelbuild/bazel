@@ -827,8 +827,12 @@ public class ObjcRuleClasses {
       return RuleDefinition.Metadata.builder()
           .name("$objc_bundling_rule")
           .type(RuleClassType.ABSTRACT)
-          .ancestors(OptionsRule.class, ResourceToolsRule.class, XcrunRule.class,
-              AppleToolchain.RequiresXcodeConfigRule.class)
+          .ancestors(
+              AppleToolchain.RequiresXcodeConfigRule.class,
+              OptionsRule.class,
+              ResourcesRule.class,
+              ResourceToolsRule.class,
+              XcrunRule.class)
           .build();
     }
   }

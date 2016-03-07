@@ -73,9 +73,9 @@ public class ObjcBinaryRule implements RuleDefinition {
 <p>This rule produces one or more Objective-C libraries for bundling in an
 <code>ios_application</code>.</p>
 
-<p>Any application-related attributes (infoplist, app_icon, ...) on this rule are deprecated and
-you should define them on <code>ios_application</code> instead. They will be removed from
-<code>objc_binary</code> soon.</p>
+<p>Any application-related attributes (infoplist, app_icon, resources, xibs, datamodels...) on this
+rule are deprecated and you should define them on <code>ios_application</code> instead. They will be
+removed from <code>objc_binary</code> soon.</p>
 
 <p>Until the migration to <code>ios_application</code> is complete, this rule requires at least one
 source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</code></p>.

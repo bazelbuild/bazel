@@ -15,8 +15,11 @@
 ios_application(
     name = "PrenotCalculator",
     binary = ":PrenotCalculator_binary",
+    bundles = [":PrenotCalculatorResources"],
+    datamodels = glob(["PrenotCalculator/DataModel.xcdatamodeld/**"]),
     infoplist = "PrenotCalculator/PrenotCalculator-Info.plist",
     visibility = ["//visibility:public"],
+    xibs = ["PrenotCalculator/CalculatorViewController.xib"],
 )
 
 objc_binary(
@@ -35,13 +38,8 @@ objc_binary(
         ["**/*.h"],
         exclude = ["PrenotCalculator/Expression.h"],
     ),
-    bundles = [":PrenotCalculatorResources"],
     sdk_frameworks = ["CoreData"],
-    xibs = ["PrenotCalculator/CalculatorViewController.xib"],
-    deps = [
-        ":CoreDataResources",
-        ":ExpressionPrebuilt",
-    ],
+    deps = [":ExpressionPrebuilt"],
 )
 
 # A prebuilt library that contains multiple architectures.
@@ -75,11 +73,6 @@ objc_library(
 objc_bundle_library(
     name = "PrenotCalculatorResources",
     resources = glob(["PrenotCalculator/Resources/**"]),
-)
-
-objc_library(
-    name = "CoreDataResources",
-    datamodels = glob(["PrenotCalculator/DataModel.xcdatamodeld/**"]),
 )
 
 filegroup(
