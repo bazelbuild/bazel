@@ -1,7 +1,9 @@
 # This should be in the framework
 def test(impl):
-    return rule(impl, attrs = { 'targets' : attr.label_list() })
-
+    return rule(impl, attrs = {
+        'targets' : attr.label_list() # Should rather be a label_dict
+        }
+    )
 
 def equal_sets(s1, s2):
     return sorted(s1) == sorted(s2)
@@ -18,6 +20,7 @@ load("//examples/skylark-testing/rule:my_rule.bzl", "my_rule")
 
 # Test one dependency
 def _test_my_rule_provider_one_dependency(ctx):
+    # Testing logic goes here.
     t = ctx.attr.targets[0]
     d = ctx.attr.targets[1]
     assert_true(equal_sets(t.my_rule_provider, d.files))
@@ -25,8 +28,10 @@ def _test_my_rule_provider_one_dependency(ctx):
 test_my_rule_prover_one_dependency_rule = test(_test_my_rule_provider_one_dependency)
 
 def test_my_rule_provider_one_dependency():
+    # Project setup goes here:
     native.java_library(name = "dep")
     my_rule(name = "t", deps = [":dep"])
+    # Actual test target
     test_my_rule_prover_one_dependency_rule(name = "test_my_rule_provider_one_dependency",
         targets = [":t", ":dep"]
     )
