@@ -31,6 +31,11 @@ public interface RecursivePackageProvider extends PackageProvider {
 
   /**
    * Returns the names of all the packages under a given directory.
+   *
+   * <p>Packages returned by this method and passed into
+   * {@link #bulkGetPackages(EventHandler, Iterable)} are expected to return successful
+   * {@link Package} values.
+   *
    * @param directory a {@link RootedPath} specifying the directory to search
    * @param excludedSubdirectories a set of {@link PathFragment}s, all of which are beneath
    *     {@code directory}, specifying transitive subdirectories to exclude
