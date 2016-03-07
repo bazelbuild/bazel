@@ -438,7 +438,7 @@ public final class ReleaseBundlingSupport {
 
     String actionCommandLine =
         "set -e && "
-            + "t=$(mktemp -d -t signing_intermediate) && "
+            + "t=$(mktemp -d \"${TMPDIR:-/tmp}/signing_intermediate.XXXXXX\") && "
             + "trap \"rm -rf ${t}\" EXIT && "
             // Get an absolute path since we need to cd into the temp directory for zip.
             + "signed_ipa=${PWD}/"
