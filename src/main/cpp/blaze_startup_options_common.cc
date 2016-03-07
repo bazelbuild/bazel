@@ -50,6 +50,7 @@ void BlazeStartupOptions::Init() {
   // 3 hours (but only 5 seconds if used within a test)
   max_idle_secs = testing ? 5 : (3 * 3600);
   webstatus_port = 0;
+  oom_more_eagerly = false;
   watchfs = false;
   invocation_policy = NULL;
 }
@@ -80,6 +81,7 @@ void BlazeStartupOptions::Copy(
   lhs->io_nice_level = rhs.io_nice_level;
   lhs->max_idle_secs = rhs.max_idle_secs;
   lhs->webstatus_port = rhs.webstatus_port;
+  lhs->oom_more_eagerly = rhs.oom_more_eagerly;
   lhs->watchfs = rhs.watchfs;
   lhs->allow_configurable_attributes = rhs.allow_configurable_attributes;
   lhs->fatal_event_bus_exceptions = rhs.fatal_event_bus_exceptions;
@@ -204,6 +206,12 @@ blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "-x")) {
     fprintf(stderr, "WARNING: The -x startup option is now ignored "
             "and will be removed in a future release\n");
+  } else if (GetNullaryOption(arg, "--experimental_oom_more_eagerly")) {
+    oom_more_eagerly = true;
+    option_sources["experimental_oom_more_eagerly"] = rcfile;
+  } else if (GetNullaryOption(arg, "--noexperimental_oom_more_eagerly")) {
+    oom_more_eagerly = false;
+    option_sources["experimental_oom_more_eagerly"] = rcfile;
   } else if (GetNullaryOption(arg, "--watchfs")) {
     watchfs = true;
     option_sources["watchfs"] = rcfile;
