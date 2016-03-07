@@ -104,7 +104,7 @@ public class MethodLibrary {
       mandatoryPositionals = {
         @Param(name = "self", type = String.class, doc = "This string, a separator."),
         @Param(name = "elements", type = SkylarkList.class, doc = "The objects to join.")})
-  private static BuiltinFunction join = new BuiltinFunction("join") {
+  private static final BuiltinFunction join = new BuiltinFunction("join") {
     public String invoke(String self, SkylarkList<?> elements) throws ConversionException {
       return Joiner.on(self).join(elements);
     }
@@ -114,7 +114,7 @@ public class MethodLibrary {
       doc = "Returns the lower case version of this string.",
       mandatoryPositionals = {
         @Param(name = "self", type = String.class, doc = "This string, to convert to lower case.")})
-  private static BuiltinFunction lower = new BuiltinFunction("lower") {
+  private static final BuiltinFunction lower = new BuiltinFunction("lower") {
     public String invoke(String self) {
       return self.toLowerCase();
     }
@@ -124,7 +124,7 @@ public class MethodLibrary {
       doc = "Returns the upper case version of this string.",
       mandatoryPositionals = {
         @Param(name = "self", type = String.class, doc = "This string, to convert to upper case.")})
-  private static BuiltinFunction upper = new BuiltinFunction("upper") {
+  private static final BuiltinFunction upper = new BuiltinFunction("upper") {
     public String invoke(String self) {
       return self.toUpperCase();
     }
@@ -172,7 +172,7 @@ public class MethodLibrary {
       )
     }
   )
-  private static BuiltinFunction lstrip =
+  private static final BuiltinFunction lstrip =
       new BuiltinFunction("lstrip") {
         public String invoke(String self, String chars) {
           return stringLStrip(self, chars);
@@ -201,7 +201,7 @@ public class MethodLibrary {
       )
     }
   )
-  private static BuiltinFunction rstrip =
+  private static final BuiltinFunction rstrip =
       new BuiltinFunction("rstrip") {
         public String invoke(String self, String chars) {
           return stringRStrip(self, chars);
@@ -230,7 +230,7 @@ public class MethodLibrary {
       )
     }
   )
-  private static BuiltinFunction strip =
+  private static final BuiltinFunction strip =
       new BuiltinFunction("strip") {
         public String invoke(String self, String chars) {
           return stringLStrip(stringRStrip(self, chars), chars);
@@ -249,7 +249,7 @@ public class MethodLibrary {
         @Param(name = "maxsplit", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "The maximum number of replacements.")},
       useLocation = true)
-  private static BuiltinFunction replace = new BuiltinFunction("replace") {
+  private static final BuiltinFunction replace = new BuiltinFunction("replace") {
     public String invoke(String self, String oldString, String newString, Object maxSplitO,
         Location loc) throws EvalException, ConversionException {
       StringBuffer sb = new StringBuffer();
@@ -280,7 +280,7 @@ public class MethodLibrary {
             doc = "The maximum number of splits.")},
       useEnvironment = true,
       useLocation = true)
-  private static BuiltinFunction split = new BuiltinFunction("split") {
+  private static final BuiltinFunction split = new BuiltinFunction("split") {
     public MutableList<String> invoke(String self, String sep, Object maxSplitO, Location loc,
         Environment env) throws ConversionException, EvalException {
       int maxSplit = Type.INTEGER.convertOptional(
@@ -304,7 +304,7 @@ public class MethodLibrary {
           defaultValue = "None", doc = "The maximum number of splits.")},
       useEnvironment = true,
       useLocation = true)
-  private static BuiltinFunction rsplit = new BuiltinFunction("rsplit") {
+  private static final BuiltinFunction rsplit = new BuiltinFunction("rsplit") {
     @SuppressWarnings("unused")
     public MutableList<String> invoke(
         String self, String sep, Object maxSplitO, Location loc, Environment env)
@@ -379,7 +379,7 @@ public class MethodLibrary {
           defaultValue = "' '", doc = "The string to split on, default is space (\" \").")},
       useEnvironment = true,
       useLocation = true)
-  private static BuiltinFunction partition = new BuiltinFunction("partition") {
+  private static final BuiltinFunction partition = new BuiltinFunction("partition") {
     @SuppressWarnings("unused")
     public MutableList<String> invoke(String self, String sep, Location loc, Environment env)
         throws EvalException {
@@ -399,7 +399,7 @@ public class MethodLibrary {
           defaultValue = "' '", doc = "The string to split on, default is space (\" \").")},
       useEnvironment = true,
       useLocation = true)
-  private static BuiltinFunction rpartition = new BuiltinFunction("rpartition") {
+  private static final BuiltinFunction rpartition = new BuiltinFunction("rpartition") {
     @SuppressWarnings("unused")
     public MutableList<String> invoke(String self, String sep, Location loc, Environment env)
         throws EvalException {
@@ -490,7 +490,7 @@ public class MethodLibrary {
             + "lowercased. This method does not support non-ascii characters.",
     mandatoryPositionals = {@Param(name = "self", type = String.class, doc = "This string.")}
   )
-  private static BuiltinFunction capitalize =
+  private static final BuiltinFunction capitalize =
       new BuiltinFunction("capitalize") {
         @SuppressWarnings("unused")
         public String invoke(String self) throws EvalException {
@@ -510,7 +510,7 @@ public class MethodLibrary {
       + "not support supplementary Unicode characters.",
       mandatoryPositionals = {
         @Param(name = "self", type = String.class, doc = "This string.")})
-  private static BuiltinFunction title = new BuiltinFunction("title") {
+  private static final BuiltinFunction title = new BuiltinFunction("title") {
     @SuppressWarnings("unused")
     public String invoke(String self) throws EvalException {
       char[] data = self.toCharArray();
@@ -560,7 +560,7 @@ public class MethodLibrary {
             doc = "Restrict to search from this position."),
         @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "optional position before which to restrict to search.")})
-  private static BuiltinFunction rfind = new BuiltinFunction("rfind") {
+  private static final BuiltinFunction rfind = new BuiltinFunction("rfind") {
     public Integer invoke(String self, String sub, Integer start, Object end)
         throws ConversionException {
       return stringFind(false, self, sub, start, end, "'end' argument to rfind");
@@ -580,7 +580,7 @@ public class MethodLibrary {
             doc = "Restrict to search from this position."),
         @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "optional position before which to restrict to search.")})
-  private static BuiltinFunction find = new BuiltinFunction("find") {
+  private static final BuiltinFunction find = new BuiltinFunction("find") {
     public Integer invoke(String self, String sub, Integer start, Object end)
         throws ConversionException {
       return stringFind(true, self, sub, start, end, "'end' argument to find");
@@ -601,7 +601,7 @@ public class MethodLibrary {
         @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "optional position before which to restrict to search.")},
       useLocation = true)
-  private static BuiltinFunction rindex = new BuiltinFunction("rindex") {
+  private static final BuiltinFunction rindex = new BuiltinFunction("rindex") {
     public Integer invoke(String self, String sub, Integer start, Object end,
         Location loc) throws EvalException, ConversionException {
       int res = stringFind(false, self, sub, start, end, "'end' argument to rindex");
@@ -626,7 +626,7 @@ public class MethodLibrary {
         @Param(name = "end", type = Integer.class, noneable = true,
             doc = "optional position before which to restrict to search.")},
       useLocation = true)
-  private static BuiltinFunction index = new BuiltinFunction("index") {
+  private static final BuiltinFunction index = new BuiltinFunction("index") {
     public Integer invoke(String self, String sub, Integer start, Object end,
         Location loc) throws EvalException, ConversionException {
       int res = stringFind(true, self, sub, start, end, "'end' argument to index");
@@ -647,7 +647,7 @@ public class MethodLibrary {
       optionalPositionals = {
           @Param(name = "keepends", type = Boolean.class, defaultValue = "False",
               doc = "Whether the line breaks should be included in the resulting list.")})
-  private static BuiltinFunction splitLines = new BuiltinFunction("splitlines") {
+  private static final BuiltinFunction splitLines = new BuiltinFunction("splitlines") {
     @SuppressWarnings("unused")
     public MutableList<String> invoke(String self, Boolean keepEnds) throws EvalException {
       List<String> result = new ArrayList<>();
@@ -677,7 +677,7 @@ public class MethodLibrary {
         + "at least one character.",
     mandatoryPositionals = {
         @Param(name = "self", type = String.class, doc = "This string.")})
-  private static BuiltinFunction isalpha = new BuiltinFunction("isalpha") {
+  private static final BuiltinFunction isalpha = new BuiltinFunction("isalpha") {
     @SuppressWarnings("unused") // Called via Reflection
     public Boolean invoke(String self) throws EvalException {
       return MethodLibrary.matches(self, MethodLibrary.ALPHA, false);
@@ -689,7 +689,7 @@ public class MethodLibrary {
       "Returns True if all characters in the string are alphanumeric ([a-zA-Z0-9]) and there is "
       + "at least one character.",
       mandatoryPositionals = {@Param(name = "self", type = String.class, doc = "This string.")})
-  private static BuiltinFunction isAlnum = new BuiltinFunction("isalnum") {
+  private static final BuiltinFunction isAlnum = new BuiltinFunction("isalnum") {
     @SuppressWarnings("unused") // Called via Reflection
     public Boolean invoke(String self) throws EvalException {
       return MethodLibrary.matches(self, MethodLibrary.ALNUM, false);
@@ -701,7 +701,7 @@ public class MethodLibrary {
       "Returns True if all characters in the string are digits ([0-9]) and there is "
       + "at least one character.",
       mandatoryPositionals = {@Param(name = "self", type = String.class, doc = "This string.")})
-  private static BuiltinFunction isDigit = new BuiltinFunction("isdigit") {
+  private static final BuiltinFunction isDigit = new BuiltinFunction("isdigit") {
     @SuppressWarnings("unused") // Called via Reflection
     public Boolean invoke(String self) throws EvalException {
       return MethodLibrary.matches(self, MethodLibrary.DIGIT, false);
@@ -713,7 +713,7 @@ public class MethodLibrary {
       "Returns True if all characters are white space characters and the string "
       + "contains at least one character.",
       mandatoryPositionals = {@Param(name = "self", type = String.class, doc = "This string.")})
-  private static BuiltinFunction isSpace = new BuiltinFunction("isspace") {
+  private static final BuiltinFunction isSpace = new BuiltinFunction("isspace") {
     @SuppressWarnings("unused") // Called via Reflection
     public Boolean invoke(String self) throws EvalException {
       return MethodLibrary.matches(self, MethodLibrary.SPACE, false);
@@ -725,7 +725,7 @@ public class MethodLibrary {
       "Returns True if all cased characters in the string are lowercase and there is "
       + "at least one character.",
       mandatoryPositionals = {@Param(name = "self", type = String.class, doc = "This string.")})
-  private static BuiltinFunction isLower = new BuiltinFunction("islower") {
+  private static final BuiltinFunction isLower = new BuiltinFunction("islower") {
     @SuppressWarnings("unused") // Called via Reflection
     public Boolean invoke(String self) throws EvalException {
       // Python also accepts non-cased characters, so we cannot use LOWER.
@@ -738,7 +738,7 @@ public class MethodLibrary {
       "Returns True if all cased characters in the string are uppercase and there is "
       + "at least one character.",
       mandatoryPositionals = {@Param(name = "self", type = String.class, doc = "This string.")})
-  private static BuiltinFunction isUpper = new BuiltinFunction("isupper") {
+  private static final BuiltinFunction isUpper = new BuiltinFunction("isupper") {
     @SuppressWarnings("unused") // Called via Reflection
     public Boolean invoke(String self) throws EvalException {
       // Python also accepts non-cased characters, so we cannot use UPPER.
@@ -752,7 +752,7 @@ public class MethodLibrary {
       + "This means that every uppercase character must follow an uncased one (e.g. whitespace) "
       + "and every lowercase character must follow a cased one (e.g. uppercase or lowercase).",
       mandatoryPositionals = {@Param(name = "self", type = String.class, doc = "This string.")})
-  private static BuiltinFunction isTitle = new BuiltinFunction("istitle") {
+  private static final BuiltinFunction isTitle = new BuiltinFunction("istitle") {
     @SuppressWarnings("unused") // Called via Reflection
     public Boolean invoke(String self) throws EvalException {
       if (self.isEmpty()) {
@@ -826,7 +826,7 @@ public class MethodLibrary {
             doc = "Restrict to search from this position."),
         @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "optional position before which to restrict to search.")})
-  private static BuiltinFunction count = new BuiltinFunction("count") {
+  private static final BuiltinFunction count = new BuiltinFunction("count") {
     public Integer invoke(String self, String sub, Integer start, Object end)
         throws ConversionException {
       String str = pythonSubstring(self, start, end, "'end' operand of 'find'");
@@ -855,7 +855,7 @@ public class MethodLibrary {
             doc = "Test beginning at this position."),
         @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "optional position at which to stop comparing.")})
-  private static BuiltinFunction endswith = new BuiltinFunction("endswith") {
+  private static final BuiltinFunction endswith = new BuiltinFunction("endswith") {
     public Boolean invoke(String self, String sub, Integer start, Object end)
         throws ConversionException {
       return pythonSubstring(self, start, end, "'end' operand of 'endswith'").endsWith(sub);
@@ -890,7 +890,7 @@ public class MethodLibrary {
       extraKeywords = {@Param(name = "kwargs", type = SkylarkDict.class, defaultValue = "{}",
             doc = "Dictionary of arguments")},
       useLocation = true)
-  private static BuiltinFunction format = new BuiltinFunction("format") {
+  private static final BuiltinFunction format = new BuiltinFunction("format") {
     @SuppressWarnings("unused")
     public String invoke(String self, SkylarkList<Object> args, SkylarkDict<?, ?> kwargs,
         Location loc)
@@ -913,7 +913,7 @@ public class MethodLibrary {
             doc = "Test beginning at this position."),
         @Param(name = "end", type = Integer.class, noneable = true, defaultValue = "None",
             doc = "Stop comparing at this position.")})
-  private static BuiltinFunction startswith = new BuiltinFunction("startswith") {
+  private static final BuiltinFunction startswith = new BuiltinFunction("startswith") {
     public Boolean invoke(String self, String sub, Integer start, Object end)
         throws ConversionException {
       return pythonSubstring(self, start, end, "'end' operand of 'startswith'").startsWith(sub);
@@ -938,7 +938,7 @@ public class MethodLibrary {
             + "Values may be negative and can be omitted.",
     useLocation = true
   )
-  private static BuiltinFunction stringSlice =
+  private static final BuiltinFunction stringSlice =
       new BuiltinFunction("$slice") {
         @SuppressWarnings("unused") // Accessed via Reflection.
         public Object invoke(String self, Object start, Object end, Integer step, Location loc)
@@ -974,7 +974,7 @@ public class MethodLibrary {
     useLocation = true,
     useEnvironment = true
   )
-  private static BuiltinFunction mutableListSlice =
+  private static final BuiltinFunction mutableListSlice =
       new BuiltinFunction("$slice") {
         @SuppressWarnings("unused") // Accessed via Reflection.
         public MutableList<Object> invoke(
@@ -1003,7 +1003,7 @@ public class MethodLibrary {
             + "Values may be negative and can be omitted.",
     useLocation = true
   )
-  private static BuiltinFunction tupleSlice =
+  private static final BuiltinFunction tupleSlice =
       new BuiltinFunction("$slice") {
         @SuppressWarnings("unused") // Accessed via Reflection.
         public Tuple<Object> invoke(
@@ -1091,7 +1091,7 @@ public class MethodLibrary {
     },
     useLocation = true
   )
-  private static BuiltinFunction min = new BuiltinFunction("min") {
+  private static final BuiltinFunction min = new BuiltinFunction("min") {
     @SuppressWarnings("unused") // Accessed via Reflection.
     public Object invoke(SkylarkList<?> args, Location loc) throws EvalException {
       return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR.reverse(), loc);
@@ -1109,7 +1109,7 @@ public class MethodLibrary {
     },
     useLocation = true
   )
-  private static BuiltinFunction max = new BuiltinFunction("max") {
+  private static final BuiltinFunction max = new BuiltinFunction("max") {
     @SuppressWarnings("unused") // Accessed via Reflection.
     public Object invoke(SkylarkList<?> args, Location loc) throws EvalException {
       return findExtreme(args, EvalUtils.SKYLARK_COMPARATOR, loc);
@@ -1147,7 +1147,7 @@ public class MethodLibrary {
     },
     useLocation = true
   )
-  private static BuiltinFunction all =
+  private static final BuiltinFunction all =
       new BuiltinFunction("all") {
         @SuppressWarnings("unused") // Accessed via Reflection.
         public Boolean invoke(Object collection, Location loc) throws EvalException {
@@ -1164,7 +1164,7 @@ public class MethodLibrary {
     },
     useLocation = true
   )
-  private static BuiltinFunction any =
+  private static final BuiltinFunction any =
       new BuiltinFunction("any") {
         @SuppressWarnings("unused") // Accessed via Reflection.
         public Boolean invoke(Object collection, Location loc) throws EvalException {
@@ -1194,7 +1194,7 @@ public class MethodLibrary {
     useLocation = true,
     useEnvironment = true
   )
-  private static BuiltinFunction sorted =
+  private static final BuiltinFunction sorted =
       new BuiltinFunction("sorted") {
         public <E> MutableList<E> invoke(Object self, Location loc, Environment env)
             throws EvalException, ConversionException {
@@ -1222,7 +1222,7 @@ public class MethodLibrary {
     useLocation = true,
     useEnvironment = true
   )
-  private static BuiltinFunction reversed =
+  private static final BuiltinFunction reversed =
       new BuiltinFunction("reversed") {
         @SuppressWarnings("unused") // Accessed via Reflection.
         public MutableList<?> invoke(Object sequence, Location loc, Environment env)
@@ -1253,7 +1253,7 @@ public class MethodLibrary {
     },
     useLocation = true,
     useEnvironment = true)
-  private static BuiltinFunction append =
+  private static final BuiltinFunction append =
       new BuiltinFunction("append") {
         public Runtime.NoneType invoke(MutableList<Object> self, Object item,
             Location loc, Environment env) throws EvalException, ConversionException {
@@ -1272,7 +1272,7 @@ public class MethodLibrary {
       @Param(name = "items", type = SkylarkList.class, doc = "Items to add at the end.")},
     useLocation = true,
     useEnvironment = true)
-  private static BuiltinFunction extend =
+  private static final BuiltinFunction extend =
       new BuiltinFunction("extend") {
         public Runtime.NoneType invoke(MutableList<Object> self, SkylarkList<Object> items,
             Location loc, Environment env) throws EvalException, ConversionException {
@@ -1294,7 +1294,7 @@ public class MethodLibrary {
     },
     useLocation = true
   )
-  private static BuiltinFunction listIndex =
+  private static final BuiltinFunction listIndex =
       new BuiltinFunction("index") {
         public Integer invoke(MutableList<?> self, Object x, Location loc) throws EvalException {
           int i = 0;
@@ -1322,7 +1322,7 @@ public class MethodLibrary {
     useLocation = true,
     useEnvironment = true
   )
-  private static BuiltinFunction listRemove =
+  private static final BuiltinFunction listRemove =
       new BuiltinFunction("remove") {
         public Runtime.NoneType invoke(MutableList<?> self, Object x, Location loc, Environment env)
             throws EvalException {
@@ -1359,7 +1359,7 @@ public class MethodLibrary {
     useLocation = true,
     useEnvironment = true
   )
-  private static BuiltinFunction listPop =
+  private static final BuiltinFunction listPop =
       new BuiltinFunction("pop") {
         public Object invoke(MutableList<?> self, Object i, Location loc, Environment env)
             throws EvalException {
@@ -1390,7 +1390,7 @@ public class MethodLibrary {
     useLocation = true,
     useEnvironment = true
   )
-  private static BuiltinFunction dictPop =
+  private static final BuiltinFunction dictPop =
       new BuiltinFunction("pop") {
         public Object invoke(SkylarkDict<Object, Object> self, Object key, Object defaultValue,
             Location loc, Environment env)
@@ -1428,7 +1428,7 @@ public class MethodLibrary {
     useLocation = true,
     useEnvironment = true
   )
-  private static BuiltinFunction dictPopItem =
+  private static final BuiltinFunction dictPopItem =
       new BuiltinFunction("popitem") {
         public Tuple<Object> invoke(SkylarkDict<Object, Object> self,
             Location loc, Environment env)
@@ -1454,7 +1454,7 @@ public class MethodLibrary {
     useLocation = true,
     useEnvironment = true
   )
-  private static BuiltinFunction dictClear =
+  private static final BuiltinFunction dictClear =
       new BuiltinFunction("clear") {
         public Runtime.NoneType invoke(SkylarkDict<Object, Object> self,
             Location loc, Environment env)
@@ -1478,16 +1478,24 @@ public class MethodLibrary {
       @Param(name = "key", type = Object.class, doc = "The key."),
     },
     optionalPositionals = {
-      @Param(name = "default", type = Object.class, defaultValue = "None",
-          doc = "a default value if the key is absent."),
+      @Param(
+        name = "default",
+        type = Object.class,
+        defaultValue = "None",
+        doc = "a default value if the key is absent."
+      ),
     },
     useLocation = true,
     useEnvironment = true
   )
-  private static BuiltinFunction dictSetDefault =
+  private static final BuiltinFunction dictSetDefault =
       new BuiltinFunction("setdefault") {
-        public Object invoke(SkylarkDict<Object, Object> self, Object key, Object defaultValue,
-            Location loc, Environment env)
+        public Object invoke(
+            SkylarkDict<Object, Object> self,
+            Object key,
+            Object defaultValue,
+            Location loc,
+            Environment env)
             throws EvalException {
           Object value = self.get(key);
           if (value != null) {
@@ -1498,6 +1506,31 @@ public class MethodLibrary {
         }
       };
 
+  @SkylarkSignature(
+    name = "update",
+    objectType = SkylarkDict.class,
+    returnType = Runtime.NoneType.class,
+    doc = "Update the dictionary with the key/value pairs from other, overwriting existing keys.",
+    mandatoryPositionals = {
+      @Param(name = "self", type = SkylarkDict.class, doc = "This dict."),
+      @Param(name = "other", type = SkylarkDict.class, doc = "The values to add."),
+    },
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static final BuiltinFunction dictUpdate =
+      new BuiltinFunction("update") {
+        public Runtime.NoneType invoke(
+            SkylarkDict<Object, Object> self,
+            SkylarkDict<Object, Object> other,
+            Location loc,
+            Environment env)
+            throws EvalException {
+          self.putAll(other, loc, env);
+          return Runtime.NONE;
+        }
+      };
+
   // dictionary access operator
   @SkylarkSignature(name = "$index", documented = false, objectType = SkylarkDict.class,
       doc = "Looks up a value in a dictionary.",
@@ -1505,7 +1538,7 @@ public class MethodLibrary {
         @Param(name = "self", type = SkylarkDict.class, doc = "This dict."),
         @Param(name = "key", type = Object.class, doc = "The index or key to access.")},
       useLocation = true, useEnvironment = true)
-  private static BuiltinFunction dictIndexOperator = new BuiltinFunction("$index") {
+  private static final BuiltinFunction dictIndexOperator = new BuiltinFunction("$index") {
       public Object invoke(SkylarkDict<?, ?> self, Object key,
         Location loc, Environment env) throws EvalException, ConversionException {
       if (!self.containsKey(key)) {
@@ -1528,7 +1561,7 @@ public class MethodLibrary {
     useLocation = true,
     useEnvironment = true
   )
-  private static BuiltinFunction listIndexOperator =
+  private static final BuiltinFunction listIndexOperator =
       new BuiltinFunction("$index") {
         public Object invoke(MutableList<?> self, Integer key, Location loc, Environment env)
             throws EvalException, ConversionException {
@@ -1553,7 +1586,7 @@ public class MethodLibrary {
     useLocation = true,
     useEnvironment = true
   )
-  private static BuiltinFunction tupleIndexOperator =
+  private static final BuiltinFunction tupleIndexOperator =
       new BuiltinFunction("$index") {
         public Object invoke(Tuple<?> self, Integer key, Location loc, Environment env)
             throws EvalException, ConversionException {
@@ -1576,7 +1609,7 @@ public class MethodLibrary {
     },
     useLocation = true
   )
-  private static BuiltinFunction stringIndexOperator =
+  private static final BuiltinFunction stringIndexOperator =
       new BuiltinFunction("$index") {
         public Object invoke(String self, Integer key, Location loc)
             throws EvalException, ConversionException {
@@ -1592,7 +1625,7 @@ public class MethodLibrary {
           + "{2: \"a\", 4: \"b\", 1: \"c\"}.values() == [\"c\", \"a\", \"b\"]</pre>\n",
       mandatoryPositionals = {@Param(name = "self", type = SkylarkDict.class, doc = "This dict.")},
       useEnvironment = true)
-  private static BuiltinFunction values = new BuiltinFunction("values") {
+  private static final BuiltinFunction values = new BuiltinFunction("values") {
     public MutableList<?> invoke(SkylarkDict<?, ?> self,
         Environment env) throws EvalException, ConversionException {
       return new MutableList(self.values(), env);
@@ -1608,7 +1641,7 @@ public class MethodLibrary {
       mandatoryPositionals = {
         @Param(name = "self", type = SkylarkDict.class, doc = "This dict.")},
       useEnvironment = true)
-  private static BuiltinFunction items = new BuiltinFunction("items") {
+  private static final BuiltinFunction items = new BuiltinFunction("items") {
     public MutableList<?> invoke(SkylarkDict<?, ?> self,
         Environment env) throws EvalException, ConversionException {
       List<Object> list = Lists.newArrayListWithCapacity(self.size());
@@ -1627,7 +1660,7 @@ public class MethodLibrary {
       mandatoryPositionals = {
         @Param(name = "self", type = SkylarkDict.class, doc = "This dict.")},
       useEnvironment = true)
-  private static BuiltinFunction keys = new BuiltinFunction("keys") {
+  private static final BuiltinFunction keys = new BuiltinFunction("keys") {
     // Skylark will only call this on a dict; and
     // allowed keys are all Comparable... if not mutually, it's OK to get a runtime exception.
     @SuppressWarnings("unchecked")
@@ -1649,7 +1682,7 @@ public class MethodLibrary {
       optionalPositionals = {
         @Param(name = "default", defaultValue = "None",
             doc = "The default value to use (instead of None) if the key is not found.")})
-  private static BuiltinFunction get = new BuiltinFunction("get") {
+  private static final BuiltinFunction get = new BuiltinFunction("get") {
     public Object invoke(SkylarkDict<?, ?> self, Object key, Object defaultValue) {
       if (self.containsKey(key)) {
         return self.get(key);
@@ -1668,7 +1701,7 @@ public class MethodLibrary {
       @Param(name = "num", type = Integer.class, doc = "The number to negate.")
     }
   )
-  private static BuiltinFunction minus =
+  private static final BuiltinFunction minus =
       new BuiltinFunction("-") {
         public Integer invoke(Integer num) throws ConversionException {
           return -num;
@@ -1682,7 +1715,7 @@ public class MethodLibrary {
         + "list({5: \"a\", 2: \"b\", 4: \"c\"}) == [2, 4, 5]</pre>",
       mandatoryPositionals = {@Param(name = "x", doc = "The object to convert.")},
       useLocation = true, useEnvironment = true)
-  private static BuiltinFunction list = new BuiltinFunction("list") {
+  private static final BuiltinFunction list = new BuiltinFunction("list") {
     public MutableList<?> invoke(Object x, Location loc, Environment env) throws EvalException {
       return new MutableList(EvalUtils.toCollection(x, loc), env);
     }
@@ -1695,7 +1728,7 @@ public class MethodLibrary {
     mandatoryPositionals = {@Param(name = "x", doc = "The object to check length of.")},
     useLocation = true
   )
-  private static BuiltinFunction len =
+  private static final BuiltinFunction len =
       new BuiltinFunction("len") {
         public Integer invoke(Object x, Location loc) throws EvalException {
           int l = EvalUtils.size(x);
@@ -1710,7 +1743,7 @@ public class MethodLibrary {
       "Converts any object to string. This is useful for debugging."
       + "<pre class=\"language-python\">str(\"ab\") == \"ab\"</pre>",
       mandatoryPositionals = {@Param(name = "x", doc = "The object to convert.")})
-  private static BuiltinFunction str = new BuiltinFunction("str") {
+  private static final BuiltinFunction str = new BuiltinFunction("str") {
     public String invoke(Object x) {
       return Printer.str(x);
     }
@@ -1720,7 +1753,7 @@ public class MethodLibrary {
       "Converts any object to a string representation. This is useful for debugging.<br>"
       + "<pre class=\"language-python\">str(\"ab\") == \\\"ab\\\"</pre>",
       mandatoryPositionals = {@Param(name = "x", doc = "The object to convert.")})
-  private static BuiltinFunction repr = new BuiltinFunction("repr") {
+  private static final BuiltinFunction repr = new BuiltinFunction("repr") {
     public String invoke(Object x) {
       return Printer.repr(x);
     }
@@ -1731,7 +1764,7 @@ public class MethodLibrary {
       + "It returns False if the object is None, False, an empty string, the number 0, or an "
       + "empty collection. Otherwise, it returns True.",
       mandatoryPositionals = {@Param(name = "x", doc = "The variable to convert.")})
-  private static BuiltinFunction bool = new BuiltinFunction("bool") {
+  private static final BuiltinFunction bool = new BuiltinFunction("bool") {
     public Boolean invoke(Object x) throws EvalException {
       return EvalUtils.toBoolean(x);
     }
@@ -1745,7 +1778,7 @@ public class MethodLibrary {
       mandatoryPositionals = {
         @Param(name = "x", type = Object.class, doc = "The string to convert.")},
       useLocation = true)
-  private static BuiltinFunction int_ = new BuiltinFunction("int") {
+  private static final BuiltinFunction int_ = new BuiltinFunction("int") {
     public Integer invoke(Object x, Location loc) throws EvalException {
       if (x instanceof Boolean) {
         return ((Boolean) x).booleanValue() ? 1 : 0;
@@ -1773,7 +1806,7 @@ public class MethodLibrary {
       extraKeywords = {
         @Param(name = "kwargs", doc = "the struct attributes")},
       useLocation = true)
-  private static BuiltinFunction struct = new BuiltinFunction("struct") {
+  private static final BuiltinFunction struct = new BuiltinFunction("struct") {
     @SuppressWarnings("unchecked")
     public SkylarkClassObject invoke(SkylarkDict<String, Object> kwargs, Location loc)
         throws EvalException {
@@ -1901,7 +1934,7 @@ public class MethodLibrary {
         @Param(name = "list", type = SkylarkList.class, doc = "input list")
       },
       useEnvironment = true)
-  private static BuiltinFunction enumerate = new BuiltinFunction("enumerate") {
+  private static final BuiltinFunction enumerate = new BuiltinFunction("enumerate") {
     public MutableList<?> invoke(SkylarkList<?> input, Environment env)
         throws EvalException, ConversionException {
       int count = 0;
