@@ -272,7 +272,9 @@ public class AndroidResourceProcessor {
   public void createResourcesZip(Path resourcesRoot, Path assetsRoot, Path output)
       throws IOException {
     try (ZipOutputStream zout = new ZipOutputStream(new FileOutputStream(output.toFile()))) {
-      Files.walkFileTree(resourcesRoot, new ZipBuilderVisitor(zout, resourcesRoot, "res"));
+      if (Files.exists(resourcesRoot)) {
+        Files.walkFileTree(resourcesRoot, new ZipBuilderVisitor(zout, resourcesRoot, "res"));
+      }
       if (Files.exists(assetsRoot)) {
         Files.walkFileTree(assetsRoot, new ZipBuilderVisitor(zout, assetsRoot, "assets"));
       }
@@ -310,6 +312,9 @@ public class AndroidResourceProcessor {
     Path androidManifest = primaryData.getManifest();
     Path resourceDir = primaryData.getResourceDir();
     Path assetsDir = primaryData.getAssetDir();
+    if (publicResourcesOut != null) {
+      prepareOutputPath(publicResourcesOut.getParent());
+    }
 
     AaptCommandBuilder commandBuilder =
         new AaptCommandBuilder(aapt, buildToolsVersion, variantType, "package")
@@ -366,7 +371,7 @@ public class AndroidResourceProcessor {
     if (packageOut != null) {
       Files.setLastModifiedTime(packageOut, FileTime.fromMillis(0L));
     }
-    if (publicResourcesOut != null) {
+    if (publicResourcesOut != null && Files.exists(publicResourcesOut)) {
       Files.setLastModifiedTime(publicResourcesOut, FileTime.fromMillis(0L));
     }
   }

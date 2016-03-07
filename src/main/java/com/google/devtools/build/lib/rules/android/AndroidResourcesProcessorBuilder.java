@@ -76,6 +76,8 @@ public class AndroidResourcesProcessorBuilder {
   private Artifact symbolsTxt;
 
   private Artifact manifestOut;
+  private Artifact mergedResourcesOut;
+  private boolean isLibrary;
 
   /**
    * @param ruleContext The RuleContext that was used to create the SpawnAction.Builder.
@@ -153,6 +155,16 @@ public class AndroidResourcesProcessorBuilder {
 
   public AndroidResourcesProcessorBuilder setManifestOut(Artifact manifestOut) {
     this.manifestOut = manifestOut;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder setMergedResourcesOut(Artifact mergedResourcesOut) {
+    this.mergedResourcesOut = mergedResourcesOut;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder setLibrary(boolean isLibrary) {
+    this.isLibrary = isLibrary;
     return this;
   }
 
@@ -257,7 +269,7 @@ public class AndroidResourcesProcessorBuilder {
             Iterables.unmodifiableIterable(
                 Iterables.transform(dependencies.getDirectResources(), RESOURCE_DEP_TO_ARG)));
       }
-      // This flattens the nested set. Since each ResourceContainer needs to be transformed into 
+      // This flattens the nested set. Since each ResourceContainer needs to be transformed into
       // Artifacts, and the NestedSetBuilder.wrap doesn't support lazy Iterator evaluation
       // and SpawnActionBuilder.addInputs evaluates Iterables, it becomes necessary to make the
       // best effort and let it get flattened.
@@ -268,13 +280,13 @@ public class AndroidResourcesProcessorBuilder {
                   .transformAndConcat(RESOURCE_DEP_TO_ARTIFACTS)));
     }
 
+    if (isLibrary) {
+      builder.add("--packageType").add("LIBRARY");
+    }
+
     if (rTxtOut != null) {
       builder.addExecPath("--rOutput", rTxtOut);
       outs.add(rTxtOut);
-      // If R.txt is not null, dependency R.javas will not be regenerated from the R.txt found in
-      // the deps, which means the resource processor needs to be told it is creating a library so
-      // that it will generate the R.txt.
-      builder.add("--packageType").add("LIBRARY");
     }
 
     if (symbolsTxt != null) {
@@ -289,12 +301,17 @@ public class AndroidResourcesProcessorBuilder {
       builder.addExecPath("--proguardOutput", proguardOut);
       outs.add(proguardOut);
     }
-    
+
     if (manifestOut != null) {
       builder.addExecPath("--manifestOutput", manifestOut);
       outs.add(manifestOut);
     }
-    
+
+    if (mergedResourcesOut != null) {
+      builder.addExecPath("--resourcesOutput", mergedResourcesOut);
+      outs.add(mergedResourcesOut);
+    }
+
     if (apkOut != null) {
       builder.addExecPath("--packagePath", apkOut);
       outs.add(apkOut);

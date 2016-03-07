@@ -180,6 +180,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
             + " rules with deps. The depot needs to be cleaned up to roll this out by default.")
     public boolean allowAndroidLibraryDepsWithoutSrcs;
 
+    @Option(name = "experimental_android_resource_shrinking",
+        defaultValue = "false",
+        category = "undocumented",
+        help = "Enables resource shrinking for android_binary APKs that use proguard.")
+    public boolean useAndroidResourceShrinking;
+
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
       if (androidCrosstoolTop != null) {
@@ -249,6 +255,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useJackForDexing;
   private final boolean jackSanityChecks;
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
+  private final boolean useAndroidResourceShrinking;
 
   AndroidConfiguration(Options options) {
     this.sdk = options.sdk;
@@ -261,6 +268,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useJackForDexing = options.useJackForDexing;
     this.jackSanityChecks = options.jackSanityChecks;
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
+    this.useAndroidResourceShrinking = options.useAndroidResourceShrinking;
   }
 
   public String getCpu() {
@@ -304,6 +312,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean allowSrcsLessAndroidLibraryDeps() {
     return allowAndroidLibraryDepsWithoutSrcs;
+  }
+
+  public boolean useAndroidResourceShrinking() {
+    return useAndroidResourceShrinking;
   }
 
   @Override

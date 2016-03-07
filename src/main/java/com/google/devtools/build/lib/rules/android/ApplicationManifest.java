@@ -163,7 +163,7 @@ public final class ApplicationManifest {
 
   public ApplicationManifest mergeWith(RuleContext ruleContext,
       ResourceDependencies resourceDeps) {
-    Iterable<Artifact> mergeeManifests = getMergeeManifests(resourceDeps.getResources()); 
+    Iterable<Artifact> mergeeManifests = getMergeeManifests(resourceDeps.getResources());
     if (!Iterables.isEmpty(mergeeManifests)) {
       Iterable<Artifact> exportedManifests = mergeeManifests;
       Artifact outputManifest = ruleContext.getUniqueDirectoryArtifact(
@@ -188,7 +188,7 @@ public final class ApplicationManifest {
     return builder.build();
   }
 
-  /** Packages up the manifest with assets from the rule and dependent resources. 
+  /** Packages up the manifest with assets from the rule and dependent resources.
    * @throws InterruptedException */
   public ResourceApk packWithAssets(
       Artifact resourceApk,
@@ -208,6 +208,7 @@ public final class ApplicationManifest {
 
     return createApk(resourceApk,
         ruleContext,
+        false, /* isLibrary */
         resourceDeps,
         rTxt,
         null, /* configurationFilters */
@@ -220,15 +221,17 @@ public final class ApplicationManifest {
         incremental,
         data,
         proguardCfg,
-        null);
+        null, /* Artifact manifestOut */
+        null /* Artifact mergedResources */);
   }
 
-  /** Packages up the manifest with resource and assets from the rule and dependent resources. 
+  /** Packages up the manifest with resource and assets from the rule and dependent resources.
    * @param manifestOut TODO(corysmith):
    * @throws InterruptedException */
   public ResourceApk packWithDataAndResources(
       Artifact resourceApk,
       RuleContext ruleContext,
+      boolean isLibrary,
       ResourceDependencies resourceDeps,
       Artifact rTxt,
       Artifact symbolsTxt,
@@ -240,7 +243,8 @@ public final class ApplicationManifest {
       String versionName,
       boolean incremental,
       Artifact proguardCfg,
-      Artifact manifestOut) throws InterruptedException {
+      Artifact manifestOut,
+      Artifact mergedResources) throws InterruptedException {
     LocalResourceContainer data = new LocalResourceContainer.Builder(ruleContext)
         .withAssets(
             AndroidCommon.getAssetDir(ruleContext),
@@ -259,6 +263,7 @@ public final class ApplicationManifest {
     }
     return createApk(resourceApk,
         ruleContext,
+        isLibrary,
         resourceDeps,
         rTxt,
         symbolsTxt,
@@ -271,11 +276,13 @@ public final class ApplicationManifest {
         incremental,
         data,
         proguardCfg,
-        manifestOut);
+        manifestOut,
+        mergedResources);
   }
 
   private ResourceApk createApk(Artifact resourceApk,
       RuleContext ruleContext,
+      boolean isLibrary,
       ResourceDependencies resourceDeps,
       Artifact rTxt,
       Artifact symbolsTxt,
@@ -288,7 +295,8 @@ public final class ApplicationManifest {
       boolean incremental,
       LocalResourceContainer data,
       Artifact proguardCfg,
-      Artifact manifestOut) throws InterruptedException {
+      Artifact manifestOut,
+      Artifact mergedResources) throws InterruptedException {
     ResourceContainer resourceContainer = checkForInlinedResources(
         new AndroidResourceContainerBuilder()
             .withData(data)
@@ -307,12 +315,14 @@ public final class ApplicationManifest {
 
     AndroidResourcesProcessorBuilder builder =
         new AndroidResourcesProcessorBuilder(ruleContext)
+            .setLibrary(isLibrary)
             .setApkOut(resourceContainer.getApk())
             .setConfigurationFilters(configurationFilters)
             .setUncompressedExtensions(uncompressedExtensions)
             .setJavaPackage(resourceContainer.getJavaPackage())
             .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
             .setManifestOut(manifestOut)
+            .setMergedResourcesOut(mergedResources)
             .withPrimary(resourceContainer)
             .withDependencies(resourceDeps)
             .setDensities(densities)
@@ -373,7 +383,7 @@ public final class ApplicationManifest {
 
   /**
    * Packages up the manifest with resources, and generates the R.java.
-   * @throws InterruptedException 
+   * @throws InterruptedException
    *
    * @deprecated in favor of {@link ApplicationManifest#packWithDataAndResources}.
    */

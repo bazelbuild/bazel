@@ -81,6 +81,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
       resourceApk = applicationManifest.packWithDataAndResources(
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
           ruleContext,
+          true, /* isLibrary */
           ResourceDependencies.fromRuleDeps(ruleContext, JavaCommon.isNeverLink(ruleContext)),
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT),
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_SYMBOLS_TXT),
@@ -92,8 +93,8 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
           null /* versionName */,
           false,
           null /* proguardCfgOut */,
-          ruleContext.getImplicitOutputArtifact(
-                  AndroidRuleClasses.ANDROID_LIBRARY_MANIFEST));
+          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_MANIFEST),
+          null /* mergedResourcesOut */);
       if (ruleContext.hasErrors()) {
         return null;
       }
@@ -150,18 +151,17 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_R_TXT), null);
 
       primaryResources = new AndroidResourcesProcessorBuilder(ruleContext)
-              .setApkOut(apk)
-              .setRTxtOut(resourceContainer.getRTxt())
-              .setManifestOut(
-                  ruleContext.getImplicitOutputArtifact(
-                      AndroidRuleClasses.ANDROID_LIBRARY_MANIFEST))
-              .setSourceJarOut(resourceContainer.getJavaSourceJar())
-              .setJavaPackage(resourceContainer.getJavaPackage())
-              .withPrimary(resourceContainer)
-              .withDependencies(resourceApk.getResourceDependencies())
-              .setDebug(
-                  ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
-              .build(ruleContext);
+          .setLibrary(true)
+          .setApkOut(apk)
+          .setRTxtOut(resourceContainer.getRTxt())
+          .setManifestOut(ruleContext.getImplicitOutputArtifact(
+              AndroidRuleClasses.ANDROID_LIBRARY_MANIFEST))
+          .setSourceJarOut(resourceContainer.getJavaSourceJar())
+          .setJavaPackage(resourceContainer.getJavaPackage())
+          .withPrimary(resourceContainer)
+          .withDependencies(resourceApk.getResourceDependencies())
+          .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
+          .build(ruleContext);
     }
 
     new AarGeneratorBuilder(ruleContext)

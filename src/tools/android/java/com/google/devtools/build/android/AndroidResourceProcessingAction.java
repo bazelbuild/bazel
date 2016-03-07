@@ -286,7 +286,7 @@ public class AndroidResourceProcessingAction {
           options.packagePath,
           options.proguardOutput,
           options.resourcesOutput != null
-              ? filteredData.getResourceDir().resolve("values").resolve("public.xml")
+              ? processedManifestData.getResourceDir().resolve("values").resolve("public.xml")
               : null);
       LOGGER.fine(String.format("appt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 

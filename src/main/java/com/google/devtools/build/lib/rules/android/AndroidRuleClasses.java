@@ -80,6 +80,14 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_resources.jar");
   public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_APK =
       fromTemplates("%{name}.ap_");
+  public static final SafeImplicitOutputsFunction ANDROID_BINARY_SHRUNK_JAR =
+      fromTemplates("%{name}_shrunk.jar");
+  public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_SHRUNK_APK =
+      fromTemplates("%{name}_shrunk.ap_");
+  public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_ZIP =
+      fromTemplates("%{name}_files/resource_files.zip");
+  public static final SafeImplicitOutputsFunction ANDROID_RESOURCES_SHRUNK_ZIP =
+      fromTemplates("%{name}_files/resource_files_shrunk.zip");
   public static final SafeImplicitOutputsFunction ANDROID_INCREMENTAL_RESOURCES_APK =
       fromTemplates("%{name}_files/incremental.ap_");
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_APK =
@@ -141,6 +149,8 @@ public final class AndroidRuleClasses {
       "//tools/android:incremental_split_stub_application";
   public static final String DEFAULT_RESOURCES_PROCESSOR =
       "//tools/android:resources_processor";
+  public static final String DEFAULT_RESOURCE_SHRINKER =
+      "//tools/android:resource_shrinker";
   public static final String DEFAULT_AAR_GENERATOR = "//tools/android:aar_generator";
 
   public static final Label DEFAULT_ANDROID_SDK =
@@ -369,6 +379,8 @@ public final class AndroidRuleClasses {
       return builder
           .add(attr("$android_resources_processor", LABEL).cfg(HOST).exec().value(
               env.getToolsLabel(DEFAULT_RESOURCES_PROCESSOR)))
+          .add(attr("$android_resource_shrinker", LABEL).cfg(HOST).exec().value(
+              env.getToolsLabel(DEFAULT_RESOURCE_SHRINKER)))
           .add(attr("$android_aar_generator", LABEL).cfg(HOST).exec().value(
               env.getToolsLabel(DEFAULT_AAR_GENERATOR)))
           .build();
