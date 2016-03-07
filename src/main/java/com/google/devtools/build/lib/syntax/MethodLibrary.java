@@ -761,7 +761,7 @@ public class MethodLibrary {
       // From the Python documentation: "uppercase characters may only follow uncased characters
       // and lowercase characters only cased ones".
       char[] data = self.toCharArray();
-      CharMatcher matcher = CharMatcher.ANY;
+      CharMatcher matcher = CharMatcher.any();
       char leftMostCased = ' ';
       for (int pos = data.length - 1; pos >= 0; --pos) {
         char current = data[pos];
@@ -775,7 +775,7 @@ public class MethodLibrary {
         } else if (UPPER.matches(current)) {
           matcher = CASED.negate();
         } else {
-          matcher = CharMatcher.ANY;
+          matcher = CharMatcher.any();
         }
         // 3. Store character if it is cased.
         if (CASED.matches(current)) {
@@ -812,7 +812,7 @@ public class MethodLibrary {
   private static final CharMatcher ALPHA = LOWER.or(UPPER);
   private static final CharMatcher ALNUM = ALPHA.or(DIGIT);
   private static final CharMatcher CASED = ALPHA;
-  private static final CharMatcher SPACE = CharMatcher.WHITESPACE;
+  private static final CharMatcher SPACE = CharMatcher.whitespace();
 
   @SkylarkSignature(name = "count", objectType = StringModule.class, returnType = Integer.class,
       doc = "Returns the number of (non-overlapping) occurrences of substring <code>sub</code> in "

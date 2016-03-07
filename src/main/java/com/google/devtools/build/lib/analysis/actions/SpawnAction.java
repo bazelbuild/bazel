@@ -923,7 +923,7 @@ public class SpawnAction extends AbstractAction {
 
     public Builder setMnemonic(String mnemonic) {
       Preconditions.checkArgument(
-          !mnemonic.isEmpty() && CharMatcher.JAVA_LETTER_OR_DIGIT.matchesAllOf(mnemonic),
+          !mnemonic.isEmpty() && CharMatcher.javaLetterOrDigit().matchesAllOf(mnemonic),
           "mnemonic must only contain letters and/or digits, and have non-zero length, was: \"%s\"",
           mnemonic);
       this.mnemonic = mnemonic;

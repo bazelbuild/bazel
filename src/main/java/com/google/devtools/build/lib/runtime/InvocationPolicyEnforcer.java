@@ -92,7 +92,7 @@ public final class InvocationPolicyEnforcer {
       try {
         // First try decoding the policy as a base64 encoded binary proto.
         return InvocationPolicy.parseFrom(
-            BaseEncoding.base64().decode(CharMatcher.WHITESPACE.removeFrom(policy)));
+            BaseEncoding.base64().decode(CharMatcher.whitespace().removeFrom(policy)));
       } catch (IllegalArgumentException e) {
         // If the flag value can't be decoded from base64, try decoding the policy as a text
         // formatted proto.
