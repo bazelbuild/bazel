@@ -122,6 +122,6 @@ filegroup(
 objc_library(
     name = "dummy_lib",
     srcs = [
-        "objc_dummy.m",
+        "objc_dummy.mm",
     ],
 )

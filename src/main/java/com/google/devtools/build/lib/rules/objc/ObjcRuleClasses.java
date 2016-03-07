@@ -517,7 +517,7 @@ public class ObjcRuleClasses {
           .add(attr("$xcodegen", LABEL).cfg(HOST).exec()
               .value(env.getToolsLabel("//tools/objc:xcodegen")))
           .add(attr("$dummy_source", LABEL)
-              .value(env.getToolsLabel("//tools/objc:objc_dummy.m")))
+              .value(env.getToolsLabel("//tools/objc:objc_dummy.mm")))
           .build();
     }
     @Override
