@@ -799,23 +799,6 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
   }
 
   @Test
-  public void testNonConformingPackageName() throws Exception {
-    scratch.file(
-        "bad/package/google/example/BUILD",
-        "android_library(",
-        "  name = 'test',",
-        "  srcs = ['Test.java'],",
-        ")"
-    );
-    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//bad/package/google/example:test");
-    RuleIdeInfo ruleInfo = getRuleInfoAndVerifyLabel(
-        "//bad/package/google/example:test", ruleIdeInfos);
-
-    assertThat(ruleInfo.getAndroidRuleIdeInfo().getJavaPackage())
-        .isEqualTo("bad.package.google.example");
-  }
-
-  @Test
   public void testTags() throws Exception {
     scratch.file(
         "com/google/example/BUILD",

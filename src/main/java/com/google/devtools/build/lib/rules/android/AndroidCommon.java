@@ -246,7 +246,6 @@ public class AndroidCommon {
       Iterable<Artifact> apksUnderTest) {
     AndroidIdeInfoProvider.Builder ideInfoProviderBuilder =
         new AndroidIdeInfoProvider.Builder()
-            .setJavaPackage(getJavaPackage(ruleContext))
             .setIdlClassJar(idlHelper.getIdlClassJar())
             .setIdlSourceJar(idlHelper.getIdlSourceJar())
             .addIdlParcelables(idlHelper.getIdlParcelables())
@@ -269,7 +268,8 @@ public class AndroidCommon {
               getAssetDir(ruleContext))
           // Sets the possibly merged manifest and the raw manifest.
           .setGeneratedManifest(resourceApk.getPrimaryResource().getManifest())
-          .setManifest(ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET));
+          .setManifest(ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET))
+          .setJavaPackage(getJavaPackage(ruleContext));
     } else {
       semantics.addNonLocalResources(ruleContext, resourceApk, ideInfoProviderBuilder);
     }

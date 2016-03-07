@@ -425,24 +425,17 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
       builder.addResources(artifactLocation);
     }
 
-    builder.setJavaPackage(provider.getJavaPackage());
+    if (provider.getJavaPackage() != null) {
+      builder.setJavaPackage(provider.getJavaPackage());
+    }
 
     boolean hasIdlSources = !provider.getIdlSrcs().isEmpty();
     builder.setHasIdlSources(hasIdlSources);
     if (hasIdlSources) {
-      LibraryArtifact.Builder jarBuilder = LibraryArtifact.newBuilder();
-      Artifact idlClassJar = provider.getIdlClassJar();
-      if (idlClassJar != null) {
-        jarBuilder.setJar(makeArtifactLocation(idlClassJar));
-        addResolveArtifact(ideResolveArtifacts, idlClassJar);
-      }
-      Artifact idlSourceJar = provider.getIdlSourceJar();
-      if (idlSourceJar != null) {
-        jarBuilder.setSourceJar(makeArtifactLocation(idlSourceJar));
-        addResolveArtifact(ideResolveArtifacts, idlSourceJar);
-      }
-      if (idlClassJar != null) {
-        builder.setIdlJar(jarBuilder.build());
+      LibraryArtifact idlLibraryArtifact = makeLibraryArtifact(ideResolveArtifacts,
+          provider.getIdlClassJar(), null, provider.getIdlSourceJar());
+      if (idlLibraryArtifact != null) {
+        builder.setIdlJar(idlLibraryArtifact);
       }
     }
 
@@ -543,29 +536,41 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
       JavaRuleIdeInfo.Builder builder,
       NestedSetBuilder<Artifact> ideResolveArtifacts,
       JavaRuleOutputJarsProvider outputJarsProvider) {
-    LibraryArtifact.Builder jarsBuilder = LibraryArtifact.newBuilder();
     for (OutputJar outputJar : outputJarsProvider.getOutputJars()) {
-      Artifact classJar = outputJar.getClassJar();
-      if (classJar != null) {
-        jarsBuilder.setJar(makeArtifactLocation(classJar));
-        addResolveArtifact(ideResolveArtifacts, classJar);
-      }
-      Artifact iJar = outputJar.getIJar();
-      if (iJar != null) {
-        jarsBuilder.setInterfaceJar(makeArtifactLocation(iJar));
-        addResolveArtifact(ideResolveArtifacts, iJar);
-      }
-      Artifact srcJar = outputJar.getSrcJar();
-      if (srcJar != null) {
-        jarsBuilder.setSourceJar(makeArtifactLocation(srcJar));
-        addResolveArtifact(ideResolveArtifacts, srcJar);
-      }
+      LibraryArtifact libraryArtifact = makeLibraryArtifact(ideResolveArtifacts,
+          outputJar.getClassJar(), outputJar.getIJar(), outputJar.getSrcJar());
 
-      // We don't want to add anything that doesn't have a class jar
-      if (classJar != null) {
-        builder.addJars(jarsBuilder.build());
+      if (libraryArtifact != null) {
+        builder.addJars(libraryArtifact);
       }
     }
+  }
+
+  @Nullable
+  private static LibraryArtifact makeLibraryArtifact(
+      NestedSetBuilder<Artifact> ideResolveArtifacts,
+      @Nullable Artifact classJar,
+      @Nullable Artifact iJar,
+      @Nullable Artifact sourceJar
+      ) {
+    // We don't want to add anything that doesn't have a class jar
+    if (classJar == null) {
+      return null;
+    }
+    LibraryArtifact.Builder jarsBuilder = LibraryArtifact.newBuilder();
+    jarsBuilder.setJar(makeArtifactLocation(classJar));
+    addResolveArtifact(ideResolveArtifacts, classJar);
+
+    if (iJar != null) {
+      jarsBuilder.setInterfaceJar(makeArtifactLocation(iJar));
+      addResolveArtifact(ideResolveArtifacts, iJar);
+    }
+    if (sourceJar != null) {
+      jarsBuilder.setSourceJar(makeArtifactLocation(sourceJar));
+      addResolveArtifact(ideResolveArtifacts, sourceJar);
+    }
+
+    return jarsBuilder.build();
   }
 
   private static void collectGenJars(
