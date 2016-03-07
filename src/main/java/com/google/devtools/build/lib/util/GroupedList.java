@@ -312,7 +312,7 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
   public static class GroupedListHelper<E> implements Iterable<E> {
     // Non-final only for removal.
     private List<Object> groupedList;
-    private CompactHashSet<E> currentGroup = null;
+    private List<E> currentGroup = null;
     private final CompactHashSet<E> elements;
 
     public GroupedListHelper() {
@@ -361,7 +361,7 @@ public class GroupedList<T> implements Iterable<Collection<T>> {
      */
     public void startGroup() {
       Preconditions.checkState(currentGroup == null, this);
-      currentGroup = CompactHashSet.create();
+      currentGroup = new ArrayList<>();
     }
 
     /** Ends a group started with {@link #startGroup}. */
