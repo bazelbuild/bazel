@@ -1,0 +1,16 @@
+<p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+
+<p>
+The list of environments this rule can be built for, in addition to
+default-supported environments.
+</p>
+
+<p>
+This is part of Bazel's soft-launched constraint system, which lets users
+declare which rules can and cannot depend on each other. For example,
+externally deployable binaries shouldn't depend on libraries with
+company-secret code. See
+<a href="https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/analysis/constraints/ConstraintSemantics.java#L46">
+ConstraintSemantics</a> for details.
+</p>
+

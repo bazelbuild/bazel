@@ -46,12 +46,14 @@ public class PredefinedAttributes {
    */
   public static final ImmutableList<String> COMMON_ATTRIBUTES_DOCFILES =
       ImmutableList.of(
+          "templates/attributes/common/compatible_with.html",
           "templates/attributes/common/data.html",
           "templates/attributes/common/deprecation.html",
           "templates/attributes/common/deps.html",
           "templates/attributes/common/distribs.html",
           "templates/attributes/common/features.html",
           "templates/attributes/common/licenses.html",
+          "templates/attributes/common/restricted_to.html",
           "templates/attributes/common/tags.html",
           "templates/attributes/common/testonly.html",
           "templates/attributes/common/visibility.html");
