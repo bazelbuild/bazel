@@ -456,7 +456,7 @@ Objects, functions and modules registered in the global environment.
         <p><pre>unknown getattr(x, name, default=None)
 </pre></p>
 
-    Returns the struct's field of the given name if it exists. If not, it either returns <code>default</code> (if specified) or raises an error. <code>getattr(x, "foobar")</code> is equivalent to <code>x.foobar</code>.<pre class="language-python">getattr(ctx.attr, "myattr")
+    Returns the struct's field of the given name if it exists. If not, it either returns <code>default</code> (if specified) or raises an error. However, if there is a method of the given name, this method always raises an error, regardless of the presence of a default value. <code>getattr(x, "foobar")</code> is equivalent to <code>x.foobar</code>.<pre class="language-python">getattr(ctx.attr, "myattr")
 getattr(ctx.attr, "myattr", "mydefault")</pre>
 
           <h3>Parameters</h3>
@@ -503,7 +503,7 @@ getattr(ctx.attr, "myattr", "mydefault")</pre>
         <p><pre><a class="anchor" href="globals.html#bool">bool</a> hasattr(x, name)
 </pre></p>
 
-    Returns True if the object <code>x</code> has an attribute of the given <code>name</code>, otherwise False. Example:<br><pre class="language-python">hasattr(ctx.attr, "myattr")</pre>
+    Returns True if the object <code>x</code> has an attribute or method of the given <code>name</code>, otherwise False. Example:<br><pre class="language-python">hasattr(ctx.attr, "myattr")</pre>
 
           <h3>Parameters</h3>
       <table class="table table-bordered table-condensed table-params">

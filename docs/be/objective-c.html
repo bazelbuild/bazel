@@ -85,7 +85,7 @@ title: Objective-C Rules
     ios_application
   </h2>
 
-  <pre class="rule-signature">ios_application(<a href="#ios_application.name">name</a>, <a href="#ios_application.app_icon">app_icon</a>, <a href="#ios_application.binary">binary</a>, <a href="#ios_application.bundle_id">bundle_id</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_application.entitlements">entitlements</a>, <a href="#ios_application.extensions">extensions</a>, <a href="#ios_application.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_application.infoplist">infoplist</a>, <a href="#ios_application.infoplists">infoplists</a>, <a href="#ios_application.launch_image">launch_image</a>, <a href="#ios_application.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_application.provisioning_profile">provisioning_profile</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">ios_application(<a href="#ios_application.name">name</a>, <a href="#ios_application.resources">resources</a>, <a href="#ios_application.app_icon">app_icon</a>, <a href="#ios_application.asset_catalogs">asset_catalogs</a>, <a href="#ios_application.binary">binary</a>, <a href="#ios_application.bundle_id">bundle_id</a>, <a href="#ios_application.bundles">bundles</a>, <a href="#ios_application.datamodels">datamodels</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_application.entitlements">entitlements</a>, <a href="#ios_application.extensions">extensions</a>, <a href="#ios_application.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_application.infoplist">infoplist</a>, <a href="#ios_application.infoplists">infoplists</a>, <a href="#ios_application.ipa_post_processor">ipa_post_processor</a>, <a href="#ios_application.launch_image">launch_image</a>, <a href="#ios_application.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_application.provisioning_profile">provisioning_profile</a>, <a href="#ios_application.storyboards">storyboards</a>, <a href="#ios_application.strings">strings</a>, <a href="#ios_application.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_application.xibs">xibs</a>)</pre>
 
 
 <p>This rule produces an application bundle for iOS.</p>
@@ -126,6 +126,23 @@ passed to the application.</p>
         </td>
       </tr>
                 <tr>
+        <td id="ios_application.resources">
+          <code>resources</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files to include in the final application bundle.
+
+          They are not processed or compiled in any way besides the processing
+          done by the rules that actually generate them. These files are placed
+          in the root of the bundle (e.g. Payload/foo.app/...) in most cases.
+          However, if they appear to be localized (i.e. are contained in a
+          directory called *.lproj), they will be placed in a directory of the
+          same name in the app bundle.
+
+        </td>
+      </tr>
+                      <tr>
         <td id="ios_application.app_icon">
           <code>app_icon</code>
         </td>
@@ -139,6 +156,21 @@ passed to the application.</p>
           <p>
           If the application icon is not in an asset catalog, do not use this
           attribute. Instead, add a CFBundleIcons entry to the Info.plist file.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_application.asset_catalogs">
+          <code>asset_catalogs</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files that comprise the asset catalogs of the final linked binary.
+
+          Each file must have a containing directory named *.xcassets. This
+          containing directory becomes the root of one of the asset catalogs
+          linked with any binary that depends directly or indirectly on this
+          target.
 
         </td>
       </tr>
@@ -163,6 +195,31 @@ passed to the application.</p>
           If specified, it will override the bundle ID specified in the associated plist file. If
           no bundle ID is specified on either this attribute or in the plist file, a junk value
           will be used.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_application.bundles">
+          <code>bundles</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              The list of bundle targets that this target requires to be included
+          in the final bundle.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_application.datamodels">
+          <code>datamodels</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files that comprise the data models of the final linked binary.
+
+          Each file must have a containing directory named *.xcdatamodel, which
+          is usually contained by another *.xcdatamodeld (note the added d)
+          directory.
 
         </td>
       </tr>
@@ -254,6 +311,26 @@ passed to the application.</p>
         </td>
       </tr>
                       <tr>
+        <td id="ios_application.ipa_post_processor">
+          <code>ipa_post_processor</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                              A tool that edits this target's IPA output after it is assembled but before it is
+          (optionally) signed.
+          <p>
+          The tool is invoked with a single positional argument which represents the path to a
+          directory containing the unzipped contents of the IPA. The only entry in this directory
+          will be the <code>Payload</code> root directory of the IPA. Any changes made by the tool
+          must be made in this directory, whose contents will be (optionally) signed and then
+          zipped up as the final IPA after the tool terminates.
+          <p>
+          The tool's execution must be hermetic given these inputs to ensure that its result can be
+          safely cached.
+
+        </td>
+      </tr>
+                      <tr>
         <td id="ios_application.launch_image">
           <code>launch_image</code>
         </td>
@@ -314,7 +391,76 @@ passed to the application.</p>
 
         </td>
       </tr>
-                                            </tbody>
+                      <tr>
+        <td id="ios_application.storyboards">
+          <code>storyboards</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files which are .storyboard resources, possibly localizable.
+
+          These files are compiled to .storyboardc directories, which are
+          placed in the bundle root of the final package. If the storyboards's
+          immediate containing directory is named *.lproj (e.g. en.lproj,
+          Base.lproj), it will be placed under a directory of that name in the
+          final bundle. This allows for localizable UI.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_application.strings">
+          <code>strings</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files which are plists of strings, often localizable.
+
+          These files are converted to binary plists (if they are not already)
+          and placed in the bundle root of the final package. If this file's
+          immediate containing directory is named *.lproj (e.g. en.lproj,
+          Base.lproj), it will be placed under a directory of that name in the
+          final bundle. This allows for localizable strings.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_application.structured_resources">
+          <code>structured_resources</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files to include in the final application bundle.
+
+          They are not processed or compiled in any way besides the processing
+          done by the rules that actually generate them. In differences to
+          <code>resources</code> these files are placed in the bundle root in
+          the same structure passed to this argument, so
+          <code>["res/foo.png"]</code> will end up in
+          <code>Payload/foo.app/res/foo.png</code>.
+          <p>Note that in the generated XCode project file, all files in the top directory of
+          the specified files will be included in the Xcode-generated app bundle. So
+          specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
+          directory <code>res</code>.
+
+        </td>
+      </tr>
+                                                    <tr>
+        <td id="ios_application.xibs">
+          <code>xibs</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files which are .xib resources, possibly localizable.
+
+          These files are compiled to .nib files and placed the bundle root of
+          the final package. If this file's immediate containing directory is
+          named *.lproj (e.g. en.lproj, Base.lproj), it will be placed under a
+          directory of that name in the final bundle. This allows for
+          localizable UI.
+
+        </td>
+      </tr>
+              </tbody>
   </table>
     <h2 id="ios_device">
     ios_device
@@ -376,7 +522,7 @@ which to run tests.</p>
     ios_extension
   </h2>
 
-  <pre class="rule-signature">ios_extension(<a href="#ios_extension.name">name</a>, <a href="#ios_extension.app_icon">app_icon</a>, <a href="#ios_extension.binary">binary</a>, <a href="#ios_extension.bundle_id">bundle_id</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_extension.entitlements">entitlements</a>, <a href="#ios_extension.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_extension.infoplist">infoplist</a>, <a href="#ios_extension.infoplists">infoplists</a>, <a href="#ios_extension.launch_image">launch_image</a>, <a href="#ios_extension.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_extension.provisioning_profile">provisioning_profile</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">ios_extension(<a href="#ios_extension.name">name</a>, <a href="#ios_extension.resources">resources</a>, <a href="#ios_extension.app_icon">app_icon</a>, <a href="#ios_extension.asset_catalogs">asset_catalogs</a>, <a href="#ios_extension.binary">binary</a>, <a href="#ios_extension.bundle_id">bundle_id</a>, <a href="#ios_extension.bundles">bundles</a>, <a href="#ios_extension.datamodels">datamodels</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_extension.entitlements">entitlements</a>, <a href="#ios_extension.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_extension.infoplist">infoplist</a>, <a href="#ios_extension.infoplists">infoplists</a>, <a href="#ios_extension.ipa_post_processor">ipa_post_processor</a>, <a href="#ios_extension.launch_image">launch_image</a>, <a href="#ios_extension.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_extension.provisioning_profile">provisioning_profile</a>, <a href="#ios_extension.storyboards">storyboards</a>, <a href="#ios_extension.strings">strings</a>, <a href="#ios_extension.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_extension.xibs">xibs</a>)</pre>
 
 
 <p>This rule produces a bundled binary for an iOS app extension from a compiled binary and bundle
@@ -441,6 +587,23 @@ between how each thing is processed:
         </td>
       </tr>
                 <tr>
+        <td id="ios_extension.resources">
+          <code>resources</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files to include in the final application bundle.
+
+          They are not processed or compiled in any way besides the processing
+          done by the rules that actually generate them. These files are placed
+          in the root of the bundle (e.g. Payload/foo.app/...) in most cases.
+          However, if they appear to be localized (i.e. are contained in a
+          directory called *.lproj), they will be placed in a directory of the
+          same name in the app bundle.
+
+        </td>
+      </tr>
+                      <tr>
         <td id="ios_extension.app_icon">
           <code>app_icon</code>
         </td>
@@ -454,6 +617,21 @@ between how each thing is processed:
           <p>
           If the application icon is not in an asset catalog, do not use this
           attribute. Instead, add a CFBundleIcons entry to the Info.plist file.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_extension.asset_catalogs">
+          <code>asset_catalogs</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files that comprise the asset catalogs of the final linked binary.
+
+          Each file must have a containing directory named *.xcassets. This
+          containing directory becomes the root of one of the asset catalogs
+          linked with any binary that depends directly or indirectly on this
+          target.
 
         </td>
       </tr>
@@ -478,6 +656,31 @@ between how each thing is processed:
           If specified, it will override the bundle ID specified in the associated plist file. If
           no bundle ID is specified on either this attribute or in the plist file, a junk value
           will be used.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_extension.bundles">
+          <code>bundles</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              The list of bundle targets that this target requires to be included
+          in the final bundle.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_extension.datamodels">
+          <code>datamodels</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files that comprise the data models of the final linked binary.
+
+          Each file must have a containing directory named *.xcdatamodel, which
+          is usually contained by another *.xcdatamodeld (note the added d)
+          directory.
 
         </td>
       </tr>
@@ -559,6 +762,26 @@ between how each thing is processed:
         </td>
       </tr>
                       <tr>
+        <td id="ios_extension.ipa_post_processor">
+          <code>ipa_post_processor</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                              A tool that edits this target's IPA output after it is assembled but before it is
+          (optionally) signed.
+          <p>
+          The tool is invoked with a single positional argument which represents the path to a
+          directory containing the unzipped contents of the IPA. The only entry in this directory
+          will be the <code>Payload</code> root directory of the IPA. Any changes made by the tool
+          must be made in this directory, whose contents will be (optionally) signed and then
+          zipped up as the final IPA after the tool terminates.
+          <p>
+          The tool's execution must be hermetic given these inputs to ensure that its result can be
+          safely cached.
+
+        </td>
+      </tr>
+                      <tr>
         <td id="ios_extension.launch_image">
           <code>launch_image</code>
         </td>
@@ -619,7 +842,76 @@ between how each thing is processed:
 
         </td>
       </tr>
-                                            </tbody>
+                      <tr>
+        <td id="ios_extension.storyboards">
+          <code>storyboards</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files which are .storyboard resources, possibly localizable.
+
+          These files are compiled to .storyboardc directories, which are
+          placed in the bundle root of the final package. If the storyboards's
+          immediate containing directory is named *.lproj (e.g. en.lproj,
+          Base.lproj), it will be placed under a directory of that name in the
+          final bundle. This allows for localizable UI.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_extension.strings">
+          <code>strings</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files which are plists of strings, often localizable.
+
+          These files are converted to binary plists (if they are not already)
+          and placed in the bundle root of the final package. If this file's
+          immediate containing directory is named *.lproj (e.g. en.lproj,
+          Base.lproj), it will be placed under a directory of that name in the
+          final bundle. This allows for localizable strings.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_extension.structured_resources">
+          <code>structured_resources</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files to include in the final application bundle.
+
+          They are not processed or compiled in any way besides the processing
+          done by the rules that actually generate them. In differences to
+          <code>resources</code> these files are placed in the bundle root in
+          the same structure passed to this argument, so
+          <code>["res/foo.png"]</code> will end up in
+          <code>Payload/foo.app/res/foo.png</code>.
+          <p>Note that in the generated XCode project file, all files in the top directory of
+          the specified files will be included in the Xcode-generated app bundle. So
+          specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
+          directory <code>res</code>.
+
+        </td>
+      </tr>
+                                                    <tr>
+        <td id="ios_extension.xibs">
+          <code>xibs</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files which are .xib resources, possibly localizable.
+
+          These files are compiled to .nib files and placed the bundle root of
+          the final package. If this file's immediate containing directory is
+          named *.lproj (e.g. en.lproj, Base.lproj), it will be placed under a
+          directory of that name in the final bundle. This allows for
+          localizable UI.
+
+        </td>
+      </tr>
+              </tbody>
   </table>
     <h2 id="ios_extension_binary">
     ios_extension_binary
@@ -1027,7 +1319,7 @@ Objective-C libraries.</p>
     ios_framework
   </h2>
 
-  <pre class="rule-signature">ios_framework(<a href="#ios_framework.name">name</a>, <a href="#ios_framework.hdrs">hdrs</a>, <a href="#ios_framework.app_icon">app_icon</a>, <a href="#ios_framework.binary">binary</a>, <a href="#ios_framework.bundle_id">bundle_id</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_framework.entitlements">entitlements</a>, <a href="#ios_framework.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_framework.infoplist">infoplist</a>, <a href="#ios_framework.infoplists">infoplists</a>, <a href="#ios_framework.launch_image">launch_image</a>, <a href="#ios_framework.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_framework.provisioning_profile">provisioning_profile</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">ios_framework(<a href="#ios_framework.name">name</a>, <a href="#ios_framework.resources">resources</a>, <a href="#ios_framework.hdrs">hdrs</a>, <a href="#ios_framework.app_icon">app_icon</a>, <a href="#ios_framework.asset_catalogs">asset_catalogs</a>, <a href="#ios_framework.binary">binary</a>, <a href="#ios_framework.bundle_id">bundle_id</a>, <a href="#ios_framework.bundles">bundles</a>, <a href="#ios_framework.datamodels">datamodels</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_framework.entitlements">entitlements</a>, <a href="#ios_framework.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_framework.infoplist">infoplist</a>, <a href="#ios_framework.infoplists">infoplists</a>, <a href="#ios_framework.launch_image">launch_image</a>, <a href="#ios_framework.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_framework.provisioning_profile">provisioning_profile</a>, <a href="#ios_framework.storyboards">storyboards</a>, <a href="#ios_framework.strings">strings</a>, <a href="#ios_framework.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_framework.xibs">xibs</a>)</pre>
 
 
 <p>This rule produces a bundled binary for a framework from a compiled binary and bundle
@@ -1063,6 +1355,23 @@ final app bundle and only used during compilation stage.
         </td>
       </tr>
                 <tr>
+        <td id="ios_framework.resources">
+          <code>resources</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files to include in the final application bundle.
+
+          They are not processed or compiled in any way besides the processing
+          done by the rules that actually generate them. These files are placed
+          in the root of the bundle (e.g. Payload/foo.app/...) in most cases.
+          However, if they appear to be localized (i.e. are contained in a
+          directory called *.lproj), they will be placed in a directory of the
+          same name in the app bundle.
+
+        </td>
+      </tr>
+                      <tr>
         <td id="ios_framework.hdrs">
           <code>hdrs</code>
         </td>
@@ -1090,6 +1399,21 @@ final app bundle and only used during compilation stage.
         </td>
       </tr>
                       <tr>
+        <td id="ios_framework.asset_catalogs">
+          <code>asset_catalogs</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files that comprise the asset catalogs of the final linked binary.
+
+          Each file must have a containing directory named *.xcassets. This
+          containing directory becomes the root of one of the asset catalogs
+          linked with any binary that depends directly or indirectly on this
+          target.
+
+        </td>
+      </tr>
+                      <tr>
         <td id="ios_framework.binary">
           <code>binary</code>
         </td>
@@ -1110,6 +1434,31 @@ final app bundle and only used during compilation stage.
           If specified, it will override the bundle ID specified in the associated plist file. If
           no bundle ID is specified on either this attribute or in the plist file, a junk value
           will be used.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_framework.bundles">
+          <code>bundles</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              The list of bundle targets that this target requires to be included
+          in the final bundle.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_framework.datamodels">
+          <code>datamodels</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files that comprise the data models of the final linked binary.
+
+          Each file must have a containing directory named *.xcdatamodel, which
+          is usually contained by another *.xcdatamodeld (note the added d)
+          directory.
 
         </td>
       </tr>
@@ -1251,7 +1600,76 @@ final app bundle and only used during compilation stage.
 
         </td>
       </tr>
-                                            </tbody>
+                      <tr>
+        <td id="ios_framework.storyboards">
+          <code>storyboards</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files which are .storyboard resources, possibly localizable.
+
+          These files are compiled to .storyboardc directories, which are
+          placed in the bundle root of the final package. If the storyboards's
+          immediate containing directory is named *.lproj (e.g. en.lproj,
+          Base.lproj), it will be placed under a directory of that name in the
+          final bundle. This allows for localizable UI.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_framework.strings">
+          <code>strings</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files which are plists of strings, often localizable.
+
+          These files are converted to binary plists (if they are not already)
+          and placed in the bundle root of the final package. If this file's
+          immediate containing directory is named *.lproj (e.g. en.lproj,
+          Base.lproj), it will be placed under a directory of that name in the
+          final bundle. This allows for localizable strings.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="ios_framework.structured_resources">
+          <code>structured_resources</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files to include in the final application bundle.
+
+          They are not processed or compiled in any way besides the processing
+          done by the rules that actually generate them. In differences to
+          <code>resources</code> these files are placed in the bundle root in
+          the same structure passed to this argument, so
+          <code>["res/foo.png"]</code> will end up in
+          <code>Payload/foo.app/res/foo.png</code>.
+          <p>Note that in the generated XCode project file, all files in the top directory of
+          the specified files will be included in the Xcode-generated app bundle. So
+          specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
+          directory <code>res</code>.
+
+        </td>
+      </tr>
+                                                    <tr>
+        <td id="ios_framework.xibs">
+          <code>xibs</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files which are .xib resources, possibly localizable.
+
+          These files are compiled to .nib files and placed the bundle root of
+          the final package. If this file's immediate containing directory is
+          named *.lproj (e.g. en.lproj, Base.lproj), it will be placed under a
+          directory of that name in the final bundle. This allows for
+          localizable UI.
+
+        </td>
+      </tr>
+              </tbody>
   </table>
     <h2 id="ios_framework_binary">
     ios_framework_binary
@@ -1665,9 +2083,9 @@ libraries.</p>
 <p>This rule produces one or more Objective-C libraries for bundling in an
 <code>ios_application</code>.</p>
 
-<p>Any application-related attributes (infoplist, app_icon, ...) on this rule are deprecated and
-you should define them on <code>ios_application</code> instead. They will be removed from
-<code>objc_binary</code> soon.</p>
+<p>Any application-related attributes (infoplist, app_icon, resources, xibs, datamodels...) on this
+rule are deprecated and you should define them on <code>ios_application</code> instead. They will be
+removed from <code>objc_binary</code> soon.</p>
 
 <p>Until the migration to <code>ios_application</code> is complete, this rule requires at least one
 source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</code></p>.
