@@ -42,7 +42,10 @@ java_binary(
 
 java_library(
     name = "android_builder_lib",
-    srcs = glob(["*.java"]),
+    srcs = glob([
+        "*.java",
+        "xml/*.java",
+    ]),
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:package_manifest_java_proto",
