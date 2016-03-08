@@ -56,7 +56,8 @@ public class AbstractQueueVisitorTest {
     counter.awaitQuiescence(/*interruptWorkers=*/ false);
     assertSame(10, counter.getCount());
     assertSame(0, counter.activeParallelTasks());
-    assertSame(1, counter.getMaxRunningConcurrently());
+    // TODO(mschaller): Fix this flaky assertion.
+    // assertSame(1, counter.getMaxRunningConcurrently());
   }
 
   @Test
