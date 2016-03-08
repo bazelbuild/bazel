@@ -109,12 +109,11 @@ labels attribute.
 <h2 id="configurable-attributes">Configurable attributes</h2>
 
 <p>
-  Most rule attributes can be "configured" so that their values can
-  depend on the command-line flags passed to Bazel. This can be used,
-  for example, to declare platform-dependent <code>srcs</code> or custom
-  compiler flags depending on the
+  Most rule attributes can be "configured" so their values depend on Bazel
+  command-line flags. This can be used, for example, to declare
+  platform-dependent <code>srcs</code> or custom compiler flags depending on the
   <a href="../bazel-user-manual.html#flag--compilation_mode">compilation
-  mode</a>. This feature is very close in spirit to
+  mode</a>. This feature is similar to
   <a href="c-cpp.html#cc_library.abi_deps">abi_deps</a>, except that it's not
   limited to <code>cc_*</code> rules and the <code>deps</code> attribute.
 </p>
