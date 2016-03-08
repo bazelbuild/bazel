@@ -2018,7 +2018,7 @@ public class MethodLibrary {
    * Returns true if the object has a field of the given name, otherwise false.
    */
   @SkylarkSignature(name = "hasattr", returnType = Boolean.class,
-      doc = "Returns True if the object <code>x</code> has an attribute of the given "
+      doc = "Returns True if the object <code>x</code> has an attribute or method of the given "
           + "<code>name</code>, otherwise False. Example:<br>"
           + "<pre class=\"language-python\">hasattr(ctx.attr, \"myattr\")</pre>",
       mandatoryPositionals = {
@@ -2026,28 +2026,22 @@ public class MethodLibrary {
         @Param(name = "name", type = String.class, doc = "The name of the attribute.")},
       useLocation = true, useEnvironment = true)
   private static final BuiltinFunction hasattr = new BuiltinFunction("hasattr") {
+    @SuppressWarnings("unused")
     public Boolean invoke(Object obj, String name,
         Location loc, Environment env) throws EvalException, ConversionException {
       if (obj instanceof ClassObject && ((ClassObject) obj).getValue(name) != null) {
         return true;
       }
-      if (Runtime.getFunctionNames(obj.getClass()).contains(name)) {
-        return true;
-      }
-
-      try {
-        return FuncallExpression.getMethodNames(obj.getClass()).contains(name);
-      } catch (ExecutionException e) {
-        // This shouldn't happen
-        throw new EvalException(loc, e.getMessage());
-      }
+      return hasMethod(obj, name, loc);
     }
   };
 
   @SkylarkSignature(name = "getattr",
       doc = "Returns the struct's field of the given name if it exists. If not, it either returns "
-          + "<code>default</code> (if specified) or raises an error. <code>getattr(x, \"foobar\")"
-          + "</code> is equivalent to <code>x.foobar</code>."
+          + "<code>default</code> (if specified) or raises an error. However, if there is a method "
+          + "of the given name, this method always raises an error, regardless of the "
+          + "presence of a default value. <code>getattr(x, \"foobar\")</code> is equivalent to "
+          + "<code>x.foobar</code>."
           + "<pre class=\"language-python\">getattr(ctx.attr, \"myattr\")\n"
           + "getattr(ctx.attr, \"myattr\", \"mydefault\")</pre>",
       mandatoryPositionals = {
@@ -2059,20 +2053,40 @@ public class MethodLibrary {
             + "doesn't have an attribute of the given name.")},
       useLocation = true, useEnvironment = true)
   private static final BuiltinFunction getattr = new BuiltinFunction("getattr") {
+    @SuppressWarnings("unused")
     public Object invoke(Object obj, String name, Object defaultValue,
         Location loc, Environment env) throws EvalException, ConversionException {
       Object result = DotExpression.eval(obj, name, loc, env);
       if (result == null) {
-        if (defaultValue != Runtime.NONE) {
+        // 'Real' describes methods with structField() == false. Because DotExpression.eval returned
+        // null in this case, we know that structField() cannot return true.
+        boolean isRealMethod = hasMethod(obj, name, loc);
+        if (defaultValue != Runtime.NONE && !isRealMethod) {
           return defaultValue;
-        } else {
-          throw new EvalException(loc, Printer.format("Object of type '%s' has no attribute %r",
-                  EvalUtils.getDataTypeName(obj), name));
         }
+        throw new EvalException(loc, Printer.format("Object of type '%s' has no attribute %r%s",
+                EvalUtils.getDataTypeName(obj), name,
+                isRealMethod ? ", however, a method of that name exists" : ""));
       }
       return result;
     }
   };
+
+  /**
+   * Returns whether the given object has a method with the given name.
+   */
+  private static boolean hasMethod(Object obj, String name, Location loc) throws EvalException {
+    if (Runtime.getFunctionNames(obj.getClass()).contains(name)) {
+      return true;
+    }
+
+    try {
+      return FuncallExpression.getMethodNames(obj.getClass()).contains(name);
+    } catch (ExecutionException e) {
+      // This shouldn't happen
+      throw new EvalException(loc, e.getMessage());
+    }
+  }
 
   @SkylarkSignature(name = "dir", returnType = MutableList.class,
       doc = "Returns a list strings: the names of the attributes and "

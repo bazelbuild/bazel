@@ -442,6 +442,25 @@ public class MethodLibraryTest extends EvaluationTestCase {
   }
 
   @Test
+  public void testGetAttrMissingField() throws Exception {
+    new SkylarkTest()
+        .testIfExactError(
+            "Object of type 'string' has no attribute \"not_there\"",
+            "getattr('a string', 'not_there')")
+        .testStatement("getattr('a string', 'not_there', 'use this')", "use this");
+  }
+
+  @Test
+  public void testGetAttrWithMethods() throws Exception {
+    String msg =
+        "Object of type 'string' has no attribute \"count\", however, "
+            + "a method of that name exists";
+    new SkylarkTest()
+        .testIfExactError(msg, "getattr('a string', 'count')")
+        .testIfExactError(msg, "getattr('a string', 'count', 'unused default')");
+  }
+
+  @Test
   public void testDir() throws Exception {
     new SkylarkTest()
         .testStatement(
