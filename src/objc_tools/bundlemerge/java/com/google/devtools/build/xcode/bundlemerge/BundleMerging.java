@@ -92,10 +92,11 @@ public final class BundleMerging {
       Path tempDir, FileSystem fileSystem, Control control, String bundleRoot,
       ImmutableList.Builder<ZipInputEntry> packagedFilesBuilder,
       ImmutableList.Builder<MergeZip> mergeZipsBuilder, boolean includePkgInfo) throws IOException {
-    Path tempMergedPlist = Files.createTempFile(tempDir, null, INFOPLIST_FILENAME);
-    Path tempPkgInfo = Files.createTempFile(tempDir, null, PKGINFO_FILENAME);
+    bundleRoot = joinPath(bundleRoot, control.getBundleRoot());
 
     if (control.hasBundleInfoPlistFile()) {
+      Path tempMergedPlist = Files.createTempFile(tempDir, null, INFOPLIST_FILENAME);
+      Path tempPkgInfo = Files.createTempFile(tempDir, null, PKGINFO_FILENAME);
       Path bundleInfoPlist = fileSystem.getPath(control.getBundleInfoPlistFile());
       new PlistMerging(PlistMerging.readPlistFile(bundleInfoPlist))
           .setBundleIdentifier(
@@ -103,17 +104,14 @@ public final class BundleMerging {
               control.hasFallbackBundleIdentifier() ? control.getFallbackBundleIdentifier() : null)
           .writePlist(tempMergedPlist)
           .writePkgInfo(tempPkgInfo);
-    }
-
-    bundleRoot = joinPath(bundleRoot, control.getBundleRoot());
-
-    // Add files to zip configuration which creates the final application bundle.
-    packagedFilesBuilder
-        .add(new ZipInputEntry(tempMergedPlist, joinPath(bundleRoot, INFOPLIST_FILENAME)));
-    if (includePkgInfo) {
       packagedFilesBuilder
-          .add(new ZipInputEntry(tempPkgInfo, joinPath(bundleRoot, PKGINFO_FILENAME)));
+          .add(new ZipInputEntry(tempMergedPlist, joinPath(bundleRoot, INFOPLIST_FILENAME)));
+      if (includePkgInfo) {
+        packagedFilesBuilder
+            .add(new ZipInputEntry(tempPkgInfo, joinPath(bundleRoot, PKGINFO_FILENAME)));
+      }
     }
+
     for (BundleFile bundleFile : control.getBundleFileList()) {
       int externalFileAttribute = bundleFile.hasExternalFileAttribute()
           ? bundleFile.getExternalFileAttribute() : ZipInputEntry.DEFAULT_EXTERNAL_FILE_ATTRIBUTE;
@@ -140,8 +138,7 @@ public final class BundleMerging {
   static BundleMerging merging(Path tempDir, FileSystem fileSystem, Control control)
       throws IOException {
     ImmutableList.Builder<MergeZip> mergeZipsBuilder = new ImmutableList.Builder<>();
-    ImmutableList.Builder<ZipInputEntry> packagedFilesBuilder =
-        new ImmutableList.Builder<ZipInputEntry>();
+    ImmutableList.Builder<ZipInputEntry> packagedFilesBuilder = new ImmutableList.Builder<>();
 
     mergeInto(tempDir, fileSystem, control, /*bundleRoot=*/"", packagedFilesBuilder,
         mergeZipsBuilder, /*includePkgInfo=*/true);
