@@ -103,7 +103,10 @@ pkg_tar(
         ],
         local = 1,
         main = "docker_test.py",
-        tags = ["local"],
+        tags = [
+            "exclusive",
+            "local",
+        ],
         deps = ["//third_party/py/gflags"],
     ) for mode in [
         "dbg",
