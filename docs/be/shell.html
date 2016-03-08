@@ -33,7 +33,7 @@ title: Shell Rules
     sh_binary
   </h2>
 
-  <pre class="rule-signature">sh_binary(<a href="#sh_binary.name">name</a>, <a href="#sh_binary.deps">deps</a>, <a href="#sh_binary.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="common-definitions.html#binary.args">args</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#binary.output_licenses">output_licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">sh_binary(<a href="#sh_binary.name">name</a>, <a href="#sh_binary.deps">deps</a>, <a href="#sh_binary.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="common-definitions.html#binary.args">args</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#binary.output_licenses">output_licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>
@@ -112,13 +112,13 @@ sh_binary(
 
         </td>
       </tr>
-                                                                                                                  </tbody>
+                                                                                                                                      </tbody>
   </table>
     <h2 id="sh_library">
     sh_library
   </h2>
 
-  <pre class="rule-signature">sh_library(<a href="#sh_library.name">name</a>, <a href="#sh_library.deps">deps</a>, <a href="#sh_library.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">sh_library(<a href="#sh_library.name">name</a>, <a href="#sh_library.deps">deps</a>, <a href="#sh_library.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>
@@ -213,13 +213,13 @@ sh_library(
 
         </td>
       </tr>
-                                                                                              </tbody>
+                                                                                                                  </tbody>
   </table>
     <h2 id="sh_test">
     sh_test
   </h2>
 
-  <pre class="rule-signature">sh_test(<a href="#sh_test.name">name</a>, <a href="#sh_test.deps">deps</a>, <a href="#sh_test.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="common-definitions.html#test.args">args</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">sh_test(<a href="#sh_test.name">name</a>, <a href="#sh_test.deps">deps</a>, <a href="#sh_test.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="common-definitions.html#test.args">args</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>A <code>sh_test()</code> rule creates a test written as a Bourne shell script.</p>
@@ -294,7 +294,7 @@ sh_test(
 
         </td>
       </tr>
-                                                                                                                                                          </tbody>
+                                                                                                                                                                              </tbody>
   </table>
 
 <!-- Generated footer -->

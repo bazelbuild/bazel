@@ -41,7 +41,7 @@ title: General Rules
     filegroup
   </h2>
 
-  <pre class="rule-signature">filegroup(<a href="#filegroup.name">name</a>, <a href="#filegroup.srcs">srcs</a>, <a href="#filegroup.data">data</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#binary.output_licenses">output_licenses</a>, <a href="#filegroup.path">path</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">filegroup(<a href="#filegroup.name">name</a>, <a href="#filegroup.srcs">srcs</a>, <a href="#filegroup.data">data</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#binary.output_licenses">output_licenses</a>, <a href="#filegroup.path">path</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>
@@ -155,7 +155,7 @@ cc_library(
 
         </td>
       </tr>
-                                                                        <tr>
+                                                                                  <tr>
         <td id="filegroup.path">
           <code>path</code>
         </td>
@@ -169,13 +169,13 @@ cc_library(
 
         </td>
       </tr>
-                                            </tbody>
+                                                      </tbody>
   </table>
     <h2 id="genquery">
     genquery
   </h2>
 
-  <pre class="rule-signature">genquery(<a href="#genquery.name">name</a>, <a href="common-definitions.html#common.deps">deps</a>, <a href="common-definitions.html#common.data">data</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#genquery.expression">expression</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#genquery.opts">opts</a>, <a href="#genquery.scope">scope</a>, <a href="#genquery.strict">strict</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">genquery(<a href="#genquery.name">name</a>, <a href="common-definitions.html#common.deps">deps</a>, <a href="common-definitions.html#common.data">data</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#genquery.expression">expression</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#genquery.opts">opts</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#genquery.scope">scope</a>, <a href="#genquery.strict">strict</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
   <p>
@@ -238,7 +238,7 @@ genquery(
 
         </td>
       </tr>
-                                                        <tr>
+                                                                  <tr>
         <td id="genquery.expression">
           <code>expression</code>
         </td>
@@ -261,7 +261,7 @@ genquery(
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="genquery.scope">
           <code>scope</code>
         </td>
@@ -291,7 +291,7 @@ genquery(
     test_suite
   </h2>
 
-  <pre class="rule-signature">test_suite(<a href="#test_suite.name">name</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#test_suite.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#test_suite.tests">tests</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">test_suite(<a href="#test_suite.name">name</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#test_suite.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#test_suite.tests">tests</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>
@@ -352,7 +352,7 @@ test_suite(
 
         </td>
       </tr>
-                                                        <tr>
+                                                                            <tr>
         <td id="test_suite.tags">
           <code>tags</code>
         </td>
@@ -556,7 +556,7 @@ config_setting(
     genrule
   </h2>
 
-  <pre class="rule-signature">genrule(<a href="#genrule.name">name</a>, <a href="#genrule.srcs">srcs</a>, <a href="#genrule.outs">outs</a>, <a href="#genrule.cmd">cmd</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#genrule.executable">executable</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#genrule.local">local</a>, <a href="#genrule.message">message</a>, <a href="#genrule.output_to_bindir">output_to_bindir</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#genrule.tools">tools</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">genrule(<a href="#genrule.name">name</a>, <a href="#genrule.srcs">srcs</a>, <a href="#genrule.outs">outs</a>, <a href="#genrule.cmd">cmd</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#genrule.executable">executable</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#genrule.local">local</a>, <a href="#genrule.message">message</a>, <a href="#genrule.output_to_bindir">output_to_bindir</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#genrule.tools">tools</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>A <code>genrule</code> generates one or more files using a user-defined Bash command.</p>
@@ -816,7 +816,7 @@ genrule(
 
         </td>
       </tr>
-                                          <tr>
+                                                    <tr>
         <td id="genrule.executable">
           <code>executable</code>
         </td>
@@ -876,7 +876,7 @@ genrule(
 
         </td>
       </tr>
-                                          <tr>
+                                                    <tr>
         <td id="genrule.tools">
           <code>tools</code>
         </td>

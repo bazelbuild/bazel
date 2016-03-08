@@ -85,7 +85,7 @@ title: Objective-C Rules
     ios_application
   </h2>
 
-  <pre class="rule-signature">ios_application(<a href="#ios_application.name">name</a>, <a href="#ios_application.resources">resources</a>, <a href="#ios_application.app_icon">app_icon</a>, <a href="#ios_application.asset_catalogs">asset_catalogs</a>, <a href="#ios_application.binary">binary</a>, <a href="#ios_application.bundle_id">bundle_id</a>, <a href="#ios_application.bundles">bundles</a>, <a href="#ios_application.datamodels">datamodels</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_application.entitlements">entitlements</a>, <a href="#ios_application.extensions">extensions</a>, <a href="#ios_application.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_application.infoplist">infoplist</a>, <a href="#ios_application.infoplists">infoplists</a>, <a href="#ios_application.ipa_post_processor">ipa_post_processor</a>, <a href="#ios_application.launch_image">launch_image</a>, <a href="#ios_application.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_application.provisioning_profile">provisioning_profile</a>, <a href="#ios_application.storyboards">storyboards</a>, <a href="#ios_application.strings">strings</a>, <a href="#ios_application.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_application.xibs">xibs</a>)</pre>
+  <pre class="rule-signature">ios_application(<a href="#ios_application.name">name</a>, <a href="#ios_application.resources">resources</a>, <a href="#ios_application.app_icon">app_icon</a>, <a href="#ios_application.asset_catalogs">asset_catalogs</a>, <a href="#ios_application.binary">binary</a>, <a href="#ios_application.bundle_id">bundle_id</a>, <a href="#ios_application.bundles">bundles</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#ios_application.datamodels">datamodels</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_application.entitlements">entitlements</a>, <a href="#ios_application.extensions">extensions</a>, <a href="#ios_application.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_application.infoplist">infoplist</a>, <a href="#ios_application.infoplists">infoplists</a>, <a href="#ios_application.ipa_post_processor">ipa_post_processor</a>, <a href="#ios_application.launch_image">launch_image</a>, <a href="#ios_application.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_application.provisioning_profile">provisioning_profile</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#ios_application.storyboards">storyboards</a>, <a href="#ios_application.strings">strings</a>, <a href="#ios_application.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_application.xibs">xibs</a>)</pre>
 
 
 <p>This rule produces an application bundle for iOS.</p>
@@ -209,7 +209,7 @@ passed to the application.</p>
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="ios_application.datamodels">
           <code>datamodels</code>
         </td>
@@ -391,7 +391,7 @@ passed to the application.</p>
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="ios_application.storyboards">
           <code>storyboards</code>
         </td>
@@ -466,7 +466,7 @@ passed to the application.</p>
     ios_device
   </h2>
 
-  <pre class="rule-signature">ios_device(<a href="#ios_device.name">name</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_device.ios_version">ios_version</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#ios_device.type">type</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">ios_device(<a href="#ios_device.name">name</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_device.ios_version">ios_version</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#ios_device.type">type</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>This rule defines an iOS device profile that defines a simulator against
@@ -494,7 +494,7 @@ which to run tests.</p>
 
         </td>
       </tr>
-                                              <tr>
+                                                        <tr>
         <td id="ios_device.ios_version">
           <code>ios_version</code>
         </td>
@@ -505,7 +505,7 @@ which to run tests.</p>
 
         </td>
       </tr>
-                                                    <tr>
+                                                              <tr>
         <td id="ios_device.type">
           <code>type</code>
         </td>
@@ -522,7 +522,7 @@ which to run tests.</p>
     ios_extension
   </h2>
 
-  <pre class="rule-signature">ios_extension(<a href="#ios_extension.name">name</a>, <a href="#ios_extension.resources">resources</a>, <a href="#ios_extension.app_icon">app_icon</a>, <a href="#ios_extension.asset_catalogs">asset_catalogs</a>, <a href="#ios_extension.binary">binary</a>, <a href="#ios_extension.bundle_id">bundle_id</a>, <a href="#ios_extension.bundles">bundles</a>, <a href="#ios_extension.datamodels">datamodels</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_extension.entitlements">entitlements</a>, <a href="#ios_extension.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_extension.infoplist">infoplist</a>, <a href="#ios_extension.infoplists">infoplists</a>, <a href="#ios_extension.ipa_post_processor">ipa_post_processor</a>, <a href="#ios_extension.launch_image">launch_image</a>, <a href="#ios_extension.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_extension.provisioning_profile">provisioning_profile</a>, <a href="#ios_extension.storyboards">storyboards</a>, <a href="#ios_extension.strings">strings</a>, <a href="#ios_extension.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_extension.xibs">xibs</a>)</pre>
+  <pre class="rule-signature">ios_extension(<a href="#ios_extension.name">name</a>, <a href="#ios_extension.resources">resources</a>, <a href="#ios_extension.app_icon">app_icon</a>, <a href="#ios_extension.asset_catalogs">asset_catalogs</a>, <a href="#ios_extension.binary">binary</a>, <a href="#ios_extension.bundle_id">bundle_id</a>, <a href="#ios_extension.bundles">bundles</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#ios_extension.datamodels">datamodels</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_extension.entitlements">entitlements</a>, <a href="#ios_extension.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_extension.infoplist">infoplist</a>, <a href="#ios_extension.infoplists">infoplists</a>, <a href="#ios_extension.ipa_post_processor">ipa_post_processor</a>, <a href="#ios_extension.launch_image">launch_image</a>, <a href="#ios_extension.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_extension.provisioning_profile">provisioning_profile</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#ios_extension.storyboards">storyboards</a>, <a href="#ios_extension.strings">strings</a>, <a href="#ios_extension.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_extension.xibs">xibs</a>)</pre>
 
 
 <p>This rule produces a bundled binary for an iOS app extension from a compiled binary and bundle
@@ -670,7 +670,7 @@ between how each thing is processed:
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="ios_extension.datamodels">
           <code>datamodels</code>
         </td>
@@ -842,7 +842,7 @@ between how each thing is processed:
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="ios_extension.storyboards">
           <code>storyboards</code>
         </td>
@@ -917,7 +917,7 @@ between how each thing is processed:
     ios_extension_binary
   </h2>
 
-  <pre class="rule-signature">ios_extension_binary(<a href="#ios_extension_binary.name">name</a>, <a href="#ios_extension_binary.deps">deps</a>, <a href="#ios_extension_binary.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#ios_extension_binary.resources">resources</a>, <a href="#ios_extension_binary.hdrs">hdrs</a>, <a href="#ios_extension_binary.asset_catalogs">asset_catalogs</a>, <a href="#ios_extension_binary.bridging_header">bridging_header</a>, <a href="#ios_extension_binary.bundles">bundles</a>, <a href="#ios_extension_binary.copts">copts</a>, <a href="#ios_extension_binary.datamodels">datamodels</a>, <a href="#ios_extension_binary.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_extension_binary.enable_modules">enable_modules</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_extension_binary.includes">includes</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_extension_binary.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_extension_binary.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_extension_binary.pch">pch</a>, <a href="#ios_extension_binary.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_extension_binary.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_extension_binary.sdk_includes">sdk_includes</a>, <a href="#ios_extension_binary.storyboards">storyboards</a>, <a href="#ios_extension_binary.strings">strings</a>, <a href="#ios_extension_binary.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#ios_extension_binary.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_extension_binary.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_extension_binary.xibs">xibs</a>)</pre>
+  <pre class="rule-signature">ios_extension_binary(<a href="#ios_extension_binary.name">name</a>, <a href="#ios_extension_binary.deps">deps</a>, <a href="#ios_extension_binary.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#ios_extension_binary.resources">resources</a>, <a href="#ios_extension_binary.hdrs">hdrs</a>, <a href="#ios_extension_binary.asset_catalogs">asset_catalogs</a>, <a href="#ios_extension_binary.bridging_header">bridging_header</a>, <a href="#ios_extension_binary.bundles">bundles</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#ios_extension_binary.copts">copts</a>, <a href="#ios_extension_binary.datamodels">datamodels</a>, <a href="#ios_extension_binary.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_extension_binary.enable_modules">enable_modules</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_extension_binary.includes">includes</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_extension_binary.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_extension_binary.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_extension_binary.pch">pch</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#ios_extension_binary.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_extension_binary.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_extension_binary.sdk_includes">sdk_includes</a>, <a href="#ios_extension_binary.storyboards">storyboards</a>, <a href="#ios_extension_binary.strings">strings</a>, <a href="#ios_extension_binary.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#ios_extension_binary.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_extension_binary.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_extension_binary.xibs">xibs</a>)</pre>
 
 
 <p>This rule produces a binary for an iOS app extension by linking one or more
@@ -1044,7 +1044,7 @@ Objective-C libraries.</p>
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="ios_extension_binary.copts">
           <code>copts</code>
         </td>
@@ -1171,7 +1171,7 @@ Objective-C libraries.</p>
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="ios_extension_binary.sdk_dylibs">
           <code>sdk_dylibs</code>
         </td>
@@ -1319,7 +1319,7 @@ Objective-C libraries.</p>
     ios_framework
   </h2>
 
-  <pre class="rule-signature">ios_framework(<a href="#ios_framework.name">name</a>, <a href="#ios_framework.resources">resources</a>, <a href="#ios_framework.hdrs">hdrs</a>, <a href="#ios_framework.app_icon">app_icon</a>, <a href="#ios_framework.asset_catalogs">asset_catalogs</a>, <a href="#ios_framework.binary">binary</a>, <a href="#ios_framework.bundle_id">bundle_id</a>, <a href="#ios_framework.bundles">bundles</a>, <a href="#ios_framework.datamodels">datamodels</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_framework.entitlements">entitlements</a>, <a href="#ios_framework.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_framework.infoplist">infoplist</a>, <a href="#ios_framework.infoplists">infoplists</a>, <a href="#ios_framework.launch_image">launch_image</a>, <a href="#ios_framework.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_framework.provisioning_profile">provisioning_profile</a>, <a href="#ios_framework.storyboards">storyboards</a>, <a href="#ios_framework.strings">strings</a>, <a href="#ios_framework.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_framework.xibs">xibs</a>)</pre>
+  <pre class="rule-signature">ios_framework(<a href="#ios_framework.name">name</a>, <a href="#ios_framework.resources">resources</a>, <a href="#ios_framework.hdrs">hdrs</a>, <a href="#ios_framework.app_icon">app_icon</a>, <a href="#ios_framework.asset_catalogs">asset_catalogs</a>, <a href="#ios_framework.binary">binary</a>, <a href="#ios_framework.bundle_id">bundle_id</a>, <a href="#ios_framework.bundles">bundles</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#ios_framework.datamodels">datamodels</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_framework.entitlements">entitlements</a>, <a href="#ios_framework.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_framework.infoplist">infoplist</a>, <a href="#ios_framework.infoplists">infoplists</a>, <a href="#ios_framework.launch_image">launch_image</a>, <a href="#ios_framework.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_framework.provisioning_profile">provisioning_profile</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#ios_framework.storyboards">storyboards</a>, <a href="#ios_framework.strings">strings</a>, <a href="#ios_framework.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_framework.xibs">xibs</a>)</pre>
 
 
 <p>This rule produces a bundled binary for a framework from a compiled binary and bundle
@@ -1448,7 +1448,7 @@ final app bundle and only used during compilation stage.
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="ios_framework.datamodels">
           <code>datamodels</code>
         </td>
@@ -1600,7 +1600,7 @@ final app bundle and only used during compilation stage.
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="ios_framework.storyboards">
           <code>storyboards</code>
         </td>
@@ -1675,7 +1675,7 @@ final app bundle and only used during compilation stage.
     ios_framework_binary
   </h2>
 
-  <pre class="rule-signature">ios_framework_binary(<a href="#ios_framework_binary.name">name</a>, <a href="#ios_framework_binary.deps">deps</a>, <a href="#ios_framework_binary.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#ios_framework_binary.resources">resources</a>, <a href="#ios_framework_binary.hdrs">hdrs</a>, <a href="#ios_framework_binary.asset_catalogs">asset_catalogs</a>, <a href="#ios_framework_binary.bridging_header">bridging_header</a>, <a href="#ios_framework_binary.bundles">bundles</a>, <a href="#ios_framework_binary.copts">copts</a>, <a href="#ios_framework_binary.datamodels">datamodels</a>, <a href="#ios_framework_binary.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_framework_binary.enable_modules">enable_modules</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_framework_binary.includes">includes</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_framework_binary.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_framework_binary.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_framework_binary.pch">pch</a>, <a href="#ios_framework_binary.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_framework_binary.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_framework_binary.sdk_includes">sdk_includes</a>, <a href="#ios_framework_binary.storyboards">storyboards</a>, <a href="#ios_framework_binary.strings">strings</a>, <a href="#ios_framework_binary.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#ios_framework_binary.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_framework_binary.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_framework_binary.xibs">xibs</a>)</pre>
+  <pre class="rule-signature">ios_framework_binary(<a href="#ios_framework_binary.name">name</a>, <a href="#ios_framework_binary.deps">deps</a>, <a href="#ios_framework_binary.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#ios_framework_binary.resources">resources</a>, <a href="#ios_framework_binary.hdrs">hdrs</a>, <a href="#ios_framework_binary.asset_catalogs">asset_catalogs</a>, <a href="#ios_framework_binary.bridging_header">bridging_header</a>, <a href="#ios_framework_binary.bundles">bundles</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#ios_framework_binary.copts">copts</a>, <a href="#ios_framework_binary.datamodels">datamodels</a>, <a href="#ios_framework_binary.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_framework_binary.enable_modules">enable_modules</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_framework_binary.includes">includes</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#ios_framework_binary.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_framework_binary.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_framework_binary.pch">pch</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#ios_framework_binary.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_framework_binary.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_framework_binary.sdk_includes">sdk_includes</a>, <a href="#ios_framework_binary.storyboards">storyboards</a>, <a href="#ios_framework_binary.strings">strings</a>, <a href="#ios_framework_binary.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#ios_framework_binary.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_framework_binary.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_framework_binary.xibs">xibs</a>)</pre>
 
 
 <p>This rule produces a dynamic library for a framework by linking one or more Objective-C
@@ -1802,7 +1802,7 @@ libraries.</p>
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="ios_framework_binary.copts">
           <code>copts</code>
         </td>
@@ -1929,7 +1929,7 @@ libraries.</p>
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="ios_framework_binary.sdk_dylibs">
           <code>sdk_dylibs</code>
         </td>
@@ -2077,7 +2077,7 @@ libraries.</p>
     objc_binary
   </h2>
 
-  <pre class="rule-signature">objc_binary(<a href="#objc_binary.name">name</a>, <a href="#objc_binary.deps">deps</a>, <a href="#objc_binary.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#objc_binary.resources">resources</a>, <a href="#objc_binary.hdrs">hdrs</a>, <a href="#objc_binary.app_icon">app_icon</a>, <a href="#objc_binary.asset_catalogs">asset_catalogs</a>, <a href="#objc_binary.bridging_header">bridging_header</a>, <a href="#objc_binary.bundle_id">bundle_id</a>, <a href="#objc_binary.bundles">bundles</a>, <a href="#objc_binary.copts">copts</a>, <a href="#objc_binary.datamodels">datamodels</a>, <a href="#objc_binary.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#objc_binary.enable_modules">enable_modules</a>, <a href="#objc_binary.entitlements">entitlements</a>, <a href="#objc_binary.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#objc_binary.includes">includes</a>, <a href="#objc_binary.infoplist">infoplist</a>, <a href="#objc_binary.infoplists">infoplists</a>, <a href="#objc_binary.launch_image">launch_image</a>, <a href="#objc_binary.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#objc_binary.non_arc_srcs">non_arc_srcs</a>, <a href="#objc_binary.non_propagated_deps">non_propagated_deps</a>, <a href="#objc_binary.pch">pch</a>, <a href="#objc_binary.provisioning_profile">provisioning_profile</a>, <a href="#objc_binary.sdk_dylibs">sdk_dylibs</a>, <a href="#objc_binary.sdk_frameworks">sdk_frameworks</a>, <a href="#objc_binary.sdk_includes">sdk_includes</a>, <a href="#objc_binary.storyboards">storyboards</a>, <a href="#objc_binary.strings">strings</a>, <a href="#objc_binary.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#objc_binary.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#objc_binary.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#objc_binary.xibs">xibs</a>)</pre>
+  <pre class="rule-signature">objc_binary(<a href="#objc_binary.name">name</a>, <a href="#objc_binary.deps">deps</a>, <a href="#objc_binary.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#objc_binary.resources">resources</a>, <a href="#objc_binary.hdrs">hdrs</a>, <a href="#objc_binary.app_icon">app_icon</a>, <a href="#objc_binary.asset_catalogs">asset_catalogs</a>, <a href="#objc_binary.bridging_header">bridging_header</a>, <a href="#objc_binary.bundle_id">bundle_id</a>, <a href="#objc_binary.bundles">bundles</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#objc_binary.copts">copts</a>, <a href="#objc_binary.datamodels">datamodels</a>, <a href="#objc_binary.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#objc_binary.enable_modules">enable_modules</a>, <a href="#objc_binary.entitlements">entitlements</a>, <a href="#objc_binary.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#objc_binary.includes">includes</a>, <a href="#objc_binary.infoplist">infoplist</a>, <a href="#objc_binary.infoplists">infoplists</a>, <a href="#objc_binary.launch_image">launch_image</a>, <a href="#objc_binary.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#objc_binary.non_arc_srcs">non_arc_srcs</a>, <a href="#objc_binary.non_propagated_deps">non_propagated_deps</a>, <a href="#objc_binary.pch">pch</a>, <a href="#objc_binary.provisioning_profile">provisioning_profile</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#objc_binary.sdk_dylibs">sdk_dylibs</a>, <a href="#objc_binary.sdk_frameworks">sdk_frameworks</a>, <a href="#objc_binary.sdk_includes">sdk_includes</a>, <a href="#objc_binary.storyboards">storyboards</a>, <a href="#objc_binary.strings">strings</a>, <a href="#objc_binary.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#objc_binary.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#objc_binary.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#objc_binary.xibs">xibs</a>)</pre>
 
 
 <p>This rule produces one or more Objective-C libraries for bundling in an
@@ -2244,7 +2244,7 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="objc_binary.copts">
           <code>copts</code>
         </td>
@@ -2509,7 +2509,7 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="objc_binary.sdk_dylibs">
           <code>sdk_dylibs</code>
         </td>
@@ -2657,7 +2657,7 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
     j2objc_library
   </h2>
 
-  <pre class="rule-signature">j2objc_library(<a href="#j2objc_library.name">name</a>, <a href="#j2objc_library.deps">deps</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#j2objc_library.entry_classes">entry_classes</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">j2objc_library(<a href="#j2objc_library.name">name</a>, <a href="#j2objc_library.deps">deps</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#j2objc_library.entry_classes">entry_classes</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p> This rule uses <a href="https://github.com/google/j2objc">J2ObjC</a> to translate Java source
@@ -2731,7 +2731,7 @@ separate common target that can be depended upon.
 
         </td>
       </tr>
-                                          <tr>
+                                                    <tr>
         <td id="j2objc_library.entry_classes">
           <code>entry_classes</code>
         </td>
@@ -2748,13 +2748,13 @@ separate common target that can be depended upon.
 
         </td>
       </tr>
-                                                                </tbody>
+                                                                          </tbody>
   </table>
     <h2 id="objc_bundle">
     objc_bundle
   </h2>
 
-  <pre class="rule-signature">objc_bundle(<a href="#objc_bundle.name">name</a>, <a href="#objc_bundle.bundle_imports">bundle_imports</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">objc_bundle(<a href="#objc_bundle.name">name</a>, <a href="#objc_bundle.bundle_imports">bundle_imports</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>This rule encapsulates an already-built bundle. It is defined by a list of
@@ -2793,13 +2793,13 @@ files in one or more <code>.bundle</code> directories.
 
         </td>
       </tr>
-                                                                                    </tbody>
+                                                                                                        </tbody>
   </table>
     <h2 id="objc_bundle_library">
     objc_bundle_library
   </h2>
 
-  <pre class="rule-signature">objc_bundle_library(<a href="#objc_bundle_library.name">name</a>, <a href="#objc_bundle_library.resources">resources</a>, <a href="#objc_bundle_library.asset_catalogs">asset_catalogs</a>, <a href="#objc_bundle_library.bundles">bundles</a>, <a href="#objc_bundle_library.datamodels">datamodels</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#objc_bundle_library.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#objc_bundle_library.infoplist">infoplist</a>, <a href="#objc_bundle_library.infoplists">infoplists</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#objc_bundle_library.storyboards">storyboards</a>, <a href="#objc_bundle_library.strings">strings</a>, <a href="#objc_bundle_library.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#objc_bundle_library.xibs">xibs</a>)</pre>
+  <pre class="rule-signature">objc_bundle_library(<a href="#objc_bundle_library.name">name</a>, <a href="#objc_bundle_library.resources">resources</a>, <a href="#objc_bundle_library.asset_catalogs">asset_catalogs</a>, <a href="#objc_bundle_library.bundles">bundles</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#objc_bundle_library.datamodels">datamodels</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#objc_bundle_library.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#objc_bundle_library.infoplist">infoplist</a>, <a href="#objc_bundle_library.infoplists">infoplists</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#objc_bundle_library.storyboards">storyboards</a>, <a href="#objc_bundle_library.strings">strings</a>, <a href="#objc_bundle_library.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#objc_bundle_library.xibs">xibs</a>)</pre>
 
 
 <p>This rule encapsulates a library which is provided to dependers as a bundle.
@@ -2871,7 +2871,7 @@ the final iOS application.
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="objc_bundle_library.datamodels">
           <code>datamodels</code>
         </td>
@@ -2943,7 +2943,7 @@ the final iOS application.
 
         </td>
       </tr>
-                                <tr>
+                                          <tr>
         <td id="objc_bundle_library.storyboards">
           <code>storyboards</code>
         </td>
@@ -3018,7 +3018,7 @@ the final iOS application.
     objc_framework
   </h2>
 
-  <pre class="rule-signature">objc_framework(<a href="#objc_framework.name">name</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#objc_framework.framework_imports">framework_imports</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#objc_framework.sdk_dylibs">sdk_dylibs</a>, <a href="#objc_framework.sdk_frameworks">sdk_frameworks</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#objc_framework.weak_sdk_frameworks">weak_sdk_frameworks</a>)</pre>
+  <pre class="rule-signature">objc_framework(<a href="#objc_framework.name">name</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#objc_framework.framework_imports">framework_imports</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#objc_framework.sdk_dylibs">sdk_dylibs</a>, <a href="#objc_framework.sdk_frameworks">sdk_frameworks</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#objc_framework.weak_sdk_frameworks">weak_sdk_frameworks</a>)</pre>
 
 
 <p>This rule encapsulates an already-built framework. It is defined by a list
@@ -3046,7 +3046,7 @@ of files in one or more <code>.framework</code> directories.
 
         </td>
       </tr>
-                                              <tr>
+                                                        <tr>
         <td id="objc_framework.framework_imports">
           <code>framework_imports</code>
         </td>
@@ -3057,7 +3057,7 @@ of files in one or more <code>.framework</code> directories.
 
         </td>
       </tr>
-                                <tr>
+                                          <tr>
         <td id="objc_framework.sdk_dylibs">
           <code>sdk_dylibs</code>
         </td>
@@ -3111,7 +3111,7 @@ of files in one or more <code>.framework</code> directories.
     objc_import
   </h2>
 
-  <pre class="rule-signature">objc_import(<a href="#objc_import.name">name</a>, <a href="#objc_import.resources">resources</a>, <a href="#objc_import.hdrs">hdrs</a>, <a href="#objc_import.alwayslink">alwayslink</a>, <a href="#objc_import.archives">archives</a>, <a href="#objc_import.asset_catalogs">asset_catalogs</a>, <a href="#objc_import.bridging_header">bridging_header</a>, <a href="#objc_import.bundles">bundles</a>, <a href="#objc_import.datamodels">datamodels</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#objc_import.includes">includes</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#objc_import.sdk_dylibs">sdk_dylibs</a>, <a href="#objc_import.sdk_frameworks">sdk_frameworks</a>, <a href="#objc_import.sdk_includes">sdk_includes</a>, <a href="#objc_import.storyboards">storyboards</a>, <a href="#objc_import.strings">strings</a>, <a href="#objc_import.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#objc_import.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#objc_import.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#objc_import.xibs">xibs</a>)</pre>
+  <pre class="rule-signature">objc_import(<a href="#objc_import.name">name</a>, <a href="#objc_import.resources">resources</a>, <a href="#objc_import.hdrs">hdrs</a>, <a href="#objc_import.alwayslink">alwayslink</a>, <a href="#objc_import.archives">archives</a>, <a href="#objc_import.asset_catalogs">asset_catalogs</a>, <a href="#objc_import.bridging_header">bridging_header</a>, <a href="#objc_import.bundles">bundles</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#objc_import.datamodels">datamodels</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#objc_import.includes">includes</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#objc_import.sdk_dylibs">sdk_dylibs</a>, <a href="#objc_import.sdk_frameworks">sdk_frameworks</a>, <a href="#objc_import.sdk_includes">sdk_includes</a>, <a href="#objc_import.storyboards">storyboards</a>, <a href="#objc_import.strings">strings</a>, <a href="#objc_import.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#objc_import.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#objc_import.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#objc_import.xibs">xibs</a>)</pre>
 
 
 <p>This rule encapsulates an already-compiled static library in the form of an
@@ -3233,7 +3233,7 @@ attributes supported by <code>objc_library</code>.</p>
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="objc_import.datamodels">
           <code>datamodels</code>
         </td>
@@ -3272,7 +3272,7 @@ attributes supported by <code>objc_library</code>.</p>
 
         </td>
       </tr>
-                                <tr>
+                                          <tr>
         <td id="objc_import.sdk_dylibs">
           <code>sdk_dylibs</code>
         </td>
@@ -3420,7 +3420,7 @@ attributes supported by <code>objc_library</code>.</p>
     objc_library
   </h2>
 
-  <pre class="rule-signature">objc_library(<a href="#objc_library.name">name</a>, <a href="#objc_library.deps">deps</a>, <a href="#objc_library.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#objc_library.resources">resources</a>, <a href="#objc_library.hdrs">hdrs</a>, <a href="#objc_library.alwayslink">alwayslink</a>, <a href="#objc_library.asset_catalogs">asset_catalogs</a>, <a href="#objc_library.bridging_header">bridging_header</a>, <a href="#objc_library.bundles">bundles</a>, <a href="#objc_library.copts">copts</a>, <a href="#objc_library.datamodels">datamodels</a>, <a href="#objc_library.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#objc_library.enable_modules">enable_modules</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#objc_library.includes">includes</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#objc_library.non_arc_srcs">non_arc_srcs</a>, <a href="#objc_library.non_propagated_deps">non_propagated_deps</a>, <a href="#objc_library.pch">pch</a>, <a href="#objc_library.sdk_dylibs">sdk_dylibs</a>, <a href="#objc_library.sdk_frameworks">sdk_frameworks</a>, <a href="#objc_library.sdk_includes">sdk_includes</a>, <a href="#objc_library.storyboards">storyboards</a>, <a href="#objc_library.strings">strings</a>, <a href="#objc_library.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#objc_library.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#objc_library.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#objc_library.xibs">xibs</a>)</pre>
+  <pre class="rule-signature">objc_library(<a href="#objc_library.name">name</a>, <a href="#objc_library.deps">deps</a>, <a href="#objc_library.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#objc_library.resources">resources</a>, <a href="#objc_library.hdrs">hdrs</a>, <a href="#objc_library.alwayslink">alwayslink</a>, <a href="#objc_library.asset_catalogs">asset_catalogs</a>, <a href="#objc_library.bridging_header">bridging_header</a>, <a href="#objc_library.bundles">bundles</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#objc_library.copts">copts</a>, <a href="#objc_library.datamodels">datamodels</a>, <a href="#objc_library.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#objc_library.enable_modules">enable_modules</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#objc_library.includes">includes</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#objc_library.non_arc_srcs">non_arc_srcs</a>, <a href="#objc_library.non_propagated_deps">non_propagated_deps</a>, <a href="#objc_library.pch">pch</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#objc_library.sdk_dylibs">sdk_dylibs</a>, <a href="#objc_library.sdk_frameworks">sdk_frameworks</a>, <a href="#objc_library.sdk_includes">sdk_includes</a>, <a href="#objc_library.storyboards">storyboards</a>, <a href="#objc_library.strings">strings</a>, <a href="#objc_library.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#objc_library.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#objc_library.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#objc_library.xibs">xibs</a>)</pre>
 
 
 <p>This rule produces a static library from the given Objective-C source files.</p>
@@ -3564,7 +3564,7 @@ attributes supported by <code>objc_library</code>.</p>
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="objc_library.copts">
           <code>copts</code>
         </td>
@@ -3691,7 +3691,7 @@ attributes supported by <code>objc_library</code>.</p>
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="objc_library.sdk_dylibs">
           <code>sdk_dylibs</code>
         </td>
@@ -3839,7 +3839,7 @@ attributes supported by <code>objc_library</code>.</p>
     objc_proto_library
   </h2>
 
-  <pre class="rule-signature">objc_proto_library(<a href="#objc_proto_library.name">name</a>, <a href="#objc_proto_library.deps">deps</a>, <a href="common-definitions.html#common.data">data</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#objc_proto_library.options_file">options_file</a>, <a href="#objc_proto_library.output_cpp">output_cpp</a>, <a href="#objc_proto_library.per_proto_includes">per_proto_includes</a>, <a href="#objc_proto_library.portable_proto_filters">portable_proto_filters</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#objc_proto_library.use_objc_header_names">use_objc_header_names</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">objc_proto_library(<a href="#objc_proto_library.name">name</a>, <a href="#objc_proto_library.deps">deps</a>, <a href="common-definitions.html#common.data">data</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#objc_proto_library.options_file">options_file</a>, <a href="#objc_proto_library.output_cpp">output_cpp</a>, <a href="#objc_proto_library.per_proto_includes">per_proto_includes</a>, <a href="#objc_proto_library.portable_proto_filters">portable_proto_filters</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#objc_proto_library.use_objc_header_names">use_objc_header_names</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>This rule produces a static library from the given proto_library dependencies, after applying an
@@ -3877,7 +3877,7 @@ options file.</p>
 
         </td>
       </tr>
-                                                                        <tr>
+                                                                                  <tr>
         <td id="objc_proto_library.options_file">
           <code>options_file</code>
         </td>
@@ -3920,7 +3920,7 @@ options file.</p>
 
         </td>
       </tr>
-                                          <tr>
+                                                    <tr>
         <td id="objc_proto_library.use_objc_header_names">
           <code>use_objc_header_names</code>
         </td>
@@ -3936,7 +3936,7 @@ options file.</p>
     ios_test
   </h2>
 
-  <pre class="rule-signature">ios_test(<a href="#ios_test.name">name</a>, <a href="#ios_test.deps">deps</a>, <a href="#ios_test.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#ios_test.resources">resources</a>, <a href="#ios_test.hdrs">hdrs</a>, <a href="#ios_test.app_icon">app_icon</a>, <a href="common-definitions.html#test.args">args</a>, <a href="#ios_test.asset_catalogs">asset_catalogs</a>, <a href="#ios_test.bridging_header">bridging_header</a>, <a href="#ios_test.bundle_id">bundle_id</a>, <a href="#ios_test.bundles">bundles</a>, <a href="#ios_test.copts">copts</a>, <a href="#ios_test.datamodels">datamodels</a>, <a href="#ios_test.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_test.enable_modules">enable_modules</a>, <a href="#ios_test.entitlements">entitlements</a>, <a href="#ios_test.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="#ios_test.includes">includes</a>, <a href="#ios_test.infoplist">infoplist</a>, <a href="#ios_test.infoplists">infoplists</a>, <a href="#ios_test.ios_device_arg">ios_device_arg</a>, <a href="#ios_test.ios_test_target_device">ios_test_target_device</a>, <a href="#ios_test.launch_image">launch_image</a>, <a href="#ios_test.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="#ios_test.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_test.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_test.pch">pch</a>, <a href="#ios_test.plugins">plugins</a>, <a href="#ios_test.provisioning_profile">provisioning_profile</a>, <a href="#ios_test.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_test.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_test.sdk_includes">sdk_includes</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="#ios_test.storyboards">storyboards</a>, <a href="#ios_test.strings">strings</a>, <a href="#ios_test.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="#ios_test.target_device">target_device</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#ios_test.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_test.xctest">xctest</a>, <a href="#ios_test.xctest_app">xctest_app</a>, <a href="#ios_test.xibs">xibs</a>)</pre>
+  <pre class="rule-signature">ios_test(<a href="#ios_test.name">name</a>, <a href="#ios_test.deps">deps</a>, <a href="#ios_test.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#ios_test.resources">resources</a>, <a href="#ios_test.hdrs">hdrs</a>, <a href="#ios_test.app_icon">app_icon</a>, <a href="common-definitions.html#test.args">args</a>, <a href="#ios_test.asset_catalogs">asset_catalogs</a>, <a href="#ios_test.bridging_header">bridging_header</a>, <a href="#ios_test.bundle_id">bundle_id</a>, <a href="#ios_test.bundles">bundles</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#ios_test.copts">copts</a>, <a href="#ios_test.datamodels">datamodels</a>, <a href="#ios_test.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#ios_test.enable_modules">enable_modules</a>, <a href="#ios_test.entitlements">entitlements</a>, <a href="#ios_test.families">families</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="#ios_test.includes">includes</a>, <a href="#ios_test.infoplist">infoplist</a>, <a href="#ios_test.infoplists">infoplists</a>, <a href="#ios_test.ios_device_arg">ios_device_arg</a>, <a href="#ios_test.ios_test_target_device">ios_test_target_device</a>, <a href="#ios_test.launch_image">launch_image</a>, <a href="#ios_test.launch_storyboard">launch_storyboard</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="#ios_test.non_arc_srcs">non_arc_srcs</a>, <a href="#ios_test.non_propagated_deps">non_propagated_deps</a>, <a href="#ios_test.pch">pch</a>, <a href="#ios_test.plugins">plugins</a>, <a href="#ios_test.provisioning_profile">provisioning_profile</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#ios_test.sdk_dylibs">sdk_dylibs</a>, <a href="#ios_test.sdk_frameworks">sdk_frameworks</a>, <a href="#ios_test.sdk_includes">sdk_includes</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="#ios_test.storyboards">storyboards</a>, <a href="#ios_test.strings">strings</a>, <a href="#ios_test.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="#ios_test.target_device">target_device</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#ios_test.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_test.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#ios_test.xctest">xctest</a>, <a href="#ios_test.xctest_app">xctest_app</a>, <a href="#ios_test.xibs">xibs</a>)</pre>
 
 
 <p>This rule provides a way to build iOS unit tests written in KIF, GTM and XCTest test frameworks
@@ -4088,7 +4088,7 @@ on both iOS simulator and real devices.
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="ios_test.copts">
           <code>copts</code>
         </td>
@@ -4386,7 +4386,7 @@ on both iOS simulator and real devices.
 
         </td>
       </tr>
-                      <tr>
+                                <tr>
         <td id="ios_test.sdk_dylibs">
           <code>sdk_dylibs</code>
         </td>
@@ -4566,7 +4566,7 @@ on both iOS simulator and real devices.
     objc_xcodeproj
   </h2>
 
-  <pre class="rule-signature">objc_xcodeproj(<a href="#objc_xcodeproj.name">name</a>, <a href="#objc_xcodeproj.deps">deps</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">objc_xcodeproj(<a href="#objc_xcodeproj.name">name</a>, <a href="#objc_xcodeproj.deps">deps</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>This rule combines build information about several objc targets (and all their transitive
@@ -4604,7 +4604,7 @@ dependencies) into a single Xcode project file, for use in developing on a Mac.<
 
         </td>
       </tr>
-                                                                                    </tbody>
+                                                                                                        </tbody>
   </table>
 
 <!-- Generated footer -->

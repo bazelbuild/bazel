@@ -88,6 +88,26 @@ labels attribute.
     </thead>
     <tbody>
         <tr>
+        <td id="common.compatible_with"><code>compatible_with</code></td>
+        <td><p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+
+<p>
+The list of environments this rule can be built for, in addition to
+default-supported environments.
+</p>
+
+<p>
+This is part of Bazel's soft-launched constraint system, which lets users
+declare which rules can and cannot depend on each other. For example,
+externally deployable binaries shouldn't depend on libraries with
+company-secret code. See
+<a href="https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/analysis/constraints/ConstraintSemantics.java#L46">
+ConstraintSemantics</a> for details.
+</p>
+
+</td>
+      </tr>
+        <tr>
         <td id="common.data"><code>data</code></td>
         <td><p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
 
@@ -218,6 +238,22 @@ enabled for the rule will be 'b' and 'c'.
 A list of license-type strings to be used for this particular build rule.
 Overrides the <code>BUILD</code>-file scope defaults defined by the
 <a href="functions.html#licenses"><code>licenses()</code></a> directive.
+</p>
+</td>
+      </tr>
+        <tr>
+        <td id="common.restricted_to"><code>restricted_to</code></td>
+        <td><p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+
+<p>
+The list of environments this rule can be built for, <i>instead</i> of
+default-supported environments.
+</p>
+
+<p>
+This is part of Bazel's soft-launched constraint system. See
+<code><a href="#common.compatible_with">compatible_with</a></code>
+for details.
 </p>
 </td>
       </tr>
@@ -641,12 +677,11 @@ true.</em>
 <h2 id="configurable-attributes">Configurable attributes</h2>
 
 <p>
-  Most rule attributes can be "configured" so that their values can
-  depend on the command-line flags passed to Bazel. This can be used,
-  for example, to declare platform-dependent <code>srcs</code> or custom
-  compiler flags depending on the
+  Most rule attributes can be "configured" so their values depend on Bazel
+  command-line flags. This can be used, for example, to declare
+  platform-dependent <code>srcs</code> or custom compiler flags depending on the
   <a href="../bazel-user-manual.html#flag--compilation_mode">compilation
-  mode</a>. This feature is very close in spirit to
+  mode</a>. This feature is similar to
   <a href="c-cpp.html#cc_library.abi_deps">abi_deps</a>, except that it's not
   limited to <code>cc_*</code> rules and the <code>deps</code> attribute.
 </p>
