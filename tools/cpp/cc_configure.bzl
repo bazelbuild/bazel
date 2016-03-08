@@ -74,7 +74,7 @@ def _ld_library_paths(ctx):
   if "LD_LIBRARY_PATH" in ctx.os.environ:
     result = []
     for p in ctx.os.environ["LD_LIBRARY_PATH"].split(":"):
-      p = ctx.path(p)  # Normalize the path
+      p = str(ctx.path(p))  # Normalize the path
       result.append("-Wl,rpath," + p)
       result.append("-L" + p)
     return result
@@ -106,7 +106,14 @@ def _get_cxx_inc_directories(ctx, cc):
 
 def _add_option_if_supported(ctx, cc, option):
   """Checks that `option` is supported by the C compiler."""
-  result = ctx.execute([cc, option])
+  result = ctx.execute([
+     cc,
+     option,
+     "-o",
+     "/dev/null",
+     "-c",
+     str(ctx.path("tools/cpp/empty.cc"))
+  ])
   return [option] if result.stderr.find(option) == -1 else []
 
 
@@ -133,9 +140,9 @@ def _crosstool_content(ctx, cc, cpu_value, darwin):
       "linker_flag": [
           "-lstdc++",
           # Anticipated future default.
-          "-no-canonical-prefixes"
-      ] + (["-undefined", "dynamic_lookup"] if darwin else [
-          "-B/usr/bin",
+      ] + _add_option_if_supported(ctx, cc, "-no-canonical-prefixes") + (
+        ["-undefined", "dynamic_lookup"] if darwin else [
+          "-B" + str(ctx.path(cc).dirname),
           # Have gcc return the exit code from ld.
           "-pass-exit-codes",
           # Stamp the binary with a unique identifier.
@@ -148,10 +155,10 @@ def _crosstool_content(ctx, cc, cpu_value, darwin):
       "ar_flag": ["-static", "-s", "-o"] if darwin else [],
       "cxx_builtin_include_directory": _get_cxx_inc_directories(ctx, cc),
       "objcopy_embed_flag": ["-I", "binary"],
-      "unfiltered_cxx_flag": [
+      "unfiltered_cxx_flag":
           # Anticipated future default.
-          "-no-canonical-prefixes",
-      ] + ([] if darwin else ["-fno-canonical-system-headers"]) + [
+          _add_option_if_supported(ctx, cc, "-no-canonical-prefixes") +
+          _add_option_if_supported(ctx, cc, "-fno-canonical-system-headers") + [
           # Make C++ compilation deterministic. Use linkstamping instead of these
           # compiler symbols.
           "-Wno-builtin-macro-redefined",
@@ -173,9 +180,10 @@ def _crosstool_content(ctx, cc, cpu_value, darwin):
       ] + (["-Wthread-safety", "-Wself-assign"] if darwin else [
           "-Wunused-but-set-parameter",
           # Disable some that are problematic.
-          "-Wno-free-nonheap-object",  # has false positives
           "-Wl,-z,-relro,-z,now"
       ]) + (
+          # has false positives
+          _add_option_if_supported(ctx, cc, "-Wno-free-nonheap-object") +
           # Enable coloring even if there's no attached terminal. Bazel removes the
           # escape sequences if --nocolor is specified.
           _add_option_if_supported(ctx, cc, "-fcolor-diagnostics")) + [
@@ -236,6 +244,7 @@ def _tpl(ctx, tpl, substitutions={}):
 
 
 def _impl(ctx):
+  ctx.file("tools/cpp/empty.cc")
   cpu_value = _get_cpu_value(ctx)
   darwin = cpu_value == "darwin"
   cc = _find_cc(ctx)
