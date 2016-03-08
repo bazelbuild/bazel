@@ -55,6 +55,7 @@ message AndroidRuleIdeInfo {
   bool has_idl_sources = 8;
   LibraryArtifact idl_jar = 9;
   bool generate_resource_class = 10;
+  string legacy_resources = 11;
 }
 
 message RuleIdeInfo {
@@ -70,6 +71,7 @@ message RuleIdeInfo {
     PROTO_LIBRARY = 8;
     ANDROID_SDK = 9;
     JAVA_PLUGIN = 10;
+    ANDROID_RESOURCES = 11;
   }
 
   string label = 1;
