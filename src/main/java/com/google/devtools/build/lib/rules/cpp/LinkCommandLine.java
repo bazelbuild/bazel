@@ -859,9 +859,13 @@ public final class LinkCommandLine extends CommandLine {
     // Need to wrap static libraries with whole-archive option
     for (String option : linkerInputs) {
       if (!globalNeedWholeArchive && Link.LINK_LIBRARY_FILETYPES.matches(option)) {
-        argv.add(macosx ? "-Wl,-all_load" : "-Wl,-whole-archive");
-        argv.add(option);
-        argv.add(macosx ? "-Wl,-noall_load" : "-Wl,-no-whole-archive");
+        if (macosx) {
+          argv.add("-Wl,-force_load," + option);
+        } else {
+          argv.add("-Wl,-whole-archive");
+          argv.add(option);
+          argv.add("-Wl,-no-whole-archive");
+        }
       } else {
         argv.add(option);
       }
