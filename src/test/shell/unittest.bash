@@ -190,7 +190,7 @@ function timeout() {
     :
 }
 
-# Usage: fail <message>
+# Usage: fail <message> [<message> ...]
 # Print failure message with context information, and mark the test as
 # a failure.  The context includes a stacktrace including the longest sequence
 # of calls outside this module.  (We exclude the top and bottom portions of
@@ -198,8 +198,8 @@ function timeout() {
 # $TEST_log.
 function fail() {
     __show_log >&2
-    echo "$TEST_name FAILED: $1." >&2
-    echo "$1" >$TEST_TMPDIR/__fail
+    echo "$TEST_name FAILED:" "$@" "." >&2
+    echo "$@" >$TEST_TMPDIR/__fail
     TEST_passed="false"
     __show_stack
     # Cleanup as we are leaving the subshell now
