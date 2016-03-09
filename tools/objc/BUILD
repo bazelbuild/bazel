@@ -100,6 +100,11 @@ sh_binary(
     srcs = [":xcrunwrapper.sh"],
 )
 
+filegroup(
+    name = "xctest_infoplist",
+    srcs = ["XCTest-Info.plist"],
+)
+
 sh_binary(
     name = "environment_plist",
     srcs = [":environment_plist.sh"],
