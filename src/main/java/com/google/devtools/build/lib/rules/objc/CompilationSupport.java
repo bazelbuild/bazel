@@ -982,6 +982,8 @@ public final class CompilationSupport {
           .add("&& /usr/bin/zip -q -r \"${zipped_bundle}\" .");
     }
 
+    commandLine.add("-Wl,-all_load");
+
     return new SingleArgCommandLine(commandLine.build());
   }
 
