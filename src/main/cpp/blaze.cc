@@ -1020,7 +1020,7 @@ static void EnsureCorrectRunningVersion() {
     if (KillRunningServerIfAny()) {
       globals->restart_reason = NEW_VERSION;
     }
-    unlink(installation_path.c_str());
+    UnlinkPath(installation_path.c_str());
     if (!SymlinkDirectories(globals->options.install_base.c_str(),
                             installation_path.c_str())) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
@@ -1036,7 +1036,6 @@ static void EnsureCorrectRunningVersion() {
     }
   }
 }
-
 
 // A signal-safe version of fprintf(stderr, ...).
 //

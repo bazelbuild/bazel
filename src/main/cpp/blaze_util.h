@@ -55,9 +55,9 @@ bool ReadFileDescriptor(int fd, string *content);
 // Returns false on failure, sets errno.
 bool WriteFile(const string &content, const string &filename);
 
-// Deletes the file 'filename'.
-// Returns false on failure, sets errno.
-bool DeleteFile(const string &filename);
+// Unlinks the file given by 'file_path'.
+// Returns true on success. In case of failure sets errno.
+bool UnlinkPath(const string &file_path);
 
 // Returns true iff the current terminal can support color and cursor movement.
 bool IsStandardTerminal();
