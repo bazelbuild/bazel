@@ -28,7 +28,14 @@ filegroup(
 
 java_library(
     name = "annotations",
-    srcs = ["@bazel_j2objc//:annotations"],
+    exports = ["@bazel_j2objc//:annotations"],
+)
+
+genrule(
+    name = "jre_emul_jar",
+    srcs = ["@bazel_j2objc//:jre_emul.jar"],
+    outs = ["jre_emul.jar"],
+    cmd = "cp $< $@",
 )
 
 objc_library(
