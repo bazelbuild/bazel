@@ -404,18 +404,18 @@ _d_common_attrs = {
 
 _d_compile_attrs = {
     "_d_compiler": attr.label(
-        default = Label("//tools/build_defs/d:dmd"),
+        default = Label("@bazel_tools//tools/build_defs/d:dmd"),
         executable = True,
         single_file = True,
     ),
     "_d_stdlib": attr.label(
-        default = Label("//tools/build_defs/d:libphobos2"),
+        default = Label("@bazel_tools//tools/build_defs/d:libphobos2"),
     ),
     "_d_stdlib_src": attr.label(
-        default = Label("//tools/build_defs/d:phobos-src"),
+        default = Label("@bazel_tools//tools/build_defs/d:phobos-src"),
     ),
     "_d_runtime_import_src": attr.label(
-        default = Label("//tools/build_defs/d:druntime-import-src"),
+        default = Label("@bazel_tools//tools/build_defs/d:druntime-import-src"),
     ),
 }
 

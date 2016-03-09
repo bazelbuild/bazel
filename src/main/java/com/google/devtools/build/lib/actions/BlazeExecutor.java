@@ -107,6 +107,7 @@ public final class BlazeExecutor implements Executor {
       if (annotation != null) {
         contextMap.put(annotation.contextType(), context);
       }
+      contextMap.put(context.getClass(), context);
     }
 
     for (ActionContextProvider factory : contextProviders) {

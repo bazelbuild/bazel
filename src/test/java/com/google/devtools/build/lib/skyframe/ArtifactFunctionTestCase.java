@@ -49,7 +49,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 
 abstract class ArtifactFunctionTestCase {
-  protected static final SkyKey OWNER_KEY = new SkyKey(SkyFunctions.ACTION_LOOKUP, "OWNER");
+  protected static final SkyKey OWNER_KEY = SkyKey.create(SkyFunctions.ACTION_LOOKUP, "OWNER");
   protected static final ActionLookupKey ALL_OWNER = new SingletonActionLookupKey();
 
   protected Predicate<PathFragment> allowedMissingInputsPredicate = Predicates.alwaysFalse();

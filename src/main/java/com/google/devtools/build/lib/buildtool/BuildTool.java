@@ -329,6 +329,7 @@ public final class BuildTool {
   public BuildResult processRequest(BuildRequest request, TargetValidator validator) {
     BuildResult result = new BuildResult(request.getStartTime());
     env.getEventBus().register(result);
+    maybeSetStopOnFirstFailure(request, result);
     Throwable catastrophe = null;
     ExitCode exitCode = ExitCode.BLAZE_INTERNAL_ERROR;
     try {
@@ -371,6 +372,16 @@ public final class BuildTool {
     }
 
     return result;
+  }
+
+  private void maybeSetStopOnFirstFailure(BuildRequest request, BuildResult result) {
+    if (shouldStopOnFailure(request)) {
+      result.setStopOnFirstFailure(true);
+    }
+  }
+
+  private boolean shouldStopOnFailure(BuildRequest request) {
+    return !(request.getViewOptions().keepGoing && request.getExecutionOptions().testKeepGoing);
   }
 
   @VisibleForTesting

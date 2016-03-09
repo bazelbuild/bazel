@@ -31,3 +31,9 @@ java_library(
         "//third_party:jsr305",
     ],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + ["//src/java_tools/buildjar/java/com/google/devtools/build/java/turbine/javac:srcs"],
+    visibility = ["//src/java_tools/buildjar:__pkg__"],
+)

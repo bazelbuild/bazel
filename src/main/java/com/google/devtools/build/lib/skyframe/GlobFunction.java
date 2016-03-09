@@ -90,7 +90,8 @@ public final class GlobFunction implements SkyFunction {
     // "**" also matches an empty segment, so try the case where it is not present.
     if ("**".equals(patternHead)) {
       if (patternTail == null) {
-        if (!glob.excludeDirs()) {
+        // Recursive globs aren't supposed to match the package's directory.
+        if (!glob.excludeDirs() && !globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
           matches.add(globSubdir);
         }
       } else {
@@ -145,6 +146,9 @@ public final class GlobFunction implements SkyFunction {
             throw new GlobFunctionException(new InconsistentFilesystemException(
                 "readdir and stat disagree about whether " + symlinkRootedPath.asPath()
                     + " is a symlink."), Transience.TRANSIENT);
+          }
+          if (!symlinkFileValue.exists()) {
+            continue;
           }
           isDirectory = symlinkFileValue.isDirectory();
         }

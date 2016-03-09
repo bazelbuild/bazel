@@ -1,6 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
-load("//tools:build_rules/genproto.bzl", "proto_java_library")
+load("//tools/build_rules:genproto.bzl", "java_proto_library")
 
 FILES = [
     "build",
@@ -18,17 +18,13 @@ FILES = [
     "worker_protocol",
     "invocation_policy",
     "remote_protocol",
+    "apk_manifest",
 ]
 
-[proto_java_library(
-    name = s + "_proto",
+[java_proto_library(
+    name = s + "_java_proto",
     src = s + ".proto",
 ) for s in FILES]
-
-proto_java_library(
-    name = "build_proto_v2",
-    src = "build.proto",
-)
 
 filegroup(
     name = "srcs",

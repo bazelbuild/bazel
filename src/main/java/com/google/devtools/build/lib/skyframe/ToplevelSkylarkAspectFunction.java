@@ -75,6 +75,7 @@ public class ToplevelSkylarkAspectFunction implements SkyFunction {
     SkyKey aspectKey =
         AspectValue.key(
             aspectLoadingKey.getTargetLabel(),
+            aspectLoadingKey.getAspectConfiguration(),
             aspectLoadingKey.getTargetConfiguration(),
             skylarkAspect.getAspectClass(),
             AspectParameters.EMPTY);

@@ -13,11 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.pkgcache;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.vfs.Path;
 
 import java.util.Collection;
 
@@ -30,17 +27,14 @@ public final class LoadingResult {
   private final boolean hasLoadingError;
   private final ImmutableSet<Target> targetsToAnalyze;
   private final ImmutableSet<Target> testsToRun;
-  private final ImmutableMap<PackageIdentifier, Path> packageRoots;
 
   public LoadingResult(boolean hasTargetPatternError, boolean hasLoadingError,
-      Collection<Target> targetsToAnalyze, Collection<Target> testsToRun,
-      ImmutableMap<PackageIdentifier, Path> packageRoots) {
+      Collection<Target> targetsToAnalyze, Collection<Target> testsToRun) {
     this.hasTargetPatternError = hasTargetPatternError;
     this.hasLoadingError = hasLoadingError;
     this.targetsToAnalyze =
         targetsToAnalyze == null ? null : ImmutableSet.copyOf(targetsToAnalyze);
     this.testsToRun = testsToRun == null ? null : ImmutableSet.copyOf(testsToRun);
-    this.packageRoots = packageRoots;
   }
 
   /** Whether there were errors during target pattern evaluation. */
@@ -61,13 +55,5 @@ public final class LoadingResult {
   /** Successfully loaded targets that should be run as tests. Must be a subset of the targets. */
   public Collection<Target> getTestsToRun() {
     return testsToRun;
-  }
-
-  /**
-   * The map from package names to the package root where each package was found; this is used to
-   * set up the symlink tree.
-   */
-  public ImmutableMap<PackageIdentifier, Path> getPackageRoots() {
-    return packageRoots;
   }
 }

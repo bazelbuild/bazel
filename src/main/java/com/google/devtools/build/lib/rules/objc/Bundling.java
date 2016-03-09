@@ -25,6 +25,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XIB;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -111,7 +112,7 @@ final class Bundling {
       this.automaticEntriesInfoplistInput = automaticEntriesInfoplist;
       return this;
     }
-    
+
     /**
      * Adds any info plists specified in the given rule's {@code infoplist}  or {@code infoplists}
      * attribute as well as from its {@code options} as inputs to this bundle's {@code Info.plist}
@@ -125,7 +126,8 @@ final class Bundling {
           infoplistInputs.addAll(optionsProvider.getInfoplists());
         }
       }
-      Artifact infoplist = ruleContext.getPrerequisiteArtifact("infoplist", Mode.TARGET);
+      Artifact infoplist =
+          ruleContext.getPrerequisiteArtifact(BundlingRule.INFOPLIST_ATTR, Mode.TARGET);
       if (infoplist != null) {
         infoplistInputs.add(infoplist);
       }

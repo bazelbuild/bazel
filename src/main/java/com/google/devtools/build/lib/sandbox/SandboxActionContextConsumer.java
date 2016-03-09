@@ -14,7 +14,9 @@
 package com.google.devtools.build.lib.sandbox;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMap.Builder;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableMultimap.Builder;
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.SpawnActionContext;
@@ -34,8 +36,8 @@ public class SandboxActionContextConsumer implements ActionContextConsumer {
   }
 
   @Override
-  public Map<Class<? extends ActionContext>, String> getActionContexts() {
-    Builder<Class<? extends ActionContext>, String> contexts = ImmutableMap.builder();
+  public Multimap<Class<? extends ActionContext>, String> getActionContexts() {
+    Builder<Class<? extends ActionContext>, String> contexts = ImmutableMultimap.builder();
 
     if (OS.getCurrent() == OS.LINUX) {
       contexts.put(SpawnActionContext.class, "sandboxed");

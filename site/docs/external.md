@@ -62,28 +62,32 @@ following to build the tool and see usage:
 bazel run //src/tools/generate_workspace
 ```
 
-You can either specify directories containing Bazel projects (i.e., `WORKSPACE`
-files) or Maven projects (i.e., `pom.xml` files).  For example:
+You can specify directories containing Bazel projects (i.e., directories
+containing a `WORKSPACE` file), Maven projects (i.e., directories containing a
+`pom.xml` file), or Maven artifact coordinates directly. For example:
 
 ```bash
 $ bazel run //src/tools/generate_workspace -- \
 >    --maven_project=/path/to/my/project \
 >    --bazel_project=/path/to/skunkworks \
->    --bazel_project=/path/to/teleporter/project
+>    --bazel_project=/path/to/teleporter/project \
+>    --artifact=groupId:artifactId:version \
+>    --artifact=groupId:artifactId:version
 Wrote:
 /tmp/1437415510621-0/2015-07-20-14-05-10.WORKSPACE
 /tmp/1437415510621-0/2015-07-20-14-05-10.BUILD
 ```
 
-The `WORKSPACE` file contains the transitive dependencies of given projects. The
-`BUILD` file contains a single target, `transitive-deps`, that contains all of
-the dependencies. You can copy these files to your project and add
-`transitive-deps` as a dependency of your `java_` targets in `BUILD` files.
+The `WORKSPACE` file will contain the transitive dependencies of the given
+projects and artifacts. The `BUILD` file will contain a single target,
+`transitive-deps`, that contains all of the dependencies. You can copy these
+files to your project and add `transitive-deps` as a dependency of your `java_`
+targets in `BUILD` files.
 
-If you specify multiple Bazel or Maven projects, they will all be combined into
-one `WORKSPACE` file (e.g., if the Bazel project depends on junit and the Maven
-project also depends on junit, junit will only appear once as a dependency in
-the output).
+If you specify multiple Bazel projects, Maven projects, or artifacts, they will
+all be combined into one `WORKSPACE` file (e.g., if the Bazel project depends on
+junit and the Maven project also depends on junit, junit will only appear once
+as a dependency in the output).
 
 You may wish to curate the generated `WORKSPACE` file to ensure it is using the
 correct version of each dependency. If several different versions of an artifact

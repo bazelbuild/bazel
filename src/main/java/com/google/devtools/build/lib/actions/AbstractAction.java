@@ -389,9 +389,6 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   @Override
-  public abstract ResourceSet estimateResourceConsumption(Executor executor);
-
-  @Override
   public boolean shouldReportPathPrefixConflict(Action action) {
     return this != action;
   }

@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -33,8 +32,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 import javax.annotation.Nullable;
 
@@ -150,7 +147,6 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
     derivedRoots = ImmutableList.of();
     artifactIdRegistry = new ArtifactIdRegistry();
     sourceArtifactCache.clear();
-    clearDeserializedArtifacts();
   }
 
   /**
@@ -438,59 +434,6 @@ public class ArtifactFactory implements ArtifactResolver, ArtifactSerializer, Ar
       }
     }
     return null;
-  }
-
-  // Non-final only because clear()ing a map does not actually free the memory it took up, so we
-  // assign it to a new map in lieu of clearing.
-  private ConcurrentMap<PathFragment, Artifact> deserializedArtifacts =
-      new ConcurrentHashMap<>();
-
-  /**
-   * Returns the map of all artifacts that were deserialized this build. The caller should process
-   * them and then call {@link #clearDeserializedArtifacts}.
-   */
-  public Map<PathFragment, Artifact> getDeserializedArtifacts() {
-    return deserializedArtifacts;
-  }
-
-  /** Clears the map of deserialized artifacts. */
-  public void clearDeserializedArtifacts() {
-    deserializedArtifacts = new ConcurrentHashMap<>();
-  }
-
-  /**
-   * Resolves an artifact based on its deserialized representation. The artifact can be either a
-   * source or a derived one.
-   *
-   * <p>Note: this method represents a hole in the usual contract that artifacts with a random path
-   * cannot be created. Unfortunately, we currently need this in some cases.
-   *
-   * @param execPath the exec path of the artifact
-   * @throws PackageRootResolutionException on failure to determine the package roots of
-   *    {@code execPath}
-   */
-  public Artifact deserializeArtifact(PathFragment execPath, PackageRootResolver resolver)
-      throws PackageRootResolutionException {
-    Preconditions.checkArgument(!execPath.isAbsolute(), execPath);
-    Path path = execRoot.getRelative(execPath);
-    Root root = findDerivedRoot(path);
-
-    if (root != null) {
-      Artifact result = getDerivedArtifact(path.relativeTo(root.getPath()), root,
-          Artifact.DESERIALIZED_MARKER_OWNER);
-      Artifact oldResult = deserializedArtifacts.putIfAbsent(execPath, result);
-      if (oldResult != null) {
-        result = oldResult;
-      }
-      return result;
-    } else {
-      Map<PathFragment, Root> sourceRoots = resolver.findPackageRootsForFiles(
-          Lists.newArrayList(execPath));
-      if (sourceRoots == null || sourceRoots.get(execPath) == null) {
-        return null;
-      }
-      return getSourceArtifact(execPath, sourceRoots.get(execPath), ArtifactOwner.NULL_OWNER);
-    }
   }
 
   @Override

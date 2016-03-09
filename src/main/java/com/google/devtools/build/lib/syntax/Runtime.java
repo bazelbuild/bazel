@@ -69,6 +69,31 @@ public final class Runtime {
     }
   }
 
+  /** Marker for unbound variables in cases where neither Java null nor Skylark None is suitable. */
+  @Immutable
+  public static final class UnboundMarker implements SkylarkValue {
+    private UnboundMarker() {}
+
+    @Override
+    public String toString() {
+      return "<unbound>";
+    }
+
+    @Override
+    public boolean isImmutable() {
+      return true;
+    }
+
+    @Override
+    public void write(Appendable buffer, char quotationMark) {
+      Printer.append(buffer, "<unbound>");
+    }
+  }
+
+  @SkylarkSignature(name = "<unbound>", returnType = UnboundMarker.class, documented = false,
+      doc = "Marker for unbound values in cases where neither Skylark None nor Java null can do.")
+  public static final UnboundMarker UNBOUND = new UnboundMarker();
+
   /**
    * Load {@link #NONE} on the stack.
    * <p>Kept close to the definition to avoid reflection errors when changing it.

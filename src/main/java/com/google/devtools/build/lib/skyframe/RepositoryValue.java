@@ -63,6 +63,6 @@ public class RepositoryValue implements SkyValue {
   }
 
   static SkyKey key(RepositoryName repositoryName) {
-    return new SkyKey(SkyFunctions.REPOSITORY, repositoryName);
+    return SkyKey.create(SkyFunctions.REPOSITORY, repositoryName);
   }
 }

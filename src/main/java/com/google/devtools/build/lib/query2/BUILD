@@ -33,7 +33,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:packages-internal",
         "//src/main/java/com/google/devtools/build/lib:util",
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:build_proto_v2",
+        "//src/main/protobuf:build_java_proto",
         "//third_party:jsr305",
     ],
 )

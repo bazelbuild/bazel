@@ -88,7 +88,8 @@ public abstract class AnalysisMock {
 
     return ImmutableMap.of(
         SkyFunctions.REPOSITORY_DIRECTORY,
-        new RepositoryDelegatorFunction(directories, repositoryHandlers, new AtomicBoolean(true)),
+        new RepositoryDelegatorFunction(
+            directories, repositoryHandlers, null, new AtomicBoolean(true)),
         SkyFunctions.REPOSITORY,
         new RepositoryLoaderFunction());
   }

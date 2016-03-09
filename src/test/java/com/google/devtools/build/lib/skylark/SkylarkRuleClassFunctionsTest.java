@@ -180,7 +180,28 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     Attribute attr =
         evalAttributeDefinition("attr.label_list(allow_files = True, providers = ['a', 'b'])")
         .build("a1");
-    assertEquals(ImmutableSet.of("a", "b"), attr.getMandatoryProviders());
+    assertThat(attr.getMandatoryProvidersList()).containsExactly(ImmutableSet.of("a", "b"));
+  }
+
+  @Test
+  public void testAttrWithProvidersList() throws Exception {
+    Attribute attr =
+            evalAttributeDefinition("attr.label_list(allow_files = True,"
+                    + " providers = [['a', 'b'], ['c']])")
+                    .build("a1");
+    assertThat(attr.getMandatoryProvidersList()).containsExactly(ImmutableSet.of("a", "b"),
+            ImmutableSet.of("c"));
+  }
+
+  @Test
+  public void testAttrWithWrongProvidersList() throws Exception {
+    checkErrorContains("Illegal argument: element in 'providers' is of unexpected type."
+            + " Should be list of string, but got list with an element of type int.",
+            "attr.label_list(allow_files = True,  providers = [['a', 1], ['c']])");
+
+    checkErrorContains("Illegal argument: element in 'providers' is of unexpected type."
+            + " Should be list of string, but got string.",
+            "attr.label_list(allow_files = True,  providers = [['a', 'b'], 'c'])");
   }
 
   @Test
@@ -548,6 +569,53 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
         "Invalid text format, expected a struct, a string, a bool, or an int "
             + "but got a ConfigurationTransition for struct field 'a'",
         "struct(a=DATA_CFG).to_proto()");
+  }
+
+  private void checkJson(String from, String expected) throws Exception {
+    Object result = evalRuleClassCode(from);
+    assertEquals(expected, result);
+  }
+
+  @Test
+  public void testJsonBooleanFields() throws Exception {
+    checkJson("struct(name=True).to_json()", "{\"name\":true}");
+    checkJson("struct(name=False).to_json()", "{\"name\":false}");
+  }
+
+  @Test
+  public void testJsonEncoding() throws Exception {
+    checkJson("struct(name='value').to_json()", "{\"name\":\"value\"}");
+    checkJson("struct(name=['a', 'b']).to_json()", "{\"name\":[\"a\",\"b\"]}");
+    checkJson("struct(name=123).to_json()", "{\"name\":123}");
+    checkJson("struct(name=[1, 2, 3]).to_json()", "{\"name\":[1,2,3]}");
+    checkJson("struct(a=struct(b='b')).to_json()", "{\"a\":{\"b\":\"b\"}}");
+    checkJson("struct(a=[struct(b='x'), struct(b='y')]).to_json()",
+        "{\"a\":[{\"b\":\"x\"},{\"b\":\"y\"}]}");
+    checkJson("struct(a=struct(b=struct(c='c'))).to_json()",
+        "{\"a\":{\"b\":{\"c\":\"c\"}}}");
+  }
+
+  @Test
+  public void testJsonEscapes() throws Exception {
+    checkJson("struct(name='a\"b').to_json()", "{\"name\":\"a\\\"b\"}");
+    checkJson("struct(name='a\\'b').to_json()", "{\"name\":\"a'b\"}");
+    checkJson("struct(name='a\\\\b').to_json()", "{\"name\":\"a\\\\b\"}");
+    checkJson("struct(name='a\\nb').to_json()", "{\"name\":\"a\\nb\"}");
+    checkJson("struct(name='a\\rb').to_json()", "{\"name\":\"a\\rb\"}");
+    checkJson("struct(name='a\\tb').to_json()", "{\"name\":\"a\\tb\"}");
+  }
+
+  @Test
+  public void testJsonNestedListStructure() throws Exception {
+    checkJson("struct(a=[['b']]).to_json()", "{\"a\":[[\"b\"]]}");
+  }
+
+  @Test
+  public void testJsonInvalidStructure() throws Exception {
+    checkErrorContains(
+        "Invalid text format, expected a struct, a string, a bool, or an int but got a "
+        + "ConfigurationTransition for struct field 'a'",
+        "struct(a=DATA_CFG).to_json()");
   }
 
   @Test

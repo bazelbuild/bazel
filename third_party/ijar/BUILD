@@ -46,3 +46,9 @@ cc_binary(
     visibility = ["//visibility:public"],
     deps = [":zip"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + ["//third_party/ijar/test:srcs"],
+    visibility = ["//third_party:__pkg__"],
+)

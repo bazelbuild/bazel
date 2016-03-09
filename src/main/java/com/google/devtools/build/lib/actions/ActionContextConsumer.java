@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 
 import java.util.Map;
@@ -59,5 +60,5 @@ public interface ActionContextConsumer {
    *
    * <p>If the implementation name is the empty string, the choice is left to Blaze.
    */
-  Map<Class<? extends ActionContext>, String> getActionContexts();
+  Multimap<Class<? extends ActionContext>, String> getActionContexts();
 }

@@ -40,7 +40,6 @@ public abstract class AbstractPostProcessor {
     postProcessors.put(name, postProcessor);
   }
 
-  private String workingDir = null;
   private JavaLibraryBuildRequest build = null;
 
   /**
@@ -64,9 +63,7 @@ public abstract class AbstractPostProcessor {
 
   protected String workingPath(String name) {
     Preconditions.checkNotNull(this.build);
-    return workingDir != null && name.length() > 0 && name.charAt(0) != '/'
-        ? workingDir + File.separator + name
-        : name;
+    return name;
   }
 
   protected boolean shouldCompressJar() {

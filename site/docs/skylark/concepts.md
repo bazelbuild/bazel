@@ -137,6 +137,7 @@ The following Python features are not supported:
 * `import` (see [`load`](#loading-a-skylark-extension) statement)
 * `while`, `yield`
 * `lambda`
+* `is` (use `==` instead)
 * `try`, `raise`, `except`, `finally` (see [`fail`](lib/globals.html#fail)
   for fatal errors).
 * most builtin functions, most methods

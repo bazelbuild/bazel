@@ -3,7 +3,10 @@ package(default_visibility = ["//src:__subpackages__"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + ["//src/java_tools/singlejar/java/com/google/devtools/build/zip:srcs"],
-    visibility = ["//src/test/shell/bazel:__pkg__"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/test/shell/bazel:__pkg__",
+    ],
 )
 
 java_library(
@@ -61,7 +64,7 @@ java_test(
 #
 # Bootstrapping using Skylark rules
 #
-load("//tools:build_rules/java_rules_skylark.bzl", "bootstrap_java_library", "bootstrap_java_binary")
+load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library", "bootstrap_java_binary")
 
 bootstrap_java_library(
     name = "skylark-deps",

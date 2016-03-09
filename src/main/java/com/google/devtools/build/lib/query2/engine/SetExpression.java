@@ -61,6 +61,11 @@ class SetExpression extends QueryExpression {
   }
 
   @Override
+  public QueryExpression getMapped(QueryExpressionMapper mapper) {
+    return mapper.map(this);
+  }
+
+  @Override
   public String toString() {
     return "set(" + Joiner.on(' ').join(words) + ")";
   }

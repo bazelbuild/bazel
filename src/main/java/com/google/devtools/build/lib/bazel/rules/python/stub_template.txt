@@ -13,7 +13,7 @@ def SearchPath(name):
   for directory in search_path:
     if directory == '': continue
     path = os.path.join(directory, name)
-    if os.path.exists(path):
+    if os.path.isfile(path) and os.access(path, os.X_OK):
       return path
   return None
 

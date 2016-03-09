@@ -29,7 +29,8 @@ public class CoverageReportValue extends ActionLookupValue {
   private final ImmutableSet<Artifact> coverageReportArtifacts;
 
   // There should only ever be one CoverageReportValue value in the graph.
-  public static final SkyKey SKY_KEY = new SkyKey(SkyFunctions.COVERAGE_REPORT, "COVERAGE_REPORT");
+  public static final SkyKey SKY_KEY =
+      SkyKey.create(SkyFunctions.COVERAGE_REPORT, "COVERAGE_REPORT");
   public static final ArtifactOwner ARTIFACT_OWNER = new CoverageReportKey();
 
   public CoverageReportValue(ImmutableSet<Artifact> coverageReportArtifacts,

@@ -34,7 +34,7 @@ import java.io.IOException;
  */
 public class AndroidSdkRepositoryFunction extends RepositoryFunction {
   @Override
-  public boolean isLocal() {
+  public boolean isLocal(Rule rule) {
     return true;
   }
 

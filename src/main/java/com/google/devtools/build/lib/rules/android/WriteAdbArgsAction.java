@@ -14,12 +14,11 @@
 package com.google.devtools.build.lib.rules.android;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -89,15 +88,15 @@ public class WriteAdbArgsAction extends AbstractFileWriteAction {
   }
 
   @Override
-  public DeterministicWriter newDeterministicWriter(EventHandler eventHandler, Executor executor)
+  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx)
       throws IOException, InterruptedException, ExecException {
-    Options options = executor.getOptions().getOptions(Options.class);
+    Options options = ctx.getExecutor().getOptions().getOptions(Options.class);
     final List<String> args = options.adbArgs;
     final String adb = options.adb;
     final int adbJobs = options.adbJobs;
     final String incrementalInstallVerbosity = options.incrementalInstallVerbosity;
     final StartType start = options.start;
-    final String userHomeDirectory = executor.getContext(
+    final String userHomeDirectory = ctx.getExecutor().getContext(
         WriteAdbArgsActionContext.class).getUserHomeDirectory();
 
     return new DeterministicWriter() {

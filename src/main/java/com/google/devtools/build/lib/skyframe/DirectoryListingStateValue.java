@@ -57,7 +57,7 @@ public final class DirectoryListingStateValue implements SkyValue {
 
   @ThreadSafe
   public static SkyKey key(RootedPath rootedPath) {
-    return new SkyKey(SkyFunctions.DIRECTORY_LISTING_STATE, rootedPath);
+    return SkyKey.create(SkyFunctions.DIRECTORY_LISTING_STATE, rootedPath);
   }
 
   /**

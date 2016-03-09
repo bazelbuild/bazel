@@ -53,7 +53,7 @@ public class RepositoryFunctionTest extends BuildViewTestCase {
     }
 
     @Override
-    protected boolean isLocal() {
+    protected boolean isLocal(Rule rule) {
       return false;
     }
 

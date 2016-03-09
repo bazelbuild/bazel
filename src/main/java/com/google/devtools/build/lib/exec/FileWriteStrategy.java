@@ -19,13 +19,10 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
-import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.BufferedOutputStream;
@@ -45,16 +42,16 @@ public final class FileWriteStrategy implements FileWriteActionContext {
   }
 
   @Override
-  public void exec(Executor executor, AbstractFileWriteAction action, FileOutErr outErr,
-      ActionExecutionContext actionExecutionContext) throws ExecException, InterruptedException {
-    EventHandler reporter = executor == null ? null : executor.getEventHandler();
+  public void exec(AbstractFileWriteAction action, ActionExecutionContext actionExecutionContext)
+      throws ExecException, InterruptedException {
+
     try (AutoProfiler p =
             AutoProfiler.logged(
                 "running " + action.prettyPrint(), LOG, /*minTimeForLoggingInMilliseconds=*/ 100)) {
       try {
         Path outputPath = Iterables.getOnlyElement(action.getOutputs()).getPath();
         try (OutputStream out = new BufferedOutputStream(outputPath.getOutputStream())) {
-          action.newDeterministicWriter(reporter, executor).writeOutputFile(out);
+          action.newDeterministicWriter(actionExecutionContext).writeOutputFile(out);
         }
         if (action.makeExecutable()) {
           outputPath.setExecutable(true);

@@ -16,11 +16,10 @@ package com.google.devtools.build.lib.analysis.actions;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 
 import java.io.IOException;
@@ -100,8 +99,7 @@ public class FileWriteAction extends AbstractFileWriteAction {
    * {@link #getFileContents()}.
    */
   @Override
-  public DeterministicWriter newDeterministicWriter(EventHandler eventHandler,
-      Executor executor) {
+  public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
     return new DeterministicWriter() {
       @Override
       public void writeOutputFile(OutputStream out) throws IOException {

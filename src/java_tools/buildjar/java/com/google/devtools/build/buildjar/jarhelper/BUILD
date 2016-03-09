@@ -16,7 +16,10 @@ filegroup(
     name = "srcs",
     # include this BUILD file for the default android tools repository
     srcs = glob(["**"]),
-    visibility = ["//src:__pkg__"],
+    visibility = [
+        "//src:__pkg__",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:__pkg__",
+    ],
 )
 
 # JarHelper library for GenClass so it can create the gen jar.
@@ -36,7 +39,7 @@ java_library(
 ## Bootstrapping using Skylark rules
 #
 
-load("//tools:build_rules/java_rules_skylark.bzl", "bootstrap_java_library", "bootstrap_java_binary")
+load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library", "bootstrap_java_binary")
 
 bootstrap_java_library(
     name = "bootstrap_jarhelper",

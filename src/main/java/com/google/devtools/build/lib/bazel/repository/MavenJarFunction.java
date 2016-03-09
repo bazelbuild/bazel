@@ -61,7 +61,7 @@ public class MavenJarFunction extends HttpArchiveFunction {
   private static final String DEFAULT_SERVER = "default";
 
   @Override
-  public boolean isLocal() {
+  public boolean isLocal(Rule rule) {
     return false;
   }
 

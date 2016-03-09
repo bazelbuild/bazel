@@ -20,14 +20,10 @@ import static com.google.devtools.build.singlejar.ZipCombiner.OutputMode.FORCE_D
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.singlejar.ZipCombiner;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.BundleFile;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.Control;
 import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.MergeZip;
-import com.google.devtools.build.xcode.bundlemerge.proto.BundleMergeProtos.VariableSubstitution;
-import com.google.devtools.build.xcode.common.Platform;
-import com.google.devtools.build.xcode.plmerge.KeysToRemoveIfEmptyString;
 import com.google.devtools.build.xcode.plmerge.PlistMerging;
 import com.google.devtools.build.xcode.zip.ZipFiles;
 import com.google.devtools.build.xcode.zip.ZipInputEntry;
@@ -87,25 +83,6 @@ public final class BundleMerging {
   private static final String INFOPLIST_FILENAME = "Info.plist";
   private static final String PKGINFO_FILENAME = "PkgInfo";
 
-  @VisibleForTesting
-  static final String BOTH_ARGS_ERR =
-      "Only one of source_plist_file and bundle_info_plist_file may be specified";
-
-  /**
-   * A hack needed briefly to maintain backwards compatibility during rename of {@link Platform}
-   * enums. Except for backwards-compatible names, falls back to usage of {@link Platform#valueOf}.
-   */
-  // TODO(bazel-team): Remove this hack.
-  private static Platform platformFromName(String platformName) {
-    if ("SIMULATOR".equals(platformName)) {
-      return Platform.IOS_SIMULATOR;
-    } else if ("DEVICE".equals(platformName)) {
-      return Platform.IOS_DEVICE;
-    } else {
-      return Platform.valueOf(platformName);
-    }
-  }
-
   /**
    * Adds merge artifacts from the given {@code control} into builders that collect merge zips and
    * individual files. {@code bundleRoot} is prepended to each path, except the paths in the merge
@@ -115,64 +92,26 @@ public final class BundleMerging {
       Path tempDir, FileSystem fileSystem, Control control, String bundleRoot,
       ImmutableList.Builder<ZipInputEntry> packagedFilesBuilder,
       ImmutableList.Builder<MergeZip> mergeZipsBuilder, boolean includePkgInfo) throws IOException {
-    Path tempMergedPlist = Files.createTempFile(tempDir, null, INFOPLIST_FILENAME);
-    Path tempPkgInfo = Files.createTempFile(tempDir, null, PKGINFO_FILENAME);
+    bundleRoot = joinPath(bundleRoot, control.getBundleRoot());
 
-    
-    if (control.hasBundleInfoPlistFile() && !control.getSourcePlistFileList().isEmpty()) {
-      throw new IllegalArgumentException(BOTH_ARGS_ERR);
-    }
     if (control.hasBundleInfoPlistFile()) {
+      Path tempMergedPlist = Files.createTempFile(tempDir, null, INFOPLIST_FILENAME);
+      Path tempPkgInfo = Files.createTempFile(tempDir, null, PKGINFO_FILENAME);
       Path bundleInfoPlist = fileSystem.getPath(control.getBundleInfoPlistFile());
-
       new PlistMerging(PlistMerging.readPlistFile(bundleInfoPlist))
           .setBundleIdentifier(
               control.hasPrimaryBundleIdentifier() ? control.getPrimaryBundleIdentifier() : null,
               control.hasFallbackBundleIdentifier() ? control.getFallbackBundleIdentifier() : null)
-          .write(tempMergedPlist, tempPkgInfo);
-    } else {
-      // TODO (cpeyser): Remove this branch once blaze uses bundle_info_plist_file
-
-      // Generate the Info.plist and PkgInfo files to include in the app bundle.
-      ImmutableList.Builder<Path> sourcePlistFilesBuilder = new ImmutableList.Builder<>();
-      for (String sourcePlist : control.getSourcePlistFileList()) {
-        sourcePlistFilesBuilder.add(fileSystem.getPath(sourcePlist));
-      }
-      ImmutableList<Path> sourcePlistFiles = sourcePlistFilesBuilder.build();
-      ImmutableMap.Builder<String, String> substitutionMap = ImmutableMap.builder();
-      for (VariableSubstitution substitution : control.getVariableSubstitutionList()) {
-        substitutionMap.put(substitution.getName(), substitution.getValue());
-      }
-      PlistMerging plistMerging =
-          PlistMerging.from(
-              sourcePlistFiles,
-              PlistMerging.automaticEntries(
-                  control.getTargetDeviceFamilyList(),
-                  platformFromName(control.getPlatform()),
-                  control.getSdkVersion(),
-                  control.getMinimumOsVersion()),
-              substitutionMap.build(),
-              new KeysToRemoveIfEmptyString("CFBundleIconFile", "NSPrincipalClass"),
-              /*executableName*/ null);
-      if (control.hasExecutableName()) {
-        plistMerging.setExecutableName(control.getExecutableName());
-      }
-
-      plistMerging.setBundleIdentifier(
-          control.hasPrimaryBundleIdentifier() ? control.getPrimaryBundleIdentifier() : null,
-          control.hasFallbackBundleIdentifier() ? control.getFallbackBundleIdentifier() : null)
-        .write(tempMergedPlist, tempPkgInfo);
-    }
-
-    bundleRoot = joinPath(bundleRoot, control.getBundleRoot());
-
-    // Add files to zip configuration which creates the final application bundle.
-    packagedFilesBuilder
-        .add(new ZipInputEntry(tempMergedPlist, joinPath(bundleRoot, INFOPLIST_FILENAME)));
-    if (includePkgInfo) {
+          .writePlist(tempMergedPlist)
+          .writePkgInfo(tempPkgInfo);
       packagedFilesBuilder
-          .add(new ZipInputEntry(tempPkgInfo, joinPath(bundleRoot, PKGINFO_FILENAME)));
+          .add(new ZipInputEntry(tempMergedPlist, joinPath(bundleRoot, INFOPLIST_FILENAME)));
+      if (includePkgInfo) {
+        packagedFilesBuilder
+            .add(new ZipInputEntry(tempPkgInfo, joinPath(bundleRoot, PKGINFO_FILENAME)));
+      }
     }
+
     for (BundleFile bundleFile : control.getBundleFileList()) {
       int externalFileAttribute = bundleFile.hasExternalFileAttribute()
           ? bundleFile.getExternalFileAttribute() : ZipInputEntry.DEFAULT_EXTERNAL_FILE_ATTRIBUTE;
@@ -183,11 +122,6 @@ public final class BundleMerging {
               externalFileAttribute));
     }
 
-    for (String mergeZip : control.getMergeWithoutNamePrefixZipList()) {
-      mergeZipsBuilder.add(MergeZip.newBuilder()
-          .setSourcePath(mergeZip)
-          .build());
-    }
     mergeZipsBuilder.addAll(control.getMergeZipList());
 
     for (Control nestedControl : control.getNestedBundleList()) {
@@ -204,8 +138,7 @@ public final class BundleMerging {
   static BundleMerging merging(Path tempDir, FileSystem fileSystem, Control control)
       throws IOException {
     ImmutableList.Builder<MergeZip> mergeZipsBuilder = new ImmutableList.Builder<>();
-    ImmutableList.Builder<ZipInputEntry> packagedFilesBuilder =
-        new ImmutableList.Builder<ZipInputEntry>();
+    ImmutableList.Builder<ZipInputEntry> packagedFilesBuilder = new ImmutableList.Builder<>();
 
     mergeInto(tempDir, fileSystem, control, /*bundleRoot=*/"", packagedFilesBuilder,
         mergeZipsBuilder, /*includePkgInfo=*/true);

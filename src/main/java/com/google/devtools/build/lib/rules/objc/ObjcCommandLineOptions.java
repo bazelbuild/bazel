@@ -171,6 +171,16 @@ public class ObjcCommandLineOptions extends FragmentOptions {
             + " and system libraries."
   )
   public boolean prioritizeStaticLibs;
+ 
+  @Option(
+    name = "objc_debug_with_GLIBCXX",
+    defaultValue = "true",
+    category = "undocumented",
+    help =
+      "If set, and compilation mode is set to 'dbg', define GLIBCXX_DEBUG, "
+        + " GLIBCXX_DEBUG_PEDANTIC and GLIBCPP_CONCEPT_CHECKS."
+  )
+  public boolean debugWithGlibcxx;
   
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
 

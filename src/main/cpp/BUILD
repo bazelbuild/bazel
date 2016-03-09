@@ -102,3 +102,9 @@ cc_binary(
         "//third_party/ijar:zip",
     ],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + ["//src/main/cpp/util:srcs"],
+    visibility = ["//src:__pkg__"],
+)

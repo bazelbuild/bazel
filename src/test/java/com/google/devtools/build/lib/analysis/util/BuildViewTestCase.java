@@ -117,6 +117,7 @@ import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.rules.extra.ExtraAction;
 import com.google.devtools.build.lib.rules.test.BaselineCoverageAction;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.runtime.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
@@ -276,6 +277,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
       optionsParser.parse(configurationArgs);
       optionsParser.parse(args);
+
+      InvocationPolicyEnforcer optionsPolicyEnforcer =
+            new InvocationPolicyEnforcer(TestConstants.TEST_INVOCATION_POLICY);
+      optionsPolicyEnforcer.enforce(optionsParser, "");
 
       configurationFactory.forbidSanityCheck();
       BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
@@ -902,6 +907,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             AspectValue.key(
                     owner.getLabel(),
                     owner.getConfiguration(),
+                    owner.getConfiguration(),
                     new NativeAspectClass(creatingAspectFactory),
                     AspectParameters.EMPTY)
                 .argument());
@@ -966,6 +972,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         (AspectValue.AspectKey)
             AspectValue.key(
                     owner.getLabel(),
+                    owner.getConfiguration(),
                     owner.getConfiguration(),
                     new NativeAspectClass(creatingAspectFactory),
                     AspectParameters.EMPTY)
@@ -1564,7 +1571,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       BaselineCoverageAction baselineAction =
           (BaselineCoverageAction) getGeneratingAction(baselineCoverage);
       ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-      baselineAction.newDeterministicWriter(null, null).writeOutputFile(bytes);
+      baselineAction.newDeterministicWriter(ActionsTestUtil.createContext(reporter))
+          .writeOutputFile(bytes);
 
       for (String line : new String(bytes.toByteArray(), StandardCharsets.UTF_8).split("\n")) {
         if (line.startsWith("SF:")) {

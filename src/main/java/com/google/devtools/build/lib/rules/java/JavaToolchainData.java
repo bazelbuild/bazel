@@ -13,12 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.util.Preconditions.checkNotNull;
+
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 import java.util.List;
+
+import javax.annotation.Nullable;
 
 /**
  * Information about the JDK used by the <code>java_*</code> rules.
@@ -28,20 +32,32 @@ import java.util.List;
  */
 @Immutable
 public class JavaToolchainData {
-  
+
   private final String sourceVersion;
   private final String targetVersion;
+  // TODO(cushon): remove @Nullable once migration from --javac_bootclasspath and --javac_extdir
+  // is complete, and java_toolchain.{bootclasspath,extclasspath} are mandatory
+  @Nullable private final Iterable<String> bootclasspath;
+  @Nullable private final Iterable<String> extclasspath;
   private final String encoding;
   private final ImmutableList<String> options;
   private final ImmutableList<String> jvmOpts;
 
-  public JavaToolchainData(String sourceVersion, String targetVersion, String encoding,
-      List<String> xlint, List<String> misc, List<String> jvmOpts) {
-    
-    this.sourceVersion = sourceVersion;
-    this.targetVersion = targetVersion;
-    this.encoding = encoding;
-    
+  public JavaToolchainData(
+      String sourceVersion,
+      String targetVersion,
+      @Nullable Iterable<String> bootclasspath,
+      @Nullable Iterable<String> extclasspath,
+      String encoding,
+      List<String> xlint,
+      List<String> misc,
+      List<String> jvmOpts) {
+    this.sourceVersion = checkNotNull(sourceVersion, "sourceVersion must not be null");
+    this.targetVersion = checkNotNull(targetVersion, "targetVersion must not be null");
+    this.bootclasspath = bootclasspath;
+    this.extclasspath = extclasspath;
+    this.encoding = checkNotNull(encoding, "encoding must not be null");
+
     this.jvmOpts = ImmutableList.copyOf(jvmOpts);
     Builder<String> builder = ImmutableList.<String>builder();
     if (!sourceVersion.isEmpty()) {
@@ -79,6 +95,16 @@ public class JavaToolchainData {
 
   public String getTargetVersion() {
     return targetVersion;
+  }
+
+  @Nullable
+  public Iterable<String> getBootclasspath() {
+    return bootclasspath;
+  }
+
+  @Nullable
+  public Iterable<String> getExtclasspath() {
+    return extclasspath;
   }
 
   public String getEncoding() {

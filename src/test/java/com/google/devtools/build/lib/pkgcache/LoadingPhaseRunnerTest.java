@@ -26,7 +26,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
@@ -116,12 +115,6 @@ public class LoadingPhaseRunnerTest {
     LoadingResult loadingResult = assertNoErrors(tester.load("//base:hello"));
     assertThat(loadingResult.getTargets()).containsExactlyElementsIn(getTargets("//base:hello"));
     assertNull(loadingResult.getTestsToRun());
-    // TODO(ulfjack): We don't collect package roots if we don't run the loading phase.
-    if (runsLoadingPhase()) {
-      assertEquals(
-          ImmutableMap.of(PackageIdentifier.createInDefaultRepo("base"), tester.getWorkspace()),
-          loadingResult.getPackageRoots());
-    }
   }
 
   @Test
@@ -150,7 +143,6 @@ public class LoadingPhaseRunnerTest {
     assertThat(loadingResult.hasLoadingError()).isFalse();
     assertThat(loadingResult.getTargets()).isEmpty();
     assertThat(loadingResult.getTestsToRun()).isNull();
-    assertThat(loadingResult.getPackageRoots()).isEmpty();
     tester.assertContainsError("Skipping '//base:missing': no such package 'base'");
     tester.assertContainsWarning("Target pattern parsing failed.");
   }
@@ -163,7 +155,6 @@ public class LoadingPhaseRunnerTest {
     assertThat(loadingResult.hasLoadingError()).isFalse();
     assertThat(loadingResult.getTargets()).isEmpty();
     assertThat(loadingResult.getTestsToRun()).isNull();
-    assertThat(loadingResult.getPackageRoots()).isEmpty();
     tester.assertContainsError("Skipping '//base:missing': no such target '//base:missing'");
     tester.assertContainsWarning("Target pattern parsing failed.");
   }
@@ -193,7 +184,6 @@ public class LoadingPhaseRunnerTest {
     assertTrue(loadingResult.hasLoadingError());
     assertThat(loadingResult.getTargets()).containsExactlyElementsIn(ImmutableList.<Target>of());
     assertNull(loadingResult.getTestsToRun());
-    assertTrue(loadingResult.getPackageRoots().size() <= 1);
     tester.assertContainsError("no such package 'nonexistent': BUILD file not found");
   }
 
@@ -321,10 +311,6 @@ public class LoadingPhaseRunnerTest {
     LoadingResult loadingResult = assertNoErrors(tester.loadTests("//cc:tests"));
     assertThat(loadingResult.getTargets()).containsExactlyElementsIn(getTargets("//cc:my_test"));
     assertThat(loadingResult.getTestsToRun()).containsExactlyElementsIn(getTargets("//cc:my_test"));
-    if (runsLoadingPhase()) {
-      assertThat(loadingResult.getPackageRoots().entrySet())
-          .contains(entryFor(PackageIdentifier.createInDefaultRepo("cc"), tester.getWorkspace()));
-    }
     assertThat(tester.getOriginalTargets())
         .containsExactlyElementsIn(getTargets("//cc:tests", "//cc:my_test"));
     assertThat(tester.getTestSuiteTargets())
@@ -450,7 +436,6 @@ public class LoadingPhaseRunnerTest {
     LoadingResult secondResult = assertNoErrors(tester.load("//base:hello"));
     assertEquals(firstResult.getTargets(), secondResult.getTargets());
     assertEquals(firstResult.getTestsToRun(), secondResult.getTestsToRun());
-    assertEquals(firstResult.getPackageRoots(), secondResult.getPackageRoots());
   }
 
   /**

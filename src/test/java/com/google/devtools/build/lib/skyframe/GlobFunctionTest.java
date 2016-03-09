@@ -458,7 +458,6 @@ public abstract class GlobFunctionTest {
   public void testDoubleStar() throws Exception {
     assertGlobMatches(
         "**",
-        "",
         "BUILD",
         "a1",
         "a1/b1",
@@ -487,7 +486,6 @@ public abstract class GlobFunctionTest {
   public void testDoubleDoubleStar() throws Exception {
     assertGlobMatches(
         "**/**",
-        "",
         "BUILD",
         "a1",
         "a1/b1",
@@ -674,6 +672,15 @@ public abstract class GlobFunctionTest {
     ErrorInfo errorInfo = result.getError(skyKey);
     assertThat(errorInfo.getException()).isInstanceOf(InconsistentFilesystemException.class);
     assertThat(errorInfo.getException().getMessage()).contains(expectedMessage);
+  }
+
+  @Test
+  public void testSymlinks() throws Exception {
+    FileSystemUtils.createDirectoryAndParents(pkgPath.getRelative("symlinks"));
+    FileSystemUtils.ensureSymbolicLink(pkgPath.getRelative("symlinks/dangling.txt"), "nope");
+    FileSystemUtils.createEmptyFile(pkgPath.getRelative("symlinks/yup"));
+    FileSystemUtils.ensureSymbolicLink(pkgPath.getRelative("symlinks/existing.txt"), "yup");
+    assertGlobMatches("symlinks/*.txt", "symlinks/existing.txt");
   }
 
   private class CustomInMemoryFs extends InMemoryFileSystem {

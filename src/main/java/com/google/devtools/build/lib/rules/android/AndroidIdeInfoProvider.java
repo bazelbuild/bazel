@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
@@ -127,26 +128,40 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     private Artifact apk = null;
     private Artifact idlClassJar = null;
     private Artifact idlSourceJar = null;
+    private String javaPackage = null;
     private final Set<SourceDirectory> resourceDirs = new LinkedHashSet<>();
     private final Set<SourceDirectory> assetDirs = new LinkedHashSet<>();
     private final Set<SourceDirectory> idlDirs = new LinkedHashSet<>();
     private final Set<Artifact> idlSrcs = new LinkedHashSet<>();
     private final Set<Artifact> idlGeneratedJavaFiles = new LinkedHashSet<>();
     private final Set<Artifact> apksUnderTest = new LinkedHashSet<>();
+    private boolean definesAndroidResources;
 
     public AndroidIdeInfoProvider build() {
       return new AndroidIdeInfoProvider(
+          javaPackage,
           manifest,
           generatedManifest,
           apk,
           idlClassJar,
           idlSourceJar,
+          definesAndroidResources,
           ImmutableList.copyOf(assetDirs),
           ImmutableList.copyOf(resourceDirs),
           ImmutableList.copyOf(idlDirs),
           ImmutableList.copyOf(idlSrcs),
           ImmutableList.copyOf(idlGeneratedJavaFiles),
           ImmutableList.copyOf(apksUnderTest));
+    }
+
+    public Builder setJavaPackage(String javaPackage) {
+      this.javaPackage = javaPackage;
+      return this;
+    }
+
+    public Builder setDefinesAndroidResources(boolean definesAndroidResources) {
+      this.definesAndroidResources = definesAndroidResources;
+      return this;
     }
 
     public Builder setApk(Artifact apk) {
@@ -224,11 +239,10 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     }
 
     public Builder addResourceSource(Artifact resource) {
-      PathFragment resourceDir = LocalResourceContainer.Builder.findResourceDir(resource);
       resourceDirs.add(
           SourceDirectory.fromRoot(
               resource.getRoot(),
-              trimTo(resource.getRootRelativePath(), resourceDir)));
+              AndroidCommon.getSourceDirectoryRelativePathFromResource(resource)));
       return this;
     }
 
@@ -249,8 +263,7 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     public Builder addAssetSource(Artifact asset, PathFragment assetDir) {
       assetDirs.add(
           SourceDirectory.fromRoot(
-              asset.getRoot(),
-              trimTo(asset.getRootRelativePath(), assetDir)));
+              asset.getRoot(), AndroidCommon.trimTo(asset.getRootRelativePath(), assetDir)));
       return this;
     }
 
@@ -259,96 +272,54 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
       return this;
     }
 
-    /**
-     * Finds the rightmost occurrence of the needle and returns subfragment of the haystack from
-     * left to the end of the occurrence inclusive of the needle.
-     *
-     * <pre>
-     * `Example:
-     *   Given the haystack:
-     *     res/research/handwriting/res/values/strings.xml
-     *   And the needle:
-     *     res
-     *   Returns:
-     *     res/research/handwriting/res
-     * </pre>
-     */
-    private static PathFragment trimTo(PathFragment haystack, PathFragment needle) {
-      if (needle.equals(PathFragment.EMPTY_FRAGMENT)) {
-        return haystack;
-      }
-      // Compute the overlap offset for duplicated parts of the needle.
-      int[] overlap = new int[needle.segmentCount() + 1];
-      // Start overlap at -1, as it will cancel out the increment in the search.
-      // See http://en.wikipedia.org/wiki/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm for the
-      // details.
-      overlap[0] = -1;
-      for (int i = 0, j = -1; i < needle.segmentCount(); j++, i++, overlap[i] = j) {
-        while (j >= 0 && !needle.getSegment(i).equals(needle.getSegment(j))) {
-          // Walk the overlap until the bound is found.
-          j = overlap[j];
-        }
-      }
-      // TODO(corysmith): reverse the search algorithm.
-      // Keep the index of the found so that the rightmost index is taken.
-      int found = -1;
-      for (int i = 0, j = 0; i < haystack.segmentCount(); i++) {
-
-        while (j >= 0 && !haystack.getSegment(i).equals(needle.getSegment(j))) {
-          // Not matching, walk the needle index to attempt another match.
-          j = overlap[j];
-        }
-        j++;
-        // Needle index is exhausted, so the needle must match.
-        if (j == needle.segmentCount()) {
-          // Record the found index + 1 to be inclusive of the end index.
-          found = i + 1;
-          // Subtract one from the needle index to restart the search process
-          j = j - 1;
-        }
-      }
-      if (found != -1) {
-        // Return the subsection of the haystack.
-        return haystack.subFragment(0, found);
-      }
-      throw new IllegalArgumentException(String.format("%s was not found in %s", needle, haystack));
-    }
   }
 
+  private final String javaPackage;
   private final Artifact manifest;
   private final Artifact generatedManifest;
   private final Artifact signedApk;
   @Nullable private final Artifact idlClassJar;
   @Nullable private final Artifact idlSourceJar;
   private final ImmutableCollection<SourceDirectory> resourceDirs;
+  private final boolean definesAndroidResources;
   private final ImmutableCollection<SourceDirectory> assetDirs;
   private final ImmutableCollection<SourceDirectory> idlImports;
   private final ImmutableCollection<Artifact> idlSrcs;
   private final ImmutableCollection<Artifact> idlGeneratedJavaFiles;
   private final ImmutableCollection<Artifact> apksUnderTest;
 
-  AndroidIdeInfoProvider(@Nullable Artifact manifest,
+  AndroidIdeInfoProvider(
+      String javaPackage,
+      @Nullable Artifact manifest,
       @Nullable Artifact generatedManifest,
       @Nullable Artifact signedApk,
       @Nullable Artifact idlClassJar,
       @Nullable Artifact idlSourceJar,
+      boolean definesAndroidResources,
       ImmutableCollection<SourceDirectory> assetDirs,
       ImmutableCollection<SourceDirectory> resourceDirs,
       ImmutableCollection<SourceDirectory> idlImports,
       ImmutableCollection<Artifact> idlSrcs,
       ImmutableCollection<Artifact> idlGeneratedJavaFiles,
       ImmutableCollection<Artifact> apksUnderTest) {
+    this.javaPackage = javaPackage;
     this.manifest = manifest;
     this.generatedManifest = generatedManifest;
     this.signedApk = signedApk;
     this.idlClassJar = idlClassJar;
     this.idlSourceJar = idlSourceJar;
+    this.definesAndroidResources = definesAndroidResources;
     this.assetDirs = assetDirs;
     this.resourceDirs = resourceDirs;
     this.idlImports = idlImports;
     this.idlSrcs = idlSrcs;
     this.idlGeneratedJavaFiles = idlGeneratedJavaFiles;
     this.apksUnderTest = apksUnderTest;
+  }
+
+  /** Returns java package for this target. */
+  public String getJavaPackage() {
+    return javaPackage;
   }
 
   /** Returns the direct AndroidManifest. */
@@ -363,6 +334,13 @@ public final class AndroidIdeInfoProvider implements TransitiveInfoProvider {
     return generatedManifest;
   }
 
+  /**
+   * Returns true if the target defined Android resources.
+   * Exposes {@link LocalResourceContainer#definesAndroidResources(AttributeMap)}
+   */
+  public boolean definesAndroidResources() {
+    return this.definesAndroidResources;
+  }
 
   /** Returns the direct debug key signed apk, if there is one. */
   @Nullable

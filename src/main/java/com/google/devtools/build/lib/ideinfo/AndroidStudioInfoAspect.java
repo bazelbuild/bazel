@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.AndroidRuleIdeInfo;
-import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.AndroidSdkRuleInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.ArtifactLocation;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.JavaRuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.LibraryArtifact;
@@ -60,18 +59,15 @@ import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.rules.android.AndroidCommon;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider.SourceDirectory;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
-import com.google.devtools.build.lib.rules.android.LocalResourceContainer;
 import com.google.devtools.build.lib.rules.java.JavaExportsProvider;
 import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.OutputJar;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.syntax.Type;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.MessageLite;
 
@@ -139,6 +135,7 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     AspectDefinition.Builder builder = new AspectDefinition.Builder(NAME)
         .attributeAspect("runtime_deps", AndroidStudioInfoAspect.class)
+        .attributeAspect("resources", AndroidStudioInfoAspect.class)
         .add(attr("$packageParser", LABEL).cfg(HOST).exec()
             .value(Label.parseAbsoluteUnchecked(
                 Constants.TOOLS_REPOSITORY + "//tools/android:PackageParser")));
@@ -170,8 +167,7 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
               base,
               ruleContext,
               ruleKind,
-              dependenciesResult.deps,
-              dependenciesResult.runtimeDeps,
+              dependenciesResult,
               providerBuilder);
     } else {
       provider = providerBuilder.build();
@@ -190,12 +186,14 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
 
   private static class DependenciesResult {
     private DependenciesResult(Iterable<Label> deps,
-        Iterable<Label> runtimeDeps) {
+        Iterable<Label> runtimeDeps, @Nullable Label resources) {
       this.deps = deps;
       this.runtimeDeps = runtimeDeps;
+      this.resources = resources;
     }
     final Iterable<Label> deps;
     final Iterable<Label> runtimeDeps;
+    @Nullable final Label resources;
   }
 
   private DependenciesResult processDependencies(
@@ -250,10 +248,19 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
       }
     }
 
+    // resources
+    @Nullable TransitiveInfoCollection resources =
+        ruleContext.attributes().has("resources", BuildType.LABEL)
+            ? ruleContext.getPrerequisite("resources", Mode.TARGET)
+            : null;
+
     // Propagate providers from all prerequisites (deps + runtime_deps)
     ImmutableList.Builder<TransitiveInfoCollection> prerequisitesBuilder = ImmutableList.builder();
     prerequisitesBuilder.addAll(directDeps);
     prerequisitesBuilder.addAll(runtimeDeps);
+    if (resources != null) {
+      prerequisitesBuilder.add(resources);
+    }
 
     List<TransitiveInfoCollection> prerequisites = prerequisitesBuilder.build();
 
@@ -264,24 +271,18 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
       providerBuilder.ideResolveFilesBuilder().addTransitive(depProvider.getIdeResolveFiles());
     }
 
-    return new DependenciesResult(dependencies, runtimeDepsBuilder.build());
-  }
 
-  private static AndroidSdkRuleInfo makeAndroidSdkRuleInfo(AndroidSdkProvider provider) {
-    AndroidSdkRuleInfo.Builder sdkInfoBuilder = AndroidSdkRuleInfo.newBuilder();
-
-    Path androidSdkDirectory = provider.getAndroidJar().getPath().getParentDirectory();
-    sdkInfoBuilder.setAndroidSdkPath(androidSdkDirectory.toString());
-
-    return sdkInfoBuilder.build();
+    return new DependenciesResult(
+        dependencies,
+        runtimeDepsBuilder.build(),
+        resources != null ? resources.getLabel() : null);
   }
 
   private AndroidStudioInfoFilesProvider createIdeBuildArtifact(
       ConfiguredTarget base,
       RuleContext ruleContext,
       Kind ruleKind,
-      Iterable<Label> directDependencies,
-      Iterable<Label> runtimeDeps,
+      DependenciesResult dependenciesResult,
       AndroidStudioInfoFilesProvider.Builder providerBuilder) {
 
     Artifact ideInfoFile = derivedArtifact(base, ruleContext, ASWB_BUILD_SUFFIX);
@@ -327,19 +328,16 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
     }
     if (ruleKind == Kind.ANDROID_LIBRARY
         || ruleKind == Kind.ANDROID_BINARY
-        || ruleKind == Kind.ANDROID_TEST) {
-      outputBuilder.setAndroidRuleIdeInfo(
-          makeAndroidRuleIdeInfo(ruleContext, base, ideResolveArtifacts));
-    }
-    if (ruleKind == Kind.ANDROID_SDK) {
-      outputBuilder.setAndroidSdkRuleInfo(
-          makeAndroidSdkRuleInfo(base.getProvider(AndroidSdkProvider.class)));
+        || ruleKind == Kind.ANDROID_TEST
+        || ruleKind == Kind.ANDROID_RESOURCES) {
+      outputBuilder.setAndroidRuleIdeInfo(makeAndroidRuleIdeInfo(base,
+          dependenciesResult, ideResolveArtifacts));
     }
 
     AndroidStudioInfoFilesProvider provider = providerBuilder.build();
 
-    outputBuilder.addAllDependencies(transform(directDependencies, LABEL_TO_STRING));
-    outputBuilder.addAllRuntimeDeps(transform(runtimeDeps, LABEL_TO_STRING));
+    outputBuilder.addAllDependencies(transform(dependenciesResult.deps, LABEL_TO_STRING));
+    outputBuilder.addAllRuntimeDeps(transform(dependenciesResult.runtimeDeps, LABEL_TO_STRING));
     outputBuilder.addAllTags(base.getTarget().getAssociatedRule().getRuleTags());
 
     final RuleIdeInfo ruleIdeInfo = outputBuilder.build();
@@ -420,8 +418,8 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
   }
 
   private static AndroidRuleIdeInfo makeAndroidRuleIdeInfo(
-      RuleContext ruleContext,
       ConfiguredTarget base,
+      DependenciesResult dependenciesResult,
       NestedSetBuilder<Artifact> ideResolveArtifacts) {
     AndroidRuleIdeInfo.Builder builder = AndroidRuleIdeInfo.newBuilder();
     AndroidIdeInfoProvider provider = base.getProvider(AndroidIdeInfoProvider.class);
@@ -444,29 +442,25 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
       builder.addResources(artifactLocation);
     }
 
-    builder.setJavaPackage(AndroidCommon.getJavaPackage(ruleContext));
+    if (provider.getJavaPackage() != null) {
+      builder.setJavaPackage(provider.getJavaPackage());
+    }
 
     boolean hasIdlSources = !provider.getIdlSrcs().isEmpty();
     builder.setHasIdlSources(hasIdlSources);
     if (hasIdlSources) {
-      LibraryArtifact.Builder jarBuilder = LibraryArtifact.newBuilder();
-      Artifact idlClassJar = provider.getIdlClassJar();
-      if (idlClassJar != null) {
-        jarBuilder.setJar(makeArtifactLocation(idlClassJar));
-        addResolveArtifact(ideResolveArtifacts, idlClassJar);
-      }
-      Artifact idlSourceJar = provider.getIdlSourceJar();
-      if (idlSourceJar != null) {
-        jarBuilder.setSourceJar(makeArtifactLocation(idlSourceJar));
-        addResolveArtifact(ideResolveArtifacts, idlSourceJar);
-      }
-      if (idlClassJar != null) {
-        builder.setIdlJar(jarBuilder.build());
+      LibraryArtifact idlLibraryArtifact = makeLibraryArtifact(ideResolveArtifacts,
+          provider.getIdlClassJar(), null, provider.getIdlSourceJar());
+      if (idlLibraryArtifact != null) {
+        builder.setIdlJar(idlLibraryArtifact);
       }
     }
 
-    builder.setGenerateResourceClass(
-        LocalResourceContainer.definesAndroidResources(ruleContext.attributes()));
+    builder.setGenerateResourceClass(provider.definesAndroidResources());
+
+    if (dependenciesResult.resources != null) {
+      builder.setLegacyResources(dependenciesResult.resources.toString());
+    }
 
     return builder.build();
   }
@@ -563,29 +557,41 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
       JavaRuleIdeInfo.Builder builder,
       NestedSetBuilder<Artifact> ideResolveArtifacts,
       JavaRuleOutputJarsProvider outputJarsProvider) {
-    LibraryArtifact.Builder jarsBuilder = LibraryArtifact.newBuilder();
     for (OutputJar outputJar : outputJarsProvider.getOutputJars()) {
-      Artifact classJar = outputJar.getClassJar();
-      if (classJar != null) {
-        jarsBuilder.setJar(makeArtifactLocation(classJar));
-        addResolveArtifact(ideResolveArtifacts, classJar);
-      }
-      Artifact iJar = outputJar.getIJar();
-      if (iJar != null) {
-        jarsBuilder.setInterfaceJar(makeArtifactLocation(iJar));
-        addResolveArtifact(ideResolveArtifacts, iJar);
-      }
-      Artifact srcJar = outputJar.getSrcJar();
-      if (srcJar != null) {
-        jarsBuilder.setSourceJar(makeArtifactLocation(srcJar));
-        addResolveArtifact(ideResolveArtifacts, srcJar);
-      }
+      LibraryArtifact libraryArtifact = makeLibraryArtifact(ideResolveArtifacts,
+          outputJar.getClassJar(), outputJar.getIJar(), outputJar.getSrcJar());
 
-      // We don't want to add anything that doesn't have a class jar
-      if (classJar != null) {
-        builder.addJars(jarsBuilder.build());
+      if (libraryArtifact != null) {
+        builder.addJars(libraryArtifact);
       }
     }
+  }
+
+  @Nullable
+  private static LibraryArtifact makeLibraryArtifact(
+      NestedSetBuilder<Artifact> ideResolveArtifacts,
+      @Nullable Artifact classJar,
+      @Nullable Artifact iJar,
+      @Nullable Artifact sourceJar
+      ) {
+    // We don't want to add anything that doesn't have a class jar
+    if (classJar == null) {
+      return null;
+    }
+    LibraryArtifact.Builder jarsBuilder = LibraryArtifact.newBuilder();
+    jarsBuilder.setJar(makeArtifactLocation(classJar));
+    addResolveArtifact(ideResolveArtifacts, classJar);
+
+    if (iJar != null) {
+      jarsBuilder.setInterfaceJar(makeArtifactLocation(iJar));
+      addResolveArtifact(ideResolveArtifacts, iJar);
+    }
+    if (sourceJar != null) {
+      jarsBuilder.setSourceJar(makeArtifactLocation(sourceJar));
+      addResolveArtifact(ideResolveArtifacts, sourceJar);
+    }
+
+    return jarsBuilder.build();
   }
 
   private static void collectGenJars(
@@ -658,6 +664,8 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
         return Kind.PROTO_LIBRARY;
       case "java_plugin":
         return Kind.JAVA_PLUGIN;
+      case "android_resources":
+        return Kind.ANDROID_RESOURCES;
       default:
         {
           if (base.getProvider(AndroidSdkProvider.class) != null) {

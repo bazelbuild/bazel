@@ -15,8 +15,11 @@
 ios_application(
     name = "PrenotCalculator",
     binary = ":PrenotCalculator_binary",
+    bundles = [":PrenotCalculatorResources"],
+    datamodels = glob(["PrenotCalculator/DataModel.xcdatamodeld/**"]),
     infoplist = "PrenotCalculator/PrenotCalculator-Info.plist",
     visibility = ["//visibility:public"],
+    xibs = ["PrenotCalculator/CalculatorViewController.xib"],
 )
 
 objc_binary(
@@ -35,13 +38,8 @@ objc_binary(
         ["**/*.h"],
         exclude = ["PrenotCalculator/Expression.h"],
     ),
-    bundles = [":PrenotCalculatorResources"],
     sdk_frameworks = ["CoreData"],
-    xibs = ["PrenotCalculator/CalculatorViewController.xib"],
-    deps = [
-        ":CoreDataResources",
-        ":ExpressionPrebuilt",
-    ],
+    deps = [":ExpressionPrebuilt"],
 )
 
 # A prebuilt library that contains multiple architectures.
@@ -55,11 +53,15 @@ objc_import(
 )
 
 # Don't use this directly, instead use it to construct ExpressionPrebuilt and
-# depend on that instead. Instructions:
-# Build using the following command repeatedly with the desired CPU values:
-#   bazel build --ios_cpu=<cpu> examples/objc/PrenotCalculator:ExpressionClasses
-# and combining the resulting .a's (copied after each bazel build) using lipo:
-#   /usr/bin/lipo -create expression_i386.a expression_armv7.a -output expression_prebuilt.a
+# depend on that instead.
+# You can build using the following command:
+#    for i in armv7 arm64 i386 x86_64; \
+#    do output/bazel build --xcode_version=7.2 --ios_sdk_version=9.2 --ios_cpu=$i examples/objc:ExpressionClasses; \
+#    mv bazel-bin/examples/objc/libExpressionClasses.a bazel-bin/examples/objc/libExpressionClasses_$i.a; \
+#    done; \
+#    xcrun lipo -create bazel-bin/examples/objc/libExpressionClasses_{armv7,arm64,i386,x86_64}.a -output bazel-bin/examples/objc/expression_prebuilt.a \
+#    cp bazel-bin/examples/objc/expression_prebuilt.a examples/objc/expression_prebuilt.a
+# You may need to adjust the xcode_version and ios_sdk_versions as appropriate.
 objc_library(
     name = "ExpressionClasses",
     srcs = [
@@ -71,11 +73,6 @@ objc_library(
 objc_bundle_library(
     name = "PrenotCalculatorResources",
     resources = glob(["PrenotCalculator/Resources/**"]),
-)
-
-objc_library(
-    name = "CoreDataResources",
-    datamodels = glob(["PrenotCalculator/DataModel.xcdatamodeld/**"]),
 )
 
 filegroup(

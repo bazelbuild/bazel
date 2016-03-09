@@ -28,7 +28,7 @@ message ArtifactLocation {
   string relative_path = 2;
   bool is_source = 3;
 
-  // set for derived artifacts (isSource = false)
+  // set for derived artifacts (is_source = false)
   string root_execution_path_fragment = 4;
 }
 
@@ -50,15 +50,12 @@ message AndroidRuleIdeInfo {
   repeated ArtifactLocation resources = 1;
   ArtifactLocation apk = 3;
   repeated ArtifactLocation dependency_apk = 4;
-  ArtifactLocation manifest= 5;
+  ArtifactLocation manifest = 5;
   string java_package = 7;
   bool has_idl_sources = 8;
   LibraryArtifact idl_jar = 9;
   bool generate_resource_class = 10;
-}
-
-message AndroidSdkRuleInfo {
-  string android_sdk_path = 1;
+  string legacy_resources = 11;
 }
 
 message RuleIdeInfo {
@@ -74,6 +71,7 @@ message RuleIdeInfo {
     PROTO_LIBRARY = 8;
     ANDROID_SDK = 9;
     JAVA_PLUGIN = 10;
+    ANDROID_RESOURCES = 11;
   }
 
   string label = 1;
@@ -81,9 +79,6 @@ message RuleIdeInfo {
   // deprecated -- this is not machine agnostic and will be removed in a future release
   string build_file = 3 [deprecated=true];
   repeated string dependencies = 4;
-
-  // kind is ANDROID_SDK
-  AndroidSdkRuleInfo android_sdk_rule_info = 6;
 
   // kind is one of {JAVA,ANDROID}_{LIBRARY,BINARY,TEST} and JAVA_IMPORT
   JavaRuleIdeInfo java_rule_ide_info = 7;

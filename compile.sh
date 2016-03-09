@@ -24,6 +24,11 @@ set -o errexit
 
 cd "$(dirname "$0")"
 
+# Set the default verbose mode in buildenv.sh so that we do not display command
+# output unless there is a failure.  We do this conditionally to offer the user
+# a chance of overriding this in case they want to do so.
+: ${VERBOSE:=no}
+
 source scripts/bootstrap/buildenv.sh
 
 function usage() {
@@ -154,7 +159,6 @@ if [ $DO_TESTS ]; then
       ${EXTRA_BAZEL_ARGS} \
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
       -k --test_output=errors //src/... //third_party/ijar/... //scripts/... \
-      //tools/build_defs/scala/test/... \
       || fail "Tests failed"
 fi
 

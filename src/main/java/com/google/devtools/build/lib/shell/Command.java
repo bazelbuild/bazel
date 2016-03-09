@@ -622,6 +622,7 @@ public final class Command {
    *  E.g., you could pass {@link System#out} as <code>stdOut</code>.
    * @param stdErr the process will write its standard error into this stream.
    *  E.g., you could pass {@link System#err} as <code>stdErr</code>.
+   * @param closeOutput whether to close stdout / stderr when the process closes its output streams.
    * @return An object that can be used to check if the process terminated and
    *  obtain the process results.
    * @throws ExecFailedException if {@link Runtime#exec(String[])} fails for any
@@ -631,7 +632,8 @@ public final class Command {
   public FutureCommandResult executeAsynchronously(final InputStream stdinInput,
                                     final KillableObserver observer,
                                     final OutputStream stdOut,
-                                    final OutputStream stdErr)
+                                    final OutputStream stdErr,
+                                    final boolean closeOutput)
       throws CommandException {
     // supporting "null" here for backwards compatibility
     final KillableObserver theObserver =
@@ -640,7 +642,14 @@ public final class Command {
     return doExecute(new InputStreamInputSource(stdinInput),
         theObserver,
         Consumers.createStreamingConsumers(stdOut, stdErr),
-        /*killSubprocess=*/false, /*closeOutput=*/false);
+        /*killSubprocess=*/false, closeOutput);
+  }
+  public FutureCommandResult executeAsynchronously(final InputStream stdinInput,
+      final KillableObserver observer,
+      final OutputStream stdOut,
+      final OutputStream stdErr)
+      throws CommandException {
+    return executeAsynchronously(stdinInput, observer, stdOut, stdErr, /*closeOutput=*/false);
   }
 
   // End of public API -------------------------------------------------------

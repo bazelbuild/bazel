@@ -299,9 +299,7 @@ public class TestRunnerAction extends AbstractAction implements NotifyOnActionCa
 
   @Override
   public ResourceSet estimateResourceConsumption(Executor executor) {
-    // return null here to indicate that resources would be managed manually
-    // during action execution.
-    return null;
+    return ResourceSet.ZERO;
   }
 
   @Override

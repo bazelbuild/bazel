@@ -122,13 +122,14 @@ public class AppleToolchain {
     switch (targetPlatform) {
       case IOS_DEVICE:
       case IOS_SIMULATOR:
-        if (configuration.getIosSdkVersion().compareTo(DottedVersion.fromString("9.0")) >= 0) {
+        if (configuration.getSdkVersionForPlatform(targetPlatform)
+            .compareTo(DottedVersion.fromString("9.0")) >= 0) {
           relativePath = SYSTEM_FRAMEWORK_PATH;
         } else {
           relativePath = DEVELOPER_FRAMEWORK_PATH;
         }
         break;
-      case MACOSX:
+      case MACOS_X:
         relativePath = DEVELOPER_FRAMEWORK_PATH;
         break;
       default:

@@ -89,6 +89,6 @@ public class RepositoryDirectoryValue implements SkyValue {
    * Creates a key from the given repository name.
    */
   public static SkyKey key(RepositoryName repository) {
-    return new SkyKey(SkyFunctions.REPOSITORY_DIRECTORY, repository);
+    return SkyKey.create(SkyFunctions.REPOSITORY_DIRECTORY, repository);
   }
 }

@@ -105,7 +105,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
   }
 
   public static SkyKey key(TraversalRequest traversal) {
-    return new SkyKey(SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL, traversal);
+    return SkyKey.create(SkyFunctions.RECURSIVE_FILESYSTEM_TRAVERSAL, traversal);
   }
 
   /** The parameters of a file or directory traversal. */

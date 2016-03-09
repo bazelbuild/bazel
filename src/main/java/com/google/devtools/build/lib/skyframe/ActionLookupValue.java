@@ -105,7 +105,7 @@ public class ActionLookupValue implements SkyValue {
      * <p>Subclasses may override if the value key contents should not be the key itself.
      */
     SkyKey getSkyKey() {
-      return new SkyKey(getType(), this);
+      return SkyKey.create(getType(), this);
     }
   }
 }

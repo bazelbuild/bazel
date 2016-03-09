@@ -1,0 +1,56 @@
+// Copyright 2016 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+package blaze.apk_manifest;
+
+option java_package = "com.google.devtools.build.lib.rules.android.apkmanifest";
+
+message Artifact {
+  // This path is relative to "bazel info execution_root"
+  string exec_root_path = 1;
+  bytes hash = 2;
+}
+
+message NativeLib {
+  repeated Artifact native_libs = 1;
+  string arch = 2;
+}
+
+message AndroidSdk {
+  string aapt = 1;
+  string adb = 2;
+  string aidl = 3;
+  string android_jar = 4;
+  string annotations_jar = 5;
+  string apkbuilder = 6;
+  string dx = 7;
+  string framework_aidl = 8;
+  string jack = 9;
+  string jill = 10;
+  string main_dex_classes = 11;
+  string main_dex_list_creator = 12;
+  string proguard = 13;
+  string resource_extractor = 14;
+  string shrinked_android_jar = 15;
+  string zipalign = 16;
+  string build_tools_version = 17; // assume latest if not set
+}
+
+message ApkManifest {
+  AndroidSdk android_sdk = 1;
+  repeated Artifact jars = 2;
+  Artifact resource_apk = 3;
+  repeated NativeLib native_lib = 4;
+}

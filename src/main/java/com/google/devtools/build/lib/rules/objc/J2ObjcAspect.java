@@ -45,7 +45,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
-import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
+import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
@@ -276,7 +276,7 @@ public class J2ObjcAspect implements ConfiguredNativeAspectFactory {
         .addInput(j2ObjcDeployJar)
         .addInputs(sources)
         .addTransitiveInputs(compileTimeJars)
-        .addInputs(JavaCompilationHelper.getHostJavabaseInputs(ruleContext))
+        .addInputs(JavaHelper.getHostJavabaseInputs(ruleContext))
         .addTransitiveInputs(depsHeaderMappingFiles)
         .addTransitiveInputs(depsClassMappingFiles)
         .addInput(paramFile)

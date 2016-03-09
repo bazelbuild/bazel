@@ -145,7 +145,7 @@ public class MemoizingEvaluatorTest {
   }
 
   protected static SkyKey toSkyKey(String name) {
-    return new SkyKey(NODE_TYPE, name);
+    return SkyKey.create(NODE_TYPE, name);
   }
 
   @Test
@@ -217,6 +217,33 @@ public class MemoizingEvaluatorTest {
     assertTrue(result.hasError());
     assertEquals(toSkyKey("badValue"), Iterables.getOnlyElement(result.getError().getRootCauses()));
     assertThat(result.keyNames()).isEmpty();
+  }
+
+  @Test
+  public void cachedErrorShutsDownThreadpool() throws Exception {
+    // When a node throws an error on the first build,
+    SkyKey cachedErrorKey = GraphTester.skyKey("error");
+    tester.getOrCreate(cachedErrorKey).setHasError(true);
+    assertThat(tester.evalAndGetError(cachedErrorKey)).isNotNull();
+    // And on the second build, it is requested as a dep,
+    SkyKey topKey = GraphTester.skyKey("top");
+    tester.getOrCreate(topKey).addDependency(cachedErrorKey).setComputedValue(CONCATENATE);
+    // And another node throws an error, but waits to throw until the child error is thrown,
+    SkyKey newErrorKey = GraphTester.skyKey("newError");
+    tester
+        .getOrCreate(newErrorKey)
+        .setBuilder(
+            new ChainedFunction.Builder()
+                .setWaitForException(true)
+                .setWaitToFinish(new CountDownLatch(0))
+                .setValue(null)
+                .build());
+    // Then when evaluation happens,
+    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ false, newErrorKey, topKey);
+    // The result has an error,
+    assertThatEvaluationResult(result).hasError();
+    // But the new error is not persisted to the graph, since the child error shut down evaluation.
+    assertThatEvaluationResult(result).hasErrorEntryForKeyThat(newErrorKey).isNull();
   }
 
   @Test

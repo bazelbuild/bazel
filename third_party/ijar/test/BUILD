@@ -185,3 +185,9 @@ java_binary(
     jvm_flags = ["-Djdk.util.zip.inhibitZip64=false"],
     main_class = "test.ZipCount",
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//third_party/ijar:__pkg__"],
+)

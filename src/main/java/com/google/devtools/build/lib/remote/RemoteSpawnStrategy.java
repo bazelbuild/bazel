@@ -255,7 +255,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
   }
 
   @Override
-  public boolean isRemotable(String mnemonic, boolean remotable) {
+  public boolean willExecuteRemotely(boolean remotable) {
     // Returning true here just helps to estimate the cost of this computation is zero.
     return remotable;
   }

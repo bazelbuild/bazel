@@ -56,6 +56,8 @@ import java.util.Map;
  * Java compiler.
  */
 public final class JavaLibraryHelper {
+  private static final String DEFAULT_SUFFIX_IS_EMPTY_STRING = "";
+
   /**
    * Function for extracting the {@link JavaCompilationArgs} - note that it also handles .jar files.
    */
@@ -91,6 +93,7 @@ public final class JavaLibraryHelper {
 
   private final RuleContext ruleContext;
   private final BuildConfiguration configuration;
+  private final String implicitAttributesSuffix;
 
   private Artifact output;
   private final List<Artifact> sourceJars = new ArrayList<>();
@@ -109,9 +112,14 @@ public final class JavaLibraryHelper {
   private boolean legacyCollectCppAndJavaLinkOptions;
 
   public JavaLibraryHelper(RuleContext ruleContext) {
+    this(ruleContext, DEFAULT_SUFFIX_IS_EMPTY_STRING);
+  }
+
+  public JavaLibraryHelper(RuleContext ruleContext, String implicitAttributesSuffix) {
     this.ruleContext = ruleContext;
     this.configuration = ruleContext.getConfiguration();
     this.classpathMode = ruleContext.getFragment(JavaConfiguration.class).getReduceJavaClasspath();
+    this.implicitAttributesSuffix = implicitAttributesSuffix;
   }
 
   /**
@@ -249,7 +257,8 @@ public final class JavaLibraryHelper {
 
     JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
     JavaCompilationHelper helper =
-        new JavaCompilationHelper(ruleContext, semantics, javacOpts, attributes);
+        new JavaCompilationHelper(
+            ruleContext, semantics, javacOpts, attributes, implicitAttributesSuffix);
     Artifact outputDepsProto = helper.createOutputDepsProtoArtifact(output, artifactsBuilder);
     helper.createCompileAction(
         output,

@@ -36,7 +36,7 @@ message Control {
   // is made if the substitution key appears as a value for any key-value pair
   // in any source_file.
   // For example, a plist with the entry:
-  //    <key>CFBundleExectuable</key>
+  //    <key>CFBundleExecutable</key>
   //    <string>EXECUTABLE_NAME</string>
   // could be templated by passing a variable substitution like
   //    {"EXECUTABLE_NAME", "PrenotCalculator"}
@@ -53,7 +53,7 @@ message Control {
   optional string fallback_bundle_id = 5;
 
   // Name of executable for the bundle this merged plist is intended for, or
-  // unset if no such executable exists.  If a value for CFBundleExectuable is
+  // unset if no such executable exists.  If a value for CFBundleExecutable is
   // given in a source_file or immutable_source_file, that value mut not
   // conflict with this key.
   optional string executable_name = 7;

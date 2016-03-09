@@ -28,7 +28,7 @@ filegroup(
 
 java_library(
     name = "annotations",
-    srcs = ["@bazel-j2objc//:annotations"],
+    srcs = ["@bazel_j2objc//:annotations"],
 )
 
 objc_library(

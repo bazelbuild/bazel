@@ -1,6 +1,7 @@
 java_test(
     name = "hello",
     srcs = ["TestHello.java"],
+    test_class = "com.example.myproject.TestHello",
     deps = [
         "//examples/java-native/src/main/java/com/example/myproject:hello-lib",
         "//third_party:junit4",
@@ -10,6 +11,7 @@ java_test(
 java_test(
     name = "custom",
     srcs = ["TestCustomGreeting.java"],
+    test_class = "com.example.myproject.TestCustomGreeting",
     deps = [
         "//examples/java-native/src/main/java/com/example/myproject:custom-greeting",
         "//third_party:junit4",
@@ -36,6 +38,7 @@ java_test(
 java_test(
     name = "resource-fail",
     srcs = glob(["Test*.java"]),
+    test_class = "com.example.myproject.TestCustomGreeting",
     deps = [
         "//examples/java-native/src/main/java/com/example/myproject:hello-lib",
         "//third_party:junit4",

@@ -43,7 +43,7 @@ public class AnnotationProcessingModule {
   public static class Builder {
     private Path sourceGenDir;
     private Path manifestProto;
-    private ImmutableSet.Builder<Path> sourceRoots = ImmutableSet.builder();
+    private final ImmutableSet.Builder<Path> sourceRoots = ImmutableSet.builder();
 
     private Builder() {}
 

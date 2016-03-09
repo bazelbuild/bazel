@@ -14,9 +14,11 @@
 package com.google.devtools.build.lib.rules.java;
 
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.syntax.Type;
@@ -122,5 +124,13 @@ public abstract class JavaHelper {
     }
 
     return rootRelativePath.relativeTo(prefix);
+  }
+
+  /**
+   * Returns the artifacts required to invoke {@code javahome} relative binary
+   * in the action.
+   */
+  public static NestedSet<Artifact> getHostJavabaseInputs(RuleContext ruleContext) {
+    return AnalysisUtils.getMiddlemanFor(ruleContext, ":host_jdk");
   }
 }

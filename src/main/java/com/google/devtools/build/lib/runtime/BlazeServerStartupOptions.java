@@ -166,6 +166,17 @@ public class BlazeServerStartupOptions extends OptionsBase {
           + "$OUTPUT_BASE")
   public boolean deepExecRoot;
 
+  @Option(
+    name = "experimental_oom_more_eagerly",
+    defaultValue = "false", // NOTE: purely decorative!  See class docstring.
+    category = "server startup",
+    help =
+        "If set, attempt to detect Java heap OOM conditions and exit before thrashing.  Only "
+            + "honored when --batch is also passed. In some cases, builds that previously succeeded"
+            + " may OOM if they were close to OOMing before."
+  )
+  public boolean oomMoreEagerly;
+
   @Option(name = "block_for_lock",
       defaultValue = "true", // NOTE: purely decorative!  See class docstring.
       category = "server startup",

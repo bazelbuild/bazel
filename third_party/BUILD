@@ -3,7 +3,9 @@ package(default_visibility = ["//visibility:public"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//third_party/ijar:srcs",
         "//third_party/iossim:srcs",
+        "//third_party/java/apkbuilder:srcs",
         "//third_party/java/buck-ios-support:srcs",
         "//third_party/java/dd_plist:srcs",
         "//third_party/java/j2objc:srcs",
@@ -75,7 +77,7 @@ java_import(
 
 java_import(
     name = "apache_commons_collections",
-    jars = ["apache_commons_collections/commons-collections-3.2.1.jar"],
+    jars = ["apache_commons_collections/commons-collections-3.2.2.jar"],
 )
 
 java_import(

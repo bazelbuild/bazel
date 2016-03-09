@@ -67,7 +67,7 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
   private static final boolean USE_COLOR = true;
   private ImplicitDependencyExtractor implicitDependencyExtractor;
   private CheckingTreeScanner checkingTreeScanner;
-  private DependencyModule dependencyModule;
+  private final DependencyModule dependencyModule;
 
   /** Marks seen compilation toplevels and their import sections */
   private final Set<JCTree.JCCompilationUnit> toplevels;
@@ -165,11 +165,19 @@ public final class StrictJavaDepsPlugin extends BlazeJavaCompilerPlugin {
         missingTargetsStr.append(target);
         missingTargetsStr.append(" ");
       }
-      errWriter.print(String.format(dependencyModule.getFixMessage(),
-          USE_COLOR ? "\033[35m\033[1m" : "",
-          USE_COLOR ? "\033[0m" : "",
-          missingTargetsStr.toString(),
-          dependencyModule.getTargetLabel()));
+      String canonicalizedLabel;
+      if (dependencyModule.getTargetLabel() == null) {
+        canonicalizedLabel = null;
+      } else {
+        canonicalizedLabel = canonicalizeTarget(dependencyModule.getTargetLabel());
+      }
+      errWriter.print(
+          String.format(
+              dependencyModule.getFixMessage(),
+              USE_COLOR ? "\033[35m\033[1m" : "",
+              USE_COLOR ? "\033[0m" : "",
+              missingTargetsStr.toString(),
+              canonicalizedLabel));
     }
   }
 

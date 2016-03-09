@@ -21,6 +21,7 @@ import com.google.common.io.CharStreams;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 
+import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Parent;
 import org.apache.maven.model.Repository;
@@ -40,6 +41,8 @@ import org.apache.maven.model.management.DefaultPluginManagementInjector;
 import org.apache.maven.model.plugin.DefaultPluginConfigurationExpander;
 import org.apache.maven.model.profile.DefaultProfileSelector;
 import org.apache.maven.model.resolution.UnresolvableModelException;
+import org.eclipse.aether.artifact.Artifact;
+import org.eclipse.aether.artifact.DefaultArtifact;
 
 import java.io.File;
 import java.io.IOException;
@@ -59,6 +62,31 @@ import javax.annotation.Nullable;
  * Resolves Maven dependencies.
  */
 public class Resolver {
+
+  /**
+   * Exception thrown if an artifact coordinate could not be parsed.
+   */
+  public static class InvalidArtifactCoordinateException extends Exception {
+    InvalidArtifactCoordinateException(String message) {
+      super(message);
+    }
+  }
+  
+  public static Artifact getArtifact(String atrifactCoords)
+      throws InvalidArtifactCoordinateException {
+    try {
+      return new DefaultArtifact(atrifactCoords);
+    } catch (IllegalArgumentException e) {
+      throw new InvalidArtifactCoordinateException(e.getMessage());
+    }
+  }
+
+  public static Artifact getArtifact(Dependency dependency)
+      throws InvalidArtifactCoordinateException {
+    return getArtifact(dependency.getGroupId() + ":" + dependency.getArtifactId() + ":"
+        + dependency.getVersion());
+  }
+  
   private static final String COMPILE_SCOPE = "compile";
 
   private final EventHandler handler;
@@ -110,6 +138,7 @@ public class Resolver {
       }
       outputStream.println("    ],");
       outputStream.println(")");
+      outputStream.println();
     }
   }
 
@@ -148,6 +177,27 @@ public class Resolver {
   }
 
   /**
+   * Resolves an artifact as a root of a dependency graph.
+   */
+  public void resolveArtifact(String artifactCoord) {
+    Artifact artifact;
+    ModelSource modelSource;
+    try {
+      artifact = getArtifact(artifactCoord);
+      modelSource = modelResolver.resolveModel(artifact);
+    } catch (UnresolvableModelException | InvalidArtifactCoordinateException e) {
+      handler.handle(Event.error(e.getMessage()));
+      return;
+    }
+
+    addHeader(artifactCoord);
+    Rule rule = new Rule(artifact);
+    addRootDependency(rule);
+    deps.put(rule.name(), rule); // add the artifact rule to the workspace 
+    resolveEffectiveModel(modelSource, Sets.<String>newHashSet(), rule);
+  }
+  
+  /**
    * Resolves all dependencies from a given "model source," which could be either a URL or a local
    * file.
    * @return the model.
@@ -171,7 +221,7 @@ public class Resolver {
       modelResolver.addRepository(repo);
     }
 
-    for (org.apache.maven.model.Dependency dependency : model.getDependencies()) {
+    for (Dependency dependency : model.getDependencies()) {
       if (!dependency.getScope().equals(COMPILE_SCOPE)) {
         continue;
       }
@@ -182,7 +232,7 @@ public class Resolver {
         continue;
       }
       try {
-        Rule artifactRule = new Rule(dependency);
+        Rule artifactRule = new Rule(getArtifact(dependency), dependency.getExclusions());
         HashSet<String> localDepExclusions = new HashSet<>(exclusions);
         localDepExclusions.addAll(artifactRule.getExclusions());
 
@@ -205,7 +255,7 @@ public class Resolver {
         } else {
           rootDependencies.add(artifactRule);
         }
-      } catch (UnresolvableModelException | Rule.InvalidRuleException e) {
+      } catch (UnresolvableModelException | InvalidArtifactCoordinateException e) {
         handler.handle(Event.error("Could not resolve dependency " + dependency.getGroupId()
             + ":" + dependency.getArtifactId() + ":" + dependency.getVersion() + ": "
             + e.getMessage()));

@@ -51,6 +51,18 @@ class LetExpression extends QueryExpression {
     this.bodyExpr = bodyExpr;
   }
 
+  String getVarName() {
+    return varName;
+  }
+
+  QueryExpression getVarExpr() {
+    return varExpr;
+  }
+
+  QueryExpression getBodyExpr() {
+    return bodyExpr;
+  }
+
   @Override
   public <T> void eval(QueryEnvironment<T> env, Callback<T> callback)
       throws QueryException, InterruptedException {
@@ -74,6 +86,11 @@ class LetExpression extends QueryExpression {
   public void collectTargetPatterns(Collection<String> literals) {
     varExpr.collectTargetPatterns(literals);
     bodyExpr.collectTargetPatterns(literals);
+  }
+
+  @Override
+  public QueryExpression getMapped(QueryExpressionMapper mapper) {
+    return mapper.map(this);
   }
 
   @Override

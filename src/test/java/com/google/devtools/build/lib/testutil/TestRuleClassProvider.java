@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.syntax.Type.INTEGER;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -59,6 +60,7 @@ public class TestRuleClassProvider {
           new ConfiguredRuleClassProvider.Builder();
       addStandardRules(builder);
       builder.addRuleDefinition(new TestingDummyRule());
+      builder.addRuleDefinition(new TestingRuleForMandatoryProviders());
       ruleProvider = builder.build();
     }
     return ruleProvider;
@@ -83,6 +85,27 @@ public class TestRuleClassProvider {
           .ancestors(BaseRuleClasses.RuleBase.class)
           .factoryClass(UnknownRuleConfiguredTarget.class)
           .build();
+    }
+  }
+
+  public static final class TestingRuleForMandatoryProviders implements RuleDefinition {
+    @Override
+    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
+      return builder
+              .setUndocumented()
+              .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+              .override(builder.copy("deps").mandatoryProvidersList(ImmutableList.of(
+                      ImmutableList.of("a"), ImmutableList.of("b", "c"))))
+              .build();
+    }
+
+    @Override
+    public Metadata getMetadata() {
+      return RuleDefinition.Metadata.builder()
+              .name("testing_rule_for_mandatory_providers")
+              .ancestors(BaseRuleClasses.RuleBase.class)
+              .factoryClass(UnknownRuleConfiguredTarget.class)
+              .build();
     }
   }
 }

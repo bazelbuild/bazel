@@ -72,6 +72,8 @@ public class JavaToolchainDataParser {
   private static JavaToolchainData parseBuildRuleProto(Build.Rule rule) {
     String source = "";
     String target = "";
+    ImmutableList<String> bootclasspath = ImmutableList.of();
+    ImmutableList<String> extclasspath = ImmutableList.of();
     String encoding = "";
     ImmutableList<String> xlint = ImmutableList.of();
     ImmutableList<String> misc = ImmutableList.of();
@@ -83,6 +85,12 @@ public class JavaToolchainDataParser {
           break;
         case "target_version":
           target = attribute.getStringValue();
+          break;
+        case "bootclasspath":
+          bootclasspath = ImmutableList.copyOf(attribute.getStringListValueList());
+          break;
+        case "extclasspath":
+          extclasspath = ImmutableList.copyOf(attribute.getStringListValueList());
           break;
         case "encoding":
           encoding = attribute.getStringValue();
@@ -98,6 +106,7 @@ public class JavaToolchainDataParser {
           break;
       }
     }
-    return new JavaToolchainData(source, target, encoding, xlint, misc, jvmOpts);
+    return new JavaToolchainData(
+        source, target, bootclasspath, extclasspath, encoding, xlint, misc, jvmOpts);
   }
 }

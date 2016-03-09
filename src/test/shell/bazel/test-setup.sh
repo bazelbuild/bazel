@@ -51,6 +51,7 @@ function setup_android_support() {
 
   ln -s "${aargenerator_path}" ${ANDROID_TOOLS}/tools/android/aargenerator.jar
   ln -s "${androidresourceprocessor_path}" ${ANDROID_TOOLS}/tools/android/androidresourceprocessor.jar
+  ln -s "${resourceshrinker_path}" ${ANDROID_TOOLS}/tools/android/resourceshrinker.jar
   ln -s "${dexmapper_path}" ${ANDROID_TOOLS}/tools/android/dexmapper.jar
   ln -s "${dexreducer_path}" ${ANDROID_TOOLS}/tools/android/dexreducer.jar
   ln -s "${TEST_SRCDIR}/tools/android/bazel_debug.keystore" ${ANDROID_TOOLS}/tools/android/bazel_debug.keystore
@@ -100,6 +101,12 @@ java_binary(
     name = "resources_processor",
     srcs = ["androidresourceprocessor.jar"],
     main_class = "com.google.devtools.build.android.AndroidResourceProcessingAction",
+)
+
+java_binary(
+    name = "resource_shrinker",
+    srcs = ["resourceshrinker.jar"],
+    main_class = "com.google.devtools.build.android.ResourceShrinkerAction",
 )
 
 java_binary(

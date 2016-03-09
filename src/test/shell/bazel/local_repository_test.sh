@@ -348,7 +348,7 @@ EOF
 }
 
 # Creates an indirect dependency on X from A and make sure the error message
-# refers to the correct label.
+# refers to the correct label, both in an external repository and not.
 function test_indirect_dep_message() {
   local external_dir=$TEST_TMPDIR/ext-dir
   mkdir -p a b $external_dir/x
@@ -391,6 +391,8 @@ java_library(
 )
 EOF
 
+  cp -r a b $external_dir
+
   touch $external_dir/WORKSPACE
   cat > $external_dir/x/X.java <<EOF
 package x;
@@ -418,7 +420,11 @@ EOF
 
   bazel build //a:a >& $TEST_log && fail "Building //a:a should error out"
   expect_log "** Please add the following dependencies:"
-  expect_log "@x_repo//x  to //a:a"
+  expect_log "@x_repo//x  to //a"
+
+  bazel build //a >& $TEST_log && fail "Building //a should error out"
+  expect_log "** Please add the following dependencies:"
+  expect_log "@x_repo//x  to //a"
 }
 
 function test_external_includes() {

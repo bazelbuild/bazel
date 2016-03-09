@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.IpaRule;
 
 /**
  * Rule definition for ios_extension.
@@ -60,8 +61,11 @@ public class IosExtensionRule implements RuleDefinition {
     return RuleDefinition.Metadata.builder()
         .name("ios_extension")
         .factoryClass(IosExtension.class)
-        .ancestors(BaseRuleClasses.BaseRule.class, ObjcRuleClasses.ReleaseBundlingRule.class,
-            ObjcRuleClasses.XcodegenRule.class)
+        .ancestors(
+            BaseRuleClasses.BaseRule.class,
+            ObjcRuleClasses.ReleaseBundlingRule.class,
+            ObjcRuleClasses.XcodegenRule.class,
+            IpaRule.class)
         .build();
   }
 }

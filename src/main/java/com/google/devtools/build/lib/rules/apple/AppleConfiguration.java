@@ -56,6 +56,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   private static final DottedVersion MINIMUM_BITCODE_XCODE_VERSION = DottedVersion.fromString("7");
 
   private final DottedVersion iosSdkVersion;
+  private final DottedVersion watchOsSdkVersion;
+  private final DottedVersion tvOsSdkVersion;
+  private final DottedVersion macOsXSdkVersion;
   private final String iosCpu;
   private final Optional<DottedVersion> xcodeVersion;
   private final ImmutableList<String> iosMultiCpus;
@@ -66,6 +69,13 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   AppleConfiguration(AppleCommandLineOptions appleOptions,
       Optional<DottedVersion> xcodeVersionOverride) {
     this.iosSdkVersion = Preconditions.checkNotNull(appleOptions.iosSdkVersion, "iosSdkVersion");
+    this.watchOsSdkVersion =
+        Preconditions.checkNotNull(appleOptions.watchOsSdkVersion, "watchOsSdkVersion");
+    this.tvOsSdkVersion =
+        Preconditions.checkNotNull(appleOptions.tvOsSdkVersion, "tvOsSdkVersion");
+    this.macOsXSdkVersion =
+        Preconditions.checkNotNull(appleOptions.macOsXSdkVersion, "macOsXSdkVersion");
+
     this.xcodeVersion = Preconditions.checkNotNull(xcodeVersionOverride);
     this.iosCpu = Preconditions.checkNotNull(appleOptions.iosCpu, "iosCpu");
     this.iosMultiCpus = ImmutableList.copyOf(
@@ -78,10 +88,34 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
 
   /**
    * Returns the SDK version for ios SDKs (whether they be for simulator or device). This is
-   * directly derived from --ios_sdk_version. Format "x.y" (for example, "6.4").
+   * directly derived from --ios_sdk_version.
+   *
+   * @deprecated - use {@link #getSdkVersionForPlatform()}
    */
-  public DottedVersion getIosSdkVersion() {
-    return iosSdkVersion;
+  @Deprecated public DottedVersion getIosSdkVersion() {
+    return getSdkVersionForPlatform(Platform.IOS_DEVICE);
+  }
+
+  /**
+   * Returns the SDK version for a platform (whether they be for simulator or device). This is
+   * directly derived from command line args.
+   */
+  public DottedVersion getSdkVersionForPlatform(Platform platform) {
+    switch (platform) {
+      case IOS_DEVICE:
+      case IOS_SIMULATOR:
+        return iosSdkVersion;
+      case TVOS_DEVICE:
+      case TVOS_SIMULATOR:
+        return tvOsSdkVersion;
+      case WATCHOS_DEVICE:
+      case WATCHOS_SIMULATOR:
+        return watchOsSdkVersion;
+      case MACOS_X:
+        return macOsXSdkVersion;
+    }
+    throw new AssertionError();
+
   }
 
   /**
@@ -137,7 +171,8 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
 
     // TODO(bazel-team): Handle non-ios platforms.
     if (platform == Platform.IOS_DEVICE || platform == Platform.IOS_SIMULATOR) {
-      builder.put(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, getIosSdkVersion().toString())
+      String sdkVersion = getSdkVersionForPlatform(platform).toString();
+      builder.put(AppleConfiguration.APPLE_SDK_VERSION_ENV_NAME, sdkVersion)
           .put(AppleConfiguration.APPLE_SDK_PLATFORM_ENV_NAME, platform.getNameInPlist());
     }
     return builder.build();

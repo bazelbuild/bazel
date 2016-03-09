@@ -45,7 +45,7 @@ public final class ResourceUsage {
       (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
 
   private static final MemoryMXBean MEM_BEAN = ManagementFactory.getMemoryMXBean();
-  private static final Splitter WHITESPACE_SPLITTER = Splitter.on(CharMatcher.WHITESPACE);
+  private static final Splitter WHITESPACE_SPLITTER = Splitter.on(CharMatcher.whitespace());
 
   /**
    * Calculates an estimate of the current total CPU usage and the CPU usage of

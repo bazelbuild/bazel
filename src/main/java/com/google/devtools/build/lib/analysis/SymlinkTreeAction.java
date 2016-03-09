@@ -113,9 +113,7 @@ public class SymlinkTreeAction extends AbstractAction {
 
   @Override
   public ResourceSet estimateResourceConsumption(Executor executor) {
-    // Return null here to indicate that resources would be managed manually
-    // during action execution.
-    return null;
+    return ResourceSet.ZERO;
   }
 
   @Override

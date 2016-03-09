@@ -224,13 +224,11 @@ public class BaseRuleClasses {
         .add(attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
             .allowedRuleClasses(EnvironmentRule.RULE_NAME)
             .cfg(Attribute.ConfigurationTransition.HOST)
-            .allowedFileTypes(FileTypeSet.NO_FILE)
-            .undocumented("not yet released"))
+            .allowedFileTypes(FileTypeSet.NO_FILE))
         .add(attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
             .allowedRuleClasses(EnvironmentRule.RULE_NAME)
             .cfg(Attribute.ConfigurationTransition.HOST)
-            .allowedFileTypes(FileTypeSet.NO_FILE)
-            .undocumented("not yet released"));
+            .allowedFileTypes(FileTypeSet.NO_FILE));
   }
 
   /**

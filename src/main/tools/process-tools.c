@@ -116,10 +116,11 @@ void SetTimeout(double timeout_secs) {
   double int_val, fraction_val;
   fraction_val = modf(timeout_secs, &int_val);
 
-  struct itimerval timer = {.it_interval.tv_sec = 0,
-                            .it_interval.tv_usec = 0,
-                            .it_value.tv_sec = (long)int_val,
-                            .it_value.tv_usec = (long)(fraction_val * 1e6)};
+  struct itimerval timer;
+  timer.it_interval.tv_sec = 0;
+  timer.it_interval.tv_usec = 0;
+  timer.it_value.tv_sec = (long)int_val,
+  timer.it_value.tv_usec = (long)(fraction_val * 1e6);
 
   CHECK_CALL(setitimer(ITIMER_REAL, &timer, NULL));
 }

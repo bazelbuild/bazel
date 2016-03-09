@@ -45,6 +45,7 @@ public class DexMapper {
       new SplitZip()
           .setVerbose(false)
           .useDefaultEntryDate()
+          .setSplitDexedClasses(options.splitDexedClasses)
           .addInputs(inputs)
           .addOutputs(outputs)
           .setMainClassListFile(filterFile)
@@ -93,5 +94,10 @@ public class DexMapper {
         abbrev = 'r',
         help = "File to write the Java resources to.")
     public String outputResources;
+
+    @Option(name = "split_dexed_classes",
+        defaultValue = "false",
+        help = "Split X.class.dex like X.class if true.  Treated as resources if false.")
+    public boolean splitDexedClasses;
   }
 }

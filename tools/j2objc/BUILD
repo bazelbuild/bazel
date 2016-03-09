@@ -13,7 +13,7 @@ java_binary(
     runtime_deps = ["@bazel_j2objc//:j2objc"],
 )
 
-py_library(
+filegroup(
     name = "j2objc_wrapper",
     srcs = ["j2objc_wrapper.py"],
 )

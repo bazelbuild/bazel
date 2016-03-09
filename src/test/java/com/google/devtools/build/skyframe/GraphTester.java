@@ -122,7 +122,8 @@ public class GraphTester {
           } else {
             deps.put(dep.first, value);
           }
-          Preconditions.checkState(oneMissing == env.valuesMissing());
+          Preconditions.checkState(
+              oneMissing == env.valuesMissing(), "%s %s %s", dep, value, env.valuesMissing());
         }
         if (env.valuesMissing()) {
           return null;
@@ -157,7 +158,7 @@ public class GraphTester {
   }
 
   public static SkyKey skyKey(String key) {
-    return new SkyKey(NODE_TYPE, key);
+    return SkyKey.create(NODE_TYPE, key);
   }
 
   /**
@@ -217,6 +218,11 @@ public class GraphTester {
       return this;
     }
 
+    public TestFunction unsetComputedValue() {
+      this.computer = null;
+      return this;
+    }
+
     public TestFunction setBuilder(SkyFunction builder) {
       Preconditions.checkState(this.value == null);
       Preconditions.checkState(this.computer == null);
@@ -260,7 +266,7 @@ public class GraphTester {
   public static SkyKey[] toSkyKeys(String... names) {
     SkyKey[] result = new SkyKey[names.length];
     for (int i = 0; i < names.length; i++) {
-      result[i] = new SkyKey(GraphTester.NODE_TYPE, names[i]);
+      result[i] = SkyKey.create(GraphTester.NODE_TYPE, names[i]);
     }
     return result;
   }

@@ -36,7 +36,7 @@ import java.util.Set;
  * command-line flags and options files and provides them via getters.
  */
 public final class OptionsParser {
-  private List<String> javacOpts = new ArrayList<>();
+  private final List<String> javacOpts = new ArrayList<>();
 
   private final Map<String, String> directJarsToTargets = new HashMap<>();
   private final Map<String, String> indirectJarsToTargets = new HashMap<>();
@@ -45,7 +45,7 @@ public final class OptionsParser {
 
   private String outputDepsFile;
   private String outputDepsProtoFile;
-  private Set<String> depsArtifacts = new HashSet<>();
+  private final Set<String> depsArtifacts = new HashSet<>();
 
   private boolean strictClasspathMode;
 

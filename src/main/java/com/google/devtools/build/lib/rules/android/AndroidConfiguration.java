@@ -20,6 +20,7 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultLabelConverter;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
@@ -42,13 +43,6 @@ import java.util.List;
  */
 @Immutable
 public class AndroidConfiguration extends BuildConfiguration.Fragment {
-
-  /** Converter for --android_crosstool_top. */
-  public static class AndroidCrosstoolTopConverter extends DefaultLabelConverter {
-    public AndroidCrosstoolTopConverter() {
-      super(Constants.ANDROID_DEFAULT_CROSSTOOL);
-    }
-  }
 
   /** Converter for --android_sdk. */
   public static class AndroidSdkConverter extends DefaultLabelConverter {
@@ -109,9 +103,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public boolean incrementalNativeLibs;
 
     @Option(name = "android_crosstool_top",
-        defaultValue = "",
+        defaultValue = "//external:android/crosstool",
         category = "semantics",
-        converter = AndroidCrosstoolTopConverter.class,
+        converter = EmptyToNullLabelConverter.class,
         help = "The location of the C++ compiler used for Android builds.")
     public Label androidCrosstoolTop;
 
@@ -186,6 +180,12 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
             + " rules with deps. The depot needs to be cleaned up to roll this out by default.")
     public boolean allowAndroidLibraryDepsWithoutSrcs;
 
+    @Option(name = "experimental_android_resource_shrinking",
+        defaultValue = "false",
+        category = "undocumented",
+        help = "Enables resource shrinking for android_binary APKs that use proguard.")
+    public boolean useAndroidResourceShrinking;
+
     @Override
     public void addAllLabels(Multimap<String, Label> labelMap) {
       if (androidCrosstoolTop != null) {
@@ -193,6 +193,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
       }
 
       labelMap.put("android_sdk", sdk);
+    }
+
+    @Override
+    public FragmentOptions getHost(boolean fallback) {
+      Options host = (Options) super.getHost(fallback);
+      host.androidCrosstoolTop = androidCrosstoolTop;
+      return host;
     }
 
     // This method is here because Constants.ANDROID_DEFAULT_FAT_APK_CPUS cannot be a constant
@@ -248,6 +255,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean useJackForDexing;
   private final boolean jackSanityChecks;
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
+  private final boolean useAndroidResourceShrinking;
 
   AndroidConfiguration(Options options) {
     this.sdk = options.sdk;
@@ -260,6 +268,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.useJackForDexing = options.useJackForDexing;
     this.jackSanityChecks = options.jackSanityChecks;
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
+    this.useAndroidResourceShrinking = options.useAndroidResourceShrinking;
   }
 
   public String getCpu() {
@@ -303,6 +312,10 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   public boolean allowSrcsLessAndroidLibraryDeps() {
     return allowAndroidLibraryDepsWithoutSrcs;
+  }
+
+  public boolean useAndroidResourceShrinking() {
+    return useAndroidResourceShrinking;
   }
 
   @Override

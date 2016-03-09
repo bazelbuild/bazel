@@ -559,10 +559,11 @@ public final class RuleClass {
       Preconditions.checkState(
           (type == RuleClassType.ABSTRACT)
           == (configuredTargetFactory == null && configuredTargetFunction == null));
-      Preconditions.checkState(skylarkExecutable == (configuredTargetFunction != null));
-      Preconditions.checkState(skylarkExecutable == (ruleDefinitionEnvironment != null));
-      Preconditions.checkState(workspaceOnly || externalBindingsFunction == NO_EXTERNAL_BINDINGS);
-
+      if (!workspaceOnly) {
+        Preconditions.checkState(skylarkExecutable == (configuredTargetFunction != null));
+        Preconditions.checkState(skylarkExecutable == (ruleDefinitionEnvironment != null));
+        Preconditions.checkState(externalBindingsFunction == NO_EXTERNAL_BINDINGS);
+      }
       return new RuleClass(name, skylark, skylarkExecutable, documented, publicByDefault,
           binaryOutput, workspaceOnly, outputsDefaultExecutable, implicitOutputsFunction,
           configurator, configuredTargetFactory, validityPredicate, preferredDependencyPredicate,

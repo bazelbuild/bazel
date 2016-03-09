@@ -261,13 +261,15 @@ public class AndroidCommon {
     // from the android_resources rule in its direct dependencies, if such a thing exists.
     if (LocalResourceContainer.definesAndroidResources(ruleContext.attributes())) {
       ideInfoProviderBuilder
+          .setDefinesAndroidResources(true)
           .addResourceSources(resourceApk.getPrimaryResource().getArtifacts(ResourceType.RESOURCES))
           .addAssetSources(
               resourceApk.getPrimaryResource().getArtifacts(ResourceType.ASSETS),
               getAssetDir(ruleContext))
           // Sets the possibly merged manifest and the raw manifest.
           .setGeneratedManifest(resourceApk.getPrimaryResource().getManifest())
-          .setManifest(ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET));
+          .setManifest(ruleContext.getPrerequisiteArtifact("manifest", Mode.TARGET))
+          .setJavaPackage(getJavaPackage(ruleContext));
     } else {
       semantics.addNonLocalResources(ruleContext, resourceApk, ideInfoProviderBuilder);
     }
@@ -288,6 +290,69 @@ public class AndroidCommon {
         return nameFragment.getPathString().replace('/', '.');
       }
     }
+  }
+
+  static PathFragment getSourceDirectoryRelativePathFromResource(Artifact resource) {
+    PathFragment resourceDir = LocalResourceContainer.Builder.findResourceDir(resource);
+    if (resourceDir == null) {
+      return null;
+    }
+    return trimTo(resource.getRootRelativePath(), resourceDir);
+  }
+
+  /**
+   * Finds the rightmost occurrence of the needle and returns subfragment of the haystack from
+   * left to the end of the occurrence inclusive of the needle.
+   *
+   * <pre>
+   * `Example:
+   *   Given the haystack:
+   *     res/research/handwriting/res/values/strings.xml
+   *   And the needle:
+   *     res
+   *   Returns:
+   *     res/research/handwriting/res
+   * </pre>
+   */
+  static PathFragment trimTo(PathFragment haystack, PathFragment needle) {
+    if (needle.equals(PathFragment.EMPTY_FRAGMENT)) {
+      return haystack;
+    }
+    // Compute the overlap offset for duplicated parts of the needle.
+    int[] overlap = new int[needle.segmentCount() + 1];
+    // Start overlap at -1, as it will cancel out the increment in the search.
+    // See http://en.wikipedia.org/wiki/Knuth%E2%80%93Morris%E2%80%93Pratt_algorithm for the
+    // details.
+    overlap[0] = -1;
+    for (int i = 0, j = -1; i < needle.segmentCount(); j++, i++, overlap[i] = j) {
+      while (j >= 0 && !needle.getSegment(i).equals(needle.getSegment(j))) {
+        // Walk the overlap until the bound is found.
+        j = overlap[j];
+      }
+    }
+    // TODO(corysmith): reverse the search algorithm.
+    // Keep the index of the found so that the rightmost index is taken.
+    int found = -1;
+    for (int i = 0, j = 0; i < haystack.segmentCount(); i++) {
+
+      while (j >= 0 && !haystack.getSegment(i).equals(needle.getSegment(j))) {
+        // Not matching, walk the needle index to attempt another match.
+        j = overlap[j];
+      }
+      j++;
+      // Needle index is exhausted, so the needle must match.
+      if (j == needle.segmentCount()) {
+        // Record the found index + 1 to be inclusive of the end index.
+        found = i + 1;
+        // Subtract one from the needle index to restart the search process
+        j = j - 1;
+      }
+    }
+    if (found != -1) {
+      // Return the subsection of the haystack.
+      return haystack.subFragment(0, found);
+    }
+    throw new IllegalArgumentException(String.format("%s was not found in %s", needle, haystack));
   }
 
   Artifact compileDexWithJack(
@@ -403,9 +468,8 @@ public class AndroidCommon {
     classJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
     idlHelper = new AndroidIdlHelper(ruleContext, classJar);
 
-    javaCommon.initializeJavacOpts(androidSemantics.getJavacArguments());
     JavaTargetAttributes.Builder attributes = javaCommon
-        .initCommon(idlHelper.getIdlGeneratedJavaSources())
+        .initCommon(idlHelper.getIdlGeneratedJavaSources(), androidSemantics.getJavacArguments())
         .setBootClassPath(ImmutableList.of(
             AndroidSdkProvider.fromRuleContext(ruleContext).getAndroidJar()));
 
@@ -467,7 +531,8 @@ public class AndroidCommon {
         ruleContext, semantics, javaCommon.getJavacOpts(), attributes);
     
     helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
-    helper.addProvidersToAttributes(javaCommon.compilationArgsFromSources(), asNeverLink);
+    helper.addProvidersToAttributes(
+        JavaCommon.compilationArgsFromSources(ruleContext), asNeverLink);
     attributes.setStrictJavaDeps(getStrictAndroidDeps());
     attributes.setRuleKind(ruleContext.getRule().getRuleClass());
     attributes.setTargetLabel(ruleContext.getLabel());
@@ -601,12 +666,16 @@ public class AndroidCommon {
             JavaRuntimeJarProvider.class,
             new JavaRuntimeJarProvider(javaCommon.getJavaCompilationArtifacts().getRuntimeJars()))
         .add(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))
-        .add(
-            AndroidResourcesProvider.class, resourceApk.toResourceProvider(ruleContext.getLabel()))
+        .add(AndroidResourcesProvider.class, resourceApk.toResourceProvider(ruleContext.getLabel()))
         .add(
             AndroidIdeInfoProvider.class,
-            createAndroidIdeInfoProvider(ruleContext, androidSemantics, idlHelper,
-                resourceApk, zipAlignedApk, apksUnderTest))
+            createAndroidIdeInfoProvider(
+                ruleContext,
+                androidSemantics,
+                idlHelper,
+                resourceApk,
+                zipAlignedApk,
+                apksUnderTest))
         .add(
             JavaCompilationArgsProvider.class,
             new JavaCompilationArgsProvider(
@@ -619,6 +688,7 @@ public class AndroidCommon {
             asNeverLink
                 ? jackCompilationHelper.compileAsNeverlinkLibrary()
                 : jackCompilationHelper.compileAsLibrary())
+        .addSkylarkTransitiveInfo(AndroidSkylarkApiProvider.NAME, new AndroidSkylarkApiProvider())
         .addOutputGroup(
             OutputGroupProvider.HIDDEN_TOP_LEVEL, collectHiddenTopLevelArtifacts(ruleContext))
         .addOutputGroup(JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, transitiveSourceJars);
@@ -631,7 +701,9 @@ public class AndroidCommon {
           .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
           .build();
     }
-    return javaCommon.getRunfiles(asNeverLink);
+    return JavaCommon.getRunfiles(
+        ruleContext, javaCommon.getJavaSemantics(), javaCommon.getJavaCompilationArtifacts(),
+        asNeverLink);
   }
 
   public static PathFragment getAssetDir(RuleContext ruleContext) {

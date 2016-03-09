@@ -68,7 +68,6 @@ cat > $iml_file <<EOH
     <content url="file://\$MODULE_DIR$/out/generated">
       <sourceFolder url="file://\$MODULE_DIR$/out/generated" isTestSource="false" generated="true" />
     </content>
-    <orderEntry type="inheritedJdk" />
     <content url="file://\$MODULE_DIR\$/src">
 EOH
 
@@ -140,8 +139,20 @@ EOF
 EOF
 }
 
+# Slight hack to make sure (1) our langtools is picked up before the SDK
+# default, but that (2) SDK is picked up before auto-value, because that
+# apparently causes problems for auto-value otherwise.
+readonly javac_jar="third_party/java/jdk/langtools/javac.jar"
+write_jar_entry "$javac_jar"
+
+cat >> $iml_file <<'EOF'
+    <orderEntry type="inheritedJdk" />
+EOF
+
 for jar in ${THIRD_PARTY_JAR_PATHS}; do
-  write_jar_entry $jar
+  if [[ jar != "$javac_jar" ]]; then
+    write_jar_entry $jar
+  fi
 done
 
 for path_pair in ${GENERATED_PATHS}; do

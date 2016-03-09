@@ -19,7 +19,7 @@ java_library(
     srcs = glob(["*.java"]),
     deps = [
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper",
-        "//src/main/protobuf:java_compilation_proto",
+        "//src/main/protobuf:java_compilation_java_proto",
         "//third_party:guava",
     ],
 )
@@ -28,7 +28,7 @@ java_library(
 ## Bootstrapping using Skylark rules
 #
 
-load("//tools:build_rules/java_rules_skylark.bzl", "bootstrap_java_library", "bootstrap_java_binary")
+load("//tools/build_rules:java_rules_skylark.bzl", "bootstrap_java_library", "bootstrap_java_binary")
 
 bootstrap_java_binary(
     name = "bootstrap_genclass",
@@ -38,4 +38,10 @@ bootstrap_java_binary(
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:skylark-deps",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:bootstrap_jarhelper",
     ],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:__pkg__"],
 )

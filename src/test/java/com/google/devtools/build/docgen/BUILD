@@ -29,6 +29,7 @@ java_library(
         "DocCheckerUtilsTest.java",
         "RuleDocumentationAttributeTest.java",
         "RuleDocumentationTest.java",
+        "RuleLinkExpanderTest.java",
         "SkylarkDocumentationTest.java",
     ],
     deps = [

@@ -70,7 +70,7 @@ public class BazelConfiguration extends Fragment {
   @Override
   public void setupShellEnvironment(ImmutableMap.Builder<String, String> builder) {
     String path = System.getenv("PATH");
-    builder.put("PATH", path == null ? ":/bin:/usr/bin" : path);
+    builder.put("PATH", path == null ? "/bin:/usr/bin" : path);
     String tmpdir = System.getenv("TMPDIR");
     if (tmpdir != null) {
       builder.put("TMPDIR", tmpdir);

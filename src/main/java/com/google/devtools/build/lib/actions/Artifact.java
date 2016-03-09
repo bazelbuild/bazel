@@ -21,6 +21,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.Action.MiddlemanType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -154,8 +155,7 @@ public class Artifact
   private final Root root;
   private final PathFragment execPath;
   private final PathFragment rootRelativePath;
-  // Non-final only for use when dealing with deserialized artifacts.
-  private ArtifactOwner owner;
+  private final ArtifactOwner owner;
 
   /**
    * Constructs an artifact for the specified path, root and execPath. The root must be an ancestor
@@ -290,24 +290,16 @@ public class Artifact
    * ArtifactOwner#NULL_OWNER} or a dummy owner set in tests. Such a dummy value should only occur
    * for source artifacts if created without specifying the owner, or for special derived artifacts,
    * such as target completion middleman artifacts, build info artifacts, and the like.
-   *
-   * <p>When deserializing artifacts we end up with a dummy owner. In that case,
-   * it must be set using {@link #setArtifactOwner} before this method is called.
    */
   public final ArtifactOwner getArtifactOwner() {
-    Preconditions.checkState(owner != DESERIALIZED_MARKER_OWNER, this);
     return owner;
   }
 
-  /**
-   * Sets the artifact owner of this artifact. Should only be called for artifacts that were created
-   * through deserialization, and so their owner was unknown at the time of creation.
-   */
-  public final void setArtifactOwner(ArtifactOwner owner) {
-    if (this.owner == DESERIALIZED_MARKER_OWNER) {
-      // We tolerate multiple calls of this method to accommodate shared actions.
-      this.owner = Preconditions.checkNotNull(owner, this);
-    }
+  @SkylarkCallable(name = "owner", structField = true, allowReturnNones = true,
+    doc = "A label of a target that produces this File. Can be None."
+  )
+  public Label getOwnerLabel() {
+    return owner.getLabel();
   }
 
   /**
@@ -797,11 +789,14 @@ public class Artifact
     return ImmutableList.copyOf(Iterables.transform(artifacts, EXEC_PATH_FORMATTER));
   }
 
-  static final ArtifactOwner DESERIALIZED_MARKER_OWNER = new ArtifactOwner() {
-    @Override
-    public Label getLabel() {
-      return null;
-    }};
+  /**
+   * Returns the exec paths of the input artifacts in alphabetical order.
+   */
+  public static ImmutableList<PathFragment> asSortedPathFragments(Iterable<Artifact> input) {
+    return Ordering.natural().immutableSortedCopy(Iterables.transform(
+        input, EXEC_PATH_FORMATTER));
+  }
+
 
   @Override
   public boolean isImmutable() {

@@ -36,7 +36,7 @@ EOF
 java_test(
     name = "foo",
     srcs = ["Noise.java"],
-    main_class = "Noise",
+    test_class = "Noise",
 )
 EOF
   cat > foo/Noise.java <<EOF

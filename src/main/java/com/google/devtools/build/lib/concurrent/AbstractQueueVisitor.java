@@ -409,7 +409,7 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
   /** Schedules a call. Called in a worker thread if concurrent. */
   @Override
   public final void execute(Runnable runnable) {
-    if (concurrent) {
+    if (runConcurrently()) {
       WrappedRunnable wrappedRunnable = new WrappedRunnable(runnable);
       try {
         // It's impossible for this increment to result in remainingTasks.get <= 0 because
@@ -432,6 +432,22 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     } else {
       runnable.run();
     }
+  }
+
+  /**
+   * Subclasses may override this to make dynamic decisiouns about whether to run tasks
+   * asynchronously versus in-thread.
+   */
+  protected boolean runConcurrently() {
+    return concurrent;
+  }
+
+  /**
+   * Returns an approximate count of how many threads in the queue visitor's thread pool are
+   * occupied with tasks.
+   */
+  protected final int activeParallelTasks() {
+    return jobs.asMap().size();
   }
 
   protected void executeRunnable(Runnable runnable) {

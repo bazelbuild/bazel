@@ -99,8 +99,9 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
 
     ImmutableMap.Builder<PackageIdentifier, Package> pkgResults = ImmutableMap.builder();
     Map<SkyKey, SkyValue> packages = graph.getSuccessfulValues(pkgKeys);
-    for (PackageIdentifier pkgId : pkgIds) {
-      PackageValue pkgValue = (PackageValue) packages.get(PackageValue.key(pkgId));
+    for (Map.Entry<SkyKey, SkyValue> pkgEntry : packages.entrySet()) {
+      PackageIdentifier pkgId = (PackageIdentifier) pkgEntry.getKey().argument();
+      PackageValue pkgValue = (PackageValue) pkgEntry.getValue();
       pkgResults.put(pkgId, Preconditions.checkNotNull(pkgValue.getPackage(), pkgId));
     }
 

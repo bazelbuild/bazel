@@ -284,16 +284,25 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     assertEquals("//foo:foo1", parseIndividualTargetRelative(":foo1").toString());
   }
 
-
   @Test
-  public void testAbsolutePathCantBeParsed() throws Exception {
-    expectError("not a relative path or label: '/absolute/path'",
-        "/absolute/path");
+  public void testSingleSlashPatternCantBeParsed() throws Exception {
+    expectError("not a valid absolute pattern (absolute target patterns must start with exactly "
+        + "two slashes): '/single/slash'",
+        "/single/slash");
   }
 
   @Test
-  public void testAbsolutePathCantBeParsedWithRelativeParser() throws Exception {
-    expectErrorRelative("not a relative path or label: '/absolute/path'", "/absolute/path");
+  public void testTripleSlashPatternCantBeParsed() throws Exception {
+    expectError("not a valid absolute pattern (absolute target patterns must start with exactly "
+        + "two slashes): '///triple/slash'",
+        "///triple/slash");
+  }
+
+  @Test
+  public void testSingleSlashPatternCantBeParsedWithRelativeParser() throws Exception {
+    expectErrorRelative("not a valid absolute pattern (absolute target patterns must start with "
+        + "exactly two slashes): '/single/slash'",
+        "/single/slash");
   }
 
   @Test

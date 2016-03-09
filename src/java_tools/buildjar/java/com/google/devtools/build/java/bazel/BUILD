@@ -139,3 +139,9 @@ java_library(
     srcs = ["BazelJavac.java"],
     deps = [":BazelJavaCompiler"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/java_tools/buildjar:__pkg__"],
+)

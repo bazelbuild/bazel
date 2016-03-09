@@ -68,15 +68,17 @@ public class TreePruner {
   private static final TreeScanner PRUNING_VISITOR =
       new TreeScanner() {
 
+        JCClassDecl enclClass = null;
+
         @Override
         public void visitClassDef(JCClassDecl tree) {
-          if ((tree.mods.flags & Flags.ANNOTATION) == Flags.ANNOTATION) {
-            // Fields in annotation declarations are implicitly final.
-            // Field initializers that are definitely not constant expressions could still be
-            // pruned, but we currently don't bother.
-            return;
+          JCClassDecl prev = enclClass;
+          enclClass = tree;
+          try {
+            super.visitClassDef(tree);
+          } finally {
+            enclClass = prev;
           }
-          super.visitClassDef(tree);
         }
 
         @Override
@@ -105,7 +107,7 @@ public class TreePruner {
             return;
           }
           // drop field initializers unless the field looks like a JLS §4.12.4 constant variable
-          if (isConstantVariable(tree)) {
+          if (isConstantVariable(enclClass, tree)) {
             return;
           }
           tree.init = null;
@@ -132,8 +134,19 @@ public class TreePruner {
     return name.contentEquals("this") || name.contentEquals("super");
   }
 
-  private static boolean isConstantVariable(JCVariableDecl tree) {
-    if ((tree.mods.flags & Flags.FINAL) != Flags.FINAL) {
+  private static boolean isFinal(JCClassDecl enclClass, JCVariableDecl tree) {
+    if ((tree.mods.flags & Flags.FINAL) == Flags.FINAL) {
+      return true;
+    }
+    if (enclClass != null && (enclClass.mods.flags & (Flags.ANNOTATION | Flags.INTERFACE)) != 0) {
+      // Fields in annotation declarations and interfaces are implicitly final
+      return true;
+    }
+    return false;
+  }
+
+  private static boolean isConstantVariable(JCClassDecl enclClass, JCVariableDecl tree) {
+    if (!isFinal(enclClass, tree)) {
       return false;
     }
     if (!constantType(tree.getType())) {

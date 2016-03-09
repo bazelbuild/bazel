@@ -43,32 +43,95 @@ msys*|mingw*)
   EXE_EXT=".exe"
 esac
 
-ATEXIT_=""
+# Whether we display build messages or not.  We set this conditionally because
+# the file including us or the user may already have defined VERBOSE to their
+# liking.
+: ${VERBOSE:=yes}
+
+# List of functions to invoke on exit.
+ATEXIT_HANDLERS=
+
+# Registers a function to be invoked on exit.
+#
+# The handlers will be invoked at exit time in the order they were registered.
+# See comments in run_atexit for more details.
 function atexit() {
-  ATEXIT_="$1; ${ATEXIT_}"
-  trap "{ ${ATEXIT_} }" EXIT
+  local handler="${1}"; shift
+
+  [ -n "${ATEXIT_HANDLERS}" ] || trap 'run_atexit_handlers $?' EXIT
+  ATEXIT_HANDLERS="${ATEXIT_HANDLERS} ${handler}"
+}
+
+# Exit routine to run all registered atexit handlers.
+#
+# If the program exited with an error, this exit routine will also exit with the
+# same error.  However, if the program exited successfully, this exit routine
+# will only exit successfully if the atexit handlers succeed.
+function run_atexit_handlers() {
+  local exit_code="$?"
+
+  local failed=no
+  for handler in ${ATEXIT_HANDLERS}; do
+    eval "${handler}" || failed=yes
+  done
+
+  trap - EXIT  # Reset exit handler to prevent double execution.
+  if [ ${exit_code} -ne 0 ]; then
+    exit ${exit_code}
+  else
+    if [ "${failed}" = yes ]; then
+      echo "Program tried to exit successfully but atexit routines failed" 1>&2
+      exit 1
+    else
+      exit 0
+    fi
+  fi
 }
 
 function tempdir() {
   local tmp=${TMPDIR:-/tmp}
   local DIR="$(mktemp -d ${tmp%%/}/bazel.XXXXXXXX)"
   mkdir -p "${DIR}"
-  atexit "rm -fr ${DIR}"
+  eval "cleanup_tempdir() { rm -rf '${DIR}'; }"
+  atexit cleanup_tempdir
   NEW_TMPDIR="${DIR}"
 }
 tempdir
 OUTPUT_DIR=${NEW_TMPDIR}
 errfile=${OUTPUT_DIR}/errors
-atexit "if [ -f ${errfile} ]; then cat ${errfile} >&2; fi"
+eval "cleanup_errfile() {
+        if [ -f '${errfile}' ]; then
+          cat '${errfile}' 1>&2;
+        fi;
+      }"
+atexit cleanup_errfile
 phasefile=${OUTPUT_DIR}/phase
-atexit "if [ -f ${phasefile} ]; then echo >&2; cat ${phasefile} >&2; fi"
+eval "cleanup_phasefile() {
+        if [ -f '${phasefile}' ]; then
+          echo 1>&2;
+          cat '${phasefile}' 1>&2;
+        fi;
+      }"
+atexit cleanup_phasefile
 
-function run_silent() {
-  echo "${@}" >${errfile}
-  # TODO(kchodorow): figure out why this doesn't exit on a non-zero exit code,
-  # even though errexit is set.
-  "${@}" >>${errfile} 2>&1 || exit $?
-  rm ${errfile}
+# Excutes a command respecting the current verbosity settings.
+#
+# If VERBOSE is yes, the command itself and its output are printed.
+# If VERBOSE is no, the command's output is only displayed in case of failure.
+#
+# Exits the script if the command fails.
+function run() {
+  if [ "${VERBOSE}" = yes ]; then
+    echo "${@}"
+    "${@}" || exit $?
+  else
+    echo "${@}" >"${errfile}"
+    # The exit here is needed because "set -e" on the shell does not cause
+    # errors in functions to exit in all cases.  We should probably disable
+    # "set -e" altogether and add explicit error handling where necessary.
+    "${@}" >>"${errfile}" 2>&1 || exit $?
+    rm "${errfile}"
+  fi
 }
 
 function fail() {

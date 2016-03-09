@@ -45,3 +45,9 @@ cc_library(
     hdrs = ["exit_code.h"],
     visibility = ["//visibility:public"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src/main/cpp:__pkg__"],
+)

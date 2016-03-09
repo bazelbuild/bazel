@@ -21,8 +21,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -94,7 +94,7 @@ import javax.annotation.Nullable;
  */
 public class GenQuery implements RuleConfiguredTargetFactory {
   public static final Precomputed<ImmutableList<OutputFormatter>> QUERY_OUTPUT_FORMATTERS =
-      new Precomputed<>(new SkyKey(SkyFunctions.PRECOMPUTED, "query_output_formatters"));
+      new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "query_output_formatters"));
 
   @Override
   @Nullable
@@ -150,8 +150,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
         new AbstractFileWriteAction(
             ruleContext.getActionOwner(), Collections.<Artifact>emptySet(), outputArtifact, false) {
           @Override
-          public DeterministicWriter newDeterministicWriter(EventHandler eventHandler,
-                                                            Executor executor) {
+          public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
             return new DeterministicWriter() {
               @Override
               public void writeOutputFile(OutputStream out) throws IOException {

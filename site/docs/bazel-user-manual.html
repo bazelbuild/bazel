@@ -144,8 +144,7 @@ the <code class='flag'>--bazelrc=<var>file</var></code> option, and the
 </p>
 <p>
   The <code class='flag'>--bazelrc=<var>file</var></code> option must
-  appear <em>before</em> the command name (e.g. <code>build</code>),
-  and must use the <code>=</code> syntax&mdash;a space is not allowed.
+  appear <em>before</em> the command name (e.g. <code>build</code>).
 </p>
 <p>
   The option <code class='flag'>--bazelrc=/dev/null</code> effectively disables the
@@ -1703,6 +1702,13 @@ the compilation of binaries during the build.
   the CROSSTOOL file and the following options where appropriate:
   <ul>
     <li><a href="#flag--cpu"><code class='flag'>--cpu</code></a></li>
+
+  </ul>
+</p>
+<p>
+  Note that only certain combinations of crosstool version, compiler version,
+  glibc version, and target CPU are allowed.
+</p>
 
 <h4 id='flag--javabuilder_top'><code class='flag'>--javabuilder_top <var>label</var></code></h4>
 <p>

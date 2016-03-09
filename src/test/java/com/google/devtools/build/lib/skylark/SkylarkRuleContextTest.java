@@ -25,12 +25,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.python.PythonSourcesProvider;
+import com.google.devtools.build.lib.rules.python.PyCommon;
 import com.google.devtools.build.lib.skylark.util.SkylarkTestCase;
 import com.google.devtools.build.lib.syntax.SkylarkDict;
 import com.google.devtools.build.lib.syntax.SkylarkList;
@@ -177,6 +178,83 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
       assertContainsEvent("ERROR /workspace/test/BUILD:11:10: in deps attribute of "
           + "skylark_rule rule //test:skyrule: '//test:jlib' does not have mandatory provider "
           + "'some_provider'");
+    }
+  }
+
+  @Test
+  public void testMandatoryProvidersListWithSkylark() throws Exception {
+    scratch.file("test/BUILD",
+            "load('/test/rules', 'skylark_rule', 'my_rule', 'my_other_rule')",
+            "my_rule(name = 'mylib',",
+            "  srcs = ['a.py'])",
+            "skylark_rule(name = 'skyrule1',",
+            "  deps = [':mylib'])",
+            "my_other_rule(name = 'my_other_lib',",
+            "  srcs = ['a.py'])",
+            "skylark_rule(name = 'skyrule2',",
+            "  deps = [':my_other_lib'])");
+    scratch.file("test/rules.bzl",
+            "def _impl(ctx):",
+            "  return",
+            "skylark_rule = rule(",
+            "  implementation = _impl,",
+            "  attrs = {",
+            "    'deps': attr.label_list(providers = [['a'], ['b', 'c']],",
+            "    allow_files=True)",
+            "  }",
+            ")",
+            "def my_rule_impl(ctx):",
+            "  return struct(a = [])",
+            "my_rule = rule(implementation = my_rule_impl, ",
+            "  attrs = { 'srcs' : attr.label_list(allow_files=True)})",
+            "def my_other_rule_impl(ctx):",
+            "  return struct(b = [])",
+            "my_other_rule = rule(implementation = my_other_rule_impl, ",
+            "  attrs = { 'srcs' : attr.label_list(allow_files=True)})");
+    reporter.removeHandler(failFastHandler);
+    assertNotNull(getConfiguredTarget("//test:skyrule1"));
+
+    try {
+      createRuleContext("//test:skyrule2");
+      fail("Should have failed because of wrong mandatory providers");
+    } catch (Exception ex) {
+      assertContainsEvent("ERROR /workspace/test/BUILD:9:10: in deps attribute of "
+              + "skylark_rule rule //test:skyrule2: '//test:my_other_lib' does not have "
+              + "mandatory provider 'a' or 'c'");
+    }
+  }
+
+  @Test
+  public void testMandatoryProvidersListWithNative() throws Exception {
+    scratch.file("test/BUILD",
+            "load('/test/rules', 'my_rule', 'my_other_rule')",
+            "my_rule(name = 'mylib',",
+            "  srcs = ['a.py'])",
+            "testing_rule_for_mandatory_providers(name = 'skyrule1',",
+            "  deps = [':mylib'])",
+            "my_other_rule(name = 'my_other_lib',",
+            "  srcs = ['a.py'])",
+            "testing_rule_for_mandatory_providers(name = 'skyrule2',",
+            "  deps = [':my_other_lib'])");
+    scratch.file("test/rules.bzl",
+            "def my_rule_impl(ctx):",
+            "  return struct(a = [])",
+            "my_rule = rule(implementation = my_rule_impl, ",
+            "  attrs = { 'srcs' : attr.label_list(allow_files=True)})",
+            "def my_other_rule_impl(ctx):",
+            "  return struct(b = [])",
+            "my_other_rule = rule(implementation = my_other_rule_impl, ",
+            "  attrs = { 'srcs' : attr.label_list(allow_files=True)})");
+    reporter.removeHandler(failFastHandler);
+    assertNotNull(getConfiguredTarget("//test:skyrule1"));
+
+    try {
+      createRuleContext("//test:skyrule2");
+      fail("Should have failed because of wrong mandatory providers");
+    } catch (Exception ex) {
+      assertContainsEvent("ERROR /workspace/test/BUILD:9:10: in deps attribute of "
+              + "testing_rule_for_mandatory_providers rule //test:skyrule2: '//test:my_other_lib' "
+              + "does not have mandatory provider 'a' or 'c'");
     }
   }
 
@@ -339,7 +417,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     TransitiveInfoCollection tic1 = (TransitiveInfoCollection) ((SkylarkList) result).get(0);
     assertNotNull(tic1.getProvider(JavaSourceJarsProvider.class));
     // Check an unimplemented provider too
-    assertNull(tic1.getProvider(PythonSourcesProvider.class));
+    assertNull(tic1.getProvider(SkylarkProviders.class)
+            .getValue(PyCommon.PYTHON_SKYLARK_PROVIDER_NAME));
   }
 
   @Test

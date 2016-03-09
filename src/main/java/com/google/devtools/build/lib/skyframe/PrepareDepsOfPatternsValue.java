@@ -45,8 +45,8 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
 
   private final ImmutableList<TargetPatternKey> targetPatternKeys;
 
-  PrepareDepsOfPatternsValue(ImmutableList<TargetPatternKey> targetPatternKeys) {
-    this.targetPatternKeys = targetPatternKeys;
+  public PrepareDepsOfPatternsValue(ImmutableList<TargetPatternKey> targetPatternKeys) {
+    this.targetPatternKeys = Preconditions.checkNotNull(targetPatternKeys);
   }
 
   public ImmutableList<TargetPatternKey> getTargetPatternKeys() {
@@ -55,8 +55,8 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
 
   @ThreadSafe
   public static SkyKey key(ImmutableList<String> patterns, String offset) {
-    return new SkyKey(SkyFunctions.PREPARE_DEPS_OF_PATTERNS,
-        new TargetPatternSequence(patterns, offset));
+    return SkyKey.create(
+        SkyFunctions.PREPARE_DEPS_OF_PATTERNS, new TargetPatternSequence(patterns, offset));
   }
 
   /** The argument value for {@link SkyKey}s of {@link PrepareDepsOfPatternsFunction}. */
@@ -94,5 +94,16 @@ public final class PrepareDepsOfPatternsValue implements SkyValue {
     public int hashCode() {
       return Objects.hash(patterns, offset);
     }
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    return other instanceof PrepareDepsOfPatternsValue
+        && targetPatternKeys.equals(((PrepareDepsOfPatternsValue) other).getTargetPatternKeys());
+  }
+
+  @Override
+  public int hashCode() {
+    return targetPatternKeys.hashCode();
   }
 }

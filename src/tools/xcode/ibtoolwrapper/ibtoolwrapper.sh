@@ -32,7 +32,7 @@ WRAPPER="${MY_LOCATION}/xcrunwrapper.sh"
 OUTZIP=$("${REALPATH}" "$1")
 ARCHIVEROOT="$2"
 shift 2
-TEMPDIR=$(mktemp -d -t ibtoolZippingOutput)
+TEMPDIR=$(mktemp -d "${TMPDIR:-/tmp}/ibtoolZippingOutput.XXXXXX")
 trap "rm -rf \"$TEMPDIR\"" EXIT
 
 FULLPATH="$TEMPDIR/$ARCHIVEROOT"

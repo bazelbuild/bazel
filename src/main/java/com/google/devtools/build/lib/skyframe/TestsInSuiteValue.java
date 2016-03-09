@@ -68,8 +68,7 @@ final class TestsInSuiteValue implements SkyValue {
   @ThreadSafe
   public static SkyKey key(Target testSuite, boolean strict) {
     Preconditions.checkState(TargetUtils.isTestSuiteRule(testSuite));
-    return new SkyKey(SkyFunctions.TESTS_IN_SUITE,
-        new TestsInSuite((Rule) testSuite, strict));
+    return SkyKey.create(SkyFunctions.TESTS_IN_SUITE, new TestsInSuite((Rule) testSuite, strict));
   }
 
   /**

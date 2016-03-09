@@ -40,7 +40,7 @@ class PostConfiguredTargetValue implements SkyValue {
   }
 
   public static SkyKey key(ConfiguredTargetKey lac) {
-    return new SkyKey(SkyFunctions.POST_CONFIGURED_TARGET, lac);
+    return SkyKey.create(SkyFunctions.POST_CONFIGURED_TARGET, lac);
   }
 
   public ConfiguredTarget getCt() {

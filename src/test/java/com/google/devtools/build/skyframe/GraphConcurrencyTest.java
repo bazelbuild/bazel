@@ -72,7 +72,7 @@ public abstract class GraphConcurrencyTest {
   }
 
   protected SkyKey key(String name) {
-    return new SkyKey(SKY_FUNCTION_NAME, name);
+    return SkyKey.create(SKY_FUNCTION_NAME, name);
   }
 
   @Test

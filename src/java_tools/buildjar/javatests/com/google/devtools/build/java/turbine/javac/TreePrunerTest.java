@@ -277,7 +277,26 @@ public class TreePrunerTest {
       "    ",
       "    int f() default CONST;",
       "    int CONST = 42;",
-      "    int NONCONST = new Integer(42);",
+      "    int NONCONST;",
+      "}",
+    };
+    assertThat(prettyPrint(tree)).isEqualTo(Joiner.on('\n').join(expected));
+  }
+
+  @Test
+  public void interfaceDeclaration() {
+    String[] lines = {
+      "interface Intf {",
+      "  int CONST = 42;",
+      "  int NONCONST = new Integer(42);",
+      "}",
+    };
+    JCCompilationUnit tree = parseLines(lines);
+    TreePruner.prune(tree);
+    String[] expected = {
+      "interface Intf {",
+      "    int CONST = 42;",
+      "    int NONCONST;",
       "}",
     };
     assertThat(prettyPrint(tree)).isEqualTo(Joiner.on('\n').join(expected));

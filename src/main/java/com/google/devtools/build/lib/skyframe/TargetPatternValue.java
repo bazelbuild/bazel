@@ -144,7 +144,7 @@ public final class TargetPatternValue implements SkyValue {
               !positive,
               offset,
               ImmutableSet.<PathFragment>of());
-      SkyKey skyKey = new SkyKey(SkyFunctions.TARGET_PATTERN, targetPatternKey);
+      SkyKey skyKey = SkyKey.create(SkyFunctions.TARGET_PATTERN, targetPatternKey);
       builder.add(new TargetPatternSkyKeyValue(skyKey));
     }
     return builder.build();

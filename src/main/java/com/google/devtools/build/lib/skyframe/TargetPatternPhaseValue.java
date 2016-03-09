@@ -15,16 +15,13 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingResult;
 import com.google.devtools.build.lib.pkgcache.TestFilter;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -105,8 +102,7 @@ public final class TargetPatternPhaseValue implements SkyValue {
   }
 
   public LoadingResult toLoadingResult() {
-    return new LoadingResult(hasError(), hasPostExpansionError(), getTargets(), getTestsToRun(),
-        ImmutableMap.<PackageIdentifier, Path>of());
+    return new LoadingResult(hasError(), hasPostExpansionError(), getTargets(), getTestsToRun());
   }
 
   @SuppressWarnings("unused")
@@ -129,8 +125,15 @@ public final class TargetPatternPhaseValue implements SkyValue {
   public static SkyKey key(ImmutableList<String> targetPatterns, String offset,
       boolean compileOneDependency, boolean buildTestsOnly, boolean determineTests,
       @Nullable TestFilter testFilter) {
-    return new SkyKey(SkyFunctions.TARGET_PATTERN_PHASE, new TargetPatternList(
-        targetPatterns, offset, compileOneDependency, buildTestsOnly, determineTests, testFilter));
+    return SkyKey.create(
+        SkyFunctions.TARGET_PATTERN_PHASE,
+        new TargetPatternList(
+            targetPatterns,
+            offset,
+            compileOneDependency,
+            buildTestsOnly,
+            determineTests,
+            testFilter));
   }
 
   /**

@@ -18,7 +18,7 @@ load(
 )
 
 load(
-    "//tools:build_rules/test_rules.bzl",
+    "//tools/build_rules:test_rules.bzl",
     "success_target",
     "successful_test",
     "failure_target",

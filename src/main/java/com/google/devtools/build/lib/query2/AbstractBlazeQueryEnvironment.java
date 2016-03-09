@@ -184,6 +184,10 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
     return new QueryEvalResult(!eventHandler.hasErrors(), empty.get());
   }
 
+  public QueryExpression transformParsedQuery(QueryExpression queryExpression) {
+    return queryExpression;
+  }
+
   public QueryEvalResult evaluateQuery(String query, Callback<T> callback)
       throws QueryException, InterruptedException {
     return evaluateQuery(QueryExpression.parse(query, this), callback);

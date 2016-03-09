@@ -11,3 +11,9 @@ genrule(
     output_to_bindir = 1,
     visibility = ["//visibility:public"],
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//src:__pkg__"],
+)

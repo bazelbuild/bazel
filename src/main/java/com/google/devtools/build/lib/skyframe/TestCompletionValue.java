@@ -32,18 +32,21 @@ public class TestCompletionValue implements SkyValue {
   private TestCompletionValue() { }
 
   public static SkyKey key(LabelAndConfiguration lac, boolean exclusive) {
-    return new SkyKey(SkyFunctions.TEST_COMPLETION, new TestCompletionKey(lac, exclusive));
+    return SkyKey.create(SkyFunctions.TEST_COMPLETION, new TestCompletionKey(lac, exclusive));
   }
 
   public static Iterable<SkyKey> keys(Collection<ConfiguredTarget> targets,
                                       final boolean exclusive) {
-    return Iterables.transform(targets, new Function<ConfiguredTarget, SkyKey>() {
-      @Override
-      public SkyKey apply(ConfiguredTarget ct) {
-        return new SkyKey(SkyFunctions.TEST_COMPLETION, 
-            new TestCompletionKey(new LabelAndConfiguration(ct), exclusive));
-      }
-    });
+    return Iterables.transform(
+        targets,
+        new Function<ConfiguredTarget, SkyKey>() {
+          @Override
+          public SkyKey apply(ConfiguredTarget ct) {
+            return SkyKey.create(
+                SkyFunctions.TEST_COMPLETION,
+                new TestCompletionKey(new LabelAndConfiguration(ct), exclusive));
+          }
+        });
   }
   
   static class TestCompletionKey {

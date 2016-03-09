@@ -216,6 +216,185 @@ EOF
   expect_log "Tra-la!"
 }
 
+function test_skylark_local_repository() {
+  create_new_workspace
+  repo2=$new_workspace_dir
+
+  cat > BUILD <<'EOF'
+genrule(name='bar', cmd='echo foo | tee $@', outs=['bar.txt'])
+EOF
+
+  cd ${WORKSPACE_DIR}
+  cat > WORKSPACE <<EOF
+load('/test', 'repo')
+repo(name='foo', path='$repo2')
+EOF
+
+  # Our custom repository rule
+  cat >test.bzl <<EOF
+def _impl(ctx):
+  ctx.symlink(ctx.path(ctx.attr.path), ctx.path(""))
+
+repo = repository_rule(
+    implementation=_impl,
+    local=True,
+    attrs={"path": attr.string(mandatory=True)})
+EOF
+  # Need to be in a package
+  cat > BUILD
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "foo"
+  cat bazel-genfiles/external/foo/bar.txt >$TEST_log
+  expect_log "foo"
+}
+
+function setup_skylark_repository() {
+  create_new_workspace
+  repo2=$new_workspace_dir
+
+  cat > bar.txt
+  echo "filegroup(name='bar', srcs=['bar.txt'])" > BUILD
+
+  cd "${WORKSPACE_DIR}"
+  cat > WORKSPACE <<EOF
+load('/test', 'repo')
+repo(name = 'foo')
+EOF
+  # Need to be in a package
+  cat > BUILD
+}
+
+function test_skylark_repository_which_and_execute() {
+  setup_skylark_repository
+
+  bazel info
+
+  # Test we are using the client environment, not the server one
+  echo "#!/bin/bash" > bin.sh
+  echo "exit 0" >> bin.sh
+  chmod +x bin.sh
+
+  # Our custom repository rule
+  cat >test.bzl <<EOF
+def _impl(ctx):
+  bash = ctx.which("bash")
+  if bash == None:
+    fail("Bash not found!")
+  bin = ctx.which("bin.sh")
+  if bin == None:
+    fail("bin.sh not found!")
+  result = ctx.execute([bash, "--version"])
+  if result.return_code != 0:
+    fail("Non-zero return code from bash: " + result.return_code)
+  if result.stderr != "":
+    fail("Non-empty error output: " + result.stderr)
+  print(result.stdout)
+  # Symlink so a repository is created
+  ctx.symlink(ctx.path("$repo2"), ctx.path(""))
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  PATH="${PATH}:${PWD}" bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "version"
+}
+
+function test_skylark_repository_execute_stderr() {
+  setup_skylark_repository
+
+  cat >test.bzl <<EOF
+def _impl(ctx):
+  result = ctx.execute([str(ctx.which("bash")), "-c", "echo erf >&2; exit 1"])
+  if result.return_code != 1:
+    fail("Incorrect return code from bash (should be 1): " + result.return_code)
+  if result.stdout != "":
+    fail("Non-empty output: %s (stderr was %s)" % (result.stdout, result.stderr))
+  print(result.stderr)
+  # Symlink so a repository is created
+  ctx.symlink(ctx.path("$repo2"), ctx.path(""))
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+
+  bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "erf"
+}
+
+function test_skylark_repository_environ() {
+  setup_skylark_repository
+
+  # Our custom repository rule
+  cat >test.bzl <<EOF
+def _impl(ctx):
+  print(ctx.os.environ["FOO"])
+  # Symlink so a repository is created
+  ctx.symlink(ctx.path("$repo2"), ctx.path(""))
+repo = repository_rule(implementation=_impl, local=False)
+EOF
+
+  # TODO(dmarting): We should seriously have something better to force a refetch...
+  bazel clean --expunge
+  FOO=BAR bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "BAR"
+
+  FOO=BAR bazel clean --expunge >& $TEST_log
+  FOO=BAR bazel info >& $TEST_log
+
+  FOO=BAZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "BAZ"
+
+  # Test that we don't re-run on server restart.
+  FOO=BEZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_not_log "BEZ"
+  bazel shutdown >& $TEST_log
+  FOO=BEZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_not_log "BEZ"
+
+  # Test modifying test.bzl invalidate the repository
+  cat >test.bzl <<EOF
+def _impl(ctx):
+  print(ctx.os.environ["BAR"])
+  # Symlink so a repository is created
+  ctx.symlink(ctx.path("$repo2"), ctx.path(""))
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+  BAR=BEZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "BEZ"
+
+  # Shutdown and modify again
+  bazel shutdown
+  cat >test.bzl <<EOF
+def _impl(ctx):
+  print(ctx.os.environ["BAZ"])
+  # Symlink so a repository is created
+  ctx.symlink(ctx.path("$repo2"), ctx.path(""))
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+  BAZ=BOZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
+  expect_log "BOZ"
+}
+
+function test_skylark_repository_executable_flag() {
+  setup_skylark_repository
+
+  # Our custom repository rule
+  cat >test.bzl <<EOF
+def _impl(ctx):
+  ctx.file("test.sh", "exit 0")
+  ctx.file("BUILD", "sh_binary(name='bar',srcs=['test.sh'])", False)
+  ctx.template("test2", Label("//:bar"), {}, False)
+  ctx.template("test2.sh", Label("//:bar"), {}, True)
+repo = repository_rule(implementation=_impl, local=True)
+EOF
+  cat >bar
+
+  bazel run @foo//:bar >& $TEST_log || fail "Execution of @foo//:bar failed"
+  output_base=$(bazel info output_base)
+  test -x "${output_base}/external/foo/test.sh" || fail "test.sh is not executable"
+  test -x "${output_base}/external/foo/test2.sh" || fail "test2.sh is not executable"
+  test ! -x "${output_base}/external/foo/BUILD" || fail "BUILD is executable"
+  test ! -x "${output_base}/external/foo/test2" || fail "test2 is executable"
+}
+
 function tear_down() {
   true
 }

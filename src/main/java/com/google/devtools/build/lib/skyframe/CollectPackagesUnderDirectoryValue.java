@@ -115,6 +115,6 @@ public class CollectPackagesUnderDirectoryValue implements SkyValue {
   }
 
   static SkyKey key(RecursivePkgKey recursivePkgKey) {
-    return new SkyKey(SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY, recursivePkgKey);
+    return SkyKey.create(SkyFunctions.COLLECT_PACKAGES_UNDER_DIRECTORY, recursivePkgKey);
   }
 }

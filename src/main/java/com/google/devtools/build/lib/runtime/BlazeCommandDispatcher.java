@@ -288,6 +288,9 @@ public class BlazeCommandDispatcher {
       parseArgsAndConfigs(optionsParser, commandAnnotation, args, rcfileNotes, outErr);
 
       InvocationPolicyEnforcer optionsPolicyEnforcer =
+          new InvocationPolicyEnforcer(runtime.getInvocationPolicy());
+      optionsPolicyEnforcer.enforce(optionsParser, commandName);
+      optionsPolicyEnforcer =
           InvocationPolicyEnforcer.create(getRuntime().getStartupOptionsProvider());
       optionsPolicyEnforcer.enforce(optionsParser, commandName);
     } catch (OptionsParsingException e) {
@@ -325,6 +328,7 @@ public class BlazeCommandDispatcher {
     EventHandler handler = createEventHandler(outErr, eventHandlerOptions);
     Reporter reporter = env.getReporter();
     reporter.addHandler(handler);
+    env.getEventBus().register(handler);
 
     // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
     // codes can be re-introduced later even if blaze is invoked with --color=no. This is useful
@@ -624,7 +628,10 @@ public class BlazeCommandDispatcher {
   private EventHandler createEventHandler(OutErr outErr,
       BlazeCommandEventHandler.Options eventOptions) {
     EventHandler eventHandler;
-    if ((eventOptions.useColor() || eventOptions.useCursorControl())) {
+    if (eventOptions.experimentalUi) {
+      // The experimental event handler is not to be rate limited.
+      return new ExperimentalEventHandler(outErr, eventOptions);
+    } else if ((eventOptions.useColor() || eventOptions.useCursorControl())) {
       eventHandler = new FancyTerminalEventHandler(outErr, eventOptions);
     } else {
       eventHandler = new BlazeCommandEventHandler(outErr, eventOptions);
@@ -640,7 +647,10 @@ public class BlazeCommandDispatcher {
     if (eventHandler instanceof FancyTerminalEventHandler) {
       // Make sure that the terminal state of the old event handler is clear
       // before creating a new one.
-      ((FancyTerminalEventHandler)eventHandler).resetTerminal();
+      ((FancyTerminalEventHandler) eventHandler).resetTerminal();
+    }
+    if (eventHandler instanceof ExperimentalEventHandler) {
+      ((ExperimentalEventHandler) eventHandler).resetTerminal();
     }
   }
 

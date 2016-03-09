@@ -31,9 +31,9 @@ function set_up() {
   if [[ ! -z "${workers}" ]]; then
     kill $workers
 
-    # Wait at most 3 seconds for all workers to shut down.
-    for i in 0 1 2 3; do
-      still_running_workers=$(for pid in $workers; do ps -p $pid | sed 1d; done)
+    # Wait at most 10 seconds for all workers to shut down.
+    for i in 0 1 2 3 4 5 6 7 8 9; do
+      still_running_workers=$(for pid in $workers; do kill -0 $pid &>/dev/null && echo $pid || true; done)
 
       if [[ ! -z "${still_running_workers}" ]]; then
         if [[ $i -eq 3 ]]; then
@@ -96,7 +96,7 @@ function shutdown_and_print_unkilled_workers() {
 
   # Wait at most 10 seconds for all workers to shut down, then print the remaining (if any).
   for i in 0 1 2 3 4 5 6 7 8 9; do
-    still_running_workers=$(for pid in $workers; do ps -p $pid | sed 1d; done)
+    still_running_workers=$(for pid in $workers; do kill -0 $pid &>/dev/null && echo $pid || true; done)
     if [[ ! -z "${still_running_workers}" ]]; then
       sleep 1
     fi
@@ -129,28 +129,6 @@ function test_compiles_hello_library_using_persistent_javac() {
     || fail "comparison failed"
   assert_workers_running
   shutdown_and_print_unkilled_workers
-}
-
-function test_incremental_heuristic() {
-  write_hello_library_files
-
-  # Default strategy is assumed to not use workers.
-  bazel build //java/main:main || fail "build failed"
-  assert_workers_not_running
-
-  # No workers used, because too many files changed.
-  echo '// hello '>> java/hello_library/HelloLibrary.java
-  echo '// hello' >> java/main/Main.java
-  bazel build --worker_max_changed_files=1 --strategy=Javac=worker //java/main:main \
-    || fail "build failed"
-  assert_workers_not_running
-
-  # Workers used, because changed number of files is less-or-equal to --worker_max_changed_files=2.
-  echo '// again '>> java/hello_library/HelloLibrary.java
-  echo '// again' >> java/main/Main.java
-  bazel build --worker_max_changed_files=2 --strategy=Javac=worker //java/main:main \
-    || fail "build failed"
-  assert_workers_running
 }
 
 function test_workers_quit_after_build() {

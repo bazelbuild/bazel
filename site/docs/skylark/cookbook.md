@@ -2,13 +2,12 @@
 layout: documentation
 title: Skylark Cookbook
 ---
-Skylark cookbook
-================
+# Skylark cookbook
 
 ## <a name="macro_native"></a>Macro creating a native rule
 
 An example of a macro creating a native rule. Native rules are accessed using
-the `native` module.
+the <a href="lib/native.html">native</a> module.
 
 `extension.bzl`:
 
@@ -26,7 +25,7 @@ def macro(name, visibility=None):
 `BUILD`:
 
 ```python
-load("/pkg/extension", "macro")
+load("//pkg:extension.bzl", "macro")
 
 macro(name = "myrule")
 ```
@@ -48,22 +47,22 @@ empty = rule(implementation=_impl)
 
 ```python
 # Loading the Skylark rule. The rule doesn't have to be in a separate file.
-load("/pkg/empty", "empty")
+load("//pkg:empty.bzl", "empty")
 
 def macro(name, visibility=None):
   # Creating the Skylark rule.
-  empty(name = name, visibility=visibility)
+  empty(name = name, visibility = visibility)
 ```
 
 `BUILD`:
 
 ```python
-load("/pkg/extension", "macro")
+load("//pkg:extension.bzl", "macro")
 
 macro(name = "myrule")
 ```
 
-## <a name="conditional-instantiation"></a>Conditional instantiation.
+## <a name="conditional-instantiation"></a>Conditional instantiation
 
 Macros can look at previously instantiated rules. This is done with
 `native.existing_rule`, which returns information on a single rule defined in the same
@@ -80,7 +79,7 @@ tests for diverse flavors of the same test.
 `extension.bzl`:
 
 ```python
-def system_test(test_file, flavor):
+def system_test(name, test_file, flavor):
   n = "system_test_%s_%s_test" % (test_file, flavor)
   if native.existing_rule(n) == None:
     native.py_test(
@@ -93,15 +92,15 @@ def system_test_suite(name, flavors=["default"], test_files):
   ts = []
   for flavor in flavors:
     for test in test_files:
-      ts.append(system_test(name, flavor, test))
+      ts.append(system_test(name, test, flavor))
   native.test_suite(name = name, tests = ts)
 ```
 
-In the following BUILD file, note how `(fast, basic_test.py)` is emitted for
+In the following BUILD file, note how `(basic_test.py, fast)` is emitted for
 both the `smoke` test suite and the `thorough` test suite.
 
 ```python
-load("/pkg/extension", "system_test_suite")
+load("//pkg:extension.bzl", "system_test_suite")
 
 # Run all files through the 'fast' flavor.
 system_test_suite("smoke", flavors=["fast"], glob(["*_test.py"]))
@@ -111,14 +110,15 @@ system_test_suite("thorough", flavors=["fast", "debug", "opt"], ["basic_test.py"
 ```
 
 
-## <a name="aggregation"></a>Aggregating over the BUILD file.
+## <a name="aggregation"></a>Aggregating over the BUILD file
 
 Macros can collect information from the BUILD file as processed so far.  We call
 this aggregation. The typical example is collecting data from all rules of a
-certain kind.  This is done by calling `native.existing_rules`, which returns a
-dictionary representing all rules defined so far in the current BUILD file. The
-dictionary has entries of the form `name` => `rule`, with the values using the
-same format as `native.existing_rule`.
+certain kind.  This is done by calling
+<a href="lib/native.html#existing_rules">native.existing\_rules</a>, which
+returns a dictionary representing all rules defined so far in the current BUILD
+file. The dictionary has entries of the form `name` => `rule`, with the values
+using the same format as `native.existing_rule`.
 
 ```python
 def archive_cc_src_files(tag):
@@ -151,7 +151,7 @@ empty = rule(implementation=_impl)
 `BUILD`:
 
 ```python
-load("/pkg/empty", "empty")
+load("//pkg:empty.bzl", "empty")
 
 empty(name = "nothing")
 ```
@@ -186,7 +186,7 @@ printer = rule(
 `BUILD`:
 
 ```python
-load("/pkg/printer", "printer")
+load("//pkg:printer.bzl", "printer")
 
 printer(
     name = "nothing",
@@ -210,8 +210,7 @@ the user. The output has the same name as the rule, with a `.size` suffix.
 While convenient, Shell commands should be used carefully. Generating the
 command-line can lead to escaping and injection issues. It can also create
 portability problems. It is often better to declare a binary target in a
-BUILD file and execute it. See the example "<a href="#execute-bin">
-executing a binary</a>".
+BUILD file and execute it. See the example [executing a binary](#execute-bin).
 
 `size.bzl`:
 
@@ -242,7 +241,7 @@ Hello
 `BUILD`:
 
 ```python
-load("/pkg/size", "size")
+load("//pkg:size.bzl", "size")
 
 size(
     name = "foo_size",
@@ -271,7 +270,7 @@ file = rule(
 `BUILD`:
 
 ```python
-load("/pkg/file", "file")
+load("//pkg:file.bzl", "file")
 
 file(
     name = "hello",
@@ -343,7 +342,7 @@ sh_binary(
 `merge.sh`:
 
 ```python
-#! /bin/bash
+#!/bin/bash
 
 out=$1
 shift
@@ -410,7 +409,7 @@ execute = rule(
 `a.sh`:
 
 ```bash
-#! /bin/bash
+#!/bin/bash
 
 tr 'a-z' 'A-Z' < $1 > $2
 ```
@@ -418,7 +417,7 @@ tr 'a-z' 'A-Z' < $1 > $2
 `BUILD`:
 
 ```python
-load("/pkg/execute", "execute")
+load("//pkg:execute.bzl", "execute")
 
 execute(
     name = "e",
@@ -472,7 +471,7 @@ Hello World!
 `BUILD`:
 
 ```python
-load("/pkg/execute", "execute")
+load("//pkg:execute.bzl", "execute")
 
 execute(
     name = "e",
@@ -545,7 +544,7 @@ hash = rule(
 `BUILD`:
 
 ```python
-load("/pkg/hash", "hash")
+load("//pkg:hash.bzl", "hash")
 
 hash(
     name = "hash",
@@ -573,14 +572,14 @@ Hello World!
 `comments.sh`:
 
 ```
-#! /bin/bash
+#!/bin/bash
 grep -v '^ *#' $1 > $2  # Remove lines with only a Python-style comment
 ```
 
 `spaces.sh`:
 
 ```
-#! /bin/bash
+#!/bin/bash
 tr -d ' ' < $1 > $2  # Remove spaces
 ```
 
@@ -617,7 +616,7 @@ sum = rule(
 `BUILD`:
 
 ```python
-load("/pkg/sum", "sum")
+load("//pkg:sum.bzl", "sum")
 
 sum(
   name = "n",
@@ -665,7 +664,7 @@ sum = rule(
 `BUILD`:
 
 ```python
-load("/pkg/sum", "sum")
+load("//pkg:sum.bzl", "sum")
 
 sum(
   name = "n",
@@ -708,7 +707,7 @@ executable_rule = rule(
 `BUILD`:
 
 ```python
-load("/pkg/extension", "executable_rule")
+load("//pkg:extension.bzl", "executable_rule")
 
 executable_rule(name = "my_rule")
 ```
@@ -740,7 +739,7 @@ rule_with_outputs = rule(
 `BUILD`:
 
 ```python
-load("/pkg/extension", "rule_with_outputs")
+load("//pkg:extension.bzl", "rule_with_outputs")
 
 rule_with_outputs(name = "my_rule")
 ```
@@ -774,7 +773,7 @@ rule_with_outputs = rule(
 `BUILD`:
 
 ```python
-load("/pkg/extension", "rule_with_outputs")
+load("//pkg:extension.bzl", "rule_with_outputs")
 
 rule_with_outputs(
     name = "my_rule",
@@ -833,7 +832,7 @@ def macro(name, cmd, input):
 `BUILD`:
 
 ```python
-load("/pkg/extension", "macro")
+load("//pkg:extension.bzl", "macro")
 
 # This creates the target :my_rule
 macro(
@@ -845,7 +844,8 @@ macro(
 
 ## <a name="debugging-tips"></a>Debugging tips
 
-Here are some examples on how to debug Skylark macros and rules.
+Here are some examples on how to debug Skylark macros and rules using
+<a href="lib/globals.html#print">print</a>.
 
 `debug.bzl`:
 
@@ -866,7 +866,7 @@ debug = rule(implementation=_impl)
 `BUILD`:
 
 ```python
-load("/pkg/debug", "debug")
+load("//pkg:debug.bzl", "debug")
 
 debug(
   name = "printing_rule"

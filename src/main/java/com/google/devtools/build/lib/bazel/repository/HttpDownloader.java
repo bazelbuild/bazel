@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Strings;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
@@ -33,10 +31,8 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.Authenticator;
 import java.net.HttpURLConnection;
-import java.net.InetSocketAddress;
-import java.net.PasswordAuthentication;
+import java.net.MalformedURLException;
 import java.net.Proxy;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -45,8 +41,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.annotation.Nullable;
 
@@ -54,6 +48,7 @@ import javax.annotation.Nullable;
  * Helper class for downloading a file from a URL.
  */
 public class HttpDownloader {
+  private static final int MAX_REDIRECTS = 20;
   private static final int BUFFER_SIZE = 32 * 1024;
   private static final int KB = 1024;
   private static final String UNITS = " KMGTPEY";
@@ -238,86 +233,73 @@ public class HttpDownloader {
     }
 
     public static HttpConnection createAndConnect(URL url) throws IOException {
-      HttpURLConnection connection = (HttpURLConnection) url.openConnection(
-          createProxyIfNeeded(url.getProtocol()));
-      connection.setInstanceFollowRedirects(true);
-      connection.connect();
-      if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) {
-        InputStream errorStream = connection.getErrorStream();
-        throw new IOException(connection.getResponseCode() + ": "
-            + new String(ByteStreams.toByteArray(errorStream), StandardCharsets.UTF_8));
+      int retries = MAX_REDIRECTS;
+      Proxy proxy = ProxyHelper.createProxyIfNeeded(url.toString());
+      do {
+        HttpURLConnection connection = (HttpURLConnection) url.openConnection(proxy);
+        try {
+          connection.connect();
+        } catch (IllegalArgumentException e) {
+          throw new IOException("Failed to connect to " + url + " : " + e.getMessage(), e);
+        }
+
+        int statusCode = connection.getResponseCode();
+        switch (statusCode) {
+          case HttpURLConnection.HTTP_OK:
+            return new HttpConnection(connection.getInputStream(), parseContentLength(connection));
+          case HttpURLConnection.HTTP_MOVED_PERM:
+          case HttpURLConnection.HTTP_MOVED_TEMP:
+            url = tryGetLocation(statusCode, connection);
+            connection.disconnect();
+            break;
+          case -1:
+            throw new IOException("An HTTP error occured");
+          default:
+            throw new IOException(String.format("%s %s: %s",
+                connection.getResponseCode(),
+                connection.getResponseMessage(),
+                readBody(connection)));
+          }
+      } while (retries-- > 0);
+      throw new IOException("Maximum redirects (" + MAX_REDIRECTS + ") exceeded");
+    }
+
+    private static URL tryGetLocation(int statusCode, HttpURLConnection connection)
+        throws IOException {
+      String newLocation = connection.getHeaderField("Location");
+      if (newLocation == null) {
+        throw new IOException(
+            "Remote returned " + statusCode + " but did not return location header.");
       }
-      return new HttpConnection(connection.getInputStream(), parseContentLength(connection));
-    }
-  }
 
-  private static Proxy createProxyIfNeeded(String protocol) throws IOException {
-    if (protocol.equals("https")) {
-      return createProxy(System.getenv("HTTPS_PROXY"));
-    } else if (protocol.equals("http")) {
-      return createProxy(System.getenv("HTTP_PROXY"));
-    }
-    return Proxy.NO_PROXY;
-  }
-
-  @VisibleForTesting
-  static Proxy createProxy(String proxyAddress) throws IOException {
-    if (Strings.isNullOrEmpty(proxyAddress)) {
-      return Proxy.NO_PROXY;
-    }
-
-    // Here there be dragons.
-    Pattern urlPattern =
-        Pattern.compile("^(https?)://(?:([^:@]+?)(?::([^@]+?))?@)?(?:[^:]+)(?::(\\d+))?$");
-    Matcher matcher = urlPattern.matcher(proxyAddress);
-    if (!matcher.matches()) {
-      throw new IOException("Proxy address " + proxyAddress + " is not a valid URL");
-    }
-
-    String protocol = matcher.group(1);
-    final String username = matcher.group(2);
-    final String password = matcher.group(3);
-    String port = matcher.group(4);
-
-    boolean https;
-    switch (protocol) {
-      case "https":
-        https = true;
-        break;
-      case "http":
-        https = false;
-        break;
-      default:
-        throw new IOException("Invalid proxy protocol for " + proxyAddress);
-    }
-
-    if (username != null) {
-      if (password == null) {
-        throw new IOException("No password given for proxy " + proxyAddress);
+      URL newUrl;
+      try {
+        newUrl = new URL(newLocation);
+      } catch (MalformedURLException e) {
+        throw new IOException("Remote returned invalid location header: " + newLocation);
       }
-      System.setProperty(protocol + ".proxyUser", username);
-      System.setProperty(protocol + ".proxyPassword", password);
 
-      Authenticator.setDefault(
-          new Authenticator() {
-            @Override
-            public PasswordAuthentication getPasswordAuthentication() {
-              return new PasswordAuthentication(username, password.toCharArray());
-            }
-          });
+      String newProtocol = newUrl.getProtocol();
+      if (!("http".equals(newProtocol) || "https".equals(newProtocol))) {
+        throw new IOException(
+            "Remote returned invalid location header: " + newLocation);
+      }
+
+      return newUrl;
     }
 
-    if (port == null) {
-      return new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxyAddress, https ? 443 : 80));
-    }
+    private static String readBody(HttpURLConnection connection) throws IOException {
+      InputStream errorStream = connection.getErrorStream();
+      if (errorStream != null) {
+        return new String(ByteStreams.toByteArray(errorStream), StandardCharsets.UTF_8);
+      }
 
-    try {
-      return new Proxy(
-          Proxy.Type.HTTP,
-          new InetSocketAddress(
-              proxyAddress.substring(0, proxyAddress.lastIndexOf(':')), Integer.parseInt(port)));
-    } catch (NumberFormatException e) {
-      throw new IOException("Error parsing proxy port: " + proxyAddress);
+      InputStream responseStream = connection.getInputStream();
+      if (responseStream != null) {
+        return new String(ByteStreams.toByteArray(responseStream), StandardCharsets.UTF_8);
+      }
+
+      return null;
     }
   }
 

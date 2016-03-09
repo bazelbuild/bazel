@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.Map;
 
@@ -35,10 +36,14 @@ public final class LipoContextProvider implements TransitiveInfoProvider {
   private final CppCompilationContext cppCompilationContext;
 
   private final ImmutableMap<Artifact, IncludeScannable> includeScannables;
+  private final ImmutableMap<PathFragment, Artifact> sourceArtifactMap;
+
   public LipoContextProvider(CppCompilationContext cppCompilationContext,
-      Map<Artifact, IncludeScannable> scannables) {
+      Map<Artifact, IncludeScannable> scannables,
+      Map<PathFragment, Artifact> sourceArtifactMap) {
     this.cppCompilationContext = cppCompilationContext;
     this.includeScannables = ImmutableMap.copyOf(scannables);
+    this.sourceArtifactMap = ImmutableMap.copyOf(sourceArtifactMap);
   }
 
   /**
@@ -54,5 +59,9 @@ public final class LipoContextProvider implements TransitiveInfoProvider {
    */
   public ImmutableMap<Artifact, IncludeScannable> getIncludeScannables() {
     return includeScannables;
+  }
+
+  public ImmutableMap<PathFragment, Artifact> getSourceArtifactMap() {
+    return sourceArtifactMap;
   }
 }

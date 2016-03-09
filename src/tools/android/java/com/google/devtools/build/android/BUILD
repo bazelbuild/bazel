@@ -25,6 +25,14 @@ java_binary(
 )
 
 java_binary(
+    name = "ResourceShrinkerAction",
+    main_class = "com.google.devtools.build.android.ResourceShinkerAction",
+    runtime_deps = [
+        ":android_builder_lib",
+    ],
+)
+
+java_binary(
     name = "AarGeneratorAction",
     main_class = "com.google.devtools.build.android.AarGeneratorAction",
     runtime_deps = [
@@ -34,10 +42,13 @@ java_binary(
 
 java_library(
     name = "android_builder_lib",
-    srcs = glob(["*.java"]),
+    srcs = glob([
+        "*.java",
+        "xml/*.java",
+    ]),
     deps = [
         "//src/main/java/com/google/devtools/common/options",
-        "//src/main/protobuf:package_manifest_proto",
+        "//src/main/protobuf:package_manifest_java_proto",
         "//third_party:android_common",
         "//third_party:apache_commons_compress",
         "//third_party:asm",
@@ -45,4 +56,15 @@ java_library(
         "//third_party:jsr305",
         "//third_party:protobuf",
     ],
+)
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]) + [
+        "//src/tools/android/java/com/google/devtools/build/android/ideinfo:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/idlclass:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/ziputils:srcs",
+    ],
+    visibility = ["//src:__pkg__"],
 )

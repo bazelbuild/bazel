@@ -24,8 +24,24 @@ source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
 function setup_go() {
   copy_examples
 
-  cat <<EOF > WORKSPACE
+  GO_REPO=$PWD/tools/build_rules/go/toolchain
 
+  cat <<EOF > WORKSPACE
+new_local_repository(
+    name = "bazel_tools",
+    path = __workspace_dir__,
+    build_file = __workspace_dir__ + "/BUILD",
+)
+new_local_repository(
+    name = "golang_linux_amd64",
+    path = "$GO_REPO",
+    build_file = "$GO_REPO/BUILD"
+)
+new_local_repository(
+    name = "golang_darwin_amd64",
+    path = "$GO_REPO",
+    build_file = "$GO_REPO/BUILD"
+)
 EOF
 
   # avoid trying to download the SDK from within the test.

@@ -16,6 +16,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <ftw.h>
 #include <libgen.h>
 #include <limits.h>
 #include <pwd.h>
@@ -476,7 +477,31 @@ static void SetupDevices() {
   CHECK_CALL(symlink("/proc/self/fd", "dev/fd"));
 }
 
+static int rmrf(const char *fpath, const struct stat *sb, int typeflag,
+                struct FTW *ftwbuf) {
+  if (typeflag == FTW_DP) {
+    return rmdir(fpath);
+  } else {
+    return unlink(fpath);
+  }
+}
+
 static void SetupDirectories(struct Options *opt) {
+  // If in sandbox_debug mode and debugging, create the sandbox root dir first
+  if (global_debug && isatty(fileno(stdin))) {
+    // Enter sandbox_debug mode a second time, delete old sandbox
+    struct stat sb;
+    int err = stat(opt->sandbox_root, &sb);
+    if (err == 0) {
+      CHECK_CALL(nftw(opt->sandbox_root, *rmrf, sysconf(_SC_OPEN_MAX),
+                      FTW_DEPTH | FTW_PHYS));
+    } else if (errno != ENOENT) {
+      CHECK_CALL(err);
+    }
+
+    CHECK_CALL(mkdir(opt->sandbox_root, 0755));
+  }
+
   // Mount the sandbox and go there.
   CHECK_CALL(mount(opt->sandbox_root, opt->sandbox_root, NULL,
                    MS_BIND | MS_NOSUID, NULL));
@@ -653,11 +678,11 @@ void OnSignal(int sig) {
 
 // Run the command specified by the argv array and kill it after timeout
 // seconds.
-static void SpawnCommand(char *const *argv, double timeout_secs) {
+static void SpawnCommand(char *const *argv, double timeout_secs,
+                         bool isFallback) {
   for (int i = 0; argv[i] != NULL; i++) {
     PRINT_DEBUG("arg: %s\n", argv[i]);
   }
-
   CHECK_CALL(global_child_pid = fork());
   if (global_child_pid == 0) {
     // In child.
@@ -691,6 +716,13 @@ static void SpawnCommand(char *const *argv, double timeout_secs) {
       UnHandle(global_signal);
       raise(global_signal);
     } else if (WIFEXITED(status)) {
+      if (global_debug && !isFallback && isatty(fileno(stdin)) &&
+          WEXITSTATUS(status) > 0) {
+        char **cmdList = calloc(2, sizeof(char *));
+        cmdList[0] = "/bin/bash";
+        cmdList[1] = NULL;
+        SpawnCommand(cmdList, 0, true);
+      }
       exit(WEXITSTATUS(status));
     } else {
       int sig = WTERMSIG(status);
@@ -749,7 +781,7 @@ int main(int argc, char *const argv[]) {
   }
   ChangeRoot(&opt);
 
-  SpawnCommand(opt.args, opt.timeout_secs);
+  SpawnCommand(opt.args, opt.timeout_secs, false);
 
   free(opt.create_dirs);
   free(opt.mount_sources);

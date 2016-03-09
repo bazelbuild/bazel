@@ -464,6 +464,9 @@ public class BuildView {
           aspectKeys.add(
               AspectValue.createSkylarkAspectKey(
                   targetSpec.getLabel(),
+                  // For invoking top-level aspects, use the top-level configuration for both the
+                  // aspect and the base target while the top-level configuration is untrimmed.
+                  targetSpec.getConfiguration(),
                   targetSpec.getConfiguration(),
                   bzlFile,
                   skylarkFunctionName));
@@ -477,6 +480,9 @@ public class BuildView {
             aspectKeys.add(
                 AspectValue.createAspectKey(
                     targetSpec.getLabel(),
+                    // For invoking top-level aspects, use the top-level configuration for both the
+                    // aspect and the base target while the top-level configuration is untrimmed.
+                    targetSpec.getConfiguration(),
                     targetSpec.getConfiguration(),
                     new NativeAspectClass<ConfiguredNativeAspectFactory>(aspectFactoryClass)));
           }
@@ -486,12 +492,6 @@ public class BuildView {
       }
     }
 
-    // Configuration of some BuildConfiguration.Fragments may require information about
-    // artifactRoots, so we need to set them before calling prepareToBuild. In that case loading
-    // phase has to be enabled.
-    if (loadingEnabled) {
-      setArtifactRoots(loadingResult.getPackageRoots(), configurations);
-    }
     prepareToBuild(configurations, new SkyframePackageRootResolver(skyframeExecutor, eventHandler));
     skyframeExecutor.injectWorkspaceStatusData();
     SkyframeAnalysisResult skyframeAnalysisResult;
