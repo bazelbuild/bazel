@@ -72,7 +72,6 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
             bootclasspath,
             extclasspath,
             configuration.getDefaultJavacFlags(),
-            configuration.getDefaultJavaBuilderJvmFlags(),
             javac,
             javabuilder,
             headerCompiler,

@@ -127,7 +127,6 @@ public final class JavaConfiguration extends Fragment {
   private final ImmutableList<String> commandLineJavacFlags;
   private final Label javaLauncherLabel;
   private final Label javaBuilderTop;
-  private final ImmutableList<String> defaultJavaBuilderJvmOpts;
   private final Label javaLangtoolsJar;
   private final boolean useIjars;
   private final boolean useHeaderCompilation;
@@ -152,14 +151,12 @@ public final class JavaConfiguration extends Fragment {
   private final boolean legacyBazelJavaTest;
 
   JavaConfiguration(boolean generateJavaDeps,
-      List<String> defaultJvmFlags, JavaOptions javaOptions, Label javaToolchain, String javaCpu,
-      ImmutableList<String> defaultJavaBuilderJvmOpts)
+      List<String> defaultJvmFlags, JavaOptions javaOptions, Label javaToolchain, String javaCpu)
           throws InvalidConfigurationException {
     this.commandLineJavacFlags =
         ImmutableList.copyOf(JavaHelper.tokenizeJavaOptions(javaOptions.javacOpts));
     this.javaLauncherLabel = javaOptions.javaLauncher;
     this.javaBuilderTop = javaOptions.javaBuilderTop;
-    this.defaultJavaBuilderJvmOpts = defaultJavaBuilderJvmOpts;
     this.javaLangtoolsJar = javaOptions.javaLangtoolsJar;
     this.useIjars = javaOptions.useIjars;
     this.useHeaderCompilation = javaOptions.headerCompilation;
@@ -220,13 +217,6 @@ public final class JavaConfiguration extends Fragment {
    */
   public Label getDefaultJavaBuilderJar() {
     return javaBuilderTop;
-  }
-
-  /**
-   * Returns the default JVM flags to be used when invoking javabuilder.
-   */
-  public ImmutableList<String> getDefaultJavaBuilderJvmFlags() {
-    return defaultJavaBuilderJvmOpts;
   }
 
   /**

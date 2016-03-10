@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RedirectChaser;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
@@ -66,10 +65,7 @@ public class JavaConfigurationLoader implements ConfigurationFragmentFactory {
     boolean generateJavaDeps = javaOptions.javaDeps ||
         javaOptions.experimentalJavaClasspath != JavaClasspathMode.OFF;
 
-    ImmutableList<String> defaultJavaBuilderJvmOpts =
-        ImmutableList.copyOf(JavaHelper.tokenizeJavaOptions(javaOptions.javaBuilderJvmOpts));
-
-    return new JavaConfiguration(generateJavaDeps, javaOptions.jvmOpts, javaOptions,
-        javaToolchain, javaCpu, defaultJavaBuilderJvmOpts);
+    return new JavaConfiguration(
+        generateJavaDeps, javaOptions.jvmOpts, javaOptions, javaToolchain, javaCpu);
   }
 }

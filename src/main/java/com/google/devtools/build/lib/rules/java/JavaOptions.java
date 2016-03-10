@@ -296,13 +296,6 @@ public class JavaOptions extends FragmentOptions {
       help = "Label of the filegroup that contains the JavaBuilder jar.")
   public Label javaBuilderTop;
 
-  @Option(name = "javabuilder_jvmopt",
-      allowMultiple = true,
-      defaultValue = "",
-      category = "undocumented",
-      help = "Additional options to pass to the JVM when invoking JavaBuilder.")
-  public List<String> javaBuilderJvmOpts;
-
   @Option(name = "singlejar_top",
       defaultValue = "",
       category = "version",
