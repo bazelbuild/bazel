@@ -938,7 +938,7 @@ public final class BlazeRuntime {
 
     new InterruptSignalHandler() {
       @Override
-      public void run() {
+      protected void onSignal() {
         LOG.info("User interrupt");
         OutErr.SYSTEM_OUT_ERR.printErrLn("Blaze received an interrupt");
         mainThread.interrupt();
@@ -1132,6 +1132,9 @@ public final class BlazeRuntime {
     }
 
     BlazeServerStartupOptions startupOptions = options.getOptions(BlazeServerStartupOptions.class);
+    if (startupOptions.batch && startupOptions.oomMoreEagerly) {
+      new OomSignalHandler();
+    }
     PathFragment workspaceDirectory = startupOptions.workspaceDirectory;
     PathFragment installBase = startupOptions.installBase;
     PathFragment outputBase = startupOptions.outputBase;

@@ -213,6 +213,13 @@ static vector<string> GetArgumentArray() {
     die(jvm_args_exit_code, "%s", error.c_str());
   }
 
+  if (globals->options.batch && globals->options.oom_more_eagerly) {
+    // Put this OOM trigger with kill after --host_jvm_args, in case
+    // --host_jvm_args contains user-specified OOM triggers since we want those
+    // to execute first.
+    result.push_back("-XX:OnOutOfMemoryError=kill -USR2 %p");
+  }
+
   // We put all directories on the java.library.path that contain .so files.
   string java_library_path = "-Djava.library.path=";
   string real_install_dir = blaze_util::JoinPath(globals->options.install_base,
