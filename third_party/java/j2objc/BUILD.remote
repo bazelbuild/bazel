@@ -16,10 +16,17 @@ licenses(["notice"])  # Apache License 2.0
 
 exports_files(["LICENSE"])
 
-J2_DIR = "j2objc-0.9.8.1/"
+J2_DIR = "j2objc-1.0.1/"
 
 package(
     default_visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "jre_emul_jar",
+    srcs = [J2_DIR + "lib/jre_emul.jar"],
+    outs = ["jre_emul.jar"],
+    cmd = "cp $< $@",
 )
 
 java_import(

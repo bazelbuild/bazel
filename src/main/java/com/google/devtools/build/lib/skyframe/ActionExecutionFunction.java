@@ -435,7 +435,8 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
         ActionExecutionException exception =
             new ActionExecutionException(errorMessage, action, /*catastrophe=*/ false);
         LoggingUtil.logToRemote(Level.SEVERE, errorMessage, exception);
-        throw exception;
+        throw skyframeActionExecutor.processAndThrow(
+            exception, action, actionExecutionContext.getFileOutErr());
       }
     }
     Preconditions.checkState(!env.valuesMissing(), action);
