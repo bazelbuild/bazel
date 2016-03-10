@@ -288,4 +288,32 @@ public class RunfilesTest extends FoundationTestCase {
         .inOrder();
     assertNoEvents();
   }
+
+  @Test
+  public void testBuilderMergeConflictPolicyDefault() {
+    Runfiles r1 = new Runfiles.Builder("TESTING").build();
+    Runfiles r2 = new Runfiles.Builder("TESTING").merge(r1).build();
+    assertEquals(Runfiles.ConflictPolicy.IGNORE, r2.getConflictPolicy());
+  }
+
+  @Test
+  public void testBuilderMergeConflictPolicyInherit() {
+    Runfiles r1 = new Runfiles.Builder("TESTING").build()
+        .setConflictPolicy(Runfiles.ConflictPolicy.WARN);
+    Runfiles r2 = new Runfiles.Builder("TESTING").merge(r1).build();
+    assertEquals(Runfiles.ConflictPolicy.WARN, r2.getConflictPolicy());
+  }
+
+  @Test
+  public void testBuilderMergeConflictPolicyInheritStrictest() {
+    Runfiles r1 = new Runfiles.Builder("TESTING").build()
+        .setConflictPolicy(Runfiles.ConflictPolicy.WARN);
+    Runfiles r2 = new Runfiles.Builder("TESTING").build()
+        .setConflictPolicy(Runfiles.ConflictPolicy.ERROR);
+    Runfiles r3 = new Runfiles.Builder("TESTING").merge(r1).merge(r2).build();
+    assertEquals(Runfiles.ConflictPolicy.ERROR, r3.getConflictPolicy());
+    // Swap ordering
+    Runfiles r4 = new Runfiles.Builder("TESTING").merge(r2).merge(r1).build();
+    assertEquals(Runfiles.ConflictPolicy.ERROR, r4.getConflictPolicy());
+  }
 }
