@@ -344,19 +344,9 @@ public final class ReleaseBundlingSupport {
   private void registerLaunchStoryboardPlistAction() {
     String launchStoryboard = attributes.launchStoryboard().getFilename();
     String launchStoryboardName = launchStoryboard.substring(0, launchStoryboard.lastIndexOf('.'));
-    String contents =
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-            + "<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" "
-            + "\"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n"
-            + "<plist version=\"1.0\">\n"
-            + "<dict>\n"
-            + "  <key>UILaunchStoryboardName</key>\n"
-            + "  <string>"
-            + launchStoryboardName
-            + "</string>\n"
-            + "</dict>\n"
-            + "</plist>\n";
-
+    NSDictionary result = new NSDictionary();
+    result.put("UILaunchStoryboardName", launchStoryboardName);
+    String contents = result.toGnuStepASCIIPropertyList();
     ruleContext.registerAction(
         new FileWriteAction(
             ruleContext.getActionOwner(), getLaunchStoryboardPlist(), contents, false));
@@ -405,14 +395,14 @@ public final class ReleaseBundlingSupport {
     NSDictionary result = new NSDictionary();
 
     if (uiDeviceFamily != null) {
-      result.put("UIDeviceFamily", NSObject.wrap(uiDeviceFamily.toArray()));
+      result.put("UIDeviceFamily", uiDeviceFamily.toArray());
     }
-    result.put("DTPlatformName", NSObject.wrap(platform.getLowerCaseNameInPlist()));
+    result.put("DTPlatformName", platform.getLowerCaseNameInPlist());
     result.put(
         "DTSDKName",
-        NSObject.wrap(platform.getLowerCaseNameInPlist() + appleConfiguration.getIosSdkVersion()));
+        platform.getLowerCaseNameInPlist() + appleConfiguration.getIosSdkVersion());
     result.put("CFBundleSupportedPlatforms", new NSArray(NSObject.wrap(platform.getNameInPlist())));
-    result.put("MinimumOSVersion", NSObject.wrap(bundling.getMinimumOsVersion().toString()));
+    result.put("MinimumOSVersion", bundling.getMinimumOsVersion().toString());
 
     return result;
   }
