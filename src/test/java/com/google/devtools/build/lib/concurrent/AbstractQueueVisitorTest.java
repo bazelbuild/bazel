@@ -56,8 +56,6 @@ public class AbstractQueueVisitorTest {
     counter.awaitQuiescence(/*interruptWorkers=*/ false);
     assertSame(10, counter.getCount());
     assertSame(0, counter.activeParallelTasks());
-    // TODO(mschaller): Fix this flaky assertion.
-    // assertSame(1, counter.getMaxRunningConcurrently());
   }
 
   @Test
@@ -486,11 +484,10 @@ public class AbstractQueueVisitorTest {
     private final static String THREAD_NAME = "BlazeTest CountingQueueVisitor";
 
     private int theInt = 0;
-    private int maxRunningConcurrently = 0;
     private final Object lock = new Object();
 
     public CountingQueueVisitor() {
-      super(5, 3L, TimeUnit.SECONDS, THREAD_NAME);
+      super(/*parallelism=*/ 5, /*keepAlive=*/ 3L, TimeUnit.SECONDS, THREAD_NAME);
     }
 
     public CountingQueueVisitor(ThreadPoolExecutor executor) {
@@ -507,10 +504,6 @@ public class AbstractQueueVisitorTest {
                   theInt++;
                   enqueue();
                 }
-                int concurrentTasks = activeParallelTasks();
-                if (concurrentTasks > maxRunningConcurrently) {
-                  maxRunningConcurrently = concurrentTasks;
-                }
               }
             }
           });
@@ -518,10 +511,6 @@ public class AbstractQueueVisitorTest {
 
     public int getCount() {
       return theInt;
-    }
-
-    public int getMaxRunningConcurrently() {
-      return maxRunningConcurrently;
     }
   }
 
@@ -531,10 +520,6 @@ public class AbstractQueueVisitorTest {
 
     public ConcreteQueueVisitor() {
       super(5, 3L, TimeUnit.SECONDS, THREAD_NAME);
-    }
-
-    public ConcreteQueueVisitor(boolean failFast) {
-      super(true, 5, 3L, TimeUnit.SECONDS, failFast, THREAD_NAME);
     }
 
     public ConcreteQueueVisitor(boolean failFast, boolean failFastOnInterrupt) {
