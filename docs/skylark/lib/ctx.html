@@ -459,7 +459,7 @@ ctx.expand_make_variables("cmd", "$$PWD", {})  # == "$PWD"
 
 
         <h2 id="runfiles">runfiles</h2>
-        <p><pre><a class="anchor" href="runfiles.html">runfiles</a> ctx.runfiles(files=[], transitive_files=None, collect_data=False, collect_default=False)
+        <p><pre><a class="anchor" href="runfiles.html">runfiles</a> ctx.runfiles(files=[], transitive_files=None, collect_data=False, collect_default=False, symlinks={}, root_symlinks={})
 </pre></p>
 
     Creates a runfiles object.
@@ -511,6 +511,24 @@ ctx.expand_make_variables("cmd", "$$PWD", {})  # == "$PWD"
             <td>
                           <p><code><a class="anchor" href="globals.html#bool">bool</a></code></p>
                           <p>Whether to collect the default runfiles from the dependencies in srcs, data and deps attributes.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="runfiles.symlinks">
+              <code>symlinks</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="dict.html">dict</a></code></p>
+                          <p>The map of symlinks to be added to the runfiles, prefixed by workspace name.</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="runfiles.root_symlinks">
+              <code>root_symlinks</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="dict.html">dict</a></code></p>
+                          <p>The map of symlinks to be added to the runfiles.</p>
             </td>
           </tr>
                 </tbody>

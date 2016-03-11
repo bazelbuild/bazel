@@ -359,6 +359,38 @@ binary should know about them.
 Also note that if an action uses an executable, the executable's runfiles can
 be used when the action executes.
 
+Normally, the relative path of a file in the runfiles tree is the same as the
+relative path of that file in the source tree or generated output tree. If these
+need to be different for some reason, you can specify the `root_symlinks` or
+`symlinks` arguments.  The `root_symlinks` is a dictionary mapping paths to
+files, where the paths are relative to the root of the runfiles directory. The
+`symlinks` dictionary is the same, but paths are implicitly prefixed with the
+name of the workspace.
+
+```python
+    ...
+    runfiles = ctx.runfiles(
+        root_symlinks={"some/path/here.foo": ctx.file.some_data_file2}
+        symlinks={"some/path/here.bar": ctx.file.some_data_file3}
+    )
+    # Creates something like:
+    # sometarget.runfiles/
+    #     some/
+    #         path/
+    #             here.foo -> some_data_file2
+    #     <workspace_name>/
+    #         some/
+    #             path/
+    #                 here.bar -> some_data_file3
+```
+
+If `symlinks` or `root_symlinks` is used, be careful not to map two different
+files to the same path in the runfiles tree. This will cause the build to fail
+with an error describing the conflict. To fix, you will need to modify your
+`ctx.runfiles` arguments to remove the collision. This checking will be done for
+any targets using your rule, as well as targets of any kind that depend on those
+targets.
+
 ## Instrumented files
 
 Instrumented files are a set of files used by the coverage command. A rule can
