@@ -226,8 +226,6 @@ public final class ReleaseBundlingSupport {
       ruleContext.attributeError("families", INVALID_FAMILIES_ERROR);
     }
 
-    validateLaunchScreen();
-
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     if (attributes.provisioningProfile() == null
         && appleConfiguration.getBundlingPlatform() != Platform.IOS_SIMULATOR) {
@@ -237,30 +235,6 @@ public final class ReleaseBundlingSupport {
     return this;
   }
 
-  private void validateLaunchScreen() {
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("launch_storyboard")) {
-      DottedVersion minimumOs = bundling.getMinimumOsVersion();
-      if (ObjcRuleClasses.useLaunchStoryboard(ruleContext, bundling.getMinimumOsVersion())) {
-        if (ruleContext.attributes().isAttributeValueExplicitlySpecified("launch_image")) {
-          ruleContext.attributeWarning(
-              "launch_image",
-              String.format(
-                  "launch_image was specified but since --ios_minimum_os=%s (>=8.0), the also "
-                      + "specified launch_storyboard will be used instead",
-                  minimumOs));
-        }
-      } else {
-        if (!ruleContext.attributes().isAttributeValueExplicitlySpecified("launch_image")) {
-          ruleContext.attributeWarning(
-              "launch_storyboard",
-              String.format(
-                  "launch_storyboard was specified but since --ios_minimum_os=%s (<8.0) and no "
-                      + "launch_image was specified instead it will be ignored",
-                  minimumOs));
-        }
-      }
-    }
-  }
 
   /**
    * Validates that resources defined in this rule and its dependencies and written to this bundle
@@ -293,7 +267,7 @@ public final class ReleaseBundlingSupport {
     registerEnvironmentPlistAction();
     registerAutomaticPlistAction();
 
-    if (ObjcRuleClasses.useLaunchStoryboard(ruleContext, bundling.getMinimumOsVersion())) {
+    if (attributes.launchStoryboard() != null) {
       registerLaunchStoryboardPlistAction();
     }
 
@@ -624,8 +598,7 @@ public final class ReleaseBundlingSupport {
     if (attributes.appIcon() != null) {
       extraArgs.add("--app-icon", attributes.appIcon());
     }
-    if (attributes.launchImage() != null
-        && !ObjcRuleClasses.useLaunchStoryboard(ruleContext, bundling.getMinimumOsVersion())) {
+    if (attributes.launchImage() != null) {
       extraArgs.add("--launch-image", attributes.launchImage());
     }
     return new ExtraActoolArgs(extraArgs.build());
@@ -673,7 +646,7 @@ public final class ReleaseBundlingSupport {
             .setFallbackBundleId(fallbackBundleId)
             .setMinimumOsVersion(minimumOsVersion);
 
-    if (ObjcRuleClasses.useLaunchStoryboard(ruleContext, minimumOsVersion)) {
+    if (attributes.launchStoryboard() != null) {
       bundling.addInfoplistInput(getLaunchStoryboardPlist());
     }
 
@@ -715,8 +688,7 @@ public final class ReleaseBundlingSupport {
           .setValue(attributes.appIcon())
           .build());
     }
-    if (attributes.launchImage() != null
-        && !ObjcRuleClasses.useLaunchStoryboard(ruleContext, bundling.getMinimumOsVersion())) {
+    if (attributes.launchImage() != null) {
       buildSettings.add(XcodeprojBuildSetting.newBuilder()
           .setName("ASSETCATALOG_COMPILER_LAUNCHIMAGE_NAME")
           .setValue(attributes.launchImage())
