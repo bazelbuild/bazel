@@ -59,7 +59,6 @@ public class AggregatingTestListener {
   private final EventBus eventBus;
   private final EventHandlerPreconditions preconditionHelper;
   private volatile boolean blazeHalted = false;
-  private volatile boolean skippedTestsBecauseOfEarlierFailure;
 
   // summaryLock guards concurrent access to these two collections, which should be kept
   // synchronized with each other.
@@ -165,7 +164,7 @@ public class AggregatingTestListener {
       }
       finalSummary =
           analyzer
-              .markUnbuilt(summary, blazeHalted, skippedTestsBecauseOfEarlierFailure)
+              .markUnbuilt(summary, blazeHalted)
               .build();
 
       // These are never going to run; removing them marks the target complete.
@@ -192,8 +191,6 @@ public class AggregatingTestListener {
     BuildResult result = event.getResult();
     if (result.wasCatastrophe()) {
       blazeHalted = true;
-    } else if (result.skippedTargetsBecauseOfEarlierFailure()) {
-      skippedTestsBecauseOfEarlierFailure = true;
     }
     buildComplete(result.getActualTargets(), result.getSuccessfulTargets());
   }

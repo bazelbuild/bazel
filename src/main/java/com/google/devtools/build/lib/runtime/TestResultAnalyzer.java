@@ -15,9 +15,11 @@ package com.google.devtools.build.lib.runtime;
 
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -48,6 +50,10 @@ public class TestResultAnalyzer {
   private final ExecutionOptions executionOptions;
   private final EventBus eventBus;
 
+  // Store information about potential failures in the presence of --nokeep_going or
+  // --notest_keep_going.
+  private boolean skipTargetsOnFailure;
+
   /**
    * @param summaryOptions Parsed test summarization options.
    * @param executionOptions Parsed build/test execution options.
@@ -61,6 +67,12 @@ public class TestResultAnalyzer {
     this.summaryOptions = summaryOptions;
     this.executionOptions = executionOptions;
     this.eventBus = eventBus;
+    eventBus.register(this);
+  }
+
+  @Subscribe
+  public void doneBuild(BuildCompleteEvent event) {
+    skipTargetsOnFailure = event.getResult().getStopOnFirstFailure();
   }
 
   /**
@@ -272,24 +284,22 @@ public class TestResultAnalyzer {
     // tests with no status and post it here.
     TestSummary summary = summaryBuilder.peek();
     BlazeTestStatus status = summary.getStatus();
-    if (status != BlazeTestStatus.NO_STATUS) {
+    if (skipTargetsOnFailure) {
+      status = BlazeTestStatus.NO_STATUS;
+    } else if (status != BlazeTestStatus.NO_STATUS) {
       status = aggregateStatus(status, BlazeTestStatus.INCOMPLETE);
     }
 
     return summaryBuilder.setStatus(status);
   }
 
-  TestSummary.Builder markUnbuilt(
-      TestSummary.Builder summary, boolean blazeHalted, boolean stopOnFirstFailure) {
-    // stopOnFirstFailure = true means that at least on of the options keep_going and
-    // test_keep_going is set to false.
-    // Consequently, we mark all unbuilt targets with NO_STATUS instead of FAILED_TO_BUILD in 
-    // order to indicate that Blaze has skipped these targets.
+  TestSummary.Builder markUnbuilt(TestSummary.Builder summary, boolean blazeHalted) {
     BlazeTestStatus runStatus =
-        blazeHalted 
-            ? BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING : (
-                executionOptions.testCheckUpToDate || stopOnFirstFailure
-                    ? BlazeTestStatus.NO_STATUS : BlazeTestStatus.FAILED_TO_BUILD);
+        blazeHalted
+            ? BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING
+            : (executionOptions.testCheckUpToDate || skipTargetsOnFailure
+                ? BlazeTestStatus.NO_STATUS
+                : BlazeTestStatus.FAILED_TO_BUILD);
 
     return summary.setStatus(runStatus);
   }

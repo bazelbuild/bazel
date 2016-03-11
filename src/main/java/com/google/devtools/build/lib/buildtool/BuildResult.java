@@ -118,8 +118,8 @@ public final class BuildResult {
   /**
    * Whether some targets were skipped because of {@code setStopOnFirstFailure}.
    */
-  public boolean skippedTargetsBecauseOfEarlierFailure() {
-    return stopOnFirstFailure && !getSuccess();
+  public boolean getStopOnFirstFailure() {
+    return stopOnFirstFailure;
   }
 
   /**
