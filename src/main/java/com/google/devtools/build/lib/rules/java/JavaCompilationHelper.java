@@ -625,9 +625,10 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
    * @return a list of options to provide to javac
    */
   private static ImmutableList<String> getDefaultJavacOptsFromRule(RuleContext ruleContext) {
-    return ImmutableList.copyOf(Iterables.concat(
-        JavaToolchainProvider.fromRuleContext(ruleContext).getJavacOptions(),
-        ruleContext.getTokenizedStringListAttr("javacopts")));
+    return ImmutableList.copyOf(
+        Iterables.concat(
+            JavaToolchainProvider.fromRuleContext(ruleContext).getJavacOptions(),
+            ruleContext.getTokenizedStringListAttr("javacopts")));
   }
 
   public void setTranslations(Collection<Artifact> translations) {
