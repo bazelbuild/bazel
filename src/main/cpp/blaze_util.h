@@ -66,10 +66,6 @@ bool IsStandardTerminal();
 // connected, or 80 if there is no such terminal.
 int GetTerminalColumns();
 
-// Adds JVM arguments particular to running blaze with JVM v3 or higher.
-void AddJVMSpecificArguments(const string &host_javabase,
-                             std::vector<string> *result);
-
 // If 'arg' matches 'key=value', returns address of 'value'.
 // If it matches 'key' alone, returns address of next_arg.
 // Returns NULL otherwise.
