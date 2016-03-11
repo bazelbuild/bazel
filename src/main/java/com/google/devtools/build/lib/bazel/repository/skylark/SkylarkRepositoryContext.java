@@ -106,6 +106,15 @@ public class SkylarkRepositoryContext {
   }
 
   @SkylarkCallable(
+      name = "name",
+      structField = true,
+      doc = "The name of the external repository created by this rule."
+  )
+  public String getName() {
+    return rule.getName();
+  }
+
+  @SkylarkCallable(
     name = "attr",
     structField = true,
     doc =
