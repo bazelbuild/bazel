@@ -829,9 +829,8 @@ public final class Attribute implements Comparable<Attribute> {
         if ((name.startsWith("$") || name.startsWith(":")) && allowedFileTypesForLabels == null) {
           allowedFileTypesForLabels = FileTypeSet.ANY_FILE;
         }
-        if (allowedFileTypesForLabels == null) {
-          throw new IllegalStateException(name);
-        }
+        Preconditions.checkNotNull(
+            allowedFileTypesForLabels, "allowedFileTypesForLabels not set for %s", name);
       } else if ((type == BuildType.OUTPUT) || (type == BuildType.OUTPUT_LIST)) {
         // TODO(bazel-team): Set the default to no file type and make explicit calls instead.
         if (allowedFileTypesForLabels == null) {
