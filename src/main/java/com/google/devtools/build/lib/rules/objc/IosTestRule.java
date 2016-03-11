@@ -77,9 +77,8 @@ public class IosTestRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(IosTest.IS_XCTEST_ATTR, BOOLEAN).value(true))
         /* <!-- #BLAZE_RULE(ios_test).ATTRIBUTE(xctest_app) -->
-        A <code>objc_binary</code> or <code>ios_application</code> target that contains the
-        app bundle to test against in XCTest.
-        This attribute is only valid if <code>xctest</code> is true.
+        An <code>ios_application</code> target that contains the app bundle to test against with
+        XCTest. This attribute is only valid if <code>xctest</code> is true.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(
             attr(IosTest.XCTEST_APP_ATTR, LABEL)
@@ -96,8 +95,7 @@ public class IosTestRule implements RuleDefinition {
                       }
                     })
                 .allowedFileTypes()
-                // TODO(bazel-team): Remove objc_binary once it stops exporting XcTestAppProvider.
-                .allowedRuleClasses("objc_binary", "ios_application"))
+                .allowedRuleClasses("ios_application"))
         .override(
             attr(BundlingRule.INFOPLIST_ATTR, LABEL)
                 .value(
