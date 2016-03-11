@@ -668,7 +668,7 @@ public class ObjcRuleClasses {
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(defines) -->
            Extra <code>-D</code> flags to pass to the compiler. They should be in
            the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
-           passed not only the compiler for this target (as <code>copts</code>
+           passed not only to the compiler for this target (as <code>copts</code>
            are) but also to all <code>objc_</code> dependers of this target.
            Subject to <a href="make-variables.html">"Make variable"</a> substitution and
            <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
