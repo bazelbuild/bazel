@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.android.AndroidLibraryAarProvider.Aar;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceContainer;
@@ -101,6 +102,14 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
     } else {
       resourceApk = ResourceApk.fromTransitiveResources(
           ResourceDependencies.fromRuleResourceAndDeps(ruleContext, false /* neverlink */));
+    }
+
+    if (!ruleContext.getFragment(AndroidConfiguration.class).allowSrcsLessAndroidLibraryDeps()
+        && !definesLocalResources
+        && ruleContext.attributes().get("srcs", BuildType.LABEL_LIST).isEmpty()
+        && ruleContext.attributes().get("idl_srcs", BuildType.LABEL_LIST).isEmpty()
+        && !ruleContext.attributes().get("deps", BuildType.LABEL_LIST).isEmpty()) {
+      ruleContext.attributeError("deps", "deps not allowed without srcs; move to exports?");
     }
 
     JavaTargetAttributes javaTargetAttributes = androidCommon.init(

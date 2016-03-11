@@ -488,13 +488,6 @@ public class AndroidCommon {
       }
     }
 
-    if (disallowDepsWithoutSrcs(ruleContext.getRule().getRuleClass())
-        && ruleContext.attributes().get("srcs", BuildType.LABEL_LIST).isEmpty()
-        && ruleContext.attributes().get("idl_srcs", BuildType.LABEL_LIST).isEmpty()
-        && !ruleContext.attributes().get("deps", BuildType.LABEL_LIST).isEmpty()) {
-      ruleContext.attributeError("deps", "deps not allowed without srcs; move to exports?");
-    }
-
     JavaCompilationHelper helper = initAttributes(attributes, javaSemantics);
     if (ruleContext.hasErrors()) {
       return null;
@@ -518,11 +511,6 @@ public class AndroidCommon {
       return null;
     }
     return helper.getAttributes();
-  }
-
-  private boolean disallowDepsWithoutSrcs(String ruleClass) {
-    return ruleClass.equals("android_library")
-        && !ruleContext.getFragment(AndroidConfiguration.class).allowSrcsLessAndroidLibraryDeps();
   }
 
   private JavaCompilationHelper initAttributes(
@@ -767,9 +755,11 @@ public class AndroidCommon {
    */
   private JavaCompilationArgs collectJavaCompilationArgs(boolean recursive, boolean isNeverLink,
       boolean hasSrcs) {
+    boolean exportDeps = !hasSrcs
+        && ruleContext.getFragment(AndroidConfiguration.class).allowSrcsLessAndroidLibraryDeps();
     Iterable<SourcesJavaCompilationArgsProvider> fromSrcs = 
         ImmutableList.<SourcesJavaCompilationArgsProvider> of();
-    return javaCommon.collectJavaCompilationArgs(recursive, isNeverLink, fromSrcs, !hasSrcs);
+    return javaCommon.collectJavaCompilationArgs(recursive, isNeverLink, fromSrcs, exportDeps);
   }
 
   public ImmutableList<String> getJavacOpts() {
