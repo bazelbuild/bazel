@@ -232,8 +232,8 @@ EOF
 
   # Our custom repository rule
   cat >test.bzl <<EOF
-def _impl(ctx):
-  ctx.symlink(ctx.path(ctx.attr.path), ctx.path(""))
+def _impl(repository_ctx):
+  repository_ctx.symlink(repository_ctx.path(repository_ctx.attr.path), repository_ctx.path(""))
 
 repo = repository_rule(
     implementation=_impl,
@@ -277,21 +277,21 @@ function test_skylark_repository_which_and_execute() {
 
   # Our custom repository rule
   cat >test.bzl <<EOF
-def _impl(ctx):
-  bash = ctx.which("bash")
+def _impl(repository_ctx):
+  bash = repository_ctx.which("bash")
   if bash == None:
     fail("Bash not found!")
-  bin = ctx.which("bin.sh")
+  bin = repository_ctx.which("bin.sh")
   if bin == None:
     fail("bin.sh not found!")
-  result = ctx.execute([bash, "--version"])
+  result = repository_ctx.execute([bash, "--version"])
   if result.return_code != 0:
     fail("Non-zero return code from bash: " + result.return_code)
   if result.stderr != "":
     fail("Non-empty error output: " + result.stderr)
   print(result.stdout)
   # Symlink so a repository is created
-  ctx.symlink(ctx.path("$repo2"), ctx.path(""))
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
 repo = repository_rule(implementation=_impl, local=True)
 EOF
 
@@ -303,15 +303,15 @@ function test_skylark_repository_execute_stderr() {
   setup_skylark_repository
 
   cat >test.bzl <<EOF
-def _impl(ctx):
-  result = ctx.execute([str(ctx.which("bash")), "-c", "echo erf >&2; exit 1"])
+def _impl(repository_ctx):
+  result = repository_ctx.execute([str(repository_ctx.which("bash")), "-c", "echo erf >&2; exit 1"])
   if result.return_code != 1:
     fail("Incorrect return code from bash (should be 1): " + result.return_code)
   if result.stdout != "":
     fail("Non-empty output: %s (stderr was %s)" % (result.stdout, result.stderr))
   print(result.stderr)
   # Symlink so a repository is created
-  ctx.symlink(ctx.path("$repo2"), ctx.path(""))
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
 repo = repository_rule(implementation=_impl, local=True)
 EOF
 
@@ -324,10 +324,10 @@ function test_skylark_repository_environ() {
 
   # Our custom repository rule
   cat >test.bzl <<EOF
-def _impl(ctx):
-  print(ctx.os.environ["FOO"])
+def _impl(repository_ctx):
+  print(repository_ctx.os.environ["FOO"])
   # Symlink so a repository is created
-  ctx.symlink(ctx.path("$repo2"), ctx.path(""))
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
 repo = repository_rule(implementation=_impl, local=False)
 EOF
 
@@ -351,10 +351,10 @@ EOF
 
   # Test modifying test.bzl invalidate the repository
   cat >test.bzl <<EOF
-def _impl(ctx):
-  print(ctx.os.environ["BAR"])
+def _impl(repository_ctx):
+  print(repository_ctx.os.environ["BAR"])
   # Symlink so a repository is created
-  ctx.symlink(ctx.path("$repo2"), ctx.path(""))
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
 repo = repository_rule(implementation=_impl, local=True)
 EOF
   BAR=BEZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
@@ -363,10 +363,10 @@ EOF
   # Shutdown and modify again
   bazel shutdown
   cat >test.bzl <<EOF
-def _impl(ctx):
-  print(ctx.os.environ["BAZ"])
+def _impl(repository_ctx):
+  print(repository_ctx.os.environ["BAZ"])
   # Symlink so a repository is created
-  ctx.symlink(ctx.path("$repo2"), ctx.path(""))
+  repository_ctx.symlink(repository_ctx.path("$repo2"), repository_ctx.path(""))
 repo = repository_rule(implementation=_impl, local=True)
 EOF
   BAZ=BOZ bazel build @foo//:bar >& $TEST_log || fail "Failed to build"
@@ -378,11 +378,11 @@ function test_skylark_repository_executable_flag() {
 
   # Our custom repository rule
   cat >test.bzl <<EOF
-def _impl(ctx):
-  ctx.file("test.sh", "exit 0")
-  ctx.file("BUILD", "sh_binary(name='bar',srcs=['test.sh'])", False)
-  ctx.template("test2", Label("//:bar"), {}, False)
-  ctx.template("test2.sh", Label("//:bar"), {}, True)
+def _impl(repository_ctx):
+  repository_ctx.file("test.sh", "exit 0")
+  repository_ctx.file("BUILD", "sh_binary(name='bar',srcs=['test.sh'])", False)
+  repository_ctx.template("test2", Label("//:bar"), {}, False)
+  repository_ctx.template("test2.sh", Label("//:bar"), {}, True)
 repo = repository_rule(implementation=_impl, local=True)
 EOF
   cat >bar

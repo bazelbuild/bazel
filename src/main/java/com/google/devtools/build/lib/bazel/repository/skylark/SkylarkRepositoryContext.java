@@ -80,7 +80,8 @@ public class SkylarkRepositoryContext {
   }
 
   /**
-   * Create a new context (ctx) object for a skylark repository rule ({@code rule} argument).
+   * Create a new context (repository_ctx) object for a skylark repository rule ({@code rule}
+   * argument).
    */
   SkylarkRepositoryContext(
       Rule rule, Path outputDirectory, Environment environment, Map<String, String> env) {

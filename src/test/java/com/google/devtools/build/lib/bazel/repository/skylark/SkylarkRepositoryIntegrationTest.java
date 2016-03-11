@@ -152,8 +152,8 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'], path='foo')");
     scratch.file(
         "def.bzl",
-        "def _impl(ctx):",
-        "  ctx.symlink(ctx.attr.path, '')",
+        "def _impl(repository_ctx):",
+        "  repository_ctx.symlink(repository_ctx.attr.path, '')",
         "",
         "repo = repository_rule(",
         "    implementation=_impl,",
@@ -177,9 +177,9 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     scratch.file("/repo2/WORKSPACE");
     scratch.file(
         "def.bzl",
-        "def _impl(ctx):",
-        "  ctx.symlink(Label('@repo2//:bar.txt'), 'BUILD')",
-        "  ctx.file('foo.txt', 'foo')",
+        "def _impl(repository_ctx):",
+        "  repository_ctx.symlink(Label('@repo2//:bar.txt'), 'BUILD')",
+        "  repository_ctx.file('foo.txt', 'foo')",
         "",
         "repo = repository_rule(",
         "    implementation=_impl,",
@@ -203,9 +203,10 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     scratch.file("/repo2/WORKSPACE");
     scratch.file(
         "def.bzl",
-        "def _impl(ctx):",
-        "  ctx.template('BUILD', Label('@repo2//:bar.txt'), {'{target}': 'bar', '{path}': 'foo'})",
-        "  ctx.file('foo.txt', 'foo')",
+        "def _impl(repository_ctx):",
+        "  repository_ctx.template('BUILD', Label('@repo2//:bar.txt'), "
+            + "{'{target}': 'bar', '{path}': 'foo'})",
+        "  repository_ctx.file('foo.txt', 'foo')",
         "",
         "repo = repository_rule(",
         "    implementation=_impl,",
@@ -230,9 +231,10 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     scratch.file("/repo2/WORKSPACE");
     scratch.file(
         "def.bzl",
-        "def _impl(ctx):",
-        "  ctx.template('BUILD', Label('@repo2//:bar.txt'), {'{path}': ctx.name})",
-        "  ctx.file('foo.txt', 'foo')",
+        "def _impl(repository_ctx):",
+        "  repository_ctx.template('BUILD', Label('@repo2//:bar.txt'), "
+            + "{'{path}': repository_ctx.name})",
+        "  repository_ctx.file('foo.txt', 'foo')",
         "",
         "repo = repository_rule(",
         "    implementation=_impl,",

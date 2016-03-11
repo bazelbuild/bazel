@@ -44,15 +44,15 @@ def _build_tool_path(d):
   return "\n".join(lines)
 
 
-def _which(ctx, cmd, default):
-  """A wrapper around ctx.which() to provide a fallback value."""
-  result = ctx.which(cmd)
+def _which(repository_ctx, cmd, default):
+  """A wrapper around repository_ctx.which() to provide a fallback value."""
+  result = repository_ctx.which(cmd)
   return default if result == None else str(result)
 
 
-def _get_tool_paths(ctx, darwin, cc):
+def _get_tool_paths(repository_ctx, darwin, cc):
   """Compute the path to the various tools."""
-  return {k: _which(ctx, k, "/usr/bin/" + k)
+  return {k: _which(repository_ctx, k, "/usr/bin/" + k)
           for k in [
               "ld",
               "cpp",
@@ -65,16 +65,16 @@ def _get_tool_paths(ctx, darwin, cc):
           ]} + {
               "gcc": cc,
               "ar": "/usr/bin/libtool"
-                    if darwin else _which(ctx, "ar", "/usr/bin/ar")
+                    if darwin else _which(repository_ctx, "ar", "/usr/bin/ar")
           }
 
 
-def _ld_library_paths(ctx):
+def _ld_library_paths(repository_ctx):
   """Use ${LD_LIBRARY_PATH} to compute the list -Wl,rpath flags."""
-  if "LD_LIBRARY_PATH" in ctx.os.environ:
+  if "LD_LIBRARY_PATH" in repository_ctx.os.environ:
     result = []
-    for p in ctx.os.environ["LD_LIBRARY_PATH"].split(":"):
-      p = str(ctx.path(p))  # Normalize the path
+    for p in repository_ctx.os.environ["LD_LIBRARY_PATH"].split(":"):
+      p = str(repository_ctx.path(p))  # Normalize the path
       result.append("-Wl,rpath," + p)
       result.append("-L" + p)
     return result
@@ -82,18 +82,18 @@ def _ld_library_paths(ctx):
     return []
 
 
-def _get_cpu_value(ctx):
+def _get_cpu_value(repository_ctx):
   """Compute the cpu_value based on the OS name."""
-  return "darwin" if ctx.os.name.lower().startswith("mac os") else "k8"
+  return "darwin" if repository_ctx.os.name.lower().startswith("mac os") else "k8"
 
 
 _INC_DIR_MARKER_BEGIN = "#include <...> search starts here:"
 _INC_DIR_MARKER_END = "End of search list."
 
 
-def _get_cxx_inc_directories(ctx, cc):
+def _get_cxx_inc_directories(repository_ctx, cc):
   """Compute the list of default C++ include directories."""
-  result = ctx.execute([cc, "-E", "-xc++", "-", "-v"])
+  result = repository_ctx.execute([cc, "-E", "-xc++", "-", "-v"])
   index1 = result.stderr.find(_INC_DIR_MARKER_BEGIN)
   if index1 == -1:
     return []
@@ -101,23 +101,23 @@ def _get_cxx_inc_directories(ctx, cc):
   if index2 == -1:
     return []
   inc_dirs = result.stderr[index1 + len(_INC_DIR_MARKER_BEGIN):index2].strip()
-  return [ctx.path(p.strip()) for p in inc_dirs.split("\n")]
+  return [repository_ctx.path(p.strip()) for p in inc_dirs.split("\n")]
 
 
-def _add_option_if_supported(ctx, cc, option):
+def _add_option_if_supported(repository_ctx, cc, option):
   """Checks that `option` is supported by the C compiler."""
-  result = ctx.execute([
-     cc,
-     option,
-     "-o",
-     "/dev/null",
-     "-c",
-     str(ctx.path("tools/cpp/empty.cc"))
+  result = repository_ctx.execute([
+      cc,
+      option,
+      "-o",
+      "/dev/null",
+      "-c",
+      str(repository_ctx.path("tools/cpp/empty.cc"))
   ])
   return [option] if result.stderr.find(option) == -1 else []
 
 
-def _crosstool_content(ctx, cc, cpu_value, darwin):
+def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
   """Return the content for the CROSSTOOL file, in a dictionary."""
   return {
       "abi_version": "local",
@@ -140,32 +140,32 @@ def _crosstool_content(ctx, cc, cpu_value, darwin):
       "linker_flag": [
           "-lstdc++",
           # Anticipated future default.
-      ] + _add_option_if_supported(ctx, cc, "-no-canonical-prefixes") + (
-        ["-undefined", "dynamic_lookup"] if darwin else [
-          "-B" + str(ctx.path(cc).dirname),
-          # Have gcc return the exit code from ld.
-          "-pass-exit-codes",
-          # Stamp the binary with a unique identifier.
-          "-Wl,--build-id=md5",
-          "-Wl,--hash-style=gnu"
-          # Gold linker only? Can we enable this by default?
-          # "-Wl,--warn-execstack",
-          # "-Wl,--detect-odr-violations"
-      ]) + _ld_library_paths(ctx),
+      ] + _add_option_if_supported(repository_ctx, cc, "-no-canonical-prefixes") + (
+          ["-undefined", "dynamic_lookup"] if darwin else [
+              "-B" + str(repository_ctx.path(cc).dirname),
+              # Have gcc return the exit code from ld.
+              "-pass-exit-codes",
+              # Stamp the binary with a unique identifier.
+              "-Wl,--build-id=md5",
+              "-Wl,--hash-style=gnu"
+              # Gold linker only? Can we enable this by default?
+              # "-Wl,--warn-execstack",
+              # "-Wl,--detect-odr-violations"
+          ]) + _ld_library_paths(repository_ctx),
       "ar_flag": ["-static", "-s", "-o"] if darwin else [],
-      "cxx_builtin_include_directory": _get_cxx_inc_directories(ctx, cc),
+      "cxx_builtin_include_directory": _get_cxx_inc_directories(repository_ctx, cc),
       "objcopy_embed_flag": ["-I", "binary"],
       "unfiltered_cxx_flag":
           # Anticipated future default.
-          _add_option_if_supported(ctx, cc, "-no-canonical-prefixes") +
-          _add_option_if_supported(ctx, cc, "-fno-canonical-system-headers") + [
-          # Make C++ compilation deterministic. Use linkstamping instead of these
-          # compiler symbols.
-          "-Wno-builtin-macro-redefined",
-          "-D__DATE__=\\\"redacted\\\"",
-          "-D__TIMESTAMP__=\\\"redacted\\\"",
-          "-D__TIME__=\\\"redacted\\\""
-      ],
+          _add_option_if_supported(repository_ctx, cc, "-no-canonical-prefixes") +
+          _add_option_if_supported(repository_ctx, cc, "-fno-canonical-system-headers") + [
+              # Make C++ compilation deterministic. Use linkstamping instead of these
+              # compiler symbols.
+              "-Wno-builtin-macro-redefined",
+              "-D__DATE__=\\\"redacted\\\"",
+              "-D__TIMESTAMP__=\\\"redacted\\\"",
+              "-D__TIME__=\\\"redacted\\\""
+          ],
       "compiler_flag": [
           # Security hardening on by default.
           # Conservative choice; -D_FORTIFY_SOURCE=2 may be unsafe in some cases.
@@ -183,10 +183,10 @@ def _crosstool_content(ctx, cc, cpu_value, darwin):
           "-Wl,-z,-relro,-z,now"
       ]) + (
           # has false positives
-          _add_option_if_supported(ctx, cc, "-Wno-free-nonheap-object") +
+          _add_option_if_supported(repository_ctx, cc, "-Wno-free-nonheap-object") +
           # Enable coloring even if there's no attached terminal. Bazel removes the
           # escape sequences if --nocolor is specified.
-          _add_option_if_supported(ctx, cc, "-fcolor-diagnostics")) + [
+          _add_option_if_supported(repository_ctx, cc, "-fcolor-diagnostics")) + [
               # Keep stack frames for debugging, even in opt mode.
               "-fno-omit-frame-pointer",
           ],
@@ -225,12 +225,12 @@ def _dbg_content():
   return {"compiler_flag": "-g"}
 
 
-def _find_cc(ctx):
+def _find_cc(repository_ctx):
   """Find the C++ compiler."""
-  if "CC" in ctx.os.environ:
-    return ctx.path(ctx.os.environ["CC"])
+  if "CC" in repository_ctx.os.environ:
+    return repository_ctx.path(repository_ctx.os.environ["CC"])
   else:
-    cc = ctx.which("gcc")
+    cc = repository_ctx.which("gcc")
     if cc == None:
       fail(
           "Cannot find gcc, either correct your path or set the CC" +
@@ -238,28 +238,30 @@ def _find_cc(ctx):
     return cc
 
 
-def _tpl(ctx, tpl, substitutions={}):
-  ctx.template(tpl, Label("@bazel_tools//tools/cpp:%s.tpl" % tpl),
-               substitutions)
+def _tpl(repository_ctx, tpl, substitutions={}):
+  repository_ctx.template(
+      tpl,
+      Label("@bazel_tools//tools/cpp:%s.tpl" % tpl),
+      substitutions)
 
 
-def _impl(ctx):
-  ctx.file("tools/cpp/empty.cc")
-  cpu_value = _get_cpu_value(ctx)
+def _impl(repository_ctx):
+  repository_ctx.file("tools/cpp/empty.cc")
+  cpu_value = _get_cpu_value(repository_ctx)
   darwin = cpu_value == "darwin"
-  cc = _find_cc(ctx)
+  cc = _find_cc(repository_ctx)
   crosstool_cc = "osx_cc_wrapper.sh" if darwin else str(cc)
   darwin = cpu_value == "darwin"
-  tool_paths = _get_tool_paths(ctx, darwin, crosstool_cc)
-  crosstool_content = _crosstool_content(ctx, cc, cpu_value, darwin)
+  tool_paths = _get_tool_paths(repository_ctx, darwin, crosstool_cc)
+  crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
   opt_content = _opt_content(darwin)
   dbg_content = _dbg_content()
-  _tpl(ctx, "BUILD", {
+  _tpl(repository_ctx, "BUILD", {
       "%{name}": cpu_value,
       "%{supports_param_files}": "0" if darwin else "1"
   })
-  _tpl(ctx, "osx_cc_wrapper.sh", {"%{cc}": str(cc)})
-  _tpl(ctx, "CROSSTOOL", {
+  _tpl(repository_ctx, "osx_cc_wrapper.sh", {"%{cc}": str(cc)})
+  _tpl(repository_ctx, "CROSSTOOL", {
       "%{cpu}": cpu_value,
       "%{content}": _build_crosstool(crosstool_content) + "\n" +
                     _build_tool_path(tool_paths),

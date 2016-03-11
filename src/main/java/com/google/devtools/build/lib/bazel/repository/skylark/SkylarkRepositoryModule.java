@@ -60,8 +60,8 @@ public class SkylarkRepositoryModule {
         type = BaseFunction.class,
         doc =
             "the function implementing this rule, has to have exactly one parameter: "
-                + "<code>ctx</code>. The function is called during analysis phase for each "
-                + "instance of the rule."
+                + "<code>repository_ctx</code>. The function is called during analysis phase for "
+                + "each instance of the rule."
       )
     },
     optionalNamedOnly = {
