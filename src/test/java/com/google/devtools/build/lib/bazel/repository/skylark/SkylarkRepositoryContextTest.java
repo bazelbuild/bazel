@@ -170,4 +170,14 @@ public class SkylarkRepositoryContextTest {
                 new InputStreamReader(path.getInputStream(), StandardCharsets.UTF_8)))
         .isEqualTo(content);
   }
+
+  @Test
+  public void testDirectoryListing() throws Exception {
+    setUpContexForRule("test");
+    scratch.file("/my/folder/a");
+    scratch.file("/my/folder/b");
+    scratch.file("/my/folder/c");
+    assertThat(context.path("/my/folder").readdir()).containsExactly(
+        context.path("/my/folder/a"), context.path("/my/folder/b"), context.path("/my/folder/c"));
+  }
 }

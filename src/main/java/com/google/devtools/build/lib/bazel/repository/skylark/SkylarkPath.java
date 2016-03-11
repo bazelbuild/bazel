@@ -14,13 +14,20 @@
 
 package com.google.devtools.build.lib.bazel.repository.skylark;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.vfs.Path;
 
+import java.io.IOException;
+import java.util.List;
+
 /**
  * A Path object to be used into Skylark remote repository.
+ *
+ * <p>This path object enable non-hermetic operations from Skylark and should not be returned by
+ * something other than a SkylarkRepositoryContext.
  */
 @Immutable
 @SkylarkModule(name = "path", doc = "A structure representing a file to be used inside a repository"
@@ -32,6 +39,16 @@ final class SkylarkPath {
     this.path = path;
   }
 
+  @Override
+  public boolean equals(Object obj) {
+    return (obj instanceof SkylarkPath) &&  path.equals(((SkylarkPath) obj).path);
+  }
+
+  @Override
+  public int hashCode() {
+    return path.hashCode();
+  }
+
   @SkylarkCallable(
     name = "basename",
     structField = true,
@@ -39,6 +56,19 @@ final class SkylarkPath {
   )
   public String getBasename() {
     return path.getBaseName();
+  }
+
+  @SkylarkCallable(
+      name = "readdir",
+      structField = false,
+      doc = "The list of entries in the directory denoted by this path."
+  )
+  public List<SkylarkPath> readdir() throws IOException {
+    ImmutableList.Builder<SkylarkPath> builder = ImmutableList.builder();
+    for (Path p : path.getDirectoryEntries()) {
+      builder.add(new SkylarkPath(p));
+    }
+    return builder.build();
   }
 
   @SkylarkCallable(
