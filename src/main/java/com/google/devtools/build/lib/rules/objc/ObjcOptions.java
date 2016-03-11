@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
@@ -30,8 +29,7 @@ public class ObjcOptions implements RuleConfiguredTargetFactory {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .add(OptionsProvider.class,
-            new OptionsProvider(ruleContext.getTokenizedStringListAttr("copts"),
-                ruleContext.getPrerequisiteArtifacts("infoplists", Mode.TARGET).list()))
+            new OptionsProvider(ruleContext.getTokenizedStringListAttr("copts")))
         .build();
   }
 }

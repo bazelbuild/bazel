@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -28,19 +27,13 @@ final class OptionsProvider
     implements TransitiveInfoProvider {
 
   private final Iterable<String> copts;
-  private final Iterable<Artifact> infoplists;
 
-  public OptionsProvider(Iterable<String> copts, Iterable<Artifact> infoplists) {
-    super(copts, infoplists);
+  public OptionsProvider(Iterable<String> copts) {
+    super(copts);
     this.copts = Preconditions.checkNotNull(copts);
-    this.infoplists = Preconditions.checkNotNull(infoplists);
   }
 
   public Iterable<String> getCopts() {
     return copts;
-  }
-
-  public Iterable<Artifact> getInfoplists() {
-    return infoplists;
   }
 }

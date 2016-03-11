@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -119,13 +118,6 @@ final class Bundling {
      * (which is merged from any such added plists plus some additional information).
      */
     public Builder addInfoplistInputFromRule(RuleContext ruleContext) {
-      if (ruleContext.attributes().has("options", BuildType.LABEL)) {
-        OptionsProvider optionsProvider = ruleContext
-            .getPrerequisite("options", Mode.TARGET, OptionsProvider.class);
-        if (optionsProvider != null) {
-          infoplistInputs.addAll(optionsProvider.getInfoplists());
-        }
-      }
       Artifact infoplist =
           ruleContext.getPrerequisiteArtifact(BundlingRule.INFOPLIST_ATTR, Mode.TARGET);
       if (infoplist != null) {
