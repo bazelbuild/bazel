@@ -98,15 +98,15 @@ public abstract class ProguardHelper {
       return null;
     }
 
-    Preconditions.checkArgument(bootclasspath.isEmpty(),
-        "Bootclasspath should be empty b/c not compiling for Android device: %s", bootclasspath);
+    Preconditions.checkArgument(!bootclasspath.isEmpty(), "Bootclasspath should not be empty");
     FilesToRunProvider proguard = findProguard(ruleContext);
     if (proguard == null) {
       ruleContext.ruleError("--proguard_top required for --java_optimization_mode=" + optMode);
       return null;
     }
 
-    ImmutableList<Artifact> proguardSpecs = collectProguardSpecs(ruleContext, mainClassName);
+    ImmutableList<Artifact> proguardSpecs =
+        collectProguardSpecs(ruleContext, bootclasspath, mainClassName);
     Artifact singleJar =
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_MERGED_JAR);
     return createProguardAction(ruleContext, proguard, singleJar, proguardSpecs, (Artifact) null,
@@ -115,9 +115,9 @@ public abstract class ProguardHelper {
   }
 
   private ImmutableList<Artifact> collectProguardSpecs(
-      RuleContext ruleContext, String mainClassName) {
-    return ProguardHelper.collectTransitiveProguardSpecs(ruleContext,
-        collectProguardSpecsForRule(ruleContext, mainClassName));
+      RuleContext ruleContext, ImmutableList<Artifact> bootclasspath, String mainClassName) {
+    return ProguardHelper.collectTransitiveProguardSpecs(
+        ruleContext, collectProguardSpecsForRule(ruleContext, bootclasspath, mainClassName));
   }
 
   /**
@@ -136,7 +136,7 @@ public abstract class ProguardHelper {
    * so it's ok to generate files here.
    */
   protected abstract ImmutableList<Artifact> collectProguardSpecsForRule(
-      RuleContext ruleContext, String mainClassName);
+      RuleContext ruleContext, ImmutableList<Artifact> bootclasspath, String mainClassName);
 
   /**
    * Retrieves the full set of proguard specs that should be applied to this binary, including the
@@ -200,21 +200,20 @@ public abstract class ProguardHelper {
    * to how android_binary would give Android SDK's android.jar to Proguard as library jar, and
    * to keep the binary's entry point, ie., the main() method to be invoked.
    */
-  protected static Artifact generateSpecForJavaBinary(RuleContext ruleContext,
-      String mainClassName) {
-    // Add -libraryjars <java.home>/lib/rt.jar so Proguard uses JDK bootclasspath, which JavaCommon
-    // doesn't expose when building for JDK (see checkArgument in applyProguardIfRequested).
-    // Note <java.home>/lib/rt.jar refers to rt.jar that comes with JVM running Proguard, which
-    // should be identical to the JVM that will run the binary.
+  protected static Artifact generateSpecForJavaBinary(
+      RuleContext ruleContext, ImmutableList<Artifact> bootclasspath, String mainClassName) {
     Artifact result = ProguardHelper.getProguardConfigArtifact(ruleContext, "jvm");
     ruleContext.registerAction(
         new FileWriteAction(
             ruleContext.getActionOwner(),
             result,
-            String.format("-libraryjars <java.home>/lib/rt.jar%n"
-                + "-keep class %s {%n"
-                + "  public static void main(java.lang.String[]);%n"
-                + "}",
+            String.format(
+                "-libraryjars %s%n"
+                    + "-keep class %s {%n"
+                    + "  public static void main(java.lang.String[]);%n"
+                    + "}",
+                Artifact.joinExecPaths(
+                    ruleContext.getConfiguration().getHostPathSeparator(), bootclasspath),
                 mainClassName),
             /*executable*/ false));
     return result;

@@ -162,7 +162,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
   }
 
   /** Returns the bootclasspath explicit set in attributes if present, or else the default. */
-  private ImmutableList<Artifact> getBootclasspathOrDefault() {
+  public ImmutableList<Artifact> getBootclasspathOrDefault() {
     JavaTargetAttributes attributes = getAttributes();
     if (!attributes.getBootClassPath().isEmpty()) {
       return attributes.getBootClassPath();

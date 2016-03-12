@@ -187,8 +187,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
         classJar, manifestProtoOutput, genSourceJar, outputDepsProto, instrumentationMetadata);
     helper.createSourceJarAction(srcJar, genSourceJar);
 
-    common.setClassPathFragment(new ClasspathConfiguredFragment(
-        javaArtifacts, attributes, false));
+    common.setClassPathFragment(
+        new ClasspathConfiguredFragment(
+            javaArtifacts, attributes, false, helper.getBootclasspathOrDefault()));
 
     // Collect the action inputs for the runfiles collector here because we need to access the
     // analysis environment, and that may no longer be safe when the runfiles collector runs.
@@ -492,9 +493,9 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     }
 
     @Override
-    protected ImmutableList<Artifact> collectProguardSpecsForRule(RuleContext ruleContext,
-        String mainClassName) {
-      return ImmutableList.of(generateSpecForJavaBinary(ruleContext, mainClassName));
+    protected ImmutableList<Artifact> collectProguardSpecsForRule(
+        RuleContext ruleContext, ImmutableList<Artifact> bootclasspath, String mainClassName) {
+      return ImmutableList.of(generateSpecForJavaBinary(ruleContext, bootclasspath, mainClassName));
     }
   }
 }
