@@ -32,7 +32,6 @@ import com.google.common.eventbus.SubscriberExceptionContext;
 import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.Uninterruptibles;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.actions.cache.NullActionCache;
@@ -1268,25 +1267,13 @@ public final class BlazeRuntime {
    * telemetry and the proper exit code is reported.
    */
   private static void setupUncaughtHandler(final String[] args) {
-    Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-      @Override
-      public void uncaughtException(Thread thread, Throwable throwable) {
-        try {
-          BugReport.handleCrash(throwable, args);
-        } catch (Throwable t) {
-          System.err.println("An exception was caught in " + Constants.PRODUCT_NAME + "'s "
-              + "UncaughtExceptionHandler, a bug report may not have been filed.");
-
-          System.err.println("Original uncaught exception:");
-          throwable.printStackTrace(System.err);
-
-          System.err.println("Exception encountered during UncaughtExceptionHandler:");
-          t.printStackTrace(System.err);
-
-          Runtime.getRuntime().halt(BugReport.getExitCodeForThrowable(throwable));
-        }
-      }
-    });
+    Thread.setDefaultUncaughtExceptionHandler(
+        new Thread.UncaughtExceptionHandler() {
+          @Override
+          public void uncaughtException(Thread thread, Throwable throwable) {
+            BugReport.handleCrash(throwable, args);
+          }
+        });
   }
 
 

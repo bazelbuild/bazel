@@ -41,13 +41,6 @@ class OomSignalHandler extends AbstractSignalHandler {
     LOG.info(message);
     OutErr.SYSTEM_OUT_ERR.printErrLn(
         "Exiting as if we OOM'd because SIGUSR2 received, presumably from JVM");
-    try {
-      BugReport.handleCrash(new OutOfMemoryError(message));
-    } finally {
-      // This block should never be reached because BugReport.handleCrash halts the JVM, but just in
-      // case.
-      System.err.println("Failed to exit with OOM error code");
-      Runtime.getRuntime().halt(ExitCode.OOM_ERROR.getNumericExitCode());
-    }
+    BugReport.handleCrash(new OutOfMemoryError(message));
   }
 }
