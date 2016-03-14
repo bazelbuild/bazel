@@ -83,7 +83,7 @@ fi
 if [ "${EMBED_LABEL-x}" = "x" ]; then
   # Add a default label when unspecified
   git_sha1=$(git_sha1)
-  EMBED_LABEL="head (@${git_sha1:-non-git})"
+  EMBED_LABEL="$(get_last_version) (@${git_sha1:-non-git})"
 fi
 
 if [[ $PLATFORM == "darwin" ]] && \

@@ -182,6 +182,27 @@ function git_sha1() {
   fi
 }
 
+function git_date() {
+  if [ -x "$(which git || true)" ] && [ -d .git ]; then
+    git log -1 --pretty=%ai | cut -d " " -f 1 || true
+  fi
+}
+
+# Get the latest release version and append the date of
+# the last commit if any.
+function get_last_version() {
+  local version="$(fgrep -m 1 '## Release' CHANGELOG.md \
+                     | sed -E 's|.*Release (.*) \(.*\)|\1|')"
+  local date="$(git_date)"
+  if [ -z "${version-}" ]; then
+    version="unknown"
+  fi
+  if [ -n "${date-}" ]; then
+    date="$(date +%Y-%m-%d)"
+  fi
+  echo "${version}-${date}"
+}
+
 if [[ ${PLATFORM} == "darwin" ]]; then
   function md5_file() {
     echo $(cat $1 | md5) $1
