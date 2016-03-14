@@ -705,19 +705,20 @@ public class ObjcRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr("$dumpsyms", LABEL)
-          .cfg(HOST)
-          .singleArtifact()
-          .value(env.getToolsLabel("//tools/objc:dump_syms")))
-          .add(attr("$j2objc_dead_code_pruner", LABEL)
-              .allowedFileTypes(FileType.of(".py"))
-              .cfg(HOST)
-              .exec()
-              .singleArtifact()
-              .value(env.getToolsLabel("//tools/objc:j2objc_dead_code_pruner")))
-          .add(attr("$dummy_lib", LABEL)
-              .value(env.getToolsLabel("//tools/objc:dummy_lib")))
-        .build();
+          .add(
+              attr("$dumpsyms", LABEL)
+                  .cfg(HOST)
+                  .singleArtifact()
+                  .value(env.getToolsLabel("//tools/osx/crosstool:dump_syms")))
+          .add(
+              attr("$j2objc_dead_code_pruner", LABEL)
+                  .allowedFileTypes(FileType.of(".py"))
+                  .cfg(HOST)
+                  .exec()
+                  .singleArtifact()
+                  .value(env.getToolsLabel("//tools/objc:j2objc_dead_code_pruner")))
+          .add(attr("$dummy_lib", LABEL).value(env.getToolsLabel("//tools/objc:dummy_lib")))
+          .build();
     }
     @Override
     public Metadata getMetadata() {

@@ -57,6 +57,7 @@ filegroup(
         "//tools/objc:srcs",
         "//tools/python:srcs",
         "//tools/test:srcs",
+        "//tools/osx/crosstool:srcs",
         "//tools/zip:srcs",
     ],
 )
