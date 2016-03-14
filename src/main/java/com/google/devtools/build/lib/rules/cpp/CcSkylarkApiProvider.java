@@ -28,7 +28,9 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * simple and stable interface for Skylark users.
  */
 @SkylarkModule(
-    name = "CcSkylarkApiProvider", doc = "Provides access to information about C++ rules")
+    name = "CcSkylarkApiProvider", doc = "Provides access to information about C++ rules.  "
+    + "Every C++-related target provides this struct, accessible as a 'cc' field on "
+    + "a Target struct.")
 public final class CcSkylarkApiProvider extends SkylarkApiProvider {
   /** The name of the field in Skylark used to access this class. */
   public static final String NAME = "cc";

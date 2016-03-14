@@ -36,7 +36,8 @@ import javax.annotation.Nullable;
  */
 @SkylarkModule(
   name = "AndroidSkylarkApiProvider",
-  doc = "Provides access to information about Android rules"
+  doc = "Provides access to information about Android rules. Every Android-related target provides "
+  + "this struct, accessible as a 'java' field on a Target struct."
 )
 public class AndroidSkylarkApiProvider extends SkylarkApiProvider {
   /** The name of the field in Skylark used to access this class. */

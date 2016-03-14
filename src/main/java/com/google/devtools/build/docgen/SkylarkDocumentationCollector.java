@@ -22,9 +22,12 @@ import com.google.devtools.build.docgen.skylark.SkylarkModuleDoc;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
+import com.google.devtools.build.lib.rules.android.AndroidSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
+import com.google.devtools.build.lib.rules.java.JavaSkylarkApiProvider;
 import com.google.devtools.build.lib.rules.java.Jvm;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -172,10 +175,14 @@ final class SkylarkDocumentationCollector {
     Map<SkylarkModule, Class<?>> modules = new HashMap<>();
     collectBuiltinModule(modules, SkylarkRuleContext.class);
     collectBuiltinModule(modules, TransitiveInfoCollection.class);
+
     collectBuiltinModule(modules, AppleConfiguration.class);
     collectBuiltinModule(modules, CppConfiguration.class);
     collectBuiltinModule(modules, JavaConfiguration.class);
     collectBuiltinModule(modules, Jvm.class);
+    collectBuiltinModule(modules, JavaSkylarkApiProvider.class);
+    collectBuiltinModule(modules, JavaRuleOutputJarsProvider.OutputJar.class);
+    collectBuiltinModule(modules, AndroidSkylarkApiProvider.class);
     return modules;
   }
 

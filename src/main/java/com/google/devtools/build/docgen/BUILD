@@ -9,6 +9,7 @@ java_library(
     srcs = glob(["**/*.java"]),
     resources = [":template_files"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:android-rules",
         "//src/main/java/com/google/devtools/build/lib:build-base",
         "//src/main/java/com/google/devtools/build/lib:common",
         "//src/main/java/com/google/devtools/build/lib:java-rules",
