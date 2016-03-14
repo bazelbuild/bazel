@@ -1,0 +1,68 @@
+---
+layout: documentation
+title: AndroidSkylarkApiProvider
+---
+<h1 id="modules.AndroidSkylarkApiProvider">AndroidSkylarkApiProvider</h1>
+
+Provides access to information about Android rules. Every Android-related target provides this struct, accessible as a 'java' field on a Target struct.
+
+<div class="toc">
+  <h2>Methods</h2>
+  <ul>
+          <li><a href="#apk">apk</a></li>
+              <li><a href="#apks_under_test">apks_under_test</a></li>
+              <li><a href="#defines_resources">defines_resources</a></li>
+              <li><a href="#idl">idl</a></li>
+              <li><a href="#java_package">java_package</a></li>
+              <li><a href="#manifest">manifest</a></li>
+              <li><a href="#resources">resources</a></li>
+        </ul>
+</div>
+
+      <h2 id="apk">apk</h2>
+        <p><pre><a class="anchor" href="File.html">File</a> AndroidSkylarkApiProvider.apk</pre></p>
+
+    Returns an APK produced by this target.
+
+         May return <code>None</code>.
+
+        <h2 id="apks_under_test">apks_under_test</h2>
+        <p><pre>ImmutableCollection AndroidSkylarkApiProvider.apks_under_test</pre></p>
+
+    Returns a collection of APKs that this target tests.
+
+         May return <code>None</code>.
+
+        <h2 id="defines_resources">defines_resources</h2>
+        <p><pre><a class="anchor" href="globals.html#bool">bool</a> AndroidSkylarkApiProvider.defines_resources</pre></p>
+
+    Returns true if the target defines any Android resources directly.
+
+
+        <h2 id="idl">idl</h2>
+        <p><pre><a class="anchor" href="AndroidSkylarkIdlInfo.html">AndroidSkylarkIdlInfo</a> AndroidSkylarkApiProvider.idl</pre></p>
+
+    Returns information about IDL files associated with this target.
+
+
+        <h2 id="java_package">java_package</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> AndroidSkylarkApiProvider.java_package</pre></p>
+
+    Returns a java package for this target.
+
+         May return <code>None</code>.
+
+        <h2 id="manifest">manifest</h2>
+        <p><pre><a class="anchor" href="File.html">File</a> AndroidSkylarkApiProvider.manifest</pre></p>
+
+    Returns a manifest file for this target.
+
+         May return <code>None</code>.
+
+        <h2 id="resources">resources</h2>
+        <p><pre>set AndroidSkylarkApiProvider.resources</pre></p>
+
+    Returns resources defined by this target.
+
+
+

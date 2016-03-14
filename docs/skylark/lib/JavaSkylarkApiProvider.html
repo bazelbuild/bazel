@@ -1,0 +1,73 @@
+---
+layout: documentation
+title: JavaSkylarkApiProvider
+---
+<h1 id="modules.JavaSkylarkApiProvider">JavaSkylarkApiProvider</h1>
+
+Provides access to information about Java rules. Every Java-related target provides this struct, accessible as a 'java' field on a Target struct.
+
+<div class="toc">
+  <h2>Methods</h2>
+  <ul>
+          <li><a href="#annotation_processing">annotation_processing</a></li>
+              <li><a href="#compilation_info">compilation_info</a></li>
+              <li><a href="#outputs">outputs</a></li>
+              <li><a href="#source_jars">source_jars</a></li>
+              <li><a href="#transitive_deps">transitive_deps</a></li>
+              <li><a href="#transitive_exports">transitive_exports</a></li>
+              <li><a href="#transitive_runtime_deps">transitive_runtime_deps</a></li>
+              <li><a href="#transitive_source_jars">transitive_source_jars</a></li>
+        </ul>
+</div>
+
+      <h2 id="annotation_processing">annotation_processing</h2>
+        <p><pre><a class="anchor" href="JavaAnnotationProcessing.html">JavaAnnotationProcessing</a> JavaSkylarkApiProvider.annotation_processing</pre></p>
+
+    Returns information about annotation processing for this Java target
+
+         May return <code>None</code>.
+
+        <h2 id="compilation_info">compilation_info</h2>
+        <p><pre><a class="anchor" href="JavaCompilationInfo.html">JavaCompilationInfo</a> JavaSkylarkApiProvider.compilation_info</pre></p>
+
+    Returns compilation information for this Java target
+
+         May return <code>None</code>.
+
+        <h2 id="outputs">outputs</h2>
+        <p><pre><a class="anchor" href="JavaOutputJars.html">JavaOutputJars</a> JavaSkylarkApiProvider.outputs</pre></p>
+
+    Returns information about outputs of this Java target
+
+
+        <h2 id="source_jars">source_jars</h2>
+        <p><pre>set JavaSkylarkApiProvider.source_jars</pre></p>
+
+    Returns the Jars containing Java source files for the target
+
+
+        <h2 id="transitive_deps">transitive_deps</h2>
+        <p><pre>set JavaSkylarkApiProvider.transitive_deps</pre></p>
+
+    Returns the transitive set of Jars required to build the target
+
+
+        <h2 id="transitive_exports">transitive_exports</h2>
+        <p><pre>set JavaSkylarkApiProvider.transitive_exports</pre></p>
+
+    Returns transitive set of labels that are being exported from this rule.
+
+
+        <h2 id="transitive_runtime_deps">transitive_runtime_deps</h2>
+        <p><pre>set JavaSkylarkApiProvider.transitive_runtime_deps</pre></p>
+
+    Returns the transitive set of Jars required on the target's runtime classpath
+
+
+        <h2 id="transitive_source_jars">transitive_source_jars</h2>
+        <p><pre>set JavaSkylarkApiProvider.transitive_source_jars</pre></p>
+
+    Returns the Jars containing Java source files for the target and all of its transitive dependencies
+
+
+

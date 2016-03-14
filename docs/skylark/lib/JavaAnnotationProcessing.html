@@ -1,0 +1,52 @@
+---
+layout: documentation
+title: JavaAnnotationProcessing
+---
+<h1 id="modules.JavaAnnotationProcessing">JavaAnnotationProcessing</h1>
+
+Information about jars that are a result of annotation processing for a Java rule.
+
+<div class="toc">
+  <h2>Methods</h2>
+  <ul>
+          <li><a href="#class_jar">class_jar</a></li>
+              <li><a href="#enabled">enabled</a></li>
+              <li><a href="#source_jar">source_jar</a></li>
+              <li><a href="#transitive_class_jars">transitive_class_jars</a></li>
+              <li><a href="#transitive_source_jars">transitive_source_jars</a></li>
+        </ul>
+</div>
+
+      <h2 id="class_jar">class_jar</h2>
+        <p><pre><a class="anchor" href="File.html">File</a> JavaAnnotationProcessing.class_jar</pre></p>
+
+    Returns a jar File that is a result of annotation processing for this rule.
+
+         May return <code>None</code>.
+
+        <h2 id="enabled">enabled</h2>
+        <p><pre><a class="anchor" href="globals.html#bool">bool</a> JavaAnnotationProcessing.enabled</pre></p>
+
+    Returns true if the Java rule uses annotation processing
+
+
+        <h2 id="source_jar">source_jar</h2>
+        <p><pre><a class="anchor" href="File.html">File</a> JavaAnnotationProcessing.source_jar</pre></p>
+
+    Returns a source archive resulting from annotation processing of this rule.
+
+         May return <code>None</code>.
+
+        <h2 id="transitive_class_jars">transitive_class_jars</h2>
+        <p><pre>set JavaAnnotationProcessing.transitive_class_jars</pre></p>
+
+    Returns a transitive set of class file jars resulting from annotation processing of this rule and its dependencies.
+
+
+        <h2 id="transitive_source_jars">transitive_source_jars</h2>
+        <p><pre>set JavaAnnotationProcessing.transitive_source_jars</pre></p>
+
+    Returns a transitive set of source archives resulting from annotation processing of this rule and its dependencies.
+
+
+
