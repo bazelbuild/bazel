@@ -103,7 +103,9 @@ class ExperimentalStateTracker {
     // As callers to the experimental state tracker assume we will fully report the new state once
     // informed of an action completion, we need to make sure the progress receiver is aware of the
     // completion, even though it might be called later on the event bus.
-    executionProgressReceiver.actionCompleted(action);
+    if (executionProgressReceiver != null) {
+      executionProgressReceiver.actionCompleted(action);
+    }
   }
 
   private String describeAction(String name) {
