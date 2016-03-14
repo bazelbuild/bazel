@@ -107,7 +107,7 @@ public final class DirectoryListingStateValue implements SkyValue {
           new Comparator<Integer>() {
             @Override
             public int compare(Integer o1, Integer o2) {
-              return direntArray[o1].getName().compareTo(direntArray[o2].getName());
+              return direntArray[o1].compareTo(direntArray[o2]);
             }
           });
       String[] names = new String[dirents.size()];
