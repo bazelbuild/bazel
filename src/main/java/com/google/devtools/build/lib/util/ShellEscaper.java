@@ -60,8 +60,8 @@ public final class ShellEscaper extends Escaper {
       new CharEscaperBuilder().addEscape('\'', "'\\''").toEscaper();
   private static final CharMatcher SAFECHAR_MATCHER =
       CharMatcher.anyOf("@%-_+:,./")
-          .or(CharMatcher.inRange('0', '9'))  // We can't use CharMatcher.JAVA_LETTER_OR_DIGIT,
-          .or(CharMatcher.inRange('a', 'z'))  // that would also accept non-ASCII digits and
+          .or(CharMatcher.inRange('0', '9')) // We can't use CharMatcher.javaLetterOrDigit(),
+          .or(CharMatcher.inRange('a', 'z')) // that would also accept non-ASCII digits and
           .or(CharMatcher.inRange('A', 'Z')); // letters.
 
   /**
