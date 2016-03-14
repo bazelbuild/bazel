@@ -43,6 +43,16 @@ sh_binary(
 )
 
 sh_binary(
+    name = "dexbuilder",
+    srcs = ["fail.sh"],
+)
+
+sh_binary(
+    name = "dexmerger",
+    srcs = ["fail.sh"],
+)
+
+sh_binary(
     name = "IdlClass",
     srcs = ["idlclass.sh"],
     data = ["//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass"],

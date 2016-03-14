@@ -147,6 +147,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
     androidBuildContents
         .add(")")
         .add("sh_binary(name = 'aar_generator', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'dexbuilder', srcs = ['empty.sh'])")
+        .add("sh_binary(name = 'dexmerger', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'resources_processor', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'resource_shrinker', srcs = ['empty.sh'])")
         .add("android_library(name = 'incremental_stub_application')")
