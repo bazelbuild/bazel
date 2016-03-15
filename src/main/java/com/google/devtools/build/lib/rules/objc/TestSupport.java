@@ -253,6 +253,7 @@ public class TestSupport {
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       envBuilder.put("COVERAGE_GCOV_PATH",
           ruleContext.getHostPrerequisiteArtifact(IosTest.GCOV_ATTR).getExecPathString());
+      envBuilder.put("APPLE_COVERAGE", "1");
     }
 
     return ImmutableMap.<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>of(
