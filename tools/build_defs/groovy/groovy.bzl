@@ -377,7 +377,7 @@ def spock_test(
 
 def groovy_repositories():
   native.new_http_archive(
-    name = "groovy-sdk-artifact",
+    name = "groovy_sdk_artifact",
     url = "http://dl.bintray.com/groovy/maven/apache-groovy-binary-2.4.4.zip",
     sha256 = "a7cc1e5315a14ea38db1b2b9ce0792e35174161141a6a3e2ef49b7b2788c258c",
     build_file_content = """
@@ -395,27 +395,27 @@ java_import(
   )
   native.bind(
     name = "groovy-sdk",
-    actual = "@groovy-sdk-artifact//:sdk",
+    actual = "@groovy_sdk_artifact//:sdk",
   )
   native.bind(
     name = "groovy",
-    actual = "@groovy-sdk-artifact//:groovy",
+    actual = "@groovy_sdk_artifact//:groovy",
   )
 
   native.maven_jar(
-    name = "junit-artifact",
+    name = "junit_artifact",
     artifact = "junit:junit:4.12",
   )
   native.bind(
     name = "junit",
-    actual = "@junit-artifact//jar",
+    actual = "@junit_artifact//jar",
   )
 
   native.maven_jar(
-    name = "spock-artifact",
+    name = "spock_artifact",
     artifact = "org.spockframework:spock-core:0.7-groovy-2.0",
   )
   native.bind(
     name = "spock",
-    actual = "@spock-artifact//jar",
+    actual = "@spock_artifact//jar",
   )
