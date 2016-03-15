@@ -56,6 +56,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
   public final void generateBuildFile() throws Exception {
     scratch.file(
         "foo/BUILD",
+        "package(features = ['-f1', 'f2', 'f3'])",
         "genrule(name = 'foo',",
         "  cmd = 'dummy_cmd',",
         "  srcs = ['a.txt', 'b.img'],",
@@ -79,7 +80,12 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "  srcs = ['a.go'],",
         "  outs = [ 'gl.a', 'gl.gcgox', ],",
         "  output_to_bindir = 1,",
-        ")");
+        ")",
+        "cc_library(name = 'cc_with_features',",
+        "           srcs = ['dummy.cc'],",
+        "           features = ['f1', '-f3'],",
+        ")"
+    );
   }
 
   private void setUpAttributeErrorTest() throws Exception {
@@ -680,6 +686,14 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     Object result = evalRuleContextCode(ruleContext, "ruleContext.configuration");
     assertSame(result, ruleContext.getRuleContext().getConfiguration());
   }
+
+  @Test
+  public void testFeatures() throws Exception {
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:cc_with_features");
+    Object result = evalRuleContextCode(ruleContext, "ruleContext.features");
+    assertThat((SkylarkList) result).containsExactly("f1", "f2");
+  }
+
 
   @Test
   public void testHostConfiguration() throws Exception {

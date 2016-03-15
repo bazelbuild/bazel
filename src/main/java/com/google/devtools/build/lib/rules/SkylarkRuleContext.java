@@ -498,6 +498,13 @@ public final class SkylarkRuleContext {
     return ruleContext.getHostConfiguration();
   }
 
+  @SkylarkCallable(name = "features", structField = true,
+      doc = "Returns the set of features that are enabled for this rule."
+  )
+  public ImmutableList<String> getFeatures() {
+    return ImmutableList.copyOf(ruleContext.getFeatures());
+  }
+
   @SkylarkCallable(structField = true, doc = OUTPUTS_DOC)
   public SkylarkClassObject outputs() throws EvalException {
     if (outputsObject == null) {
