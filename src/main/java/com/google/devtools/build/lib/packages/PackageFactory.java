@@ -330,19 +330,19 @@ public final class PackageFactory {
    */
   @VisibleForTesting
   public PackageFactory(RuleClassProvider ruleClassProvider) {
-    this(ruleClassProvider, null, ImmutableList.<EnvironmentExtension>of());
+    this(ruleClassProvider, null, ImmutableList.<EnvironmentExtension>of(), "test");
   }
 
   @VisibleForTesting
   public PackageFactory(RuleClassProvider ruleClassProvider,
       EnvironmentExtension environmentExtension) {
-    this(ruleClassProvider, null, ImmutableList.of(environmentExtension));
+    this(ruleClassProvider, null, ImmutableList.of(environmentExtension), "test");
   }
 
   @VisibleForTesting
   public PackageFactory(RuleClassProvider ruleClassProvider,
       Iterable<EnvironmentExtension> environmentExtensions) {
-    this(ruleClassProvider, null, environmentExtensions);
+    this(ruleClassProvider, null, environmentExtensions, "test");
   }
 
   /**
@@ -351,7 +351,8 @@ public final class PackageFactory {
    */
   public PackageFactory(RuleClassProvider ruleClassProvider,
       Map<String, String> platformSetRegexps,
-      Iterable<EnvironmentExtension> environmentExtensions) {
+      Iterable<EnvironmentExtension> environmentExtensions,
+      String version) {
     this.platformSetRegexps = platformSetRegexps;
     this.ruleFactory = new RuleFactory(ruleClassProvider);
     this.ruleClassProvider = ruleClassProvider;
@@ -363,7 +364,7 @@ public final class PackageFactory {
     this.environmentExtensions = ImmutableList.copyOf(environmentExtensions);
     this.packageArguments = createPackageArguments();
     this.nativeModule = newNativeModule();
-    this.workspaceNativeModule = WorkspaceFactory.newNativeModule(ruleClassProvider);
+    this.workspaceNativeModule = WorkspaceFactory.newNativeModule(ruleClassProvider, version);
   }
 
   /**

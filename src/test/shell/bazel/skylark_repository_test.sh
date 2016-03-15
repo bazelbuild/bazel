@@ -395,6 +395,48 @@ EOF
   test ! -x "${output_base}/external/foo/test2" || fail "test2 is executable"
 }
 
+# Test native.bazel_version
+function test_bazel_version() {
+  create_new_workspace
+  repo2=$new_workspace_dir
+
+  cat > BUILD <<'EOF'
+genrule(
+    name = "test",
+    cmd = "echo 'Tra-la!' | tee $@",
+    outs = ["test.txt"],
+    visibility = ["//visibility:public"],
+)
+EOF
+
+  cd ${WORKSPACE_DIR}
+  cat > WORKSPACE <<EOF
+load('/test', 'macro')
+
+macro('$repo2')
+EOF
+
+  # Empty package for the .bzl file
+  echo -n >BUILD
+
+  # Our macro
+  cat >test.bzl <<EOF
+def macro(path):
+  print(native.bazel_version)
+  native.local_repository(name='test', path=path)
+EOF
+
+  local version="$(bazel info release)"
+  # On release, Bazel binary get stamped, else we might run with an unstamped version.
+  if [ "$version" == "development version" ]; then
+    version=""
+  else
+    version="${version#* }"
+  fi
+  bazel build @test//:test >& $TEST_log || fail "Failed to build"
+  expect_log ": ${version}."
+}
+
 function tear_down() {
   true
 }

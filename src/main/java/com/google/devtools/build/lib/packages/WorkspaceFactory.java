@@ -426,7 +426,7 @@ public class WorkspaceFactory {
   }
 
   private static ClassObject newNativeModule(
-      ImmutableMap<String, BaseFunction> workspaceFunctions) {
+      ImmutableMap<String, BaseFunction> workspaceFunctions, String version) {
     ImmutableMap.Builder<String, Object> builder = new ImmutableMap.Builder<>();
     for (String nativeFunction : Runtime.getFunctionNames(SkylarkNativeModule.class)) {
       builder.put(nativeFunction, Runtime.getFunction(SkylarkNativeModule.class, nativeFunction));
@@ -435,11 +435,12 @@ public class WorkspaceFactory {
       builder.put(function.getKey(), function.getValue());
     }
 
+    builder.put("bazel_version", version);
     return new ClassObject.SkylarkClassObject(builder.build(), "no native function or rule '%s'");
   }
 
-  public static ClassObject newNativeModule(RuleClassProvider ruleClassProvider) {
-    return newNativeModule(createWorkspaceFunctions(ruleClassProvider, false));
+  public static ClassObject newNativeModule(RuleClassProvider ruleClassProvider, String version) {
+    return newNativeModule(createWorkspaceFunctions(ruleClassProvider, false), version);
   }
 
   static {

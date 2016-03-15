@@ -51,7 +51,7 @@ public class PackageFactoryApparatus {
     this.eventHandler = eventHandler;
     RuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
     factory = new PackageFactory(ruleClassProvider, null,
-        ImmutableList.copyOf(environmentExtensions));
+        ImmutableList.copyOf(environmentExtensions), "test");
   }
 
   /**

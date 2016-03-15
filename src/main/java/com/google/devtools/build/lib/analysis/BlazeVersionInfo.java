@@ -118,6 +118,15 @@ public class BlazeVersionInfo {
   }
 
   /**
+   * Returns the version, if any, or HEAD. The returned version number is easier to
+   * process than the version returned by #getReleaseName().
+   */
+  public String getVersion() {
+    String buildLabel = buildData.get(BUILD_LABEL);
+    return buildLabel != null ? buildLabel : "";
+  }
+
+  /**
    * Returns the release timestamp in seconds.
    */
   public long getTimestamp() {
