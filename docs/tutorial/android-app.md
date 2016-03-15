@@ -71,7 +71,7 @@ android_sdk_repository(
     path = "/Users/username/Library/Android/sdk",
     # Replace with the Android SDK API level
     api_level = 23,
-    # Replace with the verion in sdk/build-tools/
+    # Replace with the version in sdk/build-tools/
     build_tools_version="23.0.0"
 )
 ```
