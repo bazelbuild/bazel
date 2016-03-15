@@ -99,7 +99,7 @@ public final class JavaToolchainRule implements RuleDefinition {
         Label of the ijar executable.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         // TODO(cushon): make mandatory once migration from --ijar_top is complete
-        .add(attr("ijar", LABEL_LIST).cfg(HOST).allowedFileTypes(FileTypeSet.NO_FILE).exec())
+        .add(attr("ijar", LABEL_LIST).cfg(HOST).allowedFileTypes(FileTypeSet.ANY_FILE).exec())
         .add(
             attr("header_compiler", LABEL_LIST)
                 .cfg(HOST)
