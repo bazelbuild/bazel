@@ -50,8 +50,8 @@ def _jsonnet_library_impl(ctx):
 
 def _jsonnet_toolchain(ctx):
   return struct(
-      jsonnet_path = ctx.file._jsonnet.path,
-      imports = ["-J %s" % ctx.file._std.dirname])
+      jsonnet_path = ctx.file.jsonnet.path,
+      imports = ["-J %s" % ctx.file.std.dirname])
 
 def _jsonnet_to_json_impl(ctx):
   """Implementation of the jsonnet_to_json rule."""
@@ -93,7 +93,7 @@ def _jsonnet_to_json_impl(ctx):
     command += [ctx.file.src.path, "-o", compiled_json.path]
 
   compile_inputs = (
-      [ctx.file.src, ctx.file._jsonnet, ctx.file._std] +
+      [ctx.file.src, ctx.file.jsonnet, ctx.file.std] +
       list(depinfo.transitive_sources))
 
   ctx.action(
@@ -155,7 +155,7 @@ def _jsonnet_to_json_test_impl(ctx):
   jsonnet_vars = ctx.attr.vars
   jsonnet_code_vars = ctx.attr.code_vars
   jsonnet_command = " ".join(
-      ["OUTPUT=$(%s" % ctx.file._jsonnet.short_path] +
+      ["OUTPUT=$(%s" % ctx.file.jsonnet.short_path] +
       ["-J %s/%s" % (ctx.label.package, im) for im in ctx.attr.imports] +
       ["-J %s" % im for im in depinfo.imports] +
       toolchain.imports +
@@ -180,7 +180,7 @@ def _jsonnet_to_json_test_impl(ctx):
                   executable = True);
 
   test_inputs = (
-      [ctx.file.src, ctx.file._jsonnet, ctx.file._std] +
+      [ctx.file.src, ctx.file.jsonnet, ctx.file.std] +
       golden_files +
       list(depinfo.transitive_sources))
 
@@ -191,11 +191,11 @@ _jsonnet_common_attrs = {
     "deps": attr.label_list(providers = ["transitive_jsonnet_files"],
                             allow_files = False),
     "imports": attr.string_list(),
-    "_jsonnet": attr.label(
+    "jsonnet": attr.label(
         default = Label("@bazel_tools//tools/build_defs/jsonnet:jsonnet"),
         executable = True,
         single_file = True),
-    "_std": attr.label(
+    "std": attr.label(
         default = Label("@bazel_tools//tools/build_defs/jsonnet:std"),
         single_file = True),
 }
