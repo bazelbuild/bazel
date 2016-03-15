@@ -84,7 +84,14 @@ def _ld_library_paths(repository_ctx):
 
 def _get_cpu_value(repository_ctx):
   """Compute the cpu_value based on the OS name."""
-  return "darwin" if repository_ctx.os.name.lower().startswith("mac os") else "k8"
+  os_name = repository_ctx.os.name.lower()
+  if os_name.startswith("mac os"):
+    return "darwin"
+  if os_name.contains("freebsd"):
+    return "freebsd"
+  if os_name.contains("windows"):
+    return "x64_windows"
+  return "k8"
 
 
 _INC_DIR_MARKER_BEGIN = "#include <...> search starts here:"
@@ -248,26 +255,34 @@ def _tpl(repository_ctx, tpl, substitutions={}):
 def _impl(repository_ctx):
   repository_ctx.file("tools/cpp/empty.cc")
   cpu_value = _get_cpu_value(repository_ctx)
-  darwin = cpu_value == "darwin"
-  cc = _find_cc(repository_ctx)
-  crosstool_cc = "osx_cc_wrapper.sh" if darwin else str(cc)
-  darwin = cpu_value == "darwin"
-  tool_paths = _get_tool_paths(repository_ctx, darwin, crosstool_cc)
-  crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
-  opt_content = _opt_content(darwin)
-  dbg_content = _dbg_content()
-  _tpl(repository_ctx, "BUILD", {
-      "%{name}": cpu_value,
-      "%{supports_param_files}": "0" if darwin else "1"
-  })
-  _tpl(repository_ctx, "osx_cc_wrapper.sh", {"%{cc}": str(cc)})
-  _tpl(repository_ctx, "CROSSTOOL", {
-      "%{cpu}": cpu_value,
-      "%{content}": _build_crosstool(crosstool_content) + "\n" +
-                    _build_tool_path(tool_paths),
-      "%{opt_content}": _build_crosstool(opt_content, "    "),
-      "%{dbg_content}": _build_crosstool(dbg_content, "    "),
-  })
+  if cpu_value in ["freebsd", "x64_windows"]:
+    # This is defaulting to the static crosstool, we should eventually do those platform too.
+    # Theorically, FreeBSD should be straightforward to add but we cannot run it in a docker
+    # container so escaping until we have proper tests for FreeBSD.
+    # Windows support is still experimental, let's not fiddle with autoconfiguration for now.
+    ctx.symlink(Label("@bazel_tools//tools/cpp:CROSSTOOL"), "tools/cpp/CROSSTOOL")
+    ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD"), "tools/cpp/BUILD")
+  else:
+    darwin = cpu_value == "darwin"
+    cc = _find_cc(repository_ctx)
+    crosstool_cc = "osx_cc_wrapper.sh" if darwin else str(cc)
+    darwin = cpu_value == "darwin"
+    tool_paths = _get_tool_paths(repository_ctx, darwin, crosstool_cc)
+    crosstool_content = _crosstool_content(repository_ctx, cc, cpu_value, darwin)
+    opt_content = _opt_content(darwin)
+    dbg_content = _dbg_content()
+    _tpl(repository_ctx, "BUILD", {
+        "%{name}": cpu_value,
+        "%{supports_param_files}": "0" if darwin else "1"
+    })
+    _tpl(repository_ctx, "osx_cc_wrapper.sh", {"%{cc}": str(cc)})
+    _tpl(repository_ctx, "CROSSTOOL", {
+        "%{cpu}": cpu_value,
+        "%{content}": _build_crosstool(crosstool_content) + "\n" +
+                      _build_tool_path(tool_paths),
+        "%{opt_content}": _build_crosstool(opt_content, "    "),
+        "%{dbg_content}": _build_crosstool(dbg_content, "    "),
+    })
 
 
 cc_autoconf = repository_rule(_impl, local=True)
