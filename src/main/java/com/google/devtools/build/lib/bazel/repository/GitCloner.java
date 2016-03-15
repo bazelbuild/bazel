@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.devtools.build.lib.bazel.repository.downloader.ProxyHelper;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;

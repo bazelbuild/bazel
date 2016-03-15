@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.NewRepositoryBuildFileHandler;

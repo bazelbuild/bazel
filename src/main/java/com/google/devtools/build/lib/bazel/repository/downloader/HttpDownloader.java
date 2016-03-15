@@ -12,11 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.repository;
+package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
@@ -27,15 +26,10 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.Proxy;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -48,7 +42,6 @@ import javax.annotation.Nullable;
  * Helper class for downloading a file from a URL.
  */
 public class HttpDownloader {
-  private static final int MAX_REDIRECTS = 20;
   private static final int BUFFER_SIZE = 32 * 1024;
   private static final int KB = 1024;
   private static final String UNITS = " KMGTPEY";
@@ -192,115 +185,6 @@ public class HttpDownloader {
     }
     return (int) (bytes / Math.pow(KB, logBaseUnitOfBytes))
         + (UNITS.charAt(logBaseUnitOfBytes) + "B");
-  }
-
-  private static class HttpConnection implements Closeable {
-    private final InputStream inputStream;
-    private final int contentLength;
-
-    private HttpConnection(InputStream inputStream, int contentLength) {
-      this.inputStream = inputStream;
-      this.contentLength = contentLength;
-    }
-
-    public InputStream getInputStream() {
-      return inputStream;
-    }
-
-    /**
-     * @return The length of the response, or -1 if unknown.
-     */
-    public int getContentLength() {
-      return contentLength;
-    }
-
-    @Override
-    public void close() throws IOException {
-      inputStream.close();
-    }
-
-    private static int parseContentLength(HttpURLConnection connection) {
-      String length;
-      try {
-        length = connection.getHeaderField("Content-Length");
-        if (length == null) {
-          return -1;
-        }
-        return Integer.parseInt(length);
-      } catch (NumberFormatException e) {
-        return -1;
-      }
-    }
-
-    public static HttpConnection createAndConnect(URL url) throws IOException {
-      int retries = MAX_REDIRECTS;
-      Proxy proxy = ProxyHelper.createProxyIfNeeded(url.toString());
-      do {
-        HttpURLConnection connection = (HttpURLConnection) url.openConnection(proxy);
-        try {
-          connection.connect();
-        } catch (IllegalArgumentException e) {
-          throw new IOException("Failed to connect to " + url + " : " + e.getMessage(), e);
-        }
-
-        int statusCode = connection.getResponseCode();
-        switch (statusCode) {
-          case HttpURLConnection.HTTP_OK:
-            return new HttpConnection(connection.getInputStream(), parseContentLength(connection));
-          case HttpURLConnection.HTTP_MOVED_PERM:
-          case HttpURLConnection.HTTP_MOVED_TEMP:
-            url = tryGetLocation(statusCode, connection);
-            connection.disconnect();
-            break;
-          case -1:
-            throw new IOException("An HTTP error occured");
-          default:
-            throw new IOException(String.format("%s %s: %s",
-                connection.getResponseCode(),
-                connection.getResponseMessage(),
-                readBody(connection)));
-          }
-      } while (retries-- > 0);
-      throw new IOException("Maximum redirects (" + MAX_REDIRECTS + ") exceeded");
-    }
-
-    private static URL tryGetLocation(int statusCode, HttpURLConnection connection)
-        throws IOException {
-      String newLocation = connection.getHeaderField("Location");
-      if (newLocation == null) {
-        throw new IOException(
-            "Remote returned " + statusCode + " but did not return location header.");
-      }
-
-      URL newUrl;
-      try {
-        newUrl = new URL(newLocation);
-      } catch (MalformedURLException e) {
-        throw new IOException("Remote returned invalid location header: " + newLocation);
-      }
-
-      String newProtocol = newUrl.getProtocol();
-      if (!("http".equals(newProtocol) || "https".equals(newProtocol))) {
-        throw new IOException(
-            "Remote returned invalid location header: " + newLocation);
-      }
-
-      return newUrl;
-    }
-
-    private static String readBody(HttpURLConnection connection) throws IOException {
-      InputStream errorStream = connection.getErrorStream();
-      if (errorStream != null) {
-        return new String(ByteStreams.toByteArray(errorStream), StandardCharsets.UTF_8);
-      }
-
-      InputStream responseStream = connection.getInputStream();
-      if (responseStream != null) {
-        return new String(ByteStreams.toByteArray(responseStream), StandardCharsets.UTF_8);
-      }
-
-      return null;
-    }
   }
 
   public static String getHash(Hasher hasher, Path path) throws IOException {

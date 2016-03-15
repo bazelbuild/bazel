@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.bazel.rules.workspace.MavenJarRule;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
