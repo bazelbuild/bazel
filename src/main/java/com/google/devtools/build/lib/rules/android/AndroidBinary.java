@@ -972,9 +972,16 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     int dexShards = ruleContext.attributes().get("dex_shards", Type.INTEGER);
-    if (dexShards > 1 && multidexMode == MultidexMode.OFF) {
-      ruleContext.ruleError(".dex sharding is only available in multidex mode");
-      return null;
+    if (dexShards > 1) {
+      if (multidexMode == MultidexMode.OFF) {
+        ruleContext.ruleError(".dex sharding is only available in multidex mode");
+        return null;
+      }
+
+      if (multidexMode == MultidexMode.MANUAL_MAIN_DEX) {
+        ruleContext.ruleError(".dex sharding is not available in manual multidex mode");
+        return null;
+      }
     }
 
     Artifact mainDexList = ruleContext.getPrerequisiteArtifact("main_dex_list", Mode.TARGET);
