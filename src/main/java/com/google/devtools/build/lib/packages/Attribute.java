@@ -699,7 +699,7 @@ public final class Attribute implements Comparable<Attribute> {
     /**
      * Sets a list of sets of mandatory Skylark providers. Every configured target occurring in
      * this label type attribute has to provide all the providers from one of those sets,
-     * otherwise an error is produces during the analysis phase.
+     * otherwise an error is produced during the analysis phase.
      */
     public Builder<TYPE> mandatoryProvidersList(Iterable<? extends Iterable<String>> providersList){
       Preconditions.checkState((type == BuildType.LABEL) || (type == BuildType.LABEL_LIST),
