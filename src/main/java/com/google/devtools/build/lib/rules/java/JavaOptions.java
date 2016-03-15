@@ -60,13 +60,6 @@ public class JavaOptions extends FragmentOptions {
     }
   }
 
-  /** Converter for --java_langtools. */
-  public static class LangtoolsConverter extends DefaultLabelConverter {
-    public LangtoolsConverter() {
-      super(Constants.TOOLS_REPOSITORY + DEFAULT_LANGTOOLS);
-    }
-  }
-
   /** Converter for --javac_bootclasspath. */
   public static class BootclasspathConverter extends DefaultLabelConverter {
     public BootclasspathConverter() {
@@ -318,9 +311,9 @@ public class JavaOptions extends FragmentOptions {
   public Label iJarTop;
 
   @Option(name = "java_langtools",
-      defaultValue = "",
+      defaultValue = "@bazel_tools" + DEFAULT_LANGTOOLS,
       category = "version",
-      converter = LangtoolsConverter.class,
+      converter = LabelConverter.class,
       help = "Label of the rule that produces the Java langtools jar.")
   public Label javaLangtoolsJar;
 
