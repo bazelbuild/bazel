@@ -1,0 +1,77 @@
+#!/bin/bash
+#
+# Copyright 2016 The Bazel Authors. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# An end-to-end test that Bazel's experimental UI produces reasonable output.
+
+# Load test environment
+source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/testenv.sh \
+  || { echo "testenv.sh not found!" >&2; exit 1; }
+
+create_and_cd_client
+put_bazel_on_path
+write_default_bazelrc
+
+#### SETUP #############################################################
+
+set -e
+
+function set_up() {
+  mkdir -p pkg
+  cat > pkg/true.sh <<EOF
+#!/bin/sh
+exit 0
+EOF
+  chmod 755 pkg/true.sh
+  cat > pkg/false.sh <<EOF
+#!/bin/sh
+exit 1
+EOF
+  chmod 755 pkg/false.sh
+  cat > pkg/BUILD <<EOF
+sh_test(
+  name = "true",
+  srcs = ["true.sh"],
+)
+sh_test(
+  name = "false",
+  srcs = ["false.sh"],
+)
+EOF
+}
+
+#### TESTS #############################################################
+
+function test_basic_progress() {
+  bazel test --experimental_ui --curses=yes --color=yes pkg:true 2>$TEST_log || fail "bazel test failed"
+  # some progress indicator is shown
+  expect_log '\[[0-9,]* / [0-9,]*\]'
+  # curses are used to delete at least one line
+  expect_log $'\x1b\[1A\x1b\[K'
+}
+
+function test_pass() {
+  bazel test --experimental_ui --curses=yes --color=yes pkg:true >$TEST_log || fail "bazel test failed"
+  # PASS is written in green on the same line as the test target
+  expect_log 'pkg:true.*'$'\x1b\[32m''.*PASS'
+}
+
+function test_fail() {
+  bazel test --experimental_ui --curses=yes --color=yes pkg:false >$TEST_log && fail "expected failure"
+  # FAIL is written in red bold on the same line as the test target
+  expect_log 'pkg:false.*'$'\x1b\[31m\x1b\[1m''.*FAIL'
+}
+
+run_suite "Integration tests for bazel's experimental UI"

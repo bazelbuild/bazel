@@ -24,6 +24,13 @@ sh_test(
     shard_count = 4,
 )
 
+sh_test(
+    name = "experimental_ui_test",
+    size = "medium",
+    srcs = ["experimental_ui_test.sh"],
+    data = [":test-deps"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
