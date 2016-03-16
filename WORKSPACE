@@ -12,6 +12,14 @@ jsonnet_repositories()
 rust_repositories()
 sass_repositories()
 
+# Protobuf expects an //external:python_headers label which would contain the
+# Python headers if fast Python protos is enabled. Since we are not using fast
+# Python protos, bind python_headers to a dummy target.
+bind(
+    name = "python_headers",
+    actual = "//:dummy",
+)
+
 # Bind to dummy targets if no android SDK/NDK is present.
 bind(
     name = "android_sdk_for_testing",

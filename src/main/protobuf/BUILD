@@ -1,6 +1,7 @@
 package(default_visibility = ["//visibility:public"])
 
 load("//tools/build_rules:genproto.bzl", "java_proto_library")
+load("@bazel_tools//third_party/protobuf:protobuf.bzl", "py_proto_library")
 
 FILES = [
     "build",
@@ -25,6 +26,13 @@ FILES = [
     name = s + "_java_proto",
     src = s + ".proto",
 ) for s in FILES]
+
+py_proto_library(
+    name = "build_pb_py",
+    srcs = ["build.proto"],
+    default_runtime = "@bazel_tools//third_party/protobuf:protobuf_python",
+    protoc = "@bazel_tools//third_party/protobuf:protoc",
+)
 
 filegroup(
     name = "srcs",

@@ -27,7 +27,7 @@ java_library(
         "//src/main/protobuf:crosstool_config_java_proto",
         "//src/main/protobuf:extra_actions_base_java_proto",
         "//third_party:jsr305",
-        "//third_party:protobuf",
+        "//third_party/protobuf",
     ],
 )
 

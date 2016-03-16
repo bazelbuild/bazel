@@ -23,7 +23,7 @@ java_library(
         "//third_party:gson",
         "//third_party:guava",
         "//third_party:hazelcast",
-        "//third_party:protobuf",
+        "//third_party/protobuf",
     ],
 )
 

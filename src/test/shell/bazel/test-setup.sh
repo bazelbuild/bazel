@@ -272,10 +272,11 @@ EOF
 }
 
 function setup_protoc_support() {
-  mkdir -p third_party
-  [ -e third_party/protoc ] || ln -s ${protoc_compiler} third_party/protoc
-  [ -e third_party/protobuf-java.jar ] \
-    || ln -s ${protoc_jar} third_party/protobuf-java.jar
+  mkdir -p third_party/protobuf
+  [ -e third_party/protobuf/protoc ] \
+    || ln -s ${protoc_compiler} third_party/protobuf/protoc
+  [ -e third_party/protobuf/protobuf-java.jar ] \
+    || ln -s ${protoc_jar} third_party/protobuf/protobuf-java.jar
 
 cat <<EOF > third_party/BUILD
 package(default_visibility = ["//visibility:public"])

@@ -10,8 +10,8 @@ java_binary(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:xcodegen_java_proto",
         "//third_party:guava",
-        "//third_party:protobuf",
         "//third_party/java/buck-ios-support",
+        "//third_party/protobuf",
     ],
 )
 
@@ -31,9 +31,9 @@ java_library(
         "//src/tools/xcode-common/java/com/google/devtools/build/xcode/util",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party:protobuf",
         "//third_party/java/buck-ios-support",
         "//third_party/java/dd_plist",
+        "//third_party/protobuf",
     ],
 )
 

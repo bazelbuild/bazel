@@ -94,7 +94,7 @@ bootstrap_java_library(
         "//third_party:error_prone-jars",
         "//third_party:guava-jars",
         "//third_party:jsr305-jars",
-        "//third_party:protobuf-jars",
+        "//third_party/protobuf:protobuf-jars",
     ],
     neverlink_jars = ["//tools/defaults:java_langtools"],
     srcjars = [

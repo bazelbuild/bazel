@@ -546,8 +546,8 @@ java_library(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:mockito",
-        "//third_party:protobuf",
         "//third_party:truth",
+        "//third_party/protobuf",
     ],
 )
 
@@ -583,8 +583,8 @@ java_test(
         "//third_party:guava-testlib",
         "//third_party:jsr305",
         "//third_party:junit4",
-        "//third_party:protobuf",
         "//third_party:truth",
+        "//third_party/protobuf",
     ],
 )
 
@@ -642,8 +642,8 @@ java_test(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:mockito",
-        "//third_party:protobuf",
         "//third_party:truth",
+        "//third_party/protobuf",
     ],
 )
 
@@ -953,8 +953,8 @@ java_test(
         "//third_party:guava-testlib",
         "//third_party:jsr305",
         "//third_party:junit4",
-        "//third_party:protobuf",
         "//third_party:truth",
+        "//third_party/protobuf",
     ],
 )
 
@@ -996,8 +996,8 @@ java_test(
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:mockito",
-        "//third_party:protobuf",
         "//third_party:truth",
+        "//third_party/protobuf",
     ],
 )
 
@@ -1161,8 +1161,8 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//third_party:guava",
         "//third_party:junit4",
-        "//third_party:protobuf",
         "//third_party:truth",
+        "//third_party/protobuf",
     ],
 )
 

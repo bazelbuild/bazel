@@ -13,7 +13,7 @@ java_library(
         "//third_party:apache_httpclient",
         "//third_party:apache_httpcore",
         "//third_party:guava",
-        "//third_party:protobuf",
+        "//third_party/protobuf",
     ],
 )
 

@@ -21,7 +21,7 @@ java_library(
         "//third_party:apache_commons_pool2",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party:protobuf",
+        "//third_party/protobuf",
     ],
 )
 

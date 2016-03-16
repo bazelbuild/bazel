@@ -50,7 +50,7 @@ gensrcjar = rule(
         # TODO(bazel-team): this should be a hidden attribute with a default
         # value, but Skylark needs to support select first.
         "_proto_compiler": attr.label(
-            default = Label("@bazel_tools//third_party:protoc"),
+            default = Label("@bazel_tools//third_party/protobuf:protoc"),
             allow_files = True,
             executable = True,
             single_file = True,
@@ -79,7 +79,7 @@ def java_proto_library(name, src):
   native.java_library(
     name=name,
     srcs=[name + "_srcjar"],
-    deps=["@bazel_tools//third_party:protobuf"],
+    deps=["@bazel_tools//third_party/protobuf"],
     # The generated code has lots of 'rawtypes' warnings.
     javacopts=["-Xlint:-rawtypes"],
 )
