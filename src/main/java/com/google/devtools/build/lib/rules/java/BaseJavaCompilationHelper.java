@@ -99,15 +99,25 @@ public class BaseJavaCompilationHelper {
   }
 
   /**
-   * Returns the javac bootclasspath artifacts.
+   * Returns the javac bootclasspath artifacts from the given toolchain (if it has any) or the rule.
    */
-  protected final ImmutableList<Artifact> getBootClasspath() {
+  public static ImmutableList<Artifact> getBootClasspath(
+      RuleContext ruleContext,
+      JavaToolchainProvider javaToolchain,
+      String implicitAttributesSuffix) {
     NestedSet<Artifact> toolchainBootclasspath = javaToolchain.getBootclasspath();
     if (toolchainBootclasspath != null) {
       return ImmutableList.copyOf(toolchainBootclasspath);
     }
     return ruleContext.getPrerequisiteArtifacts(
         "$javac_bootclasspath" + implicitAttributesSuffix, Mode.HOST).list();
+  }
+
+  /**
+   * Returns the javac bootclasspath artifacts.
+   */
+  protected final ImmutableList<Artifact> getBootClasspath() {
+    return getBootClasspath(ruleContext, javaToolchain, implicitAttributesSuffix);
   }
 
   /**

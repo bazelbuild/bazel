@@ -337,15 +337,12 @@ public final class AndroidRuleClasses {
           .add(attr("adb", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
           .add(attr("framework_aidl", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("aidl", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
-          .add(attr("android_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
+          .add(attr("android_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(JavaSemantics.JAR))
           .add(attr("shrinked_android_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(
               attr("android_jack", LABEL)
                   .cfg(HOST)
-                  .allowedFileTypes(ANY_FILE)
-                  // TODO(bazel-team): Remove defaults and make mandatory when android_sdk targets
-                  // have been updated to include manually specified Jack attributes.
-                  .value(environment.getToolsLabel("//tools/android/jack:android_jack")))
+                  .allowedFileTypes(ANY_FILE))
           .add(attr("annotations_jar", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("main_dex_classes", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE))
           .add(attr("apkbuilder", LABEL).mandatory().cfg(HOST).allowedFileTypes(ANY_FILE).exec())
@@ -355,19 +352,27 @@ public final class AndroidRuleClasses {
                   .cfg(HOST)
                   .allowedFileTypes(ANY_FILE)
                   .exec()
-                  .value(environment.getToolsLabel("//tools/android/jack:jack")))
+                  .mandatory())
           .add(
               attr("jill", LABEL)
                   .cfg(HOST)
                   .allowedFileTypes(ANY_FILE)
                   .exec()
-                  .value(environment.getToolsLabel("//tools/android/jack:jill")))
+                  .mandatory())
           .add(
               attr("resource_extractor", LABEL)
                   .cfg(HOST)
                   .allowedFileTypes(ANY_FILE)
                   .exec()
-                  .value(environment.getToolsLabel("//tools/android/jack:resource_extractor")))
+                  .mandatory())
+          .add(
+              attr(":java_toolchain", LABEL)
+                  .allowedRuleClasses("java_toolchain")
+                  .value(JavaSemantics.JAVA_TOOLCHAIN))
+          .add(
+              attr("$javac_bootclasspath", LABEL)
+                  .cfg(HOST)
+                  .value(environment.getLabel(JavaSemantics.JAVAC_BOOTCLASSPATH_LABEL)))
           .build();
     }
 

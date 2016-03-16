@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -20,12 +21,17 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
+import com.google.devtools.build.lib.rules.java.BaseJavaCompilationHelper;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
+import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.syntax.Type;
+
+import java.util.Collection;
 
 /**
  * Implementation of the {@code android_sdk} rule.
@@ -59,7 +65,20 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
     Artifact androidJar = ruleContext.getPrerequisiteArtifact("android_jar", Mode.HOST);
     Artifact shrinkedAndroidJar =
         ruleContext.getPrerequisiteArtifact("shrinked_android_jar", Mode.HOST);
-    Artifact androidJack = ruleContext.getPrerequisiteArtifact("android_jack", Mode.HOST);
+    // Because all Jack actions using this android_sdk will need Jack versions of the Android and
+    // Java classpaths, pre-translate the jars for Android and Java targets here. (They will only
+    // be run if needed, as usual for Bazel.)
+    NestedSet<Artifact> androidBaseClasspathForJack =
+        convertClasspathJarsToJack(
+            ruleContext, jack, jill, resourceExtractor, ImmutableList.of(androidJar));
+    NestedSet<Artifact> javaBaseClasspathForJack =
+        convertClasspathJarsToJack(
+            ruleContext,
+            jack,
+            jill,
+            resourceExtractor,
+            BaseJavaCompilationHelper.getBootClasspath(
+                ruleContext, JavaToolchainProvider.fromRuleContext(ruleContext), ""));
     Artifact annotationsJar = ruleContext.getPrerequisiteArtifact("annotations_jar", Mode.HOST);
     Artifact mainDexClasses = ruleContext.getPrerequisiteArtifact("main_dex_classes", Mode.HOST);
 
@@ -75,7 +94,8 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
                 frameworkAidl,
                 androidJar,
                 shrinkedAndroidJar,
-                androidJack,
+                androidBaseClasspathForJack,
+                javaBaseClasspathForJack,
                 annotationsJar,
                 mainDexClasses,
                 adb,
@@ -92,5 +112,28 @@ public class AndroidSdk implements RuleConfiguredTargetFactory {
         .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .setFilesToBuild(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER))
         .build();
+  }
+
+  private NestedSet<Artifact> convertClasspathJarsToJack(
+      RuleContext ruleContext,
+      FilesToRunProvider jack,
+      FilesToRunProvider jill,
+      FilesToRunProvider resourceExtractor,
+      Collection<Artifact> jars) {
+    return new JackCompilationHelper.Builder()
+        // bazel infrastructure
+        .setRuleContext(ruleContext)
+        // configuration
+        .setTolerant()
+        // tools
+        .setJackBinary(jack)
+        .setJillBinary(jill)
+        .setResourceExtractorBinary(resourceExtractor)
+        .setJackBaseClasspath(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER))
+        // sources
+        .addCompiledJars(jars)
+        .build()
+        .compileAsLibrary()
+        .getTransitiveJackClasspathLibraries();
   }
 }

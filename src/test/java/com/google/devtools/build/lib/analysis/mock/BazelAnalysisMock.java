@@ -13,8 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.mock;
 
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
-
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
@@ -39,6 +37,8 @@ import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
 import com.google.devtools.build.lib.rules.objc.ObjcConfigurationLoader;
 import com.google.devtools.build.lib.rules.python.PythonConfigurationLoader;
+import com.google.devtools.build.lib.testutil.BuildRuleBuilder;
+import com.google.devtools.build.lib.testutil.BuildRuleWithDefaultsBuilder;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -131,21 +131,16 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
     List<Attribute> attrs = androidSdkRuleClass.getAttributes();
     Builder<String> androidBuildContents = ImmutableList.builder();
-    androidBuildContents
-        .add("android_sdk(")
-        .add("    name = 'sdk',")
-        .add("    android_jack = ':empty',")
-        .add("    jack = ':fail',")
-        .add("    jill = ':fail',")
-        .add("    resource_extractor = ':fail',");
 
-    for (Attribute attr : attrs) {
-      if (attr.getType() == LABEL && attr.isMandatory() && !attr.getName().startsWith(":")) {
-        androidBuildContents.add("    " + attr.getName() + " = ':" + attr.getName() + "',");
-      }
+    BuildRuleWithDefaultsBuilder ruleBuilder =
+        new BuildRuleWithDefaultsBuilder("android_sdk", "sdk")
+            .popuplateAttributes("", false);
+    androidBuildContents.add(ruleBuilder.build());
+    for (BuildRuleBuilder generatedRuleBuilder : ruleBuilder.getRulesToGenerate()) {
+      androidBuildContents.add(generatedRuleBuilder.build());
     }
+
     androidBuildContents
-        .add(")")
         .add("sh_binary(name = 'aar_generator', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexbuilder', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'dexmerger', srcs = ['empty.sh'])")
@@ -166,23 +161,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("          runtime_deps = [ ':PackageParser_import'],")
         .add("          main_class = 'com.google.devtools.build.android.ideinfo.PackageParser')")
         .add("java_import(name = 'PackageParser_import',")
-        .add("          jars = [ 'package_parser_deploy.jar' ])");
-
-    for (Attribute attr : attrs) {
-      if (attr.getType() == LABEL && attr.isMandatory() && !attr.getName().startsWith(":")) {
-        if (attr.isExecutable()) {
-          androidBuildContents
-              .add("sh_binary(name = '" + attr.getName() + "',")
-              .add("          srcs = ['empty.sh'],")
-              .add(")");
-        } else {
-          androidBuildContents
-              .add("filegroup(name = '" + attr.getName() + "',")
-              .add("          srcs = ['fake.file'])");
-        }
-      }
-    }
-    androidBuildContents
+        .add("          jars = [ 'package_parser_deploy.jar' ])")
         .add("java_binary(name = 'IdlClass',")
         .add("            runtime_deps = [ ':idlclass_import' ],")
         .add("            main_class = 'com.google.devtools.build.android.idlclass.IdlClass')")

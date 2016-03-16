@@ -71,7 +71,10 @@ public final class JackAspect implements NativeAspectFactory, ConfiguredAspectFa
             // configuration
             .setOutputArtifact(jackLibraryOutput)
             // tools
-            .setAndroidSdk(androidSdk)
+            .setJackBinary(androidSdk.getJack())
+            .setJillBinary(androidSdk.getJill())
+            .setResourceExtractorBinary(androidSdk.getResourceExtractor())
+            .setJackBaseClasspath(androidSdk.getJavaBaseClasspathForJack())
             // sources
             .addJavaSources(sourceProvider.getSourceFiles())
             .addSourceJars(sourceProvider.getSourceJars())

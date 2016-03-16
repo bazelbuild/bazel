@@ -558,7 +558,10 @@ public class AndroidCommon {
         .setOutputArtifact(
             ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_JACK_FILE))
         // tools
-        .setAndroidSdk(sdk)
+        .setJackBinary(sdk.getJack())
+        .setJillBinary(sdk.getJill())
+        .setResourceExtractorBinary(sdk.getResourceExtractor())
+        .setJackBaseClasspath(sdk.getAndroidBaseClasspathForJack())
         // sources
         .addJavaSources(attributes.getSourceFiles())
         .addSourceJars(attributes.getSourceJars())
