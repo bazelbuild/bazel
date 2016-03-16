@@ -89,11 +89,11 @@ Suppose that the current repostory contains a java_library target that needs to 
 Using Maven, this dependency would be defined in the pom.xml file as:
 
 <pre>
-<dependency>
-    <groupId>com.google.guava</groupId>
-    <artifactId>guava</artifactId>
-    <version>18.0</version>
-</dependency>
+&lt;dependency>
+    &lt;groupId>com.google.guava&lt;/groupId>
+    &lt;artifactId>guava&lt;/artifactId>
+    &lt;version>18.0&lt;/version>
+&lt;/dependency>
 </pre>
 
 With Bazel, add the following lines to the WORKSPACE file:
