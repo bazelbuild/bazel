@@ -14,7 +14,10 @@
 
 package com.google.devtools.build.lib.bazel.repository.downloader;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.io.ByteStreams;
+import com.google.common.net.MediaType;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -23,6 +26,7 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.Proxy;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 
 /**
@@ -123,17 +127,61 @@ class HttpConnection implements Closeable {
     return newUrl;
   }
 
+  /**
+   * Attempts to detect the encoding the HTTP reponse is using.
+   *
+   * <p>This attempts to read the Content-Encoding header, then the Content-Type header,
+   * then just falls back to UTF-8.</p>
+   *
+   * @throws IOException If something goes wrong (the encoding isn't parsable or is, but isn't
+   * supported by the system).
+   */
+  @VisibleForTesting
+  static Charset getEncoding(HttpURLConnection connection) throws IOException {
+    String encoding = connection.getContentEncoding();
+    if (encoding != null) {
+      if (Charset.availableCharsets().containsKey(encoding)) {
+        try {
+          return Charset.forName(encoding);
+        } catch (IllegalArgumentException | UnsupportedOperationException e) {
+          throw new IOException(
+              "Got invalid encoding from " + connection.getURL() + ": " + encoding);
+        }
+      } else {
+        throw new IOException(
+            "Got unavailable encoding from " + connection.getURL() + ": " + encoding);
+      }
+    }
+    encoding = connection.getContentType();
+    if (encoding == null) {
+      return StandardCharsets.UTF_8;
+    }
+    try {
+      MediaType mediaType = MediaType.parse(encoding);
+      if (mediaType == null) {
+        return StandardCharsets.UTF_8;
+      }
+      Optional<Charset> charset = mediaType.charset();
+      if (charset.isPresent()) {
+        return charset.get();
+      }
+    } catch (IllegalArgumentException | IllegalStateException e) {
+      throw new IOException(
+          "Got invalid encoding from " + connection.getURL() + ": " + encoding);
+    }
+    return StandardCharsets.UTF_8;
+  }
+
   private static String readBody(HttpURLConnection connection) throws IOException {
     InputStream errorStream = connection.getErrorStream();
+    Charset encoding = getEncoding(connection);
     if (errorStream != null) {
-      // TODO(kchodorow): detect encoding.
-      return new String(ByteStreams.toByteArray(errorStream), StandardCharsets.UTF_8);
+      return new String(ByteStreams.toByteArray(errorStream), encoding);
     }
 
     InputStream responseStream = connection.getInputStream();
     if (responseStream != null) {
-      // TODO(kchodorow): detect encoding.
-      return new String(ByteStreams.toByteArray(responseStream), StandardCharsets.UTF_8);
+      return new String(ByteStreams.toByteArray(responseStream), encoding);
     }
 
     return null;
