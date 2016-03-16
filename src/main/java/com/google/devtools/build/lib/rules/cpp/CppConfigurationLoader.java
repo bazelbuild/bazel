@@ -211,8 +211,7 @@ public class CppConfigurationLoader implements ConfigurationFragmentFactory {
           "The toolchain rule '%s' does not exist", ccToolchainLabel));
     }
 
-    if (!(ccToolchain instanceof Rule)
-        || !((Rule) ccToolchain).getRuleClass().equals("cc_toolchain")) {
+    if (!(ccToolchain instanceof Rule) || !CcToolchainRule.isCcToolchain(ccToolchain)) {
       throw new InvalidConfigurationException(String.format(
           "The label '%s' is not a cc_toolchain rule", ccToolchainLabel));
     }

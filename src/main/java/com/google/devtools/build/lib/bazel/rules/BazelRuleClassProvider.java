@@ -83,6 +83,7 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.XcodeConfigRule;
 import com.google.devtools.build.lib.rules.apple.XcodeVersionRule;
+import com.google.devtools.build.lib.rules.apple.cpp.AppleCcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainRule;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainSuiteRule;
 import com.google.devtools.build.lib.rules.cpp.CppBuildInfo;
@@ -275,6 +276,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new BazelProtoLibraryRule());
 
     builder.addRuleDefinition(new CcToolchainRule());
+    builder.addRuleDefinition(new AppleCcToolchainRule());
     builder.addRuleDefinition(new CcToolchainSuiteRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcLinkingRule());
     builder.addRuleDefinition(new BazelCppRuleClasses.CcDeclRule());

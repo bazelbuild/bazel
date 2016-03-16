@@ -374,6 +374,8 @@ public final class CppModel {
       buildVariables.addVariable("gcov_gcno_file", gcnoFile.getExecPathString());
     }
 
+    buildVariables.addAllVariables(CppHelper.getToolchain(ruleContext).getBuildVariables());
+    
     CcToolchainFeatures.Variables variables = buildVariables.build();
     builder.setVariables(variables);
   }

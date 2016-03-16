@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -22,6 +23,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
+import java.util.Map;
 
 import javax.annotation.Nullable;
 
@@ -33,24 +36,26 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   /**
    * An empty toolchain to be returned in the error case (instead of null).
    */
-  public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR = new CcToolchainProvider(
-      null,
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-      null,
-      NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
-      null,
-      PathFragment.EMPTY_FRAGMENT,
-      CppCompilationContext.EMPTY,
-      false,
-      false);
+  public static final CcToolchainProvider EMPTY_TOOLCHAIN_IS_ERROR =
+      new CcToolchainProvider(
+          null,
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          null,
+          NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+          null,
+          PathFragment.EMPTY_FRAGMENT,
+          CppCompilationContext.EMPTY,
+          false,
+          false,
+          ImmutableMap.<String, String>of());
 
   @Nullable private final CppConfiguration cppConfiguration;
   private final NestedSet<Artifact> crosstool;
@@ -69,6 +74,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   private final CppCompilationContext cppCompilationContext;
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
+  private final Map<String, String> buildVariables;
 
   public CcToolchainProvider(
       @Nullable CppConfiguration cppConfiguration,
@@ -87,7 +93,8 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
       PathFragment dynamicRuntimeSolibDir,
       CppCompilationContext cppCompilationContext,
       boolean supportsParamFiles,
-      boolean supportsHeaderParsing) {
+      boolean supportsHeaderParsing,
+      Map<String, String> buildVariables) {
     this.cppConfiguration = cppConfiguration;
     this.crosstool = Preconditions.checkNotNull(crosstool);
     this.crosstoolMiddleman = Preconditions.checkNotNull(crosstoolMiddleman);
@@ -105,6 +112,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
     this.cppCompilationContext = Preconditions.checkNotNull(cppCompilationContext);
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;
+    this.buildVariables = buildVariables;
   }
 
   /**
@@ -227,5 +235,12 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
    */
   public CompilationMode getCompilationMode() {
     return cppConfiguration.getCompilationMode();
+  }
+  
+  /**
+   * Returns build variables to be templated into the crosstool.
+   */
+  public Map<String, String> getBuildVariables() {
+    return buildVariables;
   }
 }

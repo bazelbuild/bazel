@@ -628,6 +628,14 @@ public class CcToolchainFeatures implements Serializable {
         variables.put(name, value);
         return this;
       }
+     
+      /**
+       * Add all variables in a map.
+       */
+      public Builder addAllVariables(Map<String, String> variableMap) {
+        variables.putAll(variableMap);
+        return this;
+      }
       
       /**
        * Add a nested sequence that expands {@code name} recursively.

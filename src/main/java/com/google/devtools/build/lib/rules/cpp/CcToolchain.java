@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -41,6 +42,7 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Implementation for the cc_toolchain rule.
@@ -142,24 +144,26 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     boolean supportsHeaderParsing =
         ruleContext.attributes().get("supports_header_parsing", BOOLEAN);
 
-    CcToolchainProvider provider = new CcToolchainProvider(
-        Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class)),
-        crosstool,
-        fullInputsForCrosstool(ruleContext, crosstoolMiddleman),
-        compile,
-        strip,
-        objcopy,
-        fullInputsForLink(ruleContext, link),
-        dwp,
-        libcLink,
-        staticRuntimeLinkInputs,
-        staticRuntimeLinkMiddleman,
-        dynamicRuntimeLinkInputs,
-        dynamicRuntimeLinkMiddleman,
-        runtimeSolibDir,
-        context,
-        supportsParamFiles,
-        supportsHeaderParsing);
+    CcToolchainProvider provider =
+        new CcToolchainProvider(
+            Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class)),
+            crosstool,
+            fullInputsForCrosstool(ruleContext, crosstoolMiddleman),
+            compile,
+            strip,
+            objcopy,
+            fullInputsForLink(ruleContext, link),
+            dwp,
+            libcLink,
+            staticRuntimeLinkInputs,
+            staticRuntimeLinkMiddleman,
+            dynamicRuntimeLinkInputs,
+            dynamicRuntimeLinkMiddleman,
+            runtimeSolibDir,
+            context,
+            supportsParamFiles,
+            supportsHeaderParsing,
+            getBuildVariables(ruleContext));
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .add(CcToolchainProvider.class, provider)
@@ -245,5 +249,13 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     return middlemanProvider != null
         ? middlemanProvider.getMiddlemanArtifact()
         : dep.getProvider(FileProvider.class).getFilesToBuild();
+  }
+
+  /**
+   * Returns a map that should be templated into the crosstool as build variables.  Is meant to
+   * be overridden by subclasses of CcToolchain.
+   */
+  protected Map<String, String> getBuildVariables(RuleContext ruleContext) {
+    return ImmutableMap.<String, String>of();
   }
 }

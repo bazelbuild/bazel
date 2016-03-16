@@ -31,16 +31,27 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.packages.Target;
 
 /**
  * Rule definition for compiler definition.
  */
 public final class CcToolchainRule implements RuleDefinition {
+
+  /**
+   * Determines if the given target is a cc_toolchain or one of its subclasses. New subclasses
+   * should be added to this method.
+   */
+  static boolean isCcToolchain(Target target) {
+    String ruleClass = ((Rule) target).getRuleClass();
+    return ruleClass.endsWith("cc_toolchain");
+  }
+
   private static final LateBoundLabel<BuildConfiguration> LIBC_LINK =
       new LateBoundLabel<BuildConfiguration>(CppConfiguration.class) {
         @Override
-        public Label getDefault(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
+        public Label getDefault(
+            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
           return configuration.getFragment(CppConfiguration.class).getLibcLabel();
         }
       };
