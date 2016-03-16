@@ -373,8 +373,7 @@ public final class CompilationSupport {
         .addFormatEach("-D%s", objcProvider.get(DEFINE))
         .add(coverageFlags.build())
         .add(objcConfiguration.getCopts())
-        .add(attributes.copts())
-        .add(attributes.optionsCopts());
+        .add(attributes.copts());
     PathFragment sourceExecPathFragment = sourceFile.getExecPath();
     String sourcePath = sourceExecPathFragment.getPathString();
     if (!sourceExecPathFragment.isAbsolute() && objcConfiguration.getUseAbsolutePathsForActions()) {
@@ -1111,8 +1110,7 @@ public final class CompilationSupport {
 
     // The include directory options ("-I") are parsed out of copts. The include directories are
     // added as non-propagated header search paths local to the associated Xcode target.
-    Iterable<String> copts = Iterables.concat(
-        objcConfiguration.getCopts(), attributes.copts(), attributes.optionsCopts());
+    Iterable<String> copts = Iterables.concat(objcConfiguration.getCopts(), attributes.copts());
     Iterable<String> includeDirOptions = Iterables.filter(copts, INCLUDE_DIR_OPTION_IN_COPTS);
     Iterable<String> coptsWithoutIncludeDirs = Iterables.filter(
         copts, Predicates.not(INCLUDE_DIR_OPTION_IN_COPTS));

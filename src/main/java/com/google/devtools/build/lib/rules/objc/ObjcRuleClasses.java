@@ -219,37 +219,6 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Common attributes for {@code objc_*} rules that use plists or copts.
-   */
-  public static class OptionsRule implements RuleDefinition {
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          // TODO(bazel-team): Remove options and replace with: (a) a plists attribute (instead of
-          // the current infoplist, defined on all rules and propagated to the next bundling rule)
-          // and (b) a way to share copts e.g. by being able to include constants across package
-          // boundaries in bazel.
-          //
-          // For now the semantics of this attribute are: any copts in the options will be used if
-          // defined on a compiling/linking rule, otherwise ignored. Infoplists are merged in if
-          // defined on a bundling rule, otherwise ignored.
-          .add(attr("options", LABEL)
-              .undocumented("objc_options will be removed")
-              .allowedFileTypes()
-              .allowedRuleClasses("objc_options"))
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$objc_options_rule")
-          .type(RuleClassType.ABSTRACT)
-          .build();
-    }
-  }
-
-  /**
    * Attributes for {@code objc_*} rules that can link in SDK frameworks.
    */
   public static class SdkFrameworksDependerRule implements RuleDefinition {
@@ -662,7 +631,6 @@ public class ObjcRuleClasses {
           .ancestors(
               BaseRuleClasses.RuleBase.class,
               CompileDependencyRule.class,
-              OptionsRule.class,
               CoptsRule.class,
               XcrunRule.class)
           .build();
@@ -801,7 +769,6 @@ public class ObjcRuleClasses {
           .type(RuleClassType.ABSTRACT)
           .ancestors(
               AppleToolchain.RequiresXcodeConfigRule.class,
-              OptionsRule.class,
               ResourcesRule.class,
               ResourceToolsRule.class,
               XcrunRule.class)

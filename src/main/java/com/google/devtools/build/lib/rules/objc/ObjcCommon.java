@@ -201,22 +201,6 @@ public final class ObjcCommon {
     }
 
     /**
-     * Returns any {@code copts} defined on an {@code objc_options} rule that is a dependency of
-     * this rule.
-     */
-    public Iterable<String> optionsCopts() {
-      if (!ruleContext.attributes().has("options", BuildType.LABEL)) {
-        return ImmutableList.of();
-      }
-      OptionsProvider optionsProvider =
-          ruleContext.getPrerequisite("options", Mode.TARGET, OptionsProvider.class);
-      if (optionsProvider == null) {
-        return ImmutableList.of();
-      }
-      return optionsProvider.getCopts();
-    }
-
-    /**
      * The clang module maps of direct dependencies of this rule. These are needed to generate
      * this rule's module map.
      */
