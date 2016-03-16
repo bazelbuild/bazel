@@ -274,6 +274,7 @@ sh_test(
     size = "large",
     srcs = ["bazel_sandboxing_test.sh"],
     data = [":test-deps"],
+    tags = ["local"],
 )
 
 sh_test(

@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.sandbox;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 
+import java.util.List;
+
 /**
  * Options for sandboxed execution.
  */
@@ -38,4 +40,13 @@ public class SandboxOptions extends OptionsBase {
             + "Bazel or Skylark rules with debugging failures due to missing input files, etc."
   )
   public boolean sandboxDebug;
+
+  @Option(
+    name = "sandbox_add_path",
+    allowMultiple = true,
+    defaultValue = "",
+    category = "config",
+    help = "Add additional path to mount to sandbox. Path including workspace is not allowed."
+  )
+  public List<String> sandboxAddPath;
 }

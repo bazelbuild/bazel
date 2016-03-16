@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
 
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 
 /**
@@ -36,6 +37,7 @@ public class SandboxActionContextProvider extends ActionContextProvider {
       CommandEnvironment env, BuildRequest buildRequest, ExecutorService backgroundWorkers) {
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
     boolean sandboxDebug = buildRequest.getOptions(SandboxOptions.class).sandboxDebug;
+    List<String> sandboxAddPath = buildRequest.getOptions(SandboxOptions.class).sandboxAddPath;
     Builder<ActionContext> strategies = ImmutableList.builder();
 
     if (OS.getCurrent() == OS.LINUX) {
@@ -45,7 +47,8 @@ public class SandboxActionContextProvider extends ActionContextProvider {
               env.getDirectories(),
               backgroundWorkers,
               verboseFailures,
-              sandboxDebug));
+              sandboxDebug,
+              sandboxAddPath));
     }
 
     this.strategies = strategies.build();

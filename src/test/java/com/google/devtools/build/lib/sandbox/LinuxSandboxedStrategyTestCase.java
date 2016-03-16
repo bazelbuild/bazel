@@ -105,7 +105,8 @@ public class LinuxSandboxedStrategyTestCase {
                     blazeDirs,
                     MoreExecutors.newDirectExecutorService(),
                     true,
-                    false)),
+                    false,
+                    ImmutableList.<String>of())),
             ImmutableList.<ActionContextProvider>of());
   }
 

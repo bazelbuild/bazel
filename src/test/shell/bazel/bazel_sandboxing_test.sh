@@ -149,6 +149,13 @@ genrule(
   outs = [ "breaks3.txt" ],
   cmd = "wc $(location :cyclic1) > $@",
 )
+
+genrule(
+  name = "check_sandbox_contain_WORKSPACE",
+  outs = [ "check_sandbox_contain_WORKSPACE.txt" ],
+  cmd = "ls -l $$(dirname \"$$(pwd)\") &> $@",
+)
+
 EOF
   cat << 'EOF' >> examples/genrule/datafile
 this is a datafile
@@ -370,6 +377,45 @@ EOF
   [ -f "${BAZEL_GENFILES_DIR}/examples/genrule/breaks4_works_with_requires_network.txt" ] \
     || fail "Genrule did not produce output: examples/genrule:breaks4_works_with_requires_network"
   kill_nc
+}
+
+function test_sandbox_add_path_valid_path() {
+  output_file="${BAZEL_GENFILES_DIR}/examples/genrule/breaks2.txt"
+
+  bazel build --sandbox_add_path=/var/log examples/genrule:breaks2 &> $TEST_log \
+    || fail "Non-hermetic genrule failed: examples/genrule:breaks2 (with additional path)"
+
+  [ -f "$output_file" ] ||
+    fail "Action did not produce output: $output_file"
+
+  if [ $(wc -l < $output_file) -le 1 ]; then
+    fail "Output contained less than or equal to one line: $output_file"
+  fi
+}
+
+function test_sandbox_add_path_workspace_parent() {
+  output_file="${BAZEL_GENFILES_DIR}/examples/genrule/check_sandbox_contain_WORKSPACE.txt"
+  parent_path="$(dirname "$(pwd)")"
+
+  bazel build --sandbox_add_path=$parent_path examples/genrule:check_sandbox_contain_WORKSPACE &> $TEST_log \
+    || fail "Non-hermetic genrule succeeded: examples/genrule:works (with additional path)"
+  [ -f "$output_file" ] \
+    || fail "Genrule did not produce output: examples/genrule:check_sandbox_contain_WORKSPACE (with additional path: WORKSPACE/..)"
+  cat $output_file &> $TEST_log
+
+  # file and directory inside workspace (except project) should not be mounted
+  egrep "\bWORKSPACE\b" $output_file \
+    && fail "WORKSPACE file should not be mounted." || true
+}
+
+function test_sandbox_add_path_workspace_child() {
+  child_path="$(pwd)/examples"
+  output_file="${BAZEL_GENFILES_DIR}/examples/genrule/works.txt"
+
+  bazel build --sandbox_add_path=$child_path examples/genrule:works &> $TEST_log \
+    && fail "Non-hermetic genrule succeeded: examples/genrule:works (with additional path: WORKSPACE:/examples)" || true
+
+  expect_log "Mounting subdirectory of WORKSPACE or OUTPUTBASE to sandbox is not allowed"
 }
 
 # The test shouldn't fail if the environment doesn't support running it.
