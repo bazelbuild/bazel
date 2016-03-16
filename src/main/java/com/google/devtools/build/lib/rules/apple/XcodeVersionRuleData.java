@@ -33,6 +33,7 @@ import java.util.List;
 public class XcodeVersionRuleData {
   private final Label label;
   private final DottedVersion version;
+  private final XcodeVersionProperties xcodeVersionProperties;
   private final ImmutableList<String> aliases;
 
   XcodeVersionRuleData(Label label, Rule rule) {
@@ -40,8 +41,12 @@ public class XcodeVersionRuleData {
         NonconfigurableAttributeMapper.of(rule);
 
     this.label = label;
-    this.version = DottedVersion.fromString(
+    DottedVersion xcodeVersion = DottedVersion.fromString(
         attrMapper.get(XcodeVersionRule.VERSION_ATTR_NAME, Type.STRING));
+    String iosSdkVersionString =
+        attrMapper.get(XcodeVersionRule.DEFAULT_IOS_SDK_VERSION_ATTR_NAME, Type.STRING);
+    this.version = xcodeVersion;
+    this.xcodeVersionProperties = new XcodeVersionProperties(xcodeVersion, iosSdkVersionString);
     this.aliases = ImmutableList.copyOf(
         attrMapper.get(XcodeVersionRule.ALIASES_ATTR_NAME, Type.STRING_LIST));
   }
@@ -58,6 +63,13 @@ public class XcodeVersionRuleData {
    */
   public DottedVersion getVersion() {
     return version;
+  }
+
+  /**
+   * Returns the properties of the {@code xcode_version} target's referenced xcode version.
+   */
+  public XcodeVersionProperties getXcodeVersionProperties() {
+    return xcodeVersionProperties;
   }
 
   /**

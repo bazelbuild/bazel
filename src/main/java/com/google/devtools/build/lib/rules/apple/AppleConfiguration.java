@@ -67,8 +67,9 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
   @Nullable private final Label defaultProvisioningProfileLabel;
 
   AppleConfiguration(AppleCommandLineOptions appleOptions,
-      Optional<DottedVersion> xcodeVersionOverride) {
-    this.iosSdkVersion = Preconditions.checkNotNull(appleOptions.iosSdkVersion, "iosSdkVersion");
+      Optional<DottedVersion> xcodeVersionOverride,
+      DottedVersion iosSdkVersion) {
+    this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion, "iosSdkVersion");
     this.watchOsSdkVersion =
         Preconditions.checkNotNull(appleOptions.watchOsSdkVersion, "watchOsSdkVersion");
     this.tvOsSdkVersion =
@@ -261,8 +262,13 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     public AppleConfiguration create(ConfigurationEnvironment env, BuildOptions buildOptions)
         throws InvalidConfigurationException {
       AppleCommandLineOptions appleOptions = buildOptions.get(AppleCommandLineOptions.class);
-      Optional<DottedVersion> xcodeVersionFlag = getXcodeVersion(env, appleOptions);
-      AppleConfiguration configuration = new AppleConfiguration(appleOptions, xcodeVersionFlag);
+      XcodeVersionProperties xcodeVersionProperties = getXcodeVersionProperties(env, appleOptions);
+
+      DottedVersion iosSdkVersion = (appleOptions.iosSdkVersion != null)
+          ? appleOptions.iosSdkVersion : xcodeVersionProperties.getDefaultIosSdkVersion();
+      AppleConfiguration configuration =
+          new AppleConfiguration(appleOptions, xcodeVersionProperties.getXcodeVersion(),
+              iosSdkVersion);
 
       validate(configuration);
       return configuration;
@@ -293,15 +299,15 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     /**
      * Uses the {@link AppleCommandLineOptions#xcodeVersion} and
      * {@link AppleCommandLineOptions#xcodeVersionConfig} command line options to determine and
-     * return the effective xcode version. Returns absent if no explicit xcode version is
-     * declared, and host system defaults should be used.
+     * return the effective xcode version properties. Returns absent if no explicit xcode version
+     * is declared, and host system defaults should be used.
      *
      * @param env the current configuration environment
      * @param appleOptions the command line options
      * @throws InvalidConfigurationException if the options given (or configuration targets) were
      *     malformed and thus the xcode version could not be determined
      */
-    private Optional<DottedVersion> getXcodeVersion(ConfigurationEnvironment env,
+    private XcodeVersionProperties getXcodeVersionProperties(ConfigurationEnvironment env,
         AppleCommandLineOptions appleOptions) throws InvalidConfigurationException {
       Optional<DottedVersion> xcodeVersionCommandLineFlag = 
           Optional.fromNullable(appleOptions.xcodeVersion);

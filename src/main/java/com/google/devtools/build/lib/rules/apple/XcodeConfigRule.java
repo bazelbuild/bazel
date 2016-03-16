@@ -40,7 +40,7 @@ public class XcodeConfigRule implements RuleDefinition {
         .requiresConfigurationFragments(AppleConfiguration.class)
         .exemptFromConstraintChecking(
             "this rule refines configuration variables and does not build actual content")
-        /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(version) -->
+        /* <!-- #BLAZE_RULE(xcode_config).ATTRIBUTE(version) -->
         The default official version of xcode to use.
         The version specified by the provided <code>xcode_version</code> target is to be used if
         no <code>xcode_version</code> build flag is specified.
@@ -49,7 +49,7 @@ public class XcodeConfigRule implements RuleDefinition {
             .allowedRuleClasses("xcode_version")
             .allowedFileTypes()
             .nonconfigurable("this rule determines configuration"))
-        /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(version) -->
+        /* <!-- #BLAZE_RULE(xcode_config).ATTRIBUTE(version) -->
         Accepted <code>xcode_version<code> targets that may be used.
         If the value of the <code>xcode_version</code> build flag matches one of the aliases
         or version number of any of the given <code>xcode_version</code> targets, the matching
@@ -59,7 +59,7 @@ public class XcodeConfigRule implements RuleDefinition {
             .allowedRuleClasses("xcode_version")
             .allowedFileTypes()
             .nonconfigurable("this rule determines configuration"))
-        /* <!-- #BLAZE_RULE(proto_library).ATTRIBUTE(version) -->
+        /* <!-- #BLAZE_RULE(xcode_config).ATTRIBUTE(version) -->
         Whether to require the build's xcode version match one of the declared targets.
         If true, this will raise an error if either the <code>xcode_version</code> flag value
         or <code>default</code> attribute value do not match one of the versions declared

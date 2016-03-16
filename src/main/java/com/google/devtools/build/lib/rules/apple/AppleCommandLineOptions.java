@@ -47,8 +47,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   @Option(
     name = "ios_sdk_version",
-    // TODO(bazel-team): Make this flag optional, and infer SDKROOT based on executor default.
-    defaultValue = DEFAULT_IOS_SDK_VERSION,
+    defaultValue = "null",
     converter = DottedVersionConverter.class,
     category = "build",
     help = "Specifies the version of the iOS SDK to use to build iOS applications."
@@ -229,6 +228,7 @@ public class AppleCommandLineOptions extends FragmentOptions {
     // Set options needed in the host configuration.
     host.xcodeVersionConfig = xcodeVersionConfig;
     host.xcodeVersion = xcodeVersion;
+    host.iosSdkVersion = iosSdkVersion;
     host.appleBitcodeMode = appleBitcodeMode;
 
     return host;
