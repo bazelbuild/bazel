@@ -274,7 +274,9 @@ public class GlobCache {
       results.addAll(getGlob(pattern, excludeDirs));
     }
     for (String pattern : excludes) {
-      results.removeAll(getGlob(pattern, excludeDirs));
+      for (String excludeMatch : getGlob(pattern, excludeDirs)) {
+        results.remove(excludeMatch);
+      }
     }
 
     Preconditions.checkState(!results.contains(null), "glob returned null");

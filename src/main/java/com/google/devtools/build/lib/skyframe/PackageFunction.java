@@ -1031,7 +1031,9 @@ public class PackageFunction implements SkyFunction {
             matches.remove(match.getPathString());
           }
         }
-        matches.removeAll(delegate.fetch(delegateExcludesToken));
+        for (String delegateExcludeMatch : delegate.fetch(delegateExcludesToken)) {
+          matches.remove(delegateExcludeMatch);
+        }
         return Lists.newArrayList(matches);
       }
 
