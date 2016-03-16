@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 /**
@@ -49,4 +50,16 @@ public final class JavaSourceJarsProvider implements TransitiveInfoProvider {
   public ImmutableList<Artifact> getSourceJars() {
     return sourceJars;
   }
+
+  public static JavaSourceJarsProvider merge(Iterable<JavaSourceJarsProvider> providers) {
+    NestedSetBuilder<Artifact> transitiveSourceJars = NestedSetBuilder.stableOrder();
+    ImmutableList.Builder<Artifact> sourceJars = ImmutableList.builder();
+
+    for (JavaSourceJarsProvider provider : providers) {
+      transitiveSourceJars.addTransitive(provider.getTransitiveSourceJars());
+      sourceJars.addAll(provider.getSourceJars());
+    }
+    return new JavaSourceJarsProvider(transitiveSourceJars.build(), sourceJars.build());
+  }
+
 }

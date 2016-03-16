@@ -39,4 +39,13 @@ public final class JavaRuntimeJarProvider implements TransitiveInfoProvider {
   public ImmutableList<Artifact> getRuntimeJars() {
     return runtimeJars;
   }
+
+  public static JavaRuntimeJarProvider merge(Iterable<JavaRuntimeJarProvider> deps) {
+    ImmutableList.Builder<Artifact> runtimeJars = ImmutableList.builder();
+    for (JavaRuntimeJarProvider wrapper : deps) {
+      runtimeJars.addAll(wrapper.getRuntimeJars());
+    }
+    return new JavaRuntimeJarProvider(runtimeJars.build());
+  }
+
 }

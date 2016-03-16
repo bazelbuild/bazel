@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 /**
@@ -33,4 +34,13 @@ public final class ProguardSpecProvider implements TransitiveInfoProvider {
   public NestedSet<Artifact> getTransitiveProguardSpecs() {
     return transitiveProguardSpecs;
   }
+
+  public static ProguardSpecProvider merge(Iterable<ProguardSpecProvider> providers) {
+    NestedSetBuilder<Artifact> specs = NestedSetBuilder.stableOrder();
+    for (ProguardSpecProvider wrapper : providers) {
+      specs.addTransitive(wrapper.getTransitiveProguardSpecs());
+    }
+    return new ProguardSpecProvider(specs.build());
+  }
+
 }

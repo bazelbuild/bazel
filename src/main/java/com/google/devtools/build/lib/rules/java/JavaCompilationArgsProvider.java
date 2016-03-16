@@ -91,4 +91,26 @@ public final class JavaCompilationArgsProvider implements TransitiveInfoProvider
   public NestedSet<Artifact> getRunTimeJavaDependencyArtifacts() {
     return runTimeJavaDepArtifacts;
   }
+
+  public static JavaCompilationArgsProvider merge(Iterable<JavaCompilationArgsProvider> providers) {
+    JavaCompilationArgs.Builder javaCompilationArgs = JavaCompilationArgs.builder();
+    JavaCompilationArgs.Builder recursiveJavaCompilationArgs = JavaCompilationArgs.builder();
+    NestedSetBuilder<Artifact> compileTimeJavaDepArtifacts = NestedSetBuilder.stableOrder();
+    NestedSetBuilder<Artifact> runTimeJavaDepArtifacts = NestedSetBuilder.stableOrder();
+
+    for (JavaCompilationArgsProvider provider : providers) {
+      javaCompilationArgs.addTransitiveArgs(
+          provider.getJavaCompilationArgs(), JavaCompilationArgs.ClasspathType.BOTH);
+      recursiveJavaCompilationArgs.addTransitiveArgs(
+          provider.getRecursiveJavaCompilationArgs(), JavaCompilationArgs.ClasspathType.BOTH);
+      compileTimeJavaDepArtifacts.addTransitive(provider.getCompileTimeJavaDependencyArtifacts());
+      runTimeJavaDepArtifacts.addTransitive(provider.getRunTimeJavaDependencyArtifacts());
+    }
+
+    return new JavaCompilationArgsProvider(
+        javaCompilationArgs.build(),
+        recursiveJavaCompilationArgs.build(),
+        compileTimeJavaDepArtifacts.build(),
+        runTimeJavaDepArtifacts.build());
+  }
 }
