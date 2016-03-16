@@ -47,6 +47,7 @@ import org.objectweb.asm.util.TraceClassVisitor;
 import java.io.BufferedInputStream;
 import java.io.IOError;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -829,7 +830,7 @@ public class JavacTurbineTest {
       assertThat(sw.toString()).contains("error reading");
     }
   }
-  
+
   @Test
   public void requiredConstructor() throws Exception {
     addSourceLines("Super.java", "class Super {", "  public Super(int x) {}", "}");
@@ -897,5 +898,78 @@ public class JavacTurbineTest {
       ""
     };
     assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
+  }
+
+  @SupportedAnnotationTypes("*")
+  public static class HostClasspathProcessor extends AbstractProcessor {
+
+    @Override
+    public SourceVersion getSupportedSourceVersion() {
+      return SourceVersion.latest();
+    }
+
+    boolean first = true;
+
+    @Override
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+      if (!first) {
+        return false;
+      }
+      first = false;
+
+      String message;
+      try {
+        JavacTurbine.class.toString();
+        message = "ok";
+      } catch (Throwable e) {
+        StringWriter stringWriter = new StringWriter();
+        e.printStackTrace(new PrintWriter(stringWriter));
+        message = stringWriter.toString();
+      }
+      try {
+        FileObject fileObject =
+            processingEnv
+                .getFiler()
+                .createResource(StandardLocation.CLASS_OUTPUT, "", "result.txt");
+        try (OutputStream os = fileObject.openOutputStream()) {
+          os.write(message.getBytes(StandardCharsets.UTF_8));
+        }
+      } catch (IOException e) {
+        throw new IOError(e);
+      }
+      return false;
+    }
+  }
+
+  @Test
+  public void maskProcessorClasspath() throws Exception {
+    addSourceLines("MyAnnotation.java", "public @interface MyAnnotation {}");
+    addSourceLines("Hello.java", "@MyAnnotation class Hello {}");
+
+    // create a jar containing only HostClasspathProcessor
+    Path processorJar = temp.newFile("libprocessor.jar").toPath();
+    try (OutputStream os = Files.newOutputStream(processorJar);
+        JarOutputStream jos = new JarOutputStream(os)) {
+      String classFileName = HostClasspathProcessor.class.getName().replace('.', '/') + ".class";
+      jos.putNextEntry(new JarEntry(classFileName));
+      try (InputStream is = getClass().getClassLoader().getResourceAsStream(classFileName)) {
+        ByteStreams.copy(is, jos);
+      }
+    }
+
+    optionsBuilder.setProcessors(ImmutableList.of(HostClasspathProcessor.class.getName()));
+    optionsBuilder.addProcessorPathEntries(ImmutableList.of(processorJar.toString()));
+    optionsBuilder.addClassPathEntries(ImmutableList.<String>of());
+
+    compile();
+
+    Map<String, byte[]> outputs = collectOutputs();
+    assertThat(outputs.keySet()).contains("result.txt");
+
+    String text = new String(outputs.get("result.txt"), StandardCharsets.UTF_8);
+    assertThat(text)
+        .contains(
+            "java.lang.NoClassDefFoundError:"
+                + " com/google/devtools/build/java/turbine/javac/JavacTurbine");
   }
 }

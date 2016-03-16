@@ -24,6 +24,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CodingErrorAction;
@@ -157,5 +159,11 @@ public class ZipOutputFileManager extends JavacFileManager {
             return new ZipOutputFileManager(c, files);
           }
         });
+  }
+
+  @Override
+  protected ClassLoader getClassLoader(URL[] urls) {
+    // mask turbine classes from the processor classpath to avoid version skew
+    return new URLClassLoader(urls, null);
   }
 }
