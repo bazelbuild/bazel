@@ -199,7 +199,29 @@ stdout="$1"
 stderr="$2"
 shift 2
 
-"$@" 2>"$stderr" >"$stdout"
+if [ "$stdout" = "-" ]
+then
+  if [ "$stderr" = "-" ]
+  then
+    "$@"
+    exit $?
+  else
+    "$@" 2>"$stderr"
+    exit $?
+  fi
+else
+  if [ "$stderr" = "-" ]
+  then
+    "$@" >"$stdout"
+    exit $?
+  else
+    "$@" 2>"$stderr" >"$stdout"
+    exit $?
+  fi
+fi
+
+
+"$@"
 exit $?
 EOF
 chmod 0755 ${ARCHIVE_DIR}/_embedded_binaries/process-wrapper${EXE_EXT}
