@@ -319,6 +319,9 @@ message SkylarkAspect {
   required string extension_file_label = 1;
   required string exported_name = 2;
   repeated Attribute attribute = 3;
+  repeated string attr_aspects = 4;
+  repeated string configuration_fragments = 5;
+  repeated string host_configuration_fragments = 6;
 }
 
 // Summary of all transitive dependencies of 'rule,' where each dependent

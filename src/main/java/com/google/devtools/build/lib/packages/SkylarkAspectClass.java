@@ -14,18 +14,149 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Objects;
 
 /**
  * {@link AspectClass} for aspects defined in Skylark.
  */
-public abstract class SkylarkAspectClass implements AspectClass {
+@Immutable
+public final class SkylarkAspectClass implements AspectClass {
 
-  public abstract Label getExtensionLabel();
+  private final Label extensionLabel;
+  private final String exportedName;
+  private final ImmutableList<String> attrAspects;
+  private final ImmutableList<Attribute> attributes;
+  private final ImmutableSet<String> configurationFragments;
+  private final ImmutableSet<String> hostConfigurationFragments;
 
-  public abstract String getExportedName();
+  private final AspectDefinition aspectDefinition;
+  private final int hashCode;
+
+  /** Builder class for {@link com.google.devtools.build.lib.packages.SkylarkAspectClass} */
+  public static class Builder {
+    private Label extensionLabel;
+    private String exportedName;
+    private ImmutableList.Builder<String> attrAspects = ImmutableList.builder();
+    private ImmutableList.Builder<Attribute> attributes = ImmutableList.builder();
+    private ImmutableSet.Builder<String> configurationFragments = ImmutableSet.builder();
+    private ImmutableSet.Builder<String> hostConfigurationFragments = ImmutableSet.builder();;
+
+    public Builder setExtensionLabel(Label extensionLabel) {
+      this.extensionLabel = extensionLabel;
+      return this;
+    }
+
+    public Builder setExportedName(String exportedName) {
+      this.exportedName = exportedName;
+      return this;
+    }
+
+    public Builder addAttrAspects(Iterable<String> attrAspects) {
+      this.attrAspects.addAll(attrAspects);
+      return this;
+    }
+
+    public Builder addAttribute(Attribute attribute) {
+      this.attributes.add(attribute);
+      return this;
+    }
+
+    public Builder addConfigurationFragments(Iterable<String> configurationFragments) {
+      this.configurationFragments.addAll(configurationFragments);
+      return this;
+    }
+
+    public Builder addHostConfigurationFragments(Iterable<String> hostConfigurationFragments) {
+      this.hostConfigurationFragments.addAll(hostConfigurationFragments);
+      return this;
+    }
+
+    public SkylarkAspectClass build() {
+      return new SkylarkAspectClass(
+          extensionLabel,
+          exportedName,
+          attrAspects.build(),
+          attributes.build(),
+          configurationFragments.build(),
+          hostConfigurationFragments.build());
+    }
+  }
+
+  private SkylarkAspectClass(
+      Label extensionLabel,
+      String exportedName,
+      ImmutableList<String> attrAspects,
+      ImmutableList<Attribute> attributes,
+      ImmutableSet<String> configurationFragments,
+      ImmutableSet<String> hostConfigurationFragments) {
+    this.extensionLabel = Preconditions.checkNotNull(extensionLabel);
+    this.exportedName = Preconditions.checkNotNull(exportedName);
+
+    this.attrAspects = attrAspects;
+    this.attributes = attributes;
+    this.configurationFragments = configurationFragments;
+    this.hostConfigurationFragments = hostConfigurationFragments;
+
+    // Cache hash code.
+    this.hashCode = Objects.hash(
+        this.extensionLabel,
+        this.exportedName,
+        this.attrAspects,
+        this.attributes,
+        this.configurationFragments,
+        this.hostConfigurationFragments);
+
+    // Cache aspect definition
+    this.aspectDefinition = buildDefinition();
+  }
+
+  private AspectDefinition buildDefinition() {
+    AspectDefinition.Builder builder = new AspectDefinition.Builder(getName());
+    for (String attrAspect : this.attrAspects) {
+      builder.attributeAspect(attrAspect, this);
+    }
+    for (Attribute attribute : this.attributes) {
+      builder.add(attribute);
+    }
+    builder.requiresConfigurationFragmentsBySkylarkModuleName(configurationFragments);
+    builder.requiresHostConfigurationFragmentsBySkylarkModuleName(hostConfigurationFragments);
+    return builder.build();
+  }
+
+  public final Label getExtensionLabel() {
+    return extensionLabel;
+  }
+
+  public final String getExportedName() {
+    return exportedName;
+  }
+
+  public ImmutableList<String> getAttrAspects() {
+    return attrAspects;
+  }
+
+  public ImmutableList<Attribute> getAttributes() {
+    return attributes;
+  }
+
+  public ImmutableSet<String> getConfigurationFragments() {
+    return configurationFragments;
+  }
+
+  public ImmutableSet<String> getHostConfigurationFragments() {
+    return hostConfigurationFragments;
+  }
+
+  @Override
+  public final AspectDefinition getDefinition(AspectParameters aspectParameters) {
+    return aspectDefinition;
+  }
 
   @Override
   public final String getName() {
@@ -44,12 +175,17 @@ public abstract class SkylarkAspectClass implements AspectClass {
 
     SkylarkAspectClass that = (SkylarkAspectClass) o;
 
-    return getExtensionLabel().equals(that.getExtensionLabel())
-        && getExportedName().equals(that.getExportedName());
+    return hashCode == that.hashCode
+        && getExtensionLabel().equals(that.getExtensionLabel())
+        && getExportedName().equals(that.getExportedName())
+        && attrAspects.equals(that.attrAspects)
+        && attributes.equals(that.attributes)
+        && configurationFragments.equals(that.configurationFragments)
+        && hostConfigurationFragments.equals(that.hostConfigurationFragments);
   }
 
   @Override
   public final int hashCode() {
-    return Objects.hash(getExtensionLabel(), getExportedName());
+    return hashCode;
   }
 }
