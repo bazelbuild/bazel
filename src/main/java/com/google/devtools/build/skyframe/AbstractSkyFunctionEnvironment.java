@@ -15,7 +15,6 @@ package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.skyframe.ValueOrExceptionUtils.BottomException;
@@ -93,15 +92,15 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
         exceptionClass5).get(depKey);
   }
 
-  private <E1 extends Exception, E2 extends Exception, E3 extends Exception,
-           E4 extends Exception, E5 extends Exception>
+  private <E1 extends Exception, E2 extends Exception, E3 extends Exception, E4 extends Exception,
+          E5 extends Exception>
       Map<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> getValueOrExceptions(
           Set<SkyKey> depKeys,
-          Class<E1> exceptionClass1,
-          Class<E2> exceptionClass2,
-          Class<E3> exceptionClass3,
-          Class<E4> exceptionClass4,
-          Class<E5> exceptionClass5) {
+          final Class<E1> exceptionClass1,
+          final Class<E2> exceptionClass2,
+          final Class<E3> exceptionClass3,
+          final Class<E4> exceptionClass4,
+          final Class<E5> exceptionClass5) {
     SkyFunctionException.validateExceptionType(exceptionClass1);
     SkyFunctionException.validateExceptionType(exceptionClass2);
     SkyFunctionException.validateExceptionType(exceptionClass3);
@@ -109,47 +108,52 @@ public abstract class AbstractSkyFunctionEnvironment implements SkyFunction.Envi
     SkyFunctionException.validateExceptionType(exceptionClass5);
     Map<SkyKey, ValueOrUntypedException> valueOrExceptions =
         getValueOrUntypedExceptions(depKeys);
-    ImmutableMap.Builder<SkyKey, ValueOrException5<E1, E2, E3, E4, E5>> builder =
-        ImmutableMap.builder();
-    for (SkyKey depKey : depKeys) {
-      ValueOrUntypedException voe = valueOrExceptions.get(depKey);
+    for (ValueOrUntypedException voe : valueOrExceptions.values()) {
       SkyValue value = voe.getValue();
-      if (value != null) {
-        builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4, E5>ofValue(value));
-        continue;
-      }
-      Exception e = voe.getException();
-      if (e != null) {
-        if (exceptionClass1.isInstance(e)) {
-          builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4, E5>ofExn1(
-              exceptionClass1.cast(e)));
-          continue;
-        }
-        if (exceptionClass2.isInstance(e)) {
-          builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4, E5>ofExn2(
-              exceptionClass2.cast(e)));
-          continue;
-        }
-        if (exceptionClass3.isInstance(e)) {
-          builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4, E5>ofExn3(
-              exceptionClass3.cast(e)));
-          continue;
-        }
-        if (exceptionClass4.isInstance(e)) {
-          builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4, E5>ofExn4(
-              exceptionClass4.cast(e)));
-          continue;
-        }
-        if (exceptionClass5.isInstance(e)) {
-          builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4, E5>ofExn5(
-              exceptionClass5.cast(e)));
-          continue;
+      if (value == null) {
+        Exception e = voe.getException();
+        if (e == null
+            || (!exceptionClass1.isInstance(e)
+                && !exceptionClass2.isInstance(e)
+                && !exceptionClass3.isInstance(e)
+                && !exceptionClass4.isInstance(e)
+                && !exceptionClass5.isInstance(e))) {
+          valuesMissing = true;
+          break;
         }
       }
-      valuesMissing = true;
-      builder.put(depKey, ValueOrExceptionUtils.<E1, E2, E3, E4, E5>ofNullValue());
     }
-    return builder.build();
+    // We transform the values directly to avoid the transient memory cost of creating a new map.
+    return Maps.transformValues(
+        valueOrExceptions,
+        new Function<ValueOrUntypedException, ValueOrException5<E1, E2, E3, E4, E5>>() {
+          @Override
+          public ValueOrException5<E1, E2, E3, E4, E5> apply(ValueOrUntypedException voe) {
+            SkyValue value = voe.getValue();
+            if (value != null) {
+              return ValueOrExceptionUtils.<E1, E2, E3, E4, E5>ofValue(value);
+            }
+            Exception e = voe.getException();
+            if (e != null) {
+              if (exceptionClass1.isInstance(e)) {
+                return ValueOrExceptionUtils.<E1, E2, E3, E4, E5>ofExn1(exceptionClass1.cast(e));
+              }
+              if (exceptionClass2.isInstance(e)) {
+                return ValueOrExceptionUtils.<E1, E2, E3, E4, E5>ofExn2(exceptionClass2.cast(e));
+              }
+              if (exceptionClass3.isInstance(e)) {
+                return ValueOrExceptionUtils.<E1, E2, E3, E4, E5>ofExn3(exceptionClass3.cast(e));
+              }
+              if (exceptionClass4.isInstance(e)) {
+                return ValueOrExceptionUtils.<E1, E2, E3, E4, E5>ofExn4(exceptionClass4.cast(e));
+              }
+              if (exceptionClass5.isInstance(e)) {
+                return ValueOrExceptionUtils.<E1, E2, E3, E4, E5>ofExn5(exceptionClass5.cast(e));
+              }
+            }
+            return ValueOrExceptionUtils.<E1, E2, E3, E4, E5>ofNullValue();
+          }
+        });
   }
 
   /** Implementations should set {@link #valuesMissing} as necessary. */
