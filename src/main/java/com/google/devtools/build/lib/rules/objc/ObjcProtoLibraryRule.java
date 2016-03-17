@@ -65,7 +65,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
         whitelist/blacklist settings).
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(OPTIONS_FILE_ATTR, LABEL).legacyAllowAnyFileType().singleArtifact().cfg(HOST))
-        /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(output_cpp) -->
+        /* <!-- #BLAZE_RULE(objc_proto_library).ATTRIBUTE(output_cpp)[DEPRECATED] -->
         If true, output C++ rather than ObjC.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr(OUTPUT_CPP_ATTR, BOOLEAN).value(false))
