@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 
 import com.android.ide.common.res2.MergingException;
@@ -26,7 +27,9 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 
+import javax.annotation.concurrent.Immutable;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 
@@ -37,6 +40,7 @@ import javax.xml.stream.XMLStreamException;
  * together. It extracts the android resource symbols (e.g. R.string.Foo) from the xml files to
  * allow an AndroidDataMerger to consume and produce a merged set of data.
  */
+@Immutable
 public class AndroidDataSet {
   /**
    * A FileVisitor that walks a resource tree and extract FullyQualifiedName and resource values.
@@ -53,6 +57,16 @@ public class AndroidDataSet {
         List<DataResource> overwritingResources, List<DataResource> nonOverwritingResources) {
       this.overwritingResources = overwritingResources;
       this.nonOverwritingResources = nonOverwritingResources;
+    }
+
+    private void checkForErrors() throws MergingException {
+      if (!getErrors().isEmpty()) {
+        StringBuilder errors = new StringBuilder();
+        for (Exception e : getErrors()) {
+          errors.append("\n").append(e.getMessage());
+        }
+        throw new MergingException(errors.toString());
+      }
     }
 
     @Override
@@ -77,9 +91,8 @@ public class AndroidDataSet {
       try {
         if (!Files.isDirectory(path)) {
           if (inValuesSubtree) {
-            XmlDataResource.fromPath(xmlInputFactory, path, fqnFactory,
-                overwritingResources,
-                nonOverwritingResources);
+            XmlDataResource.fromPath(
+                xmlInputFactory, path, fqnFactory, overwritingResources, nonOverwritingResources);
           } else {
             overwritingResources.add(FileDataResource.fromPath(path, fqnFactory));
           }
@@ -95,29 +108,80 @@ public class AndroidDataSet {
     }
   }
 
-  private final List<DataResource> overwritingResources = new ArrayList<>();
-  private final List<DataResource> nonOverwritingResources = new ArrayList<>();
+  /** Creates an AndroidDataSet of the overwriting and nonOverwritingResources lists. */
+  public static AndroidDataSet of(
+      List<DataResource> overwritingResources, List<DataResource> nonOverwritingResources) {
+    return new AndroidDataSet(
+        ImmutableList.copyOf(overwritingResources), ImmutableList.copyOf(nonOverwritingResources));
+  }
+
+  public static AndroidDataSet from(UnvalidatedAndroidData primary)
+      throws IOException, MergingException {
+    List<DataResource> overwritingResources = new ArrayList<>();
+    List<DataResource> nonOverwritingResources = new ArrayList<>();
+    ResourceFileVisitor visitor =
+        new ResourceFileVisitor(overwritingResources, nonOverwritingResources);
+    primary.walkResources(visitor);
+    visitor.checkForErrors();
+    return of(overwritingResources, nonOverwritingResources);
+  }
 
   /**
-   * Adds a DependencyAndroidData to the dataset
+   * Creates an AndroidDataSet from a list of DependencyAndroidDatas.
    *
    * The adding process parses out all the provided symbol into DataResource objects.
    *
-   * @param androidData The dependency data to parse into DataResources.
+   * @param dependencyAndroidDataList The dependency data to parse into DataResources.
    * @throws IOException when there are issues with reading files.
    * @throws MergingException when there is invalid resource information.
    */
-  public void add(DependencyAndroidData androidData) throws IOException, MergingException {
+  public static AndroidDataSet from(List<DependencyAndroidData> dependencyAndroidDataList)
+      throws IOException, MergingException {
+    List<DataResource> overwritingResources = new ArrayList<>();
+    List<DataResource> nonOverwritingResources = new ArrayList<>();
     ResourceFileVisitor visitor =
         new ResourceFileVisitor(overwritingResources, nonOverwritingResources);
-    androidData.walk(visitor);
-    if (!visitor.getErrors().isEmpty()) {
-      StringBuilder errors = new StringBuilder();
-      for (Exception e : visitor.getErrors()) {
-        errors.append("\n").append(e.getMessage());
-      }
-      throw new MergingException(errors.toString());
+    for (DependencyAndroidData data : dependencyAndroidDataList) {
+      data.walkResources(visitor);
     }
+    visitor.checkForErrors();
+    return of(overwritingResources, nonOverwritingResources);
+  }
+
+  private final ImmutableList<DataResource> overwritingResources;
+  private final ImmutableList<DataResource> nonOverwritingResources;
+
+  private AndroidDataSet(
+      ImmutableList<DataResource> overwritingResources,
+      ImmutableList<DataResource> nonOverwritingResources) {
+    this.overwritingResources = overwritingResources;
+    this.nonOverwritingResources = nonOverwritingResources;
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("overwritingResources", overwritingResources)
+        .add("nonOverwritingResources", nonOverwritingResources)
+        .toString();
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (this == other) {
+      return true;
+    }
+    if (!(other instanceof AndroidDataSet)) {
+      return false;
+    }
+    AndroidDataSet that = (AndroidDataSet) other;
+    return Objects.equals(overwritingResources, that.overwritingResources)
+        && Objects.equals(nonOverwritingResources, that.nonOverwritingResources);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(overwritingResources, nonOverwritingResources);
   }
 
   /**

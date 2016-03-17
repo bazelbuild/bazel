@@ -207,7 +207,7 @@ class DependencyAndroidData {
     return new DependencyAndroidData(modifiedResources, modifiedAssets, manifest, rTxt, null);
   }
 
-  public void walk(final FileVisitor<Path> fileVisitor) throws IOException {
+  public void walkResources(final FileVisitor<Path> fileVisitor) throws IOException {
     for (Path path : resourceDirs) {
       Files.walkFileTree(
           path, ImmutableSet.of(FileVisitOption.FOLLOW_LINKS), Integer.MAX_VALUE, fileVisitor);

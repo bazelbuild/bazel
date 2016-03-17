@@ -15,12 +15,16 @@ package com.google.devtools.build.android;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 
 import com.android.ide.common.res2.AssetSet;
 import com.android.ide.common.res2.ResourceSet;
 
+import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.nio.file.FileVisitOption;
+import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -76,8 +80,8 @@ class UnvalidatedAndroidData {
   private final ImmutableList<Path> assetDirs;
   private final ImmutableList<Path> resourceDirs;
 
-  public UnvalidatedAndroidData(ImmutableList<Path> resourceDirs, ImmutableList<Path> assetDirs,
-      Path manifest) {
+  public UnvalidatedAndroidData(
+      ImmutableList<Path> resourceDirs, ImmutableList<Path> assetDirs, Path manifest) {
     this.resourceDirs = resourceDirs;
     this.assetDirs = assetDirs;
     this.manifest = manifest;
@@ -158,6 +162,13 @@ class UnvalidatedAndroidData {
       AssetSet set = new AssetSet("primary:" + assetDir.toString());
       set.addSource(assetDir.toFile());
       assetSets.add(set);
+    }
+  }
+
+  public void walkResources(final FileVisitor<Path> fileVisitor) throws IOException {
+    for (Path path : resourceDirs) {
+      Files.walkFileTree(
+          path, ImmutableSet.of(FileVisitOption.FOLLOW_LINKS), Integer.MAX_VALUE, fileVisitor);
     }
   }
 }

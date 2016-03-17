@@ -19,7 +19,17 @@ import java.nio.file.Path;
 /**
  * Represents an Android Resource parsed from an xml or binary file.
  */
-public interface DataResource {
+public interface DataResource extends Comparable<DataResource> {
+
+  /**
+   * Provides the FullyQualifiedName of the DataResource
+   */
+  FullyQualifiedName fullyQualifiedName();
+
+  /**
+   * Provides the Path to the file from which the DataResource was derived.
+   */
+  Path source();
 
   /**
    * Writes the resource to the given resource directory.

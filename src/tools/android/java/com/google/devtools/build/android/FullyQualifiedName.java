@@ -16,6 +16,8 @@ package com.google.devtools.build.android;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
 
 import com.android.resources.ResourceType;
 
@@ -24,16 +26,20 @@ import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.annotation.CheckReturnValue;
+import javax.annotation.concurrent.Immutable;
+
 /**
  * Represents a fully qualified name for an android resource.
  *
  * Each resource name consists of the resource package, name, type, and qualifiers.
  */
-public class FullyQualifiedName {
+@Immutable
+public class FullyQualifiedName implements Comparable<FullyQualifiedName> {
   public static final String DEFAULT_PACKAGE = "res-auto";
 
   private final String pkg;
-  private final List<String> qualifiers;
+  private final ImmutableList<String> qualifiers;
   private final ResourceType resourceType;
   private final String resourceName;
 
@@ -98,16 +104,8 @@ public class FullyQualifiedName {
     }
   }
 
-  private FullyQualifiedName(
-      String pkg, List<String> qualifiers, ResourceType resourceType, String resourceName) {
-    this.pkg = pkg;
-    this.qualifiers = qualifiers;
-    this.resourceType = resourceType;
-    this.resourceName = resourceName;
-  }
-
   /**
-   * Creates a new FullyQualifiedName.
+   * Creates a new FullyQualifiedName with sorted qualifiers.
    * @param pkg The resource package of the name. If unknown the default should be "res-auto"
    * @param qualifiers The resource qualifiers of the name, such as "en" or "xhdpi".
    * @param resourceType The resource type of the name.
@@ -116,7 +114,30 @@ public class FullyQualifiedName {
    */
   public static FullyQualifiedName of(
       String pkg, List<String> qualifiers, ResourceType resourceType, String resourceName) {
-    return new FullyQualifiedName(pkg, qualifiers, resourceType, resourceName);
+    return new FullyQualifiedName(pkg, Ordering.natural().immutableSortedCopy(qualifiers),
+        resourceType, resourceName);
+  }
+
+  private FullyQualifiedName(
+      String pkg,
+      ImmutableList<String> qualifiers,
+      ResourceType resourceType,
+      String resourceName) {
+    this.pkg = pkg;
+    this.qualifiers = qualifiers;
+    this.resourceType = resourceType;
+    this.resourceName = resourceName;
+  }
+
+  /** Creates a FullyQualifiedName from this one with a different package. */
+  @CheckReturnValue
+  public FullyQualifiedName replacePackage(String newPackage) {
+    if (pkg.equals(newPackage)) {
+      return this;
+    }
+    // Don't use "of" because it ensures the qualifiers are sorted -- we already know
+    // they are sorted here.
+    return new FullyQualifiedName(newPackage, qualifiers, resourceType, resourceName);
   }
 
   @Override
@@ -144,5 +165,27 @@ public class FullyQualifiedName {
         .add("resourceType", resourceType)
         .add("resourceName", resourceName)
         .toString();
+  }
+
+  @Override
+  public int compareTo(FullyQualifiedName other) {
+    if (!pkg.equals(other.pkg)) {
+      return pkg.compareTo(other.pkg);
+    }
+    if (!resourceType.equals(other.resourceType)) {
+      return resourceType.compareTo(other.resourceType);
+    }
+    if (!resourceName.equals(other.resourceName)) {
+      return resourceName.compareTo(other.resourceName);
+    }
+    // TODO(corysmith): Figure out a more performant stable way to keep a stable order.
+    if (!qualifiers.equals(other.qualifiers)) {
+      if (qualifiers.size() != other.qualifiers.size()) {
+        return qualifiers.size() - other.qualifiers.size();
+      }
+      // This works because the qualifiers are sorted on creation.
+      return qualifiers.toString().compareTo(other.qualifiers.toString());
+    }
+    return 0;
   }
 }

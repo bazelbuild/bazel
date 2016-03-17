@@ -80,8 +80,23 @@ public class FileDataResource implements DataResource {
   }
 
   @Override
+  public FullyQualifiedName fullyQualifiedName() {
+    return qn;
+  }
+
+  @Override
+  public Path source() {
+    return source;
+  }
+
+  @Override
   public void write(Path newResourceDirectory) throws IOException {
     // TODO(corysmith): Implement the copy semantics.
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public int compareTo(DataResource o) {
+    return qn.compareTo(o.fullyQualifiedName());
   }
 }
