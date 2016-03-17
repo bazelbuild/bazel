@@ -162,7 +162,7 @@ public class SkylarkFileContentHashTests extends BuildViewTestCase {
             7,
             "",
             UUID.randomUUID());
-    SkyKey pkgLookupKey = PackageValue.key(PackageIdentifier.parse(pkg));
+    SkyKey pkgLookupKey = PackageValue.key(PackageIdentifier.parse("@//" + pkg));
     EvaluationResult<PackageValue> result =
         SkyframeExecutorTestUtils.evaluate(
             getSkyframeExecutor(), pkgLookupKey, /*keepGoing=*/ false, reporter);

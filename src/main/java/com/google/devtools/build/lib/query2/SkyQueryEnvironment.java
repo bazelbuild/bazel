@@ -773,7 +773,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       Map<SkyKey, PathFragment> keys = new HashMap<>();
       for (PathFragment pathFragment : currentToOriginal.keySet()) {
         keys.put(
-            PackageLookupValue.key(PackageIdentifier.createInDefaultRepo(pathFragment)),
+            PackageLookupValue.key(PackageIdentifier.createInMainRepo(pathFragment)),
             pathFragment);
       }
       Map<SkyKey, SkyValue> lookupValues = graph.getSuccessfulValues(keys.keySet());

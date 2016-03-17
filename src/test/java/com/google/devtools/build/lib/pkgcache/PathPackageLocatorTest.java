@@ -167,7 +167,7 @@ public class PathPackageLocatorTest extends FoundationTestCase {
 
   private void checkFails(String packageName, String expectorError) {
     try {
-      getLocator().getPackageBuildFile(PackageIdentifier.createInDefaultRepo(packageName));
+      getLocator().getPackageBuildFile(PackageIdentifier.createInMainRepo(packageName));
       fail();
     } catch (NoSuchPackageException e) {
       assertThat(e).hasMessage(expectorError);
@@ -178,48 +178,48 @@ public class PathPackageLocatorTest extends FoundationTestCase {
   public void testGetPackageBuildFile() throws Exception {
     AtomicReference<? extends UnixGlob.FilesystemCalls> cache = UnixGlob.DEFAULT_SYSCALLS_REF;
     assertEquals(buildFile_1A, locator.getPackageBuildFile(
-        PackageIdentifier.createInDefaultRepo("A")));
+        PackageIdentifier.createInMainRepo("A")));
     assertEquals(buildFile_1A, locator.getPackageBuildFileNullable(
-        PackageIdentifier.createInDefaultRepo("A"), cache));
+        PackageIdentifier.createInMainRepo("A"), cache));
     assertEquals(buildFile_1B, locator.getPackageBuildFile(
-        PackageIdentifier.createInDefaultRepo("B")));
+        PackageIdentifier.createInMainRepo("B")));
     assertEquals(buildFile_1B, locator.getPackageBuildFileNullable(
-        PackageIdentifier.createInDefaultRepo("B"), cache));
+        PackageIdentifier.createInMainRepo("B"), cache));
     assertEquals(buildFile_2C, locator.getPackageBuildFile(
-        PackageIdentifier.createInDefaultRepo("C")));
+        PackageIdentifier.createInMainRepo("C")));
     assertEquals(buildFile_2C, locator.getPackageBuildFileNullable(
-        PackageIdentifier.createInDefaultRepo("C"), cache));
+        PackageIdentifier.createInMainRepo("C"), cache));
     assertEquals(buildFile_2CD, locator.getPackageBuildFile(
-        PackageIdentifier.createInDefaultRepo("C/D")));
+        PackageIdentifier.createInMainRepo("C/D")));
     assertEquals(buildFile_2CD, locator.getPackageBuildFileNullable(
-        PackageIdentifier.createInDefaultRepo("C/D"), cache));
+        PackageIdentifier.createInMainRepo("C/D"), cache));
     checkFails("C/E",
                "no such package 'C/E': BUILD file not found on package path");
     assertNull(locator.getPackageBuildFileNullable(
-        PackageIdentifier.createInDefaultRepo("C/E"), cache));
+        PackageIdentifier.createInMainRepo("C/E"), cache));
     assertEquals(buildFile_2F,
-                 locator.getPackageBuildFile(PackageIdentifier.createInDefaultRepo("F")));
+                 locator.getPackageBuildFile(PackageIdentifier.createInMainRepo("F")));
     checkFails("F/G",
                "no such package 'F/G': BUILD file not found on package path");
     assertNull(locator.getPackageBuildFileNullable(
-        PackageIdentifier.createInDefaultRepo("F/G"), cache));
+        PackageIdentifier.createInMainRepo("F/G"), cache));
     assertEquals(buildFile_2FGH, locator.getPackageBuildFile(
-        PackageIdentifier.createInDefaultRepo("F/G/H")));
+        PackageIdentifier.createInMainRepo("F/G/H")));
     assertEquals(buildFile_2FGH, locator.getPackageBuildFileNullable(
-        PackageIdentifier.createInDefaultRepo("F/G/H"), cache));
+        PackageIdentifier.createInMainRepo("F/G/H"), cache));
     checkFails("I", "no such package 'I': BUILD file not found on package path");
   }
 
   @Test
   public void testGetPackageBuildFileWithSymlinks() throws Exception {
     assertEquals(buildFile_3A, locatorWithSymlinks.getPackageBuildFile(
-        PackageIdentifier.createInDefaultRepo("A")));
+        PackageIdentifier.createInMainRepo("A")));
     assertEquals(buildFile_3B, locatorWithSymlinks.getPackageBuildFile(
-        PackageIdentifier.createInDefaultRepo("B")));
+        PackageIdentifier.createInMainRepo("B")));
     assertEquals(buildFile_3CI, locatorWithSymlinks.getPackageBuildFile(
-        PackageIdentifier.createInDefaultRepo("C/I")));
+        PackageIdentifier.createInMainRepo("C/I")));
     try {
-      locatorWithSymlinks.getPackageBuildFile(PackageIdentifier.createInDefaultRepo("C/D"));
+      locatorWithSymlinks.getPackageBuildFile(PackageIdentifier.createInMainRepo("C/D"));
       fail();
     } catch (BuildFileNotFoundException e) {
       assertThat(e).hasMessage("no such package 'C/D': BUILD file not found on package path");
@@ -247,7 +247,7 @@ public class PathPackageLocatorTest extends FoundationTestCase {
     // The package isn't found
     // The package is found, because we didn't drop the root:
     try {
-      locator.getPackageBuildFile(PackageIdentifier.createInDefaultRepo("X"));
+      locator.getPackageBuildFile(PackageIdentifier.createInMainRepo("X"));
       fail("Exception expected");
     } catch (NoSuchPackageException e) {
     }

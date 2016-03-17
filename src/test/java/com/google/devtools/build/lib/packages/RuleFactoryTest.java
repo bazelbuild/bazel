@@ -52,7 +52,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
   public void testCreateRule() throws Exception {
     Path myPkgPath = scratch.resolve("/foo/workspace/mypkg/BUILD");
     Package.Builder pkgBuilder =
-        new Package.Builder(PackageIdentifier.createInDefaultRepo("mypkg"), "TESTING")
+        new Package.Builder(PackageIdentifier.createInMainRepo("mypkg"), "TESTING")
             .setFilename(myPkgPath)
             .setMakeEnv(new MakeEnvironment.Builder());
 
@@ -135,7 +135,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
   public void testWorkspaceRuleFailsInBuildFile() throws Exception {
     Path myPkgPath = scratch.resolve("/foo/workspace/mypkg/BUILD");
     Package.Builder pkgBuilder =
-        new Package.Builder(PackageIdentifier.createInDefaultRepo("mypkg"), "TESTING")
+        new Package.Builder(PackageIdentifier.createInMainRepo("mypkg"), "TESTING")
             .setFilename(myPkgPath)
             .setMakeEnv(new MakeEnvironment.Builder());
 
@@ -201,7 +201,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
   public void testOutputFileNotEqualDot() throws Exception {
     Path myPkgPath = scratch.resolve("/foo");
     Package.Builder pkgBuilder =
-        new Package.Builder(PackageIdentifier.createInDefaultRepo("mypkg"), "TESTING")
+        new Package.Builder(PackageIdentifier.createInMainRepo("mypkg"), "TESTING")
             .setFilename(myPkgPath)
             .setMakeEnv(new MakeEnvironment.Builder());
 
@@ -232,7 +232,7 @@ public class RuleFactoryTest extends PackageLoadingTestCase {
   public void testTestRules() throws Exception {
     Path myPkgPath = scratch.resolve("/foo/workspace/mypkg/BUILD");
     Package pkg =
-        new Package.Builder(PackageIdentifier.createInDefaultRepo("mypkg"), "TESTING")
+        new Package.Builder(PackageIdentifier.createInMainRepo("mypkg"), "TESTING")
             .setFilename(myPkgPath)
             .setMakeEnv(new MakeEnvironment.Builder())
             .build();

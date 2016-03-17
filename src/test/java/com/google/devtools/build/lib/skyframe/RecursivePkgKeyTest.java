@@ -44,7 +44,7 @@ public class RecursivePkgKeyTest extends BuildViewTestCase {
       PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
     try {
       buildRecursivePkgKey(
-          PackageIdentifier.DEFAULT_REPOSITORY_NAME, rootRelativePath, excludedPaths);
+          PackageIdentifier.MAIN_REPOSITORY_NAME, rootRelativePath, excludedPaths);
       fail();
     } catch (IllegalArgumentException expected) {
     }
@@ -53,29 +53,29 @@ public class RecursivePkgKeyTest extends BuildViewTestCase {
   @Test
   public void testValidRecursivePkgKeys() throws Exception {
     buildRecursivePkgKey(
-        PackageIdentifier.DEFAULT_REPOSITORY_NAME,
+        PackageIdentifier.MAIN_REPOSITORY_NAME,
         new PathFragment(""),
         ImmutableSet.<PathFragment>of());
     buildRecursivePkgKey(
-        PackageIdentifier.DEFAULT_REPOSITORY_NAME,
+        PackageIdentifier.MAIN_REPOSITORY_NAME,
         new PathFragment(""),
         ImmutableSet.of(new PathFragment("a")));
 
     buildRecursivePkgKey(
-        PackageIdentifier.DEFAULT_REPOSITORY_NAME,
+        PackageIdentifier.MAIN_REPOSITORY_NAME,
         new PathFragment("a"),
         ImmutableSet.<PathFragment>of());
     buildRecursivePkgKey(
-        PackageIdentifier.DEFAULT_REPOSITORY_NAME,
+        PackageIdentifier.MAIN_REPOSITORY_NAME,
         new PathFragment("a"),
         ImmutableSet.of(new PathFragment("a/b")));
 
     buildRecursivePkgKey(
-        PackageIdentifier.DEFAULT_REPOSITORY_NAME,
+        PackageIdentifier.MAIN_REPOSITORY_NAME,
         new PathFragment("a/b"),
         ImmutableSet.<PathFragment>of());
     buildRecursivePkgKey(
-        PackageIdentifier.DEFAULT_REPOSITORY_NAME,
+        PackageIdentifier.MAIN_REPOSITORY_NAME,
         new PathFragment("a/b"),
         ImmutableSet.of(new PathFragment("a/b/c")));
   }

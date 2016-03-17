@@ -274,7 +274,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
             path.getParentDirectory(), "Must pass in files, not root directory");
         Preconditions.checkArgument(!parent.isAbsolute(), path);
         SkyKey depKey =
-            ContainingPackageLookupValue.key(PackageIdentifier.createInDefaultRepo(parent));
+            ContainingPackageLookupValue.key(PackageIdentifier.createInMainRepo(parent));
         depKeys.put(path, depKey);
         keysRequested.add(depKey);
       }

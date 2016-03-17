@@ -170,7 +170,7 @@ public class SkylarkRuleClassFunctions {
     @Override
     public Label load(String from) throws Exception {
       try {
-        return Label.parseAbsolute(from);
+        return Label.parseAbsolute(from, false);
       } catch (LabelSyntaxException e) {
         throw new Exception(from);
       }

@@ -14,9 +14,14 @@
 
 package com.google.devtools.build.lib.testutil;
 
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BinTools;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -25,6 +30,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 
 /**
  * Some static utility functions for testing Blaze code. In contrast to {@link TestUtils}, these
@@ -116,5 +122,24 @@ public class BlazeTestUtils {
       newMtime += 1000;
       path.setLastModifiedTime(newMtime);
     } while (path.getLastModifiedTime() == prevMtime);
+  }
+
+  public static Label convertLabel(Label label) {
+    try {
+      return label.getPackageIdentifier().getRepository().isDefault()
+          ? Label.create(label.getPackageIdentifier().makeAbsolute(), label.getName())
+          : label;
+    } catch (LabelSyntaxException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  public static List<Label> convertLabels(Iterable<Label> labels) {
+    return ImmutableList.copyOf(Iterables.transform(labels, new Function<Label, Label>() {
+      @Override
+      public Label apply(Label label) {
+        return convertLabel(label);
+      }
+    }));
   }
 }

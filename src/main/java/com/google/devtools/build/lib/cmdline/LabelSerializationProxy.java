@@ -44,6 +44,6 @@ public class LabelSerializationProxy implements Externalizable {
   }
 
   private Object readResolve() {
-    return Label.parseAbsoluteUnchecked(labelString);
+    return Label.parseAbsoluteUnchecked(labelString, false);
   }
 }

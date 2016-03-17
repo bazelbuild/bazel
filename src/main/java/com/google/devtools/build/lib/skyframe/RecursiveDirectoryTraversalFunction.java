@@ -152,7 +152,7 @@ abstract class RecursiveDirectoryTraversalFunction
     PackageIdentifier packageId = PackageIdentifier.create(
         recursivePkgKey.getRepository(), rootRelativePath);
 
-    if (packageId.getRepository().isDefault()
+    if ((packageId.getRepository().isDefault() || packageId.getRepository().isMain())
       && fileValue.isSymlink()
       && fileValue.getUnresolvedLinkTarget().startsWith(directories.getOutputBase().asFragment())) {
       // Symlinks back to the output base are not traversed so that we avoid convenience symlinks.

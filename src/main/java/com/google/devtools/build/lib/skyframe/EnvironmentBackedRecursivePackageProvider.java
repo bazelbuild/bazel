@@ -120,7 +120,7 @@ public final class EnvironmentBackedRecursivePackageProvider implements Recursiv
     }
 
     List<Path> roots = new ArrayList<>();
-    if (repository.isDefault()) {
+    if (repository.isMain()) {
       roots.addAll(packageLocator.getPathEntries());
     } else {
       RepositoryDirectoryValue repositoryValue =

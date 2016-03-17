@@ -992,8 +992,10 @@ public class CrosstoolConfigurationLoaderTest extends AnalysisTestCase {
                 + "  dynamic_runtimes_filegroup: \"dynamic-group\""
                 + "}\n");
 
-    final PackageIdentifier ctTop = MockCcSupport.getMockCrosstoolsTop();
-
+    PackageIdentifier ctTop = MockCcSupport.getMockCrosstoolsTop();
+    if (ctTop.getRepository().isDefault()) {
+      ctTop = PackageIdentifier.createInMainRepo(ctTop.getPackageFragment());
+    }
     CppConfiguration defaultLibs = create(loader, "--cpu=piii");
     assertEquals(
         Label.create(ctTop, "static-runtime-libs-piii"), defaultLibs.getStaticRuntimeLibsLabel());

@@ -629,7 +629,8 @@ public class JavaCompileAction extends AbstractAction {
     }
     if (targetLabel != null) {
       result.add("--target_label");
-      if (targetLabel.getPackageIdentifier().getRepository().isDefault()) {
+      if (targetLabel.getPackageIdentifier().getRepository().isDefault()
+          || targetLabel.getPackageIdentifier().getRepository().isMain()) {
         result.add(targetLabel.toString());
       } else {
         // @-prefixed strings will be assumed to be filenames and expanded by
@@ -677,6 +678,7 @@ public class JavaCompileAction extends AbstractAction {
       Label label = getTargetName(jar);
       builder.add(
           label.getPackageIdentifier().getRepository().isDefault()
+              || label.getPackageIdentifier().getRepository().isMain()
               ? label.toString()
               // Escape '@' prefix for .params file.
               : "@" + label);

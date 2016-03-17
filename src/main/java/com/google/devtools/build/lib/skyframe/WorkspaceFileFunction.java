@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.LegacyBuilder;
 import com.google.devtools.build.lib.packages.Package.NameConflictException;
@@ -44,6 +44,7 @@ public class WorkspaceFileFunction implements SkyFunction {
   private final PackageFactory packageFactory;
   private final BlazeDirectories directories;
   private final RuleClassProvider ruleClassProvider;
+  private static final PackageIdentifier rootPackage = PackageIdentifier.createInMainRepo("");
 
   public WorkspaceFileFunction(
       RuleClassProvider ruleClassProvider,
@@ -105,7 +106,7 @@ public class WorkspaceFileFunction implements SkyFunction {
       BuildFileAST ast = workspaceASTValue.getASTs().get(key.getIndex());
       PackageFunction.SkylarkImportResult importResult =
           PackageFunction.fetchImportsFromBuildFile(
-              repoWorkspace, Label.EXTERNAL_PACKAGE_IDENTIFIER, ast, env, null);
+              repoWorkspace, rootPackage, ast, env, null);
       if (importResult == null) {
         return null;
       }

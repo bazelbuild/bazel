@@ -326,7 +326,7 @@ public class AspectTest extends AnalysisTestCase {
     NestedSet<ExtraActionArtifactsProvider.ExtraArtifactSet> extraActionArtifacts =
         a.getProvider(ExtraActionArtifactsProvider.class)
             .getTransitiveExtraActionArtifacts();
-    assertThat(getOnlyElement(extraActionArtifacts).getLabel()).isEqualTo(Label.create("a", "b"));
+    assertThat(getOnlyElement(extraActionArtifacts).getLabel()).isEqualTo(Label.create("@//a", "b"));
 
   }
 

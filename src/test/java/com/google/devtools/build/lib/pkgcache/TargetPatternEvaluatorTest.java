@@ -366,9 +366,9 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     assertThat(parseList("//foo/bar" + suffix)).containsExactlyElementsIn(rulesInFooBar);
     assertThat(parseList("//otherrules" + suffix)).containsExactlyElementsIn(rulesInOtherrules);
     assertNoEvents();
-    expectError("while parsing 'nosuchpkg" + suffix + "': no such package 'nosuchpkg': "
+    expectError("while parsing '//nosuchpkg" + suffix + "': no such package 'nosuchpkg': "
             + "BUILD file not found on package path",
-        "nosuchpkg" + suffix);
+        "//nosuchpkg" + suffix);
     expectError("while parsing '//nosuchpkg" + suffix + "': no such package 'nosuchpkg': "
             + "BUILD file not found on package path",
         "//nosuchpkg" + suffix);
@@ -536,7 +536,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   public void testDotDotDotDoesntMatchDeletedPackages() throws Exception {
     scratch.file("x/y/BUILD", "cc_library(name='y')");
     scratch.file("x/z/BUILD", "cc_library(name='z')");
-    setDeletedPackages(Sets.newHashSet(PackageIdentifier.createInDefaultRepo("x/y")));
+    setDeletedPackages(Sets.newHashSet(PackageIdentifier.createInMainRepo("x/y")));
     assertEquals(Sets.newHashSet(Label.parseAbsolute("//x/z")),
         parseList("x/..."));
   }
@@ -545,7 +545,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   public void testDotDotDotDoesntMatchDeletedPackagesRelative() throws Exception {
     scratch.file("x/y/BUILD", "cc_library(name='y')");
     scratch.file("x/z/BUILD", "cc_library(name='z')");
-    setDeletedPackages(Sets.newHashSet(PackageIdentifier.createInDefaultRepo("x/y")));
+    setDeletedPackages(Sets.newHashSet(PackageIdentifier.createInMainRepo("x/y")));
 
     parser.updateOffset(new PathFragment("x"));
     assertEquals(Sets.newHashSet(Label.parseAbsolute("//x/z")),
@@ -560,7 +560,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     assertEquals(Sets.newHashSet(Label.parseAbsolute("//x/y"), Label.parseAbsolute("//x/z")),
         parseList("x/..."));
 
-    setDeletedPackages(Sets.newHashSet(PackageIdentifier.createInDefaultRepo("x/y")));
+    setDeletedPackages(Sets.newHashSet(PackageIdentifier.createInMainRepo("x/y")));
     assertEquals(Sets.newHashSet(Label.parseAbsolute("//x/z")), parseList("x/..."));
 
     setDeletedPackages(ImmutableSet.<PackageIdentifier>of());
@@ -809,6 +809,10 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
   @Test
   public void testKeepGoingBadPackage() throws Exception {
+    assertKeepGoing(rulesBeneathFoo,
+        "Skipping '//missing_pkg': no such package 'missing_pkg': "
+            + "BUILD file not found on package path",
+        "//missing_pkg", "foo/...");
     assertKeepGoing(rulesBeneathFoo,
         "Skipping '//missing_pkg': no such package 'missing_pkg': "
             + "BUILD file not found on package path",

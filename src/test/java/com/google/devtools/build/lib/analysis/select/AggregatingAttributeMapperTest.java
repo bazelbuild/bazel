@@ -53,7 +53,7 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
         "sh_binary(name = 'myrule',",
         "          srcs = ['a.sh'])");
     assertThat(AggregatingAttributeMapper.of(rule).visitAttribute("srcs", BuildType.LABEL_LIST))
-        .containsExactlyElementsIn(ImmutableList.of(ImmutableList.of(Label.create("a", "a.sh"))));
+        .containsExactlyElementsIn(ImmutableList.of(ImmutableList.of(Label.create("@//a", "a.sh"))));
   }
 
   /**
@@ -72,9 +72,9 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
     assertThat(AggregatingAttributeMapper.of(rule).visitAttribute("srcs", BuildType.LABEL_LIST))
         .containsExactlyElementsIn(
             ImmutableList.of(
-                ImmutableList.of(Label.create("a", "a.sh")),
-                ImmutableList.of(Label.create("a", "b.sh")),
-                ImmutableList.of(Label.create("a", "default.sh"))));
+                ImmutableList.of(Label.create("@//a", "a.sh")),
+                ImmutableList.of(Label.create("@//a", "b.sh")),
+                ImmutableList.of(Label.create("@//a", "default.sh"))));
   }
 
   @Test
@@ -91,10 +91,10 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
     assertThat(AggregatingAttributeMapper.of(rule).visitAttribute("srcs", BuildType.LABEL_LIST))
         .containsExactlyElementsIn(
             ImmutableList.of(
-                ImmutableList.of(Label.create("a", "a1.sh"), Label.create("a", "a2.sh")),
-                ImmutableList.of(Label.create("a", "a1.sh"), Label.create("a", "b2.sh")),
-                ImmutableList.of(Label.create("a", "b1.sh"), Label.create("a", "a2.sh")),
-                ImmutableList.of(Label.create("a", "b1.sh"), Label.create("a", "b2.sh"))));
+                ImmutableList.of(Label.create("@//a", "a1.sh"), Label.create("@//a", "a2.sh")),
+                ImmutableList.of(Label.create("@//a", "a1.sh"), Label.create("@//a", "b2.sh")),
+                ImmutableList.of(Label.create("@//a", "b1.sh"), Label.create("@//a", "a2.sh")),
+                ImmutableList.of(Label.create("@//a", "b1.sh"), Label.create("@//a", "b2.sh"))));
   }
 
   /**
@@ -156,11 +156,12 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
         "    }))");
 
     ImmutableList<Label> valueLabels = ImmutableList.of(
-        Label.create("x", "a.cc"), Label.create("x", "b.cc"), Label.create("x", "always.cc"),
-        Label.create("x", "c.cc"), Label.create("x", "d.cc"), Label.create("x", "default.cc"));
+        Label.create("@//x", "a.cc"), Label.create("@//x", "b.cc"),
+        Label.create("@//x", "always.cc"), Label.create("@//x", "c.cc"),
+        Label.create("@//x", "d.cc"), Label.create("@//x", "default.cc"));
     ImmutableList<Label> keyLabels = ImmutableList.of(
-        Label.create("conditions", "a"), Label.create("conditions", "b"),
-        Label.create("conditions", "c"), Label.create("conditions", "d"));
+        Label.create("@//conditions", "a"), Label.create("@//conditions", "b"),
+        Label.create("@//conditions", "c"), Label.create("@//conditions", "d"));
 
     AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
     assertThat(mapper.getReachableLabels("srcs", true))

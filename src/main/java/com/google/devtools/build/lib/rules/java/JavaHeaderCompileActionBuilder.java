@@ -315,7 +315,8 @@ public class JavaHeaderCompileActionBuilder {
     }
     if (targetLabel != null) {
       result.add("--target_label");
-      if (targetLabel.getPackageIdentifier().getRepository().isDefault()) {
+      if (targetLabel.getPackageIdentifier().getRepository().isDefault()
+          || targetLabel.getPackageIdentifier().getRepository().isMain()) {
         result.add(targetLabel.toString());
       } else {
         // @-prefixed strings will be assumed to be params filenames and expanded,

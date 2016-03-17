@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -196,13 +195,15 @@ public final class AspectDefinition {
         continue;
       }
       if (aspectAttribute.getType() == BuildType.LABEL) {
-        Label label = BuildType.LABEL.cast(aspectAttribute.getDefaultValue(from));
+        Label label = from.getLabel().resolveRepositoryRelative(
+            BuildType.LABEL.cast(aspectAttribute.getDefaultValue(from)));
         if (label != null) {
           labelBuilder.put(aspectAttribute, label);
         }
       } else if (aspectAttribute.getType() == BuildType.LABEL_LIST) {
-        List<Label> labelList = BuildType.LABEL_LIST.cast(aspectAttribute.getDefaultValue(from));
-        labelBuilder.putAll(aspectAttribute, labelList);
+        for (Label label : BuildType.LABEL_LIST.cast(aspectAttribute.getDefaultValue(from))) {
+          labelBuilder.put(aspectAttribute, from.getLabel().resolveRepositoryRelative(label));
+        }
       }
     }
   }

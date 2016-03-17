@@ -39,6 +39,7 @@ public abstract class ContainingPackageLookupValue implements SkyValue {
 
   public static SkyKey key(PackageIdentifier id) {
     Preconditions.checkArgument(!id.getPackageFragment().isAbsolute(), id);
+    Preconditions.checkArgument(!id.getRepository().isDefault(), id);
     return SkyKey.create(SkyFunctions.CONTAINING_PACKAGE_LOOKUP, id);
   }
 

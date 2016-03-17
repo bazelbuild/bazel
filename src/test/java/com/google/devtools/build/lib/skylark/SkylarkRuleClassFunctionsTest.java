@@ -240,7 +240,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
     Pair<String, Descriptor> pair = Iterables.getOnlyElement(aspect.getAttributes());
     assertThat(pair.first).isEqualTo("$extra_deps");
     assertThat(pair.second.getAttributeBuilder().build("$extra_deps").getDefaultValue(null))
-        .isEqualTo(Label.parseAbsolute("//foo/bar:baz"));
+        .isEqualTo(Label.parseAbsolute("//foo/bar:baz", false));
   }
 
   @Test

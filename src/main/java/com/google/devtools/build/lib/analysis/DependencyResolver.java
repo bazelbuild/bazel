@@ -386,11 +386,14 @@ public abstract class DependencyResolver {
         }
         try {
           if (attribute.getType() == BuildType.LABEL) {
-            Label label = BuildType.LABEL.cast(actualValue);
+            Label label = rule.getLabel().resolveRepositoryRelative(
+                BuildType.LABEL.cast(actualValue));
             builder.put(attribute, LabelAndConfiguration.of(label, actualConfig));
           } else if (attribute.getType() == BuildType.LABEL_LIST) {
             for (Label label : BuildType.LABEL_LIST.cast(actualValue)) {
-              builder.put(attribute, LabelAndConfiguration.of(label, actualConfig));
+              builder.put(attribute, LabelAndConfiguration.of(
+                  rule.getLabel().resolveRepositoryRelative(label),
+                  actualConfig));
             }
           } else {
             throw new IllegalStateException(

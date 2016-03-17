@@ -152,7 +152,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
         packageCacheOptions.defaultVisibility, true,
         7, ruleClassProvider.getDefaultsPackageContent(enforcedTestOptions),
         UUID.randomUUID());
-    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.deletedPackages));
+    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
   }
 
   private PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {

@@ -79,11 +79,11 @@ public class ArtifactFactoryTest {
     outRoot = Root.asDerivedRoot(execRoot, execRoot.getRelative("out-root/x/bin"));
 
     fooPath = new PathFragment("foo");
-    fooPackage = PackageIdentifier.createInDefaultRepo(fooPath);
+    fooPackage = PackageIdentifier.createInMainRepo(fooPath);
     fooRelative = fooPath.getRelative("foosource.txt");
 
     barPath = new PathFragment("foo/bar");
-    barPackage = PackageIdentifier.createInDefaultRepo(barPath);
+    barPackage = PackageIdentifier.createInMainRepo(barPath);
     barRelative = barPath.getRelative("barsource.txt");
 
     alienPath = new PathFragment("external/alien");
@@ -152,7 +152,7 @@ public class ArtifactFactoryTest {
     // We need a package in the root directory to make every exec path (even one with up-level
     // references) be in a package.
     Map<PackageIdentifier, Root> packageRoots = ImmutableMap.of(
-        PackageIdentifier.createInDefaultRepo(new PathFragment("")), clientRoot);
+        PackageIdentifier.createInMainRepo(new PathFragment("")), clientRoot);
     artifactFactory.setPackageRoots(packageRoots);
     PathFragment outsideWorkspace = new PathFragment("../foo");
     PathFragment insideWorkspace =

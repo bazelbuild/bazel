@@ -60,7 +60,7 @@ public class RecursivePkgFunctionTest extends BuildViewTestCase {
       Path root, PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
     RootedPath rootedPath = RootedPath.toRootedPath(root, rootRelativePath);
     return RecursivePkgValue.key(
-        PackageIdentifier.DEFAULT_REPOSITORY_NAME, rootedPath, excludedPaths);
+        PackageIdentifier.MAIN_REPOSITORY_NAME, rootedPath, excludedPaths);
   }
 
   private RecursivePkgValue buildRecursivePkgValue(Path root, PathFragment rootRelativePath)

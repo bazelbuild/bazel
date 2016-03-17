@@ -82,7 +82,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
   private ContainingPackageLookupValue lookupContainingPackage(String packageName)
       throws InterruptedException {
     SkyKey key =
-        ContainingPackageLookupValue.key(PackageIdentifier.createInDefaultRepo(packageName));
+        ContainingPackageLookupValue.key(PackageIdentifier.createInMainRepo(packageName));
     return driver
         .<ContainingPackageLookupValue>evaluate(
             ImmutableList.of(key),
@@ -103,7 +103,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     scratch.file("a/BUILD");
     ContainingPackageLookupValue value = lookupContainingPackage("a/b");
     assertTrue(value.hasContainingPackage());
-    assertEquals(PackageIdentifier.createInDefaultRepo("a"), value.getContainingPackageName());
+    assertEquals(PackageIdentifier.createInMainRepo("a"), value.getContainingPackageName());
     assertEquals(rootDirectory, value.getContainingPackageRoot());
   }
 
@@ -112,7 +112,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     scratch.file("a/b/BUILD");
     ContainingPackageLookupValue value = lookupContainingPackage("a/b");
     assertTrue(value.hasContainingPackage());
-    assertEquals(PackageIdentifier.createInDefaultRepo("a/b"), value.getContainingPackageName());
+    assertEquals(PackageIdentifier.createInMainRepo("a/b"), value.getContainingPackageName());
     assertEquals(rootDirectory, value.getContainingPackageRoot());
   }
 
@@ -122,11 +122,11 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     ContainingPackageLookupValue valueA2 = ContainingPackageLookupValue.NONE;
     ContainingPackageLookupValue valueB1 =
         ContainingPackageLookupValue.withContainingPackage(
-            PackageIdentifier.createInDefaultRepo("b"), rootDirectory);
+            PackageIdentifier.createInMainRepo("b"), rootDirectory);
     ContainingPackageLookupValue valueB2 =
         ContainingPackageLookupValue.withContainingPackage(
-            PackageIdentifier.createInDefaultRepo("b"), rootDirectory);
-    PackageIdentifier cFrag = PackageIdentifier.createInDefaultRepo("c");
+            PackageIdentifier.createInMainRepo("b"), rootDirectory);
+    PackageIdentifier cFrag = PackageIdentifier.createInMainRepo("c");
     ContainingPackageLookupValue valueC1 =
         ContainingPackageLookupValue.withContainingPackage(cFrag, rootDirectory);
     ContainingPackageLookupValue valueC2 =

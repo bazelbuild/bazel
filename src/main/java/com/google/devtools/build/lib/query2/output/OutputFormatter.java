@@ -229,7 +229,7 @@ public abstract class OutputFormatter implements Serializable {
               out.print(target.getTargetKind());
               out.print(' ');
             }
-            out.println(target.getLabel());
+            out.println(target.getLabel().getDefaultCanonicalForm());
           }
         }
       };
@@ -306,7 +306,8 @@ public abstract class OutputFormatter implements Serializable {
             throws IOException, InterruptedException {
           for (Target target : partialResult) {
             Location location = target.getLocation();
-            out.println(location.print() + ": " + target.getTargetKind() + " " + target.getLabel());
+            out.println(location.print() + ": " + target.getTargetKind()
+                + " " + target.getLabel().getDefaultCanonicalForm());
           }
         }
       };
@@ -348,7 +349,7 @@ public abstract class OutputFormatter implements Serializable {
             Object value = Iterables.getOnlyElement(values.first);
             out.printf("  %s = ", attr.getPublicName());
             if (value instanceof Label) {
-              value = value.toString();
+              value = ((Label) value).getDefaultCanonicalForm();
             } else if (value instanceof List<?> && EvalUtils.isImmutable(value)) {
               // Display it as a list (and not as a tuple). Attributes can never be tuples.
               value = new ArrayList<>((List<?>) value);
@@ -398,7 +399,7 @@ public abstract class OutputFormatter implements Serializable {
 
     @Override
     public String toString() {
-      return rank + " " + label;
+      return rank + " " + label.getDefaultCanonicalForm();
     }
   }
 
@@ -423,7 +424,7 @@ public abstract class OutputFormatter implements Serializable {
       if (toSave != null) {
         toSave.add(new RankAndLabel(rank, label));
       } else {
-        out.println(rank + " " + label);
+        out.println(rank + " " + label.getDefaultCanonicalForm());
       }
     }
 

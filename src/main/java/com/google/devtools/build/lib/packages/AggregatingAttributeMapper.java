@@ -114,7 +114,7 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
         for (Object value : visitAttribute(attribute.getName(), attribute.getType())) {
           if (value != null) {
             for (Label label : extractLabels(type, value)) {
-              observer.acceptLabelAttribute(label, attribute);
+              observer.acceptLabelAttribute(getLabel().resolveRepositoryRelative(label), attribute);
             }
           }
         }

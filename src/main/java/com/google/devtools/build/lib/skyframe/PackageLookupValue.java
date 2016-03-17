@@ -93,10 +93,11 @@ public abstract class PackageLookupValue implements SkyValue {
 
   static SkyKey key(PathFragment directory) {
     Preconditions.checkArgument(!directory.isAbsolute(), directory);
-    return key(PackageIdentifier.createInDefaultRepo(directory));
+    return key(PackageIdentifier.createInMainRepo(directory));
   }
 
   public static SkyKey key(PackageIdentifier pkgIdentifier) {
+    Preconditions.checkArgument(!pkgIdentifier.getRepository().isDefault());
     return SkyKey.create(SkyFunctions.PACKAGE_LOOKUP, pkgIdentifier);
   }
 

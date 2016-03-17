@@ -92,7 +92,7 @@ public class GlobCacheTest {
     scratch.file("isolated/sub/sub.js",
         "# this is sub/sub.js");
 
-    cache = new GlobCache(packageDirectory, PackageIdentifier.createInDefaultRepo("isolated"),
+    cache = new GlobCache(packageDirectory, PackageIdentifier.createInMainRepo("isolated"),
         new CachingPackageLocator() {
       @Override
       public Path getBuildFileForPackage(PackageIdentifier packageId) {

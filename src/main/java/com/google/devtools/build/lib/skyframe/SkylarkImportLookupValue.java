@@ -69,6 +69,7 @@ public class SkylarkImportLookupValue implements SkyValue {
 
     public SkylarkImportLookupKey(Label importLabel, boolean inWorkspace) {
       Preconditions.checkNotNull(importLabel);
+      Preconditions.checkArgument(!importLabel.getPackageIdentifier().getRepository().isDefault());
       this.importLabel = importLabel;
       this.inWorkspace = inWorkspace;
     }

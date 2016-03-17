@@ -772,19 +772,19 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "BUILD", "filegroup(name='dep')", "load('/my_rule', 'my_rule')", "my_rule(name='r')");
 
     invalidatePackages();
-    SkylarkRuleContext context = createRuleContext("@//:r");
+    SkylarkRuleContext context = createRuleContext("//:r");
     Label explicitDepLabel =
         (Label) evalRuleContextCode(context, "ruleContext.attr.explicit_dep.label");
-    assertThat(explicitDepLabel).isEqualTo(Label.parseAbsolute("@//:dep"));
+    assertThat(explicitDepLabel).isEqualTo(Label.parseAbsolute("//:dep"));
     Label implicitDepLabel =
         (Label) evalRuleContextCode(context, "ruleContext.attr._implicit_dep.label");
-    assertThat(implicitDepLabel).isEqualTo(Label.parseAbsolute("@//:dep"));
+    assertThat(implicitDepLabel).isEqualTo(Label.parseAbsolute("//:dep"));
     Label explicitDepListLabel =
         (Label) evalRuleContextCode(context, "ruleContext.attr.explicit_dep_list[0].label");
-    assertThat(explicitDepListLabel).isEqualTo(Label.parseAbsolute("@//:dep"));
+    assertThat(explicitDepListLabel).isEqualTo(Label.parseAbsolute("//:dep"));
     Label implicitDepListLabel =
         (Label) evalRuleContextCode(context, "ruleContext.attr._implicit_dep_list[0].label");
-    assertThat(implicitDepListLabel).isEqualTo(Label.parseAbsolute("@//:dep"));
+    assertThat(implicitDepListLabel).isEqualTo(Label.parseAbsolute("//:dep"));
   }
 
   @Test

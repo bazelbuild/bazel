@@ -71,7 +71,7 @@ public class PackageFactoryApparatus {
    * Parses and evaluates {@code buildFile} and returns the resulting {@link Package} instance.
    */
   public Package createPackage(String packageName, Path buildFile) throws Exception {
-    return createPackage(PackageIdentifier.createInDefaultRepo(packageName), buildFile,
+    return createPackage(PackageIdentifier.createInMainRepo(packageName), buildFile,
         eventHandler);
   }
 
@@ -107,7 +107,7 @@ public class PackageFactoryApparatus {
    */
   public Pair<Package, GlobCache> evalAndReturnGlobCache(String packageName, Path buildFile,
       BuildFileAST buildFileAST) throws InterruptedException {
-    PackageIdentifier packageId = PackageIdentifier.createInDefaultRepo(packageName);
+    PackageIdentifier packageId = PackageIdentifier.createInMainRepo(packageName);
     GlobCache globCache =
         new GlobCache(
             buildFile.getParentDirectory(),

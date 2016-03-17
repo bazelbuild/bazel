@@ -60,7 +60,7 @@ public final class TargetPatternResolverUtil {
     if (LabelValidator.validatePackageName(packageName) != null) {
       throw new TargetParsingException("'" + packageName + "' is not a valid package name");
     }
-    if (!resolver.isPackage(PackageIdentifier.createInDefaultRepo(packageName))) {
+    if (!resolver.isPackage(PackageIdentifier.createInMainRepo(packageName))) {
       throw new TargetParsingException(
           TargetPatternResolverUtil.getParsingErrorMessage(
               "no such package '" + packageName + "': BUILD file not found on package path",

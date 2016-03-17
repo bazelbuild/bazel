@@ -109,7 +109,7 @@ public class TargetMarkerFunctionTest extends BuildViewTestCase {
     String labelName = "//no/such/package:target/withslash";
     BuildFileNotFoundException exn =
         (BuildFileNotFoundException) getErrorFromTargetValue(labelName);
-    assertEquals(PackageIdentifier.createInDefaultRepo("no/such/package"), exn.getPackageId());
+    assertEquals(PackageIdentifier.createInMainRepo("no/such/package"), exn.getPackageId());
     String expectedMessage =
         "no such package 'no/such/package': BUILD file not found on "
             + "package path for 'no/such/package'";
@@ -123,11 +123,10 @@ public class TargetMarkerFunctionTest extends BuildViewTestCase {
         "a/BUILD",
         "genrule(name = 'conflict1', cmd = '', srcs = [], outs = ['conflict'])",
         "genrule(name = 'conflict2', cmd = '', srcs = [], outs = ['conflict'])");
-    String labelName = "//a:conflict1";
-    NoSuchTargetException exn = (NoSuchTargetException) getErrorFromTargetValue(labelName);
+    NoSuchTargetException exn = (NoSuchTargetException) getErrorFromTargetValue("@//a:conflict1");
     assertThat(exn.getMessage())
         .contains("Target '//a:conflict1' contains an error and its package is in error");
-    assertEquals(labelName, exn.getLabel().toString());
+    assertEquals("//a:conflict1", exn.getLabel().toString());
     assertTrue(exn.hasTarget());
   }
 

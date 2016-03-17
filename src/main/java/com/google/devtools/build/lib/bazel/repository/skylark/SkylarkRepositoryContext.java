@@ -18,6 +18,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -363,6 +364,14 @@ public class SkylarkRepositoryContext {
   // Resolve the label given by value into a file path.
   private SkylarkPath getPathFromLabel(Label label) throws EvalException {
     // Look for package.
+    if (label.getPackageIdentifier().getRepository().isDefault()) {
+      try {
+        label = Label.create(label.getPackageIdentifier().makeAbsolute(),
+            label.getName());
+      } catch (LabelSyntaxException e) {
+        throw new IllegalStateException(e);  // Can't happen because the input label is valid
+      }
+    }
     SkyKey pkgSkyKey = PackageLookupValue.key(label.getPackageIdentifier());
     PackageLookupValue pkgLookupValue = (PackageLookupValue) env.getValue(pkgSkyKey);
     if (pkgLookupValue == null) {

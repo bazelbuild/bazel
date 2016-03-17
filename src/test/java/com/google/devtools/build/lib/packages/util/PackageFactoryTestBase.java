@@ -289,7 +289,7 @@ public abstract class PackageFactoryTestBase {
                 "java_library(name = 'mylib',",
                 "  srcs = 'java/A.java')");
         packages.createPackage(
-            PackageIdentifier.createInDefaultRepo("isolated"), buildFile, eventHandler);
+            PackageIdentifier.createInMainRepo("isolated"), buildFile, eventHandler);
         parsedOK = true;
       } catch (Exception e) {
         e.printStackTrace();

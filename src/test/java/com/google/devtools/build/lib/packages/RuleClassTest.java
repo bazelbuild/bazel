@@ -206,7 +206,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
 
   private static final int TEST_RULE_DEFINED_AT_LINE = 42;
 
-  private static final String TEST_RULE_LABEL = "//" + TEST_PACKAGE_NAME + ":" + TEST_RULE_NAME;
+  private static final String TEST_RULE_LABEL = "@//" + TEST_PACKAGE_NAME + ":" + TEST_RULE_NAME;
 
   private Path testBuildfilePath;
   private Location testRuleLocation;
@@ -219,7 +219,7 @@ public class RuleClassTest extends PackageLoadingTestCase {
   }
 
   private Package.Builder createDummyPackageBuilder() {
-    return new Builder(PackageIdentifier.createInDefaultRepo(TEST_PACKAGE_NAME), "TESTING")
+    return new Builder(PackageIdentifier.createInMainRepo(TEST_PACKAGE_NAME), "TESTING")
         .setFilename(testBuildfilePath)
         .setMakeEnv(new MakeEnvironment.Builder());
   }
@@ -309,16 +309,14 @@ public class RuleClassTest extends PackageLoadingTestCase {
       assertEquals(TEST_RULE_DEFINED_AT_LINE,
           event.getLocation().getStartLineAndColumn().getLine());
       assertEquals(testBuildfilePath.asFragment(), event.getLocation().getPath());
-      assertEquals(TEST_RULE_LABEL + ": " + expectedMessages.next(), event.getMessage());
+      assertEquals(TEST_RULE_LABEL.toString().substring(1)
+          + ": " + expectedMessages.next(), event.getMessage());
     }
 
     // Test basic rule properties:
-    assertEquals("ruleA",
-                 rule.getRuleClass());
-    assertEquals(TEST_RULE_NAME,
-                 rule.getName());
-    assertEquals(TEST_RULE_LABEL,
-                 rule.getLabel().toString());
+    assertEquals("ruleA", rule.getRuleClass());
+    assertEquals(TEST_RULE_NAME, rule.getName());
+    assertEquals(TEST_RULE_LABEL.substring(1), rule.getLabel().toString());
 
     // Test attribute access:
     AttributeMap attributes = RawAttributeMapper.of(rule);

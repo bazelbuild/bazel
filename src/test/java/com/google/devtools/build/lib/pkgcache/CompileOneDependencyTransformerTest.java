@@ -116,19 +116,19 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
   public void testCompileOneDep() throws Exception {
     writeSimpleExample();
     assertThat(parseListCompileOneDep("foo/foo1.cc"))
-        .containsExactlyElementsIn(labels("//foo:foo1"));
+        .containsExactlyElementsIn(labels("@//foo:foo1"));
     assertThat(parseListCompileOneDep("foo/foo1.h"))
-        .containsExactlyElementsIn(labels("//foo:foo1"));
+        .containsExactlyElementsIn(labels("@//foo:foo1"));
     assertThat(parseListCompileOneDep("foo:foo1.cc"))
-        .containsExactlyElementsIn(labels("//foo:foo1"));
+        .containsExactlyElementsIn(labels("@//foo:foo1"));
     assertThat(parseListCompileOneDep("//foo:foo1.cc"))
-        .containsExactlyElementsIn(labels("//foo:foo1"));
+        .containsExactlyElementsIn(labels("@//foo:foo1"));
     assertThat(parseListCompileOneDepRelative("//foo:foo1.cc"))
-        .containsExactlyElementsIn(labels("//foo:foo1"));
+        .containsExactlyElementsIn(labels("@//foo:foo1"));
     assertThat(parseListCompileOneDepRelative(":foo1.cc"))
-        .containsExactlyElementsIn(labels("//foo:foo1"));
+        .containsExactlyElementsIn(labels("@//foo:foo1"));
     assertThat(parseListCompileOneDepRelative("foo1.cc"))
-        .containsExactlyElementsIn(labels("//foo:foo1"));
+        .containsExactlyElementsIn(labels("@//foo:foo1"));
   }
 
   /**

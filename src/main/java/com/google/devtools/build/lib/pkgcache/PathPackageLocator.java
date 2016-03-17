@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -98,9 +99,10 @@ public class PathPackageLocator implements Serializable {
    */
   public Path getPackageBuildFileNullable(PackageIdentifier packageIdentifier,
       AtomicReference<? extends UnixGlob.FilesystemCalls> cache)  {
-    if (packageIdentifier.getRepository().isDefault()) {
+    Preconditions.checkArgument(!packageIdentifier.getRepository().isDefault());
+    if (packageIdentifier.getRepository().isMain()) {
       return getFilePath(packageIdentifier.getPackageFragment().getRelative("BUILD"), cache);
-    } else if (!packageIdentifier.getRepository().isDefault()) {
+    } else {
       Verify.verify(outputBase != null, String.format(
           "External package '%s' needs to be loaded but this PathPackageLocator instance does not "
               + "support external packages", packageIdentifier));
@@ -116,8 +118,6 @@ public class PathPackageLocator implements Serializable {
       } else {
         return null;
       }
-    } else {
-      return null;
     }
   }
 

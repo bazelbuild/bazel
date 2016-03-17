@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.pkgcache;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -185,5 +186,16 @@ public class PackageCacheOptions extends OptionsBase {
       return "comma-separated list of package names";
     }
 
+  }
+
+  public ImmutableSet<PackageIdentifier> getDeletedPackages() {
+    if (deletedPackages == null) {
+      return ImmutableSet.of();
+    }
+    ImmutableSet.Builder<PackageIdentifier> newDeletedPackages = ImmutableSet.builder();
+    for (PackageIdentifier pkg : deletedPackages) {
+      newDeletedPackages.add(pkg.makeAbsolute());
+    }
+    return newDeletedPackages.build();
   }
 }

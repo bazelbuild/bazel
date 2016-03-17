@@ -171,7 +171,7 @@ public final class GraphBackedRecursivePackageProvider implements RecursivePacka
     }
 
     List<Path> roots = new ArrayList<>();
-    if (repository.isDefault()) {
+    if (repository.isMain()) {
       roots.addAll(pkgPath.getPathEntries());
     } else {
       RepositoryDirectoryValue repositoryValue =

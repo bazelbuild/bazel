@@ -54,8 +54,7 @@ public class PackageLookupFunction implements SkyFunction {
       return PackageLookupValue.success(pkgLocator.getPathEntries().get(0));
     }
 
-    if (!packageKey.getRepository().equals(PackageIdentifier.MAIN_REPOSITORY_NAME)
-        && !packageKey.getRepository().isDefault()) {
+    if (!packageKey.getRepository().isMain()) {
       return computeExternalPackageLookupValue(skyKey, env, packageKey);
     } else if (packageKey.equals(Label.EXTERNAL_PACKAGE_IDENTIFIER)) {
       return computeWorkspaceLookupValue(env, packageKey);

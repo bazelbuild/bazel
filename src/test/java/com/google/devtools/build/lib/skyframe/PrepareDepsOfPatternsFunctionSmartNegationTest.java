@@ -47,7 +47,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
 
   @Test
   public void testRecursiveEvaluationFailsOnBadBuildFile() throws Exception {
-    // Given a well-formed package "//foo" and a malformed package "//foo/foo",
+    // Given a well-formed package "@//foo" and a malformed package "@//foo/foo",
     createFooAndFooFoo();
 
     // Given a target pattern sequence consisting of a recursive pattern for "//foo/...",
@@ -59,12 +59,12 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
         getGraphFromPatternsEvaluation(
             patternSequence, /*successExpected=*/ true, /*keepGoing=*/ true);
 
-    // Then the graph contains package values for "//foo" and "//foo/foo",
-    assertTrue(walkableGraph.exists(PackageValue.key(PackageIdentifier.parse("foo"))));
-    assertTrue(walkableGraph.exists(PackageValue.key(PackageIdentifier.parse("foo/foo"))));
+    // Then the graph contains package values for "@//foo" and "@//foo/foo",
+    assertTrue(walkableGraph.exists(PackageValue.key(PackageIdentifier.parse("@//foo"))));
+    assertTrue(walkableGraph.exists(PackageValue.key(PackageIdentifier.parse("@//foo/foo"))));
 
-    // But the graph does not contain a value for the target "//foo/foo:foofoo".
-    assertFalse(walkableGraph.exists(getKeyForLabel(Label.create("foo/foo", "foofoo"))));
+    // But the graph does not contain a value for the target "@//foo/foo:foofoo".
+    assertFalse(walkableGraph.exists(getKeyForLabel(Label.create("@//foo/foo", "foofoo"))));
   }
 
   @Test
@@ -103,14 +103,14 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends BuildViewTes
         getGraphFromPatternsEvaluation(
             patternSequence, /*successExpected=*/ true, /*keepGoing=*/ true);
 
-    // Then the graph contains a package value for "//foo",
-    assertTrue(walkableGraph.exists(PackageValue.key(PackageIdentifier.parse("foo"))));
+    // Then the graph contains a package value for "@//foo",
+    assertTrue(walkableGraph.exists(PackageValue.key(PackageIdentifier.parse("@//foo"))));
 
-    // But no package value for "//foo/foo",
-    assertFalse(walkableGraph.exists(PackageValue.key(PackageIdentifier.parse("foo/foo"))));
+    // But no package value for "@//foo/foo",
+    assertFalse(walkableGraph.exists(PackageValue.key(PackageIdentifier.parse("@//foo/foo"))));
 
-    // And the graph does not contain a value for the target "//foo/foo:foofoo".
-    Label label = Label.create("foo/foo", "foofoo");
+    // And the graph does not contain a value for the target "@//foo/foo:foofoo".
+    Label label = Label.create("@//foo/foo", "foofoo");
     assertFalse(walkableGraph.exists(getKeyForLabel(label)));
   }
 

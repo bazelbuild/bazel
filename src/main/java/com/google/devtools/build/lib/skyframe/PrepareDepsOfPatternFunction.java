@@ -223,7 +223,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
           rulesOnly ? FilteringPolicies.RULES_ONLY : FilteringPolicies.NO_FILTER;
       PathFragment pathFragment = TargetPatternResolverUtil.getPathFragment(directory);
       List<Path> roots = new ArrayList<>();
-      if (repository.isDefault()) {
+      if (repository.isMain()) {
         roots.addAll(pkgPath.getPathEntries());
       } else {
         RepositoryDirectoryValue repositoryValue =

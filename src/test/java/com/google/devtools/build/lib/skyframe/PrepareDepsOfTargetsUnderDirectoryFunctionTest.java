@@ -59,7 +59,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
       Path root, PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
     RootedPath rootedPath = RootedPath.toRootedPath(root, rootRelativePath);
     return CollectPackagesUnderDirectoryValue.key(
-        PackageIdentifier.DEFAULT_REPOSITORY_NAME, rootedPath, excludedPaths);
+        PackageIdentifier.MAIN_REPOSITORY_NAME, rootedPath, excludedPaths);
   }
 
   private SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath) {
@@ -70,14 +70,14 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
       ImmutableSet<PathFragment> excludedPaths) {
     RootedPath rootedPath = RootedPath.toRootedPath(root, rootRelativePath);
     return PrepareDepsOfTargetsUnderDirectoryValue.key(
-        PackageIdentifier.DEFAULT_REPOSITORY_NAME, rootedPath, excludedPaths);
+        PackageIdentifier.MAIN_REPOSITORY_NAME, rootedPath, excludedPaths);
   }
 
   private SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath,
       ImmutableSet<PathFragment> excludedPaths, FilteringPolicy filteringPolicy) {
     RootedPath rootedPath = RootedPath.toRootedPath(root, rootRelativePath);
     return PrepareDepsOfTargetsUnderDirectoryValue.key(
-        PackageIdentifier.DEFAULT_REPOSITORY_NAME, rootedPath, excludedPaths, filteringPolicy);
+        PackageIdentifier.MAIN_REPOSITORY_NAME, rootedPath, excludedPaths, filteringPolicy);
   }
 
   private EvaluationResult<?> getEvaluationResult(SkyKey... keys) throws InterruptedException {
@@ -102,14 +102,14 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
     EvaluationResult<?> evaluationResult = getEvaluationResult(key);
     WalkableGraph graph = Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
 
-    // Then the TransitiveTraversalValue for "a:a" is evaluated,
-    SkyKey aaKey = TransitiveTraversalValue.key(Label.create("a", "a"));
+    // Then the TransitiveTraversalValue for "@//a:a" is evaluated,
+    SkyKey aaKey = TransitiveTraversalValue.key(Label.create("@//a", "a"));
     assertThat(graph.exists(aaKey)).isTrue();
 
-    // And that TransitiveTraversalValue depends on "b:b.txt".
+    // And that TransitiveTraversalValue depends on "@//b:b.txt".
     Iterable<SkyKey> depsOfAa =
         Iterables.getOnlyElement(graph.getDirectDeps(ImmutableList.of(aaKey)).values());
-    SkyKey bTxtKey = TransitiveTraversalValue.key(Label.create("b", "b.txt"));
+    SkyKey bTxtKey = TransitiveTraversalValue.key(Label.create("@//b", "b.txt"));
     assertThat(depsOfAa).contains(bTxtKey);
 
     // And the TransitiveTraversalValue for "b:b.txt" is evaluated.
@@ -128,12 +128,12 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
     EvaluationResult<?> evaluationResult = getEvaluationResult(key);
     WalkableGraph graph = Preconditions.checkNotNull(evaluationResult.getWalkableGraph());
 
-    // Then the TransitiveTraversalValue for "a:a" is not evaluated,
-    SkyKey aaKey = TransitiveTraversalValue.key(Label.create("a", "a"));
+    // Then the TransitiveTraversalValue for "@//a:a" is not evaluated,
+    SkyKey aaKey = TransitiveTraversalValue.key(Label.create("@//a", "a"));
     assertThat(graph.exists(aaKey)).isFalse();
 
-    // But the TransitiveTraversalValue for "a:aTest" is.
-    SkyKey aaTestKey = TransitiveTraversalValue.key(Label.create("a", "aTest"));
+    // But the TransitiveTraversalValue for "@//a:aTest" is.
+    SkyKey aaTestKey = TransitiveTraversalValue.key(Label.create("@//a", "aTest"));
     assertThat(graph.exists(aaTestKey)).isTrue();
   }
 

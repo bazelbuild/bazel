@@ -178,6 +178,13 @@ public final class RepositoryName implements Serializable {
   }
 
   /**
+   * Returns if this is the default repository, that is, {@link #name} is "@".
+   */
+  public boolean isMain() {
+    return name.equals("@");
+  }
+
+  /**
    * Returns the repository name, with leading "{@literal @}" (or "" for the default repository).
    */
   // TODO(bazel-team): Use this over toString()- easier to track its usage.
@@ -189,7 +196,7 @@ public final class RepositoryName implements Serializable {
    * Returns the path at which this repository is mapped within the exec root.
    */
   public PathFragment getPathFragment() {
-    return isDefault() || this.equals(PackageIdentifier.MAIN_REPOSITORY_NAME)
+    return isDefault() || isMain()
         ? PathFragment.EMPTY_FRAGMENT
         : new PathFragment(Label.EXTERNAL_PATH_PREFIX).getRelative(strippedName());
   }

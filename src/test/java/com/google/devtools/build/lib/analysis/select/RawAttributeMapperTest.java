@@ -64,7 +64,8 @@ public class RawAttributeMapperTest extends AbstractAttributeMapperTest {
     RawAttributeMapper rawMapper = RawAttributeMapper.of(setupGenRule());
     List<Label> value = rawMapper.get("data", BuildType.LABEL_LIST);
     assertNotNull(value);
-    assertThat(value).containsExactly(Label.create("x", "data_a"), Label.create("x", "data_b"));
+    assertThat(value).containsExactly(
+        Label.create("@//x", "data_a"), Label.create("@//x", "data_b"));
 
     // Configurable attribute: trying to directly access from a RawAttributeMapper throws a
     // type mismatch exception.

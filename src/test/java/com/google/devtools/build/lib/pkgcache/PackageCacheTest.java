@@ -109,7 +109,7 @@ public class PackageCacheTest extends FoundationTestCase {
         packageCacheOptions.defaultVisibility, true,
         7, ruleClassProvider.getDefaultsPackageContent(),
         UUID.randomUUID());
-    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.deletedPackages));
+    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
   }
 
   private PackageCacheOptions parsePackageCacheOptions(String... options) throws Exception {
@@ -135,7 +135,7 @@ public class PackageCacheTest extends FoundationTestCase {
   private Package getPackage(String packageName)
       throws NoSuchPackageException, InterruptedException {
     return getPackageManager().getPackage(reporter,
-        PackageIdentifier.createInDefaultRepo(packageName));
+        PackageIdentifier.createInMainRepo(packageName));
   }
 
   private Target getTarget(Label label)
@@ -169,7 +169,7 @@ public class PackageCacheTest extends FoundationTestCase {
     assertEquals("/workspace/pkg1/BUILD",
                  pkg1.getFilename().toString());
     assertSame(pkg1, getPackageManager().getPackage(reporter,
-        PackageIdentifier.createInDefaultRepo("pkg1")));
+        PackageIdentifier.createInMainRepo("pkg1")));
   }
 
   @Test
@@ -532,13 +532,13 @@ public class PackageCacheTest extends FoundationTestCase {
         + "If so, use the --deleted_packages=c/d option)");
 
     assertTrue(getPackageManager().isPackage(
-        reporter, PackageIdentifier.createInDefaultRepo("c/d")));
+        reporter, PackageIdentifier.createInMainRepo("c/d")));
 
     setOptions("--deleted_packages=c/d");
     invalidatePackages();
 
     assertFalse(getPackageManager().isPackage(
-        reporter, PackageIdentifier.createInDefaultRepo("c/d")));
+        reporter, PackageIdentifier.createInMainRepo("c/d")));
 
     // c/d is no longer a subpackage--even though there's a BUILD file in the
     // second root:

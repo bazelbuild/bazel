@@ -97,7 +97,7 @@ public class LabelExpanderTest extends BuildViewTestCase {
    * Creates fake label in package "foo".
    */
   private static Label labelFor(String targetName) throws LabelSyntaxException {
-    return Label.create("foo", targetName);
+    return Label.create("@//foo", targetName);
   }
 
   /**

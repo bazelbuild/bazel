@@ -232,7 +232,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
     for (PathFragment importPath : pathsToLookup) {
       PathFragment relativeImportPath = importPath.toRelative();
       PackageIdentifier pkgToLookUp =
-          PackageIdentifier.createInDefaultRepo(relativeImportPath.getParentDirectory());
+          PackageIdentifier.createInMainRepo(relativeImportPath.getParentDirectory());
       lookupMap.put(ContainingPackageLookupValue.key(pkgToLookUp), importPath);
     }
 
@@ -303,6 +303,8 @@ public class SkylarkImportLookupFunction implements SkyFunction {
   static ImmutableMap<String, Label> findLabelsForLoadStatements(
       ImmutableCollection<SkylarkImport> imports, Label containingFileLabel, Environment env)
           throws SkylarkImportFailedException {
+    Preconditions.checkArgument(
+        !containingFileLabel.getPackageIdentifier().getRepository().isDefault());
     Map<String, Label> outputMap = Maps.newHashMapWithExpectedSize(imports.size());
 
     // Filter relative vs. absolute paths.

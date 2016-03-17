@@ -108,7 +108,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
   }
 
   private PackageLookupValue lookupPackage(String packageName) throws InterruptedException {
-    return lookupPackage(PackageIdentifier.createInDefaultRepo(packageName));
+    return lookupPackage(PackageIdentifier.createInMainRepo(packageName));
   }
 
   private PackageLookupValue lookupPackage(PackageIdentifier packageId)
@@ -141,7 +141,7 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
   public void testDeletedPackage() throws Exception {
     scratch.file("parentpackage/deletedpackage/BUILD");
     deletedPackages.set(ImmutableSet.of(
-        PackageIdentifier.createInDefaultRepo("parentpackage/deletedpackage")));
+        PackageIdentifier.createInMainRepo("parentpackage/deletedpackage")));
     PackageLookupValue packageLookupValue = lookupPackage("parentpackage/deletedpackage");
     assertFalse(packageLookupValue.packageExists());
     assertEquals(ErrorReason.DELETED_PACKAGE, packageLookupValue.getErrorReason());
@@ -215,7 +215,8 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
   @Test
   public void testWorkspaceLookup() throws Exception {
     scratch.overwriteFile("WORKSPACE");
-    PackageLookupValue packageLookupValue = lookupPackage("external");
+    PackageLookupValue packageLookupValue = lookupPackage(
+        PackageIdentifier.createInMainRepo("external"));
     assertTrue(packageLookupValue.packageExists());
     assertEquals(rootDirectory, packageLookupValue.getRoot());
   }

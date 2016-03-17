@@ -210,7 +210,7 @@ public class SkylarkImports {
       // Absolute label.
       Label importLabel;
       try {
-        importLabel = Label.parseAbsolute(importString);
+        importLabel = Label.parseAbsolute(importString, false);
       } catch (LabelSyntaxException e) {
         throw new SkylarkImportSyntaxException(INVALID_LABEL_PREFIX + e.getMessage());
       }

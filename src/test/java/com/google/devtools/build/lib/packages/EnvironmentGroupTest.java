@@ -57,7 +57,7 @@ public class EnvironmentGroupTest extends PackageLoadingTestCase {
     PackageFactory pkgFactory = new PackageFactory(TestRuleClassProvider.getRuleClassProvider());
     pkg =
         pkgFactory.createPackageForTesting(
-            PackageIdentifier.createInDefaultRepo("pkg"), buildfile, getPackageManager(), reporter);
+            PackageIdentifier.createInMainRepo("pkg"), buildfile, getPackageManager(), reporter);
 
     group = (EnvironmentGroup) pkg.getTarget("group");
   }

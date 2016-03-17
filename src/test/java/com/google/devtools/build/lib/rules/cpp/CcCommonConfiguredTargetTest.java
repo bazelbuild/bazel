@@ -468,7 +468,7 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
         "       deps = [':lib1'],",
         "       alwayslink=1)");
     reporter.removeHandler(failFastHandler);
-    getPackageManager().getPackage(reporter, PackageIdentifier.createInDefaultRepo("cc/common"));
+    getPackageManager().getPackage(reporter, PackageIdentifier.createInMainRepo("cc/common"));
     assertContainsEvent(
         "//cc/common:testlib: no such attribute 'alwayslink'" + " in 'cc_test' rule");
   }

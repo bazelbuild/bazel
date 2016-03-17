@@ -557,17 +557,14 @@ public class PackageFactoryTest extends PackageFactoryTestBase {
     List<Label> yesFiles = attributes(pkg.getRule("yes")).get("srcs", BuildType.LABEL_LIST);
     List<Label> noFiles = attributes(pkg.getRule("no")).get("srcs", BuildType.LABEL_LIST);
 
-    assertThat(
-            Lists.newArrayList(
-                Label.create("fruit", "data/apple"), Label.create("fruit", "data/pear")))
-        .containsExactlyElementsIn(yesFiles);
+    assertThat(yesFiles).containsExactly(
+        Label.parseAbsolute("@//fruit:data/apple"),
+        Label.parseAbsolute("@//fruit:data/pear"));
 
-    assertThat(
-            Lists.newArrayList(
-                Label.create("fruit", "data/apple"),
-                Label.create("fruit", "data/pear"),
-                Label.create("fruit", "data/berry")))
-        .containsExactlyElementsIn(noFiles);
+    assertThat(noFiles).containsExactly(
+        Label.parseAbsolute("@//fruit:data/apple"),
+        Label.parseAbsolute("@//fruit:data/pear"),
+        Label.parseAbsolute("@//fruit:data/berry"));
   }
 
   // TODO(bazel-team): This is really a test for GlobCache.

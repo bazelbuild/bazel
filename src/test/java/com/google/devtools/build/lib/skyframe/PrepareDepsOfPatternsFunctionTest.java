@@ -59,11 +59,11 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     // When PrepareDepsOfPatternsFunction successfully completes evaluation,
     WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
-    // Then the graph contains a value for the target "//foo:foo",
-    assertValidValue(walkableGraph, getKeyForLabel(Label.create("foo", "foo")));
+    // Then the graph contains a value for the target "@//foo:foo",
+    assertValidValue(walkableGraph, getKeyForLabel(Label.create("@//foo", "foo")));
 
-    // And the graph does not contain a value for the target "//foo:foo2".
-    assertFalse(walkableGraph.exists(getKeyForLabel(Label.create("foo", "foo2"))));
+    // And the graph does not contain a value for the target "@//foo:foo2".
+    assertFalse(walkableGraph.exists(getKeyForLabel(Label.create("@//foo", "foo2"))));
   }
 
   @Test
@@ -79,12 +79,12 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
     // Then the graph contains an entry for ":foo"'s dependency, ":foo2".
-    assertValidValue(walkableGraph, getKeyForLabel(Label.create("foo", "foo2")));
+    assertValidValue(walkableGraph, getKeyForLabel(Label.create("@//foo", "foo2")));
   }
 
   @Test
   public void testFunctionExpandsTargetPatterns() throws Exception {
-    // Given a package "//foo" with independent target rules ":foo" and ":foo2",
+    // Given a package "@//foo" with independent target rules ":foo" and ":foo2",
     createFooAndFoo2(/*dependent=*/ false);
 
     // Given a target pattern sequence consisting of a pattern for "//foo:*",
@@ -94,8 +94,8 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
     // Then the graph contains an entry for ":foo" and ":foo2".
-    assertValidValue(walkableGraph, getKeyForLabel(Label.create("foo", "foo")));
-    assertValidValue(walkableGraph, getKeyForLabel(Label.create("foo", "foo2")));
+    assertValidValue(walkableGraph, getKeyForLabel(Label.create("@//foo", "foo")));
+    assertValidValue(walkableGraph, getKeyForLabel(Label.create("@//foo", "foo2")));
   }
 
   @Test
@@ -108,7 +108,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
     // Then the graph does not contain an entry for ":foo",
-    assertFalse(walkableGraph.exists(getKeyForLabel(Label.create("foo", "foo"))));
+    assertFalse(walkableGraph.exists(getKeyForLabel(Label.create("@//foo", "foo"))));
   }
 
   @Test
@@ -126,11 +126,11 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     // Then the graph contains an entry for ":foo",
     assertValidValue(
         walkableGraph,
-        getKeyForLabel(Label.create("foo", "foo")),
+        getKeyForLabel(Label.create("@//foo", "foo")),
         /*expectTransitiveException=*/ true);
 
     // And an entry with a NoSuchPackageException for "//bar:bar",
-    Exception e = assertException(walkableGraph, getKeyForLabel(Label.create("bar", "bar")));
+    Exception e = assertException(walkableGraph, getKeyForLabel(Label.create("@//bar", "bar")));
     assertThat(e).isInstanceOf(NoSuchPackageException.class);
   }
 
@@ -149,11 +149,11 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     // Then the graph contains an entry for ":foo" which has both a value and an exception,
     assertValidValue(
         walkableGraph,
-        getKeyForLabel(Label.create("foo", "foo")),
+        getKeyForLabel(Label.create("@//foo", "foo")),
         /*expectTransitiveException=*/ true);
 
     // And an entry with a NoSuchTargetException for "//bar:bar",
-    Exception e = assertException(walkableGraph, getKeyForLabel(Label.create("bar", "bar")));
+    Exception e = assertException(walkableGraph, getKeyForLabel(Label.create("@//bar", "bar")));
     assertThat(e).isInstanceOf(NoSuchTargetException.class);
   }
 
@@ -189,8 +189,8 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     // Then it skips evaluation of the malformed target pattern, but logs about it,
     assertContainsEvent("Skipping '" + bogusPattern + "': ");
 
-    // And then the graph contains a value for the legit target pattern's target "//foo:foo".
-    assertTrue(walkableGraph.exists(getKeyForLabel(Label.create("foo", "foo"))));
+    // And then the graph contains a value for the legit target pattern's target "@//foo:foo".
+    assertTrue(walkableGraph.exists(getKeyForLabel(Label.create("@//foo", "foo"))));
   }
 
   // Helpers:

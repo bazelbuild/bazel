@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -45,6 +46,7 @@ public final class TargetMarkerValue implements SkyValue {
 
   @ThreadSafe
   public static SkyKey key(Label label) {
+    Preconditions.checkArgument(!label.getPackageIdentifier().getRepository().isDefault());
     return SkyKey.create(SkyFunctions.TARGET_MARKER, label);
   }
 }

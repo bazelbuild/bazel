@@ -23,7 +23,7 @@ source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
 
 # The following tests build an instance of a Skylark macro loaded from a
 # local_repository, which in turns loads another Skylark file either from
-# the external repo or the default repo, depending on the test parameters.
+# the external repo or the main repo, depending on the test parameters.
 # The tests cover all the valid syntactic variants of the second load. The
 # package structure used for the tests is as follows:
 #

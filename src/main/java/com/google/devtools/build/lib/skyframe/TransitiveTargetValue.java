@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
@@ -170,6 +171,7 @@ public class TransitiveTargetValue implements SkyValue {
 
   @ThreadSafe
   public static SkyKey key(Label label) {
+    Preconditions.checkArgument(!label.getPackageIdentifier().getRepository().isDefault());
     return SkyKey.create(SkyFunctions.TRANSITIVE_TARGET, label);
   }
 }

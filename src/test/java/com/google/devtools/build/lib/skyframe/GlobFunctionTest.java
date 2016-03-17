@@ -96,7 +96,7 @@ public abstract class GlobFunctionTest {
   private AtomicReference<PathPackageLocator> pkgLocator;
   private TimestampGranularityMonitor tsgm;
 
-  private static final PackageIdentifier PKG_ID = PackageIdentifier.createInDefaultRepo("pkg");
+  private static final PackageIdentifier PKG_ID = PackageIdentifier.createInMainRepo("pkg");
 
   @Before
   public final void setUp() throws Exception  {

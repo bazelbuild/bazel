@@ -124,6 +124,7 @@ import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
+import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -311,7 +312,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         packageCacheOptions.defaultVisibility, true,
         7, ruleClassProvider.getDefaultsPackageContent(optionsParser),
         UUID.randomUUID());
-    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.deletedPackages));
+    skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
   }
 
   protected void setPackageCacheOptions(String... options) throws Exception {
@@ -377,7 +378,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     view.setConfigurationsForTesting(masterConfig);
 
     view.setArtifactRoots(
-        ImmutableMap.of(PackageIdentifier.createInDefaultRepo(""), rootDirectory), masterConfig);
+        ImmutableMap.of(PackageIdentifier.createInMainRepo(""), rootDirectory), masterConfig);
     simulateLoadingPhase();
   }
 
@@ -567,8 +568,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       Collection<Label> targets, Collection<Label> labels, boolean keepGoing)
           throws InterruptedException, NoSuchTargetException, NoSuchPackageException {
     boolean success = visitor.sync(reporter,
-        ImmutableSet.copyOf(getTargets(targets)),
-        ImmutableSet.copyOf(labels),
+        getTargets(BlazeTestUtils.convertLabels(targets)),
+        ImmutableSet.copyOf(BlazeTestUtils.convertLabels(labels)),
         keepGoing,
         /*parallelThreads=*/4,
         /*maxDepth=*/Integer.MAX_VALUE);
@@ -623,7 +624,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected ConfiguredTarget getConfiguredTarget(Label label, BuildConfiguration config)
       throws NoSuchPackageException, NoSuchTargetException, InterruptedException {
     ensureTargetsVisited(label);
-    return view.getConfiguredTargetForTesting(reporter, label, config);
+    return view.getConfiguredTargetForTesting(
+        reporter, BlazeTestUtils.convertLabel(label), config);
   }
 
   /**
@@ -1468,7 +1470,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file("" + packageName + "/BUILD", lines);
     return getPackageManager()
-        .getPackage(reporter, PackageIdentifier.createInDefaultRepo(packageName));
+        .getPackage(reporter, PackageIdentifier.createInMainRepo(packageName));
   }
 
   /**

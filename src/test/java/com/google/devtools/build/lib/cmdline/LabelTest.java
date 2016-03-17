@@ -181,7 +181,7 @@ public class LabelTest {
 
     Label relative = base.getRelative("//conditions:default");
 
-    PackageIdentifier expected = PackageIdentifier.createInDefaultRepo("conditions");
+    PackageIdentifier expected = PackageIdentifier.createInMainRepo("conditions");
     assertEquals(expected.getRepository(), relative.getPackageIdentifier().getRepository());
     assertEquals(expected.getPackageFragment(), relative.getPackageFragment());
     assertEquals("default", relative.getName());
@@ -206,7 +206,7 @@ public class LabelTest {
     Label mainBase = Label.parseAbsolute("@//foo/bar:baz");
     Label externalTarget = Label.parseAbsolute("//external:target");
     Label l = defaultBase.resolveRepositoryRelative(externalTarget);
-    assertTrue(l.getPackageIdentifier().getRepository().isDefault());
+    assertTrue(l.getPackageIdentifier().getRepository().isMain());
     assertEquals("external", l.getPackageName());
     assertEquals("target", l.getName());
     assertEquals(l, repoBase.resolveRepositoryRelative(externalTarget));
@@ -241,9 +241,9 @@ public class LabelTest {
   @Test
   public void testToString() throws Exception {
     {
-      String s = "//foo/bar:baz";
+      String s = "@//foo/bar:baz";
       Label l = Label.parseAbsolute(s);
-      assertEquals(s, l.toString());
+      assertEquals("//foo/bar:baz", l.toString());
     }
     {
       Label l = Label.parseAbsolute("//foo/bar");
@@ -390,17 +390,17 @@ public class LabelTest {
 
   @Test
   public void testSerializationSimple() throws Exception {
-    checkSerialization("//a", 92);
+    checkSerialization("//a", 93);
   }
 
   @Test
   public void testSerializationNested() throws Exception {
-    checkSerialization("//foo/bar:baz", 100);
+    checkSerialization("//foo/bar:baz", 101);
   }
 
   @Test
   public void testSerializationWithoutTargetName() throws Exception {
-    checkSerialization("//foo/bar", 100);
+    checkSerialization("//foo/bar", 101);
   }
 
   private void checkSerialization(String labelString, int expectedSize) throws Exception {

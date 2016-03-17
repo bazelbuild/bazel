@@ -106,9 +106,9 @@ public class BuildTypeTest {
     assertEquals(BuildType.LABEL, selector.getOriginalType());
 
     Map<Label, Label> expectedMap = ImmutableMap.of(
-        Label.parseAbsolute("//conditions:a"), Label.create("a", "a"),
-        Label.parseAbsolute("//conditions:b"), Label.create("b", "b"),
-        Label.parseAbsolute(BuildType.Selector.DEFAULT_CONDITION_KEY), Label.create("d", "d"));
+        Label.parseAbsolute("//conditions:a"), Label.create("@//a", "a"),
+        Label.parseAbsolute("//conditions:b"), Label.create("@//b", "b"),
+        Label.parseAbsolute(BuildType.Selector.DEFAULT_CONDITION_KEY), Label.create("@//d", "d"));
     assertThat(selector.getEntries().entrySet()).containsExactlyElementsIn(expectedMap.entrySet());
   }
 
@@ -156,7 +156,7 @@ public class BuildTypeTest {
         "//conditions:b", "//b:b",
         BuildType.Selector.DEFAULT_CONDITION_KEY, "//d:d");
     assertEquals(
-        Label.create("d", "d"),
+        Label.create("@//d", "d"),
         new Selector<Label>(input, null, currentRule, BuildType.LABEL).getDefault());
   }
 
@@ -179,15 +179,15 @@ public class BuildTypeTest {
     List<Selector<List<Label>>> selectors = selectorList.getSelectors();
     assertThat(selectors.get(0).getEntries().entrySet())
         .containsExactlyElementsIn(
-            ImmutableMap.of(
-                    Label.parseAbsolute("//conditions:a"), ImmutableList.of(Label.create("a", "a")),
-                    Label.parseAbsolute("//conditions:b"), ImmutableList.of(Label.create("b", "b")))
+            ImmutableMap.of(Label.parseAbsolute("//conditions:a"),
+            ImmutableList.of(Label.create("@//a", "a")), Label.parseAbsolute("//conditions:b"),
+            ImmutableList.of(Label.create("@//b", "b")))
                 .entrySet());
     assertThat(selectors.get(1).getEntries().entrySet())
         .containsExactlyElementsIn(
             ImmutableMap.of(
-                    Label.parseAbsolute("//conditions:c"), ImmutableList.of(Label.create("c", "c")),
-                    Label.parseAbsolute("//conditions:d"), ImmutableList.of(Label.create("d", "d")))
+                Label.parseAbsolute("//conditions:c"), ImmutableList.of(Label.create("@//c", "c")),
+                Label.parseAbsolute("//conditions:d"), ImmutableList.of(Label.create("@//d", "d")))
                 .entrySet());
   }
 
@@ -218,7 +218,8 @@ public class BuildTypeTest {
         SelectorList.of(new SelectorValue(ImmutableMap.of(
             "//conditions:a", nativeInput,
             BuildType.Selector.DEFAULT_CONDITION_KEY, nativeInput)));
-    List<Label> expectedLabels = ImmutableList.of(Label.create("a", "a1"), Label.create("a", "a2"));
+    List<Label> expectedLabels =
+        ImmutableList.of(Label.create("@//a", "a1"), Label.create("@//a", "a2"));
 
     // Conversion to direct type:
     Object converted = BuildType
