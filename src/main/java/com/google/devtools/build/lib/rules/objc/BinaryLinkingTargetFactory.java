@@ -163,7 +163,10 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             .addProvider(ObjcProvider.class, objcProvider)
             .addProvider(
                 InstrumentedFilesProvider.class,
-                compilationSupport.getInstrumentedFilesProvider(common));
+                compilationSupport.getInstrumentedFilesProvider(common))
+            .addSkylarkTransitiveInfo(
+                ObjcProvider.OBJC_SKYLARK_PROVIDER_NAME,
+                common.getObjcProvider().toSkylarkProvider());
     if (xcTestAppProvider.isPresent()) {
       // TODO(bazel-team): Stop exporting an XcTestAppProvider once objc_binary no longer creates an
       // application bundle.

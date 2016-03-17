@@ -91,6 +91,7 @@ import java.util.Set;
 // classes. Make sure to distinguish rule output (providers, runfiles, ...) from intermediate,
 // rule-internal information. Any provider created by a rule should not be read, only published.
 public final class ObjcCommon {
+  
   /**
    * Provides a way to access attributes that are common to all compilation rules.
    */
@@ -772,5 +773,4 @@ public final class ObjcCommon {
     }
     return errors;
   }
-
 }
