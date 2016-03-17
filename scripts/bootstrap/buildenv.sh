@@ -191,8 +191,13 @@ function git_date() {
 # Get the latest release version and append the date of
 # the last commit if any.
 function get_last_version() {
-  local version="$(fgrep -m 1 '## Release' CHANGELOG.md \
-                     | sed -E 's|.*Release (.*) \(.*\)|\1|')"
+  if [ -f "CHANGELOG.md" ]; then
+    local version="$(fgrep -m 1 '## Release' CHANGELOG.md \
+                       | sed -E 's|.*Release (.*) \(.*\)|\1|')"
+  else
+    local version=""
+  fi
+
   local date="$(git_date)"
   if [ -z "${version-}" ]; then
     version="unknown"
