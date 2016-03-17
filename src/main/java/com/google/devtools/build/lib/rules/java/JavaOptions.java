@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
@@ -57,55 +56,6 @@ public class JavaOptions extends FragmentOptions {
     @Override
     public String getTypeDescription() {
       return "a string";
-    }
-  }
-
-  /** Converter for --javac_bootclasspath. */
-  public static class BootclasspathConverter extends DefaultLabelConverter {
-    public BootclasspathConverter() {
-      super(Constants.TOOLS_REPOSITORY + "//tools/jdk:bootclasspath");
-    }
-  }
-
-  /** Converter for --javac_extdir. */
-  public static class ExtdirConverter extends DefaultLabelConverter {
-    public ExtdirConverter() {
-      super(Constants.TOOLS_REPOSITORY + "//tools/jdk:extdir");
-    }
-  }
-
-  /** Converter for --javabuilder_top. */
-  public static class JavaBuilderConverter extends DefaultLabelConverter {
-    public JavaBuilderConverter() {
-      super(Constants.TOOLS_REPOSITORY + "//tools/jdk:JavaBuilder_deploy.jar");
-    }
-  }
-
-  /** Converter for --singlejar_top. */
-  public static class SingleJarConverter extends DefaultLabelConverter {
-    public SingleJarConverter() {
-      super(Constants.TOOLS_REPOSITORY + "//tools/jdk:SingleJar_deploy.jar");
-    }
-  }
-
-  /** Converter for --genclass_top. */
-  public static class GenClassConverter extends DefaultLabelConverter {
-    public GenClassConverter() {
-      super(Constants.TOOLS_REPOSITORY + "//tools/jdk:GenClass_deploy.jar");
-    }
-  }
-
-  /** Converter for --ijar_top. */
-  public static class IjarConverter extends DefaultLabelConverter {
-    public IjarConverter() {
-      super(Constants.TOOLS_REPOSITORY + "//tools/jdk:ijar");
-    }
-  }
-
-  /** Converter for --java_toolchain. */
-  public static class JavaToolchainConverter extends DefaultLabelConverter {
-    public JavaToolchainConverter() {
-      super(Constants.TOOLS_REPOSITORY + "//tools/jdk:toolchain");
     }
   }
 
@@ -174,9 +124,9 @@ public class JavaOptions extends FragmentOptions {
   public String javaBase;
 
   @Option(name = "java_toolchain",
-      defaultValue = "",
+      defaultValue = "@bazel_tools//tools/jdk:toolchain",
       category = "version",
-      converter = JavaToolchainConverter.class,
+      converter = LabelConverter.class,
       help = "The name of the toolchain rule for Java.")
   public Label javaToolchain;
 
@@ -283,30 +233,30 @@ public class JavaOptions extends FragmentOptions {
   public StrictDepsMode strictJavaDeps;
 
   @Option(name = "javabuilder_top",
-      defaultValue = "",
+      defaultValue = "@bazel_tools//tools/jdk:JavaBuilder_deploy.jar",
       category = "version",
-      converter = JavaBuilderConverter.class,
+      converter = LabelConverter.class,
       help = "Label of the filegroup that contains the JavaBuilder jar.")
   public Label javaBuilderTop;
 
   @Option(name = "singlejar_top",
-      defaultValue = "",
+      defaultValue = "@bazel_tools//tools/jdk:SingleJar_deploy.jar",
       category = "version",
-      converter = SingleJarConverter.class,
+      converter = LabelConverter.class,
       help = "Label of the filegroup that contains the SingleJar jar.")
   public Label singleJarTop;
 
   @Option(name = "genclass_top",
-      defaultValue = "",
+      defaultValue = "@bazel_tools//tools/jdk:GenClass_deploy.jar",
       category = "version",
-      converter = GenClassConverter.class,
+      converter = LabelConverter.class,
       help = "Label of the filegroup that contains the GenClass jar.")
   public Label genClassTop;
 
   @Option(name = "ijar_top",
-      defaultValue = "",
+      defaultValue = "@bazel_tools//tools/jdk:ijar",
       category = "version",
-      converter = IjarConverter.class,
+      converter = LabelConverter.class,
       help = "Label of the filegroup that contains the ijar binary.")
   public Label iJarTop;
 
@@ -318,16 +268,16 @@ public class JavaOptions extends FragmentOptions {
   public Label javaLangtoolsJar;
 
   @Option(name = "javac_bootclasspath",
-      defaultValue = "",
+      defaultValue = "@bazel_tools//tools/jdk:bootclasspath",
       category = "version",
-      converter = BootclasspathConverter.class,
+      converter = LabelConverter.class,
       help = "Label of the rule that produces the bootclasspath jars for javac to use.")
   public Label javacBootclasspath;
 
   @Option(name = "javac_extdir",
-      defaultValue = "",
+      defaultValue = "@bazel_tools//tools/jdk:extdir",
       category = "version",
-      converter = ExtdirConverter.class,
+      converter = LabelConverter.class,
       help = "Label of the rule that produces the extdir for javac to use.")
   public Label javacExtdir;
 
@@ -412,6 +362,7 @@ public class JavaOptions extends FragmentOptions {
     host.singleJarTop = singleJarTop;
     host.genClassTop = genClassTop;
     host.iJarTop = iJarTop;
+    host.javacBootclasspath = javacBootclasspath;
 
     // Java builds often contain complicated code generators for which
     // incremental build performance is important.
