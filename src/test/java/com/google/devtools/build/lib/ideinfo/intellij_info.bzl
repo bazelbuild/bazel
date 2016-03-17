@@ -19,7 +19,7 @@ _kind_to_kind_id = {
   "android_binary"  : 0,
   "android_library" : 1,
   "android_test" :    2,
-  "android_roboelectric_test" : 3,
+  "android_robolectric_test" : 3,
   "java_library" : 4,
   "java_test" : 5,
   "java_import" : 6,
@@ -27,6 +27,7 @@ _kind_to_kind_id = {
   "proto_library" : 8,
   "android_sdk" : 9,
   "java_plugin" : 10,
+  "android_resources" : 11,
 }
 
 _unrecognized_rule = -1;
@@ -37,24 +38,38 @@ def get_kind(target, ctx):
   return _kind_to_kind_id.get(ctx.rule.kind, _unrecognized_rule)
 
 
-# Compile-time dependency attributes list
-DEPS = [
-  "deps",
-  "exports",
-  "_robolectric", # From android_robolectric_test
-  "_junit", # From android_robolectric_test
-  "binary_under_test", #  From android_test
-  "java_lib",# From proto_library
-  "_proto1_java_lib", # From proto_library
-]
+# Compile-time dependency attributes, grouped by type.
+DEPS = struct(
+    label = [
+      "binary_under_test", #  From android_test
+      "java_lib",# From proto_library
+      "_proto1_java_lib", # From proto_library
+      "_junit", # From android_robolectric_test
+    ],
+    label_list = [
+      "deps",
+      "exports",
+      "_robolectric", # From android_robolectric_test
+    ],
+)
 
-# Run-time dependecy attributes list
-RUNTIME_DEPS = [
-  "runtime_deps",
-]
 
-# All dependency attributes along which the aspect propagates
-ALL_DEPS = DEPS + RUNTIME_DEPS
+# Run-time dependency attributes, grouped by type.
+RUNTIME_DEPS = struct(
+    label = [
+      # todo(dslomov,tomlu): resources are tricky since they are sometimes labels and sometimes label_lists.
+      # "resources"
+    ],
+    label_list = [
+      "runtime_deps",
+    ]
+)
+
+# All dependency attributes along which the aspect propagates, grouped by type.
+ALL_DEPS = struct(
+  label = DEPS.label + RUNTIME_DEPS.label,
+  label_list = DEPS.label_list + RUNTIME_DEPS.label_list,
+)
 
 def struct_omit_none(**kwargs):
     """ A replacement for standard `struct` function that omits the fields with None value.
@@ -180,6 +195,7 @@ def android_rule_ide_info(target, ctx):
             java_package = target.android.java_package,
             manifest = artifact_location(target.android.manifest),
             apk = artifact_location(target.android.apk),
+            dependency_apk = [artifact_location(apk) for apk in target.android.apks_under_test],
             has_idl_sources = target.android.idl.output != None,
             idl_jar = library_artifact(target.android.idl.output),
             generate_resource_class = target.android.defines_resources,
@@ -187,25 +203,33 @@ def android_rule_ide_info(target, ctx):
         ),
         ide_resolve_files)
 
-def collect_labels(rule_attrs, attr_list):
+def collect_labels(rule_attrs, attrs):
   """ Collect labels from attribute values.
 
   Assuming that values of attributes from attr_list in rule_atrs
   are label lists, collect a set of string representation of those labels.
   """
   return set([str(dep.label)
-      for attr_name in attr_list
+      for attr_name in attrs.label_list
       if hasattr(rule_attrs, attr_name)
-      for dep in getattr(rule_attrs, attr_name)])
+      for dep in getattr(rule_attrs, attr_name)]) | \
+         set([str(getattr(rule_attrs, attr_name).label)
+      for attr_name in attrs.label
+      if hasattr(rule_attrs, attr_name)])
 
 def collect_export_deps(rule_attrs):
   """ Build a union of all export dependencies.
   """
   result = set()
-  for attr_name in DEPS:
+  for attr_name in DEPS.label_list:
     if hasattr(rule_attrs, attr_name):
       for dep in getattr(rule_attrs, attr_name):
         result = result | dep.export_deps
+  for attr_name in DEPS.label:
+    if hasattr(rule_attrs, attr_name):
+      dep = getattr(rule_attrs, attr_name)
+      result = result | dep.export_deps
+
   return result
 
 def _aspect_impl(target, ctx):
@@ -221,11 +245,18 @@ def _aspect_impl(target, ctx):
   ide_info_text = set()
   ide_resolve_files = set()
 
-  for attr_name in ALL_DEPS:
+  for attr_name in ALL_DEPS.label_list:
     if hasattr(rule_attrs, attr_name):
       for dep in getattr(rule_attrs, attr_name):
         ide_info_text = ide_info_text | dep.intellij_info_files.ide_info_text
         ide_resolve_files = ide_resolve_files | dep.intellij_info_files.ide_resolve_files
+
+  for attr_name in ALL_DEPS.label:
+    if hasattr(rule_attrs, attr_name):
+      dep = getattr(rule_attrs, attr_name)
+      ide_info_text = ide_info_text | dep.intellij_info_files.ide_info_text
+      ide_resolve_files = ide_resolve_files | dep.intellij_info_files.ide_resolve_files
+
 
   # Collect Java-specific information
   (java_rule_ide_info, java_ide_resolve_files) = java_rule_ide_info(target, ctx)
@@ -247,7 +278,7 @@ def _aspect_impl(target, ctx):
   # Build RuleIdeInfo proto
   info = struct_omit_none(
       label = str(target.label),
-      kind = kind,
+      kind = kind if kind != _unrecognized_rule else None,
       dependencies = list(compiletime_deps),
       runtime_deps = list(runtime_deps),
       build_file_artifact_location = build_file_artifact_location(ctx.build_file_path),
@@ -275,5 +306,5 @@ def _aspect_impl(target, ctx):
     )
 
 intellij_info_aspect = aspect(implementation = _aspect_impl,
-    attr_aspects = ALL_DEPS
+    attr_aspects = ALL_DEPS.label + ALL_DEPS.label_list
 )

@@ -88,7 +88,12 @@ public final class JavaSkylarkApiProvider extends SkylarkApiProvider {
     doc = "Returns transitive set of labels that are being exported from this rule."
   )
   public NestedSet<Label> getTransitiveExports() {
-    return getInfo().getProvider(JavaExportsProvider.class).getTransitiveExports();
+    JavaExportsProvider provider = getInfo().getProvider(JavaExportsProvider.class);
+    if (provider != null) {
+      return provider.getTransitiveExports();
+    } else {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
   }
 
   @SkylarkCallable(

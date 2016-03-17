@@ -26,10 +26,12 @@ import com.google.common.collect.Lists;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.actions.BinaryFileWriteAction;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -37,8 +39,17 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.LibraryArtifact;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
 import com.google.devtools.build.lib.skyframe.AspectValue;
+import com.google.protobuf.TextFormat;
 
+import org.junit.Before;
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -129,27 +140,77 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
     assertThat(configuredAspect.getName()).isEqualTo(AndroidStudioInfoAspect.NAME);
   }
 
+  @Before
+  public void setupBzl() throws Exception {
+    if (isNativeTest()) {
+      return;
+    }
+
+    InputStream stream = AndroidStudioInfoAspectTestBase.class
+        .getResourceAsStream("intellij_info.bzl");
+    BufferedReader reader =
+        new BufferedReader(new InputStreamReader(stream, StandardCharsets.UTF_8));
+    String line;
+    ArrayList<String> contents = new ArrayList<>();
+    while ((line = reader.readLine()) != null) {
+      contents.add(line);
+    }
+
+    scratch.file("intellij_tools/BUILD", "# empty");
+    scratch.file("intellij_tools/intellij_info.bzl", contents.toArray(new String[0]));
+  }
+
+
   /**
    * Returns a map of (label as string) -> RuleIdeInfo for each rule in the transitive
    * closure of the passed target.
    */
   protected Map<String, RuleIdeInfo> buildRuleIdeInfo(String target) throws Exception {
-    buildTarget(target);
-    AndroidStudioInfoFilesProvider provider =
-        configuredAspect.getProvider(AndroidStudioInfoFilesProvider.class);
-    Iterable<Artifact> artifacts = provider.getIdeInfoFiles();
-    ImmutableMap.Builder<String, RuleIdeInfo> builder = ImmutableMap.builder();
-    for (Artifact artifact : artifacts) {
-      Action generatingAction = getGeneratingAction(artifact);
-      if (generatingAction instanceof BinaryFileWriteAction) {
-        BinaryFileWriteAction writeAction = (BinaryFileWriteAction) generatingAction;
-        RuleIdeInfo ruleIdeInfo = RuleIdeInfo.parseFrom(writeAction.getSource().openStream());
-        builder.put(ruleIdeInfo.getLabel(), ruleIdeInfo);
-      } else { 
-        verifyPackageManifestSpawnAction(generatingAction);
+    if (isNativeTest()) {
+      buildTarget(target);
+      AndroidStudioInfoFilesProvider provider =
+          configuredAspect.getProvider(AndroidStudioInfoFilesProvider.class);
+      Iterable<Artifact> artifacts = provider.getIdeInfoFiles();
+      ImmutableMap.Builder<String, RuleIdeInfo> builder = ImmutableMap.builder();
+      for (Artifact artifact : artifacts) {
+        Action generatingAction = getGeneratingAction(artifact);
+        if (generatingAction instanceof BinaryFileWriteAction) {
+          BinaryFileWriteAction writeAction = (BinaryFileWriteAction) generatingAction;
+          RuleIdeInfo ruleIdeInfo = RuleIdeInfo.parseFrom(writeAction.getSource().openStream());
+          builder.put(ruleIdeInfo.getLabel(), ruleIdeInfo);
+        } else {
+          verifyPackageManifestSpawnAction(generatingAction);
+        }
       }
+      return builder.build();
+    } else {
+      BuildView.AnalysisResult analysisResult = update(
+          ImmutableList.of(target),
+          ImmutableList.of("intellij_tools/intellij_info.bzl%intellij_info_aspect"),
+          false,
+          LOADING_PHASE_THREADS,
+          true,
+          new EventBus()
+      );
+      Collection<AspectValue> aspects = analysisResult.getAspects();
+      assertThat(aspects).hasSize(1);
+      AspectValue aspectValue = aspects.iterator().next();
+      this.configuredAspect = aspectValue.getConfiguredAspect();
+      OutputGroupProvider provider = configuredAspect.getProvider(OutputGroupProvider.class);
+      NestedSet<Artifact> outputGroup = provider.getOutputGroup("ide-info-text");
+      Map<String, RuleIdeInfo> ruleIdeInfos = new HashMap<>();
+      for (Artifact artifact : outputGroup) {
+        Action generatingAction = getGeneratingAction(artifact);
+        assertThat(generatingAction).isInstanceOf(FileWriteAction.class);
+        String fileContents = ((FileWriteAction) generatingAction).getFileContents();
+        RuleIdeInfo.Builder builder = RuleIdeInfo.newBuilder();
+        TextFormat.getParser().merge(fileContents, builder);
+        RuleIdeInfo ruleIdeInfo = builder.build();
+        ruleIdeInfos.put(ruleIdeInfo.getLabel(), ruleIdeInfo);
+      }
+      return ruleIdeInfos;
+
     }
-    return builder.build();
   }
   
   protected final void verifyPackageManifestSpawnAction(Action genAction) {
@@ -180,4 +241,6 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
   protected List<String> getIdeResolveFiles() {
     return getOutputGroupResult(AndroidStudioInfoAspect.IDE_RESOLVE);
   }
+
+  protected abstract boolean isNativeTest();
 }
