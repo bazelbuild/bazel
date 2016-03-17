@@ -17,6 +17,7 @@ The context of the rule containing helper functions and information about attrib
               <li><a href="#executable">executable</a></li>
                     <li><a href="#expand_location">expand_location</a></li>
               <li><a href="#expand_make_variables">expand_make_variables</a></li>
+              <li><a href="#features">features</a></li>
               <li><a href="#file">file</a></li>
               <li><a href="#file_action">file_action</a></li>
               <li><a href="#files">files</a></li>
@@ -268,6 +269,12 @@ Examples:<pre class=language-python>
 ctx.expand_make_variables("cmd", "$(MY_VAR)", {"MY_VAR": "Hi"})  # == "Hi"
 ctx.expand_make_variables("cmd", "$$PWD", {})  # == "$PWD"
 </pre>Additional variables may come from other places, such as configurations. Note that this function is experimental.
+
+
+        <h2 id="features">features</h2>
+        <p><pre>List ctx.features</pre></p>
+
+    Returns the set of features that are enabled for this rule.
 
 
         <h2 id="file">file</h2>

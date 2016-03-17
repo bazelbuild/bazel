@@ -703,11 +703,11 @@ Suppose that the current repostory contains a java_library target that needs to 
 Using Maven, this dependency would be defined in the pom.xml file as:
 
 <pre>
-<dependency>
-    <groupId>com.google.guava</groupId>
-    <artifactId>guava</artifactId>
-    <version>18.0</version>
-</dependency>
+&lt;dependency>
+    &lt;groupId>com.google.guava&lt;/groupId>
+    &lt;artifactId>guava&lt;/artifactId>
+    &lt;version>18.0&lt;/version>
+&lt;/dependency>
 </pre>
 
 With Bazel, add the following lines to the WORKSPACE file:
@@ -1359,7 +1359,7 @@ allows selection of a an official xcode version from a number of registered alia
     xcode_version
   </h2>
 
-  <pre class="rule-signature">xcode_version(<a href="#xcode_version.name">name</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">xcode_version(<a href="#xcode_version.name">name</a>, <a href="#xcode_version.default_ios_sdk_version">default_ios_sdk_version</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#xcode_version.version">version</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>Represents a single official xcode version with acceptable aliases for that xcode version.
@@ -1387,7 +1387,28 @@ See the <code>xcode_config</code> rule.</p>
 
         </td>
       </tr>
-                                                                              </tbody>
+                <tr>
+        <td id="xcode_version.default_ios_sdk_version">
+          <code>default_ios_sdk_version</code>
+        </td>
+        <td>
+                    <p><code>String; optional</code></p>
+                            The ios sdk version that is used by default when this version of xcode is being used.
+        The <code>ios_sdk_version</code> build flag will override the value specified here.
+
+        </td>
+      </tr>
+                                                                                  <tr>
+        <td id="xcode_version.version">
+          <code>version</code>
+        </td>
+        <td>
+                    <p><code>String; required</code></p>
+                            The official version number of a version of Xcode.
+
+        </td>
+      </tr>
+                        </tbody>
   </table>
 
 <!-- Generated footer -->
