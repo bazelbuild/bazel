@@ -24,6 +24,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
@@ -33,6 +34,8 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Analysis caching tests.
@@ -204,6 +207,58 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     update(defaultFlags().with(Flag.KEEP_GOING),
         "//conflict:x", "//conflict:_objs/x/conflict/foo.pic.o");
     assertNoEvents();
+  }
+  
+  /**
+   * For two conflicting actions whose primary inputs are different, no list diff detail should be
+   * part of the output.
+   */
+  @Test
+  public void testConflictingArtifactsErrorWithNoListDetail() throws Exception {
+    scratch.file(
+        "conflict/BUILD",
+        "cc_library(name='x', srcs=['foo.cc'])",
+        "cc_binary(name='_objs/x/conflict/foo.pic.o', srcs=['bar.cc'])");
+    reporter.removeHandler(failFastHandler); // expect errors
+    update(
+        defaultFlags().with(Flag.KEEP_GOING),
+        "//conflict:x",
+        "//conflict:_objs/x/conflict/foo.pic.o");
+
+    assertContainsEvent("file 'conflict/_objs/x/conflict/foo.pic.o' " + CONFLICT_MSG);
+    assertDoesNotContainEvent("MandatoryInputs");
+    assertDoesNotContainEvent("Outputs");
+  }
+
+  /**
+   * For two conflicted actions whose primary inputs are the same, list diff (max 5) should be part
+   * of the output.
+   */
+  @Test
+  public void testConflictingArtifactsWithListDetail() throws Exception {
+    scratch.file(
+        "conflict/BUILD",
+        "cc_library(name='x', srcs=['foo1.cc', 'foo2.cc', 'foo3.cc', 'foo4.cc', 'foo5.cc'"
+            + ", 'foo6.cc'])",
+        "genrule(name = 'foo', outs=['_objs/x/conflict/foo1.pic.o'], srcs=['foo1.cc', 'foo2.cc', "
+            + "'foo3.cc', 'foo4.cc', 'foo5.cc', 'foo6.cc'], cmd='', output_to_bindir=1)");
+    reporter.removeHandler(failFastHandler); // expect errors
+    update(defaultFlags().with(Flag.KEEP_GOING), "//conflict:x", "//conflict:foo");
+
+    Event event =
+        assertContainsEvent("file 'conflict/_objs/x/conflict/foo1.pic.o' " + CONFLICT_MSG);
+    assertContainsEvent("MandatoryInputs");
+    assertContainsEvent("Outputs");
+
+    // Validate that maximum of 5 artifacts in MandatoryInputs are part of output.
+    Pattern pattern = Pattern.compile("\tconflict\\/foo[1-6].cc");
+    Matcher matcher = pattern.matcher(event.getMessage());
+    int matchCount = 0;
+    while (matcher.find()) {
+      matchCount++;
+    }
+
+    assertEquals(5, matchCount);
   }
 
   /**
