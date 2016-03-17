@@ -216,6 +216,40 @@ EOF
   expect_log "Tra-la!"
 }
 
+# Test cycle when loading a repository with a load statement in the WORKSPACE file that is not
+# yet defined.
+function test_cycle_load_repository() {
+  create_new_workspace
+  repo2=$new_workspace_dir
+
+  echo "Tra-la!" > data.txt
+  cat <<'EOF' >BUILD
+exports_files(["data.txt"])
+EOF
+
+  cat <<'EOF' >ext.bzl
+def macro():
+  print('bleh')
+EOF
+
+  cat >WORKSPACE
+
+  cd ${WORKSPACE_DIR}
+  cat > WORKSPACE <<EOF
+load("@foo//:ext.bzl", "macro")
+macro()
+local_repository(name='foo', path='$repo2')
+EOF
+
+  local exitCode=0
+  bazel build @foo//:data.txt >& $TEST_log || exitCode=$?
+  [ $exitCode != 0 ] || fail "building @foo//:data.txt succeed while expected failure"
+
+  expect_not_log "PACKAGE"
+  expect_log "Failed to load Skylark extension '@foo//:ext.bzl'"
+  expect_log "Maybe repository 'foo' was defined later in your WORKSPACE file?"
+}
+
 function test_skylark_local_repository() {
   create_new_workspace
   repo2=$new_workspace_dir
