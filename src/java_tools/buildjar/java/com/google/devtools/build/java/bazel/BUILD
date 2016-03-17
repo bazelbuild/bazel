@@ -7,10 +7,10 @@ package_group(
 
 package(default_visibility = [":packages"])
 
-# Exports $(locations //tools/defaults:javac_bootclasspath) to the java world.
+# Exports the canonical javac bootclasspath artifact locations
 genrule(
     name = "javac-bootclasspath-locations",
-    srcs = ["//tools/defaults:javac_bootclasspath"],
+    srcs = ["@bazel_tools//tools/jdk:bootclasspath"],
     outs = ["JavacBootclasspathLocations.java"],
     cmd = """
 declare -a paths=($(SRCS)) && paths=($${paths[@]#$(GENDIR)/}) &&
@@ -24,8 +24,7 @@ EOF
 """,
 )
 
-# Provides java-level access to //tools/defaults:javac_bootclasspath
-# as defined by blaze's --javac_bootclasspath flag
+# Provides java-level access to the canonical javac bootclasspath
 java_library(
     name = "javac-bootclasspath-locations-lib",
     srcs = [":javac-bootclasspath-locations"],
@@ -34,15 +33,15 @@ java_library(
 java_library(
     name = "JavacBootclasspath",
     srcs = ["JavacBootclasspath.java"],
-    data = ["//tools/defaults:javac_bootclasspath"],
+    data = ["@bazel_tools//tools/jdk:bootclasspath"],
     visibility = ["//visibility:public"],
     deps = [":javac-bootclasspath-locations-lib"],
 )
 
-# Exports $(location //tools/defaults:java_langtools) to the java world.
+# Exports the canonical javac jar location
 genrule(
     name = "java-langtools-location",
-    srcs = ["//tools/defaults:java_langtools"],
+    srcs = ["//third_party/java/jdk/langtools:javac_jar"],
     outs = ["JavaLangtoolsLocation.java"],
     cmd = """
 path=$(SRCS) && path=$${path#$(GENDIR)/} &&
@@ -55,8 +54,7 @@ EOF
 """,
 )
 
-# Provides java-level access to //tools/defaults:java_langtools
-# as defined by bazel's --java_langtools flag
+# Provides java-level access to the canonical javac jar
 java_library(
     name = "java-langtools-location-lib",
     srcs = [":java-langtools-location"],
@@ -66,13 +64,12 @@ java_library(
 java_library(
     name = "JavaLangtools",
     srcs = ["JavaLangtools.java"],
-    data = ["//tools/defaults:java_langtools"],
+    data = ["//third_party/java/jdk/langtools:javac_jar"],
     visibility = ["//visibility:public"],
     deps = [":java-langtools-location-lib"],
 )
 
-# Utility to export javacopts to the java world from the default javabuilder (a
-# java_binary deploy jar).
+# Exports javacopts from the current java toolchain
 java_binary(
     name = "JavaBuilderConfigGenerator",
     srcs = ["JavaBuilderConfigGenerator.java"],
@@ -83,9 +80,7 @@ java_binary(
     ],
 )
 
-# Exports the default javacopts to the java world from the default javabuilder
-# (a java_binary deploy jar).
-# We could put any java target as scope and in deps here.
+# Exports javacopts from the current java toolchain
 genquery(
     name = "java_toolchain_content",
     expression = "kind(java_toolchain, deps(//tools/defaults:java_toolchain))",
@@ -101,8 +96,7 @@ genrule(
     tools = [":JavaBuilderConfigGenerator"],
 )
 
-# Provides java-level access to the default javacopts in the current
-# JavaBuilder release as defined by bazel's --javabuilder_top flag
+# Provides java-level access to the javacopts in the current java toolchain
 java_library(
     name = "javabuilder-javacopts-lib",
     srcs = [":javabuilder-javacopts"],
@@ -111,7 +105,7 @@ java_library(
 java_library(
     name = "JavaBuilderConfig",
     srcs = ["JavaBuilderConfig.java"],
-    data = ["//tools/defaults:javabuilder"],
+    data = ["@bazel_tools//tools/jdk:JavaBuilder_deploy.jar"],
     deps = [":javabuilder-javacopts-lib"],
 )
 
@@ -120,7 +114,7 @@ java_library(
 java_library(
     name = "BazelJavaCompiler",
     srcs = ["BazelJavaCompiler.java"],
-    data = ["//tools/defaults:java_langtools"],
+    data = ["//third_party/java/jdk/langtools:javac_jar"],
     visibility = [
         "//src:__subpackages__",
         "//third_party/ijar:__subpackages__",
