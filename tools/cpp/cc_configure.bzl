@@ -87,9 +87,9 @@ def _get_cpu_value(repository_ctx):
   os_name = repository_ctx.os.name.lower()
   if os_name.startswith("mac os"):
     return "darwin"
-  if os_name.contains("freebsd"):
+  if os_name.find("freebsd") != -1:
     return "freebsd"
-  if os_name.contains("windows"):
+  if os_name.find("windows") != -1:
     return "x64_windows"
   return "k8"
 
@@ -260,8 +260,8 @@ def _impl(repository_ctx):
     # Theorically, FreeBSD should be straightforward to add but we cannot run it in a docker
     # container so escaping until we have proper tests for FreeBSD.
     # Windows support is still experimental, let's not fiddle with autoconfiguration for now.
-    ctx.symlink(Label("@bazel_tools//tools/cpp:CROSSTOOL"), "tools/cpp/CROSSTOOL")
-    ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD"), "tools/cpp/BUILD")
+    repository_ctx.symlink(Label("@bazel_tools//tools/cpp:CROSSTOOL"), "tools/cpp/CROSSTOOL")
+    repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD"), "tools/cpp/BUILD")
   else:
     darwin = cpu_value == "darwin"
     cc = _find_cc(repository_ctx)
