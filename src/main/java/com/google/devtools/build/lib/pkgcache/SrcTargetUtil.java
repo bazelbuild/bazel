@@ -66,49 +66,9 @@ public final class SrcTargetUtil {
   private static final ImmutableSet<String> SOURCE_ATTRIBUTES =
       ImmutableSet.of("srcs", "src", "srcjar");
 
-  // Attribute referring to "headers".
-  private static final String HEADER_ATTRIBUTE = "hdrs";
-
-  // Attribute referring to "textual headers".
-  private static final String TEXTUAL_HEADER_ATTRIBUTE = "textual_hdrs";
-
   // The attribute to search in filegroups.
   private static final ImmutableSet<String> FILEGROUP_ATTRIBUTES =
       ImmutableSet.of("srcs");
-
-  /**
-   * Same as {@link #getSrcTargets}, but for both source and headers (i.e. also traversing
-   * the "hdrs" attribute).
-   */
-  @ThreadSafety.ThreadSafe
-  public static List<FileTarget> getSrcAndHdrTargets(EventHandler eventHandler, Rule rule,
-                                                     TargetProvider provider)
-      throws NoSuchTargetException, NoSuchPackageException, InterruptedException  {
-    ImmutableSet<String> srcAndHdrAttributes = ImmutableSet.<String>builder()
-        .addAll(SOURCE_ATTRIBUTES)
-        .add(HEADER_ATTRIBUTE)
-        .add(TEXTUAL_HEADER_ATTRIBUTE)
-        .build();
-    return getTargets(eventHandler, rule, srcAndHdrAttributes, Sets.newHashSet(rule.getLabel()),
-        provider);
-  }
-
-  @ThreadSafety.ThreadSafe
-  public static List<FileTarget> getHdrTargets(EventHandler eventHandler, Rule rule,
-                                                     TargetProvider provider)
-      throws NoSuchTargetException, NoSuchPackageException, InterruptedException  {
-    return getTargets(
-        eventHandler, rule, ImmutableSet.of(HEADER_ATTRIBUTE), Sets.newHashSet(rule.getLabel()),
-        provider);
-  }
-
-  @ThreadSafety.ThreadSafe
-  public static List<FileTarget> getTextualHdrTargets(
-      EventHandler eventHandler, Rule rule, TargetProvider provider)
-      throws NoSuchTargetException, NoSuchPackageException, InterruptedException {
-    return getTargets(eventHandler, rule, ImmutableSet.of(TEXTUAL_HEADER_ATTRIBUTE),
-        Sets.newHashSet(rule.getLabel()), provider);
-  }
 
   /**
    * @see #getSrcTargets(EventHandler, Rule, TargetProvider)
