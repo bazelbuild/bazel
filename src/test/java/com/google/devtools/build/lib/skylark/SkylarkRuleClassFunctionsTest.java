@@ -179,39 +179,39 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testAttrWithProviders() throws Exception {
     Attribute attr =
         evalAttributeDefinition("attr.label_list(allow_files = True, providers = ['a', 'b'])")
-        .build("a1");
+            .build("a1");
     assertThat(attr.getMandatoryProvidersList()).containsExactly(ImmutableSet.of("a", "b"));
   }
 
   @Test
   public void testAttrWithProvidersList() throws Exception {
     Attribute attr =
-            evalAttributeDefinition("attr.label_list(allow_files = True,"
-                    + " providers = [['a', 'b'], ['c']])")
-                    .build("a1");
+        evalAttributeDefinition("attr.label_list(allow_files = True,"
+            + " providers = [['a', 'b'], ['c']])")
+            .build("a1");
     assertThat(attr.getMandatoryProvidersList()).containsExactly(ImmutableSet.of("a", "b"),
-            ImmutableSet.of("c"));
+        ImmutableSet.of("c"));
   }
 
   @Test
   public void testAttrWithWrongProvidersList() throws Exception {
     checkErrorContains("Illegal argument: element in 'providers' is of unexpected type."
             + " Should be list of string, but got list with an element of type int.",
-            "attr.label_list(allow_files = True,  providers = [['a', 1], ['c']])");
+        "attr.label_list(allow_files = True,  providers = [['a', 1], ['c']])");
 
     checkErrorContains("Illegal argument: element in 'providers' is of unexpected type."
             + " Should be list of string, but got string.",
-            "attr.label_list(allow_files = True,  providers = [['a', 'b'], 'c'])");
+        "attr.label_list(allow_files = True,  providers = [['a', 'b'], 'c'])");
   }
 
   @Test
   public void testLabelListWithAspects() throws Exception {
     SkylarkAttr.Descriptor attr =
         (SkylarkAttr.Descriptor) evalRuleClassCode(
-          "def _impl(target, ctx):",
-          "   pass",
-          "my_aspect = aspect(implementation = _impl)",
-          "attr.label_list(aspects = [my_aspect])");
+            "def _impl(target, ctx):",
+            "   pass",
+            "my_aspect = aspect(implementation = _impl)",
+            "attr.label_list(aspects = [my_aspect])");
     Object aspect = ev.lookup("my_aspect");
     assertThat(aspect).isNotNull();
     assertThat(attr.getAspects()).containsExactly(aspect);
@@ -273,12 +273,12 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
 
   private static final RuleClass.ConfiguredTargetFactory<Object, Object>
       DUMMY_CONFIGURED_TARGET_FACTORY =
-          new RuleClass.ConfiguredTargetFactory<Object, Object>() {
-            @Override
-            public Object create(Object ruleContext) throws InterruptedException {
-              throw new IllegalStateException();
-            }
-          };
+      new RuleClass.ConfiguredTargetFactory<Object, Object>() {
+        @Override
+        public Object create(Object ruleContext) throws InterruptedException {
+          throw new IllegalStateException();
+        }
+      };
 
   private RuleClass ruleClass(String name) {
     return new RuleClass.Builder(name, RuleClassType.NORMAL, false)
@@ -614,7 +614,7 @@ public class SkylarkRuleClassFunctionsTest extends SkylarkTestCase {
   public void testJsonInvalidStructure() throws Exception {
     checkErrorContains(
         "Invalid text format, expected a struct, a string, a bool, or an int but got a "
-        + "ConfigurationTransition for struct field 'a'",
+            + "ConfigurationTransition for struct field 'a'",
         "struct(a=DATA_CFG).to_json()");
   }
 

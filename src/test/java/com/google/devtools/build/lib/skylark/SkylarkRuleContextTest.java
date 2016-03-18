@@ -424,7 +424,7 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
     assertNotNull(tic1.getProvider(JavaSourceJarsProvider.class));
     // Check an unimplemented provider too
     assertNull(tic1.getProvider(SkylarkProviders.class)
-            .getValue(PyCommon.PYTHON_SKYLARK_PROVIDER_NAME));
+        .getValue(PyCommon.PYTHON_SKYLARK_PROVIDER_NAME));
   }
 
   @Test

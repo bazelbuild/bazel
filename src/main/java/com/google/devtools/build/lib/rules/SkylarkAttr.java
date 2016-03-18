@@ -100,10 +100,10 @@ public final class SkylarkAttr {
 
   private static final String PROVIDERS_ARG = "providers";
   private static final String PROVIDERS_DOC =
-          "mandatory providers list. It should be either a list of providers, or a "
-                  + "list of lists of providers. Every dependency should provide ALL providers "
-                  + "from at least ONE of these lists. A single list of providers will be "
-                  + "automatically converted to a list containing one list of providers.";
+      "mandatory providers list. It should be either a list of providers, or a "
+          + "list of lists of providers. Every dependency should provide ALL providers "
+          + "from at least ONE of these lists. A single list of providers will be "
+          + "automatically converted to a list containing one list of providers.";
 
   private static final String SINGLE_FILE_ARG = "single_file";
 
@@ -212,18 +212,18 @@ public final class SkylarkAttr {
   private static List<List<String>> getProvidersList(SkylarkList skylarkList) throws EvalException {
     List<List<String>> providersList = new ArrayList<>();
     String errorMsg = "Illegal argument: element in '%s' is of unexpected type. "
-            + "Should be list of string, but got %s. "
-            + "Notice: one single list of string as 'providers' is still supported.";
+        + "Should be list of string, but got %s. "
+        + "Notice: one single list of string as 'providers' is still supported.";
     for (Object o : skylarkList) {
       if (!(o instanceof SkylarkList)) {
         throw new EvalException(null, String.format(errorMsg, PROVIDERS_ARG,
-                EvalUtils.getDataTypeName(o, true)));
+            EvalUtils.getDataTypeName(o, true)));
       }
       for (Object value : (SkylarkList) o) {
         if (!(value instanceof String)) {
           throw new EvalException(null, String.format(errorMsg, PROVIDERS_ARG,
               "list with an element of type "
-                      + EvalUtils.getDataTypeNameFromClass(value.getClass())));
+                  + EvalUtils.getDataTypeNameFromClass(value.getClass())));
         }
       }
       providersList.add(((SkylarkList<?>) o).getContents(String.class, PROVIDERS_ARG));

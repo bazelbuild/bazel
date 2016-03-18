@@ -92,20 +92,20 @@ public class TestRuleClassProvider {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-              .setUndocumented()
-              .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
-              .override(builder.copy("deps").mandatoryProvidersList(ImmutableList.of(
-                      ImmutableList.of("a"), ImmutableList.of("b", "c"))))
-              .build();
+          .setUndocumented()
+          .add(attr("srcs", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
+          .override(builder.copy("deps").mandatoryProvidersList(ImmutableList.of(
+              ImmutableList.of("a"), ImmutableList.of("b", "c"))))
+          .build();
     }
 
     @Override
     public Metadata getMetadata() {
       return RuleDefinition.Metadata.builder()
-              .name("testing_rule_for_mandatory_providers")
-              .ancestors(BaseRuleClasses.RuleBase.class)
-              .factoryClass(UnknownRuleConfiguredTarget.class)
-              .build();
+          .name("testing_rule_for_mandatory_providers")
+          .ancestors(BaseRuleClasses.RuleBase.class)
+          .factoryClass(UnknownRuleConfiguredTarget.class)
+          .build();
     }
   }
 }

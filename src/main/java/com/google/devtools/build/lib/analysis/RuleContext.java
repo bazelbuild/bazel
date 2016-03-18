@@ -1709,11 +1709,11 @@ public final class RuleContext extends TargetContext
       }
 
       if (attribute.getAllowedRuleClassesWarningPredicate()
-              != Predicates.<RuleClass>alwaysTrue()) {
+          != Predicates.<RuleClass>alwaysTrue()) {
         allowedWithWarning = attribute.getAllowedRuleClassesWarningPredicate().apply(ruleClass);
         if (allowedWithWarning) {
           reportBadPrerequisite(attribute, prerequisiteTarget.getTargetKind(), prerequisiteLabel,
-                  "expected " + attribute.getAllowedRuleClassesPredicate(), true);
+              "expected " + attribute.getAllowedRuleClassesPredicate(), true);
           return;
         }
       }
@@ -1722,13 +1722,13 @@ public final class RuleContext extends TargetContext
         String missingMandatoryProviders = getMissingMandatoryProviders(prerequisite, attribute);
         if (missingMandatoryProviders != null) {
           attributeError(
-                  attribute.getName(),
-                  "'" + prerequisite.getLabel() + "' does not have mandatory provider "
-                          + missingMandatoryProviders);
+              attribute.getName(),
+              "'" + prerequisite.getLabel() + "' does not have mandatory provider "
+                  + missingMandatoryProviders);
         }
       } else if (Boolean.FALSE.equals(allowed)) {
         reportBadPrerequisite(attribute, prerequisiteTarget.getTargetKind(), prerequisiteLabel,
-                "expected " + attribute.getAllowedRuleClassesPredicate(), false);
+            "expected " + attribute.getAllowedRuleClassesPredicate(), false);
       }
     }
 

@@ -274,13 +274,13 @@ public final class PyCommon {
   }
 
   private NestedSet<Artifact> getTransitivePythonSourcesFromSkylarkProvider(
-          TransitiveInfoCollection dep) {
+      TransitiveInfoCollection dep) {
     SkylarkClassObject pythonSkylarkProvider = null;
     SkylarkProviders skylarkProviders = dep.getProvider(SkylarkProviders.class);
     try {
       if (skylarkProviders != null) {
         pythonSkylarkProvider = skylarkProviders.getValue(PYTHON_SKYLARK_PROVIDER_NAME,
-                SkylarkClassObject.class);
+            SkylarkClassObject.class);
       }
 
       if (pythonSkylarkProvider != null) {
@@ -292,11 +292,11 @@ public final class PyCommon {
           errorType = EvalUtils.getDataTypeNameFromClass(sourceFiles.getClass());
         }
         String errorMsg = "Illegal Argument: attribute '%s' in provider '%s' is "
-                + "of unexpected type. Should be a set, but got a '%s'";
+            + "of unexpected type. Should be a set, but got a '%s'";
         NestedSet<Artifact> pythonSourceFiles = SkylarkType.cast(
-                sourceFiles, SkylarkNestedSet.class, Artifact.class, null,
-                errorMsg, TRANSITIVE_PYTHON_SRCS, PYTHON_SKYLARK_PROVIDER_NAME, errorType)
-                .getSet(Artifact.class);
+            sourceFiles, SkylarkNestedSet.class, Artifact.class, null,
+            errorMsg, TRANSITIVE_PYTHON_SRCS, PYTHON_SKYLARK_PROVIDER_NAME, errorType)
+            .getSet(Artifact.class);
         return pythonSourceFiles;
       }
     } catch (EvalException e) {
