@@ -702,15 +702,34 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   // TODO(bazel-team): Make this take a PackageIdentifier.
+  public Map<PathFragment, Root> getArtifactRootsForFiles(final EventHandler eventHandler,
+      Iterable<PathFragment> execPaths) throws PackageRootResolutionException {
+    return getArtifactRoots(eventHandler, execPaths, true);
+  }
+
   public Map<PathFragment, Root> getArtifactRoots(final EventHandler eventHandler,
       Iterable<PathFragment> execPaths) throws PackageRootResolutionException {
+    return getArtifactRoots(eventHandler, execPaths, false);
+  }
+
+  private Map<PathFragment, Root> getArtifactRoots(final EventHandler eventHandler,
+      Iterable<PathFragment> execPaths, boolean forFiles) throws PackageRootResolutionException {
+
     final List<SkyKey> packageKeys = new ArrayList<>();
-    for (PathFragment execPath : execPaths) {
-      PathFragment parent = Preconditions.checkNotNull(
-          execPath.getParentDirectory(), "Must pass in files, not root directory");
-      Preconditions.checkArgument(!parent.isAbsolute(), execPath);
-      packageKeys.add(ContainingPackageLookupValue.key(
-          PackageIdentifier.createInMainRepo(parent)));
+    if (forFiles) {
+      for (PathFragment execPath : execPaths) {
+        PathFragment parent = Preconditions.checkNotNull(
+            execPath.getParentDirectory(), "Must pass in files, not root directory");
+        Preconditions.checkArgument(!parent.isAbsolute(), execPath);
+        packageKeys.add(ContainingPackageLookupValue.key(
+            PackageIdentifier.createInMainRepo(parent)));
+      }
+    } else {
+      for (PathFragment execPath : execPaths) {
+        Preconditions.checkArgument(!execPath.isAbsolute(), execPath);
+        packageKeys.add(ContainingPackageLookupValue.key(
+            PackageIdentifier.createInMainRepo(execPath)));
+      }
     }
 
     EvaluationResult<ContainingPackageLookupValue> result;
@@ -736,7 +755,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     Map<PathFragment, Root> roots = new HashMap<>();
     for (PathFragment execPath : execPaths) {
       ContainingPackageLookupValue value = result.get(ContainingPackageLookupValue.key(
-          PackageIdentifier.createInMainRepo(execPath.getParentDirectory())));
+          PackageIdentifier.createInMainRepo(forFiles ? execPath.getParentDirectory() : execPath)));
       if (value.hasContainingPackage()) {
         roots.put(execPath, Root.asSourceRoot(value.getContainingPackageRoot()));
       } else {

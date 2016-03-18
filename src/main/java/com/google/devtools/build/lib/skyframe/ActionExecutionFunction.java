@@ -312,6 +312,15 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
       // If some values are missing, return null.
       return env.valuesMissing() ? null : result;
     }
+
+    @Override
+    @Nullable
+    public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths)
+        throws PackageRootResolutionException {
+      // call sites for this implementation of PackageRootResolver shouldn't be passing in
+      // directories.
+      return findPackageRootsForFiles(execPaths);
+    }
   }
 
   private ActionExecutionValue checkCacheAndExecuteIfNeeded(

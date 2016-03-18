@@ -41,6 +41,8 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import javax.annotation.Nullable;
+
 /**
  * Tests {@link ArtifactFactory}. Also see {@link ArtifactTest} for a test
  * of individual artifacts.
@@ -249,6 +251,13 @@ public class ArtifactFactoryTest {
         }
       }
       return result;
+    }
+    
+    @Override
+    @Nullable
+    public Map<PathFragment, Root> findPackageRoots(Iterable<PathFragment> execPaths)
+        throws PackageRootResolutionException {
+      return null; // unused
     }
   }
 }
