@@ -135,7 +135,6 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.WalkableGraph;
 import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 import com.google.devtools.common.options.OptionsClassProvider;
 
@@ -1449,10 +1448,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         buildDriver.evaluate(ImmutableList.of(skyKey), true, numThreads, eventHandler);
     Preconditions.checkNotNull(evaluationResult.getWalkableGraph(), patterns);
     return evaluationResult;
-  }
-
-  @Override
-  public void afterUse(WalkableGraph walkableGraph) {
   }
 
   /**

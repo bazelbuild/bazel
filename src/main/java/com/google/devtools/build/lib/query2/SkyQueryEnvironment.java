@@ -105,7 +105,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   // TODO(janakr): Unify with RecursivePackageProviderBackedTargetPatternResolver's constant.
   private static final int BATCH_CALLBACK_SIZE = 10000;
 
-  private WalkableGraph graph;
+  protected WalkableGraph graph;
 
   private ImmutableList<TargetPatternKey> universeTargetPatternKeys;
 
@@ -220,9 +220,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
     // errors here.
     eventHandler.resetErrors();
     init();
-    QueryEvalResult result = super.evaluateQuery(expr, callback);
-    graphFactory.afterUse(graph);
-    return result;
+    return super.evaluateQuery(expr, callback);
   }
 
   private Map<Target, Collection<Target>> makeTargetsMap(Map<SkyKey, Iterable<SkyKey>> input) {
