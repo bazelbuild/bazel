@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.ArtifactLocation;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.LibraryArtifact;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
+import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo.Kind;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.protobuf.TextFormat;
 
@@ -52,6 +53,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import javax.annotation.Nullable;
 
@@ -112,8 +114,20 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
     return sb.toString();
   }
 
-  protected static Iterable<String> relativePathsForSourcesOf(RuleIdeInfo ruleIdeInfo) {
-    return transform(ruleIdeInfo.getJavaRuleIdeInfo().getSourcesList(), ARTIFACT_TO_RELATIVE_PATH);
+  protected static Iterable<String> relativePathsForJavaSourcesOf(RuleIdeInfo ruleIdeInfo) {
+    return relativePathsForSources(ruleIdeInfo.getJavaRuleIdeInfo().getSourcesList());
+  }
+
+  protected static Iterable<String> relativePathsForCSourcesOf(RuleIdeInfo ruleIdeInfo) {
+    return relativePathsForSources(ruleIdeInfo.getCRuleIdeInfo().getSourceList());
+  }
+
+  protected static Iterable<String> relativePathsForExportedCHeadersOf(RuleIdeInfo ruleIdeInfo) {
+    return relativePathsForSources(ruleIdeInfo.getCRuleIdeInfo().getExportedHeaderList());
+  }
+
+  private static Iterable<String> relativePathsForSources(List<ArtifactLocation> sourcesList) {
+    return transform(sourcesList, ARTIFACT_TO_RELATIVE_PATH);
   }
 
   protected RuleIdeInfo getRuleInfoAndVerifyLabel(
@@ -122,6 +136,21 @@ abstract class AndroidStudioInfoAspectTestBase extends BuildViewTestCase {
     assertThat(ruleIdeInfo).named(target).isNotNull();
     assertThat(ruleIdeInfo.getLabel()).isEqualTo(target);
     return ruleIdeInfo;
+  }
+
+  protected Entry<String, RuleIdeInfo> getCcToolchainRuleAndVerifyThereIsOnlyOne(
+      Map<String, RuleIdeInfo> ruleIdeInfos) {
+    Entry<String, RuleIdeInfo> toolchainInfo = null;
+    for (Entry<String, RuleIdeInfo> entry : ruleIdeInfos.entrySet()) {
+      if (entry.getValue().getKind() == Kind.CC_TOOLCHAIN) {
+        // Make sure we only have 1.
+        assertThat(toolchainInfo).isNull();
+        assertThat(entry.getValue().hasCToolchainIdeInfo()).isTrue();
+        toolchainInfo = entry;
+      }
+    }
+    assertThat(toolchainInfo).isNotNull();
+    return toolchainInfo;
   }
 
   protected void buildTarget(String target) throws Exception {

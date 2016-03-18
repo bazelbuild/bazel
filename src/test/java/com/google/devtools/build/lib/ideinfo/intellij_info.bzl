@@ -28,6 +28,11 @@ _kind_to_kind_id = {
   "android_sdk" : 9,
   "java_plugin" : 10,
   "android_resources" : 11,
+  "cc_library" : 12,
+  "cc_binary" : 13,
+  "cc_test" : 14,
+  "cc_inc_library" : 15,
+  "cc_toolchain": 16
 }
 
 _unrecognized_rule = -1;
@@ -45,6 +50,7 @@ DEPS = struct(
       "java_lib",# From proto_library
       "_proto1_java_lib", # From proto_library
       "_junit", # From android_robolectric_test
+      "_cc_toolchain", # From C rules
     ],
     label_list = [
       "deps",
@@ -100,7 +106,7 @@ def source_directory_tuple(resource_file):
 def all_unique_source_directories(resources):
   """ Builds a list of ArtifactLocation protos for all source directories for a list of Android resources.
   """
-  # Sets can contain tuples, but cannot conntain structs.
+  # Sets can contain tuples, but cannot contain structs.
   # Use set of tuples to unquify source directories.
   source_directory_tuples = set([source_directory_tuple(file) for file in resources])
   return [struct_omit_none(relative_path = relative_path,
@@ -134,6 +140,7 @@ def annotation_processing_jars(annotation_processing):
         jar = artifact_location(annotation_processing.class_jar),
         source_jar = artifact_location(annotation_processing.source_jar),
   )
+
 def jars_from_output(output):
   """ Collect jars for ide-resolve-files from Java output.
   """
@@ -143,6 +150,94 @@ def jars_from_output(output):
           for jar in [output.class_jar, output.ijar, output.source_jar]
           if jar != None and not jar.is_source]
 
+def c_rule_ide_info(target, ctx):
+  """ Build CRuleIdeInfo.
+
+  Returns a pair of (CRuleIdeInfo proto, a set of ide-resolve-files).
+  (or (None, empty set) if the rule is not a C rule).
+  """
+  if not hasattr(target, "cc"):
+    return (None, set())
+
+  sources = getSourcesFromRule(ctx)
+
+  if hasattr(ctx.rule.attr, "hdrs"):
+    exported_headers = [artifact_location(file)
+                        for hdr in ctx.rule.attr.hdrs
+                        for file in hdr.files]
+  else:
+    exported_headers = []
+
+  rule_includes = []
+  if hasattr(ctx.rule.attr, "includes"):
+    rule_includes = ctx.rule.attr.includes
+  rule_defines = []
+  if hasattr(ctx.rule.attr, "defines"):
+    rule_defines = ctx.rule.attr.defines
+  rule_copts = []
+  if hasattr(ctx.rule.attr, "copts"):
+    rule_copts = ctx.rule.attr.copts
+
+  cc_provider = target.cc
+
+  return (struct_omit_none(
+                  source = sources,
+                  exported_header = exported_headers,
+                  rule_include = rule_includes,
+                  rule_define = rule_defines,
+                  rule_copt = rule_copts,
+                  transitive_include_directory = cc_provider.include_directories,
+                  transitive_quote_include_directory = cc_provider.quote_include_directories,
+                  transitive_define = cc_provider.defines,
+                  transitive_system_include_directory = cc_provider.system_include_directories
+         ),
+         set())
+
+def c_toolchain_ide_info(target, ctx):
+  """ Build CToolchainIdeInfo.
+
+  Returns a pair of (CToolchainIdeInfo proto, a set of ide-resolve-files).
+  (or (None, empty set) if the rule is not a cc_toolchain rule).
+  """
+
+  if ctx.rule.kind != "cc_toolchain":
+    return (None, set())
+
+  # This should exist because we requested it in our aspect definition.
+  cc_fragment = ctx.fragments.cpp
+
+  return (struct_omit_none(
+                  target_name = cc_fragment.target_gnu_system_name,
+                  base_compiler_option = cc_fragment.compiler_options(ctx.features),
+                  c_option = cc_fragment.c_options,
+                  cpp_option = cc_fragment.cxx_options(ctx.features),
+                  link_option = cc_fragment.link_options,
+                  unfiltered_compiler_option = cc_fragment.unfiltered_compiler_options(ctx.features),
+                  preprocessor_executable =
+                      replaceEmptyPathWithDot(str(cc_fragment.preprocessor_executable)),
+                  cpp_executable = str(cc_fragment.compiler_executable),
+                  built_in_include_directory = [str(d)
+                                                for d in cc_fragment.built_in_include_directories]
+         ),
+         set())
+
+# TODO(salguarnieri) Remove once skylark provides the path safe string from a PathFragment.
+def replaceEmptyPathWithDot(pathString):
+  return "." if len(pathString) == 0 else pathString
+
+def getSourcesFromRule(context):
+  """
+  Get the list of sources from a rule as artifact locations.
+
+  Returns the list of sources as artifact locations for a rule or an empty list if no sources are
+  present.
+  """
+
+  if hasattr(context.rule.attr, "srcs"):
+    return [artifact_location(file)
+            for src in context.rule.attr.srcs
+            for file in src.files]
+  return []
 
 def java_rule_ide_info(target, ctx):
   """ Build JavaRuleIdeInfo.
@@ -152,12 +247,8 @@ def java_rule_ide_info(target, ctx):
   """
   if not hasattr(target, "java"):
     return (None, set())
-  if hasattr(ctx.rule.attr, "srcs"):
-     sources = [artifact_location(file)
-                for src in ctx.rule.attr.srcs
-                for file in src.files]
-  else:
-     sources = []
+
+  sources = getSourcesFromRule(ctx)
 
   jars = [library_artifact(output) for output in target.java.outputs.jars]
   ide_resolve_files = set([jar
@@ -258,6 +349,13 @@ def _aspect_impl(target, ctx):
       ide_resolve_files = ide_resolve_files | dep.intellij_info_files.ide_resolve_files
 
 
+  # Collect C-specific information
+  (c_rule_ide_info, c_ide_resolve_files) = c_rule_ide_info(target, ctx)
+  ide_resolve_files = ide_resolve_files | c_ide_resolve_files
+
+  (c_toolchain_ide_info, c_toolchain_ide_resolve_files) = c_toolchain_ide_info(target, ctx)
+  ide_resolve_files = ide_resolve_files | c_toolchain_ide_resolve_files
+
   # Collect Java-specific information
   (java_rule_ide_info, java_ide_resolve_files) = java_rule_ide_info(target, ctx)
   ide_resolve_files = ide_resolve_files | java_ide_resolve_files
@@ -282,6 +380,8 @@ def _aspect_impl(target, ctx):
       dependencies = list(compiletime_deps),
       runtime_deps = list(runtime_deps),
       build_file_artifact_location = build_file_artifact_location(ctx.build_file_path),
+      c_rule_ide_info = c_rule_ide_info,
+      c_toolchain_ide_info = c_toolchain_ide_info,
       java_rule_ide_info = java_rule_ide_info,
       android_rule_ide_info = android_rule_ide_info,
       tags = ctx.rule.attr.tags,
@@ -305,6 +405,7 @@ def _aspect_impl(target, ctx):
       export_deps = export_deps,
     )
 
-intellij_info_aspect = aspect(implementation = _aspect_impl,
-    attr_aspects = ALL_DEPS.label + ALL_DEPS.label_list
+intellij_info_aspect = aspect(
+    implementation = _aspect_impl,
+    attr_aspects = ALL_DEPS.label + ALL_DEPS.label_list,
 )
