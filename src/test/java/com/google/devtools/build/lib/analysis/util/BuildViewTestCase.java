@@ -520,6 +520,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getActionGraph().getGeneratingAction(artifact);
   }
 
+  protected Action getGeneratingAction(ConfiguredTarget target, String outputName) {
+    NestedSet<Artifact> filesToBuild = getFilesToBuild(target);
+    Artifact artifact = Iterables.find(filesToBuild, artifactNamed(outputName), null);
+    if (artifact == null) {
+      fail(
+          String.format(
+              "Artifact named '%s' not found in filesToBuild (%s)", outputName, filesToBuild));
+    }
+    return getGeneratingAction(artifact);
+  }
+
   /**
    * Returns the SpawnAction that generates an artifact.
    * Implicitly assumes the action is a SpawnAction.
@@ -528,6 +539,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return (SpawnAction) getGeneratingAction(artifact);
   }
 
+  protected SpawnAction getGeneratingSpawnAction(ConfiguredTarget target, String outputName) {
+    return getGeneratingSpawnAction(
+        Iterables.find(getFilesToBuild(target), artifactNamed(outputName)));
+  }
+ 
   protected void simulateLoadingPhase() {
     try {
       ensureTargetsVisited(targetConfig.getAllLabels().values());
@@ -1392,11 +1408,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       result.add(Label.parseAbsolute(s));
     }
     return result;
-  }
-
-  protected SpawnAction getGeneratingSpawnAction(ConfiguredTarget target, String outputName) {
-    return getGeneratingSpawnAction(
-        Iterables.find(getFilesToBuild(target), artifactNamed(outputName)));
   }
 
   protected String getErrorMsgSingleFile(String attrName, String ruleType, String ruleName,
