@@ -505,6 +505,21 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCcLibraryUplevelIncludesWarned() throws Exception {
+    checkWarning(
+        "uplevel",
+        "lib",
+        // message:
+        "in includes attribute of cc_library rule //uplevel:lib: '../bar' resolves to 'bar' not "
+            + "below the relative path of its package 'uplevel'. This will be an error in the "
+            + "future",
+        // build file:
+        "cc_library(name = 'lib',",
+        "           srcs = ['foo.cc'],",
+        "           includes = ['../bar'])");
+  }
+
+  @Test
   public void testStaticallyLinkedBinaryNeedsSharedObject() throws Exception {
     scratch.file(
         "third_party/sophos_av_pua/BUILD",
