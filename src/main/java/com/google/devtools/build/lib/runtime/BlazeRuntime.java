@@ -55,6 +55,8 @@ import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.Profiler.ProfiledTaskKinds;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
+import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
@@ -174,6 +176,7 @@ public final class BlazeRuntime {
   // Workspace state (currently exactly one workspace per server)
   private final BlazeDirectories directories;
   private final SkyframeExecutor skyframeExecutor;
+  private final QueryEnvironmentFactory queryEnvironmentFactory;
   /** The action cache is loaded lazily on the first build command. */
   private ActionCache actionCache;
   /** The execution time range of the previous build command in this server, if any. */
@@ -183,6 +186,7 @@ public final class BlazeRuntime {
   private BlazeRuntime(BlazeDirectories directories,
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       final SkyframeExecutor skyframeExecutor,
+      QueryEnvironmentFactory queryEnvironmentFactory,
       PackageFactory pkgFactory, ConfiguredRuleClassProvider ruleClassProvider,
       ConfigurationFactory configurationFactory, Clock clock,
       OptionsProvider startupOptionsProvider, Iterable<BlazeModule> blazeModules,
@@ -206,6 +210,7 @@ public final class BlazeRuntime {
     this.timestampGranularityMonitor = Preconditions.checkNotNull(timestampGranularityMonitor);
     this.startupOptionsProvider = startupOptionsProvider;
     this.eventBusExceptionHandler = eventBusExceptionHandler;
+    this.queryEnvironmentFactory = queryEnvironmentFactory;
 
     // Workspace state
     this.directories = directories;
@@ -469,6 +474,14 @@ public final class BlazeRuntime {
    */
   public SkyframeExecutor getSkyframeExecutor() {
     return skyframeExecutor;
+  }
+
+  /**
+   * Returns the {@link QueryEnvironmentFactory} that should be used to create a
+   * {@link AbstractBlazeQueryEnvironment}, whenever one is needed.
+   */
+  public QueryEnvironmentFactory getQueryEnvironmentFactory() {
+    return queryEnvironmentFactory;
   }
 
   /**
@@ -1333,6 +1346,7 @@ public final class BlazeRuntime {
 
       Preprocessor.Factory.Supplier preprocessorFactorySupplier = null;
       SkyframeExecutorFactory skyframeExecutorFactory = null;
+      QueryEnvironmentFactory queryEnvironmentFactory = null;
       for (BlazeModule module : blazeModules) {
         module.blazeStartup(startupOptionsProvider,
             BlazeVersionInfo.instance(), instanceId, directories, clock);
@@ -1350,9 +1364,20 @@ public final class BlazeRuntime {
               skyframeExecutorFactory);
           skyframeExecutorFactory = skyFactory;
         }
+        QueryEnvironmentFactory queryEnvFactory = module.getQueryEnvironmentFactory();
+        if (queryEnvFactory != null) {
+          Preconditions.checkState(queryEnvironmentFactory == null,
+              "At most one query environment factory supported. But found two: %s and %s",
+              queryEnvFactory,
+              queryEnvironmentFactory);
+          queryEnvironmentFactory = queryEnvFactory;
+        }
       }
       if (skyframeExecutorFactory == null) {
         skyframeExecutorFactory = new SequencedSkyframeExecutorFactory();
+      }
+      if (queryEnvironmentFactory == null) {
+        queryEnvironmentFactory = new QueryEnvironmentFactory();
       }
       if (preprocessorFactorySupplier == null) {
         preprocessorFactorySupplier = Preprocessor.Factory.Supplier.NullSupplier.INSTANCE;
@@ -1472,7 +1497,7 @@ public final class BlazeRuntime {
       invocationPolicy = createInvocationPolicyFromModules(invocationPolicy, blazeModules);
 
       return new BlazeRuntime(directories, workspaceStatusActionFactory, skyframeExecutor,
-          pkgFactory, ruleClassProvider, configurationFactory,
+          queryEnvironmentFactory, pkgFactory, ruleClassProvider, configurationFactory,
           clock, startupOptionsProvider, ImmutableList.copyOf(blazeModules),
           timestampMonitor, eventBusExceptionHandler, binTools, projectFileProvider,
           invocationPolicy, commands);

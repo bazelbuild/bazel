@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
+import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
@@ -358,6 +359,15 @@ public abstract class BlazeModule {
    */
   public PackageFactory.EnvironmentExtension getPackageEnvironmentExtension() {
     return new PackageFactory.EmptyEnvironmentExtension();
+  }
+
+  /**
+   * Returns a factory for creating {@link AbstractBlazeQueryEnvironment} objects.
+   * If the module does not provide any {@link QueryEnvironmentFactory}, it should return null. Note
+   * that only one factory per Bazel/Blaze runtime is allowed.
+   */
+  public QueryEnvironmentFactory getQueryEnvironmentFactory() {
+    return null;
   }
 
   /**

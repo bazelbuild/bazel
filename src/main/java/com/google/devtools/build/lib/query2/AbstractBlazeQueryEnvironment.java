@@ -23,12 +23,7 @@ import com.google.devtools.build.lib.events.ErrorSensingEventHandler;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.DependencyFilter;
-import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.pkgcache.PackageProvider;
-import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
-import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.query2.engine.Callback;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment;
@@ -37,7 +32,6 @@ import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.engine.QueryExpression;
 import com.google.devtools.build.lib.query2.engine.QueryUtil.AggregateAllCallback;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.skyframe.WalkableGraph.WalkableGraphFactory;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -47,8 +41,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
-
-import javax.annotation.Nullable;
 
 /**
  * {@link QueryEnvironment} that can evaluate queries to produce a result, and implements as much
@@ -66,7 +58,7 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
   private final Set<Setting> settings;
   private final List<QueryFunction> extraFunctions;
 
- private static final Logger LOG = Logger.getLogger(AbstractBlazeQueryEnvironment.class.getName());
+  private static final Logger LOG = Logger.getLogger(AbstractBlazeQueryEnvironment.class.getName());
 
   protected AbstractBlazeQueryEnvironment(boolean keepGoing,
       boolean strictScope,
@@ -96,38 +88,6 @@ public abstract class AbstractBlazeQueryEnvironment<T> implements QueryEnvironme
       specifiedFilter = DependencyFilter.and(specifiedFilter, DependencyFilter.NO_NODEP_ATTRIBUTES);
     }
     return specifiedFilter;
-  }
-
-  public static AbstractBlazeQueryEnvironment<Target> newQueryEnvironment(
-      TransitivePackageLoader transitivePackageLoader, WalkableGraphFactory graphFactory,
-      PackageProvider packageProvider,
-      TargetPatternEvaluator targetPatternEvaluator, boolean keepGoing, boolean orderedResults,
-      List<String> universeScope, int loadingPhaseThreads,
-      EventHandler eventHandler, Set<Setting> settings, Iterable<QueryFunction> functions,
-      @Nullable PathPackageLocator packagePath) {
-    return newQueryEnvironment(transitivePackageLoader, graphFactory, packageProvider,
-        targetPatternEvaluator, keepGoing, /*strictScope=*/true, orderedResults,
-        universeScope, loadingPhaseThreads, Rule.ALL_LABELS, eventHandler, settings, functions,
-        packagePath);
-  }
-
-  public static AbstractBlazeQueryEnvironment<Target> newQueryEnvironment(
-      TransitivePackageLoader transitivePackageLoader, WalkableGraphFactory graphFactory,
-      PackageProvider packageProvider,
-      TargetPatternEvaluator targetPatternEvaluator, boolean keepGoing, boolean strictScope,
-      boolean orderedResults, List<String> universeScope, int loadingPhaseThreads,
-      Predicate<Label> labelFilter,
-      EventHandler eventHandler, Set<Setting> settings, Iterable<QueryFunction> functions,
-      @Nullable PathPackageLocator packagePath) {
-    Preconditions.checkNotNull(universeScope);
-    return orderedResults || universeScope.isEmpty() || packagePath == null
-        ? new BlazeQueryEnvironment(transitivePackageLoader, packageProvider,
-        targetPatternEvaluator, keepGoing, strictScope, loadingPhaseThreads,
-        labelFilter, eventHandler, settings, functions)
-        : new SkyQueryEnvironment(
-            keepGoing, strictScope, loadingPhaseThreads, labelFilter, eventHandler, settings,
-            functions, targetPatternEvaluator.getOffset(), graphFactory, universeScope,
-            packagePath);
   }
 
   /**

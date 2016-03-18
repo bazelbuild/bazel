@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.packages.Rule.ALL_LABELS;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -250,12 +252,18 @@ public final class QueryCommand implements BlazeCommand {
     for (BlazeModule module : env.getRuntime().getBlazeModules()) {
       functions.addAll(module.getQueryFunctions());
     }
-    return AbstractBlazeQueryEnvironment.newQueryEnvironment(
+    return env.getRuntime().getQueryEnvironmentFactory().create(
         env.getPackageManager().newTransitiveLoader(),
         env.getSkyframeExecutor(),
         env.getPackageManager(),
         env.newTargetPatternEvaluator(),
-        keepGoing, orderedResults, universeScope, loadingPhaseThreads, env.getReporter(),
+        keepGoing,
+        /*strictScope=*/ true,
+        orderedResults,
+        universeScope,
+        loadingPhaseThreads,
+        /*labelFilter=*/ ALL_LABELS,
+        env.getReporter(),
         settings,
         functions.build(),
         env.getPackageManager().getPackagePath());
