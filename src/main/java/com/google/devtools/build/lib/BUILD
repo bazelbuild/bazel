@@ -33,6 +33,7 @@ filegroup(
         "//src/main/java/com/google/devtools/build/lib/query2:srcs",
         "//src/main/java/com/google/devtools/build/lib/remote:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/apple:srcs",
+        "//src/main/java/com/google/devtools/build/lib/rules/apple/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:srcs",
         "//src/main/java/com/google/devtools/build/lib/rules/objc:srcs",
