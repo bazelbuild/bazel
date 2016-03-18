@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools;
 
 import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.fail;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,7 +42,7 @@ public class NdkReleaseTest {
     try {
       // this is actually invalid
       testNdkRelease("r10e-rc4 (abc)", "r10e", "rc4", false);
-      fail();
+      throw new Error();
     } catch (AssertionError e) {
       // expected
     }
@@ -74,7 +73,7 @@ public class NdkReleaseTest {
     try {
       // this is actually valid
       testBadNdkRelease("r10e-rc4 (64-bit)");
-      fail();
+      throw new Error();
     } catch (AssertionError e) {
       // expected
     }
