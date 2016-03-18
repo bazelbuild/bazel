@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
+import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabelList;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
@@ -50,6 +51,7 @@ public class IosTestRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
     final ImmutableList<Label> gcov =
         ImmutableList.of(env.getToolsLabel("//tools/objc:gcov"));
+    final Label mcov = env.getToolsLabel("//tools/objc:mcov");
     return builder
         .requiresConfigurationFragments(
             ObjcConfiguration.class, J2ObjcConfiguration.class, AppleConfiguration.class)
@@ -70,8 +72,7 @@ public class IosTestRule implements RuleDefinition {
             attr(IosTest.TARGET_DEVICE, LABEL)
                 .allowedFileTypes()
                 .allowedRuleClasses("ios_device")
-                .value(
-                    env.getToolsLabel("//tools/objc/sim_devices:default")))
+                .value(env.getToolsLabel("//tools/objc/sim_devices:default")))
         /* <!-- #BLAZE_RULE(ios_test).ATTRIBUTE(xctest) -->
         Whether this target contains tests using the XCTest testing framework.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -147,12 +148,27 @@ public class IosTestRule implements RuleDefinition {
                 .value(
                     new LateBoundLabelList<BuildConfiguration>(gcov) {
                       @Override
-                      public List<Label> getDefault(Rule rule, AttributeMap attributes,
-                          BuildConfiguration configuration) {
+                      public List<Label> getDefault(
+                          Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
                         if (!configuration.isCodeCoverageEnabled()) {
                           return ImmutableList.of();
                         }
                         return gcov;
+                      }
+                    }))
+        .add(
+            attr(IosTest.MCOV_TOOL_ATTR, LABEL)
+                .cfg(HOST)
+                .value(
+                    new LateBoundLabel<BuildConfiguration>(mcov) {
+                      @Override
+                      public Label getDefault(
+                          Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+                        if (!configuration.isCodeCoverageEnabled()) {
+                          return null;
+                        }
+
+                        return mcov;
                       }
                     }))
         .build();

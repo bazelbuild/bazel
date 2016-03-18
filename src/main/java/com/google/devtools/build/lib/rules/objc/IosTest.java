@@ -63,6 +63,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
   static final String TEST_TARGET_DEVICE_ATTR = "ios_test_target_device";
   static final String TEST_TEMPLATE_ATTR = "$test_template";
   static final String XCTEST_APP_ATTR = "xctest_app";
+  static final String MCOV_TOOL_ATTR = ":mcov";
 
   @VisibleForTesting
   public static final String REQUIRES_SOURCE_ERROR =
@@ -168,10 +169,13 @@ public final class IosTest implements RuleConfiguredTargetFactory {
     NestedSetBuilder<Artifact> filesToBuildBuilder =
         NestedSetBuilder.<Artifact>stableOrder().addTransitive(filesToBuildSet);
 
+    InstrumentedFilesProvider instrumentedFilesProvider =
+        new CompilationSupport(ruleContext).getInstrumentedFilesProvider(common);
+
     TestSupport testSupport =
         new TestSupport(ruleContext)
             .registerTestRunnerActions()
-            .addRunfiles(runfilesBuilder)
+            .addRunfiles(runfilesBuilder, instrumentedFilesProvider)
             .addFilesToBuild(filesToBuildBuilder);
 
     Artifact executable = testSupport.generatedTestScript();
@@ -187,9 +191,7 @@ public final class IosTest implements RuleConfiguredTargetFactory {
         .add(
             ExecutionInfoProvider.class,
             new ExecutionInfoProvider(ImmutableMap.of(ExecutionRequirements.REQUIRES_DARWIN, "")))
-        .addProvider(
-            InstrumentedFilesProvider.class,
-            new CompilationSupport(ruleContext).getInstrumentedFilesProvider(common))
+        .addProvider(InstrumentedFilesProvider.class, instrumentedFilesProvider)
         .addProviders(testSupport.getExtraProviders())
         .setRunfilesSupport(runfilesSupport, executable)
         .build();

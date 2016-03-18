@@ -110,6 +110,11 @@ filegroup(
     srcs = [":gcov_stub"],
 )
 
+filegroup(
+    name = "mcov",
+    srcs = [":mcov_stub"],
+)
+
 xcode_config(
     name = "host_xcodes",
 )
