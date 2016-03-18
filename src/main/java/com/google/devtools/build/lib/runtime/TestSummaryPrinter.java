@@ -93,8 +93,10 @@ public class TestSummaryPrinter {
       TestSummary summary,
       AnsiTerminalPrinter terminalPrinter,
       boolean verboseSummary, boolean printFailedTestCases) {
+    BlazeTestStatus status = summary.getStatus();
     // Skip output for tests that failed to build.
-    if (summary.getStatus() == BlazeTestStatus.FAILED_TO_BUILD) {
+    if (status == BlazeTestStatus.FAILED_TO_BUILD
+        || status == BlazeTestStatus.BLAZE_HALTED_BEFORE_TESTING) {
       return;
     }
     String message = getCacheMessage(summary) + statusString(summary.getStatus());
