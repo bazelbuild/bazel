@@ -96,6 +96,22 @@ public class OptionsParserTest {
     public String boom;
   }
 
+  /**
+   * Example with multiple default values
+   */
+  public static class ExampleMultiple extends OptionsBase {
+    @Option(name = "multiple",
+        defaultValue = "",
+        defaultMultipleValue = {"a", "b"},
+        allowMultiple = true)
+    public List<String> multiple;
+
+    @Option(name = "emptyMultiple",
+        defaultValue = "",
+        allowMultiple = true)
+    public List<String> emptyMultiple;
+  }
+
   public static class StringConverter implements Converter<String> {
     @Override
     public String convert(String input) {
@@ -199,6 +215,22 @@ public class OptionsParserTest {
     ExampleBoom boom = parser.getOptions(ExampleBoom.class);
     // The converted value is intentionally null since boom uses the EmptyToNullStringConverter
     assertNull(boom.boom);
+  }
+
+  @Test
+  public void parseWithMultipleDefaultValues() throws OptionsParsingException {
+    OptionsParser parser = newOptionsParser(ExampleMultiple.class);
+    parser.parse();
+    ExampleMultiple multiple = parser.getOptions(ExampleMultiple.class);
+    assertThat(multiple.multiple).containsExactly("a", "b");
+  }
+
+  @Test
+  public void parseWithEmptyMultipleDefaultValues() throws OptionsParsingException {
+    OptionsParser parser = newOptionsParser(ExampleMultiple.class);
+    parser.parse();
+    ExampleMultiple multiple = parser.getOptions(ExampleMultiple.class);
+    assertThat(multiple.emptyMultiple).isEmpty();
   }
 
   public static class CategoryTest extends OptionsBase {

@@ -63,10 +63,16 @@ public @interface Option {
    * "null" is only applicable when computing the default value; if specified
    * on the command-line, this string will have its usual literal meaning.
    *
-   * <p>The default value for flags that set allowMultiple to true is always
-   * the empty list and the value in the annotation is ignored. 
+   * <p>The default value for flags that set allowMultiple to true should be set with
+   * {@link #defaultMultipleValue()}
    */
   String defaultValue();
+
+  /**
+   * This method is an extension of {@link #defaultValue()} and it enables setting default values
+   * for flags whose allowMultiple is true. In that case {@link #defaultValue()} is ignored.
+   */
+  String[] defaultMultipleValue() default {};
 
   /**
    * A string describing the category of options that this belongs to. {@link
@@ -143,7 +149,7 @@ public @interface Option {
    * when parsed. For example, if foo is a wrapper option, then "--foo=--bar=baz"
    * will be parsed as the flag "--bar=baz" (rather than --foo taking the value
    * "--bar=baz"). A wrapper option should have the type {@link Void} (if it is something other
-   * than Void, the parser will not assign a value to it). The 
+   * than Void, the parser will not assign a value to it). The
    * {@link Option#implicitRequirements()}, {@link Option#expansion()}, {@link Option#converter()}
    * attributes will not be processed. Wrapper options are implicitly repeatable (i.e., as though
    * {@link Option#allowMultiple()} is true regardless of its value in the annotation).

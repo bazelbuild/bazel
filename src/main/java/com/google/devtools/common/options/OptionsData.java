@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -76,7 +75,7 @@ final class OptionsData {
    * values.
    */
   private final Map<Field, Boolean> allowMultiple;
-  
+
   private OptionsData(Map<Class<? extends OptionsBase>, Constructor<?>> optionsClasses,
                       Map<String, Field> nameToField,
                       Map<Character, Field> abbrevToField,
@@ -130,7 +129,7 @@ final class OptionsData {
   public boolean getAllowMultiple(Field field) {
     return allowMultiple.get(field);
   }
-  
+
   private static List<Field> getAllAnnotatedFields(Class<? extends OptionsBase> optionsClass) {
     List<Field> allFields = Lists.newArrayList();
     for (Field field : optionsClass.getFields()) {
@@ -146,11 +145,26 @@ final class OptionsData {
 
   private static Object retrieveDefaultFromAnnotation(Field optionField) {
     Option annotation = optionField.getAnnotation(Option.class);
-    // If an option can be specified multiple times, its default value is a new empty list.
+    // If an option can be specified multiple times then get the default value from the
+    // defaultMultipleValue and ignore defaultValue
     if (annotation.allowMultiple()) {
-      return Collections.emptyList();
+      // Create a list with each value in defaultMultipleValue converted
+      String[] defaultMultipleValueString =
+          OptionsParserImpl.getDefaultMultipleOptionString(optionField);
+      ImmutableList.Builder<Object> builder = new ImmutableList.Builder<>();
+      for (String element : defaultMultipleValueString) {
+        builder.add(convertDefaultValueFromAnnotation(element, optionField));
+      }
+      return builder.build();
     }
-    String defaultValueString = OptionsParserImpl.getDefaultOptionString(optionField);
+    // Otherwise convert the defaultValue
+    return convertDefaultValueFromAnnotation(
+        OptionsParserImpl.getDefaultOptionString(optionField),
+        optionField);
+  }
+
+  private static Object convertDefaultValueFromAnnotation(String defaultValueString,
+      Field optionField) {
     try {
       return OptionsParserImpl.isSpecialNullDefault(defaultValueString, optionField)
           ? null
@@ -276,7 +290,7 @@ final class OptionsData {
         optionDefaultsBuilder.put(field, retrieveDefaultFromAnnotation(field));
 
         convertersBuilder.put(field, OptionsParserImpl.findConverter(field));
-        
+
         allowMultipleBuilder.put(field, annotation.allowMultiple());
       }
     }
