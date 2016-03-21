@@ -10,6 +10,7 @@ A configuration fragment for C++
   <h2>Methods</h2>
   <ul>
           <li><a href="#ar_executable">ar_executable</a></li>
+              <li><a href="#built_in_include_directories">built_in_include_directories</a></li>
               <li><a href="#c_options">c_options</a></li>
               <li><a href="#compiler">compiler</a></li>
               <li><a href="#compiler_executable">compiler_executable</a></li>
@@ -24,6 +25,7 @@ A configuration fragment for C++
               <li><a href="#nm_executable">nm_executable</a></li>
               <li><a href="#objcopy_executable">objcopy_executable</a></li>
               <li><a href="#objdump_executable">objdump_executable</a></li>
+              <li><a href="#preprocessor_executable">preprocessor_executable</a></li>
               <li><a href="#strip_executable">strip_executable</a></li>
               <li><a href="#sysroot">sysroot</a></li>
               <li><a href="#target_gnu_system_name">target_gnu_system_name</a></li>
@@ -35,6 +37,12 @@ A configuration fragment for C++
         <p><pre>PathFragment cpp.ar_executable</pre></p>
 
     Path to GNU binutils 'ar' binary
+
+
+        <h2 id="built_in_include_directories">built_in_include_directories</h2>
+        <p><pre>List cpp.built_in_include_directories</pre></p>
+
+    Built-in system include paths for the toolchain compiler. All paths in this list should be relative to the exec directory. They may be absolute if they are also installed on the remote build nodes or for local compilation.
 
 
         <h2 id="c_options">c_options</h2>
@@ -119,6 +127,12 @@ A configuration fragment for C++
         <p><pre>PathFragment cpp.objdump_executable</pre></p>
 
     Path to GNU binutils 'objdump' binary
+
+
+        <h2 id="preprocessor_executable">preprocessor_executable</h2>
+        <p><pre>PathFragment cpp.preprocessor_executable</pre></p>
+
+    Path to C/C++ preprocessor binary
 
 
         <h2 id="strip_executable">strip_executable</h2>
