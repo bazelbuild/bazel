@@ -261,6 +261,31 @@ public final class ProtoCompileAction {
     return builder;
   }
 
+  /**
+   * Static inner class since these objects live into the execution phase and so they must not
+   * keep alive references to the surrounding analysis-phase objects.
+   */
+  private static class ProtoCommandLineArgv extends CustomMultiArgv {
+    private final Iterable<Artifact> transitiveImports;
+
+    ProtoCommandLineArgv(Iterable<Artifact> transitiveImports) {
+      this.transitiveImports = transitiveImports;
+    }
+
+    @Override
+    public Iterable<String> argv() {
+      ImmutableList.Builder<String> builder = ImmutableList.builder();
+      for (Artifact artifact : transitiveImports) {
+        builder.add(
+            "-I"
+                + artifact.getRootRelativePath().getPathString()
+                + "="
+                + artifact.getExecPathString());
+      }
+      return builder.build();
+    }
+  }
+
   /* Commandline generator for protoc invocations. */
   public CustomCommandLine.Builder protoCompileCommandLine() {
     CustomCommandLine.Builder arguments = CustomCommandLine.builder();
@@ -270,21 +295,7 @@ public final class ProtoCompileAction {
     arguments.add(ruleContext.getFragment(ProtoConfiguration.class).protocOpts());
 
     // Add include maps
-    arguments.add(
-        new CustomMultiArgv() {
-          @Override
-          public Iterable<String> argv() {
-            ImmutableList.Builder<String> builder = ImmutableList.builder();
-            for (Artifact artifact : supportData.getTransitiveImports()) {
-              builder.add(
-                  "-I"
-                      + artifact.getRootRelativePath().getPathString()
-                      + "="
-                      + artifact.getExecPathString());
-            }
-            return builder.build();
-          }
-        });
+    arguments.add(new ProtoCommandLineArgv(supportData.getTransitiveImports()));
 
     for (Artifact src : supportData.getDirectProtoSources()) {
       arguments.addPath(src.getRootRelativePath());
