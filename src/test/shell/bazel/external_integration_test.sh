@@ -537,7 +537,7 @@ function do_new_remote_repo_test() {
 
   cd ${WORKSPACE_DIR}
 
-  if [ "$1" = "build_file"] ; then
+  if [ "$1" = "build_file" ] ; then
     cat > fox.BUILD <<EOF
 filegroup(
     name = "fox",
