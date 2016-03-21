@@ -229,6 +229,12 @@ public abstract class ValueWithMetadata implements SkyValue {
       return ((ValueWithMetadata) value).getErrorInfo();
     }
     return null;
+  }
 
+  static NestedSet<TaggedEvents> getEvents(SkyValue value) {
+    if (value instanceof ValueWithMetadata) {
+      return ((ValueWithMetadata) value).getTransitiveEvents();
+    }
+    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 }

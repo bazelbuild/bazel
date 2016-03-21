@@ -14,6 +14,7 @@
 package com.google.devtools.build.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.Predicate;
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -22,6 +23,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -310,7 +312,7 @@ public final class ParallelEvaluator implements Evaluator {
       if (storedEventFilter.storeEvents()) {
         // Only do the work of processing children if we're going to store events.
         Set<SkyKey> depKeys = graph.get(skyKey).getTemporaryDirectDeps();
-        Map<SkyKey, ValueWithMetadata> deps = getValuesMaybeFromError(depKeys, bubbleErrorInfo);
+        Map<SkyKey, SkyValue> deps = getValuesMaybeFromError(depKeys, bubbleErrorInfo);
         if (!missingChildren && depKeys.size() != deps.size()) {
           throw new IllegalStateException(
               "Missing keys for "
@@ -320,8 +322,12 @@ public final class ParallelEvaluator implements Evaluator {
                   + ", "
                   + graph.get(skyKey));
         }
-        for (ValueWithMetadata value : deps.values()) {
-          eventBuilder.addTransitive(value.getTransitiveEvents());
+        for (SkyValue value : deps.values()) {
+          if (value == NULL_MARKER) {
+            Preconditions.checkState(missingChildren, "Missing dep in %s for %s", depKeys, skyKey);
+          } else {
+            eventBuilder.addTransitive(ValueWithMetadata.getEvents(value));
+          }
         }
       }
       return eventBuilder.build();
@@ -381,17 +387,16 @@ public final class ParallelEvaluator implements Evaluator {
       this.errorInfo = Preconditions.checkNotNull(errorInfo, skyKey);
     }
 
-    private Map<SkyKey, ValueWithMetadata> getValuesMaybeFromError(Set<SkyKey> keys,
-        @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo) {
-      ImmutableMap.Builder<SkyKey, ValueWithMetadata> builder = ImmutableMap.builder();
+    private Map<SkyKey, SkyValue> getValuesMaybeFromError(
+        Set<SkyKey> keys, @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo) {
+      ImmutableMap.Builder<SkyKey, SkyValue> builder = ImmutableMap.builder();
       ArrayList<SkyKey> missingKeys = new ArrayList<>(keys.size());
       for (SkyKey key : keys) {
         NodeEntry entry = directDeps.get(key);
         if (entry != null) {
-          ValueWithMetadata valueWithMetadata =
-              maybeWrapValueFromError(key, entry, bubbleErrorInfo);
-          if (valueWithMetadata != null) {
-            builder.put(key, valueWithMetadata);
+          SkyValue value = maybeGetValueFromError(key, entry, bubbleErrorInfo);
+          if (value != NULL_MARKER) {
+            builder.put(key, value);
           }
         } else {
           missingKeys.add(key);
@@ -399,33 +404,24 @@ public final class ParallelEvaluator implements Evaluator {
       }
       Map<SkyKey, NodeEntry> missingEntries = graph.getBatch(missingKeys);
       for (SkyKey key : missingKeys) {
-        ValueWithMetadata valueWithMetadata = maybeWrapValueFromError(key, missingEntries.get(key),
-            bubbleErrorInfo);
-        if (valueWithMetadata != null) {
-          builder.put(key, valueWithMetadata);
-        }
+        builder.put(key, maybeGetValueFromError(key, missingEntries.get(key), bubbleErrorInfo));
       }
       return builder.build();
     }
 
     @Override
-    protected ImmutableMap<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
+    protected Map<SkyKey, ValueOrUntypedException> getValueOrUntypedExceptions(
         Set<SkyKey> depKeys) {
       checkActive();
-      Map<SkyKey, ValueWithMetadata> values = getValuesMaybeFromError(depKeys, bubbleErrorInfo);
-      ImmutableMap.Builder<SkyKey, ValueOrUntypedException> builder = ImmutableMap.builder();
-      for (SkyKey depKey : depKeys) {
-        Preconditions.checkState(!depKey.equals(ErrorTransienceValue.KEY));
-        ValueWithMetadata value = values.get(depKey);
-        if (value == null) {
-          // If this entry is not yet done then (optionally) record the missing dependency and
-          // return null.
-          valuesMissing = true;
-          if (bubbleErrorInfo != null) {
-            // Values being built just for their errors don't get to request new children.
-            builder.put(depKey, ValueOrExceptionUtils.ofNull());
-            continue;
-          }
+      Preconditions.checkState(
+          !depKeys.contains(ErrorTransienceValue.KEY),
+          "Error transience key cannot be in requested deps of %s",
+          skyKey);
+      Map<SkyKey, SkyValue> values = getValuesMaybeFromError(depKeys, bubbleErrorInfo);
+      for (Map.Entry<SkyKey, SkyValue> depEntry : values.entrySet()) {
+        SkyKey depKey = depEntry.getKey();
+        SkyValue depValue = depEntry.getValue();
+        if (depValue == NULL_MARKER) {
           if (directDeps.containsKey(depKey)) {
             throw new IllegalStateException(
                 "Undone key "
@@ -437,69 +433,81 @@ public final class ParallelEvaluator implements Evaluator {
                     + ", parent: "
                     + graph.get(skyKey));
           }
-          addDep(depKey);
           valuesMissing = true;
-          builder.put(depKey, ValueOrExceptionUtils.ofNull());
+          addDep(depKey);
           continue;
+        }
+        ErrorInfo errorInfo = ValueWithMetadata.getMaybeErrorInfo(depEntry.getValue());
+        if (errorInfo != null) {
+          childErrorInfos.add(errorInfo);
+          if (bubbleErrorInfo != null) {
+            // Set interrupted status, to try to prevent the calling SkyFunction from doing anything
+            // fancy after this. SkyFunctions executed during error bubbling are supposed to
+            // (quickly) rethrow errors or return a value/null (but there's currently no way to
+            // enforce this).
+            Thread.currentThread().interrupt();
+          }
+          if ((!keepGoing && bubbleErrorInfo == null) || errorInfo.getException() == null) {
+            valuesMissing = true;
+            // We arbitrarily record the first child error -- unused but harmless if in a keep-going
+            // build with a cycle.
+            if (depErrorKey == null) {
+              depErrorKey = depKey;
+            }
+          }
         }
 
         if (!directDeps.containsKey(depKey)) {
-          // If this child is done, we will return it, but also record that it was newly requested
-          // so that the dependency can be properly registered in the graph.
-          addDep(depKey);
-        }
-
-        replayingNestedSetEventVisitor.visit(value.getTransitiveEvents());
-        ErrorInfo errorInfo = value.getErrorInfo();
-
-        if (errorInfo != null) {
-          childErrorInfos.add(errorInfo);
-        }
-
-        if (value.getValue() != null && (keepGoing || errorInfo == null)) {
-          // If the dep did compute a value, it is given to the caller if we are in keepGoing mode
-          // or if we are in noKeepGoingMode and there were no errors computing it.
-          builder.put(depKey, ValueOrExceptionUtils.ofValueUntyped(value.getValue()));
-          continue;
-        }
-
-        // There was an error building the value, which we will either report by throwing an
-        // exception or insulate the caller from by returning null.
-        Preconditions.checkNotNull(errorInfo, "%s %s %s", skyKey, depKey, value);
-
-        if (!keepGoing && errorInfo.getException() != null && bubbleErrorInfo == null) {
-          // Child errors should not be propagated in noKeepGoing mode (except during error
-          // bubbling). Instead we should fail fast.
-
-          // We arbitrarily record the first child error.
-          if (depErrorKey == null) {
-            depErrorKey = depKey;
+          if (bubbleErrorInfo == null) {
+            addDep(depKey);
           }
-          valuesMissing = true;
-          builder.put(depKey, ValueOrExceptionUtils.ofNull());
-          continue;
+          replayingNestedSetEventVisitor.visit(ValueWithMetadata.getEvents(depValue));
         }
-
-        if (bubbleErrorInfo != null) {
-          // Set interrupted status, to try to prevent the calling SkyFunction from doing anything
-          // fancy after this. SkyFunctions executed during error bubbling are supposed to
-          // (quickly) rethrow errors or return a value/null (but there's currently no way to
-          // enforce this).
-          Thread.currentThread().interrupt();
-        }
-        if (errorInfo.getException() != null) {
-          // Give builder a chance to handle this exception.
-          Exception e = errorInfo.getException();
-          builder.put(depKey, ValueOrExceptionUtils.ofExn(e));
-          continue;
-        }
-        // In a cycle.
-        Preconditions.checkState(!Iterables.isEmpty(errorInfo.getCycleInfo()), "%s %s %s %s",
-            skyKey, depKey, errorInfo, value);
-        valuesMissing = true;
-        builder.put(depKey, ValueOrExceptionUtils.ofNull());
       }
-      return builder.build();
+
+      return Maps.transformValues(
+          values,
+          new Function<SkyValue, ValueOrUntypedException>() {
+            @Override
+            public ValueOrUntypedException apply(SkyValue maybeWrappedValue) {
+              if (maybeWrappedValue == NULL_MARKER) {
+                return ValueOrExceptionUtils.ofNull();
+              }
+              SkyValue justValue = ValueWithMetadata.justValue(maybeWrappedValue);
+              ErrorInfo errorInfo = ValueWithMetadata.getMaybeErrorInfo(maybeWrappedValue);
+
+              if (justValue != null && (keepGoing || errorInfo == null)) {
+                // If the dep did compute a value, it is given to the caller if we are in
+                // keepGoing mode or if we are in noKeepGoingMode and there were no errors computing
+                // it.
+                return ValueOrExceptionUtils.ofValueUntyped(justValue);
+              }
+
+              // There was an error building the value, which we will either report by throwing an
+              // exception or insulate the caller from by returning null.
+              Preconditions.checkNotNull(errorInfo, "%s %s", skyKey, maybeWrappedValue);
+              Exception exception = errorInfo.getException();
+
+              if (!keepGoing && exception != null && bubbleErrorInfo == null) {
+                // Child errors should not be propagated in noKeepGoing mode (except during error
+                // bubbling). Instead we should fail fast.
+                return ValueOrExceptionUtils.ofNull();
+              }
+
+              if (exception != null) {
+                // Give builder a chance to handle this exception.
+                return ValueOrExceptionUtils.ofExn(exception);
+              }
+              // In a cycle.
+              Preconditions.checkState(
+                  !Iterables.isEmpty(errorInfo.getCycleInfo()),
+                  "%s %s %s",
+                  skyKey,
+                  errorInfo,
+                  maybeWrappedValue);
+              return ValueOrExceptionUtils.ofNull();
+            }
+          });
     }
 
     @Override
@@ -1544,7 +1552,9 @@ public final class ParallelEvaluator implements Evaluator {
     EvaluationResult.Builder<T> result = EvaluationResult.builder();
     List<SkyKey> cycleRoots = new ArrayList<>();
     for (SkyKey skyKey : skyKeys) {
-      ValueWithMetadata valueWithMetadata = getValueMaybeFromError(skyKey, bubbleErrorInfo);
+      SkyValue unwrappedValue = maybeGetValueFromError(skyKey, graph.get(skyKey), bubbleErrorInfo);
+      ValueWithMetadata valueWithMetadata =
+          unwrappedValue == NULL_MARKER ? null : ValueWithMetadata.wrapWithMetadata(unwrappedValue);
       // Cycle checking: if there is a cycle, evaluation cannot progress, therefore,
       // the final values will not be in DONE state when the work runs out.
       if (valueWithMetadata == null) {
@@ -1908,23 +1918,19 @@ public final class ParallelEvaluator implements Evaluator {
     return entry;
   }
 
-  private ValueWithMetadata maybeWrapValueFromError(SkyKey key, @Nullable NodeEntry entry,
+  private static final SkyValue NULL_MARKER = new SkyValue() {};
+
+  private SkyValue maybeGetValueFromError(
+      SkyKey key,
+      @Nullable NodeEntry entry,
       @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo) {
     SkyValue value = bubbleErrorInfo == null ? null : bubbleErrorInfo.get(key);
     if (value != null) {
-      Preconditions.checkNotNull(entry,
-          "Value cannot have error before evaluation started", key, value);
-      return ValueWithMetadata.wrapWithMetadata(value);
+      Preconditions.checkNotNull(
+          entry, "Value cannot have error before evaluation started: %s %s", key, value);
+      return value;
     }
-    return isDoneForBuild(entry)
-        ? ValueWithMetadata.wrapWithMetadata(entry.getValueMaybeWithMetadata())
-        : null;
-  }
-
-  @Nullable
-  private ValueWithMetadata getValueMaybeFromError(SkyKey key,
-      @Nullable Map<SkyKey, ValueWithMetadata> bubbleErrorInfo) {
-    return maybeWrapValueFromError(key, graph.get(key), bubbleErrorInfo);
+    return isDoneForBuild(entry) ? entry.getValueMaybeWithMetadata() : NULL_MARKER;
   }
 
   /**
