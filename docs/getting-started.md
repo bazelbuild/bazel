@@ -152,7 +152,7 @@ can refer to targets defined in other BUILD files using the syntax
 file:
 
 {% highlight bash %}
-$ mkdir src/main/java/com/example/cmdline
+$ mkdir -p src/main/java/com/example/cmdline
 $ cat > src/main/java/com/example/cmdline/Runner.java <<EOF
 package com.example.cmdline;
 

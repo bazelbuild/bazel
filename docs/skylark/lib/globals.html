@@ -99,7 +99,7 @@ Objects, functions and modules registered in the global environment.
 
 
         <h2 id="Label">Label</h2>
-        <p><pre><a class="anchor" href="Label.html">Label</a> Label(label_string)
+        <p><pre><a class="anchor" href="Label.html">Label</a> Label(label_string, *, relative_to_caller_repository=False)
 </pre></p>
 
     Creates a Label referring to a BUILD target. Use this function only when you want to give a default value for the label attributes. The argument must refer to an absolute label. Example: <br><pre class=language-python>Label("//tools:default")</pre>
@@ -124,6 +124,15 @@ Objects, functions and modules registered in the global environment.
             <td>
                           <p><code><a class="anchor" href="string.html">string</a></code></p>
                           <p>the label string</p>
+            </td>
+          </tr>
+                  <tr>
+            <td id="Label.relative_to_caller_repository">
+              <code>relative_to_caller_repository</code>
+            </td>
+            <td>
+                          <p><code><a class="anchor" href="globals.html#bool">bool</a></code></p>
+                          <p>whether the label should be resolved relative to the label of the file this function is called from.</p>
             </td>
           </tr>
                 </tbody>
