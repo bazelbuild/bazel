@@ -897,6 +897,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
       builder.addArgument("-ignorewarnings")
           .addArgument("-dontnote")
+          .addArgument("-forceprocessing")
           .addArgument("-dontoptimize")
           .addArgument("-dontobfuscate")
           .addArgument("-dontpreverify")
@@ -1196,6 +1197,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .setExecutable(sdk.getProguard())
         .setProgressMessage("Generating streamlined input jar for main dex classes list")
         .setMnemonic("MainDexClassesIntermediate")
+        .addArgument("-forceprocessing")
         .addArgument("-injars")
         .addInputArgument(jar)
         .addArgument("-libraryjars")
