@@ -254,7 +254,6 @@ public final class ReleaseBundlingSupport {
    * multi-architecture binary.
    *
    * @return this application support
-   * @throws InterruptedException
    */
   ReleaseBundlingSupport registerActions() throws InterruptedException {
     bundleSupport.registerActions(objcProvider);
@@ -467,6 +466,23 @@ public final class ReleaseBundlingSupport {
     return codesignCommandLineBuilder.toString();
   }
 
+  /**
+   * Creates entitlement actions such that an entitlements file is generated in
+   * {@link IntermediateArtifacts#entitlements()} which can be used for signing in this bundle.
+   *
+   * <p>Entitlements are generated based on a plist-format entitlements file passed to this bundle's
+   * {@code entitlements} attribute or, if that is not set, entitlements extracted from the provided
+   * mobile provisioning profile. The team prefix is extracted from the provisioning profile and
+   * the following substitutions performed (assuming the prefix extracted was {@code PREFIX}):
+   * <ol>
+   *   <li>"PREFIX.*" -> "PREFIX.BUNDLE_ID" (where BUNDLE_ID is this bundle's id)
+   *   <li>"$(AppIdentifierPrefix)" -> "PREFIX."
+   *   <li>"$(CFBundleIdentifier)" -> "BUNDLE_ID" (where BUNDLE_ID is this bundle's id)
+   * </ol>
+   *
+   * <p>Finally, if an entitlements file was provided via {@code --extra_entitlements} it is merged
+   * into the substituted entitlements.
+   */
   private void registerEntitlementsActions() throws InterruptedException {
     Artifact teamPrefixFile =
         intermediateArtifacts.appendExtensionForEntitlementArtifact(".team_prefix_file");
@@ -479,7 +495,46 @@ public final class ReleaseBundlingSupport {
               ".entitlements_with_variables");
       registerExtractEntitlementsAction(entitlementsNeedingSubstitution);
     }
-    registerEntitlementsVariableSubstitutionAction(entitlementsNeedingSubstitution, teamPrefixFile);
+
+    Artifact substitutedEntitlements = intermediateArtifacts.entitlements();
+    if (attributes.extraEntitlements() != null) {
+      substitutedEntitlements =
+          intermediateArtifacts.appendExtensionForEntitlementArtifact(".substituted");
+      registerMergeEntitlementsAction(substitutedEntitlements, attributes.extraEntitlements());
+    }
+
+    registerEntitlementsVariableSubstitutionAction(
+        entitlementsNeedingSubstitution, teamPrefixFile, substitutedEntitlements);
+  }
+
+  private void registerMergeEntitlementsAction(
+      Artifact substitutedEntitlements, Artifact extraEntitlements) {
+
+    PlMergeControlBytes controlBytes =
+        PlMergeControlBytes.fromPlists(
+            NestedSetBuilder.create(Order.STABLE_ORDER, substitutedEntitlements, extraEntitlements),
+            intermediateArtifacts.entitlements());
+
+    Artifact plMergeControlArtifact =
+        ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, ".merge-entitlements-control");
+
+    ruleContext.registerAction(
+        new BinaryFileWriteAction(
+            ruleContext.getActionOwner(),
+            plMergeControlArtifact,
+            controlBytes,
+            /*makeExecutable=*/ false));
+
+    ruleContext.registerAction(
+        new SpawnAction.Builder()
+            .setMnemonic("MergeEntitlementsFiles")
+            .setExecutable(attributes.plmerge())
+            .addArgument("--control")
+            .addInputArgument(plMergeControlArtifact)
+            .addInput(substitutedEntitlements)
+            .addInput(extraEntitlements)
+            .addOutput(intermediateArtifacts.entitlements())
+            .build(ruleContext));
   }
 
   /**
@@ -501,7 +556,6 @@ public final class ReleaseBundlingSupport {
    * top level target in a blaze invocation.
    *
    * @return this application support
-   * @throws InterruptedException 
    */
   ReleaseBundlingSupport addFilesToBuild(NestedSetBuilder<Artifact> filesToBuild)
       throws InterruptedException {
@@ -532,7 +586,6 @@ public final class ReleaseBundlingSupport {
   /**
    * Creates the {@link XcTestAppProvider} that can be used if this application is used as an
    * {@code xctest_app}.
-   * @throws InterruptedException 
    */
   XcTestAppProvider xcTestAppProvider() throws InterruptedException {
     // We want access to #import-able things from our test rig's dependency graph, but we don't
@@ -581,7 +634,6 @@ public final class ReleaseBundlingSupport {
 
   /**
    * Returns a {@link RunfilesSupport} that uses the provided runner script as the executable.
-   * @throws InterruptedException 
    */
   RunfilesSupport runfilesSupport(Artifact runnerScript) throws InterruptedException {
     Artifact ipaFile = ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA);
@@ -831,8 +883,7 @@ public final class ReleaseBundlingSupport {
   }
 
   private void registerEntitlementsVariableSubstitutionAction(
-      Artifact inputEntitlements, Artifact prefix) {
-    Artifact substitutedEntitlements = intermediateArtifacts.entitlements();
+      Artifact inputEntitlements, Artifact prefix, Artifact substitutedEntitlements) {
     String escapedBundleId = ShellUtils.shellEscape(attributes.bundleId());
     String shellCommand =
         "set -e && "
@@ -990,6 +1041,11 @@ public final class ReleaseBundlingSupport {
       return ruleContext.getPrerequisiteArtifact("entitlements", Mode.TARGET);
     }
 
+    @Nullable
+    Artifact extraEntitlements() {
+      return ruleContext.getPrerequisiteArtifact(":extra_entitlements", Mode.TARGET);
+    }
+
     NestedSet<? extends Artifact> dependentLinkedBinaries() {
       if (ruleContext.attributes().getAttributeDefinition("binary") == null) {
         return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -1006,6 +1062,13 @@ public final class ReleaseBundlingSupport {
 
     FilesToRunProvider bundleMergeExecutable() {
       return checkNotNull(ruleContext.getExecutablePrerequisite("$bundlemerge", Mode.HOST));
+    }
+
+    /**
+     * Returns a reference to the plmerge executable.
+     */
+    FilesToRunProvider plmerge() {
+      return ruleContext.getExecutablePrerequisite("$plmerge", Mode.HOST);
     }
 
     Artifact iossim() {

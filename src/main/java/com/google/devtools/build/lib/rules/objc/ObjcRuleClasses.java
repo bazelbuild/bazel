@@ -797,6 +797,19 @@ public class ObjcRuleClasses {
           $(AppIdentifierPrefix) and $(CFBundleIdentifier).
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("entitlements", LABEL).legacyAllowAnyFileType())
+          .add(
+              attr(":extra_entitlements", LABEL)
+                  .singleArtifact()
+                  .value(
+                      new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
+                        @Override
+                        public Label getDefault(
+                            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+                          return configuration
+                              .getFragment(ObjcConfiguration.class)
+                              .getExtraEntitlements();
+                        }
+                      }))
           /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(provisioning_profile) -->
           The provisioning profile (.mobileprovision file) to use when bundling
           the application.

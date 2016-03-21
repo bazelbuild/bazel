@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
@@ -69,6 +70,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean useAbsolutePathsForActions;
   private final boolean prioritizeStaticLibs;
   private final boolean debugWithGlibcxx;
+  @Nullable private final Label extraEntitlements;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
       @Nullable BlazeDirectories directories) {
@@ -92,6 +94,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.useAbsolutePathsForActions = objcOptions.useAbsolutePathsForActions;
     this.prioritizeStaticLibs = objcOptions.prioritizeStaticLibs;
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
+    this.extraEntitlements = objcOptions.extraEntitlements;
   }
 
   /**
@@ -243,5 +246,13 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean shouldPrioritizeStaticLibs() {
     return this.prioritizeStaticLibs;
+  }
+
+  /**
+   * Returns the extra entitlements plist specified as a flag or {@code null} if none was given.
+   */
+  @Nullable
+  public Label getExtraEntitlements() {
+    return extraEntitlements;
   }
 }

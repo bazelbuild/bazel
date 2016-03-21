@@ -14,60 +14,114 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteSource;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.xcode.plmerge.proto.PlMergeProtos;
 import com.google.devtools.build.xcode.plmerge.proto.PlMergeProtos.Control;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Map;
+
+import javax.annotation.Nullable;
 
 /**
  * A byte source that can be used the generate a control file for the tool plmerge.
  */
 public final class PlMergeControlBytes extends ByteSource {
 
-  private final Bundling bundling;
+  private final NestedSet<Artifact> inputPlists;
+  private final NestedSet<Artifact> immutableInputPlists;
+  @Nullable private final String primaryBundleId;
+  @Nullable private final String fallbackBundleId;
+  @Nullable private final Map<String, String> variableSubstitutions;
+  @Nullable private final String executableName;
   private final Artifact mergedPlist;
 
   /**
-   * @param bundling  the {@code Bundling} instance describing the bundle
-   *     for which to create a merged plist
-   * @param mergedPlist the merged plist that should be bundled as Info.plist
+   * Creates a control based on the passed bundling's plists and values.
+   *
+   * @param bundling bundle for which to create a merged plist
+   * @param mergedPlist the plist that should be created as an output
    */
-  public PlMergeControlBytes(Bundling bundling, Artifact mergedPlist) {
-    this.bundling = bundling;
+  static PlMergeControlBytes fromBundling(Bundling bundling, Artifact mergedPlist) {
+
+    NestedSetBuilder<Artifact> immutableInputPlists = NestedSetBuilder.stableOrder();
+    if (bundling.getAutomaticInfoPlist() != null) {
+      immutableInputPlists.add(bundling.getAutomaticInfoPlist());
+    }
+
+    return new PlMergeControlBytes(
+        NestedSetBuilder.<Artifact>stableOrder()
+            .addTransitive(bundling.getBundleInfoplistInputs())
+            .build(),
+        immutableInputPlists.build(),
+        bundling.getPrimaryBundleId(),
+        bundling.getFallbackBundleId(),
+        bundling.variableSubstitutions(),
+        bundling.getName(),
+        mergedPlist);
+  }
+
+  /**
+   * Creates a control that merges the given plists into the merged plist.
+   */
+  static PlMergeControlBytes fromPlists(NestedSet<Artifact> inputPlists, Artifact mergedPlist) {
+    return new PlMergeControlBytes(
+        inputPlists,
+        NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER),
+        null,
+        null,
+        ImmutableMap.<String, String>of(),
+        null,
+        mergedPlist);
+  }
+
+  private PlMergeControlBytes(
+      NestedSet<Artifact> inputPlists,
+      NestedSet<Artifact> immutableInputPlists,
+      @Nullable String primaryBundleId,
+      @Nullable String fallbackBundleId,
+      @Nullable Map<String, String> variableSubstitutions,
+      @Nullable String executableName,
+      Artifact mergedPlist) {
+    this.inputPlists = inputPlists;
+    this.immutableInputPlists = immutableInputPlists;
+    this.primaryBundleId = primaryBundleId;
+    this.fallbackBundleId = fallbackBundleId;
+    this.variableSubstitutions = variableSubstitutions;
+    this.executableName = executableName;
     this.mergedPlist = mergedPlist;
   }
 
   @Override
   public InputStream openStream() throws IOException {
-    return control(bundling).toByteString().newInput();
+    return control().toByteString().newInput();
   }
 
-  private Control control(Bundling bundling) {
+  private Control control() {
     PlMergeProtos.Control.Builder control =
         PlMergeProtos.Control.newBuilder()
-            .addAllSourceFile(Artifact.toExecPaths(bundling.getBundleInfoplistInputs()))
+            .addAllSourceFile(Artifact.toExecPaths(inputPlists))
+            .addAllImmutableSourceFile(Artifact.toExecPaths(immutableInputPlists))
+            .putAllVariableSubstitutionMap(variableSubstitutions)
             .setOutFile(mergedPlist.getExecPathString());
 
-    if (bundling.getAutomaticInfoPlist() != null) {
-      control.addImmutableSourceFile(bundling.getAutomaticInfoPlist().getExecPathString());
+    if (primaryBundleId != null) {
+      control.setPrimaryBundleId(primaryBundleId);
     }
 
-    if (bundling.getPrimaryBundleId() != null) {
-      control.setPrimaryBundleId(bundling.getPrimaryBundleId());
+    if (fallbackBundleId != null) {
+      control.setFallbackBundleId(fallbackBundleId);
     }
 
-    if (bundling.getFallbackBundleId() != null) {
-      control.setFallbackBundleId(bundling.getFallbackBundleId());
+    if (executableName != null) {
+      control.setExecutableName(executableName);
     }
-
-    if (bundling.variableSubstitutions() != null) {
-      control.putAllVariableSubstitutionMap(bundling.variableSubstitutions());
-    }
-
-    control.setExecutableName(bundling.getName());
 
     return control.build();
   }
