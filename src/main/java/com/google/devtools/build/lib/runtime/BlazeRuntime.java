@@ -172,11 +172,11 @@ public final class BlazeRuntime {
   private final ProjectFile.Provider projectFileProvider;
   @Nullable
   private final InvocationPolicy invocationPolicy;
+  private final QueryEnvironmentFactory queryEnvironmentFactory;
 
   // Workspace state (currently exactly one workspace per server)
   private final BlazeDirectories directories;
   private final SkyframeExecutor skyframeExecutor;
-  private final QueryEnvironmentFactory queryEnvironmentFactory;
   /** The action cache is loaded lazily on the first build command. */
   private ActionCache actionCache;
   /** The execution time range of the previous build command in this server, if any. */
