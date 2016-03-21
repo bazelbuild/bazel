@@ -193,7 +193,6 @@ string OptionProcessor::FindAlongsideBinaryBlazerc(const string& cwd,
   return "";
 }
 
-
 // Return the path of the bazelrc file that sits in /etc.
 // This allows for installing Bazel on system-wide directory.
 string OptionProcessor::FindSystemWideBlazerc() {
@@ -204,8 +203,7 @@ string OptionProcessor::FindSystemWideBlazerc() {
   return "";
 }
 
-
-// Return the path the the user rc file.  If cmdLineRcFile != NULL,
+// Return the path to the user's rc file.  If cmdLineRcFile != NULL,
 // use it, dying if it is not readable.  Otherwise, return the first
 // readable file called rc_basename from [workspace, $HOME]
 //
