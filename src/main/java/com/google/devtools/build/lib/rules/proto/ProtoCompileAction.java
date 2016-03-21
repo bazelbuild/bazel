@@ -125,6 +125,22 @@ public final class ProtoCompileAction {
       this.outputs = outputs;
     }
 
+    /** Static class to avoid keeping a reference to this builder after build() is called. */
+    private static class LazyLangPluginFlag extends LazyString {
+      private final String langPrefix;
+      private final Supplier<String> langPluginParameter1;
+
+      LazyLangPluginFlag(String langPrefix, Supplier<String> langPluginParameter1) {
+        this.langPrefix = langPrefix;
+        this.langPluginParameter1 = langPluginParameter1;
+      }
+
+      @Override
+      public String toString() {
+        return String.format("--%s_out=%s", langPrefix, langPluginParameter1.get());
+      }
+    }
+
     public Optional<ProtoCompileAction> build() {
       checkState(langPluginParameter == null || langPluginParameterSupplier == null,
           "Only one of {langPluginParameter, langPluginParameterSupplier} should be set.");
@@ -148,20 +164,13 @@ public final class ProtoCompileAction {
         if (ruleContext.hasErrors()) {
           return absent();
         }
-        LazyString lazyLangPlugingFlag =
-            new LazyString() {
-              @Override
-              public String toString() {
-                return String.format("--%s_out=%s", langPrefix, langPluginParameter1.get());
-              }
-            };
         prefixArguments =
             ImmutableList.of(
                 String.format(
                     "--plugin=protoc-gen-%s=%s",
                     langPrefix,
                     langPluginTarget.getExecutable().getExecPathString()),
-                lazyLangPlugingFlag);
+                new LazyLangPluginFlag(langPrefix, langPluginParameter1));
       } else {
         prefixArguments =
             (langParameter != null) ? ImmutableList.of(langParameter) : ImmutableList.<String>of();
