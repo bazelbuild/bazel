@@ -37,20 +37,6 @@ public final class CustomCommandLine extends CommandLine {
   }
 
   // It's better to avoid anonymous classes if we want to serialize command lines
-
-  private static final class ObjectArg extends ArgvFragment {
-    private final Object arg;
-
-    private ObjectArg(Object arg) {
-      this.arg = arg;
-    }
-
-    @Override
-    void eval(ImmutableList.Builder<String> builder) {
-      builder.add(arg.toString());
-    }
-  }
-
   private static final class JoinExecPathsArg extends ArgvFragment {
 
     private final String delimiter;
@@ -222,26 +208,28 @@ public final class CustomCommandLine extends CommandLine {
    * length of the {@link Iterable}. For instance: {@code -f foo -f bar -f baz}
    */
   public static final class Builder {
-
-    private final List<ArgvFragment> arguments = new ArrayList<>();
+    // In order to avoid unnecessary wrapping, we keep raw objects here, but these objects are
+    // always either ArgvFragments or objects whose desired string representations are just their
+    // toString() results.
+    private final List<Object> arguments = new ArrayList<>();
 
     public Builder add(CharSequence arg) {
       if (arg != null) {
-        arguments.add(new ObjectArg(arg));
+        arguments.add(arg);
       }
       return this;
     }
 
     public Builder add(Label arg) {
       if (arg != null) {
-        arguments.add(new ObjectArg(arg));
+        arguments.add(arg);
       }
       return this;
     }
 
     public Builder add(String arg, Iterable<String> args) {
       if (arg != null && args != null) {
-        arguments.add(new ObjectArg(arg));
+        arguments.add(arg);
         arguments.add(InterspersingArgs.fromStrings(args, /*beforeEach=*/null, "%s"));
       }
       return this;
@@ -256,15 +244,15 @@ public final class CustomCommandLine extends CommandLine {
 
     public Builder addExecPath(String arg, Artifact artifact) {
       if (arg != null && artifact != null) {
-        arguments.add(new ObjectArg(arg));
-        arguments.add(new ObjectArg(artifact.getExecPath()));
+        arguments.add(arg);
+        arguments.add(artifact.getExecPath());
       }
       return this;
     }
 
     public Builder addExecPaths(String arg, Iterable<Artifact> artifacts) {
       if (arg != null && artifacts != null) {
-        arguments.add(new ObjectArg(arg));
+        arguments.add(arg);
         arguments.add(InterspersingArgs.fromExecPaths(artifacts, /*beforeEach=*/null, "%s"));
       }
       return this;
@@ -279,7 +267,7 @@ public final class CustomCommandLine extends CommandLine {
 
     public Builder addJoinStrings(String arg, String delimiter, Iterable<String> strings) {
       if (arg != null && strings != null) {
-        arguments.add(new ObjectArg(arg));
+        arguments.add(arg);
         arguments.add(new JoinStringsArg(delimiter, strings));
       }
       return this;
@@ -287,7 +275,7 @@ public final class CustomCommandLine extends CommandLine {
  
     public Builder addJoinExecPaths(String arg, String delimiter, Iterable<Artifact> artifacts) {
       if (arg != null && artifacts != null) {
-        arguments.add(new ObjectArg(arg));
+        arguments.add(arg);
         arguments.add(new JoinExecPathsArg(delimiter, artifacts));
       }
       return this;
@@ -295,7 +283,7 @@ public final class CustomCommandLine extends CommandLine {
 
     public Builder addPath(PathFragment path) {
       if (path != null) {
-        arguments.add(new ObjectArg(path));
+        arguments.add(path);
       }
       return this;
     }
@@ -365,17 +353,21 @@ public final class CustomCommandLine extends CommandLine {
     return new Builder();
   }
 
-  private final ImmutableList<ArgvFragment> arguments;
+  private final ImmutableList<Object> arguments;
 
-  private CustomCommandLine(List<ArgvFragment> arguments) {
+  private CustomCommandLine(List<Object> arguments) {
     this.arguments = ImmutableList.copyOf(arguments);
   }
 
   @Override
   public Iterable<String> arguments() {
     ImmutableList.Builder<String> builder = ImmutableList.builder();
-    for (ArgvFragment arg : arguments) {
-      arg.eval(builder);
+    for (Object arg : arguments) {
+      if (arg instanceof ArgvFragment) {
+        ((ArgvFragment) arg).eval(builder);
+      } else {
+        builder.add(arg.toString());
+      }
     }
     return builder.build();
   }
