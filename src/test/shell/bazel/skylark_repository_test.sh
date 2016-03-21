@@ -433,13 +433,16 @@ EOF
 
 function test_skylark_repository_download() {
   # Prepare HTTP server with Python
-  mkdir "server_dir"
-  echo "This is one file" > server_dir/download_no_sha256.txt
-  echo "This is another file" > server_dir/download_with_sha256.txt
-  file_sha256="$(sha256sum server_dir/download_with_sha256.txt | head -c 64)"
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  mkdir -p "${server_dir}"
+  local download_with_sha256="${server_dir}/download_with_sha256.txt"
+  local download_no_sha256="${server_dir}/download_no_sha256.txt"
+  echo "This is one file" > "${download_no_sha256}"
+  echo "This is another file" > "${download_with_sha256}"
+  file_sha256="$(sha256sum "${download_with_sha256}" | head -c 64)"
 
   # Start HTTP server with Python
-  startup_server "server_dir"
+  startup_server "${server_dir}"
 
   setup_skylark_repository
   # Our custom repository rule
@@ -465,17 +468,21 @@ EOF
   test -e "${output_base}/external/foo/download_with_sha256.txt" \
     || fail "download_with_sha256.txt is not downloaded"
   # Test download
-  diff "${output_base}/external/foo/download_no_sha256.txt" server_dir/download_no_sha256.txt >/dev/null \
+  diff "${output_base}/external/foo/download_no_sha256.txt" \
+    "${download_no_sha256}" >/dev/null \
     || fail "download_no_sha256.txt is not downloaded successfully"
-  diff "${output_base}/external/foo/download_with_sha256.txt" server_dir/download_with_sha256.txt >/dev/null \
+  diff "${output_base}/external/foo/download_with_sha256.txt" \
+    "${download_with_sha256}" >/dev/null \
     || fail "download_with_sha256.txt is not downloaded successfully"
-
-  rm -rf "server_dir"
 }
 
 function test_skylark_repository_download_and_extract() {
   # Prepare HTTP server with Python
-  mkdir "server_dir"
+  local server_dir="${TEST_TMPDIR}/server_dir"
+  mkdir -p "${server_dir}"
+  local file_prefix="${server_dir}/download_and_extract"
+
+  pushd ${TEST_TMPDIR}
   echo "This is one file" > server_dir/download_and_extract1.txt
   echo "This is another file" > server_dir/download_and_extract2.txt
   echo "This is a third file" > server_dir/download_and_extract3.txt
@@ -483,9 +490,10 @@ function test_skylark_repository_download_and_extract() {
   zip server_dir/download_and_extract2.zip server_dir/download_and_extract2.txt
   zip server_dir/download_and_extract3.zip server_dir/download_and_extract3.txt
   file_sha256="$(sha256sum server_dir/download_and_extract3.zip | head -c 64)"
+  popd
 
   # Start HTTP server with Python
-  startup_server "server_dir"
+  startup_server "${server_dir}"
 
   setup_skylark_repository
   # Our custom repository rule
@@ -515,16 +523,14 @@ EOF
     && fail "temp file is not deleted successfully" || true
   # Test download_and_extract
   diff "${output_base}/external/foo/server_dir/download_and_extract1.txt" \
-    server_dir/download_and_extract1.txt >/dev/null \
+    "${file_prefix}1.txt" >/dev/null \
     || fail "download_and_extract1.tar.gz is not extracted successfully"
   diff "${output_base}/external/foo/server_dir/download_and_extract2.txt" \
-    server_dir/download_and_extract2.txt >/dev/null \
+    "${file_prefix}2.txt" >/dev/null \
     || fail "download_and_extract2.zip is not extracted successfully"
   diff "${output_base}/external/foo/server_dir/download_and_extract3.txt" \
-    server_dir/download_and_extract3.txt >/dev/null \
+    "${file_prefix}3.txt" >/dev/null \
     || fail "download_and_extract3.zip is not extracted successfully"
-
-  rm -rf "server_dir"
 }
 
 # Test native.bazel_version
@@ -571,6 +577,9 @@ EOF
 
 function tear_down() {
   shutdown_server
+  if [ -d "${TEST_TMPDIR}/server_dir" ]; then
+    rm -fr "${TEST_TMPDIR}/server_dir"
+  fi
   true
 }
 
