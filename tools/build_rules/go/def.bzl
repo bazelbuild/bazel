@@ -348,7 +348,10 @@ go_library_attrs = {
     ),
     "go_prefix": attr.label(
         providers = ["go_prefix"],
-        default = Label("//:go_prefix"),
+        default = Label(
+            "//:go_prefix",
+            relative_to_caller_repository = True,
+        ),
         allow_files = False,
         cfg = HOST_CFG,
     ),
