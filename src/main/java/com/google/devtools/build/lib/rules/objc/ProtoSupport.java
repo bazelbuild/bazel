@@ -20,6 +20,7 @@ import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -262,7 +263,7 @@ final class ProtoSupport {
   }
 
   private String getProtoInputListFileContents() {
-    return Artifact.joinExecPaths("\n", attributes.getProtoFiles());
+    return Artifact.joinExecPaths("\n", getFilteredProtos());
   }
 
   private NestedSet<Artifact> getGenerateActionInputs() {
@@ -351,7 +352,7 @@ final class ProtoSupport {
 
   private ImmutableList<Artifact> generatedOutputArtifacts(FileType newFileType) {
     ImmutableList.Builder<Artifact> builder = new ImmutableList.Builder<>();
-    for (Artifact protoFile : attributes.getProtoFiles()) {
+    for (Artifact protoFile : getFilteredProtos()) {
       String generatedOutputName;
       if (attributes.outputsCpp()) {
         generatedOutputName = protoFile.getFilename();
@@ -376,6 +377,14 @@ final class ProtoSupport {
       }
     }
     return builder.build();
+  }
+
+  private Iterable<Artifact> getFilteredProtos() {
+    // Filter the well known types from being sent to be generated, as these protos have already
+    // been generated and linked in libprotobuf.a.
+    return Iterables.filter(
+        attributes.getProtoFiles(),
+        Predicates.not(Predicates.in(attributes.getWellKnownTypeProtos())));
   }
 
   /**
@@ -428,6 +437,15 @@ final class ProtoSupport {
     ImmutableList<Artifact> getPortableProtoFilters() {
       return ruleContext
           .getPrerequisiteArtifacts(ObjcProtoLibraryRule.PORTABLE_PROTO_FILTERS_ATTR, Mode.HOST)
+          .list();
+    }
+
+    /**
+     * Returns the list of well known type protos.
+     */
+    ImmutableList<Artifact> getWellKnownTypeProtos() {
+      return ruleContext
+          .getPrerequisiteArtifacts(ObjcProtoLibraryRule.PROTOBUF_WELL_KNOWN_TYPES, Mode.HOST)
           .list();
     }
 

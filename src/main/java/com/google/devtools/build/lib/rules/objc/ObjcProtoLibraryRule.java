@@ -46,6 +46,7 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
   static final String PROTO_COMPILER_ATTR = "$googlemac_proto_compiler";
   static final String PROTO_COMPILER_SUPPORT_ATTR = "$googlemac_proto_compiler_support";
   static final String PROTO_LIB_ATTR = "$lib_protobuf";
+  static final String PROTOBUF_WELL_KNOWN_TYPES = "$protobuf_well_known_types";
   static final String XCODE_GEN_ATTR = "$xcodegen";
 
   @Override
@@ -130,6 +131,17 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
                         }
                       }
                     }))
+        .add(
+            // The well known type proto label should resolve to the shared location of proto
+            // dependencies of targets in the workspace. Unless all dependencies refer to the same
+            // label for these proto dependencies, an artifact comparison between them is not
+            // possible. Ultimately, we will need to resolve this cross-repository dependency, but,
+            // for now, these well-known protos do not exist in a common repository, and must thus
+            // be present in the root workspace.
+            attr(PROTOBUF_WELL_KNOWN_TYPES, LABEL)
+                .cfg(HOST)
+                .exec()
+                .value(env.getLabel("//tools/objc:protobuf_well_known_types")))
         .add(
             attr(XCODE_GEN_ATTR, LABEL)
                 .cfg(HOST)
