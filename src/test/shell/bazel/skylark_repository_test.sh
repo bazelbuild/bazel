@@ -305,9 +305,8 @@ EOF
 function test_skylark_repository_which_and_execute() {
   setup_skylark_repository
 
-  bazel info
-
   # Test we are using the client environment, not the server one
+  bazel info &> /dev/null  # Start up the server.
   echo "#!/bin/bash" > bin.sh
   echo "exit 0" >> bin.sh
   chmod +x bin.sh

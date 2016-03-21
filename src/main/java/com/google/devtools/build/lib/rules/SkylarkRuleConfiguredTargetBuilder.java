@@ -69,6 +69,7 @@ public final class SkylarkRuleConfiguredTargetBuilder {
       SkylarkRuleContext skylarkRuleContext = new SkylarkRuleContext(ruleContext, Kind.RULE);
       Environment env = Environment.builder(mutability)
           .setSkylark()
+          .setCallerLabel(ruleContext.getLabel())
           .setGlobals(
               ruleContext.getRule().getRuleClassObject().getRuleDefinitionEnvironment().getGlobals())
           .setEventHandler(ruleContext.getAnalysisEnvironment().getEventHandler())

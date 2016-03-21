@@ -105,6 +105,7 @@ public class ASTFileLookupFunction implements SkyFunction {
             ast = BuildFileAST.parseSkylarkFile(path, astFileSize, env.getListener(),
                 new ValidationEnvironment(
                     ruleClassProvider.createSkylarkRuleClassEnvironment(
+                        fileLabel,
                         mutability,
                         env.getListener(),
                         // the two below don't matter for extracting the ValidationEnvironment:

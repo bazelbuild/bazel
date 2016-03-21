@@ -49,12 +49,15 @@ public interface RuleClassProvider {
    * Returns a new Skylark Environment instance for rule creation.
    * Implementations need to be thread safe.
    * Be sure to close() the mutability before you return the results of said evaluation.
+   *
+   * @param label the location of the rule.
    * @param mutability the Mutability for the current evaluation context
    * @param eventHandler the EventHandler for warnings, errors, etc.
    * @param astFileContentHashCode the hash code identifying this environment.
    * @return an Environment, in which to evaluate load time skylark forms.
    */
   Environment createSkylarkRuleClassEnvironment(
+      Label label,
       Mutability mutability,
       EventHandler eventHandler,
       @Nullable String astFileContentHashCode,

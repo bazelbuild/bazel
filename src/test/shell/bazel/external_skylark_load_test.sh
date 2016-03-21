@@ -123,6 +123,117 @@ function test_load_skylark_from_external_repo_with_repo_relative_label_load() {
     "LOCAL!"
 }
 
+function test_skylark_repository_relative_label() {
+  repo2=$TEST_TMPDIR/repo2
+  mkdir -p $repo2
+  touch $repo2/WORKSPACE $repo2/BUILD
+  cat > $repo2/remote.bzl <<EOF
+def _impl(ctx):
+  print(Label("//foo:bar"))
+
+remote_rule = rule(
+    implementation = _impl,
+)
+EOF
+
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r",
+    path = "$repo2",
+)
+EOF
+  cat > BUILD <<EOF
+load('@r//:remote.bzl', 'remote_rule')
+
+remote_rule(name = 'local')
+EOF
+
+  bazel build //:local &> $TEST_log || fail "Building local failed"
+  expect_log "@r//foo:bar"
+
+  cat > $repo2/remote.bzl <<EOF
+def _impl(ctx):
+  print(Label("//foo:bar", relative_to_caller_repository = True))
+
+remote_rule = rule(
+    implementation = _impl,
+)
+EOF
+  bazel build //:local &> $TEST_log || fail "Building local failed"
+  expect_log "//foo:bar"
+}
+
+# Going one level deeper: if we have:
+# local/
+#   BUILD
+# r1/
+#   BUILD
+# r2/
+#   BUILD
+#   remote.bzl
+# If //foo in local depends on //bar in r1, which is a Skylark rule
+# defined in r2/remote.bzl, then a Label in remote.bzl should either
+# resolve to @r2//whatever or @r1//whatever.
+function test_skylark_repository_nested_relative_label() {
+  repo1=$TEST_TMPDIR/repo1
+  repo2=$TEST_TMPDIR/repo2
+  mkdir -p $repo1 $repo2
+
+  # local
+  cat > WORKSPACE <<EOF
+local_repository(
+    name = "r1",
+    path = "$repo1",
+)
+local_repository(
+    name = "r2",
+    path = "$repo2",
+)
+EOF
+  cat > BUILD <<'EOF'
+genrule(
+    name = "foo",
+    srcs = ["@r1//:bar"],
+    outs = ["foo.out"],
+    cmd = "echo '$(SRCS)' > $@",
+)
+EOF
+
+  # r1
+  touch $repo1/WORKSPACE
+  cat > $repo1/BUILD <<EOF
+load('@r2//:remote.bzl', 'remote_rule')
+
+remote_rule(
+    name = 'bar',
+    visibility = ["//visibility:public"]
+)
+EOF
+
+  # r2
+  touch $repo2/WORKSPACE $repo2/BUILD
+  cat > $repo2/remote.bzl <<EOF
+def _impl(ctx):
+  print(Label("//foo:bar"))
+
+remote_rule = rule(
+    implementation = _impl,
+)
+EOF
+
+  bazel build //:foo &> $TEST_log || fail "Building local failed"
+  expect_log "@r2//foo:bar"
+
+  cat > $repo2/remote.bzl <<EOF
+def _impl(ctx):
+  print(Label("//foo:bar", relative_to_caller_repository = True))
+
+remote_rule = rule(
+    implementation = _impl,
+)
+EOF
+  bazel build //:foo &> $TEST_log || fail "Building local failed"
+  expect_log "@r1//foo:bar"
+}
+
 run_suite "Test Skylark loads from/in external repositories"
-
-

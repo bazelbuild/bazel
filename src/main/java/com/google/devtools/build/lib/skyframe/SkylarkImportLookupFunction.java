@@ -360,7 +360,7 @@ public class SkylarkImportLookupFunction implements SkyFunction {
       com.google.devtools.build.lib.syntax.Environment extensionEnv =
           ruleClassProvider
               .createSkylarkRuleClassEnvironment(
-                  mutability, eventHandler, ast.getContentHashCode(), importMap)
+                  extensionLabel, mutability, eventHandler, ast.getContentHashCode(), importMap)
               .setupOverride("native", packageFactory.getNativeModule(inWorkspace));
       ast.exec(extensionEnv, eventHandler);
       try {
