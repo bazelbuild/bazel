@@ -309,17 +309,13 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     FileSystem fs = blazeDirs.getFileSystem();
     mounts.put(fs.getPath("/bin"), fs.getPath("/bin"));
     mounts.put(fs.getPath("/sbin"), fs.getPath("/sbin"));
+    mounts.put(fs.getPath("/etc"), fs.getPath("/etc"));
 
     // Check if /etc/resolv.conf is a symlink and mount its target
     // Fix #738
     Path resolv = fs.getPath("/etc/resolv.conf");
     if (resolv.exists() && resolv.isSymbolicLink()) {
-      mounts.put(resolv, resolv.resolveSymbolicLinks());
-
-      List<Path> resolvList = ImmutableList.of(resolv);
-      mounts.putAll(mountDirExclude(fs.getPath("/etc"), resolvList));
-    } else {
-      mounts.put(fs.getPath("/etc"), fs.getPath("/etc"));
+      mounts.put(resolv.resolveSymbolicLinks(), resolv.resolveSymbolicLinks());
     }
 
     for (String entry : NativePosixFiles.readdir("/")) {
