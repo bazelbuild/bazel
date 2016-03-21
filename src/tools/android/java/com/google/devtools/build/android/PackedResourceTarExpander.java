@@ -14,7 +14,6 @@
 package com.google.devtools.build.android;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableSet;
@@ -107,7 +106,7 @@ class PackedResourceTarExpander implements DirectoryModifier {
           outDirs.add(root);
         }
       } catch (IOException e) {
-        Throwables.propagate(e);
+        throw new RuntimeException(e);
       }
     }
     return outDirs.build();

@@ -222,7 +222,7 @@ public class AndroidResourceProcessor {
       // Set to the epoch for caching purposes.
       Files.setLastModifiedTime(rOutput, FileTime.fromMillis(0L));
     } catch (IOException e) {
-      Throwables.propagate(e);
+      throw new RuntimeException(e);
     }
   }
 
@@ -239,7 +239,7 @@ public class AndroidResourceProcessor {
       // Set to the epoch for caching purposes.
       Files.setLastModifiedTime(srcJar, FileTime.fromMillis(0L));
     } catch (IOException e) {
-      Throwables.propagate(e);
+      throw new RuntimeException(e);
     }
   }
 
@@ -257,7 +257,7 @@ public class AndroidResourceProcessor {
       // Set to the epoch for caching purposes.
       Files.setLastModifiedTime(manifestOut, FileTime.fromMillis(0L));
     } catch (IOException e) {
-      Throwables.propagate(e);
+      throw new RuntimeException(e);
     }
   }
 
