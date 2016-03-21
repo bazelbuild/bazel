@@ -12,7 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-SASS_FILETYPES = FileType([".sass", ".scss"])
+load("//tools/build_rules:deprecation.bzl", "deprecated")
+
+def warning(rule):
+  print(deprecated(
+      "sass",
+      rule,
+      "@bazel_tools//tools/build_defs/sass:sass.bzl",
+      "@io_bazel_rules_sass//sass:sass.bzl"))
+
+SASS_FILETYPES = FileType([
+    ".sass",
+    ".scss",
+])
 
 def collect_transitive_sources(ctx):
     source_files = set(order="compile")
@@ -21,6 +33,7 @@ def collect_transitive_sources(ctx):
     return source_files
 
 def _sass_library_impl(ctx):
+    warning("sass_library")
     transitive_sources = collect_transitive_sources(ctx)
     transitive_sources += SASS_FILETYPES.filter(ctx.files.srcs)
     return struct(
@@ -30,6 +43,7 @@ def _sass_library_impl(ctx):
 def _sass_binary_impl(ctx):
     # Reference the sass compiler and define the default options
     # that sass_binary uses.
+    warning("sass_binary")
     sassc = ctx.file._sassc
     options = [
         "--style={0}".format(ctx.attr.output_style),
@@ -55,7 +69,6 @@ sass_deps_attr = attr.label_list(
 )
 
 sass_library = rule(
-    implementation = _sass_library_impl,
     attrs = {
         "srcs": attr.label_list(
             allow_files = SASS_FILETYPES,
@@ -64,10 +77,10 @@ sass_library = rule(
         ),
         "deps": sass_deps_attr,
     },
+    implementation = _sass_library_impl,
 )
 
 sass_binary = rule(
-    implementation = _sass_binary_impl,
     attrs = {
         "src": attr.label(
             allow_files = SASS_FILETYPES,
@@ -86,6 +99,7 @@ sass_binary = rule(
         "css_file": "%{name}.css",
         "css_map_file": "%{name}.css.map",
     },
+    implementation = _sass_binary_impl,
 )
 
 LIBSASS_BUILD_FILE = """
@@ -124,6 +138,7 @@ cc_binary(
 """
 
 def sass_repositories():
+  warning("sass_repositories")
   native.new_http_archive(
       name = "libsass",
       url = "https://github.com/sass/libsass/archive/3.3.0-beta1.tar.gz",

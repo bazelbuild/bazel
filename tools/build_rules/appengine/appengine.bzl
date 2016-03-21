@@ -64,6 +64,15 @@ APP_ID. If not specified, it uses the default APP_ID provided in the application
 web.xml.
 """
 
+load("//tools/build_rules:deprecation.bzl", "deprecated")
+
+def warning(rule):
+  print(deprecated(
+      "appengine",
+      rule,
+      "@bazel_tools//tools/build_rules/appengine:appengine.bzl",
+      "@io_bazel_rules_appengine//appengine:appengine.bzl"))
+
 jar_filetype = FileType([".jar"])
 
 def _add_file(in_file, output, path = None):
@@ -99,6 +108,7 @@ def _short_path_dirname(path):
   return sp[0:len(sp)-len(path.basename)-1]
 
 def _war_impl(ctxt):
+  warning("appengine_war")
   zipper = ctxt.file._zipper
 
   data_path = ctxt.attr.data_path
@@ -231,6 +241,7 @@ appengine_war = rule(
 )
 
 def java_war(name, data=[], data_path=None, **kwargs):
+  warning("java_war")
   native.java_library(name = "lib%s" % name, **kwargs)
   appengine_war(name = name,
                 jars = ["lib%s" % name],
@@ -261,6 +272,7 @@ filegroup(
 """
 
 def appengine_repositories():
+  warning("appengine_repositories")
   native.new_http_archive(
       name = "com_google_appengine_java",
       url = "http://central.maven.org/maven2/com/google/appengine/appengine-java-sdk/1.9.23/appengine-java-sdk-1.9.23.zip",

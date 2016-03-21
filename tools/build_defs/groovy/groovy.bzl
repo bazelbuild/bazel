@@ -12,10 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+load("//tools/build_rules:deprecation.bzl", "deprecated")
+
+def warning(rule):
+  print(deprecated(
+      "groovy",
+      rule,
+      "@bazel_tools//tools/build_defs/groovy:groovy.bzl",
+      "@io_bazel_rules_groovy//groovy:groovy.bzl"))
+
 def _groovy_jar_impl(ctx):
   """Creates a .jar file from Groovy sources. Users should rely on
   groovy_library instead of using this rule directly.
   """
+  warning("groovy_jar")
   class_jar = ctx.outputs.class_jar
   build_output = class_jar.path + ".build_output"
 
@@ -112,6 +122,7 @@ def groovy_library(name, srcs=[], deps=[], **kwargs):
   .java sources. The result is wrapped in a java_import so that java rules may
   depend on it.
   """
+  warning("groovy_library")
   _groovy_jar(
       name = name + "-impl",
       srcs = srcs,
@@ -129,6 +140,7 @@ def groovy_and_java_library(name, srcs=[], deps=[], **kwargs):
   java_library. The groovy_library will depend on the java_library, so the
   Groovy code may reference the Java code but not vice-versa.
   """
+  warning("groovy_and_java_library")
   groovy_deps = deps
   jars = []
 
@@ -165,6 +177,7 @@ def groovy_binary(name, main_class, srcs=[], deps=[], **kwargs):
   """Rule analagous to java_binary that accepts .groovy sources instead of .java
   sources.
   """
+  warning("groovy_binary")
   all_deps = deps + ["//external:groovy"]
   if srcs:
     groovy_library(
@@ -190,6 +203,7 @@ def path_to_class(path):
     fail("groovy_test sources must be under src/test/java or src/test/groovy")
 
 def _groovy_test_impl(ctx):
+  warning("groovy_test")
   # Collect jars from the Groovy sdk
   groovy_sdk_jars = [file
       for file in ctx.files._groovysdk
@@ -283,6 +297,7 @@ def groovy_junit_test(
     jvm_flags=[],
     size="small",
     tags=[]):
+  warning("groovy_junit_test")
   groovy_lib_deps = deps + ["//external:junit"]
   test_deps = deps + ["//external:junit"]
 
@@ -330,6 +345,7 @@ def spock_test(
     jvm_flags=[],
     size="small",
     tags=[]):
+  warning("spock_test")
   groovy_lib_deps = deps + [
     "//external:junit",
     "//external:spock",
@@ -376,6 +392,7 @@ def spock_test(
   )
 
 def groovy_repositories():
+  warning("groovy_repositories")
   native.new_http_archive(
     name = "groovy_sdk_artifact",
     url = "http://dl.bintray.com/groovy/maven/apache-groovy-binary-2.4.4.zip",

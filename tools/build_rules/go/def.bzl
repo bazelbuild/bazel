@@ -26,6 +26,15 @@ In order of priority:
 
 """
 
+load("//tools/build_rules:deprecation.bzl", "deprecated")
+
+def warning(rule):
+  print(deprecated(
+      "go",
+      rule,
+      "@bazel_tools//tools/build_rules/go:def.bzl",
+      "@io_bazel_rules_go//go:def.bzl"))
+
 _DEFAULT_LIB = "go_default_library"
 
 _VENDOR_PREFIX = "/vendor/"
@@ -48,6 +57,7 @@ def _go_prefix_impl(ctx):
 
 def _go_prefix(ctx):
   """slash terminated go-prefix"""
+  warning("go_prefix")
   prefix = ctx.attr.go_prefix.go_prefix
   if prefix != "" and not prefix.endswith("/"):
     prefix = prefix + "/"
@@ -193,6 +203,7 @@ def emit_go_compile_action(ctx, sources, deps, out_lib):
 
 def go_library_impl(ctx):
   """Implements the go_library() rule."""
+  warning("go_library")
 
   sources = set(ctx.files.srcs)
   deps = ctx.attr.deps
@@ -255,6 +266,7 @@ def emit_go_link_action(ctx, transitive_libs, lib, executable):
 
 def go_binary_impl(ctx):
   """go_binary_impl emits actions for compiling and linking a go executable."""
+  warning("go_binary")
   lib_result = go_library_impl(ctx)
   executable = ctx.outputs.executable
   lib_out = ctx.outputs.lib
@@ -272,6 +284,8 @@ def go_test_impl(ctx):
 
   It emits an action to run the test generator, and then compiles the
   test into a binary."""
+
+  warning("go_test")
 
   lib_result = go_library_impl(ctx)
   main_go = ctx.outputs.main_go
@@ -367,7 +381,8 @@ go_test = rule(
         "test_generator": attr.label(
             executable = True,
             default = Label(
-                "@bazel_tools//tools/build_rules/go/tools:generate_test_main"),
+                "@bazel_tools//tools/build_rules/go/tools:generate_test_main",
+            ),
             cfg = HOST_CFG,
         ),
     },
@@ -397,6 +412,7 @@ filegroup(
 """
 
 def go_repositories():
+  warning("go_repositories")
   native.new_http_archive(
     name=  "golang_linux_amd64",
     url = "https://storage.googleapis.com/golang/go1.5.1.linux-amd64.tar.gz",

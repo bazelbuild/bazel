@@ -14,6 +14,15 @@
 
 """CSharp bazel rules"""
 
+load("//tools/build_rules:deprecation.bzl", "deprecated")
+
+def warning(rule):
+  print(deprecated(
+      "dotnet",
+      rule,
+      "@bazel_tools//tools/build_defs/dotnet:csharp.bzl",
+      "@io_bazel_rules_dotnet//dotnet:csharp.bzl"))
+
 _MONO_UNIX_CSC = "/usr/local/bin/mcs"
 
 # TODO(jeremy): Windows when it's available.
@@ -161,8 +170,8 @@ def _cs_runfiles(ctx, outputs, depinfo):
         files = outputs,
         transitive_files = set(depinfo.dlls + depinfo.transitive_dlls) or None)
 
-
 def _csc_compile_impl(ctx):
+    warning("csharp_library")
     if hasattr(ctx.outputs, "csc_lib") and hasattr(ctx.outputs, "csc_exe"):
         fail("exactly one of csc_lib and csc_exe must be defined")
 
@@ -191,6 +200,7 @@ def _csc_compile_impl(ctx):
                   runfiles=runfiles)
 
 def _cs_nunit_run_impl(ctx):
+    warning("csharp_nunit_test")
     if hasattr(ctx.outputs, "csc_lib") and hasattr(ctx.outputs, "csc_exe"):
         fail("exactly one of csc_lib and csc_exe must be defined")
 
@@ -220,66 +230,75 @@ def _cs_nunit_run_impl(ctx):
 
 _COMMON_ATTRS = {
     # configuration fragment that specifies
-    "_flag_start": attr.string(default="-"),
+    "_flag_start": attr.string(default = "-"),
     # where the csharp compiler is.
-    "csc": attr.string(default=_MONO_UNIX_CSC),
+    "csc": attr.string(default = _MONO_UNIX_CSC),
     # code dependencies for this rule.
     # all dependencies must provide an out field.
-    "deps": attr.label_list(providers=["out", "target_type"]),
+    "deps": attr.label_list(providers = [
+        "out",
+        "target_type",
+    ]),
     # source files for this target.
-    "srcs": attr.label_list(allow_files = FileType([".cs", ".resx"])),
+    "srcs": attr.label_list(allow_files = FileType([
+        ".cs",
+        ".resx",
+    ])),
     # resources to use as dependencies.
     # TODO(jeremy): "resources_deps": attr.label_list(allow_files=True),
     #TODO(jeremy): # name of the module if you are creating a module.
     #TODO(jeremy): "modulename": attri.string(),
     # warn level to use
-    "warn": attr.int(default=4),
+    "warn": attr.int(default = 4),
     # define preprocessor symbols.
     #TODO(jeremy): "define": attr.string_list(),
 }
 
-_LIB_ATTRS={"_target_type": attr.string(default="library")}
+_LIB_ATTRS = {"_target_type": attr.string(default = "library")}
 
-_EXE_ATTRS={
-    "_target_type": attr.string(default="exe"),
+_EXE_ATTRS = {
+    "_target_type": attr.string(default = "exe"),
     # main class to use as entry point.
     "main_class": attr.string(),
 }
 
-_NUNIT_ATTRS={
-    "_nunit_exe": attr.label(default=Label("@nunit//:nunit_exe"),
-                             single_file=True),
-    "_nunit_framework": attr.label(default=Label("@nunit//:nunit_framework")),
-    "_nunit_exe_libs": attr.label(default=Label("@nunit//:nunit_exe_libs")),
+_NUNIT_ATTRS = {
+    "_nunit_exe": attr.label(
+        default = Label("@nunit//:nunit_exe"),
+        single_file = True,
+    ),
+    "_nunit_framework": attr.label(default = Label("@nunit//:nunit_framework")),
+    "_nunit_exe_libs": attr.label(default = Label("@nunit//:nunit_exe_libs")),
 }
 
-_LIB_OUTPUTS={
+_LIB_OUTPUTS = {
     "csc_lib": "%{name}.dll",
     "doc_xml": "%{name}.xml",
 }
 
-_BIN_OUTPUTS={
+_BIN_OUTPUTS = {
     "csc_exe": "%{name}.exe",
 }
 
 csharp_library = rule(
-    implementation=_csc_compile_impl,
-    attrs=_COMMON_ATTRS + _LIB_ATTRS,
+    attrs = _COMMON_ATTRS + _LIB_ATTRS,
     outputs = _LIB_OUTPUTS,
+    implementation = _csc_compile_impl,
 )
 
 csharp_binary = rule(
-    implementation=_csc_compile_impl,
-    attrs=_COMMON_ATTRS + _EXE_ATTRS,
+    attrs = _COMMON_ATTRS + _EXE_ATTRS,
+    executable = True,
     outputs = _BIN_OUTPUTS,
-    executable=True)
+    implementation = _csc_compile_impl,
+)
 
 csharp_nunit_test = rule(
-    implementation=_cs_nunit_run_impl,
-    executable=True,
-    attrs=_COMMON_ATTRS + _LIB_ATTRS +_NUNIT_ATTRS,
+    attrs = _COMMON_ATTRS + _LIB_ATTRS + _NUNIT_ATTRS,
+    executable = True,
     outputs = _LIB_OUTPUTS,
-    test=True
+    test = True,
+    implementation = _cs_nunit_run_impl,
 )
 
 NUNIT_BUILD_FILE = """
@@ -303,6 +322,7 @@ filegroup(
 """
 
 def csharp_repositories():
+  warning("csharp_repositories")
   native.new_http_archive(
       name = "nunit",
       build_file_content = NUNIT_BUILD_FILE,

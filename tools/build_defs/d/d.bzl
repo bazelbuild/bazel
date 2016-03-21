@@ -14,6 +14,15 @@
 
 """D rules for Bazel."""
 
+load("//tools/build_rules:deprecation.bzl", "deprecated")
+
+def warning(rule):
+  print(deprecated(
+      "d",
+      rule,
+      "@bazel_tools//tools/build_defs/d:d.bzl",
+      "@io_bazel_rules_d//d:d.bzl"))
+
 A_FILETYPE = FileType([".a"])
 
 D_FILETYPE = FileType([
@@ -198,6 +207,7 @@ def _setup_deps(deps, name, working_dir):
 
 def _d_library_impl(ctx):
   """Implementation of the d_library rule."""
+  warning("d_library")
   d_lib = ctx.outputs.d_lib
 
   # Dependencies
@@ -296,14 +306,17 @@ def _d_binary_impl_common(ctx, extra_flags=[]):
 
 def _d_binary_impl(ctx):
   """Implementation of the d_binary rule."""
+  warning("d_binary")
   return _d_binary_impl_common(ctx)
 
 def _d_test_impl(ctx):
   """Implementation of the d_test rule."""
+  warning("d_test")
   return _d_binary_impl_common(ctx, extra_flags=["-unittest"])
 
 def _d_source_library_impl(ctx):
   """Implementation of the d_source_library rule."""
+  warning("d_library")
   transitive_d_srcs = set(order="compile")
   transitive_libs = set()
   transitive_imports = set()
@@ -345,6 +358,7 @@ def _d_docs_impl(ctx):
          documentation.
       2. Create a ZIP archive containing the HTML documentation.
   """
+  warning("d_docs")
   d_docs_zip = ctx.outputs.d_docs
   docs_dir = d_docs_zip.dirname + "/_d_docs"
   objs_dir = d_docs_zip.dirname + "/_d_objs"
@@ -504,6 +518,7 @@ filegroup(
 """
 
 def d_repositories():
+  warning("d_repositories")
   native.new_http_archive(
       name = "dmd_linux_x86_64",
       url = "http://downloads.dlang.org/releases/2.x/2.070.0/dmd.2.070.0.linux.tar.xz",
