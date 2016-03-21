@@ -39,6 +39,10 @@ final class SkylarkPath {
     this.path = path;
   }
 
+  public Path getPath() {
+    return path;
+  }
+
   @Override
   public boolean equals(Object obj) {
     return (obj instanceof SkylarkPath) &&  path.equals(((SkylarkPath) obj).path);

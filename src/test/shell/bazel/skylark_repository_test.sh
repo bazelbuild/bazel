@@ -18,8 +18,11 @@
 #
 
 # Load test environment
+src_dir=$(cd "$(dirname ${BASH_SOURCE[0]})" && pwd)
 source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
+source "$src_dir/remote_helpers.sh" \
+  || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
 # Basic test.
 function test_macro_local_repository() {
@@ -429,6 +432,102 @@ EOF
   test ! -x "${output_base}/external/foo/test2" || fail "test2 is executable"
 }
 
+function test_skylark_repository_download() {
+  # Prepare HTTP server with Python
+  mkdir "server_dir"
+  echo "This is one file" > server_dir/download_no_sha256.txt
+  echo "This is another file" > server_dir/download_with_sha256.txt
+  file_sha256="$(sha256sum server_dir/download_with_sha256.txt | head -c 64)"
+
+  # Start HTTP server with Python
+  startup_server "server_dir"
+
+  setup_skylark_repository
+  # Our custom repository rule
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD")
+  repository_ctx.download(
+    "http://localhost:${fileserver_port}/download_no_sha256.txt",
+    "download_no_sha256.txt")
+  repository_ctx.download(
+    "http://localhost:${fileserver_port}/download_with_sha256.txt",
+    "download_with_sha256.txt", "${file_sha256}")
+repo = repository_rule(implementation=_impl, local=False)
+EOF
+
+  bazel build @foo//:all >& $TEST_log && shutdown_server \
+    || fail "Execution of @foo//:all failed"
+
+  output_base="$(bazel info output_base)"
+  # Test download
+  test -e "${output_base}/external/foo/download_no_sha256.txt" \
+    || fail "download_no_sha256.txt is not downloaded"
+  test -e "${output_base}/external/foo/download_with_sha256.txt" \
+    || fail "download_with_sha256.txt is not downloaded"
+  # Test download
+  diff "${output_base}/external/foo/download_no_sha256.txt" server_dir/download_no_sha256.txt >/dev/null \
+    || fail "download_no_sha256.txt is not downloaded successfully"
+  diff "${output_base}/external/foo/download_with_sha256.txt" server_dir/download_with_sha256.txt >/dev/null \
+    || fail "download_with_sha256.txt is not downloaded successfully"
+
+  rm -rf "server_dir"
+}
+
+function test_skylark_repository_download_and_extract() {
+  # Prepare HTTP server with Python
+  mkdir "server_dir"
+  echo "This is one file" > server_dir/download_and_extract1.txt
+  echo "This is another file" > server_dir/download_and_extract2.txt
+  echo "This is a third file" > server_dir/download_and_extract3.txt
+  tar -zcvf server_dir/download_and_extract1.tar.gz server_dir/download_and_extract1.txt
+  zip server_dir/download_and_extract2.zip server_dir/download_and_extract2.txt
+  zip server_dir/download_and_extract3.zip server_dir/download_and_extract3.txt
+  file_sha256="$(sha256sum server_dir/download_and_extract3.zip | head -c 64)"
+
+  # Start HTTP server with Python
+  startup_server "server_dir"
+
+  setup_skylark_repository
+  # Our custom repository rule
+  cat >test.bzl <<EOF
+def _impl(repository_ctx):
+  repository_ctx.file("BUILD")
+  repository_ctx.download_and_extract(
+    "http://localhost:${fileserver_port}/download_and_extract1.tar.gz", "")
+  repository_ctx.download_and_extract(
+    "http://localhost:${fileserver_port}/download_and_extract2.zip", "", "")
+  repository_ctx.download_and_extract(
+    "http://localhost:${fileserver_port}/download_and_extract3.zip", ".", "${file_sha256}", "", "")
+repo = repository_rule(implementation=_impl, local=False)
+EOF
+
+  bazel clean --expunge_async >& $TEST_log || fail "bazel clean failed"
+  bazel build @foo//:all >& $TEST_log && shutdown_server \
+    || fail "Execution of @foo//:all failed"
+
+  output_base="$(bazel info output_base)"
+  # Test cleanup
+  test -e "${output_base}/external/foo/server_dir/download_and_extract1.tar.gz" \
+    && fail "temp file is not deleted successfully" || true
+  test -e "${output_base}/external/foo/server_dir/download_and_extract2.zip" \
+    && fail "temp file is not deleted successfully" || true
+  test -e "${output_base}/external/foo/server_dir/download_and_extract3.zip" \
+    && fail "temp file is not deleted successfully" || true
+  # Test download_and_extract
+  diff "${output_base}/external/foo/server_dir/download_and_extract1.txt" \
+    server_dir/download_and_extract1.txt >/dev/null \
+    || fail "download_and_extract1.tar.gz is not extracted successfully"
+  diff "${output_base}/external/foo/server_dir/download_and_extract2.txt" \
+    server_dir/download_and_extract2.txt >/dev/null \
+    || fail "download_and_extract2.zip is not extracted successfully"
+  diff "${output_base}/external/foo/server_dir/download_and_extract3.txt" \
+    server_dir/download_and_extract3.txt >/dev/null \
+    || fail "download_and_extract3.zip is not extracted successfully"
+
+  rm -rf "server_dir"
+}
+
 # Test native.bazel_version
 function test_bazel_version() {
   create_new_workspace
@@ -472,6 +571,7 @@ EOF
 }
 
 function tear_down() {
+  shutdown_server
   true
 }
 

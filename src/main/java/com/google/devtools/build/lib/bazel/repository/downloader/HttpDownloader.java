@@ -81,19 +81,37 @@ public class HttpDownloader {
     }
   }
 
+  @Nullable
+  public static Path download(
+      String url, String sha256, String type, Path output, EventHandler eventHandler)
+      throws RepositoryFunctionException {
+    try {
+      return new HttpDownloader(eventHandler, url, sha256, output, type).download();
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "Error downloading from " + url + " to " + output + ": " + e.getMessage()),
+          SkyFunctionException.Transience.TRANSIENT);
+    }
+  }
+
   /**
    * Attempt to download a file from the repository's URL. Returns the path to the file downloaded.
    */
   public Path download() throws IOException {
     URL url = new URL(urlString);
-    String filename = new PathFragment(url.getPath()).getBaseName();
-    if (filename.isEmpty()) {
-      filename = "temp";
+    Path destination;
+    if (type == null) {
+      destination = outputDirectory;
+    } else {
+      String filename = new PathFragment(url.getPath()).getBaseName();
+      if (filename.isEmpty()) {
+        filename = "temp";
+      } else if (!type.isEmpty()) {
+        filename += "." + type;
+      }
+      destination = outputDirectory.getRelative(filename);
     }
-    if (!type.isEmpty()) {
-      filename += "." + type;
-    }
-    Path destination = outputDirectory.getRelative(filename);
 
     if (!sha256.isEmpty()) {
       try {

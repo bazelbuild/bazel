@@ -17,6 +17,9 @@ package com.google.devtools.build.lib.bazel.repository.skylark;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.repository.DecompressorDescriptor;
+import com.google.devtools.build.lib.bazel.repository.DecompressorValue;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.events.Location;
@@ -335,6 +338,98 @@ public class SkylarkRepositoryContext {
       }
     }
     return Runtime.NONE;
+  }
+
+  @SkylarkCallable(
+    name = "download",
+    doc =
+        "Download a file to the output path for the provided url."
+            + "\nParameters:"
+            + "\nurl: a URL referencing an archive file containing a Bazel repository."
+            + " Archives of type .zip, .jar, .war, .tar.gz or .tgz are supported."
+            + " There is no support for authentication. Redirections are followed."
+            + "\noutput: "
+            + "(optional) sha256: the expected SHA-256 hash of the file downloaded."
+            + " This must match the SHA-256 hash of the file downloaded. It is a security risk to"
+            + " omit the SHA-256 as remote files can change. At best omitting this field will make"
+            + " your build non-hermetic. It is optional to make development easier but should"
+            + " be set before shipping."
+  )
+  public void download(String url, Object output, String sha256)
+      throws RepositoryFunctionException, EvalException {
+    SkylarkPath outputPath = getPath("download()", output);
+    checkInOutputDirectory(outputPath);
+    HttpDownloader.download(url, sha256, null, outputPath.getPath(), env.getListener());
+  }
+
+  @SkylarkCallable(name = "download", documented = false)
+  public void download(String url, Object output)
+      throws RepositoryFunctionException, EvalException {
+    download(url, output, "");
+  }
+
+  @SkylarkCallable(
+    name = "download_and_extract",
+    doc =
+        "Download a file to the output path for the provided url, and extract it."
+            + "\nParameters:"
+            + "\nurl: a URL referencing an archive file containing a Bazel repository."
+            + " Archives of type .zip, .jar, .war, .tar.gz or .tgz are supported."
+            + " There is no support for authentication. Redirections are followed."
+            + "\noutput: "
+            + "\n(optional) sha256: the expected SHA-256 hash of the file downloaded."
+            + " This must match the SHA-256 hash of the file downloaded. It is a security risk to"
+            + " omit the SHA-256 as remote files can change. At best omitting this field will make"
+            + " your build non-hermetic. It is optional to make development easier but should"
+            + " be set before shipping."
+            + "\n(optional) type: The archive type of the downloaded file."
+            + " By default, the archive type is determined from the file extension of the URL."
+            + " If the file has no extension, you can explicitly specify either"
+            + "\"zip\", \"jar\", \"tar.gz\", or \"tgz\" here."
+            + "(optional) stripPrefix: a directory prefix to strip from the extracted files."
+            + "\nMany archives contain a top-level directory that contains alfiles in"
+            + " archive. Instead of needing to specify this prefix over and over in the"
+            + " <code>build_file</code>, this field can be used to strip it extracted"
+            + " files."
+  )
+  public void download_and_extract(
+      String url, Object output, String sha256, String type, String stripPrefix)
+      throws RepositoryFunctionException, InterruptedException, EvalException {
+    // Download to outputDirectory and delete it after extraction
+    SkylarkPath outputPath = getPath("download_and_extract()", output);
+    checkInOutputDirectory(outputPath);
+    Path downloadedPath =
+        HttpDownloader.download(url, sha256, type, outputPath.getPath(), env.getListener());
+    DecompressorValue.decompress(
+        DecompressorDescriptor.builder()
+            .setTargetKind(rule.getTargetKind())
+            .setTargetName(rule.getName())
+            .setArchivePath(downloadedPath)
+            .setRepositoryPath(outputPath.getPath())
+            .setPrefix(stripPrefix)
+            .build());
+    try {
+      if (downloadedPath.exists()) {
+        downloadedPath.delete();
+      }
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(
+          new IOException(
+              "Couldn't delete temporary file (" + downloadedPath.getPathString() + ")", e),
+          Transience.TRANSIENT);
+    }
+  }
+
+  @SkylarkCallable(name = "download_and_extract", documented = false)
+  public void download_and_extract(String url, Object output, String type)
+      throws RepositoryFunctionException, InterruptedException, EvalException {
+    download_and_extract(url, output, "", "", type);
+  }
+
+  @SkylarkCallable(name = "download_and_extract", documented = false)
+  public void download_and_extract(String url, Object output)
+      throws RepositoryFunctionException, InterruptedException, EvalException {
+    download_and_extract(url, output, "", "", "");
   }
 
   // This is just for test to overwrite the path environment
