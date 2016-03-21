@@ -23,6 +23,7 @@ import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -32,7 +33,6 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.SimpleActionContextProvider;
 import com.google.devtools.build.lib.analysis.BuildInfo;
-import com.google.devtools.build.lib.analysis.BuildInfoHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.KeyType;
@@ -80,7 +80,9 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
         Path workspace,
         Artifact stableStatus,
         Artifact volatileStatus) {
-      super(BuildInfoHelper.BUILD_INFO_ACTION_OWNER, Artifact.NO_ARTIFACTS,
+      super(
+          ActionOwner.SYSTEM_ACTION_OWNER,
+          Artifact.NO_ARTIFACTS,
           ImmutableList.of(stableStatus, volatileStatus));
       this.options = Preconditions.checkNotNull(options);
       this.stableStatus = stableStatus;

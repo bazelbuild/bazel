@@ -19,8 +19,8 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.BuildInfoHelper;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
@@ -126,7 +126,7 @@ public class WriteBuildInfoPropertiesAction extends AbstractFileWriteAction {
   public WriteBuildInfoPropertiesAction(Collection<Artifact> inputs, Artifact output,
       BuildInfoPropertiesTranslator keyTranslations, boolean includeVolatile,
       boolean includeNonVolatile, TimestampFormatter timestampFormatter) {
-    super(BuildInfoHelper.BUILD_INFO_ACTION_OWNER, inputs, output, /* makeExecutable= */false);
+    super(ActionOwner.SYSTEM_ACTION_OWNER, inputs, output, /* makeExecutable= */ false);
     this.keyTranslations = keyTranslations;
     this.includeVolatile = includeVolatile;
     this.includeNonVolatile = includeNonVolatile;

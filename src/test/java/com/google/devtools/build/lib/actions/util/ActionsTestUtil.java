@@ -24,7 +24,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.AbstractActionOwner;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionGraph;
@@ -166,31 +165,13 @@ public final class ActionsTestUtil {
     }
   }
 
-  /**
-   * A dummy ActionOwner implementation for use in tests.
-   */
-  public static class NullActionOwner extends AbstractActionOwner {
-    @Override
-    public Label getLabel() {
-      return NULL_LABEL;
-    }
-
-    @Override
-    public String getConfigurationMnemonic() {
-      return "dummy-configuration-mnemonic";
-    }
-
-    @Override
-    public final String getConfigurationChecksum() {
-      return "dummy-configuration";
-    }
-  }
-
   public static final Artifact DUMMY_ARTIFACT = new Artifact(
       new PathFragment("dummy"),
       Root.asSourceRoot(new InMemoryFileSystem().getRootDirectory()));
 
-  public static final ActionOwner NULL_ACTION_OWNER = new NullActionOwner();
+  public static final ActionOwner NULL_ACTION_OWNER =
+      new ActionOwner(
+          NULL_LABEL, null, "dummy-configuration-mnemonic", null, "dummy-configuration", null);
 
   public static final ArtifactOwner NULL_ARTIFACT_OWNER =
       new ArtifactOwner() {

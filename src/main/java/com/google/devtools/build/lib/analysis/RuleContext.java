@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -130,7 +131,7 @@ public final class RuleContext extends TargetContext
     }
   }
 
-  static final String HOST_CONFIGURATION_PROGRESS_TAG = "for host";
+  private static final String HOST_CONFIGURATION_PROGRESS_TAG = "for host";
 
   private final Rule rule;
   private final ListMultimap<String, ConfiguredTarget> targetMap;
@@ -286,7 +287,7 @@ public final class RuleContext extends TargetContext
   @Override
   public ActionOwner getActionOwner() {
     if (actionOwner == null) {
-      actionOwner = new RuleActionOwner(rule, getConfiguration());
+      actionOwner = createActionOwner(rule, getConfiguration());
     }
     return actionOwner;
   }
@@ -361,55 +362,15 @@ public final class RuleContext extends TargetContext
     return getAnalysisEnvironment().getBuildInfo(this, key);
   }
 
-  // TODO(bazel-team): This class could be simpler if Rule and BuildConfiguration classes
-  // were immutable. Then we would need to store only references those two.
-  @Immutable
-  private static final class RuleActionOwner implements ActionOwner {
-    private final Label label;
-    private final Location location;
-    private final String mnemonic;
-    private final String targetKind;
-    private final String configurationChecksum;
-    private final boolean hostConfiguration;
-
-    private RuleActionOwner(Rule rule, BuildConfiguration configuration) {
-      this.label = rule.getLabel();
-      this.location = rule.getLocation();
-      this.targetKind = rule.getTargetKind();
-      this.mnemonic = configuration.getMnemonic();
-      this.configurationChecksum = configuration.checksum();
-      this.hostConfiguration = configuration.isHostConfiguration();
-    }
-
-    @Override
-    public Location getLocation() {
-      return location;
-    }
-
-    @Override
-    public Label getLabel() {
-      return label;
-    }
-
-    @Override
-    public String getConfigurationMnemonic() {
-      return mnemonic;
-    }
-
-    @Override
-    public String getConfigurationChecksum() {
-      return configurationChecksum;
-    }
-
-    @Override
-    public String getTargetKind() {
-      return targetKind;
-    }
-
-    @Override
-    public String getAdditionalProgressInfo() {
-      return hostConfiguration ? HOST_CONFIGURATION_PROGRESS_TAG : null;
-    }
+  @VisibleForTesting
+  public static ActionOwner createActionOwner(Rule rule, BuildConfiguration configuration) {
+    return new ActionOwner(
+        rule.getLabel(),
+        rule.getLocation(),
+        configuration.getMnemonic(),
+        rule.getTargetKind(),
+        configuration.checksum(),
+        configuration.isHostConfiguration() ? HOST_CONFIGURATION_PROGRESS_TAG : null);
   }
 
   @Override
