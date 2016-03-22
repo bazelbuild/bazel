@@ -41,6 +41,11 @@ import java.util.List;
  * Support for Objc rule types that export an Xcode provider or generate xcode project files.
  *
  * <p>Methods on this class can be called in any order without impacting the result.
+ *
+ * <p>These objects should not outlast the analysis phase. Do not pass them to {@link Action}
+ * objects or other persistent objects. There are internal tests to ensure that XcodeSupport objects
+ * are not persisted that check the name of this class, so update those tests if you change this
+ * class's name.
  */
 public final class XcodeSupport {
 

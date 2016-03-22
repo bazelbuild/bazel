@@ -29,6 +29,11 @@ import com.google.devtools.build.skyframe.SkyFunction;
 /**
  * The set of services that are provided to {@link ConfiguredTarget} objects
  * during initialization.
+ *
+ * <p>These objects should not outlast the analysis phase. Do not pass them to {@link Action}
+ * objects or other persistent objects. There are internal tests to ensure that AnalysisEnvironment
+ * objects are not persisted that check the name of this class, so update those tests you change the
+ * names of any implementation of this class.
  */
 public interface AnalysisEnvironment extends ActionRegistry {
   /**
