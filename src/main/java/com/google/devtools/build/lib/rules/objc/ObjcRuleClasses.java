@@ -686,6 +686,10 @@ public class ObjcRuleClasses {
                   .singleArtifact()
                   .value(env.getToolsLabel("//tools/objc:j2objc_dead_code_pruner")))
           .add(attr("$dummy_lib", LABEL).value(env.getToolsLabel("//tools/objc:dummy_lib")))
+          /* <!-- #BLAZE_RULE($objc_linking_rule).ATTRIBUTE(linkopts) -->
+          Extra flags to pass to the linker. 
+          <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
+          .add(attr("linkopts", STRING_LIST))
           .build();
     }
     @Override

@@ -195,12 +195,17 @@ public final class ObjcCommon {
      * attribute does not exist or no values are specified.
      */
     public Iterable<String> copts() {
-      if (!ruleContext.attributes().has("copts", Type.STRING_LIST)) {
-        return ImmutableList.of();
-      }
       return ruleContext.getTokenizedStringListAttr("copts");
     }
 
+    /**
+     * Returns any values specified in this rule's {@code linkopts} attribute or an empty list if
+     * the attribute does not exist or no values are specified.
+     */
+    public Iterable<String> linkopts() {
+      return ruleContext.getTokenizedStringListAttr("linkopts");
+    }
+    
     /**
      * The clang module maps of direct dependencies of this rule. These are needed to generate
      * this rule's module map.

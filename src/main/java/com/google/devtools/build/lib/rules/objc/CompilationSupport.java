@@ -964,6 +964,10 @@ public final class CompilationSupport {
           .add("-Xlinker").add("@executable_path/Frameworks");
     }
 
+    for (String linkopt : attributes.linkopts()) {
+      commandLine.add("-Wl," + linkopt);
+    }
+    
     // Call to dsymutil for debug symbol generation must happen in the link action.
     // All debug symbol information is encoded in object files inside archive files. To generate
     // the debug symbol bundle, dsymutil will look inside the linked binary for the encoded
