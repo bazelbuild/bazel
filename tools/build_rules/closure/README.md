@@ -1,5 +1,11 @@
 # Closure Tools for Bazel
 
+## Deprecation notice
+
+Please note, Closure Tools for Bazel is deprecated, and will be moved soon.
+Please see [github.com/bazelbuild/rules_closure](https://github.com/bazelbuild/rules_closure/)
+for the new rules.
+
 ## Overview
 
 These rules define targets for JavaScript, stylesheets, and templates that will
