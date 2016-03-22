@@ -424,6 +424,14 @@ blaze_exit_code::ExitCode OptionProcessor::ParseStartupOptions(string *error) {
 // the command and the arguments. NB: Keep the options added here in sync with
 // BlazeCommandDispatcher.INTERNAL_COMMAND_OPTIONS!
 void OptionProcessor::AddRcfileArgsAndOptions(bool batch, const string& cwd) {
+  // Provide terminal options as coming from the least important rc file.
+  command_arguments_.push_back("--rc_source=client");
+  command_arguments_.push_back("--default_override=0:common=--isatty=" +
+                               ToString(IsStandardTerminal()));
+  command_arguments_.push_back(
+      "--default_override=0:common=--terminal_columns=" +
+      ToString(GetTerminalColumns()));
+
   // Push the options mapping .blazerc numbers to filenames.
   for (int i_blazerc = 0; i_blazerc < blazercs_.size(); i_blazerc++) {
     const RcFile* blazerc = blazercs_[i_blazerc];
@@ -441,17 +449,12 @@ void OptionProcessor::AddRcfileArgsAndOptions(bool batch, const string& cwd) {
 
     for (int ii = 0; ii < it->second.size(); ii++) {
       const RcOption& rcoption = it->second[ii];
-      command_arguments_.push_back(
-          "--default_override=" + ToString(rcoption.rcfile_index()) + ":"
-          + it->first + "=" + rcoption.option());
+      command_arguments_.push_back("--default_override=" +
+                                   ToString(rcoption.rcfile_index() + 1) + ":" +
+                                   it->first + "=" + rcoption.option());
     }
   }
 
-  // Splice the terminal options.
-  command_arguments_.push_back(
-      "--isatty=" + ToString(IsStandardTerminal()));
-  command_arguments_.push_back(
-      "--terminal_columns=" + ToString(GetTerminalColumns()));
 
   // Pass the client environment to the server in server mode.
   if (batch) {

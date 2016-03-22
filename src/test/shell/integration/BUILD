@@ -31,6 +31,13 @@ sh_test(
     data = [":test-deps"],
 )
 
+sh_test(
+    name = "rc_options_test",
+    size = "medium",
+    srcs = ["rc_options_test.sh"],
+    data = [":test-deps"],
+)
+
 test_suite(
     name = "all_tests",
     visibility = ["//visibility:public"],
