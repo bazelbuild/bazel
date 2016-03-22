@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
+import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 
 /**
  * Rule definition for ios_device.
@@ -30,12 +31,12 @@ public final class IosDeviceRule implements RuleDefinition {
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
+        .requiresConfigurationFragments(AppleConfiguration.class)
         /* <!-- #BLAZE_RULE(ios_device).ATTRIBUTE(ios_version) -->
         The operating system version of the device. This corresponds to the
-        <code>simctl</code> runtime.
+        <code>simctl</code> runtime. Defaults to the ios sdk version configuration value.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("ios_version", STRING)
-            .mandatory())
+        .add(attr("ios_version", STRING))
         /* <!-- #BLAZE_RULE(ios_device).ATTRIBUTE(type) -->
         The hardware type. This corresponds to the <code>simctl</code> device
         type.
