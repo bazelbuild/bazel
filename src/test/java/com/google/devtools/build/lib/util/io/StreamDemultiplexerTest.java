@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.util.io;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 
-import com.google.devtools.build.lib.util.StringUtilities;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -25,6 +23,7 @@ import org.junit.runners.JUnit4;
 import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 import java.util.Random;
 
 /**
@@ -36,14 +35,6 @@ public class StreamDemultiplexerTest {
   private ByteArrayOutputStream out = new ByteArrayOutputStream();
   private ByteArrayOutputStream err = new ByteArrayOutputStream();
   private ByteArrayOutputStream ctl = new ByteArrayOutputStream();
-
-  private byte[] lines(String... lines) {
-    try {
-      return StringUtilities.joinLines(lines).getBytes("ISO-8859-1");
-    } catch (UnsupportedEncodingException e) {
-      throw new AssertionError(e);
-    }
-  }
 
   private String toAnsi(ByteArrayOutputStream stream) {
     try {
@@ -63,8 +54,8 @@ public class StreamDemultiplexerTest {
 
   @Test
   public void testHelloWorldOnStandardOut() throws Exception {
-    byte[] multiplexed = lines("@1@", "Hello, world.");
-    try (final StreamDemultiplexer demux = new StreamDemultiplexer((byte) '1', out)) {
+    byte[] multiplexed = chunk(1, "Hello, world.");
+    try (final StreamDemultiplexer demux = new StreamDemultiplexer((byte) 1, out)) {
       demux.write(multiplexed);
     }
     assertEquals("Hello, world.", out.toString("ISO-8859-1"));
@@ -72,8 +63,8 @@ public class StreamDemultiplexerTest {
 
   @Test
   public void testOutErrCtl() throws Exception {
-    byte[] multiplexed = lines("@1@", "out", "@2@", "err", "@3@", "ctl", "");
-    try (final StreamDemultiplexer demux = new StreamDemultiplexer((byte) '1', out, err, ctl)) {
+    byte[] multiplexed = concat(chunk(1, "out"), chunk(2, "err"), chunk(3, "ctl"));
+    try (final StreamDemultiplexer demux = new StreamDemultiplexer((byte) 1, out, err, ctl)) {
       demux.write(multiplexed);
     }
     assertEquals("out", toAnsi(out));
@@ -83,26 +74,16 @@ public class StreamDemultiplexerTest {
 
   @Test
   public void testWithoutLineBreaks() throws Exception {
-    byte[] multiplexed = lines("@1@", "just ", "@1@", "one ", "@1@", "line", "");
-    try (final StreamDemultiplexer demux = new StreamDemultiplexer((byte) '1', out)) {
+    byte[] multiplexed = concat(chunk(1, "just "), chunk(1, "one "), chunk(1, "line"));
+    try (final StreamDemultiplexer demux = new StreamDemultiplexer((byte) 1, out)) {
       demux.write(multiplexed);
     }
     assertEquals("just one line", out.toString("ISO-8859-1"));
   }
 
   @Test
-  public void testLineBreaks() throws Exception {
-    byte[] multiplexed = lines("@1", "two", "@1", "lines", "");
-    try (StreamDemultiplexer demux = new StreamDemultiplexer((byte) '1', out)) {
-      demux.write(multiplexed);
-      demux.flush();
-      assertEquals("two\nlines\n", out.toString("ISO-8859-1"));
-    }
-  }
-
-  @Test
   public void testMultiplexAndBackWithHelloWorld() throws Exception {
-    StreamDemultiplexer demux = new StreamDemultiplexer((byte) '1', out);
+    StreamDemultiplexer demux = new StreamDemultiplexer((byte) 1, out);
     StreamMultiplexer mux = new StreamMultiplexer(demux);
     OutputStream out = mux.createStdout();
     out.write(inAnsi("Hello, world."));
@@ -112,7 +93,7 @@ public class StreamDemultiplexerTest {
 
   @Test
   public void testMultiplexDemultiplexBinaryStress() throws Exception {
-    StreamDemultiplexer demux = new StreamDemultiplexer((byte) '1', out, err, ctl);
+    StreamDemultiplexer demux = new StreamDemultiplexer((byte) 1, out, err, ctl);
     StreamMultiplexer mux = new StreamMultiplexer(demux);
     OutputStream[] muxOuts = {mux.createStdout(), mux.createStderr(), mux.createControl()};
     ByteArrayOutputStream[] expectedOuts =
@@ -131,5 +112,33 @@ public class StreamDemultiplexerTest {
     assertArrayEquals(expectedOuts[0].toByteArray(), out.toByteArray());
     assertArrayEquals(expectedOuts[1].toByteArray(), err.toByteArray());
     assertArrayEquals(expectedOuts[2].toByteArray(), ctl.toByteArray());
+  }
+
+  private static byte[] chunk(int stream, String payload) {
+    byte[] payloadBytes = payload.getBytes(Charset.defaultCharset());
+    byte[] result = new byte[payloadBytes.length + 5];
+
+    System.arraycopy(payloadBytes, 0, result, 5, payloadBytes.length);
+    result[0] = (byte) stream;
+    result[1] = (byte) (payloadBytes.length >> 24);
+    result[2] = (byte) ((payloadBytes.length >> 16) & 0xff);
+    result[3] = (byte) ((payloadBytes.length >> 8) & 0xff);
+    result[4] = (byte) (payloadBytes.length & 0xff);
+    return result;
+  }
+
+  private static byte[] concat(byte[]... chunks) {
+    int length = 0;
+    for (byte[] chunk : chunks) {
+      length += chunk.length;
+    }
+
+    byte[] result = new byte[length];
+    int previousChunks = 0;
+    for (byte[] chunk : chunks) {
+      System.arraycopy(chunk, 0, result, previousChunks, chunk.length);
+      previousChunks += chunk.length;
+    }
+    return result;
   }
 }

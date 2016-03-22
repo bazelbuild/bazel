@@ -49,8 +49,7 @@ public class StreamMultiplexerParallelStressTest {
    */
   OutputStream devNull  = ByteStreams.nullOutputStream();
 
-  StreamDemultiplexer demux = new StreamDemultiplexer((byte)'1',
-      devNull, devNull, devNull);
+  StreamDemultiplexer demux = new StreamDemultiplexer((byte) 1, devNull, devNull, devNull);
 
   /**
    * The multiplexer under test.

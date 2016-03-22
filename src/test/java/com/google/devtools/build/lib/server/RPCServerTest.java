@@ -102,27 +102,26 @@ public class RPCServerTest {
     FileSystemUtils.deleteTree(serverDir);
   }
 
-  private void runTestRequest(String request, int ret, String out, String err,
-                             String control) throws Exception {
-    assertEquals(new ServerResponse(control, ret), client.sendRequest(request));
+  private void runTestRequest(String request, int ret, String out, String err) throws Exception {
+    assertEquals(ret, client.sendRequest(request));
     assertEquals(out, outErr.outAsLatin1());
     assertThat(outErr.errAsLatin1()).contains(err);
   }
 
   @Test
   public void testUnknownCommand() throws Exception {
-    runTestRequest("unknown", 2, "", "SERVER ERROR: Unknown command: unknown\n", "");
+    runTestRequest("unknown", 2, "", "SERVER ERROR: Unknown command: unknown\n");
   }
 
   @Test
   public void testEmptyBlazeCommand() throws Exception {
-    runTestRequest("unknown", 2, "", "SERVER ERROR: Unknown command: unknown\n", "");
+    runTestRequest("unknown", 2, "", "SERVER ERROR: Unknown command: unknown\n");
   }
 
   @Test
   public void testWorkspaceDies() throws Exception {
     assertTrue(serverThread.isAlive());
-    runTestRequest("blaze", 42, COMMAND_STDOUT, COMMAND_STDERR, "");
+    runTestRequest("blaze", 42, COMMAND_STDOUT, COMMAND_STDERR);
     Thread.sleep(HEALTH_CHECK_MILLIS * 2);
     assertTrue(serverThread.isAlive());
 

@@ -1107,21 +1107,44 @@ static void handler(int signum) {
 }
 
 
-// Reads a single char from the specified stream.
-static char read_server_char(FILE *fp) {
-  int c = getc(fp);
-  if (c == EOF) {
-    // e.g. external SIGKILL of server, misplaced System.exit() in the server,
-    // or a JVM crash. Print out the jvm.out file in case there's something
-    // useful.
-    fprintf(stderr, "Error: unexpected EOF from %s server.\n"
-            "Contents of '%s':\n", globals->options.GetProductName().c_str(),
-            globals->jvm_log_file.c_str());
-    WriteFileToStreamOrDie(stderr, globals->jvm_log_file.c_str());
-    exit(GetExitCodeForAbruptExit(*globals));
-  }
-  return static_cast<char>(c);
+static ATTRIBUTE_NORETURN void server_eof() {
+  // e.g. external SIGKILL of server, misplaced System.exit() in the server,
+  // or a JVM crash. Print out the jvm.out file in case there's something
+  // useful.
+  fprintf(stderr, "Error: unexpected EOF from %s server.\n"
+          "Contents of '%s':\n", globals->options.GetProductName().c_str(),
+          globals->jvm_log_file.c_str());
+  WriteFileToStreamOrDie(stderr, globals->jvm_log_file.c_str());
+  exit(GetExitCodeForAbruptExit(*globals));
 }
+
+// Reads a single char from the specified stream.
+static unsigned char read_server_char(int fd) {
+  unsigned char result;
+  if (read(fd, &result, 1) != 1) {
+    server_eof();
+  }
+  return result;
+}
+
+static unsigned int read_server_int(int fd) {
+  unsigned char buffer[4];
+  unsigned char *p = buffer;
+  int remaining = 4;
+
+  while (remaining > 0) {
+    int bytes_read = read(fd, p, remaining);
+    if (bytes_read <= 0) {
+      server_eof();
+    }
+
+    remaining -= bytes_read;
+    p += bytes_read;
+  }
+
+  return (buffer[0] << 24) + (buffer[1] << 16) + (buffer[2] << 8) + buffer[3];
+}
+
 
 // Constructs the command line for a server request,
 static string BuildServerRequest() {
@@ -1141,6 +1164,23 @@ static string BuildServerRequest() {
     request.append(*it);
   }
   return request;
+}
+
+static char server_output_buffer[8192];
+
+static void forward_server_output(int socket, int output) {
+  unsigned int remaining = read_server_int(socket);
+  while (remaining > 0) {
+    int bytes = remaining > 8192 ? 8192 : remaining;
+    bytes = read(socket, server_output_buffer, bytes);
+    if (bytes <= 0) {
+      server_eof();
+    }
+
+    remaining -= bytes;
+    // Not much we can do if this doesn't work
+    write(output, server_output_buffer, bytes);
+  }
 }
 
 // Performs all I/O for a single client request to the server, and
@@ -1185,8 +1225,6 @@ static ATTRIBUTE_NORETURN void SendServerRequest() {
     }
   }
 
-  FILE *fp = fdopen(socket, "r");  // use buffering for reads--it's faster
-
   if (VerboseLogging()) {
     fprintf(stderr, "Connected (server pid=%d).\n", globals->server_pid);
   }
@@ -1205,15 +1243,18 @@ static ATTRIBUTE_NORETURN void SendServerRequest() {
   signal(SIGPIPE, handler);
   signal(SIGQUIT, handler);
 
-  // Send request and shutdown the write half of the connection:
-  // (Request is written in a single chunk.)
-  if (write(socket, request.data(), request.size()) != request.size()) {
+  // Send request (Request is written in a single chunk.)
+  char request_size[4];
+  request_size[0] = (request.size() >> 24) & 0xff;
+  request_size[1] = (request.size() >> 16) & 0xff;
+  request_size[2] = (request.size() >> 8) & 0xff;
+  request_size[3] = (request.size()) & 0xff;
+  if (write(socket, request_size, 4) != 4) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "write() to server failed");
   }
-  // In this (totally bizarre) protocol, this is the
-  // client's way of saying "um, that's the end of the request".
-  if (shutdown(socket, SHUT_WR) == -1) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "shutdown(WR) failed");
+
+  if (write(socket, request.data(), request.size()) != request.size()) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "write() to server failed");
   }
 
   // Wait until we receive some response from the server.
@@ -1247,58 +1288,48 @@ static ATTRIBUTE_NORETURN void SendServerRequest() {
     }
   }
 
-  // Read and demux the response. This protocol is awful.
+  // Read and demux the response.
+  const int TAG_STDOUT = 1;
+  const int TAG_STDERR = 2;
+  const int TAG_CONTROL = 3;
   for (;;) {
-    // Read one line:
-    char at = read_server_char(fp);
-    assert(at == '@');
-    (void) at;  // avoid warning about unused variable
-    char tag = read_server_char(fp);
-    assert(tag == '1' || tag == '2' || tag == '3');
-    char at_or_newline = read_server_char(fp);
-    bool second_at = at_or_newline == '@';
-    if (second_at) {
-      at_or_newline = read_server_char(fp);
-    }
-    assert(at_or_newline == '\n');
-
-    if (tag == '3') {
-      // In this (totally bizarre) protocol, this is the
-      // server's way of saying "um, that's the end of the response".
-      break;
-    }
-    FILE *stream = tag == '1' ? stdout : stderr;
-    for (;;) {
-      char c = read_server_char(fp);
-      if (c == '\n') {
-        if (!second_at) fputc(c, stream);
-        fflush(stream);
+    // Read the tag
+    char tag = read_server_char(socket);
+    switch (tag) {
+      // stdout
+      case TAG_STDOUT:
+        forward_server_output(socket, 1);
         break;
-      } else {
-        fputc(c, stream);
-      }
+
+      // stderr
+      case TAG_STDERR:
+        forward_server_output(socket, 2);
+        break;
+
+      // Control stream. Currently only used for reporting the exit code.
+      case TAG_CONTROL:
+        if (globals->received_signal) {
+          // Kill ourselves with the same signal, so that callers see the
+          // right WTERMSIG value.
+          signal(globals->received_signal, SIG_DFL);
+          raise(globals->received_signal);
+          exit(1);  // (in case raise didn't kill us for some reason)
+        } else {
+          unsigned int length = read_server_int(socket);
+          if (length != 4) {
+            server_eof();
+          }
+          unsigned int exit_code = read_server_int(socket);
+          exit(exit_code);
+        }
+        break;  // Control never gets here, only for code beauty
+
+      default:
+        fprintf(stderr, "bad tag %d\n", tag);
+        server_eof();
+        break;  // Control never gets here, only for code beauty
     }
   }
-
-  char line[255];
-  if (fgets(line, sizeof line, fp) == NULL ||
-      !isdigit(line[0])) {
-    die(blaze_exit_code::INTERNAL_ERROR,
-        "Error: can't read exit code from server.");
-  }
-  int exit_code;
-  blaze_util::safe_strto32(line, &exit_code);
-
-  close(socket);  // might fail EINTR, just ignore.
-
-  if (globals->received_signal) {  // Kill ourselves with the same signal, so
-                                  // that callers see the right WTERMSIG value.
-    signal(globals->received_signal, SIG_DFL);
-    raise(globals->received_signal);
-    exit(1);  // (in case raise didn't kill us for some reason)
-  }
-
-  exit(exit_code);
 }
 
 // Parse the options, storing parsed values in globals.

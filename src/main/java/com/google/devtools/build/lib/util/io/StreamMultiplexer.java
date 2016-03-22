@@ -28,37 +28,28 @@ import java.io.OutputStream;
  * end of a networking connection can simply read the tagged lines and then act
  * on them within a sigle thread.
  *
- * The format of the tagged output stream is as follows:
+ * The format of the tagged output stream is reasonably simple:
+ * <ol>
+ *   <li>
+ *     Marker byte indicating whether that chunk is for stdout (1), stderr (2) or the control
+ *     stream (3).
+ *   </li>
+ *   <li>
+ *     4 bytes indicating the length of the chunk in high-endian format.
+ *   </li>
+ *   <li>
+ *     The payload (as many bytes as the length field before)
+ *   </li>
+ * </ol>>
  *
- * <pre>
- * combined :: = [ control_line payload ... ]+
- * control_line :: = '@' marker '@'? '\n'
- * payload :: = r'^[^\n]*\n'
- * </pre>
  *
- * So basically:
- * <ul>
- *   <li>Control lines alternate with payload lines</li>
- *   <li>Both types of lines end with a newline, and never have a newline in
- *       them.</li>
- *   <li>The marker indicates which stream we mean.
- *       For now, '1'=stdout, '2'=stderr.</li>
- *   <li>The optional second '@' indicates that the following line is
- *       incomplete.</li>
- * </ul>
- *
- * This format is optimized for easy interpretation by a Python client, but it's
- * also a compromise in that it's still easy to interpret by a human (let's say
- * you have to read the traffic over a wire for some reason).
  */
 @ThreadSafe
 public final class StreamMultiplexer {
 
-  public static final byte STDOUT_MARKER = '1';
-  public static final byte STDERR_MARKER = '2';
-  public static final byte CONTROL_MARKER = '3';
-
-  private static final byte AT = '@';
+  public static final byte STDOUT_MARKER = 1;
+  public static final byte STDERR_MARKER = 2;
+  public static final byte CONTROL_MARKER = 3;
 
   private final Object mutex = new Object();
   private final OutputStream multiplexed;
@@ -82,19 +73,13 @@ public final class StreamMultiplexer {
           multiplexed.flush();
           return;
         }
-        byte lastByte = buffer[len - 1];
-        boolean lineIsIncomplete = lastByte != NEWLINE;
 
-        multiplexed.write(AT);
         multiplexed.write(markerByte);
-        if (lineIsIncomplete) {
-          multiplexed.write(AT);
-        }
-        multiplexed.write(NEWLINE);
+        multiplexed.write((len >> 24) & 0xff);
+        multiplexed.write((len >> 16) & 0xff);
+        multiplexed.write((len >> 8) & 0xff);
+        multiplexed.write(len & 0xff);
         multiplexed.write(buffer, 0, len);
-        if (lineIsIncomplete) {
-          multiplexed.write(NEWLINE);
-        }
         multiplexed.flush();
       }
       len = 0;

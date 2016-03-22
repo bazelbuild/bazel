@@ -14,8 +14,6 @@
 
 package com.google.devtools.build.lib.server;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
@@ -427,10 +425,15 @@ public final class RPCServer {
    * blaze.cc) to interface with Unix APIs.
    */
   private static List<String> readRequest(InputStream input) throws IOException {
-    byte[] inputBytes = ByteStreams.toByteArray(input);
-    if (inputBytes.length == 0) {
-      return null;
-    }
+    byte[] sizeBuffer = new byte[4];
+    ByteStreams.readFully(input, sizeBuffer);
+    int size = ((sizeBuffer[0] & 0xff) << 24)
+        + ((sizeBuffer[1] & 0xff) << 16)
+        + ((sizeBuffer[2] & 0xff) << 8)
+        + (sizeBuffer[3] & 0xff);
+    byte[] inputBytes = new byte[size];
+    ByteStreams.readFully(input, inputBytes);
+
     String s = new String(inputBytes, Charset.defaultCharset());
     return ImmutableList.copyOf(NULLTERMINATOR_SPLITTER.split(s));
   }
@@ -522,7 +525,10 @@ public final class RPCServer {
       // exit code.
       flushOutErr();
       try {
-        controlChannel.write(("" + exitStatus + "\n").getBytes(UTF_8));
+        controlChannel.write((exitStatus >> 24) & 0xff);
+        controlChannel.write((exitStatus >> 16) & 0xff);
+        controlChannel.write((exitStatus >> 8) & 0xff);
+        controlChannel.write(exitStatus & 0xff);
         controlChannel.flush();
         LOG.info("" + exitStatus);
       } catch (IOException ignored) {

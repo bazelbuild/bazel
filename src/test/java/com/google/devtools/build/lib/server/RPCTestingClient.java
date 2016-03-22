@@ -43,7 +43,7 @@ public class RPCTestingClient {
     this.outErr = outErr;
   }
 
-  public ServerResponse sendRequest(String command, String... params)
+  public int sendRequest(String command, String... params)
       throws Exception {
     String request = command;
     for (String param : params) {
@@ -52,24 +52,35 @@ public class RPCTestingClient {
     return sendRequest(request);
   }
 
-  public ServerResponse sendRequest(String request) throws Exception {
+  public int sendRequest(String request) throws Exception {
     LocalClientSocket connection = new LocalClientSocket();
     connection.connect(new LocalSocketAddress(socketFile.getPathFile()));
     try {
       OutputStream out = connection.getOutputStream();
-      out.write(request.getBytes(UTF_8));
+      byte[] requestBytes = request.getBytes(UTF_8);
+      byte[] requestLength = new byte[4];
+      requestLength[0] = (byte) (requestBytes.length << 24);
+      requestLength[1] = (byte) ((requestBytes.length << 16) & 0xff);
+      requestLength[2] = (byte) ((requestBytes.length << 8) & 0xff);
+      requestLength[3] = (byte) (requestBytes.length & 0xff);
+      out.write(requestLength);
+      out.write(requestBytes);
       out.flush();
       connection.shutdownOutput();
 
       OutputStream stdout = outErr.getOutputStream();
       OutputStream stderr = outErr.getErrorStream();
       ByteArrayOutputStream control = new ByteArrayOutputStream();
-      StreamDemultiplexer demux = new StreamDemultiplexer((byte) '1',
+      StreamDemultiplexer demux = new StreamDemultiplexer((byte) 1,
           stdout, stderr, control);
       ByteStreams.copy(connection.getInputStream(), demux);
       demux.flush();
 
-      return ServerResponse.parseFrom(control);
+      byte[] controlBytes = control.toByteArray();
+      return (((int) controlBytes[0]) << 24)
+          + (((int) controlBytes[1]) << 16)
+          + (((int) controlBytes[2]) << 8)
+          + ((int) controlBytes[3]);
     } finally {
       connection.close();
     }

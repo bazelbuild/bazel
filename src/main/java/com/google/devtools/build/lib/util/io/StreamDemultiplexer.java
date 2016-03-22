@@ -48,9 +48,6 @@ public final class StreamDemultiplexer extends OutputStream {
     }
   }
 
-  private static final byte AT = '@';
-  private static final byte NEWLINE = '\n';
-
   /**
    * The output streams, conveniently in an array indexed by the marker byte.
    * Some of these will be null, most likely.
@@ -64,22 +61,23 @@ public final class StreamDemultiplexer extends OutputStream {
    * parse things.
    */
   private enum State {
-    EXPECT_CONTROL_STARTING_AT,
     EXPECT_MARKER_BYTE,
-    EXPECT_AT_OR_NEWLINE,
-    EXPECT_PAYLOAD_OR_NEWLINE
+    EXPECT_SIZE,
+    EXPECT_PAYLOAD,
   }
 
-  private State state = State.EXPECT_CONTROL_STARTING_AT;
-  private boolean addNewlineToPayload;
+  private final int[] sizeBuffer = new int[4];
+  private State state = State.EXPECT_MARKER_BYTE;
   private OutputStream selectedStream;
+  private int currentSizeByte = 0;
+  private int payloadBytesLeft = 0;
 
   /**
    * Construct a new demultiplexer. The {@code smallestMarkerByte} indicates
    * the marker byte we would expect for {@code outputStreams[0]} to be used.
    * So, if this first stream is your stdout and you're using the
    * {@link StreamMultiplexer}, then you will need to set this to
-   * {@code '1'}. Because {@link StreamDemultiplexer} extends
+   * {@code 1}. Because {@link StreamDemultiplexer} extends
    * {@link OutputStream}, this constructor effectively creates an
    * {@link OutputStream} instance which demultiplexes the tagged data client
    * code writes to it into {@code outputStreams}.
@@ -95,70 +93,35 @@ public final class StreamDemultiplexer extends OutputStream {
   public void write(int b) throws IOException {
     // This dispatch traverses the finite state machine / grammar.
     switch (state) {
-      case EXPECT_CONTROL_STARTING_AT:
-        parseControlStartingAt((byte) b);
-        resetFields();
-        break;
       case EXPECT_MARKER_BYTE:
-        parseMarkerByte((byte) b);
+        parseMarkerByte(b);
         break;
-      case EXPECT_AT_OR_NEWLINE:
-        parseAtOrNewline((byte) b);
+      case EXPECT_SIZE:
+        parseSize(b);
         break;
-      case EXPECT_PAYLOAD_OR_NEWLINE:
-        parsePayloadOrNewline((byte) b);
+      case EXPECT_PAYLOAD:
+        parsePayload(b);
         break;
     }
   }
 
-  /**
-   * Handles {@link State#EXPECT_PAYLOAD_OR_NEWLINE}, which is the payload
-   * we are actually transporting over the wire. At this point we can rely
-   * on a stream having been preselected into {@link #selectedStream}, and
-   * also we will add a newline if {@link #addNewlineToPayload} is set.
-   * Flushes at the end of every payload segment.
-   */
-  private void parsePayloadOrNewline(byte b) throws IOException {
-    if (b == NEWLINE) {
-      if (addNewlineToPayload) {
-        selectedStream.write(NEWLINE);
-      }
-      selectedStream.flush();
-      state = State.EXPECT_CONTROL_STARTING_AT;
-    } else {
-      selectedStream.write(b);
-      selectedStream.flush(); // slow?
+  private void parseSize(int b) {
+    sizeBuffer[currentSizeByte] = b;
+    currentSizeByte += 1;
+    if (currentSizeByte == 4) {
+      state = State.EXPECT_PAYLOAD;
+      payloadBytesLeft = (sizeBuffer[0] << 24)
+          + (sizeBuffer[1] << 16)
+          + (sizeBuffer[2] << 8)
+          + sizeBuffer[3];
     }
-  }
-
-  /**
-   * Handles {@link State#EXPECT_AT_OR_NEWLINE}, which is either the
-   * suppress newline indicator (at) at the end of a control line, or the end
-   * of a control line.
-   */
-  private void parseAtOrNewline(byte b) throws IOException {
-    if (b == NEWLINE) {
-      state = State.EXPECT_PAYLOAD_OR_NEWLINE;
-    } else if (b == AT) {
-      addNewlineToPayload = false;
-    } else {
-      throw new IOException("Expected @ or \\n. (" + b + ")");
-    }
-  }
-
-  /**
-   * Reset the fields that are affected by our state.
-   */
-  private void resetFields() {
-    selectedStream = null;
-    addNewlineToPayload = true;
   }
 
   /**
    * Handles {@link State#EXPECT_MARKER_BYTE}. The byte determines which stream
    * we will be using, and will set {@link #selectedStream}.
    */
-  private void parseMarkerByte(byte markerByte) throws IOException {
+  private void parseMarkerByte(int markerByte) throws IOException {
     if (markerByte < 0 || markerByte > Byte.MAX_VALUE) {
       String msg = "Illegal marker byte (" + markerByte + ")";
       throw new IllegalArgumentException(msg);
@@ -168,19 +131,15 @@ public final class StreamDemultiplexer extends OutputStream {
       throw new IOException("stream " + markerByte + " not registered.");
     }
     selectedStream = outputStreams[markerByte];
-    state = State.EXPECT_AT_OR_NEWLINE;
+    state = State.EXPECT_SIZE;
+    currentSizeByte = 0;
   }
 
-  /**
-   * Handles {@link State#EXPECT_CONTROL_STARTING_AT}, the very first '@' with
-   * which each message starts.
-   */
-  private void parseControlStartingAt(byte b) throws IOException {
-    if (b != AT) {
-      throw new IOException("Expected control starting @. (" + b + ", "
-          + (char) b + ")");
+  private void parsePayload(int b) throws IOException {
+    selectedStream.write(b);
+    payloadBytesLeft -= 1;
+    if (payloadBytesLeft == 0) {
+      state = State.EXPECT_MARKER_BYTE;
     }
-    state = State.EXPECT_MARKER_BYTE;
   }
-
 }
