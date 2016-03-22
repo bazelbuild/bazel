@@ -24,11 +24,13 @@ import java.util.List;
 
 /**
  * A tuple containing the information in a single target of the {@code xcode_version} rule.
- * A single target of this rule contains an official version label decided by Apple and a number
- *  of supported aliases one might use to reference this version.
+ * A single target of this rule contains an official version label decided by Apple, a number
+ * of supported aliases one might use to reference this version, and various properties of
+ * the xcode version (such as default SDK versions).
  *
  * <p>For example, one may want to reference official xcode version 7.0.1 using the "7" or
- * "7.0" aliases.
+ * "7.0" aliases. This official version of xcode may have a default supported iOS SDK of
+ * 9.0.
  */
 public class XcodeVersionRuleData {
   private final Label label;
@@ -45,8 +47,15 @@ public class XcodeVersionRuleData {
         attrMapper.get(XcodeVersionRule.VERSION_ATTR_NAME, Type.STRING));
     String iosSdkVersionString =
         attrMapper.get(XcodeVersionRule.DEFAULT_IOS_SDK_VERSION_ATTR_NAME, Type.STRING);
+    String watchosSdkVersionString =
+        attrMapper.get(XcodeVersionRule.DEFAULT_WATCHOS_SDK_VERSION_ATTR_NAME, Type.STRING);
+    String tvosSdkVersionString =
+        attrMapper.get(XcodeVersionRule.DEFAULT_TVOS_SDK_VERSION_ATTR_NAME, Type.STRING);
+    String macosxSdkVersionString =
+        attrMapper.get(XcodeVersionRule.DEFAULT_MACOSX_SDK_VERSION_ATTR_NAME, Type.STRING);
     this.version = xcodeVersion;
-    this.xcodeVersionProperties = new XcodeVersionProperties(xcodeVersion, iosSdkVersionString);
+    this.xcodeVersionProperties = new XcodeVersionProperties(xcodeVersion, iosSdkVersionString,
+        watchosSdkVersionString, tvosSdkVersionString, macosxSdkVersionString);
     this.aliases = ImmutableList.copyOf(
         attrMapper.get(XcodeVersionRule.ALIASES_ATTR_NAME, Type.STRING_LIST));
   }

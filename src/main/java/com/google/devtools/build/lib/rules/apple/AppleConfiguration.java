@@ -68,14 +68,17 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
 
   AppleConfiguration(AppleCommandLineOptions appleOptions,
       Optional<DottedVersion> xcodeVersionOverride,
-      DottedVersion iosSdkVersion) {
+      DottedVersion iosSdkVersion,
+      DottedVersion watchOsSdkVersion,
+      DottedVersion tvOsSdkVersion,
+      DottedVersion macOsXSdkVersion) {
     this.iosSdkVersion = Preconditions.checkNotNull(iosSdkVersion, "iosSdkVersion");
     this.watchOsSdkVersion =
-        Preconditions.checkNotNull(appleOptions.watchOsSdkVersion, "watchOsSdkVersion");
+        Preconditions.checkNotNull(watchOsSdkVersion, "watchOsSdkVersion");
     this.tvOsSdkVersion =
-        Preconditions.checkNotNull(appleOptions.tvOsSdkVersion, "tvOsSdkVersion");
+        Preconditions.checkNotNull(tvOsSdkVersion, "tvOsSdkVersion");
     this.macOsXSdkVersion =
-        Preconditions.checkNotNull(appleOptions.macOsXSdkVersion, "macOsXSdkVersion");
+        Preconditions.checkNotNull(macOsXSdkVersion, "macOsXSdkVersion");
 
     this.xcodeVersion = Preconditions.checkNotNull(xcodeVersionOverride);
     this.iosCpu = Preconditions.checkNotNull(appleOptions.iosCpu, "iosCpu");
@@ -266,9 +269,15 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
 
       DottedVersion iosSdkVersion = (appleOptions.iosSdkVersion != null)
           ? appleOptions.iosSdkVersion : xcodeVersionProperties.getDefaultIosSdkVersion();
+      DottedVersion watchosSdkVersion = (appleOptions.watchOsSdkVersion != null)
+          ? appleOptions.watchOsSdkVersion : xcodeVersionProperties.getDefaultWatchosSdkVersion();
+      DottedVersion tvosSdkVersion = (appleOptions.tvOsSdkVersion != null)
+          ? appleOptions.tvOsSdkVersion : xcodeVersionProperties.getDefaultTvosSdkVersion();
+      DottedVersion macosxSdkVersion = (appleOptions.macOsXSdkVersion != null)
+          ? appleOptions.macOsXSdkVersion : xcodeVersionProperties.getDefaultMacosxSdkVersion();
       AppleConfiguration configuration =
           new AppleConfiguration(appleOptions, xcodeVersionProperties.getXcodeVersion(),
-              iosSdkVersion);
+              iosSdkVersion, watchosSdkVersion, tvosSdkVersion, macosxSdkVersion);
 
       validate(configuration);
       return configuration;
