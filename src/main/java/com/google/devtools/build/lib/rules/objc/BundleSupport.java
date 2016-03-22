@@ -35,15 +35,11 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.InvalidFamilyNameException;
-import com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.RepeatedFamilyNameException;
 import com.google.devtools.build.lib.rules.objc.XcodeProvider.Builder;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -216,20 +212,18 @@ final class BundleSupport {
   }
 
   /**
-   * Returns a set containing the {@link TargetDeviceFamily} values
-   * which this bundle is targeting. Returns an empty set for any
-   * invalid value of the target device families attribute.
+   * Returns a set containing the {@link TargetDeviceFamily} values which this bundle is targeting.
+   * Returns an empty set for any invalid value of the target device families attribute.
    */
   ImmutableSet<TargetDeviceFamily> targetDeviceFamilies() {
-    return attributes.families();
+    return bundling.getTargetDeviceFamilies();
   }
 
   private void registerInterfaceBuilderActions(ObjcProvider objcProvider) {
-    IntermediateArtifacts intermediateArtifacts =
-        ObjcRuleClasses.intermediateArtifacts(ruleContext);
     for (Artifact storyboardInput : objcProvider.get(ObjcProvider.STORYBOARD)) {
       String archiveRoot = BundleableFile.flatBundlePath(storyboardInput.getExecPath()) + "c";
-      Artifact zipOutput = intermediateArtifacts.compiledStoryboardZip(storyboardInput);
+      Artifact zipOutput = bundling.getIntermediateArtifacts()
+          .compiledStoryboardZip(storyboardInput);
 
       ruleContext.registerAction(
           ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
@@ -254,7 +248,7 @@ final class BundleSupport {
             .add("--module")
             .add(ruleContext.getLabel().getName());
 
-    for (TargetDeviceFamily targetDeviceFamily : attributes.families()) {
+    for (TargetDeviceFamily targetDeviceFamily : targetDeviceFamilies()) {
       commandLine.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
     }
 
@@ -265,10 +259,8 @@ final class BundleSupport {
 
   private void registerMomczipActions(ObjcProvider objcProvider) {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
-    IntermediateArtifacts intermediateArtifacts =
-        ObjcRuleClasses.intermediateArtifacts(ruleContext);
     Iterable<Xcdatamodel> xcdatamodels = Xcdatamodels.xcdatamodels(
-        intermediateArtifacts, objcProvider.get(ObjcProvider.XCDATAMODEL));
+        bundling.getIntermediateArtifacts(), objcProvider.get(ObjcProvider.XCDATAMODEL));
     for (Xcdatamodel datamodel : xcdatamodels) {
       Artifact outputZip = datamodel.getOutputZip();
       ruleContext.registerAction(
@@ -292,10 +284,8 @@ final class BundleSupport {
   }
 
   private void registerConvertXibsActions(ObjcProvider objcProvider) {
-    IntermediateArtifacts intermediateArtifacts =
-        ObjcRuleClasses.intermediateArtifacts(ruleContext);
     for (Artifact original : objcProvider.get(ObjcProvider.XIB)) {
-      Artifact zipOutput = intermediateArtifacts.compiledXibFileZip(original);
+      Artifact zipOutput = bundling.getIntermediateArtifacts().compiledXibFileZip(original);
       String archiveRoot = BundleableFile.flatBundlePath(
           FileSystemUtils.replaceExtension(original.getExecPath(), ".nib"));
 
@@ -311,10 +301,8 @@ final class BundleSupport {
   }
 
   private void registerConvertStringsActions(ObjcProvider objcProvider) {
-    IntermediateArtifacts intermediateArtifacts =
-        ObjcRuleClasses.intermediateArtifacts(ruleContext);
     for (Artifact strings : objcProvider.get(ObjcProvider.STRINGS)) {
-      Artifact bundled = intermediateArtifacts.convertedStringsFile(strings);
+      Artifact bundled = bundling.getIntermediateArtifacts().convertedStringsFile(strings);
       ruleContext.registerAction(ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
           .setMnemonic("ConvertStringsPlist")
           .setExecutable(new PathFragment("/usr/bin/plutil"))
@@ -341,9 +329,8 @@ final class BundleSupport {
     if (!bundling.needsToMergeInfoplist()) {
       return; // Nothing to do here.
     }
-    
-    Artifact plMergeControlArtifact =
-        ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, ".plmerge-control");
+
+    Artifact plMergeControlArtifact = baseNameArtifact(ruleContext, ".plmerge-control");
 
     ruleContext.registerAction(
         new BinaryFileWriteAction(
@@ -359,8 +346,23 @@ final class BundleSupport {
             .addArgument("--control")
             .addInputArgument(plMergeControlArtifact)
             .addTransitiveInputs(mergingContentArtifacts)
-            .addOutput(ObjcRuleClasses.intermediateArtifacts(ruleContext).mergedInfoplist())
+            .addOutput(bundling.getIntermediateArtifacts().mergedInfoplist())
             .build(ruleContext));
+  }
+
+  /**
+   * Returns an {@link Artifact} with name prefixed with prefix given in {@link Bundling} if
+   * available. This helps in creating unique artifact name when multiple bundles are created
+   * with a different name than the target name.
+   */
+  private Artifact baseNameArtifact(RuleContext ruleContext, String artifactName) {
+    String prefixedArtifactName;
+    if (bundling.getArtifactPrefix() != null) {
+      prefixedArtifactName = String.format("-%s%s", bundling.getArtifactPrefix(), artifactName);
+    } else {
+      prefixedArtifactName = artifactName;
+    }
+    return ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext, prefixedArtifactName); 
   }
 
   private void registerActoolActionIfNecessary(ObjcProvider objcProvider) {
@@ -369,7 +371,7 @@ final class BundleSupport {
       return;
     }
 
-    Artifact actoolPartialInfoplist = actoolPartialInfoplist(ruleContext, objcProvider).get();
+    Artifact actoolPartialInfoplist = actoolPartialInfoplist(objcProvider).get();
     Artifact zipOutput = actoolzipOutput.get();
 
     // TODO(bazel-team): Do not use the deploy jar explicitly here. There is currently a bug where
@@ -404,7 +406,7 @@ final class BundleSupport {
             .add("--minimum-deployment-target")
             .add(bundling.getMinimumOsVersion().toString());
 
-    for (TargetDeviceFamily targetDeviceFamily : attributes.families()) {
+    for (TargetDeviceFamily targetDeviceFamily : targetDeviceFamilies()) {
       commandLine.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
     }
 
@@ -424,12 +426,9 @@ final class BundleSupport {
    * about the {@code app_icon} and {@code launch_image} if supplied. If neither an app icon or a
    * launch image was supplied, the plist file generated is empty.
    */
-  private static Optional<Artifact> actoolPartialInfoplist(
-      RuleContext ruleContext, ObjcProvider objcProvider) {
+  private Optional<Artifact> actoolPartialInfoplist(ObjcProvider objcProvider) {
     if (objcProvider.hasAssetCatalogs()) {
-      IntermediateArtifacts intermediateArtifacts =
-          ObjcRuleClasses.intermediateArtifacts(ruleContext);
-      return Optional.of(intermediateArtifacts.actoolPartialInfoplist());
+      return Optional.of(bundling.getIntermediateArtifacts().actoolPartialInfoplist());
     } else {
       return Optional.absent();
     }
@@ -450,21 +449,6 @@ final class BundleSupport {
      */
     FilesToRunProvider plmerge() {
       return ruleContext.getExecutablePrerequisite("$plmerge", Mode.HOST);
-    }
-
-    /**
-     * Returns the value of the {@code families} attribute in a form
-     * that is more useful than a list of strings. Returns an empty
-     * set for any invalid {@code families} attribute value, including
-     * an empty list.
-     */
-    ImmutableSet<TargetDeviceFamily> families() {
-      List<String> rawFamilies = ruleContext.attributes().get("families", Type.STRING_LIST);
-      try {
-        return ImmutableSet.copyOf(TargetDeviceFamily.fromNamesInRule(rawFamilies));
-      } catch (InvalidFamilyNameException | RepeatedFamilyNameException e) {
-        return ImmutableSet.of();
-      }
     }
 
     /**
