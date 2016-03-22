@@ -21,9 +21,10 @@ filegroup(
     srcs = glob(
         ["**"],
         exclude = [
-            "bazel-*/**",
-            "output/**",
-            ".*/**",
+            "bazel-*/**",  # convenience symlinks
+            "out/**"       # IntelliJ with setup-intellij.sh
+            "output/**",   # output of compile.sh
+            ".*/**",       # mainly git
         ],
     ) + [
         "//examples:srcs",
