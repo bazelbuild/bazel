@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -330,9 +331,9 @@ public abstract class RepositoryFunction {
       if (value == null) {
         return null;
       }
-      // TODO(dmarting): stop at cycle and report a more intelligible error than cycle reporting.
       Package externalPackage = value.getPackage();
       if (externalPackage.containsErrors()) {
+        Event.replayEventsOn(env.getListener(), externalPackage.getEvents());
         throw new RepositoryFunctionException(
             new BuildFileContainsErrorsException(
                 Label.EXTERNAL_PACKAGE_IDENTIFIER, "Could not load //external package"),

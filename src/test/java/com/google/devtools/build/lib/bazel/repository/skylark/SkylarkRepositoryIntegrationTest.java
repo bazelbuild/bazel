@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
@@ -299,5 +300,29 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     assertDoesNotContainEvent("cycle");
     assertContainsEvent("Maybe repository 'foo' was defined later in your WORKSPACE file?");
     assertContainsEvent("Failed to load Skylark extension '@foo//:def.bzl'.");
+  }
+
+  @Test
+  public void testLoadDoesNotHideWorkspaceError() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("/repo2/data.txt", "data");
+    scratch.file("/repo2/BUILD", "exports_files_(['data.txt'])");
+    scratch.file("/repo2/def.bzl", "def macro():", "  print('bleh')");
+    scratch.file("/repo2/WORKSPACE");
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(),
+        "local_repository(name='bleh')",
+        "local_repository(name='foo', path='/repo2')",
+        "load('@foo//:def.bzl', 'repo')",
+        "repo(name='foobar')");
+    try {
+      invalidatePackages();
+      getTarget("@foo//:data.txt");
+      fail();
+    } catch (NoSuchPackageException e) {
+      // This is expected
+      assertThat(e.getMessage()).contains("Could not load //external package");
+    }
+    assertContainsEvent("missing value for mandatory attribute 'path' in 'local_repository' rule");
   }
 }
