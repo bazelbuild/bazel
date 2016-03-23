@@ -84,7 +84,7 @@ public class WorkspaceFactoryTest {
     WorkspaceFactoryHelper helper = new WorkspaceFactoryHelper(
         false, "workspace(name = 'foo')");
     assertThat(helper.getParserError()).contains(
-        "workspace() function should be used only at the top of the WORKSPACE file.");
+        "workspace() function should be used only at the top of the WORKSPACE file");
   }
 
   private WorkspaceFactoryHelper parse(String... args) {

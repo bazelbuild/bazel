@@ -302,7 +302,7 @@ public class WorkspaceFactory {
               public Object invoke(String name, FuncallExpression ast) throws EvalException {
                 throw new EvalException(
                     ast.getLocation(),
-                    "workspace() function should be used only at the top of the WORKSPACE file.");
+                    "workspace() function should be used only at the top of the WORKSPACE file");
               }
             };
           }
