@@ -947,7 +947,7 @@ public final class ParallelEvaluator implements Evaluator {
       SkyFunctionName functionName = skyKey.functionName();
       SkyFunction factory = skyFunctions.get(functionName);
       Preconditions.checkState(factory != null,
-          "Unable to find SkyFunction '%s' for SkyValue with key '%s'", functionName, state);
+          "Unable to find SkyFunction '%s' for node with key %s, %s", functionName, skyKey, state);
 
       SkyValue value = null;
       long startTime = BlazeClock.instance().nanoTime();
