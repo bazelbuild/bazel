@@ -358,7 +358,7 @@ public final class ReleaseBundlingSupport {
             configuration.getBundlingPlatform().getLowerCaseNameInPlist(),
             configuration.getIosSdkVersion());
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
             .setMnemonic("EnvironmentPlist")
             .setExecutable(attributes.environmentPlist())
             .addArguments("--platform", platformWithVersion)
@@ -730,7 +730,7 @@ public final class ReleaseBundlingSupport {
     Artifact resultingLinkedBinary = intermediateArtifacts.combinedArchitectureBinary();
     NestedSet<Artifact> linkedBinaries = linkedBinaries();
 
-    ruleContext.registerAction(ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
+    ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
         .setMnemonic("ObjcCombiningArchitectures")
         .addTransitiveInputs(linkedBinaries)
         .addOutput(resultingLinkedBinary)
@@ -949,7 +949,7 @@ public final class ReleaseBundlingSupport {
         .addExecPath("--scan-executable", intermediateArtifacts.combinedArchitectureBinary());
 
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
             .setMnemonic("SwiftStdlibCopy")
             .setExecutable(attributes.swiftStdlibToolWrapper())
             .setCommandLine(commandLine.build())

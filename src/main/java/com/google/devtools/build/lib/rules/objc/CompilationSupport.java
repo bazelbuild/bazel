@@ -408,7 +408,7 @@ public final class CompilationSupport {
     }
 
     // TODO(bazel-team): Remote private headers from inputs once they're added to the provider.
-    ruleContext.registerAction(ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
+    ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
         .setMnemonic("ObjcCompile")
         .setExecutable(xcrunwrapper(ruleContext))
         .setCommandLine(commandLine.build())
@@ -508,7 +508,7 @@ public final class CompilationSupport {
     commandLine.add(commonFrameworkFlags(objcProvider, appleConfiguration));
 
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
             .setMnemonic("SwiftCompile")
             .setExecutable(xcrunwrapper(ruleContext))
             .setCommandLine(commandLine.build())
@@ -580,7 +580,7 @@ public final class CompilationSupport {
 
     commandLine.add(commonFrameworkFlags(objcProvider, appleConfiguration));
 
-    ruleContext.registerAction(ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
+    ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
         .setMnemonic("SwiftModuleMerge")
         .setExecutable(xcrunwrapper(ruleContext))
         .setCommandLine(commandLine.build())
@@ -616,7 +616,7 @@ public final class CompilationSupport {
         Artifact.joinExecPaths("\n", objFiles),
         /*makeExecutable=*/ false));
 
-    actions.add(ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
+    actions.add(ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
         .setMnemonic("ObjcLink")
         .setExecutable(xcrunwrapper(ruleContext))
         .setCommandLine(new CustomCommandLine.Builder()
@@ -640,7 +640,7 @@ public final class CompilationSupport {
     Artifact archive = ruleContext.getImplicitOutputArtifact(FULLY_LINKED_LIB);
 
     ImmutableList<Artifact> ccLibraries = ccLibraries(objcProvider);
-    ruleContext.registerAction(ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
+    ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
         .setMnemonic("ObjcLink")
         .setExecutable(xcrunwrapper(ruleContext))
         .setCommandLine(new CustomCommandLine.Builder()
@@ -810,7 +810,7 @@ public final class CompilationSupport {
     NestedSet<Artifact> bazelBuiltLibraries = Iterables.isEmpty(prunedJ2ObjcArchives)
         ? objcProvider.get(LIBRARY) : substituteJ2ObjcPrunedLibraries(objcProvider);
     ruleContext.registerAction(
-        ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
+        ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
             .setMnemonic("ObjcLink")
             .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
             .setCommandLine(
@@ -836,7 +836,7 @@ public final class CompilationSupport {
       Artifact strippedBinary = intermediateArtifacts.strippedSingleArchitectureBinary();
 
       ruleContext.registerAction(
-          ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
+          ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
               .setMnemonic("ObjcBinarySymbolStrip")
               .setExecutable(xcrunwrapper(ruleContext))
               .setCommandLine(symbolStripCommandLine(stripArgs, binaryToLink, strippedBinary))
@@ -1085,7 +1085,7 @@ public final class CompilationSupport {
             paramFile,
             commandLine,
             ParameterFile.ParameterFileType.UNQUOTED, ISO_8859_1));
-        ruleContext.registerAction(ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
+        ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
             .setMnemonic("DummyPruner")
             .setExecutable(pruner)
             .addInput(dummyArchive)

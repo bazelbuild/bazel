@@ -131,16 +131,37 @@ public class ObjcRuleClasses {
       new SdkFramework("Foundation"), new SdkFramework("UIKit"));
 
   /**
-   * Creates a new spawn action builder that will ultimately use part of the apple toolchain
-   * using the xcrun binary. Such a spawn action is special in that, in order to run, it requires
-   * both a darwin architecture and a collection of environment variables which contain
-   * information about the target and host architectures.
+   * Creates a new spawn action builder with apple environment variables set that are typically
+   * needed by the apple toolchain. This should be used to start to build spawn actions that, in
+   * order to run, require both a darwin architecture and a collection of environment variables
+   * which contain information about the target and host architectures. This implicitly
+   * assumes that this action is targeting ios platforms, and that
+   * {@link AppleConfiguration#getIosCpu()} is the source of truth for their target architecture.
+   * 
+   * @deprecated use {@link #spawnAppleEnvActionBuilder(RuleContext, Platform)} instead
    */
-  static SpawnAction.Builder spawnXcrunActionBuilder(RuleContext ruleContext) {
+  // TODO(cparsons): Refactor callers to use the alternate method. Callers should be aware
+  // of their effective Platform.
+  @Deprecated
+  static SpawnAction.Builder spawnAppleEnvActionBuilder(RuleContext ruleContext) {
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
+
+    return spawnAppleEnvActionBuilder(ruleContext,
+        Platform.forIosArch(appleConfiguration.getIosCpu()));
+  }
+
+  /**
+   * Creates a new spawn action builder with apple environment variables set that are typically
+   * needed by the apple toolchain. This should be used to start to build spawn actions that, in
+   * order to run, require both a darwin architecture and a collection of environment variables
+   * which contain information about the target and host architectures.
+   */
+  static SpawnAction.Builder spawnAppleEnvActionBuilder(RuleContext ruleContext,
+      Platform targetPlatform) {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.<String, String>builder()
-        .putAll(appleConfiguration.getEnvironmentForIosAction())
+        .putAll(appleConfiguration.getTargetAppleEnvironment(targetPlatform))
         .putAll(appleConfiguration.getAppleHostSystemEnv());
 
     return spawnOnDarwinActionBuilder()

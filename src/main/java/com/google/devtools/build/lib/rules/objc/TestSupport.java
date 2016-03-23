@@ -255,7 +255,7 @@ public class TestSupport {
 
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
 
-    envBuilder.putAll(configuration.getEnvironmentForIosAction());
+    envBuilder.putAll(configuration.getTargetAppleEnvironment(configuration.getIosCpuPlatform()));
     envBuilder.putAll(configuration.getAppleHostSystemEnv());
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
