@@ -69,127 +69,23 @@ it from that location as described in the
 Add the following to your `WORKSPACE` file:
 
 ```python
-new_http_archive(
-    name = "com_google_appengine_java",
-    url = "http://central.maven.org/maven2/com/google/appengine/appengine-java-sdk/1.9.23/appengine-java-sdk-1.9.23.zip",
-    sha256 = "05e667036e9ef4f999b829fc08f8e5395b33a5a3c30afa9919213088db2b2e89",
-    build_file = "appengine.BUILD",
+git_repository(
+    name = "io_bazel_rules_appengine",
+    remote = "https://github.com/bazelbuild/rules_appengine.git",
+    tag = "0.0.2",
 )
+load("@io_bazel_rules_appengine//appengine:appengine.bzl", "appengine_repositories")
+appengine_repositories()
 ```
 
-The [`new_http_archive`](/docs/be/workspace.html#new_http_archive) rule
-instructs Bazel to download a remote archive file, uncompress it and add it to
-the virtual `external` package by combining the archive contents with
-the referenced `BUILD` file, here `appengine.BUILD`. You'll create this file
-below after you finish updating your `WORKSPACE` file.
-
-### Add bind rules
-
-You also need to add some [`bind`](/docs/be/workspace.html#bind) rules
-to the file. These provide aliases to targets in the virtual `external` package
-so they can be located either either inside or outside the workspace without
-changing the App Engine build rules.
-
-Add the following to the `WORKSPACE` file:
-
-```python
-bind(
-    name = "appengine/java/sdk",
-    actual = "@com_google_appengine_java//:sdk",
-)
-
-bind(
-    name = "appengine/java/api",
-    actual = "@com_google_appengine_java//:api",
-)
-
-bind(
-    name = "appengine/java/jars",
-    actual = "@com_google_appengine_java//:jars",
-)
-```
-
-### Add maven_jar rules
-
-Finally, you need to add some
-[`maven_jar`](/docs/be/workspace.html#maven_jar) rules to the file. These
-tell Bazel to download `.jar` files from the Maven repository and allow Bazel
-to use them as Java dependencies.
-
-Add the following to the `WORKSPACE` file:
-
-```python
-maven_jar(
-    name = "org_apache_commons_lang",
-    artifact = "commons-lang:commons-lang:2.6",
-)
-
-maven_jar(
-    name = "javax_servlet_api",
-    artifact = "javax.servlet:servlet-api:2.5",
-)
-
-bind(
-    name = "javax/servlet/api",
-    actual = "//tools/build_rules/appengine:javax.servlet.api",
-)
-
-maven_jar(
-    name = "json",
-    artifact = "org.json:json:20141113",
-)
-```
+[`git_repository`](/docs/be/workspace.html#git_repository) downloads the
+AppEngine rules from GitHub, then the next two lines use the
+`appengine_repostories` function defined in these rules to download the
+libraries and SDK needed to build AppEngine applications.
 
 Now, save and close the file. You can compare your `WORKSPACE` file to the
 [completed example](https://github.com/bazelbuild/examples//blob/master/tutorial/WORKSPACE)
 in the `master` branch of the GitHub repo.
-
-## Create the appengine.BUILD file
-
-When you added the `new_http_archive` to your `WORKSPACE` above, you specified
-the filename `appengine.BUILD` in the `build_file` attribute. The
-`appengine.BUILD` file is a special build file that allows Bazel to use the
-downloaded App Engine SDK libraries as a Bazel package. Here, you'll create
-this file in your top-level workspace directory.
-
-Open your new `appengine.BUILD` file for editing:
-
-```bash
-$ vi $WORKSPACE/appengine.BUILD
-```
-
-Add the following to the file:
-
-```python
-java_import(
-    name = "jars",
-    jars = glob(["**/*.jar"]),
-    visibility = ["//visibility:public"],
-)
-
-java_import(
-    name = "api",
-    jars = ["appengine-java-sdk-1.9.23/lib/impl/appengine-api.jar"],
-    visibility = ["//visibility:public"],
-    neverlink = 1,
-)
-
-filegroup(
-    name = "sdk",
-    srcs = glob(["appengine-java-sdk-1.9.23/**"]),
-    visibility = ["//visibility:public"],
-    path = "appengine-java-sdk-1.9.23",
-)
-```
-
-The [`java_import`](/docs/be/java.html#java_import) rules tell
-Bazel how to use the precompiled SDK `.jar` files as libraries. These rules
-define the targets that you referenced in the `bind` rules in the `WORKSPACE`
-file above.
-
-Save and close the file. The
-[completed example](https://github.com/bazelbuild/examples//blob/master/tutorial/appengine.BUILD)
-is in the `master` branch of the GitHub repo.
 
 ## Create a BUILD file
 
@@ -232,7 +128,7 @@ for the `main_class` attribute.
 Add the following to your `BUILD` file:
 
 ```python
-load("@bazel_tools//tools/build_rules/appengine:appengine.bzl", "appengine_war")
+load("@io_bazel_rules_appengine//appengine:appengine.bzl", "appengine_war")
 
 appengine_war(
     name = "backend",

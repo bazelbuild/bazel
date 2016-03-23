@@ -85,19 +85,6 @@ sh_test(
 )
 
 sh_test(
-    name = "bazel_go_example_test",
-    srcs = ["bazel_go_example_test.sh"],
-    data = [
-        ":test-deps",
-        "//tools/build_rules/go:srcs",
-        "//tools/build_rules/go/toolchain",
-        "//tools/build_rules/go/toolchain:go_tool",
-        "//tools/build_rules/go/toolchain:srcs",
-        "//tools/build_rules/go/tools:srcs",
-    ],
-)
-
-sh_test(
     name = "bazel_rules_test",
     size = "large",
     srcs = ["bazel_rules_test.sh"],

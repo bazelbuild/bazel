@@ -46,7 +46,3 @@ pkg_tar(
     # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
 )
-
-load("//tools/build_rules/go:def.bzl", "go_prefix")
-
-go_prefix("github.com/bazelbuild/bazel")
