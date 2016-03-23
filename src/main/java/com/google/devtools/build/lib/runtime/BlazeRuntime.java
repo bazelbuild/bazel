@@ -1133,6 +1133,7 @@ public final class BlazeRuntime {
     BlazeServerStartupOptions startupOptions = options.getOptions(BlazeServerStartupOptions.class);
     if (startupOptions.batch && startupOptions.oomMoreEagerly) {
       new OomSignalHandler();
+      new RetainedHeapLimiter(startupOptions.oomMoreEagerlyThreshold).install();
     }
     PathFragment workspaceDirectory = startupOptions.workspaceDirectory;
     PathFragment installBase = startupOptions.installBase;

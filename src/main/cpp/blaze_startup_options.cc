@@ -52,6 +52,7 @@ BlazeStartupOptions::BlazeStartupOptions(const BlazeStartupOptions &rhs)
       io_nice_level(rhs.io_nice_level),
       max_idle_secs(rhs.max_idle_secs),
       oom_more_eagerly(rhs.oom_more_eagerly),
+      oom_more_eagerly_threshold(rhs.oom_more_eagerly_threshold),
       watchfs(rhs.watchfs),
       allow_configurable_attributes(rhs.allow_configurable_attributes),
       option_sources(rhs.option_sources),

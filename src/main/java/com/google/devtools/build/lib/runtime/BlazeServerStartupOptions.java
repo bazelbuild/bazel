@@ -177,6 +177,16 @@ public class BlazeServerStartupOptions extends OptionsBase {
   )
   public boolean oomMoreEagerly;
 
+  @Option(
+    name = "experimental_oom_more_eagerly_threshold",
+    defaultValue = "90", // NOTE: purely decorative!  See class docstring.
+    category = "server startup",
+    help =
+        "If --experimental_oom_more_eagerly is set, Blaze will OOM if, after two full GC's, more "
+            + "than this percentage of the (old gen) heap is still occupied."
+  )
+  public int oomMoreEagerlyThreshold;
+
   @Option(name = "block_for_lock",
       defaultValue = "true", // NOTE: purely decorative!  See class docstring.
       category = "server startup",

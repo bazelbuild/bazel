@@ -49,6 +49,7 @@ void BlazeStartupOptions::Init() {
   io_nice_level = -1;
   // 3 hours (but only 5 seconds if used within a test)
   max_idle_secs = testing ? 5 : (3 * 3600);
+  oom_more_eagerly_threshold = 90;
   webstatus_port = 0;
   oom_more_eagerly = false;
   watchfs = false;
@@ -212,6 +213,19 @@ blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--noexperimental_oom_more_eagerly")) {
     oom_more_eagerly = false;
     option_sources["experimental_oom_more_eagerly"] = rcfile;
+  } else if (GetUnaryOption(arg, next_arg,
+                            "--experimental_oom_more_eagerly_threshold") !=
+             NULL) {
+    if (!blaze_util::safe_strto32(value, &oom_more_eagerly_threshold) ||
+        oom_more_eagerly_threshold < 0) {
+      blaze_util::StringPrintf(error,
+                               "Invalid argument to "
+                               "--experimental_oom_more_eagerly_threshold: "
+                               "'%s'.",
+                               value);
+      return blaze_exit_code::BAD_ARGV;
+    }
+    option_sources["experimental_oom_more_eagerly_threshold"] = rcfile;
   } else if (GetNullaryOption(arg, "--watchfs")) {
     watchfs = true;
     option_sources["watchfs"] = rcfile;

@@ -280,7 +280,10 @@ static vector<string> GetArgumentArray() {
   }
   if (globals->options.oom_more_eagerly) {
     result.push_back("--experimental_oom_more_eagerly");
+    result.push_back("--experimental_oom_more_eagerly_threshold=" +
+                     ToString(globals->options.oom_more_eagerly_threshold));
   }
+
   if (globals->options.watchfs) {
     result.push_back("--watchfs");
   }
