@@ -859,7 +859,8 @@ InputZipFile::InputZipFile(ZipExtractorProcessor *processor,
     : processor(processor), filename_(filename), input_file_(NULL),
       bytes_unmapped_(0) {
   uncompressed_data_allocated_ = INITIAL_BUFFER_SIZE;
-  uncompressed_data_ = new u1[uncompressed_data_allocated_];
+  uncompressed_data_ =
+      reinterpret_cast<u1*>(malloc(uncompressed_data_allocated_));
   errmsg[0] = 0;
 }
 
@@ -898,7 +899,7 @@ bool InputZipFile::Open() {
 }
 
 InputZipFile::~InputZipFile() {
-  delete[](uncompressed_data_);
+  free(uncompressed_data_);
   if (input_file_ != NULL) {
     input_file_->Close();
     delete input_file_;
