@@ -310,10 +310,10 @@ public final class CppModel {
   private Collection<String> getHeaderModulePaths(CppCompileActionBuilder builder,
       boolean usePic) {
     Collection<String> result = new LinkedHashSet<>();
-    NestedSet<Artifact> artifacts = featureConfiguration.isEnabled(
-        CppRuleClasses.HEADER_MODULE_INCLUDES_DEPENDENCIES)
-        ? builder.getContext().getTopLevelHeaderModules()
-        : builder.getContext().getAdditionalInputs();
+    NestedSet<Artifact> artifacts =
+        featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULE_INCLUDES_DEPENDENCIES)
+            ? builder.getContext().getTopLevelHeaderModules(usePic)
+            : builder.getContext().getAdditionalInputs(usePic);
     for (Artifact artifact : artifacts) {
       String filename = artifact.getFilename();
       if (!filename.endsWith(".pcm")) {

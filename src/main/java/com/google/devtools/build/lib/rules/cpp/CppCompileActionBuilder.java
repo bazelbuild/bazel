@@ -260,7 +260,7 @@ public class CppCompileActionBuilder {
     if (tempOutputFile == null && !shouldScanIncludes) {
       realMandatoryInputsBuilder.addTransitive(context.getDeclaredIncludeSrcs());
     }
-    realMandatoryInputsBuilder.addTransitive(context.getAdditionalInputs());
+    realMandatoryInputsBuilder.addTransitive(context.getAdditionalInputs(usePic));
     realMandatoryInputsBuilder.addTransitive(pluginInputsBuilder.build());
     realMandatoryInputsBuilder.add(sourceFile);
     boolean fake = tempOutputFile != null;

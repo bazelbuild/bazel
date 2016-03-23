@@ -444,7 +444,7 @@ public final class CcCommon {
       }
     }
     prerequisites.addTransitive(context.getDeclaredIncludeSrcs());
-    prerequisites.addTransitive(context.getAdditionalInputs());
+    prerequisites.addTransitive(context.getAdditionalInputs(CppHelper.usePic(ruleContext, false)));
     return prerequisites.build();
   }
 
