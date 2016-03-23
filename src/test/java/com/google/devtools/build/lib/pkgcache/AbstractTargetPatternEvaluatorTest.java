@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Pair;
 
 import org.junit.Before;
@@ -73,7 +74,9 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
 
   @Before
   public final void initializeParser() throws Exception {
-    setUpSkyframe(ConstantRuleVisibility.PRIVATE, ruleClassProvider.getDefaultsPackageContent());
+    setUpSkyframe(
+        ConstantRuleVisibility.PRIVATE,
+        ruleClassProvider.getDefaultsPackageContent(TestConstants.TEST_INVOCATION_POLICY));
     parser = skyframeExecutor.getPackageManager().newTargetPatternEvaluator();
     parsingListener = new RecordingParsingListener(reporter);
   }

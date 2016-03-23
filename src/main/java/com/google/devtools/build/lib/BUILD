@@ -104,6 +104,21 @@ java_library(
     ],
 )
 
+java_library(
+    name = "flags",
+    srcs = glob([
+        "flags/*.java",
+    ]),
+    deps = [
+        ":io",
+        "//src/main/java/com/google/devtools/common/options",
+        "//src/main/protobuf:invocation_policy_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party/protobuf",
+    ],
+)
+
 # Virtual file system; do not use externally!
 java_library(
     name = "vfs",
@@ -461,6 +476,7 @@ java_library(
         ":concurrent",
         ":events",
         ":exitcode-external",
+        ":flags",
         ":graph",
         ":io",
         ":os_util",
@@ -473,6 +489,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:extra_actions_base_java_proto",
+        "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -825,6 +842,7 @@ java_library(
         ":concurrent",
         ":events",
         ":exitcode-external",
+        ":flags",
         ":io",
         ":packages-internal",
         ":profiler-output",

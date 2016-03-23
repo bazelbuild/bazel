@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.SkylarkModules;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -476,8 +477,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   /**
    * Returns the defaults package for the default settings.
    */
-  public String getDefaultsPackageContent() {
-    return DefaultsPackage.getDefaultsPackageContent(configurationOptions);
+  public String getDefaultsPackageContent(InvocationPolicy invocationPolicy) {
+    return DefaultsPackage.getDefaultsPackageContent(configurationOptions, invocationPolicy);
   }
 
   /**

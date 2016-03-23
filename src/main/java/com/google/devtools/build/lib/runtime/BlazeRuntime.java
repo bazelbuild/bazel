@@ -738,7 +738,7 @@ public final class BlazeRuntime {
    * defaults package, which will not be reflected here.
    */
   public String getDefaultsPackageContent() {
-    return ruleClassProvider.getDefaultsPackageContent();
+    return ruleClassProvider.getDefaultsPackageContent(getInvocationPolicy());
   }
 
   /**

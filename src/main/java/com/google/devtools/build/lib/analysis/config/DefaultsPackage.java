@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Locale;
@@ -137,8 +138,8 @@ public final class DefaultsPackage {
    * Returns the defaults package for the default settings.
    */
   public static String getDefaultsPackageContent(
-      Iterable<Class<? extends FragmentOptions>> options) {
-    return getDefaultsPackageContent(BuildOptions.createDefaults(options));
+      Iterable<Class<? extends FragmentOptions>> options, InvocationPolicy invocationPolicy) {
+    return getDefaultsPackageContent(BuildOptions.createDefaults(options, invocationPolicy));
   }
 
   /**

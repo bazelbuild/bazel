@@ -110,7 +110,7 @@ public class OptionsParser implements OptionsProvider {
    * Create a new {@link OptionsParser}.
    */
   public static OptionsParser newOptionsParser(
-      Iterable<Class<? extends OptionsBase>> optionsClasses) {
+      Iterable<? extends Class<? extends OptionsBase>> optionsClasses) {
     return new OptionsParser(getOptionsData(ImmutableList.copyOf(optionsClasses)));
   }
 

@@ -29,12 +29,12 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
+import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.pkgcache.PackageCacheOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
-import com.google.devtools.build.lib.runtime.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
@@ -112,9 +112,13 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
             ImmutableList.<PrecomputedValue.Injected>of(),
             ImmutableList.<SkyValueDirtinessChecker>of());
 
-    skyframeExecutor.preparePackageLoading(pkgLocator,
-        Options.getDefaults(PackageCacheOptions.class).defaultVisibility, true,
-        7, ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID(),
+    skyframeExecutor.preparePackageLoading(
+        pkgLocator,
+        Options.getDefaults(PackageCacheOptions.class).defaultVisibility,
+        true,
+        7,
+        ruleClassProvider.getDefaultsPackageContent(TestConstants.TEST_INVOCATION_POLICY),
+        UUID.randomUUID(),
         new TimestampGranularityMonitor(BlazeClock.instance()));
 
     analysisMock.setupMockClient(new MockToolsConfig(rootDirectory));

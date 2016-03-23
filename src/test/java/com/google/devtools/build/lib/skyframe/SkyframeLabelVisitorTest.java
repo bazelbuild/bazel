@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.util.SubincludePreprocessor;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -408,7 +409,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
             ConstantRuleVisibility.PRIVATE,
             true,
             7,
-            ruleClassProvider.getDefaultsPackageContent(),
+            ruleClassProvider.getDefaultsPackageContent(TestConstants.TEST_INVOCATION_POLICY),
             UUID.randomUUID(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     this.visitor = getSkyframeExecutor().pkgLoader();
@@ -452,7 +453,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
             ConstantRuleVisibility.PRIVATE,
             true,
             7,
-            ruleClassProvider.getDefaultsPackageContent(),
+            ruleClassProvider.getDefaultsPackageContent(TestConstants.TEST_INVOCATION_POLICY),
             UUID.randomUUID(),
             new TimestampGranularityMonitor(BlazeClock.instance()));
     this.visitor = getSkyframeExecutor().pkgLoader();

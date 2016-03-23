@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.syntax.BuildFileAST;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -99,10 +100,14 @@ public class PackageCacheTest extends FoundationTestCase {
   private void setUpSkyframe(PackageCacheOptions packageCacheOptions) {
     PathPackageLocator pkgLocator = PathPackageLocator.create(
         null, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
-    skyframeExecutor.preparePackageLoading(pkgLocator,
-        packageCacheOptions.defaultVisibility, true,
-        7, ruleClassProvider.getDefaultsPackageContent(),
-        UUID.randomUUID(), new TimestampGranularityMonitor(BlazeClock.instance()));
+    skyframeExecutor.preparePackageLoading(
+        pkgLocator,
+        packageCacheOptions.defaultVisibility,
+        true,
+        7,
+        ruleClassProvider.getDefaultsPackageContent(TestConstants.TEST_INVOCATION_POLICY),
+        UUID.randomUUID(),
+        new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
   }
 

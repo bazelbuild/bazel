@@ -18,6 +18,7 @@ import static org.junit.Assert.assertFalse;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.common.options.OptionsParser;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,8 +34,8 @@ public class BuildOptionsTest {
 
   @Test
   public void testOptionSetCaching() throws Exception {
-    BuildOptions a = BuildOptions.createDefaults(TEST_OPTIONS);
-    BuildOptions b = BuildOptions.createDefaults(TEST_OPTIONS);
+    BuildOptions a = BuildOptions.of(TEST_OPTIONS, OptionsParser.newOptionsParser(TEST_OPTIONS));
+    BuildOptions b = BuildOptions.of(TEST_OPTIONS, OptionsParser.newOptionsParser(TEST_OPTIONS));
     // The cache keys of the OptionSets must be equal even if these are
     // different objects, if they were created with the same options (no options in this case).
     assertEquals(a.toString(), b.toString());

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -285,7 +286,11 @@ public class BlazeCommandDispatcher {
           new InvocationPolicyEnforcer(runtime.getInvocationPolicy());
       optionsPolicyEnforcer.enforce(optionsParser, commandName);
       optionsPolicyEnforcer =
-          InvocationPolicyEnforcer.create(getRuntime().getStartupOptionsProvider());
+          InvocationPolicyEnforcer.create(
+              getRuntime()
+                  .getStartupOptionsProvider()
+                  .getOptions(BlazeServerStartupOptions.class)
+                  .invocationPolicy);
       optionsPolicyEnforcer.enforce(optionsParser, commandName);
     } catch (OptionsParsingException e) {
       for (String note : rcfileNotes) {

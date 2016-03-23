@@ -15,12 +15,12 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.common.base.Joiner;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.runtime.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;

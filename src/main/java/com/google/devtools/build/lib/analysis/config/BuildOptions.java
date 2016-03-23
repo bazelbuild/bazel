@@ -22,9 +22,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsClassProvider;
 import com.google.devtools.common.options.OptionsParser;
@@ -47,14 +48,23 @@ import javax.annotation.Nullable;
  */
 public final class BuildOptions implements Cloneable, Serializable {
   /**
-   * Creates a BuildOptions object with all options set to their default values.
+   * Creates a BuildOptions object with all options set to their default values, processed by the
+   * given {@code invocationPolicy}.
    */
-  public static BuildOptions createDefaults(Iterable<Class<? extends FragmentOptions>> options) {
-    Builder builder = builder();
-    for (Class<? extends FragmentOptions> optionsClass : options) {
-      builder.add(Options.getDefaults(optionsClass));
+  static BuildOptions createDefaults(
+      Iterable<Class<? extends FragmentOptions>> options, InvocationPolicy invocationPolicy) {
+    return of(options, createDefaultParser(options, invocationPolicy));
+  }
+
+  private static OptionsParser createDefaultParser(
+      Iterable<Class<? extends FragmentOptions>> options, InvocationPolicy invocationPolicy) {
+    OptionsParser optionsParser = OptionsParser.newOptionsParser(options);
+    try {
+      new InvocationPolicyEnforcer(invocationPolicy).enforce(optionsParser);
+    } catch (OptionsParsingException e) {
+      throw new IllegalStateException(e);
     }
-    return builder.build();
+    return optionsParser;
   }
 
   /**
@@ -102,8 +112,8 @@ public final class BuildOptions implements Cloneable, Serializable {
    * Creates a BuildOptions class by taking the option values from an options provider
    * (eg. an OptionsParser).
    */
-  public static BuildOptions of(List<Class<? extends FragmentOptions>> optionsList,
-      OptionsClassProvider provider) {
+  public static BuildOptions of(
+      Iterable<Class<? extends FragmentOptions>> optionsList, OptionsClassProvider provider) {
     Builder builder = builder();
     for (Class<? extends FragmentOptions> optionsClass : optionsList) {
       builder.add(provider.getOptions(optionsClass));

@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -654,10 +655,15 @@ public class LoadingPhaseRunnerTest {
           ImmutableList.<SkyValueDirtinessChecker>of());
       PathPackageLocator pkgLocator = PathPackageLocator.create(
           null, options.packagePath, storedErrors, workspace, workspace);
-      skyframeExecutor.preparePackageLoading(pkgLocator,
-          ConstantRuleVisibility.PRIVATE, true,
-          7, TestRuleClassProvider.getRuleClassProvider().getDefaultsPackageContent(),
-          UUID.randomUUID(), new TimestampGranularityMonitor(clock));
+      skyframeExecutor.preparePackageLoading(
+          pkgLocator,
+          ConstantRuleVisibility.PRIVATE,
+          true,
+          7,
+          TestRuleClassProvider.getRuleClassProvider()
+              .getDefaultsPackageContent(TestConstants.TEST_INVOCATION_POLICY),
+          UUID.randomUUID(),
+          new TimestampGranularityMonitor(clock));
       loadingPhaseRunner = skyframeExecutor.getLoadingPhaseRunner(
           pkgFactory.getRuleClassNames(), useNewImpl);
       this.options = Options.getDefaults(LoadingOptions.class);
@@ -735,7 +741,9 @@ public class LoadingPhaseRunnerTest {
     }
 
     private void sync() throws InterruptedException {
-      String pkgContents = TestRuleClassProvider.getRuleClassProvider().getDefaultsPackageContent();
+      String pkgContents =
+          TestRuleClassProvider.getRuleClassProvider()
+              .getDefaultsPackageContent(TestConstants.TEST_INVOCATION_POLICY);
       skyframeExecutor.setupDefaultPackage(pkgContents);
       clock.advanceMillis(1);
       ModifiedFileSet.Builder builder = ModifiedFileSet.builder();

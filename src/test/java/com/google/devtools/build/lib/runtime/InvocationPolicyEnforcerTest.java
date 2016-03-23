@@ -21,6 +21,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.io.BaseEncoding;
+import com.google.devtools.build.lib.flags.InvocationPolicyEnforcer;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
@@ -112,7 +113,8 @@ public class InvocationPolicyEnforcerTest {
     String policyOption = "--invocation_policy=" + policyBase64;
     startupOptionsParser.parse(policyOption);
 
-    return InvocationPolicyEnforcer.create(startupOptionsParser);
+    return InvocationPolicyEnforcer.create(
+        startupOptionsParser.getOptions(BlazeServerStartupOptions.class).invocationPolicy);
   }
   
   private OptionsParser parser;
