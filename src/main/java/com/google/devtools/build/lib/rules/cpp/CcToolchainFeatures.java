@@ -541,8 +541,13 @@ public class CcToolchainFeatures implements Serializable {
     /**
      * Variables can be set as an arbitrarily deeply nested recursive sequence, which
      * we represent as a tree of {@code Sequence} nodes.
+     * The nodes are {@code NestedSequence} objects, while the leafs are {@code ValueSequence}
+     * objects. We do not allow {@code Value} objects in the tree, as the object memory overhead
+     * is too large when we have millions of values.
+     * If we find single element {@code ValueSequence} in memory profiles in the future, we
+     * can introduce another special case type.
      */
-    private interface Sequence {
+    interface Sequence {
 
       /**
        * Expands {@code expandable} under the given nested {@code view}, appending flags to
@@ -552,44 +557,74 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /**
-     * The leaves in the variable sequence node tree are simple values.
+     * A sequence of simple string values.
+     * Exists as a memory optimization - a typical build can contain millions of feature values,
+     * so getting rid of the overhead of {@code Value} objects significantly reduces memory
+     * overhead.
      */
-    private static class Value implements Sequence {
-      private final String value;
+    static class ValueSequence implements Sequence {
+      private final List<String> values;
 
-      private Value(String value) {
-        this.value = value;
+      /** Builder for value sequences. */
+      static class Builder {
+        private final ImmutableList.Builder<String> values = ImmutableList.builder();
+
+        /** Adds a value to the sequence. */
+        Builder addValue(String value) {
+          values.add(value);
+          return this;
+        }
+
+        /** Returns an immutable value sequence. */
+        ValueSequence build() {
+          return new ValueSequence(values.build());
+        }
+      }
+
+      private ValueSequence(List<String> values) {
+        this.values = values;
       }
 
       @Override
       public void expand(NestedView view, Expandable expandable, List<String> commandLine) {
-        view.expandValue(value, expandable, commandLine);
+        final ImmutableList.Builder<Sequence> sequences = ImmutableList.builder();
+        for (String value : values) {
+          sequences.add(new Value(value));
+        }
+        view.expandSequence(sequences.build(), expandable, commandLine);
+      }
+
+      /**
+       * The leaves in the variable sequence node tree are simple values. Note that this should
+       * never live outside of {@code expand}, as the object overhead is prohibitively expensive.
+       */
+      private static class Value implements Sequence {
+        private final String value;
+
+        private Value(String value) {
+          this.value = value;
+        }
+
+        @Override
+        public void expand(NestedView view, Expandable expandable, List<String> commandLine) {
+          view.expandValue(value, expandable, commandLine);
+        }
       }
     }
 
-    /**
-     * An internal nodes in the sequence node tree.
-     */
-    public static class NestedSequence implements Sequence {
+    /** An internal node in the sequence node tree. */
+    static class NestedSequence implements Sequence {
 
       /**
        * Builder for nested sequences.
        */
-      public static class Builder {
+      static class Builder {
         private final ImmutableList.Builder<Sequence> sequences = ImmutableList.builder();
-
-        /**
-         * Adds a value to the sequence.
-         */
-        public Builder addValue(String value) {
-          sequences.add(new Value(value));
-          return this;
-        }
 
         /**
          * Adds a sub-sequence to the sequence.
          */
-        public Builder addSequence(NestedSequence sequence) {
+        Builder addSequence(Sequence sequence) {
           sequences.add(sequence);
           return this;
         }
@@ -597,7 +632,7 @@ public class CcToolchainFeatures implements Serializable {
         /**
          * Returns an immutable nested sequence.
          */
-        public NestedSequence build() {
+        NestedSequence build() {
           return new NestedSequence(sequences.build());
         }
       }
@@ -617,14 +652,14 @@ public class CcToolchainFeatures implements Serializable {
     /**
      * Builder for {@code Variables}.
      */
-    public static class Builder {
+    static class Builder {
       private final ImmutableMap.Builder<String, String> variables = ImmutableMap.builder();
       private final ImmutableMap.Builder<String, Sequence> expandables = ImmutableMap.builder();
       
       /**
        * Add a variable that expands {@code name} to {@code value}.
        */
-      public Builder addVariable(String name, String value) {
+      Builder addVariable(String name, String value) {
         variables.put(name, value);
         return this;
       }
@@ -632,7 +667,7 @@ public class CcToolchainFeatures implements Serializable {
       /**
        * Add all variables in a map.
        */
-      public Builder addAllVariables(Map<String, String> variableMap) {
+      Builder addAllVariables(Map<String, String> variableMap) {
         variables.putAll(variableMap);
         return this;
       }
@@ -640,7 +675,7 @@ public class CcToolchainFeatures implements Serializable {
       /**
        * Add a nested sequence that expands {@code name} recursively.
        */
-      public Builder addSequence(String name, NestedSequence sequence) {
+      Builder addSequence(String name, Sequence sequence) {
         expandables.put(name, sequence);
         return this;
       }
@@ -649,8 +684,8 @@ public class CcToolchainFeatures implements Serializable {
        * Add a variable that expands a flag group containing a reference to {@code name} for each
        * entry in {@code values}.
        */
-      public Builder addSequenceVariable(String name, Collection<String> values) {
-        NestedSequence.Builder sequenceBuilder = new NestedSequence.Builder();
+      Builder addSequenceVariable(String name, Collection<String> values) {
+        ValueSequence.Builder sequenceBuilder = new ValueSequence.Builder();
         for (String value : values) {
           sequenceBuilder.addValue(value);
         }
@@ -660,7 +695,7 @@ public class CcToolchainFeatures implements Serializable {
       /**
        * @return a new {@Variables} object.
        */
-      public Variables build() {
+      Variables build() {
         return new Variables(variables.build(), expandables.build());
       }
     }

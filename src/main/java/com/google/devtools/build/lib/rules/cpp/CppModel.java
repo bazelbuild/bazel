@@ -347,8 +347,8 @@ public final class CppModel {
       buildVariables.addVariable("module_name", cppModuleMap.getName());
       buildVariables.addVariable("module_map_file",
           cppModuleMap.getArtifact().getExecPathString());
-      CcToolchainFeatures.Variables.NestedSequence.Builder sequence =
-          new CcToolchainFeatures.Variables.NestedSequence.Builder();
+      CcToolchainFeatures.Variables.ValueSequence.Builder sequence =
+          new CcToolchainFeatures.Variables.ValueSequence.Builder();
       for (Artifact artifact : context.getDirectModuleMaps()) {
         sequence.addValue(artifact.getExecPathString());
       }

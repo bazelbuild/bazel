@@ -279,17 +279,23 @@ public class CcToolchainFeaturesTest {
     }
   }
   
-  private Variables.NestedSequence createNestedSequence(int depth, int count, String prefix) {
-    Variables.NestedSequence.Builder builder = new Variables.NestedSequence.Builder();
-    for (int i = 0; i < count; ++i) {
-      String value = prefix + String.valueOf(i);
-      if (depth == 0) {
+  private Variables.Sequence createNestedSequence(int depth, int count, String prefix) {
+    if (depth == 0) {
+      Variables.ValueSequence.Builder builder = new Variables.ValueSequence.Builder();
+      for (int i = 0; i < count; ++i) {
+        String value = prefix + i;
         builder.addValue(value);
-      } else {
+      }
+      return builder.build();
+
+    } else {
+      Variables.NestedSequence.Builder builder = new Variables.NestedSequence.Builder();
+      for (int i = 0; i < count; ++i) {
+        String value = prefix + i;
         builder.addSequence(createNestedSequence(depth - 1, count, value));
       }
+      return builder.build();
     }
-    return builder.build();
   }
 
   private Variables createNestedVariables(String name, int depth, int count) {
