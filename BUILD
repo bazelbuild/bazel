@@ -22,7 +22,7 @@ filegroup(
         ["**"],
         exclude = [
             "bazel-*/**",  # convenience symlinks
-            "out/**" +  # IntelliJ with setup-intellij.sh
+            "out/**",  # IntelliJ with setup-intellij.sh
             "output/**",  # output of compile.sh
             ".*/**",  # mainly git
         ],
