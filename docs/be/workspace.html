@@ -1359,7 +1359,7 @@ allows selection of a an official xcode version from a number of registered alia
     xcode_version
   </h2>
 
-  <pre class="rule-signature">xcode_version(<a href="#xcode_version.name">name</a>, <a href="#xcode_version.default_ios_sdk_version">default_ios_sdk_version</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#xcode_version.version">version</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">xcode_version(<a href="#xcode_version.name">name</a>, <a href="#xcode_version.default_ios_sdk_version">default_ios_sdk_version</a>, <a href="#xcode_version.default_macosx_sdk_version">default_macosx_sdk_version</a>, <a href="#xcode_version.default_tvos_sdk_version">default_tvos_sdk_version</a>, <a href="#xcode_version.default_watchos_sdk_version">default_watchos_sdk_version</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#xcode_version.version">version</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>Represents a single official xcode version with acceptable aliases for that xcode version.
@@ -1395,6 +1395,39 @@ See the <code>xcode_config</code> rule.</p>
                     <p><code>String; optional</code></p>
                             The ios sdk version that is used by default when this version of xcode is being used.
         The <code>ios_sdk_version</code> build flag will override the value specified here.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="xcode_version.default_macosx_sdk_version">
+          <code>default_macosx_sdk_version</code>
+        </td>
+        <td>
+                    <p><code>String; optional</code></p>
+                            The macosx sdk version that is used by default when this version of xcode is being used.
+        The <code>macosx_sdk_version</code> build flag will override the value specified here.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="xcode_version.default_tvos_sdk_version">
+          <code>default_tvos_sdk_version</code>
+        </td>
+        <td>
+                    <p><code>String; optional</code></p>
+                            The tvos sdk version that is used by default when this version of xcode is being used.
+        The <code>tvos_sdk_version</code> build flag will override the value specified here.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="xcode_version.default_watchos_sdk_version">
+          <code>default_watchos_sdk_version</code>
+        </td>
+        <td>
+                    <p><code>String; optional</code></p>
+                            The watchos sdk version that is used by default when this version of xcode is being used.
+        The <code>watchos_sdk_version</code> build flag will override the value specified here.
 
         </td>
       </tr>
