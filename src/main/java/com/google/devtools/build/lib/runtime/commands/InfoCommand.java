@@ -20,6 +20,7 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.events.Event;
@@ -238,6 +239,7 @@ public class InfoCommand implements BlazeCommand {
       }
 
       String key = residue.size() == 1 ? residue.get(0) : null;
+      env.getEventBus().post(new NoBuildEvent());
       if (key != null) { // print just the value for the specified key:
         byte[] value;
         if (items.containsKey(key)) {

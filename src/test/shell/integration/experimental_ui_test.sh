@@ -74,4 +74,12 @@ function test_fail() {
   expect_log 'pkg:false.*'$'\x1b\[31m\x1b\[1m''.*FAIL'
 }
 
+function test_info_spacing() {
+  # Verify that the output of "bazel info" is suitable for backtick escapes,
+  # in particular free carriage-return characters.
+  BAZEL_INFO_OUTPUT=XXX`bazel info --experimental_ui workspace`XXX
+  echo "$BAZEL_INFO_OUTPUT" | grep -q 'XXX[^'$'\r'']*XXX' \
+    || fail "bazel info output spaced as $BAZEL_INFO_OUTPUT"
+}
+
 run_suite "Integration tests for bazel's experimental UI"
