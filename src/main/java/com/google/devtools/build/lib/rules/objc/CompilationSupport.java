@@ -505,6 +505,8 @@ public final class CompilationSupport {
       commandLine.add("-import-underlying-module");
     }
 
+    commandLine.add(commonFrameworkFlags(objcProvider, appleConfiguration));
+
     ruleContext.registerAction(
         ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
             .setMnemonic("SwiftCompile")
@@ -575,6 +577,8 @@ public final class CompilationSupport {
       PathFragment moduleMapPath = intermediateArtifacts.moduleMap().getArtifact().getExecPath();
       commandLine.add("-I").add(moduleMapPath.getParentDirectory().toString());
     }
+
+    commandLine.add(commonFrameworkFlags(objcProvider, appleConfiguration));
 
     ruleContext.registerAction(ObjcRuleClasses.spawnXcrunActionBuilder(ruleContext)
         .setMnemonic("SwiftModuleMerge")
@@ -1320,14 +1324,27 @@ public final class CompilationSupport {
         .add("-arch", appleConfiguration.getIosCpu())
         .add("-isysroot", AppleToolchain.sdkDir())
         // TODO(bazel-team): Pass framework search paths to Xcodegen.
+        .addAll(commonFrameworkFlags(provider, appleConfiguration))
+        .build();
+  }
+
+  /**
+   * Returns a list of framework search path flags for clang/swift actions.
+   */
+  private static Iterable<String> commonFrameworkFlags(
+      ObjcProvider provider, AppleConfiguration appleConfiguration) {
+    Platform platform = Platform.forIosArch(appleConfiguration.getIosCpu());
+
+    return new ImmutableList.Builder<String>()
         .add("-F", AppleToolchain.sdkFrameworkDir(platform, appleConfiguration))
         // As of sdk8.1, XCTest is in a base Framework dir
         .add("-F", AppleToolchain.platformDeveloperFrameworkDir(appleConfiguration))
         // Add custom (non-SDK) framework search paths. For each framework foo/bar.framework,
         // include "foo" as a search path.
-        .addAll(Interspersing.beforeEach(
-            "-F",
-            PathFragment.safePathStrings(uniqueParentDirectories(provider.get(FRAMEWORK_DIR)))))
+        .addAll(
+            Interspersing.beforeEach(
+                "-F",
+                PathFragment.safePathStrings(uniqueParentDirectories(provider.get(FRAMEWORK_DIR)))))
         .build();
   }
 
