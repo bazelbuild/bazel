@@ -468,7 +468,6 @@ public class IncrementalLoadingTest {
       skyframeExecutor =
           SequencedSkyframeExecutor.create(
               new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),
-              new TimestampGranularityMonitor(BlazeClock.instance()),
               new BlazeDirectories(fs.getPath("/install"), fs.getPath("/output"), workspace),
               null, /* BinTools */
               null, /* workspaceStatusActionFactory */
@@ -482,7 +481,7 @@ public class IncrementalLoadingTest {
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(outputBase, ImmutableList.of(workspace)),
           ConstantRuleVisibility.PUBLIC, true, 7, "",
-          UUID.randomUUID());
+          UUID.randomUUID(), new TimestampGranularityMonitor(BlazeClock.instance()));
     }
 
     Path addFile(String fileName, String... content) throws IOException {
@@ -561,7 +560,7 @@ public class IncrementalLoadingTest {
       skyframeExecutor.preparePackageLoading(
           new PathPackageLocator(outputBase, ImmutableList.of(workspace)),
           ConstantRuleVisibility.PUBLIC, true, 7, "",
-          UUID.randomUUID());
+          UUID.randomUUID(), new TimestampGranularityMonitor(BlazeClock.instance()));
       skyframeExecutor.invalidateFilesUnderPathForTesting(
           new Reporter(), modifiedFileSet, workspace);
       ((SequencedSkyframeExecutor) skyframeExecutor).handleDiffs(new Reporter());

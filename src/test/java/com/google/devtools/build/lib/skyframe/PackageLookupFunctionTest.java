@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue.ErrorReason;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -74,7 +73,6 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
         new PathPackageLocator(outputBase, ImmutableList.of(emptyPackagePath, rootDirectory)));
     deletedPackages = new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
     ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator, false);
-    TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
     BlazeDirectories directories = new BlazeDirectories(rootDirectory, outputBase, rootDirectory);
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
@@ -83,7 +81,8 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(
         SkyFunctions.PACKAGE,
         new PackageFunction(null, null, null, null, null, null, null));
-    skyFunctions.put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper));
+    skyFunctions.put(SkyFunctions.FILE_STATE, new FileStateFunction(
+        new AtomicReference<TimestampGranularityMonitor>(), externalFilesHelper));
     skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(SkyFunctions.BLACKLISTED_PACKAGE_PREFIXES,
         new BlacklistedPackagePrefixesFunction());

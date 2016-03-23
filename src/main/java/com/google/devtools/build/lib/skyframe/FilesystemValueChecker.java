@@ -371,8 +371,7 @@ public class FilesystemValueChecker {
       FileValue lastKnownData = entry.getValue();
       if (shouldCheckFile(knownModifiedOutputFiles, file)) {
         try {
-          FileValue fileValue = ActionMetadataHandler.fileValueFromArtifactFile(file, null,
-              tsgm);
+          FileValue fileValue = ActionMetadataHandler.fileValueFromArtifactFile(file, null, tsgm);
           if (!fileValue.equals(lastKnownData)) {
             updateIntraBuildModifiedCounter(fileValue.exists()
                 ? fileValue.realRootedPath().asPath().getLastModifiedTime()

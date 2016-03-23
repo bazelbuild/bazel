@@ -59,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 
 import javax.annotation.Nullable;
@@ -78,11 +79,11 @@ import javax.annotation.Nullable;
  */
 public class ActionExecutionFunction implements SkyFunction, CompletionReceiver {
   private final SkyframeActionExecutor skyframeActionExecutor;
-  private final TimestampGranularityMonitor tsgm;
+  private final AtomicReference<TimestampGranularityMonitor> tsgm;
   private ConcurrentMap<Action, ContinuationState> stateMap;
 
   public ActionExecutionFunction(SkyframeActionExecutor skyframeActionExecutor,
-      TimestampGranularityMonitor tsgm) {
+      AtomicReference<TimestampGranularityMonitor> tsgm) {
     this.skyframeActionExecutor = skyframeActionExecutor;
     this.tsgm = tsgm;
     stateMap = Maps.newConcurrentMap();
@@ -334,7 +335,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
     }
     // This may be recreated if we discover inputs.
     ActionMetadataHandler metadataHandler = new ActionMetadataHandler(state.inputArtifactData,
-        action.getOutputs(), tsgm);
+        action.getOutputs(), tsgm.get());
     long actionStartTime = System.nanoTime();
     // We only need to check the action cache if we haven't done it on a previous run.
     if (!state.hasCheckedActionCache()) {
@@ -376,7 +377,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           state.inputArtifactData = inputArtifactData;
           perActionFileCache = new PerActionFileCache(state.inputArtifactData);
           metadataHandler =
-              new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm);
+              new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
         }
       }
       actionExecutionContext =
@@ -414,7 +415,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
           inputArtifactData.putAll(metadataFoundDuringActionExecution);
           state.inputArtifactData = inputArtifactData;
           metadataHandler =
-              new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm);
+              new ActionMetadataHandler(state.inputArtifactData, action.getOutputs(), tsgm.get());
         }
       } else if (!metadataFoundDuringActionExecution.isEmpty()) {
         // The action has run and discovered more inputs. This is a bug, probably the result of

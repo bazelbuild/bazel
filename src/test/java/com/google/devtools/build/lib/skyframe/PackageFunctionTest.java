@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.packages.util.SubincludePreprocessor;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.ManualClock;
+import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -71,6 +73,13 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   private CustomInMemoryFs fs = new CustomInMemoryFs(new ManualClock());
 
+  private void preparePackageLoading(Path... roots) {
+    getSkyframeExecutor().preparePackageLoading(
+        new PathPackageLocator(outputBase, ImmutableList.copyOf(roots)),
+        ConstantRuleVisibility.PUBLIC, true,
+        7, "", UUID.randomUUID(), new TimestampGranularityMonitor(BlazeClock.instance()));
+  }
+
   @Override
   protected Preprocessor.Factory.Supplier getPreprocessorFactorySupplier() {
     return new SubincludePreprocessor.FactorySupplier(scratch.getFileSystem());
@@ -97,10 +106,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("pkg/BUILD", "subinclude('//foo:sub')");
     scratch.file("foo/sub");
 
-    getSkyframeExecutor().preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
-        ConstantRuleVisibility.PUBLIC, true,
-        7, "", UUID.randomUUID());
+    preparePackageLoading(rootDirectory);
 
     SkyKey pkgLookupKey = PackageLookupValue.key(new PathFragment("foo"));
     EvaluationResult<PackageLookupValue> result = SkyframeExecutorTestUtils.evaluate(
@@ -131,10 +137,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("/root2/foo/BUILD");
     scratch.file("/root2/foo/sub");
 
-    getSkyframeExecutor().preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(root1, root2)),
-        ConstantRuleVisibility.PUBLIC, true,
-        7, "", UUID.randomUUID());
+    preparePackageLoading(root1, root2);
 
     SkyKey pkgLookupKey = PackageLookupValue.key(PackageIdentifier.parse("@//foo"));
     EvaluationResult<PackageLookupValue> result = SkyframeExecutorTestUtils.evaluate(
@@ -206,8 +209,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     };
     fs.stubStat(fooDir, inconsistentParentFileStatus);
     RootedPath pkgRootedPath = RootedPath.toRootedPath(pkgRoot, fooDir);
-    SkyValue fooDirValue = FileStateValue.create(pkgRootedPath,
-        getSkyframeExecutor().getTimestampGranularityMonitorForTesting());
+    SkyValue fooDirValue = FileStateValue.create(pkgRootedPath, tsgm);
     differencer.inject(ImmutableMap.of(FileStateValue.key(pkgRootedPath), fooDirValue));
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     String expectedMessage = "/workspace/foo/BUILD exists but its parent path /workspace/foo isn't "
@@ -240,8 +242,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     // has a child directory "baz".
     fs.stubStat(bazDir, null);
     RootedPath barDirRootedPath = RootedPath.toRootedPath(pkgRoot, barDir);
-    FileStateValue barDirFileStateValue = FileStateValue.create(barDirRootedPath,
-        getSkyframeExecutor().getTimestampGranularityMonitorForTesting());
+    FileStateValue barDirFileStateValue = FileStateValue.create(barDirRootedPath, tsgm);
     FileValue barDirFileValue = FileValue.value(barDirRootedPath, barDirFileStateValue,
         barDirRootedPath, barDirFileStateValue);
     DirectoryListingValue barDirListing = DirectoryListingValue.value(barDirRootedPath,
@@ -293,10 +294,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("bar/a");
     scratch.file("bar/b");
 
-    getSkyframeExecutor().preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
-        ConstantRuleVisibility.PUBLIC, true,
-        7, "", UUID.randomUUID());
+    preparePackageLoading(rootDirectory);
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     validPackage(skyKey);
@@ -315,10 +313,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("baz/b");
     scratch.file("baz/c");
 
-    getSkyframeExecutor().preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
-        ConstantRuleVisibility.PUBLIC, true,
-        7, "", UUID.randomUUID());
+    preparePackageLoading(rootDirectory);
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     PackageValue value = validPackage(skyKey);
@@ -345,10 +340,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         "exports_files(['a'])");
     scratch.file("baz/a");
 
-    getSkyframeExecutor().preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
-        ConstantRuleVisibility.PUBLIC, true,
-        7, "", UUID.randomUUID());
+    preparePackageLoading(rootDirectory);
 
     SkyKey fooKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     PackageValue fooValue = validPackage(fooKey);
@@ -376,10 +368,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("qux/ext.bzl",
         "c = 1");
 
-    getSkyframeExecutor().preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
-        ConstantRuleVisibility.PUBLIC, true,
-        7, "", UUID.randomUUID());
+    preparePackageLoading(rootDirectory);
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     PackageValue value = validPackage(skyKey);
@@ -549,10 +538,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
     scratch.file("foo/existing.txt");
     FileSystemUtils.ensureSymbolicLink(packageDirPath.getChild("dangling.txt"), "nope");
 
-    getSkyframeExecutor().preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
-        ConstantRuleVisibility.PUBLIC, true,
-        7, "", UUID.randomUUID());
+    preparePackageLoading(rootDirectory);
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     PackageValue value = validPackage(skyKey);
@@ -605,10 +591,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
         "[sh_library(name = x + '-matched') for x in glob(['**'], exclude_directories = 0)]");
     scratch.file("foo/bar");
 
-    getSkyframeExecutor().preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
-        ConstantRuleVisibility.PUBLIC, true,
-        7, "", UUID.randomUUID());
+    preparePackageLoading(rootDirectory);
 
     SkyKey skyKey = PackageValue.key(PackageIdentifier.parse("@//foo"));
     PackageValue value = validPackage(skyKey);

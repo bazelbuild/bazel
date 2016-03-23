@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
@@ -78,13 +77,12 @@ public class PackageCacheTest extends FoundationTestCase {
   private SkyframeExecutor skyframeExecutor;
 
   @Before
-  public final void initializeSkyframExecutor() throws Exception {
+  public final void initializeSkyframeExecutor() throws Exception {
     ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
     BlazeDirectories directories = new BlazeDirectories(outputBase, outputBase, rootDirectory);
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
             new PackageFactory(ruleClassProvider),
-            new TimestampGranularityMonitor(BlazeClock.instance()),
             directories,
             null, /* BinTools */
             null, /* workspaceStatusActionFactory */
@@ -95,10 +93,6 @@ public class PackageCacheTest extends FoundationTestCase {
             AnalysisMock.get().getSkyFunctions(directories),
             ImmutableList.<PrecomputedValue.Injected>of(),
             ImmutableList.<SkyValueDirtinessChecker>of());
-    skyframeExecutor.preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
-        ConstantRuleVisibility.PUBLIC, true, 7, "",
-        UUID.randomUUID());
     setUpSkyframe(parsePackageCacheOptions());
   }
 
@@ -108,7 +102,7 @@ public class PackageCacheTest extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(pkgLocator,
         packageCacheOptions.defaultVisibility, true,
         7, ruleClassProvider.getDefaultsPackageContent(),
-        UUID.randomUUID());
+        UUID.randomUUID(), new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
   }
 

@@ -397,7 +397,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
       FileArtifactValue value;
       if (action.getActionType() == MiddlemanType.NORMAL) {
         try {
-          FileValue fileValue = ActionMetadataHandler.fileValueFromArtifactFile(output, null, tsgm);
+          FileValue fileValue = ActionMetadataHandler.fileValueFromArtifactFile(output, null, null);
           artifactData.put(output, fileValue);
           value = FileArtifactValue.create(output, fileValue);
         } catch (IOException e) {

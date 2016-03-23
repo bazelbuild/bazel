@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.packages.FilesetEntry.SymlinkBehavior;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
-import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -72,8 +71,6 @@ import javax.annotation.Nullable;
 /** Tests for {@link FilesetEntryFunction}. */
 @RunWith(JUnit4.class)
 public final class FilesetEntryFunctionTest extends FoundationTestCase {
-
-  private TimestampGranularityMonitor tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
   private MemoizingEvaluator evaluator;
   private SequentialBuildDriver driver;
   private RecordingDifferencer differencer;
@@ -89,7 +86,8 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
 
-    skyFunctions.put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper));
+    skyFunctions.put(SkyFunctions.FILE_STATE, new FileStateFunction(
+        new AtomicReference<TimestampGranularityMonitor>(), externalFilesHelper));
     skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(

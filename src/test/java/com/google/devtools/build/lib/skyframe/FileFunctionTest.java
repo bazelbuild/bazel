@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
+
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.SkyframeExecutor.DEFAULT_THREAD_COUNT;
 import static org.junit.Assert.assertArrayEquals;
@@ -42,7 +43,6 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -96,17 +96,15 @@ public class FileFunctionTest {
   private Path pkgRoot;
   private Path outputBase;
   private PathPackageLocator pkgLocator;
-  private TimestampGranularityMonitor tsgm;
   private boolean fastMd5;
   private ManualClock manualClock;
   private RecordingDifferencer differencer;
 
   @Before
-  public final void createMonitor() throws Exception  {
+  public final void createFsAndRoot() throws Exception  {
     fastMd5 = true;
     manualClock = new ManualClock();
     createFsAndRoot(new CustomInMemoryFs(manualClock));
-    tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
   }
 
   private void createFsAndRoot(CustomInMemoryFs fs) throws IOException {
@@ -129,7 +127,8 @@ public class FileFunctionTest {
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper))
+                .put(SkyFunctions.FILE_STATE, new FileStateFunction(
+                    new AtomicReference<TimestampGranularityMonitor>(), externalFilesHelper))
                 .put(
                     SkyFunctions.FILE_SYMLINK_CYCLE_UNIQUENESS,
                     new FileSymlinkCycleUniquenessFunction())

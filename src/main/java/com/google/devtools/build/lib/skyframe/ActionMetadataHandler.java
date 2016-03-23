@@ -568,7 +568,7 @@ public class ActionMetadataHandler implements MetadataHandler {
 
   @VisibleForTesting
   static FileValue fileValueFromArtifactFile(ArtifactFile file,
-      @Nullable FileStatusWithDigest statNoFollow, TimestampGranularityMonitor tsgm)
+      @Nullable FileStatusWithDigest statNoFollow, @Nullable TimestampGranularityMonitor tsgm)
       throws IOException {
     Path path = file.getPath();
     RootedPath rootedPath =

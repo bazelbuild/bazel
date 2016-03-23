@@ -215,6 +215,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected final AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
       new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
   private final AtomicReference<EventBus> eventBus = new AtomicReference<>();
+  protected final AtomicReference<TimestampGranularityMonitor> tsgm =
+      new AtomicReference<>();
 
   private final ImmutableList<BuildInfoFactory> buildInfoFactories;
   // Under normal circumstances, the artifact factory persists for the life of a Blaze server, but
@@ -232,8 +234,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final Preprocessor.Factory.Supplier preprocessorFactorySupplier;
   private Preprocessor.Factory preprocessorFactory;
-
-  protected final TimestampGranularityMonitor tsgm;
 
   private final ResourceManager resourceManager;
 
@@ -270,7 +270,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   protected SkyframeExecutor(
       EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory,
-      TimestampGranularityMonitor tsgm,
       BlazeDirectories directories,
       BinTools binTools,
       Factory workspaceStatusActionFactory,
@@ -285,7 +284,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.evaluatorSupplier = evaluatorSupplier;
     this.pkgFactory = pkgFactory;
     this.pkgFactory.setSyscalls(syscalls);
-    this.tsgm = tsgm;
     this.workspaceStatusActionFactory = workspaceStatusActionFactory;
     this.packageManager = new SkyframePackageManager(
         new SkyframePackageLoader(), new SkyframeTransitivePackageLoader(),
@@ -804,8 +802,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         || (oldType.equals(Dirent.Type.SYMLINK) && newType.equals(FileStateValue.Type.SYMLINK));
   }
 
-  protected Differencer.Diff getDiff(Iterable<PathFragment> modifiedSourceFiles,
-      final Path pathEntry) throws InterruptedException {
+  protected Differencer.Diff getDiff(TimestampGranularityMonitor tsgm,
+      Iterable<PathFragment> modifiedSourceFiles, final Path pathEntry)
+          throws InterruptedException {
     if (Iterables.isEmpty(modifiedSourceFiles)) {
       return new ImmutableDiff(ImmutableList.<SkyKey>of(), ImmutableMap.<SkyKey, SkyValue>of());
     }
@@ -901,10 +900,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   @VisibleForTesting  // productionVisibility = Visibility.PRIVATE
   public void preparePackageLoading(PathPackageLocator pkgLocator, RuleVisibility defaultVisibility,
                                     boolean showLoadingProgress, int globbingThreads,
-                                    String defaultsPackageContents, UUID commandId) {
+                                    String defaultsPackageContents, UUID commandId,
+                                    TimestampGranularityMonitor tsgm) {
     Preconditions.checkNotNull(pkgLocator);
+    Preconditions.checkNotNull(tsgm);
     setActive(true);
 
+    this.tsgm.set(tsgm);
     maybeInjectPrecomputedValuesForAnalysis();
     setCommandId(commandId);
     setBlacklistedPackagePrefixesFile(getBlacklistedPackagePrefixesFile());
@@ -1358,11 +1360,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public abstract void invalidateTransientErrors();
 
-  @VisibleForTesting
-  public TimestampGranularityMonitor getTimestampGranularityMonitorForTesting() {
-    return tsgm;
-  }
-
   /** Configures a given set of configured targets. */
   public EvaluationResult<ActionLookupValue> configureTargets(
       EventHandler eventHandler,
@@ -1592,16 +1589,15 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public abstract void updateLoadedPackageSet(Set<PackageIdentifier> loadedPackages);
 
   public void sync(EventHandler eventHandler, PackageCacheOptions packageCacheOptions,
-      Path outputBase, Path workingDirectory, String defaultsPackageContents, UUID commandId)
-          throws InterruptedException,
-      AbruptExitException{
-
+      Path outputBase, Path workingDirectory, String defaultsPackageContents, UUID commandId,
+      TimestampGranularityMonitor tsgm)
+          throws InterruptedException, AbruptExitException{
     preparePackageLoading(
         createPackageLocator(
             eventHandler, packageCacheOptions, outputBase, directories.getWorkspace(),
             workingDirectory),
         packageCacheOptions.defaultVisibility, packageCacheOptions.showLoadingProgress,
-        packageCacheOptions.globbingThreads, defaultsPackageContents, commandId);
+        packageCacheOptions.globbingThreads, defaultsPackageContents, commandId, tsgm);
     setDeletedPackages(packageCacheOptions.getDeletedPackages());
 
     incrementalBuildMonitor = new SkyframeIncrementalBuildMonitor();
@@ -1643,12 +1639,13 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   public void prepareExecution(ModifiedFileSet modifiedOutputFiles,
-      @Nullable Range<Long> lastExecutionTimeRange) throws AbruptExitException,
-      InterruptedException {
+      @Nullable Range<Long> lastExecutionTimeRange)
+          throws AbruptExitException, InterruptedException {
     maybeInjectEmbeddedArtifacts();
 
     // Detect external modifications in the output tree.
-    FilesystemValueChecker fsvc = new FilesystemValueChecker(tsgm, lastExecutionTimeRange);
+    FilesystemValueChecker fsvc =
+        new FilesystemValueChecker(Preconditions.checkNotNull(tsgm.get()), lastExecutionTimeRange);
     BatchStat batchStatter = outputService == null ? null : outputService.getBatchStatter();
     invalidateDirtyActions(fsvc.getDirtyActionValues(memoizingEvaluator.getValues(),
         batchStatter, modifiedOutputFiles));

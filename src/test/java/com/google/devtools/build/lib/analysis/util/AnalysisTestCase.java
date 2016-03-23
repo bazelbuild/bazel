@@ -159,7 +159,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
             pkgFactory,
-            new TimestampGranularityMonitor(BlazeClock.instance()),
             directories,
             binTools,
             workspaceStatusActionFactory,
@@ -172,7 +171,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             ImmutableList.<SkyValueDirtinessChecker>of());
     skyframeExecutor.preparePackageLoading(pkgLocator,
         Options.getDefaults(PackageCacheOptions.class).defaultVisibility, true,
-        3, ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID());
+        3, ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID(),
+        new TimestampGranularityMonitor(BlazeClock.instance()));
     packageManager = skyframeExecutor.getPackageManager();
     loadingPhaseRunner = skyframeExecutor.getLoadingPhaseRunner(
         pkgFactory.getRuleClassNames(), defaultFlags().contains(Flag.SKYFRAME_LOADING_PHASE));
@@ -253,7 +253,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
         outputBase, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
     skyframeExecutor.preparePackageLoading(pathPackageLocator,
         packageCacheOptions.defaultVisibility, true,
-        7, ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID());
+        7, ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID(),
+        new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.invalidateFilesUnderPathForTesting(reporter,
         ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
 

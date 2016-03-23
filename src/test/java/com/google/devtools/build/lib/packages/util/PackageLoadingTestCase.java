@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
@@ -85,7 +84,7 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
       ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
     }
     skyframeExecutor = createSkyframeExecutor(getEnvironmentExtensions(),
-        Preprocessor.Factory.Supplier.NullSupplier.INSTANCE, ConstantRuleVisibility.PUBLIC, "");
+        getPreprocessorFactorySupplier());
     setUpSkyframe(parsePackageCacheOptions());
   }
 
@@ -94,15 +93,12 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     return ImmutableList.of();
   }
 
-  protected SkyframeExecutor createSkyframeExecutor(
+  private SkyframeExecutor createSkyframeExecutor(
       Iterable<EnvironmentExtension> environmentExtensions,
-      Preprocessor.Factory.Supplier preprocessorFactorySupplier,
-      RuleVisibility defaultVisibility,
-      String defaultsPackageContents) {
+      Preprocessor.Factory.Supplier preprocessorFactorySupplier) {
     SkyframeExecutor skyframeExecutor =
         SequencedSkyframeExecutor.create(
             new PackageFactory(ruleClassProvider, environmentExtensions),
-            new TimestampGranularityMonitor(BlazeClock.instance()),
             new BlazeDirectories(outputBase, outputBase, rootDirectory),
             null, /* BinTools */
             null, /* workspaceStatusActionFactory */
@@ -113,10 +109,6 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
             ImmutableMap.<SkyFunctionName, SkyFunction>of(),
             ImmutableList.<PrecomputedValue.Injected>of(),
             ImmutableList.<SkyValueDirtinessChecker>of());
-    skyframeExecutor.preparePackageLoading(
-        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
-        defaultVisibility, true, GLOBBING_THREADS, defaultsPackageContents,
-        UUID.randomUUID());
     return skyframeExecutor;
   }
 
@@ -124,13 +116,24 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     return ImmutableList.<EnvironmentExtension>of();
   }
 
+  protected Preprocessor.Factory.Supplier getPreprocessorFactorySupplier() {
+    return Preprocessor.Factory.Supplier.NullSupplier.INSTANCE;
+  }
+
+  protected void setUpSkyframe(RuleVisibility defaultVisibility, String defaultsPackageContents) {
+    skyframeExecutor.preparePackageLoading(
+        new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
+        defaultVisibility, true, GLOBBING_THREADS, defaultsPackageContents,
+        UUID.randomUUID(), new TimestampGranularityMonitor(BlazeClock.instance()));
+  }
+
   private void setUpSkyframe(PackageCacheOptions packageCacheOptions) {
     PathPackageLocator pkgLocator = PathPackageLocator.create(
         outputBase, packageCacheOptions.packagePath, reporter, rootDirectory, rootDirectory);
     skyframeExecutor.preparePackageLoading(pkgLocator,
         packageCacheOptions.defaultVisibility, true,
-        7, ruleClassProvider.getDefaultsPackageContent(),
-        UUID.randomUUID());
+        GLOBBING_THREADS, ruleClassProvider.getDefaultsPackageContent(),
+        UUID.randomUUID(), new TimestampGranularityMonitor(BlazeClock.instance()));
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
   }
 

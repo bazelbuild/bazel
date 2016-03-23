@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.TraversalRequest;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
@@ -74,9 +73,6 @@ import java.util.regex.Pattern;
 /** Tests for {@link RecursiveFilesystemTraversalFunction}. */
 @RunWith(JUnit4.class)
 public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTestCase {
-
-  private final TimestampGranularityMonitor tsgm =
-      new TimestampGranularityMonitor(BlazeClock.instance());
   private RecordingEvaluationProgressReceiver progressReceiver;
   private MemoizingEvaluator evaluator;
   private SequentialBuildDriver driver;
@@ -93,7 +89,8 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
 
-    skyFunctions.put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper));
+    skyFunctions.put(SkyFunctions.FILE_STATE, new FileStateFunction(
+        new AtomicReference<TimestampGranularityMonitor>(), externalFilesHelper));
     skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator));
     skyFunctions.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     skyFunctions.put(

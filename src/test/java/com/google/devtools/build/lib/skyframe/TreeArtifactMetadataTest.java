@@ -227,7 +227,7 @@ public class TreeArtifactMetadataTest extends ArtifactFunctionTestCase {
         try {
           ArtifactFile suboutput = ActionInputHelper.artifactFile(output, subpath);
           FileValue fileValue = ActionMetadataHandler.fileValueFromArtifactFile(
-              suboutput, null, tsgm);
+              suboutput, null, null);
           fileData.put(suboutput, fileValue);
           // Ignore FileValue digests--correctness of these digests is not part of this tests.
           byte[] digest = DigestUtils.getDigestOrFail(suboutput.getPath(), 1);

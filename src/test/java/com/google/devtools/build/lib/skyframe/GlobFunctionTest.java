@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.GlobValue.InvalidGlobPatternException;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -94,7 +93,6 @@ public abstract class GlobFunctionTest {
   private Path outputBase;
   private Path pkgPath;
   private AtomicReference<PathPackageLocator> pkgLocator;
-  private TimestampGranularityMonitor tsgm;
 
   private static final PackageIdentifier PKG_ID = PackageIdentifier.createInMainRepo("pkg");
 
@@ -109,7 +107,6 @@ public abstract class GlobFunctionTest {
     pkgLocator =
         new AtomicReference<>(
             new PathPackageLocator(outputBase, ImmutableList.of(writableRoot, root)));
-    tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
 
     differencer = new RecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(createFunctionMap(), differencer);
@@ -139,7 +136,7 @@ public abstract class GlobFunctionTest {
     skyFunctions.put(
         SkyFunctions.FILE_STATE,
         new FileStateFunction(
-            new TimestampGranularityMonitor(BlazeClock.instance()), externalFilesHelper));
+            new AtomicReference<TimestampGranularityMonitor>(), externalFilesHelper));
     skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator));
     return skyFunctions;
   }
@@ -562,7 +559,7 @@ public abstract class GlobFunctionTest {
     // Our custom filesystem says "pkgPath/BUILD" exists but "pkgPath" does not exist.
     fs.stubStat(pkgPath, null);
     RootedPath pkgRootedPath = RootedPath.toRootedPath(root, pkgPath);
-    FileStateValue pkgDirFileStateValue = FileStateValue.create(pkgRootedPath, tsgm);
+    FileStateValue pkgDirFileStateValue = FileStateValue.create(pkgRootedPath, null);
     FileValue pkgDirValue =
         FileValue.value(pkgRootedPath, pkgDirFileStateValue, pkgRootedPath, pkgDirFileStateValue);
     differencer.inject(ImmutableMap.of(FileValue.key(pkgRootedPath), pkgDirValue));

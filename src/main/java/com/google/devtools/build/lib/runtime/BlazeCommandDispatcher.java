@@ -209,16 +209,10 @@ public class BlazeCommandDispatcher {
    */
   int exec(List<String> args, OutErr outErr, long firstContactTime)
       throws ShutdownBlazeServerException {
-    // Record the start time for the profiler and the timestamp granularity monitor. Do not put
-    // anything before this!
+    // Record the start time for the profiler. Do not put anything before this!
     long execStartTimeNanos = runtime.getClock().nanoTime();
 
-    // Record the command's starting time again, for use by
-    // TimestampGranularityMonitor.waitForTimestampGranularity().
-    // This should be done as close as possible to the start of
-    // the command's execution - that's why we do this separately,
-    // rather than in runtime.beforeCommand().
-    runtime.getTimestampGranularityMonitor().setCommandStartTime();
+    // The initCommand call also records the start time for the timestamp granularity monitor.
     CommandEnvironment env = runtime.initCommand();
     // Record the command's starting time for use by the commands themselves.
     env.recordCommandStartTime(firstContactTime);
@@ -400,7 +394,7 @@ public class BlazeCommandDispatcher {
         reporter.removeHandler(ansiAllowingHandler);
         releaseHandler(ansiAllowingHandler);
       }
-      runtime.getTimestampGranularityMonitor().waitForTimestampGranularity(outErr);
+      env.getTimestampGranularityMonitor().waitForTimestampGranularity(outErr);
     }
   }
 

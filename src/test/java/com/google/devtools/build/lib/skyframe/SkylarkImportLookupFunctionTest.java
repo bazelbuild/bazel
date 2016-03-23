@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
+import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.ErrorInfo;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -52,7 +54,8 @@ public class SkylarkImportLookupFunctionTest extends BuildViewTestCase {
             true,
             7,
             "",
-            UUID.randomUUID());
+            UUID.randomUUID(),
+            new TimestampGranularityMonitor(BlazeClock.instance()));
   }
 
   @Test

@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.pkgcache;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
@@ -23,11 +22,8 @@ import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
-import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.Pair;
 
 import org.junit.Before;
@@ -45,7 +41,6 @@ import java.util.TreeSet;
  * be extracted here if they are needed by other classes.
  */
 public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingTestCase {
-  protected SkyframeExecutor skyframeExecutor;
   protected TargetPatternEvaluator parser;
   protected RecordingParsingListener parsingListener;
 
@@ -78,10 +73,7 @@ public abstract class AbstractTargetPatternEvaluatorTest extends PackageLoadingT
 
   @Before
   public final void initializeParser() throws Exception {
-    skyframeExecutor =
-        super.createSkyframeExecutor(ImmutableList.<PackageFactory.EnvironmentExtension>of(),
-            Preprocessor.Factory.Supplier.NullSupplier.INSTANCE, ConstantRuleVisibility.PRIVATE,
-            ruleClassProvider.getDefaultsPackageContent());
+    setUpSkyframe(ConstantRuleVisibility.PRIVATE, ruleClassProvider.getDefaultsPackageContent());
     parser = skyframeExecutor.getPackageManager().newTargetPatternEvaluator();
     parsingListener = new RecordingParsingListener(reporter);
   }

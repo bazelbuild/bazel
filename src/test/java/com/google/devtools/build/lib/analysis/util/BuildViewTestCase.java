@@ -170,6 +170,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   private SequencedSkyframeExecutor skyframeExecutor;
 
+  protected TimestampGranularityMonitor tsgm;
   protected BlazeDirectories directories;
   protected BinTools binTools;
 
@@ -203,10 +204,10 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     mutableActionGraph = new MapBasedActionGraph();
     ruleClassProvider = getRuleClassProvider();
     pkgFactory = new PackageFactory(ruleClassProvider, getEnvironmentExtensions());
+    tsgm = new TimestampGranularityMonitor(BlazeClock.instance());
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
             pkgFactory,
-            new TimestampGranularityMonitor(BlazeClock.instance()),
             directories,
             binTools,
             workspaceStatusActionFactory,
@@ -220,7 +221,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(
         new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)),
         ConstantRuleVisibility.PUBLIC, true, 7, "",
-        UUID.randomUUID());
+        UUID.randomUUID(), tsgm);
     useConfiguration();
     setUpSkyframe();
     // Also initializes ResourceManager.
@@ -311,7 +312,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.preparePackageLoading(pkgLocator,
         packageCacheOptions.defaultVisibility, true,
         7, ruleClassProvider.getDefaultsPackageContent(optionsParser),
-        UUID.randomUUID());
+        UUID.randomUUID(), tsgm);
     skyframeExecutor.setDeletedPackages(ImmutableSet.copyOf(packageCacheOptions.getDeletedPackages()));
   }
 

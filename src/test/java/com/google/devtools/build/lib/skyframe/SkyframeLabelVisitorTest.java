@@ -24,9 +24,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.ConstantRuleVisibility;
-import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.util.SubincludePreprocessor;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.util.BlazeClock;
+import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
@@ -43,12 +44,6 @@ import java.util.UUID;
 
 @RunWith(JUnit4.class)
 public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
-
-  @Override
-  public PackageFactory.EnvironmentExtension getPackageEnvironmentExtension() {
-    return new PackageFactory.EmptyEnvironmentExtension();
-  }
-
   @Test
   public void testLabelVisitorDetectsMissingPackages() throws Exception {
     reporter.removeHandler(failFastHandler); // expect errors
@@ -414,7 +409,8 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
             true,
             7,
             ruleClassProvider.getDefaultsPackageContent(),
-            UUID.randomUUID());
+            UUID.randomUUID(),
+            new TimestampGranularityMonitor(BlazeClock.instance()));
     this.visitor = getSkyframeExecutor().pkgLoader();
     scratch.file("pkg/BUILD", "sh_library(name = 'x', deps = ['z'])", "sh_library(name = 'z')");
     assertLabelsVisited(
@@ -457,7 +453,8 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
             true,
             7,
             ruleClassProvider.getDefaultsPackageContent(),
-            UUID.randomUUID());
+            UUID.randomUUID(),
+            new TimestampGranularityMonitor(BlazeClock.instance()));
     this.visitor = getSkyframeExecutor().pkgLoader();
     scratch.file("a/BUILD", "subinclude('//b:c/d/foo')");
     scratch.file("b/BUILD", "exports_files(['c/d/foo'])");

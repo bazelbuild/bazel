@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ActionLookupValue.ActionLookupKey;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.util.BlazeClock;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -60,8 +59,6 @@ abstract class ArtifactFunctionTestCase {
   protected SequentialBuildDriver driver;
   protected MemoizingEvaluator evaluator;
   protected Path root;
-  protected TimestampGranularityMonitor tsgm =
-      new TimestampGranularityMonitor(BlazeClock.instance());
 
   /**
    * The test action execution function. The Skyframe evaluator's action execution function
@@ -79,7 +76,9 @@ abstract class ArtifactFunctionTestCase {
     evaluator =
         new InMemoryMemoizingEvaluator(
             ImmutableMap.<SkyFunctionName, SkyFunction>builder()
-                .put(SkyFunctions.FILE_STATE, new FileStateFunction(tsgm, externalFilesHelper))
+                .put(SkyFunctions.FILE_STATE,
+                    new FileStateFunction(
+                        new AtomicReference<TimestampGranularityMonitor>(), externalFilesHelper))
                 .put(SkyFunctions.FILE, new FileFunction(pkgLocator))
                 .put(SkyFunctions.ARTIFACT,
                     new ArtifactFunction(allowedMissingInputsPredicate))

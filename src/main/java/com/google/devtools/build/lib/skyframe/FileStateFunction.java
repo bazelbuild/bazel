@@ -21,6 +21,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A {@link SkyFunction} for {@link FileStateValue}s.
@@ -30,10 +31,10 @@ import java.io.IOException;
  */
 public class FileStateFunction implements SkyFunction {
 
-  private final TimestampGranularityMonitor tsgm;
+  private final AtomicReference<TimestampGranularityMonitor> tsgm;
   private final ExternalFilesHelper externalFilesHelper;
 
-  public FileStateFunction(TimestampGranularityMonitor tsgm,
+  public FileStateFunction(AtomicReference<TimestampGranularityMonitor> tsgm,
       ExternalFilesHelper externalFilesHelper) {
     this.tsgm = tsgm;
     this.externalFilesHelper = externalFilesHelper;
@@ -48,7 +49,7 @@ public class FileStateFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-      return FileStateValue.create(rootedPath, tsgm);
+      return FileStateValue.create(rootedPath, tsgm.get());
     } catch (FileOutsidePackageRootsException e) {
       throw new FileStateFunctionException(e);
     } catch (IOException e) {

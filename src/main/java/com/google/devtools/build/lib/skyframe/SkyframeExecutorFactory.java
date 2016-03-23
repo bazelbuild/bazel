@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
 import com.google.devtools.build.lib.util.AbruptExitException;
-import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -53,7 +52,6 @@ public interface SkyframeExecutorFactory {
    */
   SkyframeExecutor create(
       PackageFactory pkgFactory,
-      TimestampGranularityMonitor tsgm,
       BlazeDirectories directories,
       BinTools binTools,
       Factory workspaceStatusActionFactory,

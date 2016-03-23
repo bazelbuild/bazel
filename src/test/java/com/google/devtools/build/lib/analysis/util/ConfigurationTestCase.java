@@ -101,7 +101,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     skyframeExecutor =
         SequencedSkyframeExecutor.create(
             pkgFactory,
-            new TimestampGranularityMonitor(BlazeClock.instance()),
             directories,
             BinTools.forUnitTesting(directories, TestConstants.EMBEDDED_TOOLS),
             workspaceStatusActionFactory,
@@ -115,7 +114,8 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
 
     skyframeExecutor.preparePackageLoading(pkgLocator,
         Options.getDefaults(PackageCacheOptions.class).defaultVisibility, true,
-        7, ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID());
+        7, ruleClassProvider.getDefaultsPackageContent(), UUID.randomUUID(),
+        new TimestampGranularityMonitor(BlazeClock.instance()));
 
     analysisMock.setupMockClient(new MockToolsConfig(rootDirectory));
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());

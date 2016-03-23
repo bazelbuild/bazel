@@ -92,7 +92,6 @@ import com.google.devtools.build.lib.util.OsUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
-import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
@@ -159,7 +158,6 @@ public final class BlazeRuntime {
   private final PackageFactory packageFactory;
   private final ConfigurationFactory configurationFactory;
   private final ConfiguredRuleClassProvider ruleClassProvider;
-  private final TimestampGranularityMonitor timestampGranularityMonitor;
 
   private final AtomicInteger storedExitCode = new AtomicInteger();
 
@@ -190,7 +188,6 @@ public final class BlazeRuntime {
       PackageFactory pkgFactory, ConfiguredRuleClassProvider ruleClassProvider,
       ConfigurationFactory configurationFactory, Clock clock,
       OptionsProvider startupOptionsProvider, Iterable<BlazeModule> blazeModules,
-      TimestampGranularityMonitor timestampGranularityMonitor,
       SubscriberExceptionHandler eventBusExceptionHandler,
       BinTools binTools, ProjectFile.Provider projectFileProvider,
       InvocationPolicy invocationPolicy, Iterable<BlazeCommand> commands) {
@@ -207,7 +204,6 @@ public final class BlazeRuntime {
     this.ruleClassProvider = ruleClassProvider;
     this.configurationFactory = configurationFactory;
     this.clock = clock;
-    this.timestampGranularityMonitor = Preconditions.checkNotNull(timestampGranularityMonitor);
     this.startupOptionsProvider = startupOptionsProvider;
     this.eventBusExceptionHandler = eventBusExceptionHandler;
     this.queryEnvironmentFactory = queryEnvironmentFactory;
@@ -575,15 +571,6 @@ public final class BlazeRuntime {
     skyframeExecutor.resetEvaluator();
     actionCache = null;
     FileSystemUtils.deleteTree(getCacheDirectory());
-  }
-
-  /**
-   * Returns the TimestampGranularityMonitor. The same monitor object is used
-   * across multiple Blaze commands, but it doesn't hold any persistent state
-   * across different commands.
-   */
-  public TimestampGranularityMonitor getTimestampGranularityMonitor() {
-    return timestampGranularityMonitor;
   }
 
   /**
@@ -1342,7 +1329,6 @@ public final class BlazeRuntime {
       UUID instanceId =  (this.instanceId == null) ? UUID.randomUUID() : this.instanceId;
 
       Preconditions.checkNotNull(clock);
-      TimestampGranularityMonitor timestampMonitor = new TimestampGranularityMonitor(clock);
 
       Preprocessor.Factory.Supplier preprocessorFactorySupplier = null;
       SkyframeExecutorFactory skyframeExecutorFactory = null;
@@ -1466,7 +1452,6 @@ public final class BlazeRuntime {
       SkyframeExecutor skyframeExecutor =
           skyframeExecutorFactory.create(
               pkgFactory,
-              timestampMonitor,
               directories,
               binTools,
               workspaceStatusActionFactory,
@@ -1499,8 +1484,7 @@ public final class BlazeRuntime {
       return new BlazeRuntime(directories, workspaceStatusActionFactory, skyframeExecutor,
           queryEnvironmentFactory, pkgFactory, ruleClassProvider, configurationFactory,
           clock, startupOptionsProvider, ImmutableList.copyOf(blazeModules),
-          timestampMonitor, eventBusExceptionHandler, binTools, projectFileProvider,
-          invocationPolicy, commands);
+          eventBusExceptionHandler, binTools, projectFileProvider, invocationPolicy, commands);
     }
 
     public Builder setBinTools(BinTools binTools) {

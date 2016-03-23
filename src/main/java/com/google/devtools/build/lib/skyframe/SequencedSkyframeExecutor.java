@@ -100,7 +100,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
   private SequencedSkyframeExecutor(
       EvaluatorSupplier evaluatorSupplier,
       PackageFactory pkgFactory,
-      TimestampGranularityMonitor tsgm,
       BlazeDirectories directories,
       BinTools binTools,
       Factory workspaceStatusActionFactory,
@@ -114,7 +113,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     super(
         evaluatorSupplier,
         pkgFactory,
-        tsgm,
         directories,
         binTools,
         workspaceStatusActionFactory,
@@ -130,7 +128,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   public static SequencedSkyframeExecutor create(
       PackageFactory pkgFactory,
-      TimestampGranularityMonitor tsgm,
       BlazeDirectories directories,
       BinTools binTools,
       Factory workspaceStatusActionFactory,
@@ -145,7 +142,6 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         new SequencedSkyframeExecutor(
             InMemoryMemoizingEvaluator.SUPPLIER,
             pkgFactory,
-            tsgm,
             directories,
             binTools,
             workspaceStatusActionFactory,
@@ -162,13 +158,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @VisibleForTesting
   public static SequencedSkyframeExecutor create(PackageFactory pkgFactory,
-      TimestampGranularityMonitor tsgm, BlazeDirectories directories, BinTools binTools,
+      BlazeDirectories directories, BinTools binTools,
       WorkspaceStatusAction.Factory workspaceStatusActionFactory,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
       Iterable<? extends DiffAwareness.Factory> diffAwarenessFactories) {
     return create(
         pkgFactory,
-        tsgm,
         directories,
         binTools,
         workspaceStatusActionFactory,
@@ -217,11 +212,12 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
 
   @Override
   public void sync(EventHandler eventHandler, PackageCacheOptions packageCacheOptions,
-      Path outputBase, Path workingDirectory, String defaultsPackageContents, UUID commandId)
+      Path outputBase, Path workingDirectory, String defaultsPackageContents, UUID commandId,
+      TimestampGranularityMonitor tsgm)
           throws InterruptedException, AbruptExitException {
     this.valueCacheEvictionLimit = packageCacheOptions.minLoadedPkgCountForCtNodeEviction;
     super.sync(eventHandler, packageCacheOptions, outputBase, workingDirectory,
-        defaultsPackageContents, commandId);
+        defaultsPackageContents, commandId, tsgm);
     handleDiffs(eventHandler);
   }
 
@@ -283,6 +279,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
+    TimestampGranularityMonitor tsgm = this.tsgm.get();
     modifiedFiles = 0;
     Map<Path, DiffAwarenessManager.ProcessableModifiedFileSet> modifiedFilesByPathEntry =
         Maps.newHashMap();
@@ -297,8 +294,8 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
         modifiedFilesByPathEntry.put(pathEntry, modifiedFileSet);
       }
     }
-    handleDiffsWithCompleteDiffInformation(modifiedFilesByPathEntry);
-    handleDiffsWithMissingDiffInformation(eventHandler, pathEntriesWithoutDiffInformation);
+    handleDiffsWithCompleteDiffInformation(tsgm, modifiedFilesByPathEntry);
+    handleDiffsWithMissingDiffInformation(eventHandler, tsgm, pathEntriesWithoutDiffInformation);
   }
 
   /**
@@ -306,7 +303,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * diff. Removes entries from the given map as they are processed. All of the files need to be
    * invalidated, so the map should be empty upon completion of this function.
    */
-  private void handleDiffsWithCompleteDiffInformation(
+  private void handleDiffsWithCompleteDiffInformation(TimestampGranularityMonitor tsgm,
       Map<Path, DiffAwarenessManager.ProcessableModifiedFileSet> modifiedFilesByPathEntry)
           throws InterruptedException {
     for (Path pathEntry : ImmutableSet.copyOf(modifiedFilesByPathEntry.keySet())) {
@@ -315,7 +312,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       ModifiedFileSet modifiedFileSet = processableModifiedFileSet.getModifiedFileSet();
       Preconditions.checkState(!modifiedFileSet.treatEverythingAsModified(), pathEntry);
       handleChangedFiles(ImmutableList.of(pathEntry),
-          getDiff(modifiedFileSet.modifiedSourceFiles(), pathEntry));
+          getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry));
       processableModifiedFileSet.markProcessed();
     }
   }
@@ -325,6 +322,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
    * {@link DiffAwareness} said all files may have been modified.
    */
   private void handleDiffsWithMissingDiffInformation(EventHandler eventHandler,
+      TimestampGranularityMonitor tsgm,
       Set<Pair<Path, DiffAwarenessManager.ProcessableModifiedFileSet>>
           pathEntriesWithoutDiffInformation) throws InterruptedException {
     if (pathEntriesWithoutDiffInformation.isEmpty()
@@ -447,12 +445,13 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
       dropConfiguredTargetsNow(eventHandler);
       lastAnalysisDiscarded = false;
     }
+    TimestampGranularityMonitor tsgm = this.tsgm.get();
     Differencer.Diff diff;
     if (modifiedFileSet.treatEverythingAsModified()) {
       diff = new FilesystemValueChecker(tsgm, null).getDirtyKeys(memoizingEvaluator.getValues(),
           new BasicFilesystemDirtinessChecker());
     } else {
-      diff = getDiff(modifiedFileSet.modifiedSourceFiles(), pathEntry);
+      diff = getDiff(tsgm, modifiedFileSet.modifiedSourceFiles(), pathEntry);
     }
     syscalls.set(newPerBuildSyscallCache(/*concurrencyLevel=*/42));
     recordingDiffer.invalidate(diff.changedKeysWithoutNewValues());

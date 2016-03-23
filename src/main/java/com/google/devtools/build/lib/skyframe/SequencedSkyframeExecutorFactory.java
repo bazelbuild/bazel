@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory;
 import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
-import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -35,7 +34,6 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
   @Override
   public SkyframeExecutor create(
       PackageFactory pkgFactory,
-      TimestampGranularityMonitor tsgm,
       BlazeDirectories directories,
       BinTools binTools,
       Factory workspaceStatusActionFactory,
@@ -48,7 +46,6 @@ public class SequencedSkyframeExecutorFactory implements SkyframeExecutorFactory
       Iterable<SkyValueDirtinessChecker> customDirtinessCheckers) {
     return SequencedSkyframeExecutor.create(
         pkgFactory,
-        tsgm,
         directories,
         binTools,
         workspaceStatusActionFactory,
