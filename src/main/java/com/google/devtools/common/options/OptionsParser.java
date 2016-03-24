@@ -111,7 +111,8 @@ public class OptionsParser implements OptionsProvider {
    */
   public static OptionsParser newOptionsParser(
       Iterable<? extends Class<? extends OptionsBase>> optionsClasses) {
-    return new OptionsParser(getOptionsData(ImmutableList.copyOf(optionsClasses)));
+    return new OptionsParser(
+        getOptionsData(ImmutableList.<Class<? extends OptionsBase>>copyOf(optionsClasses)));
   }
 
   private final OptionsParserImpl impl;
