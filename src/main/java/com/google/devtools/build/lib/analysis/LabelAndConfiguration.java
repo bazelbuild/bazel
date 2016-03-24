@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -72,5 +73,13 @@ public final class LabelAndConfiguration {
   public static LabelAndConfiguration of(
       Label label, @Nullable BuildConfiguration configuration) {
     return new LabelAndConfiguration(label, configuration);
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper(this)
+        .add("label", label)
+        .add("configuration", configuration)
+        .toString();
   }
 }
