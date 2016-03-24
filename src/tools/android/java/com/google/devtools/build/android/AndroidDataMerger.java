@@ -20,9 +20,7 @@ import com.android.ide.common.res2.MergingException;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -48,88 +46,6 @@ public class AndroidDataMerger {
           return one.compareTo(two);
         }
       };
-
-  /** An internal class that handles the homogenization of AndroidDataSets. */
-  // TODO(corysmith): Move this functionality to AndroidDataSet?
-  private static class ResourceMap {
-
-    private final Map<DataKey, DataResource> overwritableResources;
-    private final Set<MergeConflict> conflicts;
-    private final Map<DataKey, DataResource> nonOverwritingResourceMap;
-    private final Map<DataKey, DataAsset> assets;
-
-    private ResourceMap(
-        Map<DataKey, DataResource> overwritableResources,
-        Set<MergeConflict> conflicts,
-        Map<DataKey, DataResource> nonOverwritingResourceMap,
-        Map<DataKey, DataAsset> assets) {
-      this.overwritableResources = overwritableResources;
-      this.conflicts = conflicts;
-      this.nonOverwritingResourceMap = nonOverwritingResourceMap;
-      this.assets = assets;
-    }
-
-    /**
-     * Creates ResourceMap from an AndroidDataSet.
-     */
-    static ResourceMap from(AndroidDataSet data) {
-      Map<DataKey, DataResource> overwritingResourceMap = new HashMap<>();
-      Map<DataKey, DataAsset> assets = new HashMap<>();
-      Set<MergeConflict> conflicts = new HashSet<>();
-      Map<DataKey, DataResource> nonOverwritingResourceMap = new HashMap<>();
-
-      for (DataResource resource : data.getOverwritingResources()) {
-        if (overwritingResourceMap.containsKey(resource.dataKey())) {
-          conflicts.add(
-              MergeConflict.between(
-                  resource.dataKey(), overwritingResourceMap.get(resource.dataKey()), resource));
-        }
-        overwritingResourceMap.put(resource.dataKey(), resource);
-      }
-
-      for (DataResource resource : data.getNonOverwritingResources()) {
-        nonOverwritingResourceMap.put(resource.dataKey(), resource);
-      }
-
-      for (DataAsset asset : data.getAssets()) {
-        if (assets.containsKey(asset.dataKey())) {
-          conflicts.add(MergeConflict.between(asset.dataKey(), assets.get(asset.dataKey()), asset));
-        }
-        assets.put(asset.dataKey(), asset);
-      }
-      return new ResourceMap(overwritingResourceMap, conflicts, nonOverwritingResourceMap, assets);
-    }
-
-    boolean containsOverwritable(DataKey name) {
-      return overwritableResources.containsKey(name);
-    }
-
-    Iterable<Map.Entry<DataKey, DataResource>> iterateOverwritableEntries() {
-      return overwritableResources.entrySet();
-    }
-
-    boolean containsAsset(DataKey name) {
-      return assets.containsKey(name);
-    }
-
-    Iterable<Map.Entry<DataKey, DataAsset>> iterateAssetEntries() {
-      return assets.entrySet();
-    }
-
-    public MergeConflict foundResourceConflict(DataKey key, DataResource value) {
-      return MergeConflict.between(key, overwritableResources.get(key), value);
-    }
-
-    public MergeConflict foundAssetConflict(DataKey key, DataAsset value) {
-      return MergeConflict.between(key, assets.get(key), value);
-    }
-
-    public Collection<DataResource> mergeNonOverwritable(ResourceMap other) {
-      Map<DataKey, DataResource> merged = new HashMap<>(other.nonOverwritingResourceMap);
-      merged.putAll(nonOverwritingResourceMap);
-      return merged.values();
-    }
-  }
 
   /**
    * Merges DataResources into an UnwrittenMergedAndroidData.
@@ -196,11 +112,11 @@ public class AndroidDataMerger {
 
     // Extract the primary resources.
     AndroidDataSet primary = AndroidDataSet.from(primaryData);
-    ResourceMap primaryMap = ResourceMap.from(primary);
+    AndroidDataSet.ResourceMap primaryMap = AndroidDataSet.ResourceMap.from(primary);
 
     // Handle the overwriting resources first.
-    ResourceMap directMap = ResourceMap.from(direct);
-    ResourceMap transitiveMap = ResourceMap.from(transitive);
+    AndroidDataSet.ResourceMap directMap = AndroidDataSet.ResourceMap.from(direct);
+    AndroidDataSet.ResourceMap transitiveMap = AndroidDataSet.ResourceMap.from(transitive);
 
     List<DataResource> overwritableDeps = new ArrayList<>();
     List<DataAsset> assets = new ArrayList<>();
@@ -288,8 +204,6 @@ public class AndroidDataMerger {
       }
       throw new MergingException(Joiner.on("\n").join(messages));
     }
-
-    ;
 
     return UnwrittenMergedAndroidData.of(
         primaryData.getManifest(),
