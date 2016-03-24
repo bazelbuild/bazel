@@ -241,7 +241,7 @@ public class JavaHeaderCompileActionBuilder {
       builder.addOutput(outputDepsProto);
     }
 
-    builder.useParameterFile(ParameterFileType.SHELL_QUOTED);
+    builder.useParameterFile(ParameterFileType.UNQUOTED);
     builder.setCommandLine(buildCommandLine(ruleContext.getConfiguration().getHostPathSeparator()));
 
     builder.addTransitiveInputs(javabaseInputs);
