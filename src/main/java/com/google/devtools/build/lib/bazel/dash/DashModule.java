@@ -45,6 +45,9 @@ import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.params.BasicHttpParams;
+import org.apache.http.params.HttpConnectionParams;
+import org.apache.http.params.HttpParams;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -308,7 +311,11 @@ public class DashModule extends BlazeModule {
 
     private void sendMessage(final String suffix, final HttpEntity message)
         throws SenderException {
-      HttpClient httpClient = new DefaultHttpClient();
+      HttpParams httpParams = new BasicHttpParams();
+      HttpConnectionParams.setConnectionTimeout(httpParams, 5000);
+      HttpConnectionParams.setSoTimeout(httpParams, 5000);
+      HttpClient httpClient = new DefaultHttpClient(httpParams);
+
       HttpPost httppost = new HttpPost(url + "/" + suffix + "/" + buildId);
       if (message != null) {
         httppost.setHeader(HttpHeaders.CONTENT_TYPE, "application/x-protobuf");
