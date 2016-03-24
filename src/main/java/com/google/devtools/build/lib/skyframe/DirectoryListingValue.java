@@ -22,17 +22,16 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
 
 /**
- * A value that represents the list of files in a given directory under a given package path root.
- * Anything in Skyframe that cares about the contents of a directory should have a dependency
- * on the corresponding {@link DirectoryListingValue}.
+ * A value that represents the dirents (name and type of child entries) in a given directory under a
+ * given package path root, fully accounting for symlinks in the directory's path. Anything in
+ * Skyframe that cares about the contents of a directory should have a dependency on the
+ * corresponding {@link DirectoryListingValue}.
  *
- * <p>This value only depends on the FileValue corresponding to the directory. In particular, note
- * that it does not depend on any of its child entries.
- *
- * <p>Note that symlinks in dirents are <b>not</b> expanded. Dependents of the value are responsible
- * for expanding the symlink entries by referring to FileValues that correspond to the symlinks.
+ * <p>Note that dirents that are themselves symlinks are <b>not</b> resolved. Consumers of such a
+ * dirent are responsible for resolving the symlink entry via an appropriate {@link FileValue}.
  * This is a little onerous, but correct: we do not need to reread the directory when a symlink
- * inside it changes, therefore this value should not be invalidated in that case.
+ * inside it changes (or, more generally, when the *contents* of a dirent changes), therefore the
+ * {@link DirectoryListingValue} value should not be invalidated in that case.
  */
 @Immutable
 @ThreadSafe
