@@ -72,7 +72,7 @@ public abstract class BugReport {
   private static void logCrash(Throwable throwable, String... args) {
     BugReport.sendBugReport(throwable, Arrays.asList(args));
     BugReport.printBug(OutErr.SYSTEM_OUT_ERR, throwable);
-    System.err.println("Blaze crash in async thread:");
+    System.err.println(Constants.PRODUCT_NAME + " crash in async thread:");
     throwable.printStackTrace();
   }
 
@@ -132,7 +132,7 @@ public abstract class BugReport {
     PrintStream err = new PrintStream(outErr.getErrorStream());
     e.printStackTrace(err);
     err.flush();
-    LOG.log(Level.SEVERE, "Blaze crashed", e);
+    LOG.log(Level.SEVERE, Constants.PRODUCT_NAME + " crashed", e);
   }
 
   /**
@@ -143,8 +143,8 @@ public abstract class BugReport {
    */
   public static void printBug(OutErr outErr, Throwable e) {
     if (e instanceof OutOfMemoryError) {
-      outErr.printErr(e.getMessage() + "\n\n" +
-          "Blaze ran out of memory and crashed.\n");
+      outErr.printErr(
+          e.getMessage() + "\n\n" + Constants.PRODUCT_NAME + " ran out of memory and crashed.\n");
     } else {
       printThrowableTo(outErr, e);
     }
@@ -175,9 +175,8 @@ public abstract class BugReport {
   private static void logException(Throwable exception, List<String> args, String... values) {
     // The preamble is used in the crash watcher, so don't change it
     // unless you know what you're doing.
-    String preamble = exception instanceof OutOfMemoryError
-        ? "Blaze OOMError: "
-        : "Blaze crashed with args: ";
+    String preamble = Constants.PRODUCT_NAME
+        + (exception instanceof OutOfMemoryError ? " OOMError: " : " crashed with args: ");
 
     LoggingUtil.logToRemote(Level.SEVERE, preamble + Joiner.on(' ').join(args), exception,
         values);
