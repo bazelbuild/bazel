@@ -82,4 +82,15 @@ function test_info_spacing() {
     || fail "bazel info output spaced as $BAZEL_INFO_OUTPUT"
 }
 
+function test_query_spacing() {
+  # Verify that the output of "bazel query" is suitable for consumption by
+  # other tools, i.e., contains only result lines, separated only by newlines.
+  BAZEL_QUERY_OUTPUT=`bazel query --experimental_ui 'deps(//pkg:true)'`
+  echo "$BAZEL_QUERY_OUTPUT" | grep -q -v '^[@/]' \
+   && fail "bazel query output is >$BAZEL_QUERY_OUTPUT<"
+  echo "$BAZEL_QUERY_OUTPUT" | grep -q $'\r' \
+   && fail "bazel query output is >$BAZEL_QUERY_OUTPUT<"
+  true
+}
+
 run_suite "Integration tests for bazel's experimental UI"

@@ -20,6 +20,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.Constants;
+import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.collect.CompactHashSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Target;
@@ -198,6 +199,7 @@ public final class QueryCommand implements BlazeCommand {
       }
     }
 
+    env.getEventBus().post(new NoBuildEvent());
     if (!streamResults) {
       disableAnsiCharactersFiltering(env);
       output = new PrintStream(env.getReporter().getOutErr().getOutputStream());
