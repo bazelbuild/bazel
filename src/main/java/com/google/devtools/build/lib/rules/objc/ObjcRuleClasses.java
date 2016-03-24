@@ -888,10 +888,6 @@ public class ObjcRuleClasses {
           attribute. Instead, add an appropriately-named image resource to the
           bundle.
           <p>
-          Note that this attribute will be ignored if both compiling with
-          <code>--ios_minimum_os</code> >= 8.0 and
-          <code>launch_storyboard</code> is also specified (whose value will be
-          used for the launch screen instead).
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("launch_image", STRING))
           /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(launch_storyboard) -->
@@ -908,9 +904,6 @@ public class ObjcRuleClasses {
           <code>Info.plist</code> under the key
           <code>UILaunchStoryboardName</code>.
           <p>
-          Note that this attribute will be ignored if compiling with
-          <code>--ios_minimum_os</code> set to < 8.0 (generating a warning)
-          and that (if set) <code>launch_image</code> will be used instead.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(
               attr("launch_storyboard", LABEL)
