@@ -1,0 +1,102 @@
+---
+layout: documentation
+title: repository_ctx
+---
+<h1 id="modules.repository_ctx">repository_ctx</h1>
+
+The context of the repository rule containing helper functions and information about attributes. You get a repository_ctx object as an argument to the <code>implementation</code> function when you create a repository rule.
+
+<div class="toc">
+  <h2>Methods</h2>
+  <ul>
+          <li><a href="#attr">attr</a></li>
+                          <li><a href="#download">download</a></li>
+                          <li><a href="#download_and_extract">download_and_extract</a></li>
+                    <li><a href="#execute">execute</a></li>
+                          <li><a href="#file">file</a></li>
+              <li><a href="#name">name</a></li>
+              <li><a href="#os">os</a></li>
+              <li><a href="#path">path</a></li>
+              <li><a href="#symlink">symlink</a></li>
+                    <li><a href="#template">template</a></li>
+              <li><a href="#which">which</a></li>
+        </ul>
+</div>
+
+      <h2 id="attr">attr</h2>
+        <p><pre><a class="anchor" href="struct.html">struct</a> repository_ctx.attr</pre></p>
+
+    A struct to access the values of the attributes. The values are provided by the user (if not, a default value is used).
+
+
+            <h2 id="download">download</h2>
+        <p><pre><a class="anchor" href="globals.html#None">None</a> repository_ctx.download(<a class="anchor" href="string.html">string</a>, unknown, <a class="anchor" href="string.html">string</a>, <a class="anchor" href="globals.html#bool">bool</a>)</pre></p>
+
+    Download a file to the output path for the provided url.
+Parameters:
+url: a URL referencing an archive file containing a Bazel repository. Archives of type .zip, .jar, .war, .tar.gz or .tgz are supported. There is no support for authentication. Redirections are followed.
+output: (optional) sha256: the expected SHA-256 hash of the file downloaded. This must match the SHA-256 hash of the file downloaded. It is a security risk to omit the SHA-256 as remote files can change. At best omitting this field will make your build non-hermetic. It is optional to make development easier but should be set before shipping.
+executable: (optional) set the executable bit to on or off for downloaded file(default to False).
+
+
+            <h2 id="download_and_extract">download_and_extract</h2>
+        <p><pre><a class="anchor" href="globals.html#None">None</a> repository_ctx.download_and_extract(<a class="anchor" href="string.html">string</a>, unknown, <a class="anchor" href="string.html">string</a>, <a class="anchor" href="string.html">string</a>, <a class="anchor" href="string.html">string</a>)</pre></p>
+
+    Download a file to the output path for the provided url, and extract it.
+Parameters:
+url: a URL referencing an archive file containing a Bazel repository. Archives of type .zip, .jar, .war, .tar.gz or .tgz are supported. There is no support for authentication. Redirections are followed.
+output:
+(optional) sha256: the expected SHA-256 hash of the file downloaded. This must match the SHA-256 hash of the file downloaded. It is a security risk to omit the SHA-256 as remote files can change. At best omitting this field will make your build non-hermetic. It is optional to make development easier but should be set before shipping.
+(optional) type: The archive type of the downloaded file. By default, the archive type is determined from the file extension of the URL. If the file has no extension, you can explicitly specify either"zip", "jar", "tar.gz", or "tgz" here.(optional) stripPrefix: a directory prefix to strip from the extracted files.
+Many archives contain a top-level directory that contains alfiles in archive. Instead of needing to specify this prefix over and over in the <code>build_file</code>, this field can be used to strip it extracted files.
+
+
+          <h2 id="execute">execute</h2>
+        <p><pre><a class="anchor" href="exec_result.html">exec_result</a> repository_ctx.execute(List, long)</pre></p>
+
+    Executes the command given by the list of arguments. The execution time of the command is limited by <code>timeout</code> (in seconds, default 600 seconds). This method returns an <code>exec_result</code> structure containing the output of the command.
+
+
+            <h2 id="file">file</h2>
+        <p><pre><a class="anchor" href="globals.html#None">None</a> repository_ctx.file(unknown, <a class="anchor" href="string.html">string</a>, <a class="anchor" href="globals.html#bool">bool</a>)</pre></p>
+
+    Generate a file in the output directory with the provided content. An optional third argument set the executable bit to on or off (default to True).
+
+
+        <h2 id="name">name</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> repository_ctx.name</pre></p>
+
+    The name of the external repository created by this rule.
+
+
+        <h2 id="os">os</h2>
+        <p><pre><a class="anchor" href="repository_os.html">repository_os</a> repository_ctx.os</pre></p>
+
+    A struct to access information from the system
+
+
+        <h2 id="path">path</h2>
+        <p><pre><a class="anchor" href="path.html">path</a> repository_ctx.path(unknown)</pre></p>
+
+    Returns a path from a string or a label. If the path is relative, it will resolve relative to the output directory. If the path is a label, it will resolve to the path of the corresponding file. Note that remote repositories are executed during the analysis phase and thus cannot depends on a target result (the label should point to a non-generated file).
+
+
+        <h2 id="symlink">symlink</h2>
+        <p><pre><a class="anchor" href="globals.html#None">None</a> repository_ctx.symlink(unknown, unknown)</pre></p>
+
+    Create a symlink on the filesystem, the destination of the symlink should be in the output directory. <code>from</code> can also be a label to a file.
+
+
+          <h2 id="template">template</h2>
+        <p><pre><a class="anchor" href="globals.html#None">None</a> repository_ctx.template(unknown, unknown, <a class="anchor" href="dict.html">dict</a>, <a class="anchor" href="globals.html#bool">bool</a>)</pre></p>
+
+    Generate a new file using a <code>template</code>. Every occurrence in <code>template</code> of a key of <code>substitutions</code> will be replaced by the corresponding value. The result is written in <code>path</code>. An optional<code>executable</code> argument (default to true) can be set to turn on or offthe executable bit.
+
+
+        <h2 id="which">which</h2>
+        <p><pre>unknown repository_ctx.which(<a class="anchor" href="string.html">string</a>)</pre></p>
+
+    Returns the path of the corresponding program or None if there is no such program in the path
+
+
+

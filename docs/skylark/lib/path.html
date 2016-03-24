@@ -1,0 +1,50 @@
+---
+layout: documentation
+title: path
+---
+<h1 id="modules.path">path</h1>
+
+A structure representing a file to be used inside a repository
+
+<div class="toc">
+  <h2>Methods</h2>
+  <ul>
+          <li><a href="#basename">basename</a></li>
+              <li><a href="#dirname">dirname</a></li>
+              <li><a href="#exists">exists</a></li>
+              <li><a href="#get_child">get_child</a></li>
+              <li><a href="#readdir">readdir</a></li>
+        </ul>
+</div>
+
+      <h2 id="basename">basename</h2>
+        <p><pre><a class="anchor" href="string.html">string</a> path.basename</pre></p>
+
+    A string giving the basename of the file.
+
+
+        <h2 id="dirname">dirname</h2>
+        <p><pre><a class="anchor" href="path.html">path</a> path.dirname</pre></p>
+
+    The parent directory of this file, or None if this file does not have a parent.
+
+
+        <h2 id="exists">exists</h2>
+        <p><pre><a class="anchor" href="globals.html#bool">bool</a> path.exists</pre></p>
+
+    Returns true if the file denoted by this path exists.
+
+
+        <h2 id="get_child">get_child</h2>
+        <p><pre><a class="anchor" href="path.html">path</a> path.get_child(<a class="anchor" href="string.html">string</a>)</pre></p>
+
+    Append the given path to this path and return the resulted path.
+
+
+        <h2 id="readdir">readdir</h2>
+        <p><pre>List path.readdir()</pre></p>
+
+    The list of entries in the directory denoted by this path.
+
+
+

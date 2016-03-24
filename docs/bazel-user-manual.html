@@ -2294,10 +2294,10 @@ either to the terminal, or to additional log files.
 </p>
 
 <pre>
-  &gt;&gt;&gt;&gt;&gt; # //examples/cpp:hello-world [action 'Linking bazel-out/local_linux-fastbuild/bin/examples/cpp/hello-world']
-  (cd /var/tmp/_bazel_jrluser/4c084335afceb392cfbe7c31afee3a9f/base_workspace && \
+  &gt;&gt;&gt;&gt;&gt; # //examples/cpp:hello-world [action 'Linking examples/cpp/hello-world']
+  (cd /home/jrluser/.cache/bazel/_bazel_jrluser/4c084335afceb392cfbe7c31afee3a9f/bazel && \
     exec env - \
-    /usr/bin/gcc -o bazel-out/local_linux-fastbuild/bin/examples/cpp/hello-world bazel-out/local_linux-fastbuild/bin/examples/cpp/_objs/hello-world/examples/cpp/hello-world.pic.o bazel-out/local_linux-fastbuild/bin/examples/cpp/libhello-lib.a bazel-out/local_linux-fastbuild/bin/tools/cpp/libmalloc.a -lstdc++ -B/usr/bin -Wl,-S)
+    /usr/bin/gcc -o bazel-out/local_linux-fastbuild/bin/examples/cpp/hello-world -B/usr/bin/ -Wl,-z,relro,-z,now -no-canonical-prefixes -pass-exit-codes '-Wl,--build-id=md5' '-Wl,--hash-style=gnu' -Wl,-S -Wl,@bazel-out/local_linux-fastbuild/bin/examples/cpp/hello-world-2.params)
 </pre>
 <p>
   Where possible, commands are printed in a Bourne shell compatible syntax,
