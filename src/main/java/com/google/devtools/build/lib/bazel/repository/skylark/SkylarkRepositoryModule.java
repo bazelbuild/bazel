@@ -60,8 +60,8 @@ public class SkylarkRepositoryModule {
         type = BaseFunction.class,
         doc =
             "the function implementing this rule, has to have exactly one parameter: "
-                + "<code>repository_ctx</code>. The function is called during analysis phase for "
-                + "each instance of the rule."
+                + "<code><a href=\"repository_ctx.html\">repository_ctx</a></code>. The function "
+                + "is called during loading phase for each instance of the rule."
       )
     },
     optionalNamedOnly = {
@@ -72,7 +72,7 @@ public class SkylarkRepositoryModule {
         defaultValue = "None",
         doc =
             "dictionary to declare all the attributes of the rule. It maps from an attribute "
-                + "name to an attribute object (see <a href=\"#modules.attr\">attr</a> "
+                + "name to an attribute object (see <a href=\"attr.html\">attr</a> "
                 + "module). Attributes starting with <code>_</code> are private, and can be "
                 + "used to add an implicit dependency on a label to a file (a repository "
                 + "rule cannot depend on a generated artifact). The attribute "

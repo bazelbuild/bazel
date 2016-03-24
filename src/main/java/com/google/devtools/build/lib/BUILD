@@ -958,12 +958,22 @@ genrule(
     ],
 )
 
+# The skylark repository classes are passed as parameter of the Skylark documentation generator.
+SKYLARK_REPOSITORY_CLASSES = [
+    "com.google.devtools.build.lib.bazel.repository.skylark.SkylarkExecutionResult",
+    "com.google.devtools.build.lib.bazel.repository.skylark.SkylarkOS",
+    "com.google.devtools.build.lib.bazel.repository.skylark.SkylarkPath",
+    "com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryContext",
+    "com.google.devtools.build.lib.bazel.repository.skylark.SkylarkRepositoryModule",
+]
+
 genrule(
     name = "gen_skylarklibrary",
     outs = ["skylark-library.zip"],
     cmd = "mkdir -p $(@D)/skylark-lib &&" +
-          "$(location //src/main/java/com/google/devtools/build/docgen:skydoc_bin) $(@D)/skylark-lib &&" +
-          "zip -qj $@ $(@D)/skylark-lib/*",
+          "$(location //src/main/java/com/google/devtools/build/docgen:skydoc_bin) $(@D)/skylark-lib " +
+          " ".join(SKYLARK_REPOSITORY_CLASSES) +
+          " && zip -qj $@ $(@D)/skylark-lib/*",
     tools = ["//src/main/java/com/google/devtools/build/docgen:skydoc_bin"],
 )
 

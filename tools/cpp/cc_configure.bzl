@@ -285,7 +285,7 @@ def _impl(repository_ctx):
     })
 
 
-cc_autoconf = repository_rule(_impl, local=True)
+cc_autoconf = repository_rule(implementation=_impl, local=True)
 
 
 def cc_configure():

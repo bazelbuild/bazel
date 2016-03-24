@@ -14,6 +14,8 @@
 package com.google.devtools.build.docgen;
 
 
+import java.util.Arrays;
+
 /**
  * The main class for the skylark documentation generator.
  */
@@ -21,7 +23,7 @@ public class SkylarkDocumentationGenerator {
 
   private static boolean checkArgs(String[] args) {
     if (args.length < 1) {
-      System.err.println("There has to be one input parameter\n"
+      System.err.println("There has to be at least one input parameter\n"
           + " - an output file.");
       return false;
     }
@@ -40,7 +42,9 @@ public class SkylarkDocumentationGenerator {
     if (checkArgs(args)) {
       System.out.println("Generating Skylark documentation...");
       try {
-        SkylarkDocumentationProcessor.generateDocumentation(args[0]);
+        SkylarkDocumentationProcessor.generateDocumentation(
+            args[0],
+            Arrays.copyOfRange(args, 1, args.length));
       } catch (Throwable e) {
         fail(e, true);
       }

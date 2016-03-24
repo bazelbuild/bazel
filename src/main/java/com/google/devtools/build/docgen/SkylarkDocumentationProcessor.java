@@ -32,9 +32,9 @@ public final class SkylarkDocumentationProcessor {
   /**
    * Generates the Skylark documentation to the given output directory.
    */
-  public static void generateDocumentation(String outputDir) throws IOException,
+  public static void generateDocumentation(String outputDir, String... clazz) throws IOException,
       BuildEncyclopediaDocException {
-    Map<String, SkylarkModuleDoc> modules = SkylarkDocumentationCollector.collectModules();
+    Map<String, SkylarkModuleDoc> modules = SkylarkDocumentationCollector.collectModules(clazz);
     List<SkylarkModuleDoc> navModules = new ArrayList<>();
 
     // Generate the top level module first in the doc
