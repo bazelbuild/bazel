@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,12 +17,11 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 /**
- * Represents an Android Resource parsed from an xml or binary file.
+ * Represents an Asset created from a binary file.
  */
-public interface DataResource {
-
+public interface DataAsset {
   /**
-   * Provides the FullyQualifiedName of the DataResource.
+   * Provides the RelativeAssetPath of the DataAsset.
    */
   DataKey dataKey();
 
@@ -32,16 +31,16 @@ public interface DataResource {
   Path source();
 
   /**
-   * Writes the resource to the given resource directory.
-   * @param newResourceDirectory The new directory for this resource.
-   * @throws IOException if there are issues with writing the resource.
+   * Writes the asset to the given asset directory.
+   * @param newAssetDirectory The new directory for this asset.
+   * @throws IOException if there are issues with writing the asset.
    */
-  void write(Path newResourceDirectory) throws IOException;
+  void write(Path newAssetDirectory) throws IOException;
 
   /**
    * Compares one data resource to another.
    *
-   * Not implementing Comparable as it would conlfict with DataAsset.
+   * Not implementing Comparable as it would conflict with DataResource.
    */
-  int compareTo(DataResource other);
+  int compareTo(DataAsset other);
 }

@@ -15,7 +15,6 @@ package com.google.devtools.build.android;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 import com.android.ide.common.res2.AssetSet;
 import com.android.ide.common.res2.ResourceSet;
@@ -23,8 +22,6 @@ import com.android.ide.common.res2.ResourceSet;
 import java.io.IOException;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
-import java.nio.file.FileVisitOption;
-import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -165,10 +162,12 @@ class UnvalidatedAndroidData {
     }
   }
 
-  public void walkResources(final FileVisitor<Path> fileVisitor) throws IOException {
+  public void walk(final AndroidDataPathWalker pathWalker) throws IOException {
     for (Path path : resourceDirs) {
-      Files.walkFileTree(
-          path, ImmutableSet.of(FileVisitOption.FOLLOW_LINKS), Integer.MAX_VALUE, fileVisitor);
+      pathWalker.walkResources(path);
+    }
+    for (Path path : assetDirs) {
+      pathWalker.walkAssets(path);
     }
   }
 }

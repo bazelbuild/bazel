@@ -14,41 +14,88 @@
 package com.google.devtools.build.android;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 
+import com.android.annotations.VisibleForTesting;
+import com.android.annotations.concurrency.Immutable;
+
+import java.nio.file.Path;
 import java.util.Objects;
 
 /**
- * Represents a conflict of two DataResources that share the same FullyQualifiedName.
+ * Represents a conflict of two DataResources or DataAssets.
+ *
+ * For resources, the dataKey is the FullyQualifiedName; Assets use the RelativeAssetPath.
  */
+@Immutable
 public class MergeConflict {
   static final String CONFLICT_MESSAGE = "%s is provided from %s and %s";
-  private final FullyQualifiedName fullyQualifiedName;
-  private final DataResource first;
-  private final DataResource second;
+  private final DataKey dataKey;
+  private final Path first;
+  private final Path second;
 
-  private MergeConflict(
-      FullyQualifiedName fullyQualifiedName, DataResource first, DataResource second) {
-    this.fullyQualifiedName = fullyQualifiedName;
+  private MergeConflict(DataKey dataKey, Path first, Path second) {
+    this.dataKey = dataKey;
     this.first = first;
     this.second = second;
   }
 
-  public static MergeConflict between(
-      FullyQualifiedName fullyQualifiedName, DataResource first, DataResource second) {
-    return new MergeConflict(fullyQualifiedName, first, second);
+  /**
+   * Creates a MergeConflict between two DataResources.
+   *
+   * The {@link DataKey} must match the first.dataKey() and second
+   * .dataKey().
+   *
+   * @param dataKey The dataKey name that both DataResources share.
+   * @param first The first DataResource.
+   * @param second The second DataResource.
+   * @return A new MergeConflict.
+   */
+  public static MergeConflict between(DataKey dataKey, DataResource first, DataResource second) {
+    Preconditions.checkNotNull(dataKey);
+    Preconditions.checkArgument(dataKey.equals(first.dataKey()));
+    Preconditions.checkArgument(dataKey.equals(second.dataKey()));
+    return of(dataKey, first.source(), second.source());
+  }
+
+  /**
+   * Creates a MergeConflict between two DataResources.
+   *
+   * The {@link DataKey} must match the first.dataKey() and second
+   * .dataKey().
+   *
+   * @param dataKey The dataKey name that both DataResources share.
+   * @param first The first DataResource.
+   * @param second The second DataResource.
+   * @return A new MergeConflict.
+   */
+  public static MergeConflict between(DataKey dataKey, DataAsset first, DataAsset second) {
+    Preconditions.checkNotNull(dataKey);
+    Preconditions.checkArgument(dataKey.equals(first.dataKey()));
+    Preconditions.checkArgument(dataKey.equals(second.dataKey()));
+    return of(dataKey, first.source(), second.source());
+  }
+
+  @VisibleForTesting
+  static MergeConflict of(DataKey key, Path first, Path second) {
+    return new MergeConflict(key, first, second);
   }
 
   public String toConflictMessage() {
-    return String.format(CONFLICT_MESSAGE, fullyQualifiedName, first.source(), second.source());
+    return String.format(CONFLICT_MESSAGE, dataKey, first, second);
   }
 
-  public FullyQualifiedName fullyQualifiedName() {
-    return fullyQualifiedName;
+  public DataKey dataKey() {
+    return dataKey;
   }
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(this).add("first", first).add("second", second).toString();
+    return MoreObjects.toStringHelper(this)
+        .add("dataKey", dataKey)
+        .add("first", first)
+        .add("second", second)
+        .toString();
   }
 
   @Override

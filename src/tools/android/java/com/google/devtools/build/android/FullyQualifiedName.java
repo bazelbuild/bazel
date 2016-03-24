@@ -35,7 +35,7 @@ import javax.annotation.concurrent.Immutable;
  * Each resource name consists of the resource package, name, type, and qualifiers.
  */
 @Immutable
-public class FullyQualifiedName implements Comparable<FullyQualifiedName> {
+public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedName> {
   public static final String DEFAULT_PACKAGE = "res-auto";
 
   private final String pkg;
@@ -57,7 +57,7 @@ public class FullyQualifiedName implements Comparable<FullyQualifiedName> {
     private final List<String> qualifiers;
     private final String pkg;
 
-    public Factory(List<String> qualifiers, String pkg) {
+    private Factory(List<String> qualifiers, String pkg) {
       this.qualifiers = qualifiers;
       this.pkg = pkg;
     }
@@ -114,8 +114,8 @@ public class FullyQualifiedName implements Comparable<FullyQualifiedName> {
    */
   public static FullyQualifiedName of(
       String pkg, List<String> qualifiers, ResourceType resourceType, String resourceName) {
-    return new FullyQualifiedName(pkg, Ordering.natural().immutableSortedCopy(qualifiers),
-        resourceType, resourceName);
+    return new FullyQualifiedName(
+        pkg, Ordering.natural().immutableSortedCopy(qualifiers), resourceType, resourceName);
   }
 
   private FullyQualifiedName(
