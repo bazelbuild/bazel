@@ -14,3 +14,4 @@ Add FILE_REFERENCE(2) to the PBXContainerItemProxy.ProxyType enum.
 Update LastUpgradeCheck from 600 to 610
 Add logic to automatically detect XCVersionGroup type even if there is no currentVersion set
 Removed code not used by Bazel.
+Add WATCH_OS1_EXTENSION and WATCH_OS1_APPLICATION to PBXTarget.ProductType

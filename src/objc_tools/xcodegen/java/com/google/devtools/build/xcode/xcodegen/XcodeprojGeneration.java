@@ -132,14 +132,18 @@ public class XcodeprojGeneration {
       ProductType.BUNDLE,
       ProductType.UNIT_TEST,
       ProductType.APP_EXTENSION,
-      ProductType.FRAMEWORK);
+      ProductType.FRAMEWORK,
+      ProductType.WATCH_OS1_APPLICATION,
+      ProductType.WATCH_OS1_EXTENSION);
 
   private static final EnumSet<ProductType> PRODUCT_TYPES_THAT_HAVE_A_BINARY = EnumSet.of(
       ProductType.APPLICATION,
       ProductType.BUNDLE,
       ProductType.UNIT_TEST,
       ProductType.APP_EXTENSION,
-      ProductType.FRAMEWORK);
+      ProductType.FRAMEWORK,
+      ProductType.WATCH_OS1_APPLICATION,
+      ProductType.WATCH_OS1_EXTENSION);
 
   /**
    * Detects the product type of the given target based on multiple fields in {@code targetControl}.
@@ -188,6 +192,7 @@ public class XcodeprojGeneration {
 
     switch (type) {
       case APPLICATION:
+      case WATCH_OS1_APPLICATION:
         return FileReference.of(String.format("%s.app", productName), SourceTree.BUILT_PRODUCTS_DIR)
             .withExplicitFileType(FILE_TYPE_WRAPPER_APPLICATION);
       case STATIC_LIBRARY:
@@ -203,6 +208,7 @@ public class XcodeprojGeneration {
             String.format("%s.xctest", productName), SourceTree.BUILT_PRODUCTS_DIR)
                 .withExplicitFileType(FILE_TYPE_WRAPPER_BUNDLE);
       case APP_EXTENSION:
+      case WATCH_OS1_EXTENSION:
         return FileReference.of(
             String.format("%s.appex", productName), SourceTree.BUILT_PRODUCTS_DIR)
                 .withExplicitFileType(FILE_TYPE_APP_EXTENSION);
@@ -271,9 +277,11 @@ public class XcodeprojGeneration {
       if (dependencyControl.getTestHost()) {
         buildConfig.put("TEST_HOST", dependencyInfo.staticallyLinkedBinary());
         buildConfig.put("BUNDLE_LOADER", dependencyInfo.staticallyLinkedBinary());
-      } else if (productType(dependencyInfo.control) == ProductType.BUNDLE) {
+      } else if (productType(dependencyInfo.control) == ProductType.BUNDLE
+        || productType(dependencyInfo.control) == ProductType.WATCH_OS1_APPLICATION) {
         resourcesPhase.getFiles().add(dependencyInfo.productBuildFile);
-      } else if (productType(dependencyInfo.control) == ProductType.APP_EXTENSION) {
+      } else if (productType(dependencyInfo.control) == ProductType.APP_EXTENSION
+        || productType(dependencyInfo.control) == ProductType.WATCH_OS1_EXTENSION) {
         PBXCopyFilesBuildPhase copyFilesPhase = new PBXCopyFilesBuildPhase(
             PBXCopyFilesBuildPhase.Destination.PLUGINS, /*path=*/"");
         copyFilesPhase.getFiles().add(dependencyInfo.productBuildFile);

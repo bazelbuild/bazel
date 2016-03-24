@@ -38,7 +38,9 @@ public abstract class PBXTarget extends PBXProjectItem {
     APPLICATION("com.apple.product-type.application"),
     UNIT_TEST("com.apple.product-type.bundle.unit-test"),
     IN_APP_PURCHASE_CONTENT("com.apple.product-type.in-app-purchase-content"),
-    APP_EXTENSION("com.apple.product-type.app-extension");
+    APP_EXTENSION("com.apple.product-type.app-extension"),
+    WATCH_OS1_APPLICATION("com.apple.product-type.application.watchapp"),
+    WATCH_OS1_EXTENSION("com.apple.product-type.watchkit-extension");
 
     public final String identifier;
     private ProductType(String identifier) {
