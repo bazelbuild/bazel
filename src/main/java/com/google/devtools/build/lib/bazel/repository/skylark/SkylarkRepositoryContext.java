@@ -354,18 +354,40 @@ public class SkylarkRepositoryContext {
             + " omit the SHA-256 as remote files can change. At best omitting this field will make"
             + " your build non-hermetic. It is optional to make development easier but should"
             + " be set before shipping."
+            + "\nexecutable: (optional) set the executable bit to on or off "
+            + "for downloaded file(default to False)."
   )
-  public void download(String url, Object output, String sha256)
+  public void download(String url, Object output, String sha256, Boolean executable)
       throws RepositoryFunctionException, EvalException {
     SkylarkPath outputPath = getPath("download()", output);
-    checkInOutputDirectory(outputPath);
-    HttpDownloader.download(url, sha256, null, outputPath.getPath(), env.getListener());
+    try {
+      checkInOutputDirectory(outputPath);
+      makeDirectories(outputPath.path);
+      HttpDownloader.download(url, sha256, null, outputPath.getPath(), env.getListener());
+      if (executable) {
+        outputPath.path.setExecutable(true);
+      }
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  @SkylarkCallable(name = "download", documented = false)
+  public void download(String url, Object output, String sha256)
+      throws RepositoryFunctionException, EvalException {
+    download(url, output, sha256, false);
+  }
+
+  @SkylarkCallable(name = "download", documented = false)
+  public void download(String url, Object output, Boolean executable)
+      throws RepositoryFunctionException, EvalException {
+    download(url, output, "", executable);
   }
 
   @SkylarkCallable(name = "download", documented = false)
   public void download(String url, Object output)
       throws RepositoryFunctionException, EvalException {
-    download(url, output, "");
+    download(url, output, "", false);
   }
 
   @SkylarkCallable(
