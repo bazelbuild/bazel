@@ -728,6 +728,7 @@ public class ObjcRuleClasses {
    */
   public static class BundlingRule implements RuleDefinition {
     static final String INFOPLIST_ATTR = "infoplist";
+    static final String FAMILIES_ATTR = "families";
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -772,7 +773,7 @@ public class ObjcRuleClasses {
           empty.</p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(
-              attr("families", STRING_LIST)
+              attr(FAMILIES_ATTR, STRING_LIST)
                   .value(ImmutableList.of(TargetDeviceFamily.IPHONE.getNameInRule())))
           .add(
               attr("$momcwrapper", LABEL)
@@ -806,6 +807,15 @@ public class ObjcRuleClasses {
    * application or extension).
    */
   public static class ReleaseBundlingRule implements RuleDefinition {
+    static final String APP_ICON_ATTR = "app_icon";
+    static final String BUNDLE_ID_ATTR = "bundle_id";
+    static final String DEFAULT_PROVISIONING_PROFILE_ATTR = ":default_provisioning_profile";
+    static final String ENTITLEMENTS_ATTR = "entitlements";
+    static final String EXTRA_ENTITLEMENTS_ATTR = ":extra_entitlements";
+    static final String LAUNCH_IMAGE_ATTR = "launch_image";
+    static final String LAUNCH_STORYBOARD_ATTR = "launch_storyboard";
+    static final String PROVISIONING_PROFILE_ATTR = "provisioning_profile";
+
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
@@ -821,9 +831,9 @@ public class ObjcRuleClasses {
           <a href="https://developer.apple.com/library/ios/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html">their definitions in Apple's documentation</a>:
           $(AppIdentifierPrefix) and $(CFBundleIdentifier).
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("entitlements", LABEL).legacyAllowAnyFileType())
+          .add(attr(ENTITLEMENTS_ATTR, LABEL).legacyAllowAnyFileType())
           .add(
-              attr(":extra_entitlements", LABEL)
+              attr(EXTRA_ENTITLEMENTS_ATTR, LABEL)
                   .singleArtifact()
                   .value(
                       new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
@@ -842,12 +852,12 @@ public class ObjcRuleClasses {
           This is only used for non-simulator builds.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(
-              attr("provisioning_profile", LABEL)
+              attr(PROVISIONING_PROFILE_ATTR, LABEL)
                   .singleArtifact()
                   .allowedFileTypes(FileType.of(".mobileprovision")))
           // Will be used if provisioning_profile is null.
           .add(
-              attr(":default_provisioning_profile", LABEL)
+              attr(DEFAULT_PROVISIONING_PROFILE_ATTR, LABEL)
                   .singleArtifact()
                   .allowedFileTypes(FileType.of(".mobileprovision"))
                   .value(
@@ -860,7 +870,7 @@ public class ObjcRuleClasses {
                           if (appleConfiguration.getBundlingPlatform() != Platform.IOS_DEVICE) {
                             return null;
                           }
-                          if (rule.isAttributeValueExplicitlySpecified("provisioning_profile")) {
+                          if (rule.isAttributeValueExplicitlySpecified(PROVISIONING_PROFILE_ATTR)) {
                             return null;
                           }
                           return appleConfiguration.getDefaultProvisioningProfileLabel();
@@ -876,7 +886,7 @@ public class ObjcRuleClasses {
           If the application icon is not in an asset catalog, do not use this
           attribute. Instead, add a CFBundleIcons entry to the Info.plist file.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("app_icon", STRING))
+          .add(attr(APP_ICON_ATTR, STRING))
           /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(launch_image) -->
           The name of the launch image.
 
@@ -889,7 +899,7 @@ public class ObjcRuleClasses {
           bundle.
           <p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr("launch_image", STRING))
+          .add(attr(LAUNCH_IMAGE_ATTR, STRING))
           /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(launch_storyboard) -->
           The location of the launch storyboard (.xib or .storyboard).
 
@@ -906,7 +916,7 @@ public class ObjcRuleClasses {
           <p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(
-              attr("launch_storyboard", LABEL)
+              attr(LAUNCH_STORYBOARD_ATTR, LABEL)
                   .direct_compile_time_input()
                   .allowedFileTypes(FileTypeSet.of(XIB_TYPE, STORYBOARD_TYPE)))
           /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(bundle_id) -->
@@ -917,7 +927,7 @@ public class ObjcRuleClasses {
           will be used.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(
-              attr("bundle_id", STRING)
+              attr(BUNDLE_ID_ATTR, STRING)
                   .value(
                       new Attribute.ComputedDefault() {
                         @Override

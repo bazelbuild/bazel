@@ -17,6 +17,9 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.APP_ICON_ATTR;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.ENTITLEMENTS_ATTR;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.EXTRA_ENTITLEMENTS_ATTR;
 import static com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.UI_DEVICE_FAMILY_VALUES;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -238,7 +241,7 @@ public final class ReleaseBundlingSupport {
     // and we MUST raise our own error somehow...
     if (!objcProvider.hasAssetCatalogs()) {
       if (releaseBundling.getAppIcon() != null) {
-        ruleContext.attributeError("app_icon",
+        ruleContext.attributeError(APP_ICON_ATTR,
             String.format(NO_ASSET_CATALOG_ERROR_FORMAT, releaseBundling.getAppIcon()));
       }
       if (releaseBundling.getLaunchImage() != null) {
@@ -1046,12 +1049,12 @@ public final class ReleaseBundlingSupport {
 
     @Nullable
     Artifact entitlements() {
-      return ruleContext.getPrerequisiteArtifact("entitlements", Mode.TARGET);
+      return ruleContext.getPrerequisiteArtifact(ENTITLEMENTS_ATTR, Mode.TARGET);
     }
 
     @Nullable
     Artifact extraEntitlements() {
-      return ruleContext.getPrerequisiteArtifact(":extra_entitlements", Mode.TARGET);
+      return ruleContext.getPrerequisiteArtifact(EXTRA_ENTITLEMENTS_ATTR, Mode.TARGET);
     }
 
     NestedSet<? extends Artifact> dependentLinkedBinaries() {

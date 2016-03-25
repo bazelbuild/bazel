@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.NESTED_BUNDLE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule.FAMILIES_ATTR;
 import static com.google.devtools.build.lib.rules.objc.XcodeProductType.BUNDLE;
 
 import com.google.common.collect.ImmutableSet;
@@ -85,7 +86,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 
     ImmutableSet<TargetDeviceFamily> families = null;
-    List<String> rawFamilies = ruleContext.attributes().get("families", Type.STRING_LIST);
+    List<String> rawFamilies = ruleContext.attributes().get(FAMILIES_ATTR, Type.STRING_LIST);
     try {
       families = ImmutableSet.copyOf(TargetDeviceFamily.fromNamesInRule(rawFamilies));
     } catch (InvalidFamilyNameException | RepeatedFamilyNameException e) {
@@ -93,7 +94,7 @@ public class ObjcBundleLibrary implements RuleConfiguredTargetFactory {
     }
 
     if (families.isEmpty()) {
-      ruleContext.attributeError("families", ReleaseBundling.INVALID_FAMILIES_ERROR);
+      ruleContext.attributeError(FAMILIES_ATTR, ReleaseBundling.INVALID_FAMILIES_ERROR);
     }
 
     return new Bundling.Builder()

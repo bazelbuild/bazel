@@ -14,6 +14,14 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule.FAMILIES_ATTR;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.APP_ICON_ATTR;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.BUNDLE_ID_ATTR;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.DEFAULT_PROVISIONING_PROFILE_ATTR;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.LAUNCH_IMAGE_ATTR;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.LAUNCH_STORYBOARD_ATTR;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.PROVISIONING_PROFILE_ATTR;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
@@ -131,7 +139,7 @@ final class ReleaseBundling {
 
     public ReleaseBundling build() {
       Preconditions.checkNotNull(intermediateArtifacts, "intermediateArtifacts");
-      Preconditions.checkNotNull(families, "families");
+      Preconditions.checkNotNull(families, FAMILIES_ATTR);
       return new ReleaseBundling(
           ipaArtifact,
           bundleId,
@@ -157,29 +165,29 @@ final class ReleaseBundling {
   public static ReleaseBundling releaseBundling(RuleContext ruleContext)
       throws InterruptedException {
     Preconditions.checkState(!Strings.isNullOrEmpty(
-        ruleContext.attributes().get("bundle_id", Type.STRING)),
+        ruleContext.attributes().get(BUNDLE_ID_ATTR, Type.STRING)),
         "requires a bundle_id value");
     String primaryBundleId = null;
     String fallbackBundleId = null;
     Artifact provisioningProfile;
 
-    if (ruleContext.attributes().isAttributeValueExplicitlySpecified("bundle_id")) {
-      primaryBundleId = ruleContext.attributes().get("bundle_id", Type.STRING);
+    if (ruleContext.attributes().isAttributeValueExplicitlySpecified(BUNDLE_ID_ATTR)) {
+      primaryBundleId = ruleContext.attributes().get(BUNDLE_ID_ATTR, Type.STRING);
     } else {
-      fallbackBundleId = ruleContext.attributes().get("bundle_id", Type.STRING);
+      fallbackBundleId = ruleContext.attributes().get(BUNDLE_ID_ATTR, Type.STRING);
     }
 
     Artifact explicitProvisioningProfile =
-        ruleContext.getPrerequisiteArtifact("provisioning_profile", Mode.TARGET);
+        ruleContext.getPrerequisiteArtifact(PROVISIONING_PROFILE_ATTR, Mode.TARGET);
     if (explicitProvisioningProfile != null) {
       provisioningProfile = explicitProvisioningProfile;
     } else {
-      provisioningProfile = ruleContext.getPrerequisiteArtifact(":default_provisioning_profile",
+      provisioningProfile = ruleContext.getPrerequisiteArtifact(DEFAULT_PROVISIONING_PROFILE_ATTR,
           Mode.TARGET);
     }
 
     ImmutableSet<TargetDeviceFamily> families = null;
-    List<String> rawFamilies = ruleContext.attributes().get("families", Type.STRING_LIST);
+    List<String> rawFamilies = ruleContext.attributes().get(FAMILIES_ATTR, Type.STRING_LIST);
     try {
       families = ImmutableSet.copyOf(TargetDeviceFamily.fromNamesInRule(rawFamilies));
     } catch (InvalidFamilyNameException | RepeatedFamilyNameException e) {
@@ -187,20 +195,21 @@ final class ReleaseBundling {
     }
 
     if (families.isEmpty()) {
-      ruleContext.attributeError("families", INVALID_FAMILIES_ERROR);
+      ruleContext.attributeError(FAMILIES_ATTR, INVALID_FAMILIES_ERROR);
     }
 
     return new ReleaseBundling.Builder()
         .setIpaArtifact(ruleContext.getImplicitOutputArtifact(ReleaseBundlingSupport.IPA))
-        .setBundleId(ruleContext.attributes().get("bundle_id", Type.STRING))
+        .setBundleId(ruleContext.attributes().get(BUNDLE_ID_ATTR, Type.STRING))
         .setPrimaryBundleId(primaryBundleId)
         .setFallbackBundleId(fallbackBundleId)
-        .setAppIcon(Strings.emptyToNull(ruleContext.attributes().get("app_icon", Type.STRING)))
+        .setAppIcon(Strings.emptyToNull(ruleContext.attributes().get(APP_ICON_ATTR, Type.STRING)))
         .setLaunchImage(Strings.emptyToNull(
-            ruleContext.attributes().get("launch_image", Type.STRING)))
-        .setLaunchStoryboard(ruleContext.getPrerequisiteArtifact("launch_storyboard", Mode.TARGET))
+            ruleContext.attributes().get(LAUNCH_IMAGE_ATTR, Type.STRING)))
+        .setLaunchStoryboard(
+            ruleContext.getPrerequisiteArtifact(LAUNCH_STORYBOARD_ATTR, Mode.TARGET))
         .setProvisioningProfile(provisioningProfile)
-        .setProvisioningProfileAttributeName("provisioning_profile")
+        .setProvisioningProfileAttributeName(PROVISIONING_PROFILE_ATTR)
         .setTargetDeviceFamilies(families)
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .build();
@@ -322,7 +331,7 @@ final class ReleaseBundling {
 
   /**
    * Returns the list of {@link TargetDeviceFamily} values this bundle is targeting.
-   * If empty, the default values specified by "families" attribute will be used.
+   * If empty, the default values specified by {@link FAMILIES_ATTR} will be used.
    */
   public ImmutableSet<TargetDeviceFamily> getTargetDeviceFamilies() {
     return families;

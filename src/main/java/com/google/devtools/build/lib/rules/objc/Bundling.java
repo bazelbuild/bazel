@@ -25,7 +25,8 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STORYBOARD;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCDATAMODEL;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XIB;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule.FAMILIES_ATTR;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.BundlingRule.INFOPLIST_ATTR;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
@@ -131,7 +132,7 @@ final class Bundling {
      */
     public Builder addInfoplistInputFromRule(RuleContext ruleContext) {
       Artifact infoplist =
-          ruleContext.getPrerequisiteArtifact(BundlingRule.INFOPLIST_ATTR, Mode.TARGET);
+          ruleContext.getPrerequisiteArtifact(INFOPLIST_ATTR, Mode.TARGET);
       if (infoplist != null) {
         infoplistInputs.add(infoplist);
       }
@@ -281,7 +282,7 @@ final class Bundling {
 
     public Bundling build() {
       Preconditions.checkNotNull(intermediateArtifacts, "intermediateArtifacts");
-      Preconditions.checkNotNull(families, "families");
+      Preconditions.checkNotNull(families, FAMILIES_ATTR);
       NestedSet<Artifact> bundleInfoplistInputs = bundleInfoplistInputs();
       Optional<Artifact> bundleInfoplist = bundleInfoplist(bundleInfoplistInputs);
       Optional<Artifact> actoolzipOutput = actoolzipOutput();
@@ -542,7 +543,7 @@ final class Bundling {
 
   /**
    * Returns the list of {@link TargetDeviceFamily} values this bundle is targeting.
-   * If empty, the default values specified by "families" attribute will be used.
+   * If empty, the default values specified by {@link FAMILIES_ATTR} will be used.
    */
   public ImmutableSet<TargetDeviceFamily> getTargetDeviceFamilies() {
     return families;
