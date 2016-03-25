@@ -109,6 +109,12 @@ public abstract class JavaHelper {
   public static PathFragment getJavaResourcePath(
       JavaSemantics semantics, RuleContext ruleContext, Artifact resource) {
     PathFragment rootRelativePath = resource.getRootRelativePath();
+
+    if (!resource.getOwner().getWorkspaceRoot().isEmpty()) {
+      PathFragment workspace = new PathFragment(resource.getOwner().getWorkspaceRoot());
+      rootRelativePath = rootRelativePath.relativeTo(workspace);
+    }
+
     if (!ruleContext.attributes().has("resource_strip_prefix", Type.STRING)
         || !ruleContext.attributes().isAttributeValueExplicitlySpecified("resource_strip_prefix")) {
       return semantics.getDefaultJavaResourcePath(rootRelativePath);
