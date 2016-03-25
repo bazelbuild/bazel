@@ -2025,7 +2025,8 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     // until they're read from the CROSSTOOL. Feed the CROSSTOOL defaults in here.
     return ImmutableMap.<String, Object>of(
         "cpu", getTargetCpu(),
-        "compiler", getCompiler()
+        "compiler", getCompiler(),
+        "glibc", getTargetLibc()
     );
   }
 

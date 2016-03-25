@@ -166,6 +166,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
   public void testLateBoundOptionDefaults() throws Exception {
     String crosstoolCpuDefault = (String) getTargetConfiguration().getOptionValue("cpu");
     String crosstoolCompilerDefault = (String) getTargetConfiguration().getOptionValue("compiler");
+    String crosstoolLibcDefault = (String) getTargetConfiguration().getOptionValue("glibc");
 
     scratch.file("test/BUILD",
         "config_setting(",
@@ -173,6 +174,7 @@ public class ConfigSettingTest extends BuildViewTestCase {
         "    values = {",
         "        'cpu': '" + crosstoolCpuDefault + "',",
         "        'compiler': '" + crosstoolCompilerDefault + "',", //'gcc-4.4.0',",
+        "        'glibc': '" + crosstoolLibcDefault + "',", //'2.3.2',",
         "    })");
 
     assertTrue(getConfigMatchingProvider("//test:match").matches());
@@ -180,6 +182,8 @@ public class ConfigSettingTest extends BuildViewTestCase {
     assertNotNull(crosstoolCpuDefault);
     assertNull(flagDefault("compiler"));
     assertNotNull(crosstoolCompilerDefault);
+    assertNull(flagDefault("glibc"));
+    assertNotNull(crosstoolLibcDefault);
   }
 
   /**
