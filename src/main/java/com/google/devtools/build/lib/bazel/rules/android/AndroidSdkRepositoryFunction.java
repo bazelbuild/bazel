@@ -55,21 +55,10 @@ public class AndroidSdkRepositoryFunction extends RepositoryFunction {
 
     String template = getStringResource("android_sdk_repository_template.txt");
 
-    // Android 23 removed most of org.apache.http from android.jar and moved it
-    // to a separate jar, but this jar exists only with version 23 and above.
-    // Not sure when this jar will be removed.
-    String orgApacheHttpLegacyImport = "";
-    if (apiLevel >= 23) {
-      orgApacheHttpLegacyImport =
-          getStringResource("android_sdk_org_apache_http_legacy_import_template.txt")
-              .replaceAll("%api_level%", apiLevel.toString());
-    }
-
     String buildFile = template
         .replaceAll("%repository_name%", rule.getName())
         .replaceAll("%build_tools_version%", buildToolsVersion)
-        .replaceAll("%api_level%", apiLevel.toString())
-        .replaceAll("%org_apache_http_legacy_import%", orgApacheHttpLegacyImport);
+        .replaceAll("%api_level%", apiLevel.toString());
 
     writeBuildFile(outputDirectory, buildFile);
     return RepositoryDirectoryValue.create(outputDirectory);
