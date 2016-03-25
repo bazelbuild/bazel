@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.skyframe;
 
+import com.google.common.base.Joiner;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
@@ -76,7 +77,8 @@ public class NotifyingInMemoryGraph extends InMemoryGraph {
       try {
         delegate.accept(key, type, order, context);
       } catch (Exception e) {
-        unexpectedExceptions.add(e);
+        TrackingAwaiter.INSTANCE.injectExceptionAndMessage(e,
+            "In NotifyingInMemoryGraph: " + Joiner.on(", ").join(key, type, order, context));
         throw e;
       }
     }

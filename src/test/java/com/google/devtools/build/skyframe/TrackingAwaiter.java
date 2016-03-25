@@ -82,6 +82,11 @@ public class TrackingAwaiter {
     }
   }
 
+  /** Allow arbitrary errors to be recorded here for later throwing. */
+  public void injectExceptionAndMessage(Throwable throwable, String message) {
+    exceptionsThrown.add(Pair.of(message, throwable));
+  }
+
   public void assertNoErrors() {
     List<Pair<String, Throwable>> thisEvalExceptionsThrown = ImmutableList.copyOf(exceptionsThrown);
     exceptionsThrown.clear();
