@@ -18,6 +18,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.workspace.maven.DefaultModelResolver;
 import com.google.devtools.build.workspace.maven.Resolver;
 
 import org.junit.Test;
@@ -65,7 +66,7 @@ public class WorkspaceFileGeneratorTest {
     pomWriter.close();
 
     StoredEventHandler handler = new StoredEventHandler();
-    Resolver resolver = new Resolver(handler);
+    Resolver resolver = new Resolver(handler, new DefaultModelResolver());
     String outputFile = tmpdir + "/output";
     PrintStream outputStream = new PrintStream(outputFile);
     resolver.resolvePomDependencies(tmpdir.getAbsolutePath());

@@ -25,21 +25,11 @@ import org.apache.maven.model.Dependency;
 import org.apache.maven.model.Model;
 import org.apache.maven.model.Parent;
 import org.apache.maven.model.Repository;
-import org.apache.maven.model.building.DefaultModelBuilder;
-import org.apache.maven.model.building.DefaultModelBuilderFactory;
-import org.apache.maven.model.building.DefaultModelBuildingRequest;
 import org.apache.maven.model.building.DefaultModelProcessor;
 import org.apache.maven.model.building.FileModelSource;
-import org.apache.maven.model.building.ModelBuildingException;
-import org.apache.maven.model.building.ModelBuildingResult;
 import org.apache.maven.model.building.ModelSource;
-import org.apache.maven.model.composition.DefaultDependencyManagementImporter;
 import org.apache.maven.model.io.DefaultModelReader;
 import org.apache.maven.model.locator.DefaultModelLocator;
-import org.apache.maven.model.management.DefaultDependencyManagementInjector;
-import org.apache.maven.model.management.DefaultPluginManagementInjector;
-import org.apache.maven.model.plugin.DefaultPluginConfigurationExpander;
-import org.apache.maven.model.profile.DefaultProfileSelector;
 import org.apache.maven.model.resolution.UnresolvableModelException;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
@@ -90,7 +80,6 @@ public class Resolver {
   private static final String COMPILE_SCOPE = "compile";
 
   private final EventHandler handler;
-  private final DefaultModelBuilder modelBuilder;
   private final DefaultModelResolver modelResolver;
 
   private final List<String> headers;
@@ -98,17 +87,11 @@ public class Resolver {
   private final Map<String, Rule> deps;
   private Set<Rule> rootDependencies;
 
-  public Resolver(EventHandler handler) {
+  public Resolver(EventHandler handler, DefaultModelResolver resolver) {
     this.handler = handler;
     this.headers = Lists.newArrayList();
     this.deps = Maps.newHashMap();
-    this.modelBuilder = new DefaultModelBuilderFactory().newInstance()
-        .setProfileSelector(new DefaultProfileSelector())
-        .setPluginConfigurationExpander(new DefaultPluginConfigurationExpander())
-        .setPluginManagementInjector(new DefaultPluginManagementInjector())
-        .setDependencyManagementImporter(new DefaultDependencyManagementImporter())
-        .setDependencyManagementInjector(new DefaultDependencyManagementInjector());
-    this.modelResolver = new DefaultModelResolver();
+    this.modelResolver = resolver;
     this.rootDependencies = Sets.newTreeSet();
   }
 
@@ -204,17 +187,8 @@ public class Resolver {
    */
   @Nullable
   public Model resolveEffectiveModel(ModelSource modelSource, Set<String> exclusions, Rule parent) {
-    DefaultModelBuildingRequest request = new DefaultModelBuildingRequest();
-    request.setModelResolver(modelResolver);
-    request.setModelSource(modelSource);
-    Model model;
-    try {
-      ModelBuildingResult result = modelBuilder.build(request);
-      model = result.getEffectiveModel();
-    } catch (ModelBuildingException | IllegalArgumentException e) {
-      // IllegalArg can be thrown if the parent POM cannot be resolved.
-      handler.handle(Event.error("Unable to resolve Maven model from " + modelSource.getLocation()
-          + ": " + e.getMessage()));
+    Model model = modelResolver.getEffectiveModel(modelSource, handler);
+    if (model == null) {
       return null;
     }
     for (Repository repo : model.getRepositories()) {
@@ -268,19 +242,7 @@ public class Resolver {
    * Find the POM files for a given pom's parent(s) and submodules.
    */
   private void resolveSourceLocations(FileModelSource fileModelSource) {
-    DefaultModelBuildingRequest request = new DefaultModelBuildingRequest();
-    request.setModelResolver(modelResolver);
-    request.setModelSource(fileModelSource);
-    Model model;
-    try {
-      ModelBuildingResult result = modelBuilder.build(request);
-      model = result.getRawModel();
-    } catch (ModelBuildingException | IllegalArgumentException e) {
-      // IllegalArg can be thrown if the parent POM cannot be resolved.
-      handler.handle(Event.error("Unable to resolve raw Maven model from "
-          + fileModelSource.getLocation() + ": " + e.getMessage()));
-      return;
-    }
+    Model model = modelResolver.getRawModel(fileModelSource, handler);
 
     // Self.
     Parent parent = model.getParent();

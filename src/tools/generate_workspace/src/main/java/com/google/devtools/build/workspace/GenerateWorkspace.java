@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.UnixFileSystem;
+import com.google.devtools.build.workspace.maven.DefaultModelResolver;
 import com.google.devtools.build.workspace.maven.Resolver;
 import com.google.devtools.common.options.OptionsParser;
 
@@ -82,7 +83,7 @@ public class GenerateWorkspace {
   private GenerateWorkspace(String outputDir) {
     this.handler = new EventHandler();
     this.fileSystem = getFileSystem();
-    this.resolver = new Resolver(handler);
+    this.resolver = new Resolver(handler, new DefaultModelResolver());
     if (outputDir.isEmpty()) {
       this.outputDir = fileSystem.getPath(Files.createTempDir().toString());
     } else {

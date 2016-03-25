@@ -17,6 +17,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:events",
         "//src/tools/generate_workspace/src/main/java/com/google/devtools/build/workspace/maven",
         "//third_party:junit4",
+        "//third_party:mockito",
         "//third_party:truth",
     ],
 )
