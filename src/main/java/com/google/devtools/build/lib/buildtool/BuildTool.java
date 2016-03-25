@@ -20,7 +20,6 @@ import com.google.common.base.Throwables;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.BuildFailedException;
-import com.google.devtools.build.lib.actions.ExecutorInitException;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
@@ -139,10 +138,9 @@ public final class BuildTool {
    * @param validator target validator
    */
   public void buildTargets(BuildRequest request, BuildResult result, TargetValidator validator)
-      throws BuildFailedException, LocalEnvironmentException,
-             InterruptedException, ViewCreationFailedException,
-             TargetParsingException, LoadingFailedException, ExecutorInitException,
-             AbruptExitException, InvalidConfigurationException, TestExecException {
+      throws BuildFailedException, InterruptedException, ViewCreationFailedException,
+          TargetParsingException, LoadingFailedException, AbruptExitException,
+          InvalidConfigurationException, TestExecException {
     validateOptions(request);
     BuildOptions buildOptions = runtime.createBuildOptions(request);
     // Sync the package manager before sending the BuildStartingEvent in runLoadingPhase()
@@ -152,6 +150,7 @@ public final class BuildTool {
     ExecutionTool executionTool = null;
     LoadingResult loadingResult = null;
     BuildConfigurationCollection configurations = null;
+    boolean catastrophe = false;
     try {
       env.getEventBus().post(new BuildStartingEvent(env.getOutputFileSystem(), request));
       LOG.info("Build identifier: " + request.getId());
@@ -219,23 +218,31 @@ public final class BuildTool {
       // subclasses such as OutOfMemoryError.
       request.getOutErr().printErrLn("Unhandled exception thrown during build; message: " +
           e.getMessage());
+      catastrophe = true;
+      throw e;
+    } catch (Error e) {
+      catastrophe = true;
       throw e;
     } finally {
-      // Delete dirty nodes to ensure that they do not accumulate indefinitely.
-      long versionWindow = request.getViewOptions().versionWindowForDirtyNodeGc;
-      if (versionWindow != -1) {
-        runtime.getSkyframeExecutor().deleteOldNodes(versionWindow);
-      }
+      if (!catastrophe) {
+        // Delete dirty nodes to ensure that they do not accumulate indefinitely.
+        long versionWindow = request.getViewOptions().versionWindowForDirtyNodeGc;
+        if (versionWindow != -1) {
+          runtime.getSkyframeExecutor().deleteOldNodes(versionWindow);
+        }
 
-      if (executionTool != null) {
-        executionTool.shutdown();
+        if (executionTool != null) {
+          executionTool.shutdown();
+        }
+        // The workspace status actions will not run with certain flags, or if an error
+        // occurs early in the build. Tell a lie so that the event is not missing.
+        // If multiple build_info events are sent, only the first is kept, so this does not harm
+        // successful runs (which use the workspace status action).
+        env.getEventBus()
+            .post(
+                new BuildInfoEvent(
+                    runtime.getworkspaceStatusActionFactory().createDummyWorkspaceStatus()));
       }
-      // The workspace status actions will not run with certain flags, or if an error
-      // occurs early in the build. Tell a lie so that the event is not missing.
-      // If multiple build_info events are sent, only the first is kept, so this does not harm
-      // successful runs (which use the workspace status action).
-      env.getEventBus().post(new BuildInfoEvent(
-          runtime.getworkspaceStatusActionFactory().createDummyWorkspaceStatus()));
     }
 
     if (loadingResult != null && loadingResult.hasTargetPatternError()) {
