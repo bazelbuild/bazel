@@ -41,8 +41,6 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Arrays;
-
 import javax.annotation.Nullable;
 
 /**
@@ -675,77 +673,6 @@ public class SkylarkAspectsTest extends AnalysisTestCase {
     }
 
     return getConfiguredTarget("//test:xxx");
-  }
-
-  @Test
-  public void invalidateAspectOnBzlFileChange() throws Exception {
-    scratch.file("test/build_defs.bzl", aspectBzlFile("'deps'"));
-    scratch.file(
-        "test/BUILD",
-        "load('build_defs', 'repro', 'repro_no_aspect')",
-        "repro_no_aspect(name = 'r0')",
-        "repro_no_aspect(name = 'r1', deps = [':r0'])",
-        "repro(name = 'r2', deps = [':r1'])");
-    buildTargetAndCheckRuleInfo("//test:r0", "//test:r1");
-
-    // Make aspect propagation list empty.
-    scratch.overwriteFile("test/build_defs.bzl", aspectBzlFile(""));
-
-    // The aspect should not propagate to //test:r0 anymore.
-    buildTargetAndCheckRuleInfo("//test:r1");
-  }
-
-  private void buildTargetAndCheckRuleInfo(String... expectedLabels) throws Exception {
-    AnalysisResult result = update(ImmutableList.<String>of(), "//test:r2");
-    ConfiguredTarget configuredTarget = result.getTargetsToBuild().iterator().next();
-    SkylarkNestedSet ruleInfoValue =
-        (SkylarkNestedSet)
-            configuredTarget.getProvider(SkylarkProviders.class).getValue("rule_info");
-    assertThat(ruleInfoValue.getSet(String.class))
-        .containsExactlyElementsIn(Arrays.asList(expectedLabels));
-  }
-
-  private String[] aspectBzlFile(String attrAspects) {
-    return new String[] {
-      "def _repro_aspect_impl(target, ctx):",
-      "    s = set([str(target.label)])",
-      "    for d in ctx.rule.attr.deps:",
-      "       if hasattr(d, 'aspect_info'):",
-      "         s = s | d.aspect_info",
-      "    return struct(aspect_info = s)",
-      "",
-      "_repro_aspect = aspect(",
-      "    _repro_aspect_impl,",
-      "    attr_aspects = [" + attrAspects + "],",
-      ")",
-      "",
-      "def repro_impl(ctx):",
-      "    s = set()",
-      "    for d in ctx.attr.deps:",
-      "       if hasattr(d, 'aspect_info'):",
-      "         s = s | d.aspect_info",
-      "    return struct(rule_info = s)",
-      "",
-      "def repro_no_aspect_impl(ctx):",
-      "    pass",
-      "",
-      "repro_no_aspect = rule(implementation = repro_no_aspect_impl,",
-      "             attrs = {",
-      "                       'deps': attr.label_list(",
-      "                             allow_files = True,",
-      "                       )",
-      "                      },",
-      ")",
-      "",
-      "repro = rule(implementation = repro_impl,",
-      "             attrs = {",
-      "                       'deps': attr.label_list(",
-      "                             allow_files = True,",
-      "                             aspects = [_repro_aspect],",
-      "                       )",
-      "                      },",
-      ")"
-    };
   }
 
   @RunWith(JUnit4.class)
