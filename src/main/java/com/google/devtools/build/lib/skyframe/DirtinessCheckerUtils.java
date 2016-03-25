@@ -18,7 +18,7 @@ import static com.google.devtools.build.lib.skyframe.SkyFunctions.FILE_STATE;
 
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.Path;
@@ -27,6 +27,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
+import java.util.EnumSet;
 import java.util.Set;
 
 import javax.annotation.Nullable;
@@ -108,26 +109,24 @@ public class DirtinessCheckerUtils {
 
   /** Checks files outside of the package roots for changes. */
   static final class ExternalDirtinessChecker extends BasicFilesystemDirtinessChecker {
-    private final PathPackageLocator packageLocator;
+    private final ExternalFilesHelper externalFilesHelper;
+    private final EnumSet<FileType> fileTypesToCheck;
 
-    ExternalDirtinessChecker(PathPackageLocator packageLocator) {
-      this.packageLocator = packageLocator;
+    ExternalDirtinessChecker(ExternalFilesHelper externalFilesHelper,
+        EnumSet<FileType> fileTypesToCheck) {
+      this.externalFilesHelper = externalFilesHelper;
+      this.fileTypesToCheck = fileTypesToCheck;
     }
 
     @Override
     public boolean applies(SkyKey key) {
-      return super.applies(key)
-          && !ExternalFilesHelper.isInternal((RootedPath) key.argument(), packageLocator);
+      if (!super.applies(key)) {
+        return false;
+      }
+      FileType fileType = externalFilesHelper.getAndNoteFileType((RootedPath) key.argument());
+      return fileTypesToCheck.contains(fileType);
     }
 
-    /**
-     * Files under output_base/external have a dependency on the WORKSPACE file, so we don't add a
-     * new SkyValue to the graph yet because it might change once the WORKSPACE file has been
-     * parsed.
-     *
-     * <p>This dirtiness checker is a bit conservative: files that are outside the package roots
-     * but aren't under output_base/external/ could just be stat-ed here (but they aren't).</p>
-     */
     @Nullable
     @Override
     public SkyValue createNewValue(SkyKey key, @Nullable TimestampGranularityMonitor tsgm) {
@@ -137,9 +136,18 @@ public class DirtinessCheckerUtils {
     @Override
     public SkyValueDirtinessChecker.DirtyResult check(
         SkyKey skyKey, SkyValue oldValue, @Nullable TimestampGranularityMonitor tsgm) {
-      return Objects.equal(super.createNewValue(skyKey, tsgm), oldValue)
-          ? SkyValueDirtinessChecker.DirtyResult.notDirty(oldValue)
-          : SkyValueDirtinessChecker.DirtyResult.dirty(oldValue);
+      SkyValue newValue = super.createNewValue(skyKey, tsgm);
+      if (Objects.equal(newValue, oldValue)) {
+        return SkyValueDirtinessChecker.DirtyResult.notDirty(oldValue);
+      }
+      FileType fileType = externalFilesHelper.getAndNoteFileType((RootedPath) skyKey.argument());
+      if (fileType == FileType.EXTERNAL_REPO) {
+        // Files under output_base/external have a dependency on the WORKSPACE file, so we don't add
+        // a new SkyValue to the graph yet because it might change once the WORKSPACE file has been
+        // parsed.
+        return SkyValueDirtinessChecker.DirtyResult.dirty(oldValue);
+      }
+      return SkyValueDirtinessChecker.DirtyResult.dirtyWithNewValue(oldValue, newValue);
     }
   }
 

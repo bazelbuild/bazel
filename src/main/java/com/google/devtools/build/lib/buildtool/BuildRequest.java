@@ -245,13 +245,6 @@ public class BuildRequest implements OptionsClassProvider {
                 + "the --cpu option is ignored.")
     public List<String> multiCpus;
 
-    @Option(name = "experimental_check_output_files",
-            defaultValue = "true",
-            category = "undocumented",
-            help = "Check for modifications made to the output files of a build. Consider setting "
-                + "this flag to false to see the effect on incremental build times.")
-    public boolean checkOutputFiles;
-
     @Option(name = "experimental_output_tree_tracking",
             defaultValue = "false",
             category = "undocumented",
