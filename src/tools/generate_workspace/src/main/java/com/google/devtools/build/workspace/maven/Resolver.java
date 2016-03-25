@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.workspace.maven;
 
-import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.io.CharStreams;
@@ -37,12 +36,11 @@ import org.eclipse.aether.artifact.DefaultArtifact;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.io.PrintStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -82,59 +80,20 @@ public class Resolver {
   private final EventHandler handler;
   private final DefaultModelResolver modelResolver;
 
-  private final List<String> headers;
   // Mapping of maven_jar name to Rule.
   private final Map<String, Rule> deps;
-  private Set<Rule> rootDependencies;
 
   public Resolver(EventHandler handler, DefaultModelResolver resolver) {
     this.handler = handler;
-    this.headers = Lists.newArrayList();
     this.deps = Maps.newHashMap();
     this.modelResolver = resolver;
-    this.rootDependencies = Sets.newTreeSet();
   }
 
   /**
-   * Writes all resolved dependencies in WORKSPACE file format to the outputStream.
+   * Returns all maven_jars.
    */
-  public void writeWorkspace(PrintStream outputStream) {
-    writeHeader(outputStream);
-    for (Rule rule : deps.values()) {
-      outputStream.println(rule + "\n");
-    }
-  }
-
-  /**
-   * Write library rules to depend on the transitive closure of all of these rules.
-   */
-  public void writeBuild(PrintStream outputStream) {
-    writeHeader(outputStream);
-    for (Rule rule : rootDependencies) {
-      outputStream.println("java_library(");
-      outputStream.println("    name = \"" + rule.name() + "\",");
-      outputStream.println("    visibility = [\"//visibility:public\"],");
-      outputStream.println("    exports = [");
-      outputStream.println("        \"@" + rule.name() + "//jar\",");
-      for (Rule r : rule.getDependencies()) {
-        outputStream.println("        \"@" + r.name() + "//jar\",");
-      }
-      outputStream.println("    ],");
-      outputStream.println(")");
-      outputStream.println();
-    }
-  }
-
-  private void writeHeader(PrintStream outputStream) {
-    outputStream.println("# The following dependencies were calculated from:");
-    for (String header : headers) {
-      outputStream.println("# " + header);
-    }
-    outputStream.print("\n\n");
-  }
-
-  public void addHeader(String header) {
-    headers.add(header);
+  public Collection<Rule> getRules() {
+    return deps.values();
   }
 
   public DefaultModelResolver getModelResolver() {
@@ -146,17 +105,17 @@ public class Resolver {
    * the project.
    * @param projectPath The path to search for Maven projects.
    */
-  public void resolvePomDependencies(String projectPath) {
+  public String resolvePomDependencies(String projectPath) {
     DefaultModelProcessor processor = new DefaultModelProcessor();
     processor.setModelLocator(new DefaultModelLocator());
     processor.setModelReader(new DefaultModelReader());
     File pom = processor.locatePom(new File(projectPath));
-    addHeader(pom.getAbsolutePath());
     FileModelSource pomSource = new FileModelSource(pom);
     // First resolve the model source locations.
     resolveSourceLocations(pomSource);
     // Next, fully resolve the models.
     resolveEffectiveModel(pomSource, Sets.<String>newHashSet(), null);
+    return pom.getAbsolutePath();
   }
 
   /**
@@ -173,10 +132,8 @@ public class Resolver {
       return;
     }
 
-    addHeader(artifactCoord);
     Rule rule = new Rule(artifact);
-    addRootDependency(rule);
-    deps.put(rule.name(), rule); // add the artifact rule to the workspace 
+    deps.put(rule.name(), rule); // add the artifact rule to the workspace
     resolveEffectiveModel(modelSource, Sets.<String>newHashSet(), rule);
   }
   
@@ -227,7 +184,7 @@ public class Resolver {
           parent.addDependency(artifactRule);
           parent.getDependencies().addAll(artifactRule.getDependencies());
         } else {
-          rootDependencies.add(artifactRule);
+          addArtifact(artifactRule, modelSource.getLocation());
         }
       } catch (UnresolvableModelException | InvalidArtifactCoordinateException e) {
         handler.handle(Event.error("Could not resolve dependency " + dependency.getGroupId()
@@ -278,10 +235,10 @@ public class Resolver {
 
   /**
    * Adds the artifact to the map of deps, if it is not already there. Returns if the artifact
-   * was newly added. If the artifact was in the list at a different version, adds an annotation
+   * was newly added. If the artifact was in the list at a different version, adds an comment
    * about the desired version.
    */
-  private boolean addArtifact(Rule dependency, String parent) {
+  public boolean addArtifact(Rule dependency, String parent) {
     String artifactName = dependency.name();
     if (deps.containsKey(artifactName)) {
       Rule existingDependency = deps.get(artifactName);
@@ -297,10 +254,6 @@ public class Resolver {
     deps.put(artifactName, dependency);
     dependency.addParent(parent);
     return true;
-  }
-
-  public void addRootDependency(Rule rule) {
-    rootDependencies.add(rule);
   }
 
   static String getSha1Url(String url, String extension) {

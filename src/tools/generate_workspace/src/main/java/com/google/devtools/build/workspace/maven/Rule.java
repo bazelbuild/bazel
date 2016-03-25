@@ -87,7 +87,7 @@ public final class Rule implements Comparable<Rule> {
   /**
    * A unique name for this artifact to use in maven_jar's name attribute.
    */
-  String name() {
+  public String name() {
     return Rule.name(groupId(), artifactId());
   }
 

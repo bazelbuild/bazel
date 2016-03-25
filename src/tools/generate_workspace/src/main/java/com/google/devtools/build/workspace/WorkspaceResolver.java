@@ -76,7 +76,6 @@ public class WorkspaceResolver {
    * Converts the WORKSPACE file content into an ExternalPackage.
    */
   public Package parse(Path workspacePath) {
-    resolver.addHeader(workspacePath.getPathString());
     Package.LegacyBuilder builder =
         Package.newExternalPackageBuilder(workspacePath, ruleClassProvider.getRunfilesPrefix());
     try (Mutability mutability = Mutability.create("External Package %s", workspacePath)) {
@@ -136,7 +135,7 @@ public class WorkspaceResolver {
               "Could not resolve model for " + target + ": " + e.getMessage()));
           continue;
         }
-        resolver.addRootDependency(rule);
+        resolver.addArtifact(rule, modelSource.getLocation());
         resolver.resolveEffectiveModel(modelSource, Sets.<String>newHashSet(), rule);
       } else if (!target.getTargetKind().startsWith("bind")
           && !target.getTargetKind().startsWith("source ")) {

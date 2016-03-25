@@ -17,14 +17,13 @@ package com.google.devtools.build.workspace.maven;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.events.StoredEventHandler;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
-import java.nio.charset.Charset;
+import java.util.Collection;
 
 /**
  * Tests for {@link Resolver}.
@@ -51,16 +50,9 @@ public class ResolverTest {
     DefaultModelResolver modelResolver = Mockito.mock(DefaultModelResolver.class);
     Resolver resolver = new Resolver(handler, modelResolver);
     resolver.resolveArtifact("x:y:1.2.3");
-
-    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    PrintStream ps = new PrintStream(baos);
-    resolver.writeWorkspace(ps);
-    String content = baos.toString(String.valueOf(Charset.defaultCharset()));
-    assertThat(content).contains("maven_jar(\n"
-        + "    name = \"x_y\",\n"
-        + "    artifact = \"x:y:1.2.3\",\n"
-        + ")"
-    );
-    assertThat(handler.hasErrors()).isFalse();
+    Collection<Rule> rules = resolver.getRules();
+    assertThat(rules).hasSize(1);
+    Rule rule = rules.iterator().next();
+    assertThat(rule.name()).isEqualTo("x_y");
   }
 }
