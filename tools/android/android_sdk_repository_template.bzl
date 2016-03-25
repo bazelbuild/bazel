@@ -266,7 +266,7 @@ def create_android_sdk_rules(name, build_tools_version, api_level):
 
   native.android_library(
       name = "google_play_services",
-      custom_package = "google.bazel",
+      custom_package = "com.google.android.gms",
       manifest = GOOGLE_PLAY_SERVICES_DIR + "/AndroidManifest.xml",
       exports_manifest = 1,
       resource_files = native.glob([GOOGLE_PLAY_SERVICES_DIR + "/res/**"]),
