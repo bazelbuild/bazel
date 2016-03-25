@@ -30,7 +30,6 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -108,7 +107,7 @@ public class AndroidDataSet {
     public AndroidDataSet createAndroidDataSet() throws MergingException {
       resourceVisitor.checkForErrors();
       return AndroidDataSet.of(
-          conflicts,
+          ImmutableSet.copyOf(conflicts),
           ImmutableMap.copyOf(overwritingResources),
           ImmutableMap.copyOf(nonOverwritingResources),
           ImmutableMap.copyOf(assets));
@@ -212,7 +211,9 @@ public class AndroidDataSet {
               putOverwritingResource(dataResource);
             }
             for (DataResource dataResource : targetNonOverwritableResources) {
-              nonOverwritingResources.put(dataResource.dataKey(), dataResource);
+              if (!nonOverwritingResources.containsKey(dataResource.dataKey())) {
+                nonOverwritingResources.put(dataResource.dataKey(), dataResource);
+              }
             }
           } else {
             DataResource dataResource = FileDataResource.fromPath(path, fqnFactory);
@@ -242,45 +243,9 @@ public class AndroidDataSet {
     }
   }
 
-  /** Creates an AndroidDataSet of the overwriting, nonOverwritingResources, and asset lists. */
-  @VisibleForTesting
+  /** Creates AndroidDataSet of conflicts, assets overwriting and nonOverwriting resources. */
   public static AndroidDataSet of(
-      List<DataResource> overwritingResourcesList,
-      List<DataResource> nonOverwritingResourcesList,
-      List<DataAsset> assetList) {
-    Map<DataKey, DataAsset> assets = new HashMap<>();
-    Map<DataKey, DataResource> overwritingResources = new HashMap<>();
-    Map<DataKey, DataResource> nonOverwritingResources = new HashMap<>();
-    ImmutableSet.Builder<MergeConflict> conflicts = ImmutableSet.builder();
-    for (DataAsset asset : assetList) {
-      if (assets.containsKey(asset.dataKey())) {
-        conflicts.add(MergeConflict.between(asset.dataKey(), assets.get(asset.dataKey()), asset));
-      }
-      assets.put(asset.dataKey(), asset);
-    }
-    for (DataResource resource : overwritingResourcesList) {
-
-      if (overwritingResources.containsKey(resource.dataKey())) {
-        conflicts.add(
-            MergeConflict.between(
-                resource.dataKey(), overwritingResources.get(resource.dataKey()), resource));
-      }
-      overwritingResources.put(resource.dataKey(), resource);
-    }
-
-    for (DataResource resource : nonOverwritingResourcesList) {
-      nonOverwritingResources.put(resource.dataKey(), resource);
-    }
-
-    return of(
-        conflicts.build(),
-        ImmutableMap.copyOf(overwritingResources),
-        ImmutableMap.copyOf(nonOverwritingResources),
-        ImmutableMap.copyOf(assets));
-  }
-
-  public static AndroidDataSet of(
-      Set<MergeConflict> conflicts,
+      ImmutableSet<MergeConflict> conflicts,
       ImmutableMap<DataKey, DataResource> overwritingResources,
       ImmutableMap<DataKey, DataResource> nonOverwritingResources,
       ImmutableMap<DataKey, DataAsset> assets) {
@@ -324,13 +289,13 @@ public class AndroidDataSet {
     return pathWalker.createAndroidDataSet();
   }
 
-  private final Set<MergeConflict> conflicts;
+  private final ImmutableSet<MergeConflict> conflicts;
   private final ImmutableMap<DataKey, DataResource> overwritingResources;
   private final ImmutableMap<DataKey, DataResource> nonOverwritingResources;
   private final ImmutableMap<DataKey, DataAsset> assets;
 
   private AndroidDataSet(
-      Set<MergeConflict> conflicts,
+      ImmutableSet<MergeConflict> conflicts,
       ImmutableMap<DataKey, DataResource> overwritingResources,
       ImmutableMap<DataKey, DataResource> nonOverwritingResources,
       ImmutableMap<DataKey, DataAsset> assets) {
@@ -360,12 +325,13 @@ public class AndroidDataSet {
     AndroidDataSet that = (AndroidDataSet) other;
     return Objects.equals(overwritingResources, that.overwritingResources)
         && Objects.equals(nonOverwritingResources, that.nonOverwritingResources)
+        && Objects.equals(conflicts, that.conflicts)
         && Objects.equals(assets, that.assets);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(overwritingResources, nonOverwritingResources, assets);
+    return Objects.hash(conflicts, overwritingResources, nonOverwritingResources, assets);
   }
 
   /**
@@ -375,11 +341,11 @@ public class AndroidDataSet {
    *
    * A string resource (string.Foo=bar) could be redefined at string.Foo=baz.
    *
-   * @return A list of overwriting resources.
+   * @return A map of key -&gt; overwriting resources.
    */
   @VisibleForTesting
-  public List<DataResource> getOverwritingResources() {
-    return overwritingResources.values().asList();
+  public Map<DataKey, DataResource> getOverwritingResources() {
+    return overwritingResources;
   }
 
   /**
@@ -389,11 +355,11 @@ public class AndroidDataSet {
    *
    * A id resource (id.Foo) could be redefined at id.Foo with no adverse effects.
    *
-   * @return A list of non-overwriting resources.
+   * @return A map of key -&gt; non-overwriting resources.
    */
   @VisibleForTesting
-  public List<DataResource> getNonOverwritingResources() {
-    return nonOverwritingResources.values().asList();
+  public Map<DataKey, DataResource> getNonOverwritingResources() {
+    return nonOverwritingResources;
   }
 
   /**
@@ -405,72 +371,43 @@ public class AndroidDataSet {
    * A text asset (foo/bar.txt, containing fooza) could be replaced with (foo/bar.txt, containing
    * ouza!) depending on the merging process.
    *
-   * @return A list of overwriting assets.
+   * @return A map of key -&gt; assets.
    */
-  public List<DataAsset> getAssets() {
-    return assets.values().asList();
+  public Map<DataKey, DataAsset> getAssets() {
+    return assets;
   }
 
-  public ResourceMap createResourceMap() {
-    return ResourceMap.from(this);
+  boolean containsOverwritable(DataKey name) {
+    return overwritingResources.containsKey(name);
   }
 
-  /** An internal class that handles the homogenization of AndroidDataSets. */
-  // TODO(corysmith): Move this functionality to AndroidDataSet?
-  static class ResourceMap {
+  Iterable<Map.Entry<DataKey, DataResource>> iterateOverwritableEntries() {
+    return overwritingResources.entrySet();
+  }
 
-    private final Map<DataKey, DataResource> overwritableResources;
-    public final Set<MergeConflict> conflicts;
-    private final Map<DataKey, DataResource> nonOverwritingResourceMap;
-    private final Map<DataKey, DataAsset> assets;
+  boolean containsAsset(DataKey name) {
+    return assets.containsKey(name);
+  }
 
-    private ResourceMap(
-        Map<DataKey, DataResource> overwritableResources,
-        Set<MergeConflict> conflicts,
-        Map<DataKey, DataResource> nonOverwritingResourceMap,
-        Map<DataKey, DataAsset> assets) {
-      this.overwritableResources = overwritableResources;
-      this.conflicts = conflicts;
-      this.nonOverwritingResourceMap = nonOverwritingResourceMap;
-      this.assets = assets;
-    }
+  Iterable<Map.Entry<DataKey, DataAsset>> iterateAssetEntries() {
+    return assets.entrySet();
+  }
 
-    /**
-     * Creates ResourceMap from an AndroidDataSet.
-     */
-    static ResourceMap from(AndroidDataSet data) {
-      return new ResourceMap(
-          data.overwritingResources, data.conflicts, data.nonOverwritingResources, data.assets);
-    }
+  MergeConflict foundResourceConflict(DataKey key, DataResource value) {
+    return MergeConflict.between(key, overwritingResources.get(key), value);
+  }
 
-    boolean containsOverwritable(DataKey name) {
-      return overwritableResources.containsKey(name);
-    }
+  MergeConflict foundAssetConflict(DataKey key, DataAsset value) {
+    return MergeConflict.between(key, assets.get(key), value);
+  }
 
-    Iterable<Map.Entry<DataKey, DataResource>> iterateOverwritableEntries() {
-      return overwritableResources.entrySet();
-    }
+  ImmutableMap<DataKey, DataResource> mergeNonOverwritable(AndroidDataSet other) {
+    Map<DataKey, DataResource> merged = new HashMap<>(other.nonOverwritingResources);
+    merged.putAll(nonOverwritingResources);
+    return ImmutableMap.copyOf(merged);
+  }
 
-    boolean containsAsset(DataKey name) {
-      return assets.containsKey(name);
-    }
-
-    Iterable<Map.Entry<DataKey, DataAsset>> iterateAssetEntries() {
-      return assets.entrySet();
-    }
-
-    public MergeConflict foundResourceConflict(DataKey key, DataResource value) {
-      return MergeConflict.between(key, overwritableResources.get(key), value);
-    }
-
-    public MergeConflict foundAssetConflict(DataKey key, DataAsset value) {
-      return MergeConflict.between(key, assets.get(key), value);
-    }
-
-    public Collection<DataResource> mergeNonOverwritable(ResourceMap other) {
-      Map<DataKey, DataResource> merged = new HashMap<>(other.nonOverwritingResourceMap);
-      merged.putAll(nonOverwritingResourceMap);
-      return merged.values();
-    }
+  ImmutableSet<MergeConflict> conflicts() {
+    return conflicts;
   }
 }

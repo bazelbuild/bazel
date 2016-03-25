@@ -29,7 +29,7 @@ import java.util.Objects;
  */
 @Immutable
 public class MergeConflict {
-  static final String CONFLICT_MESSAGE = "%s is provided from %s and %s";
+  private static final String CONFLICT_MESSAGE = "%s is provided from %s and %s";
   private final DataKey dataKey;
   private final Path first;
   private final Path second;
@@ -78,7 +78,10 @@ public class MergeConflict {
 
   @VisibleForTesting
   static MergeConflict of(DataKey key, Path first, Path second) {
-    return new MergeConflict(key, first, second);
+    // Make sure the paths are always ordered.
+    Path sortedFirst = first.compareTo(second) > 0 ? first : second;
+    Path sortedSecond = sortedFirst != first ? first : second;
+    return new MergeConflict(key, sortedFirst, sortedSecond);
   }
 
   public String toConflictMessage() {

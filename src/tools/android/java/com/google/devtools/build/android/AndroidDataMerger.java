@@ -14,13 +14,15 @@
 package com.google.devtools.build.android;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.Ordering;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 import com.android.ide.common.res2.MergingException;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -30,23 +32,6 @@ import java.util.Set;
  * Handles the Merging of AndroidDataSet.
  */
 public class AndroidDataMerger {
-
-  private static final Comparator<DataResource> DATA_RESOURCE_ORDER =
-      new Comparator<DataResource>() {
-        @Override
-        public int compare(DataResource one, DataResource two) {
-          return one.compareTo(two);
-        }
-      };
-
-  private static final Comparator<DataAsset> DATA_ASSET_ORDER =
-      new Comparator<DataAsset>() {
-        @Override
-        public int compare(DataAsset one, DataAsset two) {
-          return one.compareTo(two);
-        }
-      };
-
   /**
    * Merges DataResources into an UnwrittenMergedAndroidData.
    *
@@ -112,88 +97,75 @@ public class AndroidDataMerger {
 
     // Extract the primary resources.
     AndroidDataSet primary = AndroidDataSet.from(primaryData);
-    AndroidDataSet.ResourceMap primaryMap = AndroidDataSet.ResourceMap.from(primary);
 
-    // Handle the overwriting resources first.
-    AndroidDataSet.ResourceMap directMap = AndroidDataSet.ResourceMap.from(direct);
-    AndroidDataSet.ResourceMap transitiveMap = AndroidDataSet.ResourceMap.from(transitive);
-
-    List<DataResource> overwritableDeps = new ArrayList<>();
-    List<DataAsset> assets = new ArrayList<>();
+    Map<DataKey, DataResource> overwritableDeps = new HashMap<>();
+    Map<DataKey, DataAsset> assets = new HashMap<>();
 
     Set<MergeConflict> conflicts = new HashSet<>();
-    conflicts.addAll(primaryMap.conflicts);
-    for (MergeConflict conflict : directMap.conflicts) {
-      if (allowPrimaryOverrideAll
-          && (primaryMap.containsOverwritable(conflict.dataKey())
-              || primaryMap.containsAsset(conflict.dataKey()))) {
-        continue;
-      }
-      conflicts.add(conflict);
-    }
+    conflicts.addAll(primary.conflicts());
 
-    for (MergeConflict conflict : transitiveMap.conflicts) {
+    for (MergeConflict conflict : Iterables.concat(direct.conflicts(), transitive.conflicts())) {
       if (allowPrimaryOverrideAll
-          && (primaryMap.containsOverwritable(conflict.dataKey())
-              || primaryMap.containsAsset(conflict.dataKey()))) {
+          && (primary.containsOverwritable(conflict.dataKey())
+              || primary.containsAsset(conflict.dataKey()))) {
         continue;
       }
       conflicts.add(conflict);
     }
 
     // resources
-    for (Map.Entry<DataKey, DataResource> entry : directMap.iterateOverwritableEntries()) {
+    for (Map.Entry<DataKey, DataResource> entry : direct.iterateOverwritableEntries()) {
       // Direct dependencies are simply overwritten, no conflict.
-      if (!primaryMap.containsOverwritable(entry.getKey())) {
-        overwritableDeps.add(entry.getValue());
+      if (!primary.containsOverwritable(entry.getKey())) {
+        overwritableDeps.put(entry.getKey(), entry.getValue());
       }
     }
-    for (Map.Entry<DataKey, DataResource> entry : transitiveMap.iterateOverwritableEntries()) {
+    for (Map.Entry<DataKey, DataResource> entry : transitive.iterateOverwritableEntries()) {
       // If the primary is considered to be intentional (usually at the binary level),
       // skip.
-      if (primaryMap.containsOverwritable(entry.getKey()) && allowPrimaryOverrideAll) {
+      if (primary.containsOverwritable(entry.getKey()) && allowPrimaryOverrideAll) {
         continue;
       }
       // If a transitive value is in the direct map report a conflict, as it is commonly
       // unintentional.
-      if (directMap.containsOverwritable(entry.getKey())) {
-        conflicts.add(directMap.foundResourceConflict(entry.getKey(), entry.getValue()));
-      } else if (primaryMap.containsOverwritable(entry.getKey())) {
+      if (direct.containsOverwritable(entry.getKey())) {
+        conflicts.add(direct.foundResourceConflict(entry.getKey(), entry.getValue()));
+      } else if (primary.containsOverwritable(entry.getKey())) {
         // If overwriting a transitive value with a primary map, assume it's an unintentional
         // override, unless allowPrimaryOverrideAll is set. At which point, this code path
         // should not be reached.
-        conflicts.add(primaryMap.foundResourceConflict(entry.getKey(), entry.getValue()));
+        conflicts.add(primary.foundResourceConflict(entry.getKey(), entry.getValue()));
       } else {
         // If it's in none of the of sources, add it.
-        overwritableDeps.add(entry.getValue());
+        overwritableDeps.put(entry.getKey(), entry.getValue());
       }
     }
 
     // assets
-    for (Map.Entry<DataKey, DataAsset> entry : directMap.iterateAssetEntries()) {
+    for (Map.Entry<DataKey, DataAsset> entry : direct.iterateAssetEntries()) {
       // Direct dependencies are simply overwritten, no conflict.
-      if (!primaryMap.containsAsset(entry.getKey())) {
-        assets.add(entry.getValue());
+      if (!primary.containsAsset(entry.getKey())) {
+        assets.put(entry.getKey(), entry.getValue());
       }
     }
-    for (Map.Entry<DataKey, DataAsset> entry : transitiveMap.iterateAssetEntries()) {
+    for (Map.Entry<DataKey, DataAsset> entry : transitive.iterateAssetEntries()) {
       // If the primary is considered to be intentional (usually at the binary level),
       // skip.
-      if (primaryMap.containsAsset(entry.getKey()) && allowPrimaryOverrideAll) {
+      if (primary.containsAsset(entry.getKey()) && allowPrimaryOverrideAll) {
         continue;
       }
       // If a transitive value is in the direct map report a conflict, as it is commonly
       // unintentional.
-      if (directMap.containsAsset(entry.getKey())) {
-        conflicts.add(directMap.foundAssetConflict(entry.getKey(), entry.getValue()));
-      } else if (primaryMap.containsAsset(entry.getKey())) {
+      if (direct.containsAsset(entry.getKey())) {
+        conflicts.add(direct.foundAssetConflict(entry.getKey(), entry.getValue()));
+      } else if (primary.containsAsset(entry.getKey())) {
         // If overwriting a transitive value with a primary map, assume it's an unintentional
         // override, unless allowPrimaryOverrideAll is set. At which point, this code path
         // should not be reached.
-        conflicts.add(primaryMap.foundAssetConflict(entry.getKey(), entry.getValue()));
+        conflicts.add(primary.foundAssetConflict(entry.getKey(), entry.getValue()));
       } else {
         // If it's in none of the of sources, add it.
-        assets.add(entry.getValue());
+        assets.put(entry.getKey(), entry.getValue());
       }
     }
 
@@ -204,14 +176,13 @@ public class AndroidDataMerger {
       }
       throw new MergingException(Joiner.on("\n").join(messages));
     }
-
     return UnwrittenMergedAndroidData.of(
         primaryData.getManifest(),
         primary,
         AndroidDataSet.of(
-            Ordering.from(DATA_RESOURCE_ORDER).immutableSortedCopy(overwritableDeps),
-            Ordering.from(DATA_RESOURCE_ORDER)
-                .immutableSortedCopy(directMap.mergeNonOverwritable(transitiveMap)),
-            Ordering.from(DATA_ASSET_ORDER).immutableSortedCopy(assets)));
+            ImmutableSet.<MergeConflict>of(),
+            ImmutableMap.copyOf(overwritableDeps),
+            direct.mergeNonOverwritable(transitive),
+            ImmutableMap.copyOf(assets)));
   }
 }
