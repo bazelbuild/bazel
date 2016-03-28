@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.SkylarkProviders;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.ResourceAttributes;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.LinkedBinary;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
+import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 
 /**
  * Implementation for rules that link binaries.
@@ -212,6 +214,8 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
             .setHasModuleMap()
             .setLinkedBinary(intermediateArtifacts.strippedSingleArchitectureBinary());
 
+    builder.addDepObjcProviders(createSkylarkObjcProviders(ruleContext));
+    
     if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()) {
       builder.setBreakpadFile(intermediateArtifacts.breakpadSym());
     }
@@ -219,6 +223,25 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     return builder.build();
   }
 
+  /**
+   * Constructs an ObjcProvider instance for each skylark objc provider in this target's
+   * dependencies.
+   */
+  private Iterable<ObjcProvider> createSkylarkObjcProviders(RuleContext ruleContext) {
+     ImmutableList.Builder<ObjcProvider> skylarkProviderListBuilder = ImmutableList.builder();
+    for (SkylarkProviders skylarkProviders :
+        ruleContext.getPrerequisites("deps", Mode.TARGET, SkylarkProviders.class)) {
+      Object objcSkylarkProvider =
+          skylarkProviders.getValue(ObjcProvider.OBJC_SKYLARK_PROVIDER_NAME);
+      if (objcSkylarkProvider != null) {
+        ObjcProvider objcProviderFromSkylark =
+            ObjcProvider.fromSkylarkProvider((SkylarkClassObject) objcSkylarkProvider);
+        skylarkProviderListBuilder.add(objcProviderFromSkylark);
+      }
+    }
+    return skylarkProviderListBuilder.build();
+  }
+  
   /**
    * Performs additional configuration of the target. The default implementation does nothing, but
    * subclasses may override it to add logic.
