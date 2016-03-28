@@ -1128,11 +1128,16 @@ public final class CompilationSupport {
       nonPropagatedHeaderSearchPaths.add(new PathFragment(includeDirOption.substring(2)));
     }
 
+    // We also need to add the -isystem directories from the CC header providers. ObjCommon
+    // adds these to the objcProvider, so let's just get them from there.
+    Iterable<PathFragment> includeSystemPaths = common.getObjcProvider().get(INCLUDE_SYSTEM);
+
     xcodeProviderBuilder
         .addHeaders(attributes.hdrs())
         .addHeaders(attributes.textualHdrs())
         .addUserHeaderSearchPaths(ObjcCommon.userHeaderSearchPaths(ruleContext.getConfiguration()))
         .addHeaderSearchPaths("$(WORKSPACE_ROOT)", attributes.headerSearchPaths())
+        .addHeaderSearchPaths("$(WORKSPACE_ROOT)", includeSystemPaths)
         .addHeaderSearchPaths("$(SDKROOT)/usr/include", attributes.sdkIncludes())
         .addNonPropagatedHeaderSearchPaths(
             "$(WORKSPACE_ROOT)", nonPropagatedHeaderSearchPaths.build())
