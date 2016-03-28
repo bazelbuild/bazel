@@ -169,7 +169,7 @@ public class BlazeJavacMain {
   // behaviour closer to stock javac, but it makes it harder to write integration tests. This class
   // provides a compile method that accepts file objects and processors, but it isn't
   // guaranteed to behave exactly the same way as JavaBuilder does when used from the command-line.
-  // TODO(cushon): either stop using Main and commit to using the the API for everything, or
+  // TODO(b/26750160): either stop using Main and commit to using the the API for everything, or
   // re-write integration tests for JavaBuilder to use the real compile() method.
   @VisibleForTesting
   @Deprecated
