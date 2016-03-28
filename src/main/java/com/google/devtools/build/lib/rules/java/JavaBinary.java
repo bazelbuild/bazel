@@ -495,7 +495,7 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
     @Override
     protected ImmutableList<Artifact> collectProguardSpecsForRule(
         RuleContext ruleContext, ImmutableList<Artifact> bootclasspath, String mainClassName) {
-      return ImmutableList.of(generateSpecForJavaBinary(ruleContext, bootclasspath, mainClassName));
+      return ImmutableList.of(generateSpecForJavaBinary(ruleContext, mainClassName));
     }
   }
 }
