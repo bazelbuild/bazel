@@ -449,9 +449,8 @@ public final class ParallelEvaluator implements Evaluator {
           }
           if ((!keepGoing && bubbleErrorInfo == null) || errorInfo.getException() == null) {
             valuesMissing = true;
-            // We arbitrarily record the first child error -- unused but harmless if in a keep-going
-            // build with a cycle.
-            if (depErrorKey == null) {
+            // We arbitrarily record the first child error if we are about to abort.
+            if (!keepGoing && depErrorKey == null) {
               depErrorKey = depKey;
             }
           }

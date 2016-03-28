@@ -907,6 +907,24 @@ public class MemoizingEvaluatorTest {
     assertThat(cycleInfo.getPathToCycle()).containsExactly(topKey, midKey).inOrder();
   }
 
+  @Test
+  public void keepGoingCycleAlreadyPresent() throws Exception {
+    SkyKey selfEdge = GraphTester.toSkyKey("selfEdge");
+    tester.getOrCreate(selfEdge).addDependency(selfEdge).setComputedValue(CONCATENATE);
+    EvaluationResult<StringValue> result = tester.eval(/*keepGoing=*/ true, selfEdge);
+    assertThatEvaluationResult(result).hasError();
+    CycleInfo cycleInfo = Iterables.getOnlyElement(result.getError(selfEdge).getCycleInfo());
+    CycleInfoSubjectFactory.assertThat(cycleInfo).hasCycleThat().containsExactly(selfEdge);
+    CycleInfoSubjectFactory.assertThat(cycleInfo).hasPathToCycleThat().isEmpty();
+    SkyKey parent = GraphTester.toSkyKey("parent");
+    tester.getOrCreate(parent).addDependency(selfEdge).setComputedValue(CONCATENATE);
+    EvaluationResult<StringValue> result2 = tester.eval(/*keepGoing=*/ true, parent);
+    assertThatEvaluationResult(result).hasError();
+    CycleInfo cycleInfo2 = Iterables.getOnlyElement(result2.getError(parent).getCycleInfo());
+    CycleInfoSubjectFactory.assertThat(cycleInfo2).hasCycleThat().containsExactly(selfEdge);
+    CycleInfoSubjectFactory.assertThat(cycleInfo2).hasPathToCycleThat().containsExactly(parent);
+  }
+
   private void changeCycle(boolean keepGoing) throws Exception {
     initializeTester();
     SkyKey aKey = GraphTester.toSkyKey("a");
