@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,18 +18,18 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import java.io.IOException;
 
 /**
- * <p>This is an implementation detail of {@link FileFunction} to signal attempt to evaluate a file
- * outside of known/allowed directory structures.
+ * <p>This is an implementation detail of {@link FileFunction} to to evaluate a symlink linking to
+ * file outside of known/allowed directory structures.
  *
  * <p>Extends {@link IOException} to ensure it is properly handled by consumers of
  * {@link FileValue}.
  */
-// TODO(bazel-team): Don't piggyback on existing handling of IOExceptions and instead implement
-// the desired semantics.
-class FileOutsidePackageRootsException extends IOException {
-
-  /** @param outsidePath the {@link RootedPath} that triggered this exception. */
-  public FileOutsidePackageRootsException(RootedPath outsidePath) {
-    super("Encountered reference to external mutable " + outsidePath);
+class SymlinkOutsidePackageRootsException extends IOException {
+  /**
+   * @param symlinkPath the {@link RootedPath} that links to an outside path.
+   * @param outsidePath the {@link RootedPath} that triggered this exception.
+   */
+  public SymlinkOutsidePackageRootsException(RootedPath symlinkPath, RootedPath outsidePath) {
+    super("Encountered symlink " + symlinkPath + " linking to external mutable " + outsidePath);
   }
 }
