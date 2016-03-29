@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.BlazeExecutor;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -418,7 +419,7 @@ public class ExecutionTool {
         // Free memory by removing cache entries that aren't going to be needed. Note that in
         // skyframe full, this destroys the action graph as well, so we can only do it after the
         // action graph is no longer needed.
-        env.getView().clearAnalysisCache(analysisResult.getTargetsToBuild());
+        env.getSkyframeBuildView().clearAnalysisCache(analysisResult.getTargetsToBuild());
         actionGraph = null;
       }
 
@@ -682,9 +683,9 @@ public class ExecutionTool {
     // client.
     fileCache = createBuildSingleFileCache(executor.getExecRoot());
     skyframeExecutor.setActionOutputRoot(actionOutputRoot);
+    ArtifactFactory artifactFactory = env.getSkyframeBuildView().getArtifactFactory();
     return new SkyframeBuilder(skyframeExecutor,
-        new ActionCacheChecker(actionCache, env.getView().getArtifactFactory(), executionFilter,
-            verboseExplanations),
+        new ActionCacheChecker(actionCache, artifactFactory, executionFilter, verboseExplanations),
         keepGoing, actualJobs,
         request.getPackageCacheOptions().checkOutputFiles
             ? modifiedOutputFiles : ModifiedFileSet.NOTHING_MODIFIED,

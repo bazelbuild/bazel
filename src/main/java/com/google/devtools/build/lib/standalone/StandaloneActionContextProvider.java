@@ -60,7 +60,7 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
 
     @Override
     public ArtifactResolver getArtifactResolver() {
-      return env.getView().getArtifactFactory();
+      return env.getSkyframeBuildView().getArtifactFactory();
     }
   }
 

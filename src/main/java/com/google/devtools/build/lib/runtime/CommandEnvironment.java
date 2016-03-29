@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.pkgcache.TargetPatternEvaluator;
 import com.google.devtools.build.lib.pkgcache.TransitivePackageLoader;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -209,6 +210,10 @@ public final class CommandEnvironment {
 
   public SkyframeExecutor getSkyframeExecutor() {
     return runtime.getSkyframeExecutor();
+  }
+
+  public SkyframeBuildView getSkyframeBuildView() {
+    return runtime.getSkyframeExecutor().getSkyframeBuildView();
   }
 
   /**
