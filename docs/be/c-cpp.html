@@ -19,6 +19,10 @@ title: C / C++ Rules
         cc_binary      </a>
     </li>
     <li>
+      <a href="#cc_inc_library">
+        cc_inc_library      </a>
+    </li>
+    <li>
       <a href="#cc_library">
         cc_library      </a>
     </li>
@@ -426,6 +430,110 @@ title: C / C++ Rules
         </td>
       </tr>
                                             </tbody>
+  </table>
+    <h2 id="cc_inc_library">
+    cc_inc_library
+  </h2>
+
+  <pre class="rule-signature">cc_inc_library(<a href="#cc_inc_library.name">name</a>, <a href="common-definitions.html#common.deps">deps</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#cc_inc_library.hdrs">hdrs</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#cc_inc_library.prefix">prefix</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+
+
+<p>
+Bazel creates a subdirectory below
+<code>includes</code> (relative to WORKSPACE) for each such rule, and makes sure that all
+dependent rules have a corresponding <code>-I</code> directive to add this
+directory into the compiler's header file search path for all compilations. Note
+that if a rule has multiple <code>cc_inc_library</code> rules from the same
+package in its dependencies, the first such rule will take precedence.
+</p>
+
+<p>
+One use case for the <code>cc_inc_library</code> rule is to allow C++
+<code>#include</code> directives to work with external
+libraries that are placed in a version-specific subdirectory, without the
+version number. For example, it allows including a header file in
+<code>/library/v1/a.h</code> using the path
+<code>/library/a.h</code>. This is useful to avoid changing a lot of
+code when upgrading to a newer version. In this case, there should be one
+<code>cc_inc_library</code> rule per public target. Note that only files that are declared in the
+hdrs attribute are available with the rewritten path.
+</p>
+
+<p>
+In this case, the <code>cc_inc_library</code> represents the interface of the package, and should be
+the public top-level rule so that strict header inclusion checks can be performed.
+</p>
+
+<pre class="code">
+# This rule makes the header file v1/library.h available for inclusion via the
+# path /library/library.h.
+cc_inc_library(
+    name = "library",
+    hdrs = ["v1/library.h"],
+    prefix = "v1",
+    deps = [":library_impl"],
+)
+
+cc_library(
+    name = "library_impl",
+    srcs = [
+        "v1/library.c",
+        "v1/library.h",
+    ],
+    visibility = ["//visibility:private"],
+)
+</pre>
+
+
+
+  <h3 id="cc_inc_library_args">Arguments</h3>
+  <table class="table table-condensed table-bordered table-params">
+    <colgroup>
+      <col class="col-param" />
+      <col class="param-description" />
+    </colgroup>
+    <thead>
+      <tr>
+        <th colspan="2">Attributes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td id="cc_inc_library.name"><code>name</code></td>
+        <td>
+          <p><code><a href="../build-ref.html#name">Name</a>; required</code></p>
+          <p>A unique name for this rule.</p>
+
+        </td>
+      </tr>
+                                    <tr>
+        <td id="cc_inc_library.hdrs">
+          <code>hdrs</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; required</code></p>
+                            A list of header files.
+        These are the header files that are exported by this rule. The relative
+        paths of all files have to start with the prefix, in the sense that they
+        have to be below the directory indicated by the prefix. Only header files
+        are allowed.
+
+        </td>
+      </tr>
+                                                                        <tr>
+        <td id="cc_inc_library.prefix">
+          <code>prefix</code>
+        </td>
+        <td>
+                    <p><code>String; optional</code></p>
+                            A prefix for this rule.
+        This prefix is the directory that is removed from the beginning of all
+        declared header files. The relative paths of all files have to start with
+        this prefix. If no trailing slash is present, it is added automatically.
+
+        </td>
+      </tr>
+                                                      </tbody>
   </table>
     <h2 id="cc_library">
     cc_library
