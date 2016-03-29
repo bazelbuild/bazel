@@ -972,4 +972,28 @@ public class JavacTurbineTest {
             "java.lang.NoClassDefFoundError:"
                 + " com/google/devtools/build/java/turbine/javac/JavacTurbine");
   }
+
+  @Test
+  public void overlappingSourceJars() throws Exception {
+    Path sourceJar1 = temp.newFile("srcs1.jar").toPath();
+    try (OutputStream os = Files.newOutputStream(sourceJar1);
+        JarOutputStream jos = new JarOutputStream(os)) {
+      jos.putNextEntry(new JarEntry("Hello.java"));
+      jos.write("public class Hello {}".getBytes(StandardCharsets.UTF_8));
+    }
+
+    Path sourceJar2 = temp.newFile("srcs2.jar").toPath();
+    try (OutputStream os = Files.newOutputStream(sourceJar2);
+        JarOutputStream jos = new JarOutputStream(os)) {
+      jos.putNextEntry(new JarEntry("Hello.java"));
+      jos.write("public class Hello {}".getBytes(StandardCharsets.UTF_8));
+    }
+
+    optionsBuilder.setSourceJars(ImmutableList.of(sourceJar2.toString(), sourceJar1.toString()));
+
+    compile();
+
+    Map<String, byte[]> outputs = collectOutputs();
+    assertThat(outputs.keySet()).containsExactly("Hello.class");
+  }
 }

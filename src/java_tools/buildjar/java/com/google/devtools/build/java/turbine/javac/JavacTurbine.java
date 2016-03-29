@@ -38,6 +38,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.SimpleFileVisitor;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -318,7 +319,8 @@ public class JavacTurbine implements AutoCloseable {
           }
           Path dest = tmpdir.resolve(ze.getName());
           Files.createDirectories(dest.getParent());
-          Files.copy(zf.getInputStream(ze), dest);
+          // allow overlapping source jars for compatibility with JavaBuilder (see b/26688023)
+          Files.copy(zf.getInputStream(ze), dest, StandardCopyOption.REPLACE_EXISTING);
           extractedSources.add(dest.toAbsolutePath().toString());
         }
       }
