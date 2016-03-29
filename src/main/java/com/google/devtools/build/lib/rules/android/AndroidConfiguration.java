@@ -94,7 +94,22 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
 
   /** When to use incremental dexing (using {@link DexArchiveProvider}). */
   public enum IncrementalDexing {
-    OFF, WITH_DEX_SHARDS,
+    OFF(false, false, false),
+    WITH_DEX_SHARDS(false, true, false),
+    WITH_MULTIDEX(false, true, true),
+    WITH_MONODEX_OR_DEX_SHARDS(true, true, false),
+    AS_PERMITTED(true, true, true);
+
+    public final boolean withMonodex;
+    public final boolean withDexShards;
+    public final boolean withUnshardedMultidex;
+
+    private IncrementalDexing(
+        boolean withMonodex, boolean withDexShards, boolean withUnshardedMultidex) {
+      this.withMonodex = withMonodex;
+      this.withDexShards = withDexShards;
+      this.withUnshardedMultidex = withUnshardedMultidex;
+    }
   }
 
   /**

@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.common.base.Optional;
@@ -70,6 +71,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import javax.annotation.Nullable;
 
 /**
  * An implementation for the "android_binary" rule.
@@ -320,6 +323,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ruleContext,
         filesBuilder,
         deployJar,
+        /* isBinaryJarFiltered */ false,
         javaCommon,
         androidCommon,
         javaSemantics,
@@ -338,7 +342,8 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   public static RuleConfiguredTargetBuilder createAndroidBinary(
       RuleContext ruleContext,
       NestedSetBuilder<Artifact> filesBuilder,
-      Artifact deployJar,
+      Artifact binaryJar,
+      boolean isBinaryJarFiltered,
       JavaCommon javaCommon,
       AndroidCommon androidCommon,
       JavaSemantics javaSemantics,
@@ -359,13 +364,13 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ruleContext,
         androidCommon,
         resourceApk,
-        deployJar,
+        binaryJar,
         proguardSpecs);
     ProguardOutput proguardOutput =
         applyProguard(
             ruleContext,
             androidCommon,
-            deployJar,
+            binaryJar,
             filesBuilder,
             proguardSpecs,
             proguardMapping);
@@ -375,8 +380,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             ? dexWithJack(ruleContext, androidCommon, proguardSpecs)
             : dex(
                 ruleContext,
-                deployJar,
+                binaryJar,
                 jarToDex,
+                isBinaryJarFiltered,
                 androidCommon,
                 resourceClasses);
     if (dexingOutput == null) {
@@ -409,7 +415,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_BINARY_APK));
 
     // Don't add blacklistedApk, so it's only built if explicitly requested.
-    filesBuilder.add(deployJar);
+    filesBuilder.add(binaryJar);
     filesBuilder.add(unsignedApk);
     filesBuilder.add(zipAlignedApk);
 
@@ -959,16 +965,16 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   /** Creates one or more classes.dex files that correspond to {@code proguardedJar}. */
   private static DexingOutput dex(
       RuleContext ruleContext,
-      Artifact deployJar,
+      Artifact binaryJar,
       Artifact proguardedJar,
+      boolean isBinaryJarFiltered,
       AndroidCommon common,
       JavaTargetAttributes attributes)
       throws InterruptedException {
+    boolean finalJarIsDerived = isBinaryJarFiltered || binaryJar != proguardedJar;
     List<String> dexopts = ruleContext.getTokenizedStringListAttr("dexopts");
     MultidexMode multidexMode = getMultidexMode(ruleContext);
-    String classesDexFileName = multidexMode.getOutputDexFilename();
-    Artifact classesDex = AndroidBinary.getDxArtifact(ruleContext, classesDexFileName);
-    if (!AndroidBinary.supportsMultidexMode(ruleContext, multidexMode)) {
+    if (!supportsMultidexMode(ruleContext, multidexMode)) {
       ruleContext.ruleError("Multidex mode \"" + multidexMode.getAttributeValue()
           + "\" not supported by this version of the Android SDK");
       return null;
@@ -995,21 +1001,36 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       return null;
     }
 
+    // Always OFF if finalJarIsDerived
+    IncrementalDexing incrementalDexing =
+        getEffectiveIncrementalDexing(ruleContext, dexopts, finalJarIsDerived);
     if (multidexMode == MultidexMode.OFF) {
       // Single dex mode: generate classes.dex directly from the input jar.
-      AndroidCommon.createDexAction(
-          ruleContext, proguardedJar, classesDex, dexopts, false, null);
-      return new DexingOutput(classesDex, deployJar, ImmutableList.of(classesDex));
+      if (incrementalDexing.withMonodex) {
+        Artifact classesDex = getDxArtifact(ruleContext, "classes.dex.zip");
+        Artifact jarToDex = getDxArtifact(ruleContext, "classes.jar");
+        Artifact javaResourceJar = createShuffleJarAction(ruleContext, true, (Artifact) null,
+            ImmutableList.of(jarToDex), common, attributes, (Artifact) null);
+        createDexMergerAction(ruleContext, "off", jarToDex, classesDex, (Artifact) null,
+            /* minimalMainDex */ false);
+        return new DexingOutput(classesDex, javaResourceJar, ImmutableList.of(classesDex));
+      } else {
+        // By *not* writing a zip we get dx to drop resources on the floor.
+        Artifact classesDex = getDxArtifact(ruleContext, "classes.dex");
+        AndroidCommon.createDexAction(
+            ruleContext, proguardedJar, classesDex, dexopts, /* multidex */ false, (Artifact) null);
+        return new DexingOutput(classesDex, binaryJar, ImmutableList.of(classesDex));
+      }
     } else {
       // Multidex mode: generate classes.dex.zip, where the zip contains [classes.dex,
-      // classes2.dex, ... classesN.dex]. Because the dexer also places resources into this zip,
-      // we also need to create a cleanup action that removes all non-.dex files before staging
-      // for apk building.
+      // classes2.dex, ... classesN.dex].
+
       if (multidexMode == MultidexMode.LEGACY) {
         // For legacy multidex, we need to generate a list for the dexer's --main-dex-list flag.
         mainDexList = createMainDexListAction(ruleContext, proguardedJar);
       }
 
+      Artifact classesDex = getDxArtifact(ruleContext, "classes.dex.zip");
       if (dexShards > 1) {
         List<Artifact> shards = new ArrayList<>(dexShards);
         for (int i = 1; i <= dexShards; i++) {
@@ -1017,73 +1038,29 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         }
 
         Artifact javaResourceJar =
-            ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.JAVA_RESOURCES_JAR);
-
-        SpawnAction.Builder shardAction = new SpawnAction.Builder()
-            .setMnemonic("ShardClassesToDex")
-            .setProgressMessage("Sharding classes for dexing for " + ruleContext.getLabel())
-            .setExecutable(ruleContext.getExecutablePrerequisite("$shuffle_jars", Mode.HOST))
-            .addOutputs(shards)
-            .addOutput(javaResourceJar);
-
-        CustomCommandLine.Builder shardCommandLine = CustomCommandLine.builder()
-            .addBeforeEachExecPath("--output_jar", shards)
-            .addExecPath("--output_resources", javaResourceJar);
-
-        if (mainDexList != null) {
-          shardCommandLine.addExecPath("--main_dex_filter", mainDexList);
-          shardAction.addInput(mainDexList);
-        }
-
-        // If we need to run Proguard, all the class files will be in the Proguarded jar and the
-        // deploy jar will already have been built (since it's the input of Proguard) and it will
-        // contain all the Java resources. Otherwise, we don't want to have deploy jar creation on
-        // the critical path, so we put all the jar files that constitute it on the inputs of the
-        // jar shuffler.
-        boolean useDexArchives = false;
-        if (proguardedJar != deployJar) {
-          // When proguard is used we can't use dex archives, so just shuffle the proguarded jar
-          shardCommandLine.addExecPath("--input_jar", proguardedJar);
-          shardAction.addInput(proguardedJar);
-        } else {
-          Iterable<Artifact> classpath =
-              Iterables.concat(common.getRuntimeJars(), attributes.getRuntimeClassPathForArchive());
-          // Check whether we can use dex archives.  Besides the --incremental_dexing flag, also
-          // make sure the "dexopts" attribute on this target doesn't mention any problematic flags.
-          useDexArchives =
-              AndroidCommon.getAndroidConfig(ruleContext).getIncrementalDexing()
-                  != IncrementalDexing.OFF
-              && !Iterables.any(dexopts,
-                  new FlagMatcher(AndroidCommon
-                      .getAndroidConfig(ruleContext)
-                      .getTargetDexoptsThatPreventIncrementalDexing()));
-          if (useDexArchives) {
-            // Use dex archives instead of their corresponding Jars wherever we can.  At this point
-            // there should be very few or no Jar files that still end up in shards.  The dexing
-            // step below will have to deal with those in addition to merging .dex files together.
-            classpath = Iterables.transform(classpath, collectDexArchives(ruleContext, common));
-            shardCommandLine.add("--split_dexed_classes");
-          }
-          shardCommandLine.addBeforeEachExecPath("--input_jar", classpath);
-          shardAction.addInputs(classpath);
-        }
-
-        shardAction.setCommandLine(shardCommandLine.build());
-        ruleContext.registerAction(shardAction.build(ruleContext));
+            createShuffleJarAction(
+                ruleContext,
+                incrementalDexing.withDexShards,
+                finalJarIsDerived ? proguardedJar : null,
+                shards,
+                common,
+                attributes,
+                mainDexList);
 
         List<Artifact> shardDexes = new ArrayList<>(dexShards);
         for (int i = 1; i <= dexShards; i++) {
           Artifact shard = shards.get(i - 1);
           Artifact shardDex = getDxArtifact(ruleContext, "shard" + i + ".dex.zip");
           shardDexes.add(shardDex);
-          if (useDexArchives) {
+          if (incrementalDexing.withDexShards) {
             // If there's a main dex list then the first shard contains exactly those files.
             // To work with devices that lack native multi-dex support we need to make sure that
             // the main dex list becomes one dex file if at all possible.
             // Note shard here (mostly) contains of .class.dex files from shuffled dex archives,
             // instead of being a conventional Jar file with .class files.
             String multidexStrategy = mainDexList != null && i == 1 ? "minimal" : "best_effort";
-            createDexMergerAction(ruleContext, multidexStrategy, shard, shardDex);
+            createDexMergerAction(ruleContext, multidexStrategy, shard, shardDex, (Artifact) null,
+                /* minimalMainDex */ false);
           } else {
             AndroidCommon.createDexAction(
                 ruleContext, shard, shardDex, dexopts, /* multidex */ true, (Artifact) null);
@@ -1104,23 +1081,55 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .build(ruleContext));
         return new DexingOutput(classesDex, javaResourceJar, shardDexes);
       } else {
-        // Create an artifact for the intermediate zip output that includes non-.dex files.
-        Artifact classesDexIntermediate = AndroidBinary.getDxArtifact(
-            ruleContext,
-            "intermediate_" + classesDexFileName);
-
-        // Have the dexer generate the intermediate file and the "cleaner" action consume this to
-        // generate the final archive with only .dex files.
-        AndroidCommon.createDexAction(ruleContext, proguardedJar,
-            classesDexIntermediate, dexopts, true, mainDexList);
-        createCleanDexZipAction(ruleContext, classesDexIntermediate, classesDex);
-        return new DexingOutput(classesDex, deployJar, ImmutableList.of(classesDex));
+        if (incrementalDexing.withUnshardedMultidex) {
+          Artifact jarToDex = AndroidBinary.getDxArtifact(ruleContext, "classes.jar");
+          Artifact javaResourceJar = createShuffleJarAction(ruleContext, true, (Artifact) null,
+              ImmutableList.of(jarToDex), common, attributes, (Artifact) null);
+          createDexMergerAction(ruleContext, "minimal", jarToDex, classesDex, mainDexList,
+              // unlike dexopts.contains(), this works even for "--a --b" in one string
+              Iterables.any(dexopts, FlagMatcher.MINIMAL_MAIN_DEX));
+          return new DexingOutput(classesDex, javaResourceJar, ImmutableList.of(classesDex));
+        } else {
+          // Because the dexer also places resources into this zip, we also need to create a cleanup
+          // action that removes all non-.dex files before staging for apk building.
+          // Create an artifact for the intermediate zip output that includes non-.dex files.
+          Artifact classesDexIntermediate = AndroidBinary.getDxArtifact(
+              ruleContext, "intermediate_classes.dex.zip");
+          // Have the dexer generate the intermediate file and the "cleaner" action consume this to
+          // generate the final archive with only .dex files.
+          AndroidCommon.createDexAction(ruleContext, proguardedJar,
+              classesDexIntermediate, dexopts, /* multidex */ true, mainDexList);
+          createCleanDexZipAction(ruleContext, classesDexIntermediate, classesDex);
+          return new DexingOutput(classesDex, binaryJar, ImmutableList.of(classesDex));
+        }
       }
     }
   }
 
+  private static IncrementalDexing getEffectiveIncrementalDexing(
+      RuleContext ruleContext, List<String> dexopts, boolean finalJarIsDerived) {
+    if (finalJarIsDerived) {
+      return IncrementalDexing.OFF;
+    }
+    IncrementalDexing result = AndroidCommon.getAndroidConfig(ruleContext).getIncrementalDexing();
+    if (result != IncrementalDexing.OFF
+        && Iterables.any(dexopts,
+            new FlagMatcher(AndroidCommon
+                .getAndroidConfig(ruleContext)
+                .getTargetDexoptsThatPreventIncrementalDexing()))) {
+      result = IncrementalDexing.OFF;
+    }
+    return result;
+  }
+
   private static void createDexMergerAction(
-      RuleContext ruleContext, String multidexStrategy, Artifact inputJar, Artifact classesDex) {
+      RuleContext ruleContext,
+      String multidexStrategy,
+      Artifact inputJar,
+      Artifact classesDex,
+      @Nullable Artifact mainDexList,
+      boolean minimalMainDex) {
+    checkArgument(!minimalMainDex || mainDexList != null, "expected mainDexList");
     SpawnAction.Builder dexmerger = new SpawnAction.Builder()
         .setExecutable(ruleContext.getExecutablePrerequisite("$dexmerger", Mode.HOST))
         .addArgument("--input")
@@ -1133,6 +1142,12 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       // Match what we do in AndroidCommon.createDexAction
       dexmerger.addArgument("--nolocals"); // TODO(bazel-team): Still needed? See createDexAction
+    }
+    if (mainDexList != null) {
+      dexmerger.addArgument("--main-dex-list").addInputArgument(mainDexList);
+      if (minimalMainDex) {
+        dexmerger.addArgument("--minimal-main-dex");
+      }
     }
     ruleContext.registerAction(dexmerger.build(ruleContext));
   }
@@ -1161,6 +1176,66 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       result.addDexArchive(dexArchive, jar);
     }
     return result.build();
+  }
+
+  private static Artifact createShuffleJarAction(
+      RuleContext ruleContext,
+      boolean useDexArchives,
+      @Nullable Artifact proguardedJar,
+      List<Artifact> shards,
+      AndroidCommon common,
+      JavaTargetAttributes attributes,
+      @Nullable Artifact mainDexList)
+      throws InterruptedException {
+    checkArgument(mainDexList == null || shards.size() > 1);
+    Artifact javaResourceJar =
+        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.JAVA_RESOURCES_JAR);
+
+    SpawnAction.Builder shardAction = new SpawnAction.Builder()
+        .setMnemonic("ShardClassesToDex")
+        .setProgressMessage("Sharding classes for dexing for " + ruleContext.getLabel())
+        .setExecutable(ruleContext.getExecutablePrerequisite("$shuffle_jars", Mode.HOST))
+        .addOutputs(shards)
+        .addOutput(javaResourceJar);
+
+    CustomCommandLine.Builder shardCommandLine = CustomCommandLine.builder()
+        .addBeforeEachExecPath("--output_jar", shards)
+        .addExecPath("--output_resources", javaResourceJar);
+
+    if (mainDexList != null) {
+      shardCommandLine.addExecPath("--main_dex_filter", mainDexList);
+      shardAction.addInput(mainDexList);
+    }
+
+    // If we need to run Proguard, all the class files will be in the Proguarded jar and the
+    // deploy jar will already have been built (since it's the input of Proguard) and it will
+    // contain all the Java resources. Otherwise, we don't want to have deploy jar creation on
+    // the critical path, so we put all the jar files that constitute it on the inputs of the
+    // jar shuffler.
+    if (proguardedJar != null) {
+      // When proguard is used we can't use dex archives, so just shuffle the proguarded jar
+      checkArgument(!useDexArchives, "Dex archives are incompatible with Proguard");
+      shardCommandLine.addExecPath("--input_jar", proguardedJar);
+      shardAction.addInput(proguardedJar);
+    } else {
+      Iterable<Artifact> classpath =
+          Iterables.concat(common.getRuntimeJars(), attributes.getRuntimeClassPathForArchive());
+      // Check whether we can use dex archives.  Besides the --incremental_dexing flag, also
+      // make sure the "dexopts" attribute on this target doesn't mention any problematic flags.
+      if (useDexArchives) {
+        // Use dex archives instead of their corresponding Jars wherever we can.  At this point
+        // there should be very few or no Jar files that still end up in shards.  The dexing
+        // step below will have to deal with those in addition to merging .dex files together.
+        classpath = Iterables.transform(classpath, collectDexArchives(ruleContext, common));
+        shardCommandLine.add("--split_dexed_classes");
+      }
+      shardCommandLine.addBeforeEachExecPath("--input_jar", classpath);
+      shardAction.addInputs(classpath);
+    }
+
+    shardAction.setCommandLine(shardCommandLine.build());
+    ruleContext.registerAction(shardAction.build(ruleContext));
+    return javaResourceJar;
   }
 
   /**
@@ -1523,6 +1598,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
   }
 
   private static class FlagMatcher implements Predicate<String> {
+    static final FlagMatcher MINIMAL_MAIN_DEX =
+        new FlagMatcher(ImmutableList.of("--minimal-main-dex"));
+
     private final ImmutableList<String> matching;
 
     FlagMatcher(ImmutableList<String> matching) {
