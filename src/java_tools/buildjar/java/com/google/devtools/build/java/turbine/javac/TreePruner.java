@@ -32,6 +32,7 @@ import com.sun.tools.javac.tree.JCTree.JCBlock;
 import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCExpression;
 import com.sun.tools.javac.tree.JCTree.JCExpressionStatement;
+import com.sun.tools.javac.tree.JCTree.JCFieldAccess;
 import com.sun.tools.javac.tree.JCTree.JCIdent;
 import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import com.sun.tools.javac.tree.JCTree.JCMethodInvocation;
@@ -126,11 +127,18 @@ public class TreePruner {
     if (expr.getKind() != Kind.METHOD_INVOCATION) {
       return false;
     }
-    JCExpression select = ((JCMethodInvocation) expr).getMethodSelect();
-    if (select.getKind() != Kind.IDENTIFIER) {
-      return false;
+    JCExpression method = ((JCMethodInvocation) expr).getMethodSelect();
+    Name name;
+    switch (method.getKind()) {
+      case IDENTIFIER:
+        name = ((JCIdent) method).getName();
+        break;
+      case MEMBER_SELECT:
+        name = ((JCFieldAccess) method).getIdentifier();
+        break;
+      default:
+        return false;
     }
-    Name name = ((JCIdent) select).getName();
     return name.contentEquals("this") || name.contentEquals("super");
   }
 

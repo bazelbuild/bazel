@@ -305,4 +305,31 @@ public class TreePrunerTest {
   private String prettyPrint(JCCompilationUnit tree) {
     return tree.toString().trim();
   }
+
+  @Test
+  public void qualifiedSuperConstructorChaining() {
+    String[] lines = {
+      "class Test {",
+      "  class Inner {",
+      "    Inner(OuterInstance outer) {",
+      "      outer.super();",
+      "    }",
+      "  }",
+      "}",
+    };
+    JCCompilationUnit tree = parseLines(lines);
+    TreePruner.prune(tree);
+    String[] expected = {
+        "class Test {",
+        "    ",
+        "    class Inner {",
+        "        ",
+        "        Inner(OuterInstance outer) {",
+        "            outer.super();",
+        "        }",
+        "    }",
+        "}",
+    };
+    assertThat(prettyPrint(tree)).isEqualTo(Joiner.on('\n').join(expected));
+  }
 }
