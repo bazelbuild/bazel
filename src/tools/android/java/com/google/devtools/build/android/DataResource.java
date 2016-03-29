@@ -19,18 +19,7 @@ import java.nio.file.Path;
 /**
  * Represents an Android Resource parsed from an xml or binary file.
  */
-public interface DataResource {
-
-  /**
-   * Provides the FullyQualifiedName of the DataResource.
-   */
-  DataKey dataKey();
-
-  /**
-   * Provides the Path to the file from which the DataResource was derived.
-   */
-  Path source();
-
+public interface DataResource extends DataValue {
   /**
    * Writes the resource to the given resource directory.
    * @param newResourceDirectory The new directory for this resource.

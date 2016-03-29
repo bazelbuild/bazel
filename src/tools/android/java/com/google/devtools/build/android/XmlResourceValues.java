@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.google.devtools.build.android.AndroidDataSet.KeyValueConsumer;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
 import com.google.devtools.build.android.xml.PluralXmlResourceValue;
@@ -86,8 +87,8 @@ public class XmlResourceValues {
   static void parseDeclareStyleable(
       FullyQualifiedName.Factory fqnFactory,
       Path path,
-      List<DataResource> nonOverwritable,
-      List<DataResource> overwritable,
+      KeyValueConsumer<DataKey, DataResource> overwritingConsumer,
+      KeyValueConsumer<DataKey, DataResource> nonOverwritingConsumer,
       XMLEventReader eventReader,
       StartElement start)
       throws XMLStreamException {
@@ -100,18 +101,14 @@ public class XmlResourceValues {
         StartElement attr = element.asStartElement();
         members.add(getElementName(attr));
         String attrName = getElementName(attr);
-        overwritable.add(
-            XmlDataResource.of(
-                fqnFactory.create(ResourceType.ATTR, attrName),
-                path,
-                parseAttr(eventReader, start)));
+        FullyQualifiedName fqn = fqnFactory.create(ResourceType.ATTR, attrName);
+        overwritingConsumer.consume(
+            fqn, XmlDataResource.of(fqn, path, parseAttr(eventReader, start)));
       }
     }
-    nonOverwritable.add(
-        XmlDataResource.of(
-            fqnFactory.create(ResourceType.STYLEABLE, styleableName),
-            path,
-            StyleableXmlResourceValue.of(members)));
+    FullyQualifiedName fqn = fqnFactory.create(ResourceType.STYLEABLE, styleableName);
+    nonOverwritingConsumer.consume(
+        fqn, XmlDataResource.of(fqn, path, StyleableXmlResourceValue.of(members)));
   }
 
   static XmlResourceValue parseAttr(XMLEventReader eventReader, StartElement start)

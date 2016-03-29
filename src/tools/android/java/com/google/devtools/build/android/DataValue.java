@@ -13,25 +13,23 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import java.io.IOException;
 import java.nio.file.Path;
 
 /**
- * Represents an Asset created from a binary file.
+ * Represents the value associated with DataKey interface for resource and asset values.
+ *
+ * A DataValue is either an android resource or asset derived from a Path.
  */
-public interface DataAsset extends DataValue {
+public interface DataValue {
 
   /**
-   * Writes the asset to the given asset directory.
-   * @param newAssetDirectory The new directory for this asset.
-   * @throws IOException if there are issues with writing the asset.
+   * Provides the DataKey of this value.
    */
-  void write(Path newAssetDirectory) throws IOException;
+  DataKey dataKey();
 
   /**
-   * Compares one data resource to another.
-   *
-   * Not implementing Comparable as it would conflict with DataResource.
+   * Provides the Path to the file from which the DataValue was derived.
    */
-  int compareTo(DataAsset other);
+  Path source();
+
 }

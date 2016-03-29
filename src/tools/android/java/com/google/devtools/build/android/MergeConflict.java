@@ -30,6 +30,7 @@ import java.util.Objects;
 @Immutable
 public class MergeConflict {
   private static final String CONFLICT_MESSAGE = "%s is provided from %s and %s";
+
   private final DataKey dataKey;
   private final Path first;
   private final Path second;
@@ -51,25 +52,7 @@ public class MergeConflict {
    * @param second The second DataResource.
    * @return A new MergeConflict.
    */
-  public static MergeConflict between(DataKey dataKey, DataResource first, DataResource second) {
-    Preconditions.checkNotNull(dataKey);
-    Preconditions.checkArgument(dataKey.equals(first.dataKey()));
-    Preconditions.checkArgument(dataKey.equals(second.dataKey()));
-    return of(dataKey, first.source(), second.source());
-  }
-
-  /**
-   * Creates a MergeConflict between two DataResources.
-   *
-   * The {@link DataKey} must match the first.dataKey() and second
-   * .dataKey().
-   *
-   * @param dataKey The dataKey name that both DataResources share.
-   * @param first The first DataResource.
-   * @param second The second DataResource.
-   * @return A new MergeConflict.
-   */
-  public static MergeConflict between(DataKey dataKey, DataAsset first, DataAsset second) {
+  public static MergeConflict between(DataKey dataKey, DataValue first, DataValue second) {
     Preconditions.checkNotNull(dataKey);
     Preconditions.checkArgument(dataKey.equals(first.dataKey()));
     Preconditions.checkArgument(dataKey.equals(second.dataKey()));

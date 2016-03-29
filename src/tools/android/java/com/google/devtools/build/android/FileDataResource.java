@@ -14,7 +14,6 @@
 package com.google.devtools.build.android;
 
 import com.google.common.base.MoreObjects;
-import com.google.devtools.build.android.FullyQualifiedName.Factory;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -59,27 +58,6 @@ public class FileDataResource implements DataResource, DataAsset {
         .add("dataKey", dataKey)
         .add("source", source)
         .toString();
-  }
-
-  static DataResource fromPath(Path path, Factory fqnFactory) {
-    if (path.getNameCount() < 2) {
-      throw new IllegalArgumentException(
-          String.format(
-              "The resource path %s is too short. "
-                  + "The path is expected to be <resource type>/<file name>.",
-              path));
-    }
-    String rawFqn =
-        removeFileExtension(path.subpath(path.getNameCount() - 2, path.getNameCount()).toString());
-    return of(fqnFactory.parse(rawFqn), path);
-  }
-
-  private static String removeFileExtension(String pathWithExtension) {
-    int extensionStart = pathWithExtension.lastIndexOf('.');
-    if (extensionStart > 0) {
-      return pathWithExtension.substring(0, extensionStart);
-    }
-    return pathWithExtension;
   }
 
   @Override

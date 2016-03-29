@@ -50,6 +50,49 @@ import javax.xml.stream.XMLStreamException;
  */
 @Immutable
 public class AndroidDataSet {
+
+  /** A Consumer style interface that will accept a DataKey and DataValue. */
+  interface KeyValueConsumer<K extends DataKey, V extends DataValue> {
+    void consume(K key, V value);
+  }
+
+  private static class NonOverwritableConsumer implements KeyValueConsumer<DataKey, DataResource> {
+
+    private Map<DataKey, DataResource> target;
+
+    public NonOverwritableConsumer(Map<DataKey, DataResource> target) {
+      this.target = target;
+    }
+
+    @Override
+    public void consume(DataKey key, DataResource value) {
+      if (!target.containsKey(key)) {
+        target.put(key, value);
+      }
+    }
+  }
+
+  // TODO(corysmith): Determine a better name.
+  private static class OverwritableConsumer<K extends DataKey, V extends DataValue>
+      implements KeyValueConsumer<K, V> {
+    private Map<K, V> target;
+    private Set<MergeConflict> conflicts;
+
+    OverwritableConsumer(Map<K, V> target, Set<MergeConflict> conflicts) {
+      this.target = target;
+      this.conflicts = conflicts;
+    }
+
+    @Override
+    public void consume(K key, V value) {
+      if (target.containsKey(key)) {
+        conflicts.add(MergeConflict.between(key, value, target.get(key)));
+      } else {
+        target.put(key, value);
+      }
+    }
+  }
+
   /**
    * An AndroidDataPathWalker that collects DataAsset and DataResources for an AndroidDataSet.
    */
@@ -59,16 +102,19 @@ public class AndroidDataSet {
     private final ResourceFileVisitor resourceVisitor;
     private static final ImmutableSet<FileVisitOption> FOLLOW_LINKS =
         ImmutableSet.of(FileVisitOption.FOLLOW_LINKS);
-    private final Map<DataKey, DataResource> overwritingResources;
-    private final Map<DataKey, DataResource> nonOverwritingResources;
+    private Map<DataKey, DataResource> overwritingResources;
+    private Map<DataKey, DataResource> nonOverwritingResources;
 
     private static AndroidDataSetBuildingPathWalker create() {
-      Map<DataKey, DataResource> overwritingResources = new HashMap<>();
-      Map<DataKey, DataResource> nonOverwritingResources = new HashMap<>();
+      final Map<DataKey, DataResource> overwritingResources = new HashMap<>();
+      final Map<DataKey, DataResource> nonOverwritingResources = new HashMap<>();
       final Map<DataKey, DataAsset> assets = new HashMap<>();
-      Set<MergeConflict> conflicts = new HashSet<>();
+      final Set<MergeConflict> conflicts = new HashSet<>();
+
       final ResourceFileVisitor resourceVisitor =
-          new ResourceFileVisitor(conflicts, overwritingResources, nonOverwritingResources);
+          new ResourceFileVisitor(
+              new OverwritableConsumer<>(overwritingResources, conflicts),
+              new NonOverwritableConsumer(nonOverwritingResources));
       return new AndroidDataSetBuildingPathWalker(
           conflicts, assets, overwritingResources, nonOverwritingResources, resourceVisitor);
     }
@@ -88,7 +134,6 @@ public class AndroidDataSet {
 
     @Override
     public void walkResources(Path path) throws IOException {
-
       Files.walkFileTree(path, FOLLOW_LINKS, Integer.MAX_VALUE, resourceVisitor);
     }
 
@@ -98,11 +143,12 @@ public class AndroidDataSet {
           path,
           FOLLOW_LINKS,
           Integer.MAX_VALUE,
-          new AssetFileVisitor(RelativeAssetPath.Factory.of(path), assets, conflicts));
+          new AssetFileVisitor(
+              RelativeAssetPath.Factory.of(path), new OverwritableConsumer<>(assets, conflicts)));
     }
 
     /**
-     * Creates an AndroidDataSet from the collected DataAsset and DataResource instances.
+     * Creates an {@link AndroidDataSet} from {@link DataAsset} and {@link DataResource} instances.
      */
     public AndroidDataSet createAndroidDataSet() throws MergingException {
       resourceVisitor.checkForErrors();
@@ -115,20 +161,17 @@ public class AndroidDataSet {
   }
 
   /**
-   * A FileVisitor that walks the asset tree and extracts FileDataResources.
+   * A {@link java.nio.file.FileVisitor} that walks the asset tree and extracts {@link DataAsset}s.
    */
   private static class AssetFileVisitor extends SimpleFileVisitor<Path> {
     private final RelativeAssetPath.Factory dataKeyFactory;
-    private final Map<DataKey, DataAsset> assets;
-    private final Set<MergeConflict> conflicts;
+    private KeyValueConsumer<DataKey, DataAsset> assetConsumer;
 
     public AssetFileVisitor(
         RelativeAssetPath.Factory dataKeyFactory,
-        Map<DataKey, DataAsset> assets,
-        Set<MergeConflict> conflicts) {
+        KeyValueConsumer<DataKey, DataAsset> assetConsumer) {
       this.dataKeyFactory = dataKeyFactory;
-      this.assets = assets;
-      this.conflicts = conflicts;
+      this.assetConsumer = assetConsumer;
     }
 
     @Override
@@ -136,11 +179,7 @@ public class AndroidDataSet {
       if (!Files.isDirectory(path)) {
         RelativeAssetPath key = dataKeyFactory.create(path);
         FileDataResource asset = FileDataResource.of(key, path);
-        if (assets.containsKey(key)) {
-          conflicts.add(MergeConflict.between(key, assets.get(key), asset));
-        } else {
-          assets.put(key, asset);
-        }
+        assetConsumer.consume(key, asset);
       }
       return super.visitFile(path, attrs);
     }
@@ -150,21 +189,35 @@ public class AndroidDataSet {
    * A FileVisitor that walks a resource tree and extract FullyQualifiedName and resource values.
    */
   private static class ResourceFileVisitor extends SimpleFileVisitor<Path> {
-    private final Set<MergeConflict> conflicts;
-    private final Map<DataKey, DataResource> overwritingResources;
-    private final Map<DataKey, DataResource> nonOverwritingResources;
     private final List<Exception> errors = new ArrayList<>();
+    private final OverwritableConsumer<DataKey, DataResource> overwritingConsumer;
+    private final NonOverwritableConsumer nonOverwritingConsumer;
     private boolean inValuesSubtree;
     private FullyQualifiedName.Factory fqnFactory;
     private final XMLInputFactory xmlInputFactory = XMLInputFactory.newFactory();
 
     public ResourceFileVisitor(
-        Set<MergeConflict> conflicts,
-        Map<DataKey, DataResource> overwritingResources,
-        Map<DataKey, DataResource> nonOverwritingResources) {
-      this.conflicts = conflicts;
-      this.overwritingResources = overwritingResources;
-      this.nonOverwritingResources = nonOverwritingResources;
+        OverwritableConsumer<DataKey, DataResource> overwritingConsumer,
+        NonOverwritableConsumer nonOverwritingConsumer) {
+      this.overwritingConsumer = overwritingConsumer;
+      this.nonOverwritingConsumer = nonOverwritingConsumer;
+    }
+
+    private static String deriveRawFullyQualifiedName(Path path) {
+      if (path.getNameCount() < 2) {
+        throw new IllegalArgumentException(
+            String.format(
+                "The resource path %s is too short. "
+                    + "The path is expected to be <resource type>/<file name>.",
+                path));
+      }
+      String pathWithExtension =
+          path.subpath(path.getNameCount() - 2, path.getNameCount()).toString();
+      int extensionStart = pathWithExtension.lastIndexOf('.');
+      if (extensionStart > 0) {
+        return pathWithExtension.substring(0, extensionStart);
+      }
+      return pathWithExtension;
     }
 
     private void checkForErrors() throws MergingException {
@@ -199,43 +252,18 @@ public class AndroidDataSet {
       try {
         if (!Files.isDirectory(path)) {
           if (inValuesSubtree) {
-            List<DataResource> targetOverwritableResources = new ArrayList<>();
-            List<DataResource> targetNonOverwritableResources = new ArrayList<>();
             XmlDataResource.fromPath(
-                xmlInputFactory,
-                path,
-                fqnFactory,
-                targetOverwritableResources,
-                targetNonOverwritableResources);
-            for (DataResource dataResource : targetOverwritableResources) {
-              putOverwritingResource(dataResource);
-            }
-            for (DataResource dataResource : targetNonOverwritableResources) {
-              if (!nonOverwritingResources.containsKey(dataResource.dataKey())) {
-                nonOverwritingResources.put(dataResource.dataKey(), dataResource);
-              }
-            }
+                xmlInputFactory, path, fqnFactory, overwritingConsumer, nonOverwritingConsumer);
           } else {
-            DataResource dataResource = FileDataResource.fromPath(path, fqnFactory);
-            putOverwritingResource(dataResource);
+            String rawFqn = deriveRawFullyQualifiedName(path);
+            FullyQualifiedName key = fqnFactory.parse(rawFqn);
+            overwritingConsumer.consume(key, FileDataResource.of(key, path));
           }
         }
       } catch (IllegalArgumentException | XMLStreamException e) {
         errors.add(e);
       }
       return super.visitFile(path, attrs);
-    }
-
-    private void putOverwritingResource(DataResource dataResource) {
-      if (overwritingResources.containsKey(dataResource.dataKey())) {
-        conflicts.add(
-            MergeConflict.between(
-                dataResource.dataKey(),
-                dataResource,
-                overwritingResources.get(dataResource.dataKey())));
-      } else {
-        overwritingResources.put(dataResource.dataKey(), dataResource);
-      }
     }
 
     public List<Exception> getErrors() {

@@ -32,6 +32,7 @@ import java.util.Set;
  * Handles the Merging of AndroidDataSet.
  */
 public class AndroidDataMerger {
+
   /**
    * Merges DataResources into an UnwrittenMergedAndroidData.
    *
@@ -176,6 +177,7 @@ public class AndroidDataMerger {
       }
       throw new MergingException(Joiner.on("\n").join(messages));
     }
+
     return UnwrittenMergedAndroidData.of(
         primaryData.getManifest(),
         primary,
