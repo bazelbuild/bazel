@@ -311,6 +311,15 @@ public final class IntermediateArtifacts {
   }
 
   /**
+   * Debug symbol file generated for a linked binary, for a specific architecture.
+   */
+  public Artifact dsymSymbol(String arch) {
+    return appendExtension(
+        String.format(
+            ".app.dSYM/Contents/Resources/DWARF/%s_%s", ruleContext.getLabel().getName(), arch));
+  }
+
+  /**
    * Breakpad debug symbol representation.
    */
   public Artifact breakpadSym() {

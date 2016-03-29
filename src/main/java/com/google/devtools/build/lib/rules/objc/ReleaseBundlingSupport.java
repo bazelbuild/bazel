@@ -284,6 +284,8 @@ public final class ReleaseBundlingSupport {
 
     registerCombineArchitecturesAction();
     registerTransformAndCopyBreakpadFilesAction();
+    registerCopyDsymFilesAction();
+    registerCopyDsymPlistAction();
     registerSwiftStdlibActionsIfNecessary();
 
     registerEmbedLabelPlistAction();
@@ -584,24 +586,33 @@ public final class ReleaseBundlingSupport {
    */
   ReleaseBundlingSupport addFilesToBuild(NestedSetBuilder<Artifact> filesToBuild)
       throws InterruptedException {
-    NestedSetBuilder<Artifact> debugSymbolBuilder =
-        NestedSetBuilder.<Artifact>stableOrder().addTransitive(
-            objcProvider.get(ObjcProvider.DEBUG_SYMBOLS));
+    NestedSetBuilder<Artifact> debugSymbolBuilder = NestedSetBuilder.<Artifact>stableOrder();
 
-    for (Artifact breakpadFile : getBreakpadFiles().values()) {
-      filesToBuild.add(breakpadFile);
-    }
+    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()) {
+      filesToBuild.addAll(getBreakpadFiles().values());
+      filesToBuild.addAll(getDsymFiles().values());
 
-    if (linkedBinary == LinkedBinary.LOCAL_AND_DEPENDENCIES
-        && ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()) {
-      debugSymbolBuilder.add(intermediateArtifacts.dsymPlist())
-          .add(intermediateArtifacts.dsymSymbol())
-          .add(intermediateArtifacts.breakpadSym());
+      // TODO(bazel-team): Remove the 'if' when the objc_binary rule does not generate a bundle any
+      // more. The reason this 'if' is here is because the plist is obtained from the ObjcProvider.
+      // Since objc_binary is the rule that adds this file to the provider, and not before, when
+      // running this the provider does not have the plist yet. This gets called again when running
+      // the *_application targets, and since they depend on objc_binaries, the provider has the
+      // files configured. When objc_binary stops bundling ipas as output, the bundling methods will
+      // only get called by *_application rules, with the plist configured in the provider.
+      Artifact cpuPlist = getAnyCpuSpecificDsymPlist();
+      if (cpuPlist != null) {
+        filesToBuild.add(intermediateArtifacts.dsymPlist());
+      }
+
+      if (linkedBinary == LinkedBinary.LOCAL_AND_DEPENDENCIES) {
+        debugSymbolBuilder
+            .add(intermediateArtifacts.dsymPlist())
+            .add(intermediateArtifacts.dsymSymbol())
+            .add(intermediateArtifacts.breakpadSym());
+      }
     }
 
     filesToBuild.add(releaseBundling.getIpaArtifact())
-        // TODO(bazel-team): Fat binaries may require some merging of these file rather than just
-        // making them available.
         .addTransitive(debugSymbolBuilder.build());
     return this;
   }
@@ -714,14 +725,14 @@ public final class ReleaseBundlingSupport {
     } else {
       bundling.addInfoplistInputFromRule(ruleContext);
     }
-    
+
     // Add generated plists next so that generated values can override the default values in the
     // plists from rule.
     bundling.setAutomaticEntriesInfoplistInput(getGeneratedAutomaticPlist())
         .addInfoplistInput(getGeneratedVersionPlist())
         .addInfoplistInput(getGeneratedEnvironmentPlist())
         .addInfoplistInputs(releaseBundling.getInfoplistInputs());
-    
+
     if (releaseBundling.getLaunchStoryboard() != null) {
       bundling.addInfoplistInput(getLaunchStoryboardPlist());
     }
@@ -858,6 +869,37 @@ public final class ReleaseBundlingSupport {
   }
 
   /**
+   * Registers the actions that copy the debug symbol files from the CPU-specific binaries that are
+   * part of this application. The only one step executed is that he dsym files have to be renamed
+   * to include their corresponding CPU architecture as a suffix.
+   */
+  private void registerCopyDsymFilesAction() {
+    for (Entry<Artifact, Artifact> dsymFiles : getDsymFiles().entrySet()) {
+      ruleContext.registerAction(
+          new SymlinkAction(
+              ruleContext.getActionOwner(),
+              dsymFiles.getKey(),
+              dsymFiles.getValue(),
+              "Symlinking dSYM files"));
+    }
+  }
+
+  /**
+   * Registers the action that copies the debug symbol plist from the binary.
+   */
+  private void registerCopyDsymPlistAction() {
+    Artifact dsymPlist = getAnyCpuSpecificDsymPlist();
+    if (dsymPlist != null) {
+      ruleContext.registerAction(
+          new SymlinkAction(
+              ruleContext.getActionOwner(),
+              dsymPlist,
+              intermediateArtifacts.dsymPlist(),
+              "Symlinking dSYM plist"));
+    }
+  }
+
+  /**
    * Returns a map of input breakpad artifacts from the CPU-specific binaries built for this
    * ios_application to the new output breakpad artifacts.
    */
@@ -868,6 +910,33 @@ public final class ReleaseBundlingSupport {
       results.put(breakpadFile.getValue(), destBreakpad);
     }
     return results.build();
+  }
+
+  /**
+   * Returns a map of input dsym artifacts from the CPU-specific binaries built for this
+   * ios_application to the new output dsym artifacts.
+   */
+  private ImmutableMap<Artifact, Artifact> getDsymFiles() {
+    ImmutableMap.Builder<Artifact, Artifact> results = ImmutableMap.builder();
+    for (Entry<String, Artifact> dsymFile : attributes.cpuSpecificDsymFiles().entrySet()) {
+      Artifact destDsym = intermediateArtifacts.dsymSymbol(dsymFile.getKey());
+      results.put(dsymFile.getValue(), destDsym);
+    }
+    return results.build();
+  }
+
+  /**
+   * Returns any available CPU specific dSYM plist file.
+   */
+  @Nullable
+  private Artifact getAnyCpuSpecificDsymPlist() {
+    for (Artifact dsymPlist : attributes.cpuSpecificDsymPlists().values()) {
+      // The plist files generated by the dsym tool are all equal, and don't really have any
+      // useful information. For now, just retrieving any one is OK, but ideally all of them should
+      // be merged.
+      return dsymPlist;
+    }
+    return null;
   }
 
   private void registerExtractTeamPrefixAction(Artifact teamPrefixFile) {
@@ -1108,18 +1177,29 @@ public final class ReleaseBundlingSupport {
     }
 
     ImmutableMap<String, Artifact> cpuSpecificBreakpadFiles() {
+      return cpuSpecificArtifacts(ObjcProvider.BREAKPAD_FILE);
+    }
+
+    ImmutableMap<String, Artifact> cpuSpecificDsymFiles() {
+      return cpuSpecificArtifacts(ObjcProvider.DEBUG_SYMBOLS);
+    }
+
+    ImmutableMap<String, Artifact> cpuSpecificDsymPlists() {
+      return cpuSpecificArtifacts(ObjcProvider.DEBUG_SYMBOLS_PLIST);
+    }
+
+    ImmutableMap<String, Artifact> cpuSpecificArtifacts(ObjcProvider.Key<Artifact> key) {
       ImmutableMap.Builder<String, Artifact> results = ImmutableMap.builder();
       if (ruleContext.attributes().has("binary", BuildType.LABEL)) {
         for (TransitiveInfoCollection prerequisite
             : ruleContext.getPrerequisites("binary", Mode.DONT_CHECK)) {
           ObjcProvider prerequisiteProvider =  prerequisite.getProvider(ObjcProvider.class);
           if (prerequisiteProvider != null) {
-            Artifact sourceBreakpad = Iterables.getOnlyElement(
-                prerequisiteProvider.get(ObjcProvider.BREAKPAD_FILE), null);
-            if (sourceBreakpad != null) {
+            Artifact sourceArtifact = Iterables.getOnlyElement(prerequisiteProvider.get(key), null);
+            if (sourceArtifact != null) {
               String cpu =
                   prerequisite.getConfiguration().getFragment(AppleConfiguration.class).getIosCpu();
-              results.put(cpu, sourceBreakpad);
+              results.put(cpu, sourceArtifact);
             }
           }
         }

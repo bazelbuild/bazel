@@ -231,6 +231,12 @@ public final class ObjcProvider implements TransitiveInfoProvider {
       new Key<>(STABLE_ORDER, "debug_symbols", Artifact.class);
 
   /**
+   * Artifact containing the plist of the debug symbols.
+   */
+  public static final Key<Artifact> DEBUG_SYMBOLS_PLIST =
+      new Key<>(STABLE_ORDER, "debug_symbols_plist", Artifact.class);
+
+  /**
    * Generated breakpad file containing debug information used by the breakpad crash reporting
    * system.
    */
@@ -303,8 +309,8 @@ public final class ObjcProvider implements TransitiveInfoProvider {
     ImmutableList.<Key<?>>of(LIBRARY, IMPORTED_LIBRARY, LINKED_BINARY, FORCE_LOAD_LIBRARY,
         FORCE_LOAD_FOR_XCODEGEN, HEADER, SOURCE, DEFINE, ASSET_CATALOG, GENERAL_RESOURCE_FILE,
         SDK_DYLIB, XCDATAMODEL, MODULE_MAP, MERGE_ZIP, FRAMEWORK_FILE, DEBUG_SYMBOLS,
-        BREAKPAD_FILE, STORYBOARD, XIB, STRINGS, LINKOPT, J2OBJC_LIBRARY);
-  
+        DEBUG_SYMBOLS_PLIST, BREAKPAD_FILE, STORYBOARD, XIB, STRINGS, LINKOPT, J2OBJC_LIBRARY);
+
   private final ImmutableMap<Key<?>, NestedSet<?>> items;
 
   // Items which should be passed to direct dependers, but not transitive dependers.
