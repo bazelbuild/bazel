@@ -94,7 +94,9 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
           case ERROR:
           case WARNING:
           case INFO:
-            clearProgressBar();
+            if (!buildComplete) {
+              clearProgressBar();
+            }
             setEventKindColor(event.getKind());
             terminal.writeString(event.getKind() + ": ");
             terminal.resetTerminal();
@@ -105,7 +107,9 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
               terminal.writeString(event.getMessage());
             }
             crlf();
-            addProgressBar();
+            if (!buildComplete) {
+              addProgressBar();
+            }
             terminal.flush();
             break;
         }

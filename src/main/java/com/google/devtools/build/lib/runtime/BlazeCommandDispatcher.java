@@ -327,6 +327,7 @@ public class BlazeCommandDispatcher {
     EventHandler handler = createEventHandler(outErr, eventHandlerOptions);
     Reporter reporter = env.getReporter();
     reporter.addHandler(handler);
+    env.getEventBus().register(handler);
 
     // We register an ANSI-allowing handler associated with {@code handler} so that ANSI control
     // codes can be re-introduced later even if blaze is invoked with --color=no. This is useful
@@ -336,8 +337,13 @@ public class BlazeCommandDispatcher {
     if (!eventHandlerOptions.useColor()) {
       ansiAllowingHandler = createEventHandler(colorfulOutErr, eventHandlerOptions);
       reporter.registerAnsiAllowingHandler(handler, ansiAllowingHandler);
+      if (ansiAllowingHandler instanceof ExperimentalEventHandler) {
+        env.getEventBus()
+            .register(
+                new PassiveExperimentalEventHandler(
+                    (ExperimentalEventHandler) ansiAllowingHandler));
+      }
     }
-    env.getEventBus().register(ansiAllowingHandler == null ? handler : ansiAllowingHandler);
 
     try {
       // While a Blaze command is active, direct all errors to the client's
