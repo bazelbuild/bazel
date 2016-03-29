@@ -231,7 +231,7 @@ public class JavacTurbineTest {
       try {
         JavaFileObject sourceFile = processingEnv.getFiler().createSourceFile("Generated", element);
         try (OutputStream os = sourceFile.openOutputStream()) {
-          os.write("class Generated {}".getBytes(StandardCharsets.UTF_8));
+          os.write("public class Generated {}".getBytes(StandardCharsets.UTF_8));
         }
       } catch (IOException e) {
         throw new IOError(e);
@@ -280,12 +280,12 @@ public class JavacTurbineTest {
       String text = textify(outputs.get("Generated.class"));
       String[] expected = {
         "// class version 51.0 (51)",
-        "// access flags 0x20",
-        "class Generated {",
+        "// access flags 0x21",
+        "public class Generated {",
         "",
         "",
-        "  // access flags 0x0",
-        "  <init>()V",
+        "  // access flags 0x1",
+        "  public <init>()V",
         "}",
         ""
       };

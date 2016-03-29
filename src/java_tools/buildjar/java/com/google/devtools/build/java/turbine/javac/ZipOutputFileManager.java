@@ -119,7 +119,7 @@ public class ZipOutputFileManager extends JavacFileManager {
     private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 
     public OutputFileObject(String name, Kind kind, Location location) {
-      super(URI.create("outputbuffer://" + name), kind);
+      super(URI.create("outputbuffer:/" + name), kind);
       this.location = location;
     }
 
