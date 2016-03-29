@@ -330,6 +330,8 @@ public class ObjcRuleClasses {
   static final FileTypeSet ENTITLEMENTS_TYPE =
       FileTypeSet.of(FileType.of(".entitlements", ".plist"));
 
+  static final FileTypeSet STRINGS_TYPE = FileTypeSet.of(FileType.of(".strings"));
+
   /**
    * Coverage note files which contain information to reconstruct the basic block graphs and assign
    * source line numbers to blocks.
@@ -355,6 +357,7 @@ public class ObjcRuleClasses {
           final bundle. This allows for localizable strings.
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("strings", LABEL_LIST).legacyAllowAnyFileType()
+              .allowedFileTypes(STRINGS_TYPE)
               .direct_compile_time_input())
           /* <!-- #BLAZE_RULE($objc_resources_rule).ATTRIBUTE(xibs) -->
           Files which are .xib resources, possibly localizable.
