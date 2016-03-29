@@ -850,7 +850,7 @@ public class ObjcRuleClasses {
                               .getExtraEntitlements();
                         }
                       })
-              .allowedFileTypes(FileType.of(".entitlements", ".plist")))
+              .allowedFileTypes(ENTITLEMENTS_TYPE))
           /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(provisioning_profile) -->
           The provisioning profile (.mobileprovision file) to use when bundling
           the application.
