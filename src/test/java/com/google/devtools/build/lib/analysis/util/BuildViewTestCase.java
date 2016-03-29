@@ -985,6 +985,15 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, ConfiguredTarget owner,
       Class<? extends ConfiguredAspectFactory> creatingAspectFactory) {
+    return getGenfilesArtifact(
+        packageRelativePath, owner, creatingAspectFactory, AspectParameters.EMPTY);
+  }
+
+  protected Artifact getGenfilesArtifact(
+      String packageRelativePath,
+      ConfiguredTarget owner,
+      Class<? extends ConfiguredAspectFactory> creatingAspectFactory,
+      AspectParameters params) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
         owner.getConfiguration().getGenfilesDirectory(),
@@ -994,7 +1003,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                     owner.getConfiguration(),
                     owner.getConfiguration(),
                     new NativeAspectClass(creatingAspectFactory),
-                    AspectParameters.EMPTY)
+                    params)
                 .argument());
   }
 
