@@ -119,9 +119,6 @@ public final class JavaLibraryBuildRequest {
     if (optionsParser.getStrictJavaDeps() != null) {
       depsBuilder.setStrictJavaDeps(optionsParser.getStrictJavaDeps());
     }
-    if (optionsParser.getOutputDepsFile() != null) {
-      depsBuilder.setOutputDepsFile(optionsParser.getOutputDepsFile());
-    }
     if (optionsParser.getOutputDepsProtoFile() != null) {
       depsBuilder.setOutputDepsProtoFile(optionsParser.getOutputDepsProtoFile());
     }

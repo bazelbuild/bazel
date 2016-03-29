@@ -164,7 +164,6 @@ public abstract class AbstractJavaBuilder extends AbstractLibraryBuilder {
       }
       successful = true;
     } finally {
-      build.getDependencyModule().emitUsedClasspath(build.getClassPath());
       build.getDependencyModule().emitDependencyInformation(build.getClassPath(), successful);
       build.getProcessingModule().emitManifestProto();
       shutdown(err);

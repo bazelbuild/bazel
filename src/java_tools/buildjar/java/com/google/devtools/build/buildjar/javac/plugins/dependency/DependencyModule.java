@@ -24,11 +24,9 @@ import com.google.devtools.build.lib.view.proto.Deps.Dependency.Kind;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -76,7 +74,6 @@ public final class DependencyModule {
   private final Set<String> depsArtifacts;
   private final String ruleKind;
   private final String targetLabel;
-  private final String outputDepsFile;
   private final String outputDepsProtoFile;
   private final Set<String> usedClasspath;
   private final Map<String, Deps.Dependency> explicitDependenciesMap;
@@ -92,7 +89,6 @@ public final class DependencyModule {
                    Set<String> depsArtifacts,
                    String ruleKind,
                    String targetLabel,
-                   String outputDepsFile,
                    String outputDepsProtoFile,
                    String fixMessage,
                    Set<String> exemptGenerators) {
@@ -103,7 +99,6 @@ public final class DependencyModule {
     this.depsArtifacts = depsArtifacts;
     this.ruleKind = ruleKind;
     this.targetLabel = targetLabel;
-    this.outputDepsFile = outputDepsFile;
     this.outputDepsProtoFile = outputDepsProtoFile;
     this.explicitDependenciesMap = new HashMap<>();
     this.implicitDependenciesMap = new HashMap<>();
@@ -117,25 +112,6 @@ public final class DependencyModule {
    */
   public BlazeJavaCompilerPlugin getPlugin() {
     return new StrictJavaDepsPlugin(this);
-  }
-
-  /**
-   * Writes the true, used compile-time classpath to the deps file, if specified.
-   */
-  public void emitUsedClasspath(String classpath) throws IOException {
-    if (outputDepsFile != null) {
-      try (BufferedWriter out = new BufferedWriter(new FileWriter(outputDepsFile))) {
-        // Filter using the original classpath, to preserve ordering.
-        for (String entry : classpath.split(":")) {
-          if (usedClasspath.contains(entry)) {
-            out.write(entry);
-            out.newLine();
-          }
-        }
-      } catch (IOException ex) {
-        throw new IOException("Cannot write dependencies to " + outputDepsFile, ex);
-      }
-    }
   }
 
   /**
@@ -237,8 +213,8 @@ public final class DependencyModule {
   /**
    * Returns the file name collecting dependency information.
    */
-  public String getOutputDepsFile() {
-    return outputDepsFile;
+  public String getOutputDepsProtoFile() {
+    return outputDepsProtoFile;
   }
 
   @VisibleForTesting
@@ -344,7 +320,6 @@ public final class DependencyModule {
     private final Set<String> depsArtifacts = new HashSet<>();
     private String ruleKind;
     private String targetLabel;
-    private String outputDepsFile;
     private String outputDepsProtoFile;
     private boolean strictClasspathMode = false;
     private String fixMessage = "%s** Please add the following dependencies:%s\n"
@@ -359,9 +334,17 @@ public final class DependencyModule {
      * @return an instance of DependencyModule
      */
     public DependencyModule build() {
-      return new DependencyModule(strictJavaDeps, directJarsToTargets, indirectJarsToTargets,
-          strictClasspathMode, depsArtifacts, ruleKind, targetLabel, outputDepsFile,
-          outputDepsProtoFile, fixMessage, exemptGenerators);
+      return new DependencyModule(
+          strictJavaDeps,
+          directJarsToTargets,
+          indirectJarsToTargets,
+          strictClasspathMode,
+          depsArtifacts,
+          ruleKind,
+          targetLabel,
+          outputDepsProtoFile,
+          fixMessage,
+          exemptGenerators);
     }
 
     /**
@@ -442,17 +425,6 @@ public final class DependencyModule {
      */
     public Builder addIndirectMappings(Map<String, String> indirectMappings) {
       indirectJarsToTargets.putAll(indirectMappings);
-      return this;
-    }
-
-    /**
-     * Sets the name of the file that will contain dependency information.
-     *
-     * @param outputDepsFile output file name for dependency information
-     * @return this Builder instance
-     */
-    public Builder setOutputDepsFile(String outputDepsFile) {
-      this.outputDepsFile = outputDepsFile;
       return this;
     }
 
