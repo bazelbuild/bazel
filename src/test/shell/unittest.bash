@@ -351,6 +351,22 @@ function expect_cmd_with_timeout() {
     return 1
 }
 
+# Usage: assert_one_of <expected_list>... <actual>
+# Asserts that actual is one of the items in expected_list
+# Example: assert_equals ( "foo", "bar", "baz" ) actualval
+function assert_one_of() {
+    local args=("$@")
+    local last_arg_index=$((${#args[@]} - 1))
+    local actual=${args[last_arg_index]}
+    unset args[last_arg_index]
+    for expected_item in "${args[@]}"; do
+      [ "$expected_item" = "$actual" ] && return 0
+    done;
+
+    fail "Expected one of '$expected_list', was '$actual'"
+    return 1
+}
+
 # Usage: assert_equals <expected> <actual>
 # Asserts [ expected = actual ].
 function assert_equals() {
