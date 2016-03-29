@@ -23,13 +23,7 @@ import java.nio.file.Path;
 public interface DataValue {
 
   /**
-   * Provides the DataKey of this value.
-   */
-  DataKey dataKey();
-
-  /**
    * Provides the Path to the file from which the DataValue was derived.
    */
   Path source();
-
 }

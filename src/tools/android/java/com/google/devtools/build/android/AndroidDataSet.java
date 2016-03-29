@@ -56,7 +56,8 @@ public class AndroidDataSet {
     void consume(K key, V value);
   }
 
-  private static class NonOverwritableConsumer implements KeyValueConsumer<DataKey, DataResource> {
+  @VisibleForTesting
+  static class NonOverwritableConsumer implements KeyValueConsumer<DataKey, DataResource> {
 
     private Map<DataKey, DataResource> target;
 
@@ -72,8 +73,8 @@ public class AndroidDataSet {
     }
   }
 
-  // TODO(corysmith): Determine a better name.
-  private static class OverwritableConsumer<K extends DataKey, V extends DataValue>
+  @VisibleForTesting
+  static class OverwritableConsumer<K extends DataKey, V extends DataValue>
       implements KeyValueConsumer<K, V> {
     private Map<K, V> target;
     private Set<MergeConflict> conflicts;
@@ -178,7 +179,7 @@ public class AndroidDataSet {
     public FileVisitResult visitFile(Path path, BasicFileAttributes attrs) throws IOException {
       if (!Files.isDirectory(path)) {
         RelativeAssetPath key = dataKeyFactory.create(path);
-        FileDataResource asset = FileDataResource.of(key, path);
+        FileDataResource asset = FileDataResource.of(path);
         assetConsumer.consume(key, asset);
       }
       return super.visitFile(path, attrs);
@@ -257,7 +258,7 @@ public class AndroidDataSet {
           } else {
             String rawFqn = deriveRawFullyQualifiedName(path);
             FullyQualifiedName key = fqnFactory.parse(rawFqn);
-            overwritingConsumer.consume(key, FileDataResource.of(key, path));
+            overwritingConsumer.consume(key, FileDataResource.of(path));
           }
         }
       } catch (IllegalArgumentException | XMLStreamException e) {
