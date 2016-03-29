@@ -327,6 +327,9 @@ public class ObjcRuleClasses {
   // TODO(bazel-team): Restrict this to actual header files only.
   static final FileTypeSet HDRS_TYPE = FileTypeSet.ANY_FILE;
 
+  static final FileTypeSet ENTITLEMENTS_TYPE =
+      FileTypeSet.of(FileType.of(".entitlements", ".plist"));
+
   /**
    * Coverage note files which contain information to reconstruct the basic block graphs and assign
    * source line numbers to blocks.
@@ -832,7 +835,8 @@ public class ObjcRuleClasses {
           <a href="https://developer.apple.com/library/ios/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html">their definitions in Apple's documentation</a>:
           $(AppIdentifierPrefix) and $(CFBundleIdentifier).
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-          .add(attr(ENTITLEMENTS_ATTR, LABEL).legacyAllowAnyFileType())
+          .add(attr(ENTITLEMENTS_ATTR, LABEL)
+              .allowedFileTypes(ENTITLEMENTS_TYPE))
           .add(
               attr(EXTRA_ENTITLEMENTS_ATTR, LABEL)
                   .singleArtifact()
@@ -845,7 +849,8 @@ public class ObjcRuleClasses {
                               .getFragment(ObjcConfiguration.class)
                               .getExtraEntitlements();
                         }
-                      }))
+                      })
+              .allowedFileTypes(FileType.of(".entitlements", ".plist")))
           /* <!-- #BLAZE_RULE($objc_release_bundling_rule).ATTRIBUTE(provisioning_profile) -->
           The provisioning profile (.mobileprovision file) to use when bundling
           the application.
