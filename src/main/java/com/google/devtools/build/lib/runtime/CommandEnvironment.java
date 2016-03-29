@@ -81,7 +81,7 @@ public final class CommandEnvironment {
   private final Map<String, String> clientEnv = new HashMap<>();
   private final TimestampGranularityMonitor timestampGranularityMonitor;
 
-  private final BuildView view;
+  private BuildView view;
 
   private PathFragment relativeWorkingDirectory = PathFragment.EMPTY_FRAGMENT;
   private long commandStartTime;
@@ -119,9 +119,6 @@ public final class CommandEnvironment {
     // This should be done as close as possible to the start of
     // the command's execution.
     timestampGranularityMonitor.setCommandStartTime();
-
-    this.view = new BuildView(runtime.getDirectories(), runtime.getRuleClassProvider(),
-        runtime.getSkyframeExecutor(), runtime.getCoverageReportActionFactory());
 
     // TODO(ulfjack): We don't call beforeCommand() in tests, but rely on workingDirectory being set
     // in setupPackageCache(). This leads to NPE if we don't set it here.
@@ -338,6 +335,12 @@ public final class CommandEnvironment {
     return outputFileSystem;
   }
 
+  @VisibleForTesting
+  public void initViewForTesting() {
+    this.view = new BuildView(runtime.getDirectories(), runtime.getRuleClassProvider(),
+        runtime.getSkyframeExecutor(), runtime.getCoverageReportActionFactory());
+  }
+
   /**
    * Hook method called by the BlazeCommandDispatcher prior to the dispatch of
    * each command.
@@ -393,6 +396,8 @@ public final class CommandEnvironment {
     skyframeExecutor.decideKeepIncrementalState(
         runtime.getStartupOptionsProvider().getOptions(BlazeServerStartupOptions.class).batch,
         optionsParser.getOptions(BuildView.Options.class));
+
+    initViewForTesting();
 
     // Start the performance and memory profilers.
     runtime.beforeCommand(this, options, execStartTimeNanos);
