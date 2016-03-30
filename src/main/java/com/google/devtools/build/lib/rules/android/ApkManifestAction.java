@@ -38,7 +38,7 @@ public class ApkManifestAction extends AbstractFileWriteAction {
   private static Iterable<Artifact> makeInputs(
       AndroidSdkProvider sdk,
       Iterable<Artifact> jars,
-      Artifact resourceApk,
+      ResourceApk resourceApk,
       NativeLibs nativeLibs) {
 
     return ImmutableList.<Artifact>builder()
@@ -60,7 +60,8 @@ public class ApkManifestAction extends AbstractFileWriteAction {
         .add(sdk.getZipalign().getExecutable())
         
         .addAll(jars)
-        .add(resourceApk)
+        .add(resourceApk.getArtifact())
+        .add(resourceApk.getManifest())
         .addAll(nativeLibs.getAllNativeLibs())
         .build();
   }
@@ -70,16 +71,26 @@ public class ApkManifestAction extends AbstractFileWriteAction {
   private final boolean textOutput;
   private final AndroidSdkProvider sdk;
   private final Iterable<Artifact> jars;
-  private final Artifact resourceApk;
+  private final ResourceApk resourceApk;
   private final NativeLibs nativeLibs;
 
+  /**
+   * @param owner The action owner.
+   * @param outputFile The artifact to write the proto to.
+   * @param textOutput Whether to make the 
+   * @param sdk The Android SDK.
+   * @param jars All the jars that would be merged and dexed and put into an APK.
+   * @param resourceApk The ResourceApk for the .ap_ that contains the resources that would go into
+   *     an APK.
+   * @param nativeLibs The natives libs that would go into an APK.
+   */
   public ApkManifestAction(
       ActionOwner owner,
       Artifact outputFile,
       boolean textOutput,
       AndroidSdkProvider sdk,
       Iterable<Artifact> jars,
-      Artifact resourceApk,
+      ResourceApk resourceApk,
       NativeLibs nativeLibs) {
 
     super(owner, makeInputs(sdk, jars, resourceApk, nativeLibs), outputFile, false);
@@ -124,7 +135,7 @@ public class ApkManifestAction extends AbstractFileWriteAction {
     private ApkManifestCreator(MetadataHandler metadataHandler) {
       this.metadataHandler = metadataHandler;
     }
- 
+
     private ApkManifest createManifest() throws IOException {
       ApkManifest.Builder manifestBuilder = ApkManifest.newBuilder();
 
@@ -132,7 +143,8 @@ public class ApkManifestAction extends AbstractFileWriteAction {
         manifestBuilder.addJars(makeArtifactProto(jar));
       }
 
-      manifestBuilder.setResourceApk(makeArtifactProto(resourceApk));
+      manifestBuilder.setResourceApk(makeArtifactProto(resourceApk.getArtifact()));
+      manifestBuilder.setAndroidManifest(makeArtifactProto(resourceApk.getManifest()));
 
       for (Map.Entry<String, Iterable<Artifact>> nativeLib : nativeLibs.getMap().entrySet()) {
         if (!Iterables.isEmpty(nativeLib.getValue())) {

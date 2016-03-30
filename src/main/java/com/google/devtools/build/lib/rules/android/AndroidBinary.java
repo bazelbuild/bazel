@@ -771,7 +771,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         textProto,
         sdk,
         jars,
-        resourceApk.getArtifact(),
+        resourceApk,
         nativeLibs);
 
     ruleContext.registerAction(manifestAction);

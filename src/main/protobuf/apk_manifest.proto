@@ -49,8 +49,14 @@ message AndroidSdk {
 }
 
 message ApkManifest {
+  // Information about the AndroidSdk
   AndroidSdk android_sdk = 1;
+  // All the jars containing the classes that would be dex and go into the APK
   repeated Artifact jars = 2;
+  // The .ap_ that contains the resources that go into the APK
   Artifact resource_apk = 3;
+  // The native library files that go into the APK
   repeated NativeLib native_lib = 4;
+  // The final merged AndroidManifest.xml file (in text, i.e. non-binary, XML)
+  Artifact android_manifest = 5;
 }
