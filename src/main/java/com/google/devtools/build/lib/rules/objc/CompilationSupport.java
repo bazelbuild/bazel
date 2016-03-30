@@ -49,11 +49,9 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.common.collect.FluentIterable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -106,13 +104,6 @@ import java.util.Set;
  * <p>Methods on this class can be called in any order without impacting the result.
  */
 public final class CompilationSupport {
-
-  @VisibleForTesting
-  static final String OBJC_MODULE_CACHE_DIR_NAME = "_objc_module_cache";
-  
-  @VisibleForTesting
-  static final String MODULES_CACHE_PATH_WARNING =
-      "setting '-fmodules-cache-path' manually in copts is unsupported";
 
   @VisibleForTesting
   static final String ABSOLUTE_INCLUDES_PATH_FORMAT =
@@ -381,7 +372,8 @@ public final class CompilationSupport {
         .add(otherFlags)
         .addFormatEach("-D%s", objcProvider.get(DEFINE))
         .add(coverageFlags.build())
-        .add(getCompileRuleCopts());
+        .add(objcConfiguration.getCopts())
+        .add(attributes.copts());
     PathFragment sourceExecPathFragment = sourceFile.getExecPath();
     String sourcePath = sourceExecPathFragment.getPathString();
     if (!sourceExecPathFragment.isAbsolute() && objcConfiguration.getUseAbsolutePathsForActions()) {
@@ -394,15 +386,11 @@ public final class CompilationSupport {
       .addExecPath("-MF", dotdFile);
 
     if (moduleMap.isPresent()) {
-      // If modules are enabled for the rule, -fmodules is added to the copts already. (This implies
-      // module map usage). Otherwise, we need to pass -fmodule-maps.
-      if (!attributes.enableModules()) {
-        commandLine.add("-fmodule-maps");
-      }
       // -fmodule-map-file only loads the module in Xcode 7, so we add the module maps's directory
       // to the include path instead.
       // TODO(bazel-team): Use -fmodule-map-file when Xcode 6 support is dropped.
       commandLine
+          .add(attributes.enableModules() ? "-fmodules" : "-fmodule-maps")
           .add("-iquote")
           .add(
               moduleMap
@@ -412,6 +400,11 @@ public final class CompilationSupport {
                   .getParentDirectory()
                   .toString())
           .add("-fmodule-name=" + moduleMap.get().getName());
+      if (attributes.enableModules()) {
+        String cachePath =
+            ruleContext.getConfiguration().getGenfilesFragment() + "/_objc_module_cache";
+        commandLine.add("-fmodules-cache-path=" + cachePath);
+      }
     }
 
     // TODO(bazel-team): Remote private headers from inputs once they're added to the provider.
@@ -430,39 +423,6 @@ public final class CompilationSupport {
         .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
         .addInputs(compilationArtifacts.getPchFile().asSet())
         .build(ruleContext));
-  }
-
-  /**
-   * Returns the copts for the compile action in the current rule context (using a combination
-   * of the rule's "copts" attribute as well as the current configuration copts).
-   */
-  private Iterable<String> getCompileRuleCopts() {
-    ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
-    List<String> copts = Lists.newArrayList(
-        FluentIterable.concat(objcConfiguration.getCopts(), attributes.copts()));
-
-    for (String copt : copts) {
-      if (copt.contains("-fmodules-cache-path")) {
-        // Bazel decides on the cache path location.
-        ruleContext.ruleWarning(MODULES_CACHE_PATH_WARNING);
-      }
-    }
-
-    if (attributes.enableModules()) {
-      copts.add("-fmodules");
-    }
-    if (copts.contains("-fmodules")) {
-      // If modules are enabled, clang caches module information. If unspecified, this is a
-      // system-wide cache directory, which is a problem for remote executors which may run
-      // multiple actions with different source trees that can't share this cache.
-      // We thus set its path to the root of the genfiles directory.
-      // Unfortunately, this cache contains non-hermetic information, thus we avoid declaring it as
-      // an implicit output (as outputs must be hermetic).
-      String cachePath =
-          ruleContext.getConfiguration().getGenfilesFragment() + "/" + OBJC_MODULE_CACHE_DIR_NAME;
-      copts.add("-fmodules-cache-path=" + cachePath);
-    }
-    return copts;
   }
 
   /**
