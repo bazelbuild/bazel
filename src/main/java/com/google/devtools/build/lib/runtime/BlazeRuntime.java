@@ -234,7 +234,7 @@ public final class BlazeRuntime {
     return builder.build();
   }
 
-  @Nullable CoverageReportActionFactory getCoverageReportActionFactory() {
+  @Nullable public CoverageReportActionFactory getCoverageReportActionFactory() {
     CoverageReportActionFactory firstFactory = null;
     for (BlazeModule module : blazeModules) {
       CoverageReportActionFactory factory = module.getCoverageReportFactory();
