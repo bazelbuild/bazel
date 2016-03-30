@@ -104,6 +104,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * Returns the SDK version for a platform (whether they be for simulator or device). This is
    * directly derived from command line args.
    */
+  @SkylarkCallable(name = "sdk_version_for_platform", doc = "The SDK version given a platform.")
   public DottedVersion getSdkVersionForPlatform(Platform platform) {
     switch (platform) {
       case IOS_DEVICE:
@@ -136,6 +137,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * for actions pertaining to the given apple platform. Keys are variable names and values are
    * their corresponding values.
    */
+  @SkylarkCallable(name = "target_apple_env")
   public Map<String, String> getTargetAppleEnvironment(Platform platform) {
     ImmutableMap.Builder<String, String> mapBuilder = ImmutableMap.builder();
     mapBuilder.putAll(appleTargetPlatformEnv(platform));
@@ -186,6 +188,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * platform or cpu for all actions spawned in this configuration; it is appropriate for
    * identifying the target cpu of iOS compile and link actions within this configuration.
    */
+  @SkylarkCallable(name = "ios_cpu", doc = "The value of ios_cpu for this configuration.")
   public String getIosCpu() {
     return iosCpu;
   }
@@ -197,6 +200,7 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
    * typically the correct platform for implicityly-ios compile and link actions in the current
    * context. For effective platform for bundling actions, see {@link #getBundlingPlatform}.
    */
+  @SkylarkCallable(name = "ios_cpu_platform", doc = "The platform given by the ios_cpu flag.")
   public Platform getIosCpuPlatform() {
     return Platform.forIosArch(getIosCpu());
   }

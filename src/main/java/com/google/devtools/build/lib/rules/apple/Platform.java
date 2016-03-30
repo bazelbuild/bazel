@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Locale;
@@ -25,6 +26,7 @@ import javax.annotation.Nullable;
 /**
  * An enum that can be used to distinguish between various apple platforms.
  */
+@SkylarkModule(name = "platform", doc = "Distinguishes between various apple platforms.")
 public enum Platform {
   IOS_DEVICE("iPhoneOS"),
   IOS_SIMULATOR("iPhoneSimulator"),
