@@ -419,8 +419,7 @@ public class BuildView {
       Options viewOptions,
       TopLevelArtifactContext topLevelOptions,
       EventHandler eventHandler,
-      EventBus eventBus,
-      boolean loadingEnabled)
+      EventBus eventBus)
       throws ViewCreationFailedException, InterruptedException {
     LOG.info("Starting analysis");
     pollInterruptedStatus();

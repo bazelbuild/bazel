@@ -1383,8 +1383,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
         viewOptions,
         AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
         reporter,
-        eventBus,
-        isLoadingEnabled());
+        eventBus);
   }
 
   protected static Predicate<Artifact> artifactNamed(final String name) {

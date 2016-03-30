@@ -283,8 +283,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             viewOptions,
             AnalysisTestUtil.TOP_LEVEL_ARTIFACT_CONTEXT,
             reporter,
-            eventBus,
-            isLoadingEnabled());
+            eventBus);
     return analysisResult;
   }
 
