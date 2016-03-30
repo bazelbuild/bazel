@@ -260,6 +260,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         new CppCompileCommandLine(
             sourceFile,
             dotdFile,
+            dwoFile,
             copts,
             coptsFilter,
             pluginOpts,
@@ -1233,6 +1234,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public final class CppCompileCommandLine {
     private final Artifact sourceFile;
     private final DotdFile dotdFile;
+    @Nullable private final Artifact dwoFile;
     private final List<String> copts;
     private final Predicate<String> coptsFilter;
     private final List<String> pluginOpts;
@@ -1246,6 +1248,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     public CppCompileCommandLine(
         Artifact sourceFile,
         DotdFile dotdFile,
+        @Nullable Artifact dwoFile,
         ImmutableList<String> copts,
         Predicate<String> coptsFilter,
         ImmutableList<String> pluginOpts,
@@ -1256,6 +1259,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       this.sourceFile = Preconditions.checkNotNull(sourceFile);
       this.dotdFile = CppFileTypes.mustProduceDotdFile(sourceFile.getPath().toString())
                       ? Preconditions.checkNotNull(dotdFile) : null;
+      this.dwoFile = dwoFile;
       this.copts = Preconditions.checkNotNull(copts);
       this.coptsFilter = coptsFilter;
       this.pluginOpts = Preconditions.checkNotNull(pluginOpts);
@@ -1363,10 +1367,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // the amount of debug information requested, and whether the debug info is written in a
       // split out file. Until then, keep this before the user-provided copts so it can be
       // overwritten.
-      if (cppConfiguration.useFission()) {
+      if (dwoFile != null) {
         options.add("-gsplit-dwarf");
       }
-      
+
       // Users don't expect the explicit copts to be filtered by coptsFilter, add them verbatim.
       // Make sure these are added after the options from the feature configuration, so that
       // those options can be overriden.
