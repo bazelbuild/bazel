@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 
 /**
@@ -34,13 +33,12 @@ final class RemoteActionContextProvider extends ActionContextProvider {
       BuildRequest buildRequest,
       RemoteActionCache actionCache,
       RemoteWorkExecutor workExecutor) {
-    BlazeRuntime runtime = env.getRuntime();
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
     Builder<ActionContext> strategiesBuilder = ImmutableList.builder();
     strategiesBuilder.add(
         new RemoteSpawnStrategy(
             env.getClientEnv(),
-            runtime.getExecRoot(),
+            env.getExecRoot(),
             buildRequest.getOptions(RemoteOptions.class),
             verboseFailures,
             actionCache,

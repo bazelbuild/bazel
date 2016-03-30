@@ -21,7 +21,7 @@ import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.analysis.config.BinTools;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -79,9 +79,9 @@ public class NamespaceSandboxRunner {
     this.sandboxDebug = sandboxDebug;
   }
 
-  static boolean isSupported(BlazeRuntime runtime) {
-    Path execRoot = runtime.getExecRoot();
-    BinTools binTools = runtime.getBinTools();
+  static boolean isSupported(CommandEnvironment commandEnv) {
+    Path execRoot = commandEnv.getExecRoot();
+    BinTools binTools = commandEnv.getRuntime().getBinTools();
 
     PathFragment embeddedTool = binTools.getExecPath(NAMESPACE_SANDBOX);
     if (embeddedTool == null) {

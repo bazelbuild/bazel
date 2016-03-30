@@ -122,19 +122,19 @@ public class BlazeCommandDispatcher {
    * Only some commands work if cwd != workspaceSuffix in Blaze. In that case, also check if Blaze
    * was called from the output directory and fail if it was.
    */
-  private ExitCode checkCwdInWorkspace(Command commandAnnotation, String commandName,
-      OutErr outErr) {
+  private ExitCode checkCwdInWorkspace(CommandEnvironment env, Command commandAnnotation,
+      String commandName, OutErr outErr) {
     if (!commandAnnotation.mustRunInWorkspace()) {
       return ExitCode.SUCCESS;
     }
 
-    if (!runtime.inWorkspace()) {
-      outErr.printErrLn("The '" + commandName + "' command is only supported from within a "
-          + "workspace.");
+    if (!env.inWorkspace()) {
+      outErr.printErrLn(
+          "The '" + commandName + "' command is only supported from within a workspace.");
       return ExitCode.COMMAND_LINE_ERROR;
     }
 
-    Path workspace = runtime.getWorkspace();
+    Path workspace = env.getWorkspace();
     // TODO(kchodorow): Remove this once spaces are supported.
     if (workspace.getPathString().contains(" ")) {
       outErr.printErrLn(Constants.PRODUCT_NAME + " does not currently work properly from paths "
@@ -256,7 +256,7 @@ public class BlazeCommandDispatcher {
     }
 
     try {
-      Path commandLog = getCommandLogPath(runtime.getOutputBase());
+      Path commandLog = getCommandLogPath(env.getOutputBase());
 
       // Unlink old command log from previous build, if present, so scripts
       // reading it don't conflate it with the command log we're about to write.
@@ -269,7 +269,7 @@ public class BlazeCommandDispatcher {
           Level.WARNING, "Unable to delete or open command.log", ioException);
     }
 
-    ExitCode result = checkCwdInWorkspace(commandAnnotation, commandName, outErr);
+    ExitCode result = checkCwdInWorkspace(env, commandAnnotation, commandName, outErr);
     if (result != ExitCode.SUCCESS) {
       return result.getNumericExitCode();
     }

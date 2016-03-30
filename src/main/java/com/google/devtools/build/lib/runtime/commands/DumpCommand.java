@@ -151,7 +151,7 @@ public class DumpCommand implements BlazeCommand {
 
       if (dumpOptions.dumpVfs) {
         out.println("Filesystem cache");
-        FileSystemUtils.dump(runtime.getOutputBase().getFileSystem(), out);
+        FileSystemUtils.dump(env.getOutputBase().getFileSystem(), out);
         out.println();
       }
 

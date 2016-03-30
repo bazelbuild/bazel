@@ -284,10 +284,10 @@ public class InfoCommand implements BlazeCommand {
       Supplier<BuildConfiguration> configurationSupplier, OptionsProvider options) {
     switch (key) {
       // directories
-      case WORKSPACE : return runtime.getWorkspace();
+      case WORKSPACE : return runtime.getDirectories().getWorkspace();
       case INSTALL_BASE : return runtime.getDirectories().getInstallBase();
-      case OUTPUT_BASE : return runtime.getOutputBase();
-      case EXECUTION_ROOT : return runtime.getExecRoot();
+      case OUTPUT_BASE : return runtime.getDirectories().getOutputBase();
+      case EXECUTION_ROOT : return runtime.getDirectories().getExecRoot();
       case OUTPUT_PATH : return runtime.getDirectories().getOutputPath();
       // These are the only (non-hidden) info items that require a configuration, because the
       // corresponding paths contain the short name. Maybe we should recommend using the symlinks
@@ -297,10 +297,11 @@ public class InfoCommand implements BlazeCommand {
       case BLAZE_TESTLOGS : return configurationSupplier.get().getTestLogsDirectory().getPath();
 
       // logs
-      case COMMAND_LOG : return BlazeCommandDispatcher.getCommandLogPath(runtime.getOutputBase());
+      case COMMAND_LOG : return BlazeCommandDispatcher.getCommandLogPath(
+          runtime.getDirectories().getOutputBase());
       case MESSAGE_LOG :
         // NB: Duplicated in EventLogModule
-        return runtime.getOutputBase().getRelative("message.log");
+        return runtime.getDirectories().getOutputBase().getRelative("message.log");
 
       // misc
       case RELEASE : return BlazeVersionInfo.instance().getReleaseName();

@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -43,11 +42,9 @@ import java.util.Collection;
  */
 class BuildResultPrinter {
   private final CommandEnvironment env;
-  private final BlazeRuntime runtime;
 
   BuildResultPrinter(CommandEnvironment env) {
     this.env = env;
-    this.runtime = env.getRuntime();
   }
 
   /**
@@ -138,9 +135,9 @@ class BuildResultPrinter {
           if (temp.getPath().exists()) {
             outErr.printErrLn("  See temp at "
                 + OutputDirectoryLinksUtils.getPrettyPath(temp.getPath(),
-                runtime.getWorkspaceName(),
-                runtime.getWorkspace(),
-                request.getBuildOptions().getSymlinkPrefix()));
+                    env.getWorkspaceName(),
+                    env.getWorkspace(),
+                    request.getBuildOptions().getSymlinkPrefix()));
           }
         }
       }
@@ -156,7 +153,7 @@ class BuildResultPrinter {
 
   private String formatArtifactForShowResults(Artifact artifact, BuildRequest request) {
     return "  " + OutputDirectoryLinksUtils.getPrettyPath(artifact.getPath(),
-        runtime.getWorkspaceName(), runtime.getWorkspace(),
+        env.getWorkspaceName(), env.getWorkspace(),
         request.getBuildOptions().getSymlinkPrefix());
   }
 

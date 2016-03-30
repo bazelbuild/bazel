@@ -65,7 +65,7 @@ public final class RemoteModule extends BlazeModule {
     if (actionCache == null && options.hazelcastNode != null) {
       actionCache =
           new MemcacheActionCache(
-              this.env.getRuntime().getExecRoot(),
+              env.getExecRoot(),
               options,
               HazelcastCacheFactory.create(options));
       // TODO(alpha): Initialize a RemoteWorkExecutor.

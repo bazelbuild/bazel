@@ -178,7 +178,7 @@ public final class BuildTool {
       }
       configurations = runtime.getSkyframeExecutor().createConfigurations(
             env.getReporter(), runtime.getConfigurationFactory(), buildOptions,
-            runtime.getDirectories(), request.getMultiCpus(), request.getViewOptions().keepGoing);
+            env.getDirectories(), request.getMultiCpus(), request.getViewOptions().keepGoing);
 
       env.getEventBus().post(new ConfigurationsCreatedEvent(configurations));
       env.throwPendingException();
@@ -463,7 +463,7 @@ public final class BuildTool {
     getReporter().handle(Event.progress("Loading complete.  Analyzing..."));
     Profiler.instance().markPhase(ProfilePhase.ANALYZE);
 
-    BuildView view = new BuildView(runtime.getDirectories(), runtime.getRuleClassProvider(),
+    BuildView view = new BuildView(env.getDirectories(), runtime.getRuleClassProvider(),
         runtime.getSkyframeExecutor(), runtime.getCoverageReportActionFactory());
     AnalysisResult analysisResult =
         view.update(

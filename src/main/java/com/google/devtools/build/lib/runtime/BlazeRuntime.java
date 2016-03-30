@@ -212,7 +212,7 @@ public final class BlazeRuntime {
     this.directories = directories;
     this.skyframeExecutor = skyframeExecutor;
 
-    if (inWorkspace()) {
+    if (directories.inWorkspace()) {
       writeOutputBaseReadmeFile();
       writeDoNotBuildHereFile();
     }
@@ -396,14 +396,6 @@ public final class BlazeRuntime {
     return lastExecutionRange;
   }
 
-  public String getWorkspaceName() {
-    Path workspace = directories.getWorkspace();
-    if (workspace == null) {
-      return "";
-    }
-    return workspace.getBaseName();
-  }
-
   /**
    * Returns the Blaze directories object for this runtime.
    */
@@ -417,15 +409,8 @@ public final class BlazeRuntime {
    * <p>This is often the first entry on the {@code --package_path}, but not always.
    * Callers should certainly not make this assumption. The Path returned may be null.
    */
-  public Path getWorkspace() {
+  private Path getWorkspace() {
     return directories.getWorkspace();
-  }
-
-  /**
-   * Returns if the client passed a valid workspace to be used for the build.
-   */
-  public boolean inWorkspace() {
-    return directories.inWorkspace();
   }
 
   /**
@@ -433,32 +418,16 @@ public final class BlazeRuntime {
    * process. This is the base directory for shared Blaze state as well as tool
    * and strategy specific subdirectories.
    */
-  public Path getOutputBase() {
+  private Path getOutputBase() {
     return directories.getOutputBase();
-  }
-
-  /**
-   * Returns the output path associated with this Blaze server process..
-   */
-  public Path getOutputPath() {
-    return directories.getOutputPath();
   }
 
   /**
    * The directory in which blaze stores the server state - that is, the socket
    * file and a log.
    */
-  public Path getServerDirectory() {
-    return getOutputBase().getChild("server");
-  }
-
-  /**
-   * Returns the execution root directory associated with this Blaze server
-   * process. This is where all input and output files visible to the actual
-   * build reside.
-   */
-  public Path getExecRoot() {
-    return directories.getExecRoot();
+  private Path getServerDirectory() {
+    return getDirectories().getOutputBase().getChild("server");
   }
 
   public BinTools getBinTools() {

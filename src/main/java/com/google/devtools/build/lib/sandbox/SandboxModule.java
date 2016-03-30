@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeModule;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.OS;
@@ -49,9 +48,9 @@ public class SandboxModule extends BlazeModule {
   private CommandEnvironment env;
   private BuildRequest buildRequest;
 
-  private synchronized boolean isSandboxingSupported(BlazeRuntime runtime) {
+  private synchronized boolean isSandboxingSupported(CommandEnvironment env) {
     if (sandboxingSupported == null) {
-      sandboxingSupported = NamespaceSandboxRunner.isSupported(runtime);
+      sandboxingSupported = NamespaceSandboxRunner.isSupported(env);
     }
     return sandboxingSupported.booleanValue();
   }
@@ -60,7 +59,7 @@ public class SandboxModule extends BlazeModule {
   public Iterable<ActionContextProvider> getActionContextProviders() {
     Preconditions.checkNotNull(buildRequest);
     Preconditions.checkNotNull(env);
-    if (isSandboxingSupported(env.getRuntime())) {
+    if (isSandboxingSupported(env)) {
       return ImmutableList.<ActionContextProvider>of(
           new SandboxActionContextProvider(env, buildRequest, backgroundWorkers));
     }
@@ -78,7 +77,7 @@ public class SandboxModule extends BlazeModule {
   @Override
   public Iterable<ActionContextConsumer> getActionContextConsumers() {
     Preconditions.checkNotNull(env);
-    if (isSandboxingSupported(env.getRuntime())) {
+    if (isSandboxingSupported(env)) {
       return ImmutableList.<ActionContextConsumer>of(new SandboxActionContextConsumer());
     }
     return ImmutableList.of();

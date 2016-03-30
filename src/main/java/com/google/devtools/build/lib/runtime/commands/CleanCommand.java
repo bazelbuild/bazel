@@ -86,7 +86,6 @@ public final class CleanCommand implements BlazeCommand {
   @Override
   public ExitCode exec(CommandEnvironment env, OptionsProvider options)
       throws ShutdownBlazeServerException {
-    BlazeRuntime runtime = env.getRuntime();
     Options cleanOptions = options.getOptions(Options.class);
     cleanOptions.expunge_async = cleanOptions.cleanStyle.equals("expunge_async");
     cleanOptions.expunge = cleanOptions.cleanStyle.equals("expunge");
@@ -109,7 +108,7 @@ public final class CleanCommand implements BlazeCommand {
     try {
       String symlinkPrefix =
           options.getOptions(BuildRequest.BuildRequestOptions.class).getSymlinkPrefix();
-      actuallyClean(env, runtime.getOutputBase(), cleanOptions, symlinkPrefix);
+      actuallyClean(env, env.getOutputBase(), cleanOptions, symlinkPrefix);
       return ExitCode.SUCCESS;
     } catch (IOException e) {
       env.getReporter().handle(Event.error(e.getMessage()));
@@ -167,7 +166,7 @@ public final class CleanCommand implements BlazeCommand {
       // In order to be sure that we delete everything, delete the workspace directory both for
       // --deep_execroot and for --nodeep_execroot.
       for (String directory : new String[] {
-          runtime.getWorkspaceName(), "execroot/" + runtime.getWorkspaceName() }) {
+          env.getWorkspaceName(), "execroot/" + env.getWorkspaceName() }) {
         Path child = outputBase.getRelative(directory);
         if (child.exists()) {
           LOG.finest("Cleaning " + child);
@@ -177,7 +176,7 @@ public final class CleanCommand implements BlazeCommand {
     }
     // remove convenience links
     OutputDirectoryLinksUtils.removeOutputDirectoryLinks(
-        runtime.getWorkspaceName(), runtime.getWorkspace(), env.getReporter(), symlinkPrefix);
+        env.getWorkspaceName(), env.getWorkspace(), env.getReporter(), symlinkPrefix);
     // shutdown on expunge cleans
     if (cleanOptions.expunge || cleanOptions.expunge_async) {
       throw new ShutdownBlazeServerException(0);

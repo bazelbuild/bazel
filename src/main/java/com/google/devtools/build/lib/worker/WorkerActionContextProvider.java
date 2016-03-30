@@ -14,12 +14,11 @@
 package com.google.devtools.build.lib.worker;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.runtime.CommandEnvironment;
 
 /**
  * Factory for the Worker-based execution strategy.
@@ -28,14 +27,14 @@ final class WorkerActionContextProvider extends ActionContextProvider {
   private final ImmutableList<ActionContext> strategies;
 
   public WorkerActionContextProvider(
-      BlazeRuntime runtime, BuildRequest buildRequest, WorkerPool workers, EventBus eventBus) {
+      CommandEnvironment env, BuildRequest buildRequest, WorkerPool workers) {
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
     int maxRetries = buildRequest.getOptions(WorkerOptions.class).workerMaxRetries;
 
     this.strategies =
         ImmutableList.<ActionContext>of(
             new WorkerSpawnStrategy(
-                runtime.getDirectories(),
+                env.getDirectories(),
                 buildRequest,
                 workers,
                 verboseFailures,

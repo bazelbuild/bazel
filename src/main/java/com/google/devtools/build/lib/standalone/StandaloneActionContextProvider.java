@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.rules.cpp.SpawnLinkStrategy;
 import com.google.devtools.build.lib.rules.test.ExclusiveTestStrategy;
 import com.google.devtools.build.lib.rules.test.StandaloneTestStrategy;
 import com.google.devtools.build.lib.rules.test.TestActionContext;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 
@@ -69,12 +68,11 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
 
   public StandaloneActionContextProvider(CommandEnvironment env, BuildRequest buildRequest) {
     this.env = env;
-    BlazeRuntime runtime = env.getRuntime();
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
 
     TestActionContext testStrategy =
         new StandaloneTestStrategy(
-            buildRequest, runtime.getBinTools(), env.getClientEnv(), runtime.getWorkspace());
+            buildRequest, env.getRuntime().getBinTools(), env.getClientEnv(), env.getWorkspace());
 
     Builder<ActionContext> strategiesBuilder = ImmutableList.builder();
 
@@ -82,7 +80,7 @@ public class StandaloneActionContextProvider extends ActionContextProvider {
     // could potentially be used and a spawnActionContext doesn't specify which one it wants, the
     // last one from strategies list will be used
     strategiesBuilder.add(
-        new StandaloneSpawnStrategy(runtime.getExecRoot(), verboseFailures),
+        new StandaloneSpawnStrategy(env.getExecRoot(), verboseFailures),
         new DummyIncludeScanningContext(),
         new SpawnLinkStrategy(),
         new SpawnGccStrategy(),
