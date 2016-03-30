@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo;
 import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.RuleIdeInfo.Kind;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.ProtocolStringList;
 
 import org.junit.Test;
@@ -1426,6 +1427,37 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     ProtocolStringList transDefineList = cRuleIdeInfo.getTransitiveDefineList();
     assertThat(transDefineList).contains("VERSION2");
     assertThat(transDefineList).contains("COMPLEX_IMPL");
+  }
+
+  @Test
+  public void testMacroDoesntAffectRuleClass() throws Exception {
+    scratch.file(
+        "java/com/google/example/build_defs.bzl",
+        "def my_macro(name):",
+        "  native.android_binary(",
+        "    name = name,",
+        "    srcs = ['simple/Simple.java'],",
+        "    manifest = 'AndroidManifest.xml',",
+        "),");
+    scratch.file(
+        "java/com/google/example/BUILD",
+        "load('//java/com/google/example:build_defs.bzl', 'my_macro')",
+        "my_macro(",
+        "    name = 'simple',",
+        ")");
+    Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//java/com/google/example:simple");
+    RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(
+        "//java/com/google/example:simple", ruleIdeInfos);
+    assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.ANDROID_BINARY);
+  }
+
+  @Test
+  public void testAndroidBinaryIsSerialized() throws Exception {
+    RuleIdeInfo.Builder builder = RuleIdeInfo.newBuilder();
+    builder.setKind(Kind.ANDROID_BINARY);
+    ByteString byteString = builder.build().toByteString();
+    RuleIdeInfo result = RuleIdeInfo.parseFrom(byteString);
+    assertThat(result.getKind()).isEqualTo(Kind.ANDROID_BINARY);
   }
 
   /**

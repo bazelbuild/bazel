@@ -137,6 +137,82 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
       Kind.ANDROID_ROBOELECTRIC_TEST,
       Kind.JAVA_PLUGIN);
 
+  // Rules that can output jars
+  private static final Set<Kind> JAVA_OUTPUT_RULES = ImmutableSet.of(
+      Kind.JAVA_LIBRARY,
+      Kind.JAVA_IMPORT,
+      Kind.JAVA_TEST,
+      Kind.JAVA_BINARY,
+      Kind.ANDROID_LIBRARY,
+      Kind.ANDROID_BINARY,
+      Kind.ANDROID_TEST,
+      Kind.ANDROID_ROBOELECTRIC_TEST,
+      Kind.PROTO_LIBRARY,
+      Kind.JAVA_PLUGIN,
+      Kind.JAVA_WRAP_CC
+  );
+
+  private static final Set<Kind> CC_RULES = ImmutableSet.of(
+      Kind.CC_BINARY,
+      Kind.CC_LIBRARY,
+      Kind.CC_TEST,
+      Kind.CC_INC_LIBRARY
+  );
+
+  private static final Set<Kind> ANDROID_RULES = ImmutableSet.of(
+      Kind.ANDROID_LIBRARY,
+      Kind.ANDROID_BINARY,
+      Kind.ANDROID_TEST,
+      Kind.ANDROID_RESOURCES
+  );
+
+  private RuleIdeInfo.Kind getRuleKind(Rule rule, ConfiguredTarget base) {
+    switch (rule.getRuleClassObject().getName()) {
+      case "java_library":
+        return Kind.JAVA_LIBRARY;
+      case "java_import":
+        return Kind.JAVA_IMPORT;
+      case "java_test":
+        return Kind.JAVA_TEST;
+      case "java_binary":
+        return Kind.JAVA_BINARY;
+      case "android_library":
+        return Kind.ANDROID_LIBRARY;
+      case "android_binary":
+        return Kind.ANDROID_BINARY;
+      case "android_test":
+        return Kind.ANDROID_TEST;
+      case "android_robolectric_test":
+        return Kind.ANDROID_ROBOELECTRIC_TEST;
+      case "proto_library":
+        return Kind.PROTO_LIBRARY;
+      case "java_plugin":
+        return Kind.JAVA_PLUGIN;
+      case "android_resources":
+        return Kind.ANDROID_RESOURCES;
+      case "cc_library":
+        return Kind.CC_LIBRARY;
+      case "cc_binary":
+        return Kind.CC_BINARY;
+      case "cc_test":
+        return Kind.CC_TEST;
+      case "cc_inc_library":
+        return Kind.CC_INC_LIBRARY;
+      case "cc_toolchain":
+        return Kind.CC_TOOLCHAIN;
+      case "java_wrap_cc":
+        return Kind.JAVA_WRAP_CC;
+      default:
+      {
+        if (base.getProvider(AndroidSdkProvider.class) != null) {
+          return RuleIdeInfo.Kind.ANDROID_SDK;
+        } else {
+          return RuleIdeInfo.Kind.UNRECOGNIZED;
+        }
+      }
+    }
+  }
+
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     AspectDefinition.Builder builder = new AspectDefinition.Builder(NAME)
@@ -318,24 +394,12 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
 
     outputBuilder.setKind(ruleKind);
 
-    if (ruleKind == Kind.JAVA_LIBRARY
-        || ruleKind == Kind.JAVA_IMPORT
-        || ruleKind == Kind.JAVA_TEST
-        || ruleKind == Kind.JAVA_BINARY
-        || ruleKind == Kind.ANDROID_LIBRARY
-        || ruleKind == Kind.ANDROID_BINARY
-        || ruleKind == Kind.ANDROID_TEST
-        || ruleKind == Kind.ANDROID_ROBOELECTRIC_TEST
-        || ruleKind == Kind.PROTO_LIBRARY
-        || ruleKind == Kind.JAVA_PLUGIN) {
+    if (JAVA_OUTPUT_RULES.contains(ruleKind)) {
       JavaRuleIdeInfo javaRuleIdeInfo = makeJavaRuleIdeInfo(
           base, ruleContext, ideResolveArtifacts, packageManifest);
       outputBuilder.setJavaRuleIdeInfo(javaRuleIdeInfo);
     }
-    if (ruleKind == Kind.CC_BINARY
-        || ruleKind == Kind.CC_LIBRARY
-        || ruleKind == Kind.CC_TEST
-        || ruleKind == Kind.CC_INC_LIBRARY) {
+    if (CC_RULES.contains(ruleKind)) {
       CRuleIdeInfo cRuleIdeInfo = makeCRuleIdeInfo(base, ruleContext);
       outputBuilder.setCRuleIdeInfo(cRuleIdeInfo);
     }
@@ -345,10 +409,7 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
         outputBuilder.setCToolchainIdeInfo(cToolchainIdeInfo);
       }
     }
-    if (ruleKind == Kind.ANDROID_LIBRARY
-        || ruleKind == Kind.ANDROID_BINARY
-        || ruleKind == Kind.ANDROID_TEST
-        || ruleKind == Kind.ANDROID_RESOURCES) {
+    if (ANDROID_RULES.contains(ruleKind)) {
       outputBuilder.setAndroidRuleIdeInfo(makeAndroidRuleIdeInfo(base,
           dependenciesResult, ideResolveArtifacts));
     }
@@ -360,6 +421,7 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
     outputBuilder.addAllTags(base.getTarget().getAssociatedRule().getRuleTags());
 
     final RuleIdeInfo ruleIdeInfo = outputBuilder.build();
+
     ruleContext.registerAction(
         makeProtoWriteAction(ruleContext.getActionOwner(), ruleIdeInfo, ideInfoFile));
     ruleContext.registerAction(
@@ -765,50 +827,6 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
     return new PathFragment(packagePathFragment, new PathFragment(name + suffix));
   }
 
-  private RuleIdeInfo.Kind getRuleKind(Rule rule, ConfiguredTarget base) {
-    switch (rule.getRuleClassObject().getName()) {
-      case "java_library":
-        return Kind.JAVA_LIBRARY;
-      case "java_import":
-        return Kind.JAVA_IMPORT;
-      case "java_test":
-        return Kind.JAVA_TEST;
-      case "java_binary":
-        return Kind.JAVA_BINARY;
-      case "android_library":
-        return Kind.ANDROID_LIBRARY;
-      case "android_binary":
-        return Kind.ANDROID_BINARY;
-      case "android_test":
-        return Kind.ANDROID_TEST;
-      case "android_robolectric_test":
-        return Kind.ANDROID_ROBOELECTRIC_TEST;
-      case "proto_library":
-        return Kind.PROTO_LIBRARY;
-      case "java_plugin":
-        return Kind.JAVA_PLUGIN;
-      case "android_resources":
-        return Kind.ANDROID_RESOURCES;
-      case "cc_library":
-        return Kind.CC_LIBRARY;
-      case "cc_binary":
-        return Kind.CC_BINARY;
-      case "cc_test":
-        return Kind.CC_TEST;
-      case "cc_inc_library":
-        return Kind.CC_INC_LIBRARY;
-      case "cc_toolchain":
-        return Kind.CC_TOOLCHAIN;
-      default:
-        {
-          if (base.getProvider(AndroidSdkProvider.class) != null) {
-            return RuleIdeInfo.Kind.ANDROID_SDK;
-          } else {
-            return RuleIdeInfo.Kind.UNRECOGNIZED;
-          }
-        }
-    }
-  }
 
   private static void addResolveArtifact(NestedSetBuilder<Artifact> ideResolveArtifacts,
       Artifact artifact) {

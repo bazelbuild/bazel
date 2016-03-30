@@ -32,7 +32,8 @@ _kind_to_kind_id = {
   "cc_binary" : 13,
   "cc_test" : 14,
   "cc_inc_library" : 15,
-  "cc_toolchain": 16
+  "cc_toolchain": 16,
+  "java_wrap_cc": 17,
 }
 
 _unrecognized_rule = -1;

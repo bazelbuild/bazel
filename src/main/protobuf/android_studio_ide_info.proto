@@ -103,6 +103,7 @@ message RuleIdeInfo {
     CC_TEST = 14;
     CC_INC_LIBRARY = 15;
     CC_TOOLCHAIN = 16;
+    JAVA_WRAP_CC = 17;
   }
 
   string label = 1;
