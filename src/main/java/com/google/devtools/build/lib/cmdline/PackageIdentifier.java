@@ -60,16 +60,6 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     }
   }
 
-  /**
-   * This is only used by legacy callers. Actually creates the package identifier in the main
-   * repository, not the default one.
-   */
-  // TODO(lberki): Remove this method.
-  @Deprecated
-  public static PackageIdentifier createInDefaultRepo(String name) {
-    return create(MAIN_REPOSITORY_NAME, new PathFragment(name));
-  }
-
   public static PackageIdentifier createInMainRepo(String name) {
     return createInMainRepo(new PathFragment(name));
   }
