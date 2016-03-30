@@ -429,7 +429,8 @@ int InputZipFile::ProcessLocalFileEntry(
     }
   }
 
-  if (p - zipdata_in_ > bytes_unmapped_ + MAX_MAPPED_REGION) {
+  if (static_cast<int>(p - zipdata_in_) >
+      static_cast<int>(bytes_unmapped_ + MAX_MAPPED_REGION)) {
     input_file_->Discard(MAX_MAPPED_REGION);
     bytes_unmapped_ += MAX_MAPPED_REGION;
   }
