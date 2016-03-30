@@ -76,7 +76,7 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
             .aspect(JackAspect.class)
             .aspect(AndroidNeverlinkAspect.class))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(exports) -->
-        The transitive closure of all rules reached via <code>exports</code> attributes
+        The closure of all rules reached via <code>exports</code> attributes
         are considered direct dependencies of any rule that directly depends on the
         target with <code>exports</code>.
         <p>The <code>exports</code> are not direct deps of the rule they belong to.</p>
