@@ -200,6 +200,9 @@ public class Resolver {
    */
   private void resolveSourceLocations(FileModelSource fileModelSource) {
     Model model = modelResolver.getRawModel(fileModelSource, handler);
+    if (model == null) {
+      return;
+    }
 
     // Self.
     Parent parent = model.getParent();
