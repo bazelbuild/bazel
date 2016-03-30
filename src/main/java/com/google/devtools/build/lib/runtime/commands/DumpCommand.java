@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommandUtils;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.common.options.EnumConverter;
@@ -166,7 +167,9 @@ public class DumpCommand implements BlazeCommand {
       }
 
       if (dumpOptions.dumpSkyframe != SkyframeDumpOption.OFF) {
-        success &= dumpSkyframe(runtime, dumpOptions.dumpSkyframe == SkyframeDumpOption.SUMMARY,
+        success &= dumpSkyframe(
+            env.getSkyframeExecutor(),
+            dumpOptions.dumpSkyframe == SkyframeDumpOption.SUMMARY,
             out);
         out.println();
       }
@@ -188,8 +191,8 @@ public class DumpCommand implements BlazeCommand {
     return true;
   }
 
-  private boolean dumpSkyframe(BlazeRuntime runtime, boolean summarize, PrintStream out) {
-    runtime.getSkyframeExecutor().dump(summarize, out);
+  private boolean dumpSkyframe(SkyframeExecutor executor, boolean summarize, PrintStream out) {
+    executor.dump(summarize, out);
     return true;
   }
 

@@ -284,11 +284,11 @@ public class InfoCommand implements BlazeCommand {
       Supplier<BuildConfiguration> configurationSupplier, OptionsProvider options) {
     switch (key) {
       // directories
-      case WORKSPACE : return runtime.getDirectories().getWorkspace();
-      case INSTALL_BASE : return runtime.getDirectories().getInstallBase();
-      case OUTPUT_BASE : return runtime.getDirectories().getOutputBase();
-      case EXECUTION_ROOT : return runtime.getDirectories().getExecRoot();
-      case OUTPUT_PATH : return runtime.getDirectories().getOutputPath();
+      case WORKSPACE : return runtime.getWorkspace().getWorkspace();
+      case INSTALL_BASE : return runtime.getWorkspace().getInstallBase();
+      case OUTPUT_BASE : return runtime.getWorkspace().getOutputBase();
+      case EXECUTION_ROOT : return runtime.getWorkspace().getExecRoot();
+      case OUTPUT_PATH : return runtime.getWorkspace().getOutputPath();
       // These are the only (non-hidden) info items that require a configuration, because the
       // corresponding paths contain the short name. Maybe we should recommend using the symlinks
       // or make them hidden by default?
@@ -298,10 +298,10 @@ public class InfoCommand implements BlazeCommand {
 
       // logs
       case COMMAND_LOG : return BlazeCommandDispatcher.getCommandLogPath(
-          runtime.getDirectories().getOutputBase());
+          runtime.getWorkspace().getOutputBase());
       case MESSAGE_LOG :
         // NB: Duplicated in EventLogModule
-        return runtime.getDirectories().getOutputBase().getRelative("message.log");
+        return runtime.getWorkspace().getOutputBase().getRelative("message.log");
 
       // misc
       case RELEASE : return BlazeVersionInfo.instance().getReleaseName();

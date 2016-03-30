@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
+import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.SkyframePackageRootResolver;
@@ -73,6 +74,7 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public final class CommandEnvironment {
   private final BlazeRuntime runtime;
+  private final BlazeWorkspace workspace;
   private final BlazeDirectories directories;
 
   private final UUID commandId;  // Unique identifier for the command being run
@@ -108,7 +110,8 @@ public final class CommandEnvironment {
 
   public CommandEnvironment(BlazeRuntime runtime, UUID commandId, EventBus eventBus) {
     this.runtime = runtime;
-    this.directories = runtime.getDirectories();
+    this.workspace = runtime.getWorkspace();
+    this.directories = workspace.getDirectories();
     this.commandId = commandId;
     this.reporter = new Reporter();
     this.eventBus = eventBus;
@@ -127,6 +130,10 @@ public final class CommandEnvironment {
 
   public BlazeRuntime getRuntime() {
     return runtime;
+  }
+
+  public BlazeWorkspace getBlazeWorkspace() {
+    return workspace;
   }
 
   public BlazeDirectories getDirectories() {
@@ -172,7 +179,7 @@ public final class CommandEnvironment {
   }
 
   public PackageManager getPackageManager() {
-    return runtime.getPackageManager();
+    return getSkyframeExecutor().getPackageManager();
   }
 
   public PathFragment getRelativeWorkingDirectory() {
@@ -202,11 +209,11 @@ public final class CommandEnvironment {
   }
 
   public SkyframeExecutor getSkyframeExecutor() {
-    return runtime.getSkyframeExecutor();
+    return workspace.getSkyframeExecutor();
   }
 
   public SkyframeBuildView getSkyframeBuildView() {
-    return runtime.getSkyframeExecutor().getSkyframeBuildView();
+    return getSkyframeExecutor().getSkyframeBuildView();
   }
 
   /**
@@ -286,7 +293,27 @@ public final class CommandEnvironment {
   }
 
   public ActionCache getPersistentActionCache() throws IOException {
-    return runtime.getPersistentActionCache(reporter);
+    return workspace.getPersistentActionCache(reporter);
+  }
+
+  /**
+   * An array of String values useful if Blaze crashes.
+   * For now, just returns the size of the action cache and the build id.
+   */
+  public String[] getCrashData() {
+    return new String[]{
+        getFileSizeString(CompactPersistentActionCache.cacheFile(workspace.getCacheDirectory()),
+                          "action cache"),
+        getCommandId() + " (build id)",
+    };
+  }
+
+  private static String getFileSizeString(Path path, String type) {
+    try {
+      return String.format("%d bytes (%s)", path.getFileSize(), type);
+    } catch (IOException e) {
+      return String.format("unknown file size (%s)", type);
+    }
   }
 
   /**
@@ -314,8 +341,7 @@ public final class CommandEnvironment {
   private boolean loadForConfigurations(EventHandler eventHandler,
       Set<Label> labelsToLoad, boolean keepGoing) throws InterruptedException {
     // Use a new Label Visitor here to avoid erasing the cache on the existing one.
-    TransitivePackageLoader transitivePackageLoader =
-        runtime.getSkyframeExecutor().getPackageManager().newTransitiveLoader();
+    TransitivePackageLoader transitivePackageLoader = getPackageManager().newTransitiveLoader();
     boolean loadingSuccessful = transitivePackageLoader.sync(
         eventHandler, ImmutableSet.<Target>of(),
         labelsToLoad, keepGoing, /*parallelThreads=*/10,
@@ -370,7 +396,7 @@ public final class CommandEnvironment {
   }
 
   public void recordLastExecutionTime() {
-    runtime.recordLastExecutionTime(getCommandStartTime());
+    workspace.recordLastExecutionTime(getCommandStartTime());
   }
 
   public void recordCommandStartTime(long commandStartTime) {

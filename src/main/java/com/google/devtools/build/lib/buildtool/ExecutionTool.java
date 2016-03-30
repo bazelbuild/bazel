@@ -437,7 +437,7 @@ public class ExecutionTool {
           executor,
           builtTargets,
           request.getBuildOptions().explanationPath != null,
-          runtime.getLastExecutionTimeRange());
+          env.getBlazeWorkspace().getLastExecutionTimeRange());
       buildCompleted = true;
     } catch (BuildFailedException | TestExecException e) {
       buildCompleted = true;

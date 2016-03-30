@@ -143,7 +143,7 @@ public class BlazeCommandDispatcher {
     }
 
     Path doNotBuild = workspace.getParentDirectory().getRelative(
-        BlazeRuntime.DO_NOT_BUILD_FILE_NAME);
+        BlazeWorkspace.DO_NOT_BUILD_FILE_NAME);
 
     if (doNotBuild.exists()) {
       if (!commandAnnotation.canRunInOutputDirectory()) {
@@ -319,7 +319,7 @@ public class BlazeCommandDispatcher {
 
     // Do this before an actual crash so we don't have to worry about
     // allocating memory post-crash.
-    String[] crashData = runtime.getCrashData(env);
+    String[] crashData = env.getCrashData();
     int numericExitCode = ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode();
     PrintStream savedOut = System.out;
     PrintStream savedErr = System.err;
