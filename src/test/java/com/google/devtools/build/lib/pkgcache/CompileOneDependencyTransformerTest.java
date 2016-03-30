@@ -178,15 +178,13 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
 
   @Test
   public void testCompileOneDepOnTwoTargets() throws Exception {
-    scratch.file("recursive/BUILD",
-        "filegroup(name = 'x', srcs = ['foox'])",
-        "filegroup(name = 'y', srcs = ['fooy'])");
+    scratch.file(
+        "recursive/BUILD",
+        "cc_library(name = 'x', srcs = ['foox.cc'])",
+        "cc_library(name = 'y', srcs = ['fooy.cc'])");
+    assertThat(parseListCompileOneDep("//recursive:foox.cc", "//recursive:fooy.cc"))
+        .containsExactlyElementsIn(labels("//recursive:x", "//recursive:y"));
 
-    ResolvedTargets<Target> result =
-        parseCompileOneDep("//recursive:foox", "//recursive:fooy");
-
-    assertFalse(result.hasError());
-    assertThat(result.getTargets()).hasSize(2);
   }
 
   /**
@@ -195,13 +193,13 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
    */
   @Test
   public void testCompileOneDepOnRecursiveTarget() throws Exception {
-    scratch.file("recursive/BUILD",
-        "filegroup(name = 'x', srcs = ['foo', ':y'])",
-        "filegroup(name = 'y', srcs = [':x'])");
-
-    ResolvedTargets<Target> result = parseCompileOneDep("//recursive:foo");
-    assertFalse(result.hasError());
-    assertThat(result.getTargets()).hasSize(1);
+    scratch.file(
+        "recursive/BUILD",
+        "filegroup(name = 'x', srcs = ['foo.cc', ':y'])",
+        "filegroup(name = 'y', srcs = [':x'])",
+        "cc_library(name = 'foo', srcs = [':y'])");
+    assertThat(parseListCompileOneDep("//recursive:foo.cc"))
+        .containsExactlyElementsIn(labels("//recursive:foo"));
   }
 
   @Test
@@ -221,29 +219,32 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
 
   @Test
   public void testCompileOneDepOnDeepRecursiveTarget() throws Exception {
-    scratch.file("recursive/BUILD",
-        "filegroup(name = 'x', srcs = ['foox', ':y'])",
-        "filegroup(name = 'y', srcs = ['fooy', ':z'])",
-        "filegroup(name = 'z', srcs = ['fooz', ':x'])");
+    scratch.file(
+        "recursive/BUILD",
+        "filegroup(name = 'x', srcs = ['foox.cc', ':y'])",
+        "filegroup(name = 'y', srcs = ['fooy.cc', ':z'])",
+        "filegroup(name = 'z', srcs = ['fooz.cc', ':x'])",
+        "cc_library(name = 'cc', srcs = [':x'])");
 
-    ResolvedTargets<Target> result =
-        parseCompileOneDep("//recursive:foox", "//recursive:fooy", "//recursive:fooz");
-    assertFalse(result.hasError());
-    assertThat(result.getTargets()).hasSize(1);
+    Set<Label> result =
+        parseListCompileOneDep("//recursive:foox.cc", "//recursive:fooy.cc", "//recursive:fooy.cc");
+    assertThat(result).containsExactlyElementsIn(labels("//recursive:cc"));
   }
 
   @Test
   public void testCompileOneDepOnCrossPackageRecursiveTarget() throws Exception {
-    scratch.file("recursive/BUILD",
-        "filegroup(name = 'x', srcs = ['foo', '//recursivetoo:x'])");
+    scratch.file(
+        "recursive/BUILD",
+        "filegroup(name = 'x', srcs = ['foo.cc', '//recursivetoo:x'])",
+        "cc_library(name = 'cc', srcs = [':x'])");
 
-    scratch.file("recursivetoo/BUILD",
-        "filegroup(name = 'x', srcs = ['foo', '//recursive:x'])");
+    scratch.file(
+        "recursivetoo/BUILD",
+        "filegroup(name = 'x', srcs = ['foo.cc', '//recursive:x'])",
+        "cc_library(name = 'cc', srcs = [':x'])");
+    assertThat(parseListCompileOneDep("//recursive:foo.cc", "//recursivetoo:foo.cc"))
+        .containsExactlyElementsIn(labels("//recursive:cc", "//recursivetoo:cc"));
 
-    ResolvedTargets<Target> result =
-        parseCompileOneDep("//recursive:foo", "//recursivetoo:foo");
-    assertFalse(result.hasError());
-    assertThat(result.getTargets()).hasSize(2);
   }
 
   /**
@@ -292,6 +293,24 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
                 "genrule(name = 'gen_rule', cmd = '', outs = [ 'out.cc' ])",
                 "cc_library(name = 'cc', srcs = ['out.cc'])");
     assertThat(parseListCompileOneDep("a/out.cc")).containsExactlyElementsIn(labels("//a:cc"));
+  }
+
+  @Test
+  public void testGeneratedFileDepOnGenerator() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "genrule(name = 'gen_rule', cmd = '', outs = [ 'out.cc' ])",
+        "cc_library(name = 'cc', srcs = [':gen_rule'])");
+    assertThat(parseListCompileOneDep("a/out.cc")).containsExactlyElementsIn(labels("//a:cc"));
+  }
+
+  @Test
+  public void testHdrsFilegroup() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        "filegroup(name = 'headers', srcs = ['a.h'])",
+        "cc_library(name = 'cc', hdrs = [':headers'], srcs = ['a.cc'])");
+    assertThat(parseListCompileOneDep("a/a.h")).containsExactlyElementsIn(labels("//a:cc"));
   }
 
   @Test

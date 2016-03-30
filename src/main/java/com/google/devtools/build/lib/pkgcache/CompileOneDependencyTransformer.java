@@ -14,26 +14,27 @@
 package com.google.devtools.build.lib.pkgcache;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.DependencyFilter;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
+import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.util.BinaryPredicate;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Implementation of --compile_one_dependency.
@@ -83,82 +84,90 @@ public final class CompileOneDependencyTransformer {
     return orderedList;
   }
 
+  /**
+   * Returns true if a specific rule compiles a specific source. Looks through genrules and
+   * filegroups.
+   */
+  private boolean listContainsFile(
+      EventHandler eventHandler,
+      Collection<Label> srcLabels,
+      Label source,
+      Set<Label> visitedRuleLabels)
+      throws TargetParsingException {
+    if (srcLabels.contains(source)) {
+      return true;
+    }
+    for (Label label : srcLabels) {
+      if (!visitedRuleLabels.add(label)) {
+        continue;
+      }
+      Target target = null;
+      try {
+        target = targetProvider.getTarget(eventHandler, label);
+      } catch (NoSuchThingException e) {
+        // Just ignore failing sources/packages. We could report them here, but as long as we do
+        // early return, the presence of this error would then be determined by the order of items
+        // in the srcs attribute. A proper error will be created by the subsequent loading.
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        throw new TargetParsingException("interrupted");
+      }
+      if (target == null || target instanceof FileTarget) {
+        continue;
+      }
+      Rule targetRule = target.getAssociatedRule();
+      if ("filegroup".equals(targetRule.getRuleClass())) {
+        RawAttributeMapper attributeMapper = RawAttributeMapper.of(targetRule);
+        Collection<Label> srcs = attributeMapper.getMergedValues("srcs", BuildType.LABEL_LIST);
+        if (listContainsFile(eventHandler, srcs, source, visitedRuleLabels)) {
+          return true;
+        }
+      } else if ("genrule".equals(targetRule.getRuleClass())) {
+        // TODO(djasper): Likely, it makes much more sense to look at the inputs of a genrule.
+        for (OutputFile file : targetRule.getOutputFiles()) {
+          if (file.getLabel().equals(source)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
   private Target transformCompileOneDependency(EventHandler eventHandler, Target target)
       throws TargetParsingException {
     if (!(target instanceof FileTarget)) {
-      throw new TargetParsingException("--compile_one_dependency target '" +
-                                       target.getLabel() + "' must be a file");
-    }
-
-    Package pkg = target.getPackage();
-
-    Iterable<Rule> orderedRuleList = getOrderedRuleList(pkg);
-    // Consuming rule to return if no "preferred" rules have been found.
-    Rule fallbackRule = null;
-
-    for (Rule rule : orderedRuleList) {
-      try {
-        // The call to getSrcTargets here can be removed in favor of the
-        // rule.getLabels() call below once we update "srcs" for all rules.
-        if (SrcTargetUtil.getSrcTargets(eventHandler, rule, targetProvider).contains(target)) {
-          if (rule.getRuleClassObject().isPreferredDependency(target.getName())) {
-            return rule;
-          } else if (fallbackRule == null) {
-            fallbackRule = rule;
-          }
-        }
-      } catch (NoSuchThingException e) {
-        // Nothing to see here. Move along.
-      } catch (InterruptedException e) {
-        throw new TargetParsingException("interrupted");
-      }
+      throw new TargetParsingException(
+          "--compile_one_dependency target '" + target.getLabel() + "' must be a file");
     }
 
     Rule result = null;
-
-    // For each rule, see if it has directCompileTimeInputAttribute,
-    // and if so check the targets listed in that attribute match the label.
-    BinaryPredicate<Rule, Attribute> directCompileTimeInput =
-        new BinaryPredicate<Rule, Attribute>() {
-          @Override
-          public boolean apply(Rule rule, Attribute attribute) {
-            return DependencyFilter.DIRECT_COMPILE_TIME_INPUT.apply(rule, attribute)
-                // We don't know which path to follow for configurable attributes, so skip them.
-                && !rule.isConfigurableAttribute(attribute.getName());
-          }
-        };
+    Iterable<Rule> orderedRuleList = getOrderedRuleList(target.getPackage());
     for (Rule rule : orderedRuleList) {
-      if (rule.getLabels(directCompileTimeInput).contains(target.getLabel())) {
+      Set<Label> labels = getInputLabels(rule);
+      if (listContainsFile(eventHandler, labels, target.getLabel(), Sets.<Label>newHashSet())) {
         if (rule.getRuleClassObject().isPreferredDependency(target.getName())) {
           result = rule;
-        } else if (fallbackRule == null) {
-          fallbackRule = rule;
+          break;
+        }
+        if (result == null) {
+          result = rule;
         }
       }
     }
 
     if (result == null) {
-      result = fallbackRule;
-    }
-
-    if (result == null) {
       throw new TargetParsingException(
           "Couldn't find dependency on target '" + target.getLabel() + "'");
     }
 
-    try {
-      // If the rule has source targets, return it.
-      if (!SrcTargetUtil.getSrcTargets(eventHandler, result, targetProvider).isEmpty()) {
-        return result;
-      }
-    } catch (NoSuchThingException e) {
-      eventHandler.handle(Event.error(e.getMessage()));
-      throw new TargetParsingException(
-          "Couldn't find dependency on target '" + target.getLabel() + "'");
-    } catch (InterruptedException e) {
-      throw new TargetParsingException("interrupted");
+    // TODO(djasper): Check whether parse_headers is disabled and just return if not.
+    // If the rule has source targets, return it.
+    if (!RawAttributeMapper.of(result).getMergedValues("srcs", BuildType.LABEL_LIST).isEmpty()) {
+      return result;
     }
 
+    // Try to find a rule in the same package that has 'result' as a dependency.
     for (Rule rule : orderedRuleList) {
       RawAttributeMapper attributes = RawAttributeMapper.of(rule);
       // We don't know which path to follow for configurable attributes, so skip them.
@@ -167,8 +176,8 @@ public final class CompileOneDependencyTransformer {
         continue;
       }
       RuleClass ruleClass = rule.getRuleClassObject();
-      if (ruleClass.hasAttr("deps", BuildType.LABEL_LIST) &&
-          ruleClass.hasAttr("srcs", BuildType.LABEL_LIST)) {
+      if (ruleClass.hasAttr("deps", BuildType.LABEL_LIST)
+          && ruleClass.hasAttr("srcs", BuildType.LABEL_LIST)) {
         for (Label dep : attributes.get("deps", BuildType.LABEL_LIST)) {
           if (dep.equals(result.getLabel())) {
             if (!attributes.get("srcs", BuildType.LABEL_LIST).isEmpty()) {
@@ -181,5 +190,22 @@ public final class CompileOneDependencyTransformer {
 
     throw new TargetParsingException(
         "Couldn't find dependency on target '" + target.getLabel() + "'");
+  }
+
+  /** Returns all labels that are contained in direct compile time inputs of {@code rule}. */
+  private static Set<Label> getInputLabels(Rule rule) {
+    RawAttributeMapper attributeMapper = RawAttributeMapper.of(rule);
+    Set<Label> labels = new TreeSet<>();
+    for (String attrName : attributeMapper.getAttributeNames()) {
+      if (!attributeMapper.getAttributeDefinition(attrName).isDirectCompileTimeInput()) {
+        continue;
+      }
+      // TODO(djasper): We might also want to look at LABEL types, but there currently is the
+      // attribute xcode_config, which leads to test errors in Bazel tests.
+      if (rule.isAttrDefined(attrName, BuildType.LABEL_LIST)) {
+        labels.addAll(attributeMapper.getMergedValues(attrName, BuildType.LABEL_LIST));
+      }
+    }
+    return labels;
   }
 }

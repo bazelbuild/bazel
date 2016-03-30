@@ -559,9 +559,12 @@ public class LoadingPhaseRunnerTest {
         "cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
     tester.useLoadingOptions("--compile_one_dependency");
     try {
-      tester.load("base/hello.cc");
-      fail();
-    } catch (TargetParsingException expected) {
+      LoadingResult loadingResult = tester.load("base/hello.cc");
+      if (runsLoadingPhase()) {
+        fail();
+      }
+      assertThat(loadingResult.hasLoadingError()).isFalse();
+    } catch (LoadingFailedException expected) {
       tester.assertContainsError("no such package 'bad'");
     }
   }
@@ -571,23 +574,8 @@ public class LoadingPhaseRunnerTest {
     tester.addFile("base/BUILD",
         "cc_library(name = 'hello', srcs = ['hello.cc', '//bad:bad.cc'])");
     tester.useLoadingOptions("--compile_one_dependency");
-    if (runsLoadingPhase()) {
-      // The LegacyLoadingPhaseRunner throws an exception if it can't load any of the sources in the
-      // same rule as the source we're looking for even with --keep_going.
-      // In general, we probably want --compile_one_dependency to be compatible with --keep_going
-      // for consistency, but it's unclear if this is actually a problem for anyone. The most common
-      // use case for compile_one_dependency is to iterate quickly on a single file, without
-      // --keep_going.
-      try {
-        tester.load("base/hello.cc");
-        fail();
-      } catch (TargetParsingException expected) {
-        tester.assertContainsError("no such package 'bad'");
-      }
-    } else {
-      LoadingResult loadingResult = tester.loadKeepGoing("base/hello.cc");
-      assertThat(loadingResult.hasTargetPatternError()).isTrue();
-    }
+    LoadingResult loadingResult = tester.loadKeepGoing("base/hello.cc");
+    assertEquals(loadingResult.hasLoadingError(), runsLoadingPhase());
   }
 
   private void assertCircularSymlinksDuringTargetParsing(String targetPattern) throws Exception {
