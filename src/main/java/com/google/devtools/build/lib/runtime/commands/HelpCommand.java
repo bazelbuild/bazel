@@ -20,6 +20,7 @@ import com.google.devtools.build.docgen.BlazeRuleHelpPrinter;
 import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
@@ -134,6 +135,8 @@ public final class HelpCommand implements BlazeCommand {
 
   @Override
   public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
+    env.getEventBus().post(new NoBuildEvent());
+
     BlazeRuntime runtime = env.getRuntime();
     OutErr outErr = env.getReporter().getOutErr();
     Options helpOptions = options.getOptions(Options.class);

@@ -107,4 +107,19 @@ function test_clean_color_nobuild {
   expect_not_log "Building"
 }
 
+function test_help_nobuild {
+  bazel help --experimental_ui 2>$TEST_log \
+   || fail "bazel help failed"
+  expect_not_log "actions running"
+  expect_not_log "Building"
+}
+
+function test_help_color_nobuild {
+  bazel help --experimental_ui --color=yes 2>$TEST_log \
+   || fail "bazel help failed"
+  expect_not_log "actions running"
+  expect_not_log "Building"
+}
+
+
 run_suite "Integration tests for bazel's experimental UI"
