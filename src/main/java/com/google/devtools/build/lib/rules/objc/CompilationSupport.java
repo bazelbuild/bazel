@@ -829,6 +829,10 @@ public final class CompilationSupport {
             /*externDependencies=*/ true));
   }
 
+  private boolean isDynamicLib(CommandLine commandLine) {
+    return Iterables.contains(commandLine.arguments(), "-dynamiclib");
+  }
+
   private void registerLinkAction(ObjcProvider objcProvider, ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs, Optional<Artifact> dsymBundle,
       Iterable<Artifact> prunedJ2ObjcArchives) {
@@ -849,13 +853,13 @@ public final class CompilationSupport {
     ImmutableList<Artifact> ccLibraries = ccLibraries(objcProvider);
     NestedSet<Artifact> bazelBuiltLibraries = Iterables.isEmpty(prunedJ2ObjcArchives)
         ? objcProvider.get(LIBRARY) : substituteJ2ObjcPrunedLibraries(objcProvider);
+    CommandLine commandLine = linkCommandLine(extraLinkArgs, objcProvider, binaryToLink,
+        dsymBundle, ccLibraries, bazelBuiltLibraries);
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
             .setMnemonic("ObjcLink")
             .setShellCommand(ImmutableList.of("/bin/bash", "-c"))
-            .setCommandLine(
-                linkCommandLine(extraLinkArgs, objcProvider, binaryToLink, dsymBundle, ccLibraries,
-                    bazelBuiltLibraries))
+            .setCommandLine(new SingleArgCommandLine(commandLine))
             .addOutput(binaryToLink)
             .addOutputs(dsymBundle.asSet())
             .addTransitiveInputs(bazelBuiltLibraries)
@@ -868,11 +872,18 @@ public final class CompilationSupport {
             .build(ruleContext));
 
     if (objcConfiguration.shouldStripBinary()) {
-      // For test targets, only debug symbols are stripped off, since /usr/bin/strip is not able
-      // to strip off all symbols in XCTest bundle.
-      boolean isTestTarget = TargetUtils.isTestRule(ruleContext.getRule());
-      Iterable<String> stripArgs =
-          isTestTarget ? ImmutableList.of("-S") : ImmutableList.<String>of();
+      final Iterable<String> stripArgs;
+      if (TargetUtils.isTestRule(ruleContext.getRule())) {
+        // For test targets, only debug symbols are stripped off, since /usr/bin/strip is not able
+        // to strip off all symbols in XCTest bundle.
+        stripArgs = ImmutableList.of("-S");
+      } else if (isDynamicLib(commandLine)) {
+        // For dynamic libs must pass "-x" to strip only local symbols.
+        stripArgs = ImmutableList.of("-x");
+      } else {
+        stripArgs = ImmutableList.<String>of();
+      }
+
       Artifact strippedBinary = intermediateArtifacts.strippedSingleArchitectureBinary();
 
       ruleContext.registerAction(
@@ -990,8 +1001,7 @@ public final class CompilationSupport {
         .addExecPath("-o", linkedBinary)
         .addBeforeEach("-force_load", Artifact.toExecPaths(objcProvider.get(FORCE_LOAD_LIBRARY)))
         .add(extraLinkArgs)
-        .add(objcProvider.get(ObjcProvider.LINKOPT))
-        .build();
+        .add(objcProvider.get(ObjcProvider.LINKOPT));
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       commandLine.add(LINKER_COVERAGE_FLAGS);
@@ -1029,7 +1039,7 @@ public final class CompilationSupport {
           .add("&& /usr/bin/zip -q -r \"${zipped_bundle}\" .");
     }
 
-    return new SingleArgCommandLine(commandLine.build());
+    return commandLine.build();
   }
 
   /**
