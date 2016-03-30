@@ -112,14 +112,15 @@ public final class SymlinkTreeHelper {
       AbstractAction action,
       ActionExecutionContext actionExecutionContext,
       BinTools binTools,
-      PathFragment shExecutable)
+      PathFragment shExecutable,
+      ImmutableMap<String, String> shellEnvironment)
       throws ExecException, InterruptedException {
     List<String> args = getSpawnArgumentList(
         actionExecutionContext.getExecutor().getExecRoot(), binTools, shExecutable);
     try (ResourceHandle handle =
         ResourceManager.instance().acquireResources(action, RESOURCE_SET)) {
       actionExecutionContext.getExecutor().getSpawnActionContext(action.getMnemonic()).exec(
-          new BaseSpawn.Local(args, ImmutableMap.<String, String>of(), action),
+          new BaseSpawn.Local(args, shellEnvironment, action),
           actionExecutionContext);
     }
   }

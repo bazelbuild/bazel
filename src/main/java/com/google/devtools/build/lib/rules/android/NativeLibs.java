@@ -163,7 +163,8 @@ public final class NativeLibs {
             nativeLibsMiddleman,
             outputManifest,
             false,
-            ruleContext.getConfiguration().getShExecutable()));
+            ruleContext.getConfiguration().getShExecutable(),
+            ruleContext.getConfiguration().getLocalShellEnvironment()));
     return outputManifest;
   }
 

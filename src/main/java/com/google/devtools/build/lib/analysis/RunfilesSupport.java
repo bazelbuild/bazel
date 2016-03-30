@@ -301,7 +301,8 @@ public class RunfilesSupport {
                 artifactsMiddleman,
                 outputManifest,
                 /*filesetTree=*/ false,
-                config.getShExecutable()));
+                config.getShExecutable(),
+                config.getLocalShellEnvironment()));
     return outputManifest;
   }
 

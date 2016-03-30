@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -46,7 +47,8 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
   public void createSymlinks(
       SymlinkTreeAction action,
       ActionExecutionContext actionExecutionContext,
-      PathFragment shExecutable)
+      PathFragment shExecutable,
+      ImmutableMap<String, String> shellEnvironment)
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
     try (AutoProfiler p =
@@ -61,7 +63,8 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
               action.getOutputManifest().getPath(),
               action.isFilesetTree(), helper.getSymlinkTreeRoot());
         } else {
-          helper.createSymlinks(action, actionExecutionContext, binTools, shExecutable);
+          helper.createSymlinks(
+              action, actionExecutionContext, binTools, shExecutable, shellEnvironment);
         }
       } catch (ExecException e) {
         throw e.toActionExecutionException(
