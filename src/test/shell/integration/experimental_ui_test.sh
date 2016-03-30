@@ -93,4 +93,18 @@ function test_query_spacing() {
   true
 }
 
+function test_clean_nobuild {
+  bazel clean --experimental_ui 2>$TEST_log \
+   || fail "bazel shutdown failed"
+  expect_not_log "actions running"
+  expect_not_log "Building"
+}
+
+function test_clean_color_nobuild {
+  bazel clean --experimental_ui --color=yes 2>$TEST_log \
+   || fail "bazel shutdown failed"
+  expect_not_log "actions running"
+  expect_not_log "Building"
+}
+
 run_suite "Integration tests for bazel's experimental UI"

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.events.Event;
@@ -89,6 +90,8 @@ public final class CleanCommand implements BlazeCommand {
     Options cleanOptions = options.getOptions(Options.class);
     cleanOptions.expunge_async = cleanOptions.cleanStyle.equals("expunge_async");
     cleanOptions.expunge = cleanOptions.cleanStyle.equals("expunge");
+
+    env.getEventBus().post(new NoBuildEvent());
 
     if (!cleanOptions.expunge && !cleanOptions.expunge_async
         && !cleanOptions.cleanStyle.isEmpty()) {
