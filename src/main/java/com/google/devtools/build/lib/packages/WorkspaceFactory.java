@@ -249,6 +249,7 @@ public class WorkspaceFactory {
       throws NameConflictException {
     this.parentVariableBindings = bindings;
     this.parentImportMap = importMap;
+    builder.setWorkspaceName(aPackage.getWorkspaceName());
     // Transmit the content of the parent package to the new package builder.
     builder.addEvents(aPackage.getEvents());
     if (aPackage.containsErrors()) {

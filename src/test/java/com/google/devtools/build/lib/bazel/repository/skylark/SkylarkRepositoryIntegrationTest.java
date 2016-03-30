@@ -325,4 +325,25 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     }
     assertContainsEvent("missing value for mandatory attribute 'path' in 'local_repository' rule");
   }
+
+  @Test
+  public void testLoadDoesNotHideWorkspaceFunction() throws Exception {
+    scratch.file("def.bzl", "def macro():", "  print('bleh')");
+    scratch.overwriteFile(
+        rootDirectory.getRelative("WORKSPACE").getPathString(),
+        "workspace(name='bleh')",
+        "local_repository(name='bazel_tools', path=__workspace_dir__)",
+        "load('//:def.bzl', 'macro')");
+    scratch.overwriteFile("tools/genrule/genrule-setup.sh");
+    scratch.overwriteFile("tools/genrule/BUILD", "exports_files(['genrule-setup.sh'])");
+    scratch.file("data.txt");
+    scratch.file("BUILD",
+        "genrule(",
+        "  name='data', ",
+        "  outs=['data.out'],",
+        "  srcs=['data.txt'],",
+        "  cmd='cp $< $@')");
+    invalidatePackages();
+    assertThat(getRuleContext(getConfiguredTarget("//:data")).getWorkspaceName()).isEqualTo("bleh");
+  }
 }
