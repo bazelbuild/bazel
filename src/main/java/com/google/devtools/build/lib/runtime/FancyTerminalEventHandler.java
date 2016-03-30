@@ -265,8 +265,11 @@ public class FancyTerminalEventHandler extends BlazeCommandEventHandler {
     }
 
     LineCountingAnsiTerminalWriter countingWriter = new LineCountingAnsiTerminalWriter(terminal);
-    AnsiTerminalWriter terminalWriter =
-        new LineWrappingAnsiTerminalWriter(countingWriter, terminalWidth - 1);
+    AnsiTerminalWriter terminalWriter = countingWriter;
+
+    if (useCursorControls) {
+      terminalWriter = new LineWrappingAnsiTerminalWriter(terminalWriter, terminalWidth - 1);
+    }
 
     if (useColor) {
       terminalWriter.okStatus();
