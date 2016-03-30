@@ -214,7 +214,7 @@ public class BlazeCommandDispatcher {
     long execStartTimeNanos = runtime.getClock().nanoTime();
 
     // The initCommand call also records the start time for the timestamp granularity monitor.
-    CommandEnvironment env = runtime.initCommand();
+    CommandEnvironment env = runtime.getWorkspace().initCommand();
     // Record the command's starting time for use by the commands themselves.
     env.recordCommandStartTime(firstContactTime);
 

@@ -17,6 +17,8 @@ import static com.google.devtools.build.lib.profiler.AutoProfiler.profiledAndLog
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.Range;
+import com.google.common.eventbus.EventBus;
+import com.google.common.eventbus.SubscriberExceptionHandler;
 import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.actions.cache.CompactPersistentActionCache;
 import com.google.devtools.build.lib.actions.cache.NullActionCache;
@@ -53,6 +55,7 @@ public final class BlazeWorkspace {
   private static final Logger LOG = Logger.getLogger(BlazeRuntime.class.getName());
 
   private final BlazeRuntime runtime;
+  private final SubscriberExceptionHandler eventBusExceptionHandler;
 
   private final BlazeDirectories directories;
   private final SkyframeExecutor skyframeExecutor;
@@ -62,9 +65,10 @@ public final class BlazeWorkspace {
   @Nullable
   private Range<Long> lastExecutionRange = null;
 
-  public BlazeWorkspace(
-      BlazeRuntime runtime, BlazeDirectories directories, SkyframeExecutor skyframeExecutor) {
+  public BlazeWorkspace(BlazeRuntime runtime, BlazeDirectories directories,
+      SkyframeExecutor skyframeExecutor, SubscriberExceptionHandler eventBusExceptionHandler) {
     this.runtime = runtime;
+    this.eventBusExceptionHandler = eventBusExceptionHandler;
     this.directories = directories;
     this.skyframeExecutor = skyframeExecutor;
 
@@ -148,6 +152,10 @@ public final class BlazeWorkspace {
   @Nullable
   public Range<Long> getLastExecutionTimeRange() {
     return lastExecutionRange;
+  }
+
+  public CommandEnvironment initCommand() {
+    return new CommandEnvironment(runtime, this, new EventBus(eventBusExceptionHandler));
   }
 
   void clearEventBus() {
