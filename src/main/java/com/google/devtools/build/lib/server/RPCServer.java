@@ -249,7 +249,7 @@ public final class RPCServer {
             }
           }
         } catch (IOException e) {
-          if (e.getMessage().equals("Broken pipe")) {
+          if (e.getMessage().equals("reached end of stream")) {
             LOG.info("Connection to the client lost: "
                            + e.getMessage());
           } else {
