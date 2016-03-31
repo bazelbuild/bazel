@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.google.devtools.build.android.AndroidDataSet.KeyValueConsumer;
+import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
 import com.google.devtools.build.android.xml.PluralXmlResourceValue;
@@ -101,12 +101,12 @@ public class XmlResourceValues {
         members.add(getElementName(attr));
         overwritingConsumer.consume(
             fqnFactory.create(ResourceType.ATTR, getElementName(attr)),
-            XmlDataResource.of(path, parseAttr(eventReader, start)));
+            DataResourceXml.of(path, parseAttr(eventReader, start)));
       }
     }
     nonOverwritingConsumer.consume(
         fqnFactory.create(ResourceType.STYLEABLE, getElementName(start)),
-        XmlDataResource.of(path, StyleableXmlResourceValue.of(members)));
+        DataResourceXml.of(path, StyleableXmlResourceValue.of(members)));
   }
 
   static XmlResourceValue parseAttr(XMLEventReader eventReader, StartElement start)

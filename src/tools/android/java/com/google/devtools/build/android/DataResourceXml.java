@@ -17,8 +17,8 @@ import static com.android.resources.ResourceType.DECLARE_STYLEABLE;
 import static com.android.resources.ResourceType.ID;
 
 import com.google.common.base.MoreObjects;
-import com.google.devtools.build.android.AndroidDataSet.KeyValueConsumer;
 import com.google.devtools.build.android.FullyQualifiedName.Factory;
+import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.xml.ArrayXmlResourceValue;
 
 import com.android.resources.ResourceType;
@@ -41,7 +41,7 @@ import javax.xml.stream.events.StartElement;
  * <p>Basically, if the resource is defined inside a &lt;resources&gt; tag, this class will
  * handle it. Layouts are treated separately as they don't declare anything besides ids.
  */
-public class XmlDataResource implements DataResource {
+public class DataResourceXml implements DataResource {
 
   /**
    * Parses xml resources from a Path to the provided overwritable and nonOverwritable collections.
@@ -52,8 +52,8 @@ public class XmlDataResource implements DataResource {
    * @param xmlInputFactory Used to create an XMLEventReader from the supplied resource path.
    * @param path The path to the xml resource to be parsed.
    * @param fqnFactory Used to create {@link FullyQualifiedName}s from the resource names.
-   * @param overwritingConsumer A consumer for overwritable {@link XmlDataResource}s.
-   * @param nonOverwritingConsumer  A consumer for nonoverwritable {@link XmlDataResource}s.
+   * @param overwritingConsumer A consumer for overwritable {@link DataResourceXml}s.
+   * @param nonOverwritingConsumer  A consumer for nonoverwritable {@link DataResourceXml}s.
    * @throws XMLStreamException Thrown with the resource format is invalid.
    * @throws FactoryConfigurationError Thrown with the {@link XMLInputFactory} is misconfigured.
    * @throws IOException Thrown when there is an error reading a file.
@@ -85,7 +85,7 @@ public class XmlDataResource implements DataResource {
           FullyQualifiedName key =
               fqnFactory.create(resourceType, XmlResourceValues.getElementName(start));
           consumer.consume(
-              key, XmlDataResource.of(path, parseXmlElements(resourceType, eventReader, start)));
+              key, DataResourceXml.of(path, parseXmlElements(resourceType, eventReader, start)));
         }
       }
     }
@@ -126,13 +126,13 @@ public class XmlDataResource implements DataResource {
   private Path source;
   private XmlResourceValue xml;
 
-  private XmlDataResource(Path source, XmlResourceValue xmlValue) {
+  private DataResourceXml(Path source, XmlResourceValue xmlValue) {
     this.source = source;
     this.xml = xmlValue;
   }
 
-  public static XmlDataResource of(Path source, XmlResourceValue xml) {
-    return new XmlDataResource(source, xml);
+  public static DataResourceXml of(Path source, XmlResourceValue xml) {
+    return new DataResourceXml(source, xml);
   }
 
   @Override
@@ -147,10 +147,10 @@ public class XmlDataResource implements DataResource {
 
   @Override
   public boolean equals(Object obj) {
-    if (!(obj instanceof XmlDataResource)) {
+    if (!(obj instanceof DataResourceXml)) {
       return false;
     }
-    XmlDataResource other = (XmlDataResource) obj;
+    DataResourceXml other = (DataResourceXml) obj;
     return Objects.equals(source, other.source) && Objects.equals(xml, other.xml);
   }
 

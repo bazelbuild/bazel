@@ -24,16 +24,16 @@ import java.util.Objects;
  *
  * These include all resource types except those found in values, as well as all assets.
  */
-public class FileDataResource implements DataResource, DataAsset {
+public class DataValueFile implements DataResource, DataAsset {
 
   private final Path source;
 
-  private FileDataResource(Path source) {
+  private DataValueFile(Path source) {
     this.source = source;
   }
 
-  public static FileDataResource of(Path source) {
-    return new FileDataResource(source);
+  public static DataValueFile of(Path source) {
+    return new DataValueFile(source);
   }
 
   @Override
@@ -43,18 +43,16 @@ public class FileDataResource implements DataResource, DataAsset {
 
   @Override
   public boolean equals(Object obj) {
-    if (!(obj instanceof FileDataResource)) {
+    if (!(obj instanceof DataValueFile)) {
       return false;
     }
-    FileDataResource resource = (FileDataResource) obj;
+    DataValueFile resource = (DataValueFile) obj;
     return Objects.equals(source, resource.source);
   }
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(getClass())
-        .add("source", source)
-        .toString();
+    return MoreObjects.toStringHelper(getClass()).add("source", source).toString();
   }
 
   @Override

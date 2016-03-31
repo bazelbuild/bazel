@@ -26,15 +26,16 @@ import java.util.Objects;
 public class UnwrittenMergedAndroidData {
 
   private final Path manifest;
-  private final AndroidDataSet resources;
-  private final AndroidDataSet deps;
+  private final ParsedAndroidData resources;
+  private final ParsedAndroidData deps;
 
   public static UnwrittenMergedAndroidData of(
-      Path manifest, AndroidDataSet resources, AndroidDataSet deps) {
+      Path manifest, ParsedAndroidData resources, ParsedAndroidData deps) {
     return new UnwrittenMergedAndroidData(manifest, resources, deps);
   }
 
-  private UnwrittenMergedAndroidData(Path manifest, AndroidDataSet resources, AndroidDataSet deps) {
+  private UnwrittenMergedAndroidData(
+      Path manifest, ParsedAndroidData resources, ParsedAndroidData deps) {
     this.manifest = manifest;
     this.resources = resources;
     this.deps = deps;
@@ -85,12 +86,12 @@ public class UnwrittenMergedAndroidData {
   }
 
   @VisibleForTesting
-  AndroidDataSet getResources() {
+  ParsedAndroidData getResources() {
     return resources;
   }
 
   @VisibleForTesting
-  AndroidDataSet getDeps() {
+  ParsedAndroidData getDeps() {
     return deps;
   }
 }
