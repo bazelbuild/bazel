@@ -25,25 +25,29 @@ import java.io.StringWriter;
 /** The output from a {@link JavacTurbineCompiler} compilation. */
 class JavacTurbineCompileResult {
 
+  enum Status {
+    OK, ERROR
+  }
+
   private final ImmutableMap<String, OutputFileObject> files;
-  private final boolean success;
+  private final Status status;
   private final StringWriter sb;
   private final Context context;
 
   JavacTurbineCompileResult(
       ImmutableMap<String, OutputFileObject> files,
-      boolean success,
+      Status status,
       StringWriter sb,
       Context context) {
     this.files = files;
-    this.success = success;
+    this.status = status;
     this.sb = sb;
     this.context = context;
   }
 
   /** True iff the compilation succeeded. */
   boolean success() {
-    return success;
+    return status == Status.OK;
   }
 
   /** The stderr from the compilation. */
