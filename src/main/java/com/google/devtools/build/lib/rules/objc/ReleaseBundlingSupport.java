@@ -286,6 +286,7 @@ public final class ReleaseBundlingSupport {
     registerTransformAndCopyBreakpadFilesAction();
     registerCopyDsymFilesAction();
     registerCopyDsymPlistAction();
+    registerCopyLinkmapFilesAction();
     registerSwiftStdlibActionsIfNecessary();
 
     registerEmbedLabelPlistAction();
@@ -588,6 +589,10 @@ public final class ReleaseBundlingSupport {
       throws InterruptedException {
     NestedSetBuilder<Artifact> debugSymbolBuilder = NestedSetBuilder.<Artifact>stableOrder();
 
+    for (Artifact linkmapFile : getLinkmapFiles().values()) {
+      filesToBuild.add(linkmapFile);
+    }
+
     if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()) {
       filesToBuild.addAll(getBreakpadFiles().values());
       filesToBuild.addAll(getDsymFiles().values());
@@ -868,6 +873,15 @@ public final class ReleaseBundlingSupport {
     }
   }
 
+  private void registerCopyLinkmapFilesAction() {
+   for (Entry<Artifact, Artifact> linkmapFile : getLinkmapFiles().entrySet()) {
+      ruleContext.registerAction(
+          new SymlinkAction(ruleContext.getActionOwner(), linkmapFile.getKey(),
+              linkmapFile.getValue(), String.format("Copying Linkmap %s",
+              linkmapFile.getValue().prettyPrint())));
+   }
+  }
+
   /**
    * Registers the actions that copy the debug symbol files from the CPU-specific binaries that are
    * part of this application. The only one step executed is that he dsym files have to be renamed
@@ -937,6 +951,19 @@ public final class ReleaseBundlingSupport {
       return dsymPlist;
     }
     return null;
+  }
+
+  /**
+   * Returns a map of input linkmap artifacts from the CPU-specific binaries built for this
+   * ios_application to the new output linkmap artifacts.
+   */
+  private ImmutableMap<Artifact, Artifact> getLinkmapFiles() {
+    ImmutableMap.Builder<Artifact, Artifact> results = ImmutableMap.builder();
+    for (Entry<String, Artifact> linkmapFile : attributes.cpuSpecificLinkmapFiles().entrySet()) {
+      Artifact destLinkMap = intermediateArtifacts.linkmap(linkmapFile.getKey());
+      results.put(linkmapFile.getValue(), destLinkMap);
+    }
+    return results.build();
   }
 
   private void registerExtractTeamPrefixAction(Artifact teamPrefixFile) {
@@ -1186,6 +1213,10 @@ public final class ReleaseBundlingSupport {
 
     ImmutableMap<String, Artifact> cpuSpecificDsymPlists() {
       return cpuSpecificArtifacts(ObjcProvider.DEBUG_SYMBOLS_PLIST);
+    }
+
+    ImmutableMap<String, Artifact> cpuSpecificLinkmapFiles() {
+      return cpuSpecificArtifacts(ObjcProvider.LINKMAP_FILE);
     }
 
     ImmutableMap<String, Artifact> cpuSpecificArtifacts(ObjcProvider.Key<Artifact> key) {

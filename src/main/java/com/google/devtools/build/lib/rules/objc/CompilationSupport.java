@@ -747,6 +747,7 @@ public final class CompilationSupport {
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
     Optional<Artifact> dsymBundle;
+    Optional<Artifact> linkmap;
     if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()) {
       registerDsymActions();
       dsymBundle = Optional.of(intermediateArtifacts.dsymBundle());
@@ -761,12 +762,19 @@ public final class CompilationSupport {
       prunedJ2ObjcArchives = j2objcPrunedLibraries(objcProvider);
     }
 
+    if (ObjcRuleClasses.objcConfiguration(ruleContext).generateLinkmap()) {
+      linkmap = Optional.of(intermediateArtifacts.linkmap());
+    } else {
+      linkmap = Optional.absent();
+    }
+
     registerLinkAction(
         objcProvider,
         extraLinkArgs,
         extraLinkInputs,
         dsymBundle,
-        prunedJ2ObjcArchives);
+        prunedJ2ObjcArchives,
+        linkmap);
     return this;
   }
 
@@ -834,7 +842,7 @@ public final class CompilationSupport {
 
   private void registerLinkAction(ObjcProvider objcProvider, ExtraLinkArgs extraLinkArgs,
       Iterable<Artifact> extraLinkInputs, Optional<Artifact> dsymBundle,
-      Iterable<Artifact> prunedJ2ObjcArchives) {
+      Iterable<Artifact> prunedJ2ObjcArchives, Optional<Artifact> linkmap) {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     IntermediateArtifacts intermediateArtifacts =
         ObjcRuleClasses.intermediateArtifacts(ruleContext);
@@ -853,7 +861,7 @@ public final class CompilationSupport {
     NestedSet<Artifact> bazelBuiltLibraries = Iterables.isEmpty(prunedJ2ObjcArchives)
         ? objcProvider.get(LIBRARY) : substituteJ2ObjcPrunedLibraries(objcProvider);
     CommandLine commandLine = linkCommandLine(extraLinkArgs, objcProvider, binaryToLink,
-        dsymBundle, ccLibraries, bazelBuiltLibraries);
+        dsymBundle, ccLibraries, bazelBuiltLibraries, linkmap);
     ruleContext.registerAction(
         ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
             .setMnemonic("ObjcLink")
@@ -861,6 +869,7 @@ public final class CompilationSupport {
             .setCommandLine(new SingleArgCommandLine(commandLine))
             .addOutput(binaryToLink)
             .addOutputs(dsymBundle.asSet())
+            .addOutputs(linkmap.asSet())
             .addTransitiveInputs(bazelBuiltLibraries)
             .addTransitiveInputs(objcProvider.get(IMPORTED_LIBRARY))
             .addTransitiveInputs(objcProvider.get(FRAMEWORK_FILE))
@@ -948,7 +957,8 @@ public final class CompilationSupport {
 
   private CommandLine linkCommandLine(ExtraLinkArgs extraLinkArgs,
       ObjcProvider objcProvider, Artifact linkedBinary, Optional<Artifact> dsymBundle,
-      Iterable<Artifact> ccLibraries, Iterable<Artifact> bazelBuiltLibraries) {
+      Iterable<Artifact> ccLibraries, Iterable<Artifact> bazelBuiltLibraries,
+      Optional<Artifact> linkmap) {
     ObjcConfiguration objcConfiguration = ObjcRuleClasses.objcConfiguration(ruleContext);
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
     Iterable<String> libraryNames = libraryNames(objcProvider);
@@ -1019,6 +1029,12 @@ public final class CompilationSupport {
 
     for (String linkopt : attributes.linkopts()) {
       commandLine.add("-Wl," + linkopt);
+    }
+
+    if (linkmap.isPresent()) {
+      commandLine
+          .add("-Xlinker -map")
+          .add("-Xlinker " + linkmap.get().getExecPath());
     }
     
     // Call to dsymutil for debug symbol generation must happen in the link action.

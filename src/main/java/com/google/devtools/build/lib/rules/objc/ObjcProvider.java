@@ -244,6 +244,12 @@ public final class ObjcProvider implements TransitiveInfoProvider {
       new Key<>(STABLE_ORDER, "breakpad_file", Artifact.class);
 
   /**
+   * Single-architecture link map for a binary.
+   */
+  public static final Key<Artifact> LINKMAP_FILE =
+      new Key<>(STABLE_ORDER, "linkmap_file", Artifact.class);
+
+  /**
    * Artifacts for storyboard sources.
    */
   public static final Key<Artifact> STORYBOARD =

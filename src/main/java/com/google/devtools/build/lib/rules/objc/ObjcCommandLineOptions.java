@@ -60,6 +60,12 @@ public class ObjcCommandLineOptions extends FragmentOptions {
       help = "Specifies whether to generate debug symbol(.dSYM) file.")
   public boolean generateDebugSymbols;
 
+  @Option(name = "objc_generate_linkmap",
+      defaultValue = "false",
+      category = "flags",
+      help = "Specifies whether to generate a linkmap file.")
+  public boolean generateLinkmap;
+
   @Option(name = "objccopt",
       allowMultiple = true,
       defaultValue = "",

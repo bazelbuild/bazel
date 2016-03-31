@@ -37,6 +37,9 @@ public final class IntermediateArtifacts {
    */
   static final String TMP_DSYM_BUNDLE_SUFFIX = ".temp.app.dSYM.zip";
 
+  static final String LINKMAP_SUFFIX = ".linkmap";
+  static final String BREAKPAD_SUFFIX = ".breakpad";
+
   private final RuleContext ruleContext;
   private final String archiveFileNameSuffix;
 
@@ -320,17 +323,38 @@ public final class IntermediateArtifacts {
   }
 
   /**
+   * Representation for a specific architecture.
+   */
+  private Artifact architectureRepresentation(String arch, String suffix) {
+    return appendExtension(String.format("_%s%s", arch, suffix));
+  }
+
+  /**
    * Breakpad debug symbol representation.
    */
   public Artifact breakpadSym() {
-    return appendExtension(".breakpad");
+    return appendExtension(BREAKPAD_SUFFIX);
   }
 
   /**
    * Breakpad debug symbol representation for a specific architecture.
    */
   public Artifact breakpadSym(String arch) {
-    return appendExtension(String.format("_%s.breakpad", arch));
+    return architectureRepresentation(arch, BREAKPAD_SUFFIX);
+  }
+
+  /**
+   * Linkmap representation
+   */
+  public Artifact linkmap() {
+    return appendExtension(LINKMAP_SUFFIX);
+  }
+
+  /**
+   * Linkmap representation for a specific architecture.
+   */
+  public Artifact linkmap(String arch) {
+    return architectureRepresentation(arch, LINKMAP_SUFFIX);
   }
 
   /**
