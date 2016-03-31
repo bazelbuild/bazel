@@ -38,6 +38,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.DSYMUTIL;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.HEADERS;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.LIBTOOL;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.NON_ARC_SRCS_TYPE;
+import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.PRECOMPILED_SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SRCS_TYPE;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.STRIP;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.SWIFT;
@@ -205,10 +206,13 @@ public final class CompilationSupport {
         .errorsForNonMatching(SRCS_TYPE);
     return new CompilationArtifacts.Builder()
         .addSrcs(srcs.filter(COMPILABLE_SRCS_TYPE).list())
-        .addNonArcSrcs(ruleContext.getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET)
-            .errorsForNonMatching(NON_ARC_SRCS_TYPE)
-            .list())
+        .addNonArcSrcs(
+            ruleContext
+                .getPrerequisiteArtifacts("non_arc_srcs", Mode.TARGET)
+                .errorsForNonMatching(NON_ARC_SRCS_TYPE)
+                .list())
         .addPrivateHdrs(srcs.filter(HEADERS).list())
+        .addPrecompiledSrcs(srcs.filter(PRECOMPILED_SRCS_TYPE).list())
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setPchFile(Optional.fromNullable(ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET)))
         .build();
@@ -297,6 +301,8 @@ public final class CompilationSupport {
           isCodeCoverageEnabled);
     }
 
+    objFiles.addAll(compilationArtifacts.getPrecompiledSrcs());
+    
     if (compilationArtifacts.hasSwiftSources()) {
       registerSwiftModuleMergeAction(intermediateArtifacts, compilationArtifacts, objcProvider);
     }

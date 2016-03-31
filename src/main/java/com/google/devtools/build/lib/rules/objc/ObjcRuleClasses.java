@@ -297,6 +297,8 @@ public class ObjcRuleClasses {
 
   static final FileType ASSEMBLY_SOURCES = FileType.of(".s", ".S", ".asm");
 
+  static final FileType OBJECT_FILE_SOURCES = FileType.of(".o");
+  
   static final FileType SWIFT_SOURCES = FileType.of(".swift");
 
   /**
@@ -307,8 +309,14 @@ public class ObjcRuleClasses {
   /**
    * Files allowed in the srcs attribute. This includes private headers.
    */
-  static final FileTypeSet SRCS_TYPE = FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES,
-      ASSEMBLY_SOURCES, SWIFT_SOURCES, HEADERS);
+  static final FileTypeSet SRCS_TYPE =
+      FileTypeSet.of(
+          NON_CPP_SOURCES,
+          CPP_SOURCES,
+          ASSEMBLY_SOURCES,
+          OBJECT_FILE_SOURCES,
+          SWIFT_SOURCES,
+          HEADERS);
 
   /**
    * Files that should actually be compiled.
@@ -316,6 +324,11 @@ public class ObjcRuleClasses {
   static final FileTypeSet COMPILABLE_SRCS_TYPE = FileTypeSet.of(NON_CPP_SOURCES, CPP_SOURCES,
       ASSEMBLY_SOURCES, SWIFT_SOURCES);
 
+  /**
+   * Files that are already compiled.
+   */
+  static final FileTypeSet PRECOMPILED_SRCS_TYPE = FileTypeSet.of(OBJECT_FILE_SOURCES);
+  
   static final FileTypeSet NON_ARC_SRCS_TYPE = FileTypeSet.of(FileType.of(".m", ".mm"));
 
   static final FileTypeSet PLIST_TYPE = FileTypeSet.of(FileType.of(".plist"));
@@ -592,6 +605,9 @@ public class ObjcRuleClasses {
            may be included/imported by any source or header in the srcs attribute
            of this target, but not by headers in hdrs or any targets that depend
            on this rule.
+           Additionally, precompiled .o files may be given as srcs.  Be careful to
+           ensure consistency in the architecture of provided .o files and that of the
+           build to avoid missing symbol linker errors.
            <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
           .add(attr("srcs", LABEL_LIST).direct_compile_time_input().allowedFileTypes(SRCS_TYPE))
           /* <!-- #BLAZE_RULE($objc_compiling_rule).ATTRIBUTE(non_arc_srcs) -->

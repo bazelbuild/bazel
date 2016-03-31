@@ -32,6 +32,7 @@ final class CompilationArtifacts {
     private Iterable<Artifact> nonArcSrcs = ImmutableList.of();
     private Iterable<Artifact> additionalHdrs = ImmutableList.of();
     private Iterable<Artifact> privateHdrs = ImmutableList.of();
+    private Iterable<Artifact> precompiledSrcs = ImmutableList.of();
     private Optional<Artifact> pchFile;
     private IntermediateArtifacts intermediateArtifacts;
 
@@ -64,6 +65,14 @@ final class CompilationArtifacts {
       return this;
     }
 
+    /**
+     * Adds precompiled sources (.o files).
+     */
+    Builder addPrecompiledSrcs(Iterable<Artifact> precompiledSrcs) {
+      this.precompiledSrcs = Iterables.concat(this.precompiledSrcs, precompiledSrcs);
+      return this;
+    }
+    
     Builder setPchFile(Optional<Artifact> pchFile) {
       Preconditions.checkState(this.pchFile == null,
           "pchFile is already set to: %s", this.pchFile);
@@ -80,11 +89,13 @@ final class CompilationArtifacts {
 
     CompilationArtifacts build() {
       Optional<Artifact> archive = Optional.absent();
-      if (!Iterables.isEmpty(srcs) || !Iterables.isEmpty(nonArcSrcs)) {
+      if (!Iterables.isEmpty(srcs)
+          || !Iterables.isEmpty(nonArcSrcs)
+          || !Iterables.isEmpty(precompiledSrcs)) {
         archive = Optional.of(intermediateArtifacts.archive());
       }
       return new CompilationArtifacts(
-          srcs, nonArcSrcs, additionalHdrs, privateHdrs, archive, pchFile);
+          srcs, nonArcSrcs, additionalHdrs, privateHdrs, precompiledSrcs, archive, pchFile);
     }
   }
 
@@ -93,6 +104,7 @@ final class CompilationArtifacts {
   private final Optional<Artifact> archive;
   private final Iterable<Artifact> additionalHdrs;
   private final Iterable<Artifact> privateHdrs;
+  private final Iterable<Artifact> precompiledSrcs;
   private final Optional<Artifact> pchFile;
   private final boolean hasSwiftSources;
 
@@ -101,12 +113,14 @@ final class CompilationArtifacts {
       Iterable<Artifact> nonArcSrcs,
       Iterable<Artifact> additionalHdrs,
       Iterable<Artifact> privateHdrs,
+      Iterable<Artifact> precompiledSrcs,
       Optional<Artifact> archive,
       Optional<Artifact> pchFile) {
     this.srcs = Preconditions.checkNotNull(srcs);
     this.nonArcSrcs = Preconditions.checkNotNull(nonArcSrcs);
     this.additionalHdrs = Preconditions.checkNotNull(additionalHdrs);
     this.privateHdrs = Preconditions.checkNotNull(privateHdrs);
+    this.precompiledSrcs = Preconditions.checkNotNull(precompiledSrcs);
     this.archive = Preconditions.checkNotNull(archive);
     this.pchFile = Preconditions.checkNotNull(pchFile);
     this.hasSwiftSources = Iterables.any(this.srcs, new Predicate<Artifact>() {
@@ -140,6 +154,13 @@ final class CompilationArtifacts {
     return privateHdrs;
   }
 
+  /**
+   * Returns .o files provided to the build directly as srcs.
+   */
+  public Iterable<Artifact> getPrecompiledSrcs() {
+    return precompiledSrcs;
+  }
+  
   public Optional<Artifact> getArchive() {
     return archive;
   }
