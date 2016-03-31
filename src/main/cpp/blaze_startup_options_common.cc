@@ -49,7 +49,7 @@ void BlazeStartupOptions::Init() {
   io_nice_level = -1;
   // 3 hours (but only 5 seconds if used within a test)
   max_idle_secs = testing ? 5 : (3 * 3600);
-  oom_more_eagerly_threshold = 90;
+  oom_more_eagerly_threshold = 100;
   webstatus_port = 0;
   oom_more_eagerly = false;
   watchfs = false;
