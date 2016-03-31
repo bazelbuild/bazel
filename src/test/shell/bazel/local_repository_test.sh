@@ -191,6 +191,10 @@ function test_new_local_repository_with_build_file() {
   do_new_local_repository_test "build_file"
 }
 
+function test_new_local_repository_with_labeled_build_file() {
+  do_new_local_repository_test "build_file+label"
+}
+
 function test_new_local_repository_with_build_file_content() {
   do_new_local_repository_test "build_file_content"
 }
@@ -218,8 +222,13 @@ public class Mongoose {
 }
 EOF
 
-  if [ "$1" == "build_file" ] ; then
+  if [ "$1" == "build_file" -o "$1" == "build_file+label" ] ; then
     build_file=BUILD.carnivore
+    build_file_str="${build_file}"
+    if [ "$1" == "build_file+label" ]; then
+      build_file_str="//:${build_file}"
+      cat > BUILD
+    fi
     cat > WORKSPACE <<EOF
 new_local_repository(
     name = 'endangered',
