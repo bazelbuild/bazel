@@ -528,7 +528,6 @@ java_library(
         ":packages-internal",
         ":proto-rules",
         ":python-rules",
-        ":skylarkinterface",
         ":util",
         ":vfs",
         "//src/main/java/com/google/devtools/build/lib/actions",
