@@ -49,6 +49,11 @@ sh_test(
   name = "false",
   srcs = ["false.sh"],
 )
+genrule(
+  name = "gentext",
+  outs = ["gentext.txt"],
+  cmd = "echo here be dragons > \"\$@\""
+)
 EOF
 }
 
@@ -120,6 +125,21 @@ function test_help_color_nobuild {
   expect_not_log "actions running"
   expect_not_log "Building"
 }
+
+function test_subcommand {
+  bazel clean || fail "bazel clean failed"
+  bazel build --experimental_ui -s pkg:gentext 2>$TEST_log \
+    || fail "bazel build failed"
+  expect_log "here be dragons"
+}
+
+function test_subcommand_notdefault {
+  bazel clean || fail "bazel clean failed"
+  bazel build --experimental_ui pkg:gentext 2>$TEST_log \
+    || fail "bazel build failed"
+  expect_not_log "dragons"
+}
+
 
 
 run_suite "Integration tests for bazel's experimental UI"

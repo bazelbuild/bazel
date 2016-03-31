@@ -94,6 +94,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
           case ERROR:
           case WARNING:
           case INFO:
+          case SUBCOMMAND:
             if (!buildComplete) {
               clearProgressBar();
             }
@@ -131,6 +132,8 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
       case INFO:
         terminal.textGreen();
         break;
+      case SUBCOMMAND:
+        terminal.textBlue();
     }
   }
 
