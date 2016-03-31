@@ -80,7 +80,7 @@ def MakeGflags():
 
 def AddArFileEntry(fileobj, filename,
                    content='', timestamp=0,
-                   owner_id=0, group_id=0, mode=0644):
+                   owner_id=0, group_id=0, mode=0o644):
   """Add a AR file entry to fileobj."""
   fileobj.write((filename + '/').ljust(16))    # filename (SysV)
   fileobj.write(str(timestamp).ljust(12))      # timestamp
@@ -128,7 +128,7 @@ def CreateDebControl(extrafiles=None, **kwargs):
       for name in extrafiles:
         tarinfo = tarfile.TarInfo(name)
         tarinfo.size = len(extrafiles[name])
-        tarinfo.mode = 0755
+        tarinfo.mode = 0o755
         f.addfile(tarinfo, fileobj=StringIO(extrafiles[name]))
   control = tar.getvalue()
   tar.close()

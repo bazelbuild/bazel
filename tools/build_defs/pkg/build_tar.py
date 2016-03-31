@@ -89,7 +89,7 @@ class TarFile(object):
       dest = self.directory.lstrip('/') + '/' + dest
     # If mode is unspecified, derive the mode from the file's mode.
     if mode is None:
-      mode = 0755 if os.access(f, os.X_OK) else 0644
+      mode = 0o755 if os.access(f, os.X_OK) else 0o644
     self.tarfile.add_file(dest, file_content=f, mode=mode)
 
   def add_tar(self, tar):

@@ -156,7 +156,7 @@ class TarFileWriter(object):
         name = name[:-1]
       # Add the x bit to directories to prevent non-traversable directories.
       # The x bit is set only to if the read bit is set.
-      dirmode = (mode | ((0444 & mode) >> 2)) if mode else mode
+      dirmode = (mode | ((0o444 & mode) >> 2)) if mode else mode
       self.add_file(name + '/',
                     tarfile.DIRTYPE,
                     uid=uid,
@@ -248,7 +248,7 @@ class TarFileWriter(object):
                     uname=uname,
                     gname=gname,
                     mtime=mtime,
-                    mode=0755)
+                    mode=0o755)
     tarinfo = tarfile.TarInfo(name)
     tarinfo.mtime = mtime
     tarinfo.uid = uid
@@ -257,7 +257,7 @@ class TarFileWriter(object):
     tarinfo.gname = gname
     tarinfo.type = kind
     if mode is None:
-      tarinfo.mode = 0644 if kind == tarfile.REGTYPE else 0755
+      tarinfo.mode = 0o644 if kind == tarfile.REGTYPE else 0o755
     else:
       tarinfo.mode = mode
     if link:
@@ -357,7 +357,7 @@ class TarFileWriter(object):
                           uname=tarinfo.uname,
                           gname=tarinfo.gname,
                           mtime=tarinfo.mtime,
-                          mode=0755)
+                          mode=0o755)
           # Relocate internal hardlinks as well to avoid breaking them.
           link = tarinfo.linkname
           if link.startswith('.') and tarinfo.type == tarfile.LNKTYPE:
