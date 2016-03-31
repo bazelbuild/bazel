@@ -262,10 +262,9 @@ public class CppCompileActionBuilder {
     }
     realMandatoryInputsBuilder.addTransitive(context.getAdditionalInputs(usePic));
 
-    // Add all sources of transitively found modules. Although they are also embedded in the .pcm
-    // files, Clang currently verifies that all files specified in a cppmap do exist.
-    // TODO(djasper): Once Clang's r264664 is released, this can be removed.
-    realMandatoryInputsBuilder.addTransitive(context.getTransitiveHeaderModuleSrcs());
+    if (cppConfiguration.sendTransitiveHeaderModuleSrcs()) {
+      realMandatoryInputsBuilder.addTransitive(context.getTransitiveHeaderModuleSrcs());
+    }
 
     realMandatoryInputsBuilder.addTransitive(pluginInputsBuilder.build());
     realMandatoryInputsBuilder.add(sourceFile);

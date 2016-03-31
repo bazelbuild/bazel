@@ -1561,7 +1561,15 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   public boolean skipStaticOutputs() {
     return cppOptions.skipStaticOutputs;
   }
-  
+
+  /**
+   * Returns whether we are sending transitive headers of cppmap files as mandatory compilation
+   * inputs.
+   */
+  public boolean sendTransitiveHeaderModuleSrcs() {
+    return cppOptions.sendTransitiveHeaderModuleSrcs;
+  }
+
   /**
    * Returns whether we are processing headers in dependencies of built C++ targets.
    */
