@@ -248,6 +248,9 @@ public class JavacTurbine implements AutoCloseable {
         }
         String name = entry.getKey();
         byte[] bytes = entry.getValue().asBytes();
+        if (bytes == null) {
+          continue;
+        }
         if (name.endsWith(".class")) {
           bytes = processBytecode(bytes);
         }

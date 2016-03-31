@@ -1042,4 +1042,43 @@ public class JavacTurbineTest {
     }
     assertThat(errOutput.toString()).contains("invalid flag: -NOT_AN_OPTION");
   }
+
+  /** An annotation processor that reads a file that doesn't exist. */
+  @SupportedAnnotationTypes("*")
+  public static class NoSuchFileProcessor extends AbstractProcessor {
+
+    @Override
+    public SourceVersion getSupportedSourceVersion() {
+      return SourceVersion.latest();
+    }
+
+    @Override
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+      try {
+        processingEnv
+            .getFiler()
+            .getResource(StandardLocation.CLASS_OUTPUT, "", "NO_SUCH_FILE")
+            .openInputStream();
+      } catch (IOException e) {
+        throw new IOError(e);
+      }
+      return false;
+    }
+  }
+
+  @Test
+  public void processorReadsNonexistantFile() throws Exception {
+    addSourceLines("Hello.java", "@Deprecated class Hello {}");
+    optionsBuilder.setProcessors(ImmutableList.of(NoSuchFileProcessor.class.getName()));
+    optionsBuilder.addProcessorPathEntries(
+        ImmutableList.copyOf(Splitter.on(':').split(System.getProperty("java.class.path"))));
+    optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
+
+    StringWriter errOutput = new StringWriter();
+    try (JavacTurbine turbine =
+        new JavacTurbine(new PrintWriter(errOutput, true), optionsBuilder.build())) {
+      assertThat(turbine.compile()).isEqualTo(Result.ERROR);
+    }
+    assertThat(errOutput.toString()).contains("FileNotFoundException: /NO_SUCH_FILE");
+  }
 }
