@@ -264,11 +264,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final BuildConfigurationCollection createConfigurations(String... args)
       throws Exception {
-    return createConfigurations(false, args);
-  }
-
-  protected final BuildConfigurationCollection createConfigurations(
-      boolean sanityCheck, String... args) throws Exception {
     optionsParser = OptionsParser.newOptionsParser(Iterables.concat(Arrays.asList(
           ExecutionOptions.class,
           BuildRequest.BuildRequestOptions.class),
@@ -286,7 +281,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
           new InvocationPolicyEnforcer(TestConstants.TEST_INVOCATION_POLICY);
     optionsPolicyEnforcer.enforce(optionsParser, "");
 
-    configurationFactory.setSanityCheck(sanityCheck);
     BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
     ensureTargetsVisited(buildOptions.getAllLabels().values());
     skyframeExecutor.invalidateConfigurationCollection();

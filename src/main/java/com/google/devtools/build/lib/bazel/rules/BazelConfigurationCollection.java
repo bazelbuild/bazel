@@ -31,20 +31,11 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.PackageProviderForConfigurations;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses.CppTransition;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
 import com.google.devtools.build.lib.packages.Attribute.Transition;
-import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.NoSuchThingException;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.Target;
 
-import java.util.Collection;
-import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -63,8 +54,7 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
       Cache<String, BuildConfiguration> cache,
       PackageProviderForConfigurations packageProvider,
       BuildOptions buildOptions,
-      EventHandler eventHandler,
-      boolean performSanityCheck) throws InvalidConfigurationException {
+      EventHandler eventHandler) throws InvalidConfigurationException {
     // Target configuration
     BuildConfiguration targetConfiguration = configurationFactory.getConfiguration(
         packageProvider, buildOptions, false, cache);
@@ -107,29 +97,6 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     if (packageProvider.valuesMissing()) {
       return null;
     }
-
-    // Sanity check that the implicit labels are all in the transitive closure of explicit ones.
-    // This also registers all targets in the cache entry and validates them on subsequent requests.
-    Set<Label> reachableLabels = new HashSet<>();
-    if (performSanityCheck) {
-      // We allow the package provider to be null for testing.
-      for (Map.Entry<String, Label> entry : buildOptions.getAllLabels().entries()) {
-        Label label = entry.getValue();
-        try {
-          collectTransitiveClosure(packageProvider, reachableLabels, label);
-        } catch (NoSuchThingException e) {
-          eventHandler.handle(Event.error(e.getMessage()));
-          throw new InvalidConfigurationException(
-              String.format("Failed to load required %s target: '%s'", entry.getKey(), label));
-        }
-      }
-      if (packageProvider.valuesMissing()) {
-        return null;
-      }
-      sanityCheckImplicitLabels(reachableLabels, targetConfiguration);
-      sanityCheckImplicitLabels(reachableLabels, hostConfiguration);
-    }
-
     BuildConfiguration result = setupTransitions(
         targetConfiguration, dataConfiguration, hostConfiguration, splitTransitionsTable);
     result.reportInvalidOptions(eventHandler);
@@ -251,53 +218,5 @@ public class BazelConfigurationCollection implements ConfigurationCollectionFact
     }
 
     return targetConfiguration;
-  }
-
-  /**
-   * Checks that the implicit labels are reachable from the loaded labels. The loaded labels are
-   * those returned from {@link BuildOptions#getAllLabels()}, and the implicit ones are those that
-   * need to be available for late-bound attributes.
-   */
-  private void sanityCheckImplicitLabels(Collection<Label> reachableLabels,
-      BuildConfiguration config) throws InvalidConfigurationException {
-    for (Map.Entry<String, Label> entry : config.getImplicitLabels().entries()) {
-      if (!reachableLabels.contains(entry.getValue())) {
-        throw new InvalidConfigurationException("The required " + entry.getKey()
-            + " target is not transitively reachable from a command-line option: '"
-            + entry.getValue() + "'");
-      }
-    }
-  }
-
-  private void collectTransitiveClosure(PackageProviderForConfigurations packageProvider,
-      Set<Label> reachableLabels, Label from) throws NoSuchThingException {
-    if (!reachableLabels.add(from)) {
-      return;
-    }
-    Target fromTarget = packageProvider.getTarget(from);
-    if (fromTarget instanceof Rule) {
-      Rule rule = (Rule) fromTarget;
-      if (rule.getRuleClassObject().hasAttr("srcs", BuildType.LABEL_LIST)) {
-        // TODO(bazel-team): refine this. This visits "srcs" reachable under *any* configuration,
-        // not necessarily the configuration actually applied to the rule. We should correlate the
-        // two. However, doing so requires faithfully reflecting the configuration transitions that
-        // might happen as we traverse the dependency chain.
-        // TODO(bazel-team): Why don't we use AbstractAttributeMapper#visitLabels() here?
-        for (List<Label> labelsForConfiguration :
-            AggregatingAttributeMapper.of(rule).visitAttribute("srcs", BuildType.LABEL_LIST)) {
-          for (Label label : labelsForConfiguration) {
-            collectTransitiveClosure(packageProvider, reachableLabels,
-                from.resolveRepositoryRelative(label));
-          }
-        }
-      }
-
-      if (rule.getRuleClass().equals("bind")) {
-        Label actual = AggregatingAttributeMapper.of(rule).get("actual", BuildType.LABEL);
-        if (actual != null) {
-          collectTransitiveClosure(packageProvider, reachableLabels, actual);
-        }
-      }
-    }
   }
 }

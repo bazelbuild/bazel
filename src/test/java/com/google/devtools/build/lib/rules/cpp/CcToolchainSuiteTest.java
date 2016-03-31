@@ -107,7 +107,9 @@ public class CcToolchainSuiteTest extends BuildViewTestCase {
         "    objcopy_files = 'objcopy',",
         "    all_files = ':every-file',",
         "    dynamic_runtime_libs = ['dynamic-runtime-libs'],",
-        "    static_runtime_libs = ['static-runtime-libs'])");
+        "    static_runtime_libs = ['static-runtime-libs'])",
+        "",
+        "filegroup(name = 'every-file', srcs = ['//cc:everything'])");
 
     invalidatePackages();
     useConfiguration("--crosstool_top=//cc:suite");

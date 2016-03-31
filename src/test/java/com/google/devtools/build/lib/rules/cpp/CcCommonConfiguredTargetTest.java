@@ -759,14 +759,14 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     try {
-      createConfigurations(true, "--experimental_stl=//x:blah");
+      createConfigurations("--experimental_stl=//x:blah");
       fail("found non-existing target");
     } catch (InvalidConfigurationException expected) {
       assertThat(expected.getMessage()).contains("Failed to load required STL target: '//x:blah'");
     }
 
     try {
-      createConfigurations(true, "--experimental_stl=//blah");
+      createConfigurations("--experimental_stl=//blah");
       fail("found non-existing target");
     } catch (InvalidConfigurationException expected) {
       assertThat(expected.getMessage())
@@ -775,7 +775,7 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
 
     // Without -k.
     try {
-      createConfigurations(true, "--experimental_stl=//blah");
+      createConfigurations("--experimental_stl=//blah");
       fail("found non-existing target");
     } catch (InvalidConfigurationException expected) {
       assertThat(expected.getMessage())

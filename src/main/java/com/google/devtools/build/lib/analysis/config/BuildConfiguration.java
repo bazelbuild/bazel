@@ -148,9 +148,26 @@ public final class BuildConfiguration {
      * The resulting set only contains labels that were derived from command-line options; the
      * intention is that it can be used to sanity-check that the command-line options actually
      * contain these in their transitive closure.
+     *
+     * <p>This functionality only exists for legacy configuration fragments that compute labels from
+     * command-line option values. Don't do that! Instead, use a rule that specifies the mapping
+     * explicitly.
      */
     @SuppressWarnings("unused")
-    public void addImplicitLabels(Multimap<String, Label> implicitLabels) {
+    protected void addImplicitLabels(Multimap<String, Label> implicitLabels) {
+    }
+
+    /**
+     * Returns a multimap of all labels that should be implicitly loaded from labels that were
+     * specified as options, keyed by the name to be displayed to the user if something goes wrong.
+     * The returned set only contains labels that were derived from command-line options; the
+     * intention is that it can be used to sanity-check that the command-line options actually
+     * contain these in their transitive closure.
+     */
+    public final ListMultimap<String, Label> getImplicitLabels() {
+      ListMultimap<String, Label> implicitLabels = ArrayListMultimap.create();
+      addImplicitLabels(implicitLabels);
+      return implicitLabels;
     }
 
     /**
@@ -1846,21 +1863,6 @@ public final class BuildConfiguration {
     }
 
     transitionApplier.applyConfigurationHook(fromRule, attribute, toTarget);
-  }
-
-  /**
-   * Returns a multimap of all labels that should be implicitly loaded from labels that were
-   * specified as options, keyed by the name to be displayed to the user if something goes wrong.
-   * The returned set only contains labels that were derived from command-line options; the
-   * intention is that it can be used to sanity-check that the command-line options actually contain
-   * these in their transitive closure.
-   */
-  public ListMultimap<String, Label> getImplicitLabels() {
-    ListMultimap<String, Label> implicitLabels = ArrayListMultimap.create();
-    for (Fragment fragment : fragments.values()) {
-      fragment.addImplicitLabels(implicitLabels);
-    }
-    return implicitLabels;
   }
 
   /**
