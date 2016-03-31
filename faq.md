@@ -229,27 +229,6 @@ How can I start using Bazel?
 
 See our [getting started document](docs/getting-started.html).
 
-Why do I need to have a tools/ directory in my package path?
-------------------------------------------------------------
-
-Your project never works in isolation. Typically, it builds with a
-certain version of the JDK/C++ compiler, with a certain test driver
-framework, on a certain version of your operating system.
-
-To guarantee that builds are reproducible even when we upgrade our
-workstations, we at Google check most of these tools into version
-control, including the toolchains and Bazel itself. By convention, we
-do this in a directory called "tools".
-
-Bazel allows tools such as the JDK to live outside your workspace, but
-the configuration data for this (where is the JDK, where is the C++
-compiler?) still needs to be somewhere, and that place is also the
-`tools/` directory.
-
-Bazel's `compile.sh` script builds a minimal set of configuration files,
-suitable for running toolchains from standard system directories, e.g.,
-`/usr/bin/`.
-
 Doesn't Docker solve the reproducibility problems?
 --------------------------------------------------
 
