@@ -1,3 +1,76 @@
+## Release 0.2.1 (2016-03-21)
+
+```
+Baseline: 19b5675
+```
+
+Incompatible changes:
+
+  - Skylark rules that are available from their own repository will
+    now issue a warning when accessed through @bazel_tools.
+  - Set --legacy_bazel_java_test to off by default. java_test will
+    now have a slightly different behaviour, correctly emitting XML
+    file but, as a downside, it needs correct declaration of the
+    test suite (see https://github.com/bazelbuild/bazel/issues/1017).
+  - Labels in .bzl files in remote repositories will be resolved
+    relative to their repository (instead of the repository the
+    Skylark rule is used in).
+  - Renamed proto_java_library to java_proto_library.  The former
+    is now deprecated and will print out a warning when used.
+  - android_sdk now compiles android_jack on the fly from
+    android_jar, which means android_jar must be a jar and
+    android_jack is now deprecated. The Jack tools (jack, jill,
+    resource_extractor) must be specified.
+  - Any project that depended on the objc_options rule will be
+    broken. Can be fixed by adding attrs (infoplists,copts) directly
+    to rules depending on the options.
+  - .aidl files correctly require import statements for types
+    defined in the same package and the same android_library.
+
+New features:
+
+  - Experimental Windows support is available.
+  - Experimental support for writing remote repository rules in
+    Skylark is available.
+  - iOS ipa_post_processor attribute allows for user-defined IPA
+    edits.
+  - Adds a to_json method to Skylark structs, providing conversion to
+    JSON format.
+  - Native python rule can depend on skylark rule as long as skylark
+    rule provides 'py' provider.
+  - When using both --verbose_failures and --sandbox_debug, Bazel
+    prints instructions how to spawn a debugging shell inside the
+    sandbox.
+  - add flag --sandbox_add_path, which takes a list of additional
+    paths as argument and mount these paths to sandbox.
+
+Important changes:
+
+  - @androidsdk//:org_apache_http_legacy added for the legacy Apache
+    classes for android sdk version 23 and above.
+  - Genrules correctly work when used with bazel run.
+  - When namespace-sandbox is run with the -D (debug) flag and
+    inside a terminal, it spawns a shell inside the sandbox to aid in
+    debugging when the sandboxed command fails.
+  - Added --artifact to workspace generator for generating workspace
+    and build file rules from artifact coodrinates.
+  - Specifying --experimental_android_resource_shrinking on the
+    command line will enable a resource shrinking pass on
+    android_binary targets that already use Proguard.
+  - J2ObjC updated to 1.0.1 release.
+  - Added "root_symlinks" and "symlinks" parameters to Skylark
+    runfiles() method.
+  - You can no longer use objc_binary targets for the xctest_app
+    attribute of an ios_test rule.
+  - Enable overriding jsonnet binaries and stdlib for Jsonnet rules.
+  - mount target of /etc/resolv.conf if it is a symlink.
+  - Tests that failed to build because execution was halted no longer
+    print their status.
+  - Bazel warns if a cc rule's includes attribute contains up-level
+    references that escape its package.
+  - Add repository_ctx.download and repository_ctx.download_and_extract
+    function.
+
 ## Release 0.2.0 (2016-02-18)
 
 ```
