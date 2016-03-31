@@ -1142,12 +1142,12 @@ public class ParserTest extends EvaluationTestCase {
 
   @Test
   public void testInvalidRelativePathBzlExtImplicit() throws Exception {
-    invalidImportTest("file.bzl", SkylarkImports.BZL_EXT_IMPLICIT_MSG);
+    invalidImportTest("file.bzl", SkylarkImports.INVALID_PATH_SYNTAX);
   }
 
   @Test
   public void testInvalidRelativePathNoSubdirs() throws Exception {
-    invalidImportTest("path/to/file", SkylarkImports.RELATIVE_PATH_NO_SUBDIRS_MSG);
+    invalidImportTest("path/to/file", SkylarkImports.INVALID_PATH_SYNTAX);
   }
 
   @Test

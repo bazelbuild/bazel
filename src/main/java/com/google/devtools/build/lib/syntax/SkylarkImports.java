@@ -181,21 +181,18 @@ public class SkylarkImports {
 
   @VisibleForTesting
   static final String EXTERNAL_PKG_NOT_ALLOWED_MSG =
-  "Skylark files may not be loaded from the //external package";
+      "Skylark files may not be loaded from the //external package";
 
   @VisibleForTesting
-  static final String BZL_EXT_IMPLICIT_MSG =
-  "The '.bzl' file extension is implicit; remove it from the path";
+  static final String INVALID_PATH_SYNTAX =
+      "Don't use paths for Load statements; "
+      + "use a label instead, e.g. '//foo:bar.bzl' or ':bar.bzl'";
 
   @VisibleForTesting
   static final String INVALID_TARGET_PREFIX = "Invalid target: ";
 
   @VisibleForTesting
   static final String INVALID_FILENAME_PREFIX = "Invalid filename: ";
-
-  @VisibleForTesting
-  static final String RELATIVE_PATH_NO_SUBDIRS_MSG =
-  "A relative import path may not contain subdirectories";
 
   /**
    * Creates and syntactically validates a {@link SkylarkImports} instance from a string.
@@ -226,7 +223,7 @@ public class SkylarkImports {
     } else if (importString.startsWith("/")) {
       // Absolute path.
       if (importString.endsWith(".bzl")) {
-        throw new SkylarkImportSyntaxException(BZL_EXT_IMPLICIT_MSG);
+        throw new SkylarkImportSyntaxException(INVALID_PATH_SYNTAX);
       }
       PathFragment importPath = new PathFragment(importString + ".bzl");
       return new AbsolutePathImport(importString, importPath);
@@ -245,11 +242,8 @@ public class SkylarkImports {
       return new RelativeLabelImport(importString, importTarget);
     } else {
       // Relative path.
-      if (importString.endsWith(".bzl")) {
-        throw new SkylarkImportSyntaxException(BZL_EXT_IMPLICIT_MSG);
-      }
-      if (importString.contains("/")) {
-        throw new SkylarkImportSyntaxException(RELATIVE_PATH_NO_SUBDIRS_MSG);
+      if (importString.endsWith(".bzl") || importString.contains("/")) {
+        throw new SkylarkImportSyntaxException(INVALID_PATH_SYNTAX);
       }
       String importTarget = importString + ".bzl";
       String maybeErrMsg = LabelValidator.validateTargetName(importTarget);
@@ -261,4 +255,3 @@ public class SkylarkImports {
     }
   }
 }
-
