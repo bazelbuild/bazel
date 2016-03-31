@@ -741,19 +741,11 @@ public class JavacTurbineTest {
       "  // access flags 0x4019",
       "  public final static enum LTheEnum; THREE",
       "",
-      "  // access flags 0x101A",
-      "  private final static synthetic [LTheEnum; $VALUES",
-      "",
       "  // access flags 0x9",
       "  public static values()[LTheEnum;",
       "",
       "  // access flags 0x9",
       "  public static valueOf(Ljava/lang/String;)LTheEnum;",
-      "",
-      "  // access flags 0x2",
-      "  // signature ()V",
-      "  // declaration: void <init>()",
-      "  private <init>(Ljava/lang/String;I)V",
       "",
       "  // access flags 0x8",
       "  static <clinit>()V",
@@ -995,5 +987,35 @@ public class JavacTurbineTest {
 
     Map<String, byte[]> outputs = collectOutputs();
     assertThat(outputs.keySet()).containsExactly("Hello.class");
+  }
+
+  @Test
+  public void privateMembers() throws Exception {
+    addSourceLines(
+        "Hello.java",
+        "class Hello {",
+        "  private void f() {}",
+        "  private int x;",
+        "}");
+
+    compile();
+
+    Map<String, byte[]> outputs = collectOutputs();
+
+    assertThat(outputs.keySet()).containsExactly("Hello.class");
+
+    String text = textify(outputs.get("Hello.class"));
+    String[] expected = {
+      "// class version 51.0 (51)",
+      "// access flags 0x20",
+      "class Hello {",
+      "",
+      "",
+      "  // access flags 0x0",
+      "  <init>()V",
+      "}",
+      ""
+    };
+    assertThat(text).isEqualTo(Joiner.on('\n').join(expected));
   }
 }
