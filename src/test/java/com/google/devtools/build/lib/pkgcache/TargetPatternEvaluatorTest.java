@@ -1072,5 +1072,10 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     assertThat(result).doesNotContain(Label.parseAbsolute("//convenience:c"));
     assertThat(result).doesNotContain(Label.parseAbsolute("//d/c:c"));
   }
+
+  @Test
+  public void testExternalPackage() throws Exception {
+    parseList("external:all");
+  }
 }
 

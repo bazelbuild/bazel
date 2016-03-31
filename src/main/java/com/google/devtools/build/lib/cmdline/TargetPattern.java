@@ -343,6 +343,7 @@ public abstract class TargetPattern implements Serializable {
         PackageIdentifier packageIdentifier, String suffix, boolean wasOriginallyAbsolute,
         boolean rulesOnly, boolean checkWildcardConflict) {
       super(Type.TARGETS_IN_PACKAGE, originalPattern, offset);
+      Preconditions.checkArgument(!packageIdentifier.getRepository().isDefault());
       this.packageIdentifier = packageIdentifier;
       this.suffix = Preconditions.checkNotNull(suffix);
       this.wasOriginallyAbsolute = wasOriginallyAbsolute;
@@ -456,6 +457,7 @@ public abstract class TargetPattern implements Serializable {
     private TargetsBelowDirectory(
         String originalPattern, String offset, PackageIdentifier directory, boolean rulesOnly) {
       super(Type.TARGETS_BELOW_DIRECTORY, originalPattern, offset);
+      Preconditions.checkArgument(!directory.getRepository().isDefault());
       this.directory = Preconditions.checkNotNull(directory);
       this.rulesOnly = rulesOnly;
     }
@@ -639,11 +641,7 @@ public abstract class TargetPattern implements Serializable {
       }
 
       if (repository == null) {
-        if (packagePart.startsWith(Label.EXTERNAL_PACKAGE_NAME.toString())) {
-          repository = PackageIdentifier.DEFAULT_REPOSITORY_NAME;
-        } else {
-          repository = PackageIdentifier.MAIN_REPOSITORY_NAME;
-        }
+        repository = PackageIdentifier.MAIN_REPOSITORY_NAME;
       }
 
       if (packagePart.endsWith("/...")) {
