@@ -64,8 +64,8 @@ public final class ConfigurationFactory {
   }
 
   @VisibleForTesting
-  public void forbidSanityCheck() {
-    performSanityCheck = false;
+  public void setSanityCheck(boolean performSanityCheck) {
+    this.performSanityCheck = performSanityCheck;
   }
 
   /** Creates a set of build configurations with top-level configuration having the given options.

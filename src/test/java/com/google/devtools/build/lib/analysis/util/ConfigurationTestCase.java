@@ -162,7 +162,6 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(
         parser.getOptions(TestOptions.class).multiCpus);
 
-    configurationFactory.forbidSanityCheck();
     BuildOptions buildOptions = BuildOptions.of(buildOptionClasses, parser);
     BuildConfigurationCollection collection = skyframeExecutor.createConfigurations(
         reporter, configurationFactory, buildOptions,

@@ -647,6 +647,12 @@ public class CppOptions extends FragmentOptions {
         labelMap.put("crosstool", libcLabel);
       }
     }
+    if (hostLibcTop != null) {
+      Label libcLabel = hostLibcTop.getLabel();
+      if (libcLabel != null) {
+        labelMap.put("crosstool", libcLabel);
+      }
+    }
     addOptionalLabel(labelMap, "fdo", fdoOptimize);
 
     if (stl != null) {

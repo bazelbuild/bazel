@@ -25,16 +25,15 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
@@ -756,34 +755,31 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testExplicitBadStl() throws Exception {
-    scratch.file("x/BUILD",
-        "cc_binary(name = 'x', srcs = ['x.cc'])");
+    scratch.file("x/BUILD");
 
     reporter.removeHandler(failFastHandler);
     try {
-      useConfiguration("--experimental_stl=//x:blah");
-      update(Arrays.asList("//x:x"), true, 10, false, new EventBus());
+      createConfigurations(true, "--experimental_stl=//x:blah");
       fail("found non-existing target");
-    } catch (LoadingFailedException expected) {
+    } catch (InvalidConfigurationException expected) {
       assertThat(expected.getMessage()).contains("Failed to load required STL target: '//x:blah'");
     }
 
     try {
-      useConfiguration("--experimental_stl=//blah");
-      update(Arrays.asList("//x:x"), true, 10, false, new EventBus());
-      fail("found non-existsing target");
-    } catch (LoadingFailedException expected) {
+      createConfigurations(true, "--experimental_stl=//blah");
+      fail("found non-existing target");
+    } catch (InvalidConfigurationException expected) {
       assertThat(expected.getMessage())
           .contains("Failed to load required STL target: '//blah:blah'");
     }
 
     // Without -k.
     try {
-      useConfiguration("--experimental_stl=//blah");
-      update(Arrays.asList("//x:x"), false, 10, false, new EventBus());
-      fail("found non-existsing target");
-    } catch (LoadingFailedException expected) {
-      assertThat(expected.getMessage()).contains("Loading failed; build aborted");
+      createConfigurations(true, "--experimental_stl=//blah");
+      fail("found non-existing target");
+    } catch (InvalidConfigurationException expected) {
+      assertThat(expected.getMessage())
+          .contains("Failed to load required STL target: '//blah:blah'");
     }
   }
 }

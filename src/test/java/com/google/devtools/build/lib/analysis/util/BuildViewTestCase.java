@@ -80,7 +80,6 @@ import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -140,7 +139,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParsingException;
 
 import org.junit.Before;
 
@@ -266,33 +264,34 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final BuildConfigurationCollection createConfigurations(String... args)
       throws Exception {
+    return createConfigurations(false, args);
+  }
+
+  protected final BuildConfigurationCollection createConfigurations(
+      boolean sanityCheck, String... args) throws Exception {
     optionsParser = OptionsParser.newOptionsParser(Iterables.concat(Arrays.asList(
           ExecutionOptions.class,
           BuildRequest.BuildRequestOptions.class),
           ruleClassProvider.getConfigurationOptions()));
-    try {
-      List<String> configurationArgs = new ArrayList<>();
-      // TODO(dmarting): Add --stamp option only to test that requires it.
-      configurationArgs.add("--stamp");  // Stamp is now defaulted to false.
-      configurationArgs.add("--experimental_extended_sanity_checks");
-      configurationArgs.addAll(getAnalysisMock().getOptionOverrides());
+    List<String> configurationArgs = new ArrayList<>();
+    // TODO(dmarting): Add --stamp option only to test that requires it.
+    configurationArgs.add("--stamp");  // Stamp is now defaulted to false.
+    configurationArgs.add("--experimental_extended_sanity_checks");
+    configurationArgs.addAll(getAnalysisMock().getOptionOverrides());
 
-      optionsParser.parse(configurationArgs);
-      optionsParser.parse(args);
+    optionsParser.parse(configurationArgs);
+    optionsParser.parse(args);
 
-      InvocationPolicyEnforcer optionsPolicyEnforcer =
-            new InvocationPolicyEnforcer(TestConstants.TEST_INVOCATION_POLICY);
-      optionsPolicyEnforcer.enforce(optionsParser, "");
+    InvocationPolicyEnforcer optionsPolicyEnforcer =
+          new InvocationPolicyEnforcer(TestConstants.TEST_INVOCATION_POLICY);
+    optionsPolicyEnforcer.enforce(optionsParser, "");
 
-      configurationFactory.forbidSanityCheck();
-      BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
-      ensureTargetsVisited(buildOptions.getAllLabels().values());
-      skyframeExecutor.invalidateConfigurationCollection();
-      return skyframeExecutor.createConfigurations(reporter, configurationFactory, buildOptions,
-          directories, ImmutableSet.<String>of(), false);
-    } catch (InvalidConfigurationException | OptionsParsingException e) {
-      throw new IllegalArgumentException(e);
-    }
+    configurationFactory.setSanityCheck(sanityCheck);
+    BuildOptions buildOptions = ruleClassProvider.createBuildOptions(optionsParser);
+    ensureTargetsVisited(buildOptions.getAllLabels().values());
+    skyframeExecutor.invalidateConfigurationCollection();
+    return skyframeExecutor.createConfigurations(reporter, configurationFactory, buildOptions,
+        directories, ImmutableSet.<String>of(), false);
   }
 
   protected Target getTarget(String label)
