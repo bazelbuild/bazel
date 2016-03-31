@@ -39,42 +39,18 @@ FLAVOURS = [f[f.find(".") + 1:] for f in glob(["Dockerfile.*"])]
     for flavour in FLAVOURS
 ]
 
-genrule(
-    name = "gen_workspace",
-    srcs = ["//:workspace-file"],
-    outs = ["WORKSPACE"],
-    cmd = """
-    cat <<EOF >$@
-load("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_configure")
-cc_configure()
-EOF
-    cat $(location //:workspace-file) >>$@
-""",
-)
-
-pkg_tar(
-    name = "cc_configure_ws",
-    files = [":WORKSPACE"],
-    package_dir = "/opt/workspace",
-    strip_prefix = ".",
-)
-
 pkg_tar(
     name = "bazel_cc_configure",
     package_dir = "/opt/workspace",
     strip_prefix = "/",
-    deps = [
-        # Order matters.
-        ":cc_configure_ws",
-        "//:bazel-srcs",
-    ],
+    deps = ["//:bazel-srcs"],
 )
 
 [
     [docker_build(
         name = "bazel_cc_configure-%s-%s" % (flavour, mode),
         base = ":base-" + flavour,
-        entrypoint = "/opt/workspace/compile.sh",
+        entrypoint = "/opt/workspace/compile.sh && ./output/bazel test ${EXTRA_BAZEL_ARGS} //examples/cpp:hello-success_test",
         env = {
             "EXTRA_BAZEL_ARGS": "--spawn_strategy=standalone --genrule_strategy=standalone -c %s" % mode,
         },

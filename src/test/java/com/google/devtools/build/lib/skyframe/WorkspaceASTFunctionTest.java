@@ -52,7 +52,8 @@ public class WorkspaceASTFunctionTest extends BuildViewTestCase {
     ConfiguredRuleClassProvider ruleClassProvider = TestRuleClassProvider.getRuleClassProvider();
     ConfiguredRuleClassProvider ruleClassProviderSpy = Mockito.spy(ruleClassProvider);
     // Prevent returning default workspace file.
-    Mockito.when(ruleClassProviderSpy.getDefaultWorkspaceFile()).thenReturn("");
+    Mockito.when(ruleClassProviderSpy.getDefaultWorkspacePrefix()).thenReturn("");
+    Mockito.when(ruleClassProviderSpy.getDefaultWorkspaceSuffix()).thenReturn("");
     astSkyFunc = new WorkspaceASTFunction(ruleClassProviderSpy);
     fakeWorkspaceFileValue = new FakeFileValue();
   }

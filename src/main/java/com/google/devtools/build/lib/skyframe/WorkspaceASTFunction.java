@@ -52,10 +52,10 @@ public class WorkspaceASTFunction implements SkyFunction {
     }
 
     Path repoWorkspace = workspaceRoot.getRoot().getRelative(workspaceRoot.getRelativePath());
-    PathFragment pathFragment = new PathFragment("/DEFAULT.WORKSPACE");
     try {
       BuildFileAST ast = BuildFileAST.parseBuildFile(
-          ParserInputSource.create(ruleClassProvider.getDefaultWorkspaceFile(), pathFragment),
+          ParserInputSource.create(ruleClassProvider.getDefaultWorkspacePrefix(),
+              new PathFragment("/DEFAULT.WORKSPACE")),
           env.getListener(), false);
       if (ast.containsErrors()) {
         throw new WorkspaceASTFunctionException(
@@ -68,6 +68,17 @@ public class WorkspaceASTFunction implements SkyFunction {
           throw new WorkspaceASTFunctionException(
               new IOException("Failed to parse WORKSPACE file"), Transience.PERSISTENT);
         }
+      }
+      ast = BuildFileAST.parseBuildFile(
+          ParserInputSource.create(ruleClassProvider.getDefaultWorkspaceSuffix(),
+              new PathFragment("/DEFAULT.WORKSPACE.SUFFIX")),
+          ast.getStatements(),
+          env.getListener(),
+          false);
+      if (ast.containsErrors()) {
+        throw new WorkspaceASTFunctionException(
+            new IOException("Failed to parse default WORKSPACE file suffix"),
+            Transience.PERSISTENT);
       }
       return new WorkspaceASTValue(splitAST(ast));
     } catch (IOException ex) {

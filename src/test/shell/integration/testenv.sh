@@ -37,6 +37,8 @@ function put_bazel_on_path() {
 }
 
 function write_default_bazelrc() {
+  # Our tests use the static crosstool, so make it the default.
+  EXTRA_BAZELRC="build --crosstool_top=@bazel_tools//tools/cpp:default-toolchain"
   setup_bazelrc
 }
 

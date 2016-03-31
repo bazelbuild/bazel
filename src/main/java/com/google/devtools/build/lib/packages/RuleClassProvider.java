@@ -69,13 +69,21 @@ public interface RuleClassProvider {
   Map<String, Class<? extends NativeAspectFactory>> getAspectFactoryMap();
 
   /**
-   * Returns the default content of the WORKSPACE file.
+   * Returns the default content that should be added at the beginning of the WORKSPACE file.
    *
    * <p>Used to provide external dependencies for built-in rules. Rules defined here can be
    * overwritten in the WORKSPACE file in the actual workspace.
    */
-  String getDefaultWorkspaceFile();
-  
+  String getDefaultWorkspacePrefix();
+
+
+  /**
+   * Returns the default content that should be added at the end of the WORKSPACE file.
+   *
+   * <p>Used to load skylark repository in the bazel_tools repository.
+   */
+  String getDefaultWorkspaceSuffix();
+
   /**
    * Returns the path to the tools repository
    */

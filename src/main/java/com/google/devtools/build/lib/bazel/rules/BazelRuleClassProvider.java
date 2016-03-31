@@ -297,13 +297,13 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new BazelPyTestRule());
 
     try {
-      builder.addWorkspaceFile(
+      builder.addWorkspaceFilePrefix(
           ResourceFileLoader.loadResource(BazelRuleClassProvider.class, "tools.WORKSPACE"));
-      builder.addWorkspaceFile(
+      builder.addWorkspaceFilePrefix(
           ResourceFileLoader.loadResource(BazelJavaRuleClasses.class, "jdk.WORKSPACE"));
-      builder.addWorkspaceFile(
+      builder.addWorkspaceFilePrefix(
           ResourceFileLoader.loadResource(BazelAndroidSemantics.class, "android.WORKSPACE"));
-      builder.addWorkspaceFile(
+      builder.addWorkspaceFilePrefix(
           ResourceFileLoader.loadResource(BazelJ2ObjcLibraryRule.class, "j2objc.WORKSPACE"));
     } catch (IOException e) {
       throw new IllegalStateException(e);
