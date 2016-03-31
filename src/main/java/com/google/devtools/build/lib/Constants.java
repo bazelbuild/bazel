@@ -14,9 +14,6 @@
 
 package com.google.devtools.build.lib;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-
 /**
  * A temporary class of constants; these encode differences between Google's internal setup and
  * Bazel. We're working to remove this class, which requires cleaning up our internal code base.
@@ -33,10 +30,6 @@ public final class Constants {
 
   // Locations of implicit Android SDK dependencies.
   public static final String ANDROID_DEFAULT_SDK = "//external:android/sdk";
-
-  // If the --fat_apk_cpu flag is not set, we use this as the default value.
-  public static final ImmutableList<String> ANDROID_DEFAULT_FAT_APK_CPUS =
-      ImmutableList.<String>of("armeabi-v7a");
 
   // Most other tools dependencies use this; we plan to split it into per-language repositories.
   public static final String TOOLS_REPOSITORY = "@bazel_tools";
