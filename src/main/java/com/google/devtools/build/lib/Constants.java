@@ -28,9 +28,6 @@ public final class Constants {
   // Google's internal name for Bazel is 'Blaze', and it will take some more time to change that.
   public static final String PRODUCT_NAME = "bazel";
 
-  // Default value for the --package_path flag if not otherwise set.
-  public static final ImmutableList<String> DEFAULT_PACKAGE_PATH = ImmutableList.of("%workspace%");
-
   // Native Java deps are all linked into a single file, which is named with this value + ".so".
   public static final String NATIVE_DEPS_LIB_SUFFIX = "_nativedeps";
 
