@@ -260,8 +260,8 @@ def _impl(repository_ctx):
     # Theorically, FreeBSD should be straightforward to add but we cannot run it in a docker
     # container so escaping until we have proper tests for FreeBSD.
     # Windows support is still experimental, let's not fiddle with autoconfiguration for now.
-    repository_ctx.symlink(Label("@bazel_tools//tools/cpp:CROSSTOOL"), "tools/cpp/CROSSTOOL")
-    repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD"), "tools/cpp/BUILD")
+    repository_ctx.symlink(Label("@bazel_tools//tools/cpp:CROSSTOOL"), "CROSSTOOL")
+    repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static"), "BUILD")
   else:
     darwin = cpu_value == "darwin"
     cc = _find_cc(repository_ctx)
