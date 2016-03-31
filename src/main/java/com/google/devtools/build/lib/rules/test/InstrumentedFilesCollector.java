@@ -245,13 +245,6 @@ public final class InstrumentedFilesCollector {
   }
 
   /**
-   * Only collects files transitively from srcs, deps, and data attributes.
-   */
-  public static final InstrumentationSpec TRANSITIVE_COLLECTION_SPEC = new InstrumentationSpec(
-      FileTypeSet.NO_FILE,
-      "srcs", "deps", "data");
-
-  /**
    * An explicit constant for a {@link LocalMetadataCollector} that doesn't collect anything.
    */
   public static final LocalMetadataCollector NO_METADATA_COLLECTOR = null;
