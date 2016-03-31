@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.repository;
 
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.vfs.Path;
@@ -33,21 +34,22 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
-  public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
-      throws SkyFunctionException {
+  public SkyValue fetch(
+      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
+          throws SkyFunctionException {
 
     NewRepositoryBuildFileHandler buildFileHandler =
-        new NewRepositoryBuildFileHandler(getWorkspace());
+        new NewRepositoryBuildFileHandler(directories.getWorkspace());
     if (!buildFileHandler.prepareBuildFile(rule, env)) {
       return null;
     }
 
     prepareLocalRepositorySymlinkTree(rule, outputDirectory);
-    PathFragment pathFragment = getTargetPath(rule, getWorkspace());
+    PathFragment pathFragment = getTargetPath(rule, directories.getWorkspace());
 
     // Link x/y/z to /some/path/to/y/z.
     if (!symlinkLocalRepositoryContents(
-        outputDirectory, getOutputBase().getFileSystem().getPath(pathFragment))) {
+        outputDirectory, directories.getOutputBase().getFileSystem().getPath(pathFragment))) {
       return null;
     }
 

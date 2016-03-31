@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.repository;
 
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.repository.NewRepositoryBuildFileHandler;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
@@ -27,11 +28,11 @@ import com.google.devtools.build.skyframe.SkyValue;
  */
 public class NewGitRepositoryFunction extends GitRepositoryFunction {
   @Override
-  public SkyValue fetch(Rule rule, Path outputDirectory, Environment env)
-      throws SkyFunctionException { 
-
+  public SkyValue fetch(
+      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
+          throws SkyFunctionException { 
     NewRepositoryBuildFileHandler buildFileHandler =
-        new NewRepositoryBuildFileHandler(getWorkspace());
+        new NewRepositoryBuildFileHandler(directories.getWorkspace());
     if (!buildFileHandler.prepareBuildFile(rule, env)) {
       return null;
     }

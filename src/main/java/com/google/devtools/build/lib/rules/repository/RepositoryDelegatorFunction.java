@@ -20,9 +20,11 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.RuleSerializer;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.syntax.EvalException;
+import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction;
@@ -32,6 +34,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.annotation.Nullable;
@@ -42,7 +45,7 @@ import javax.annotation.Nullable;
  * <p>Each repository in the WORKSPACE file is represented by a {@link SkyValue} that is computed
  * by this function.
  */
-public class RepositoryDelegatorFunction implements SkyFunction {
+public final class RepositoryDelegatorFunction implements SkyFunction {
 
   // A special repository delegate used to handle Skylark remote repositories if present.
   public static final String SKYLARK_DELEGATE_NAME = "$skylark";
@@ -108,7 +111,7 @@ public class RepositoryDelegatorFunction implements SkyFunction {
       // not depend on non-local data, so it does not make much sense to try to catch from across
       // server instances.
       setupRepositoryRoot(repoRoot);
-      return handler.fetch(rule, repoRoot, env);
+      return handler.fetch(rule, repoRoot, directories, env);
     }
 
     // We check the repository root for existence here, but we can't depend on the FileValue,
@@ -119,7 +122,9 @@ public class RepositoryDelegatorFunction implements SkyFunction {
     if (ruleSpecificData == null) {
       return null;
     }
-    boolean markerUpToDate = handler.isFilesystemUpToDate(rule, ruleSpecificData);
+    byte[] ruleKey = computeRuleKey(rule, ruleSpecificData);
+    Path markerPath = getMarkerPath(directories, rule);
+    boolean markerUpToDate = isFilesystemUpToDate(markerPath, ruleKey);
     if (markerUpToDate && repoRoot.exists()) {
       // Now that we know that it exists, we can declare a Skyframe dependency on the repository
       // root.
@@ -134,7 +139,7 @@ public class RepositoryDelegatorFunction implements SkyFunction {
     if (isFetch.get()) {
       // Fetching enabled, go ahead.
       setupRepositoryRoot(repoRoot);
-      SkyValue result = handler.fetch(rule, repoRoot, env);
+      SkyValue result = handler.fetch(rule, repoRoot, directories, env);
       if (env.valuesMissing()) {
         return null;
       }
@@ -143,7 +148,7 @@ public class RepositoryDelegatorFunction implements SkyFunction {
       // and writing the marker file because if they aren't computed, it would cause a Skyframe
       // restart thus calling the possibly very slow (networking, decompression...) fetch()
       // operation again. So we write the marker file here immediately.
-      handler.writeMarkerFile(rule, ruleSpecificData);
+      writeMarkerFile(markerPath, ruleKey);
       return result;
     }
 
@@ -169,6 +174,54 @@ public class RepositoryDelegatorFunction implements SkyFunction {
         rule.getName())));
 
     return RepositoryDirectoryValue.fetchingDelayed(repoRootValue.realRootedPath().asPath());
+  }
+
+  private final byte[] computeRuleKey(Rule rule, byte[] ruleSpecificData) {
+    return new Fingerprint()
+        .addBytes(RuleSerializer.serializeRule(rule).build().toByteArray())
+        .addBytes(ruleSpecificData)
+        .digestAndReset();
+  }
+
+  /**
+   * Checks if the state of the repository in the file system is consistent with the rule in the
+   * WORKSPACE file.
+   *
+   * <p>Deletes the marker file if not so that no matter what happens after, the state of the file
+   * system stays consistent.
+   */
+  private final boolean isFilesystemUpToDate(Path markerPath, byte[] ruleKey)
+      throws RepositoryFunctionException {
+    try {
+      if (!markerPath.exists()) {
+        return false;
+      }
+
+      byte[] content = FileSystemUtils.readContent(markerPath);
+      boolean result = Arrays.equals(ruleKey, content);
+      if (!result) {
+        // So that we are in a consistent state if something happens while fetching the repository
+        markerPath.delete();
+      }
+
+      return result;
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  private final void writeMarkerFile(Path markerPath, byte[] ruleKey)
+      throws RepositoryFunctionException {
+    try {
+      FileSystemUtils.writeContent(markerPath, ruleKey);
+    } catch (IOException e) {
+      throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+    }
+  }
+
+  private static Path getMarkerPath(BlazeDirectories directories, Rule rule) {
+    return RepositoryFunction.getExternalRepositoryDirectory(directories)
+        .getChild("@" + rule.getName() + ".marker");
   }
 
   @Override

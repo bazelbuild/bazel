@@ -82,7 +82,6 @@ public abstract class AnalysisMock {
   public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
     // Some tests require the local_repository rule so we need the appropriate SkyFunctions.
     RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
-    localRepositoryFunction.setDirectories(directories);
     ImmutableMap<String, RepositoryFunction> repositoryHandlers = ImmutableMap.of(
         LocalRepositoryRule.NAME, localRepositoryFunction);
 
@@ -135,6 +134,5 @@ public abstract class AnalysisMock {
     public Collection<String> getOptionOverrides() {
       return delegate.getOptionOverrides();
     }
-
   }
 }
