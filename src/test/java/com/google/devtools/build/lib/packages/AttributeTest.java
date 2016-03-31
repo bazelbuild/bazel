@@ -27,6 +27,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Predicates;
+import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
@@ -209,27 +210,38 @@ public class AttributeTest {
     RuleClass.Builder.RuleClassNamePredicate ruleClasses =
         new RuleClass.Builder.RuleClassNamePredicate("mock_rule");
 
-    Attribute parentAttr = attr("x", LABEL_LIST)
-        .allowedFileTypes(txtFiles)
-        .mandatory()
-        .build();
+    Attribute parentAttr =
+        attr("x", LABEL_LIST)
+            .allowedFileTypes(txtFiles)
+            .mandatory()
+            .aspect(TestAspects.SimpleAspect.class)
+            .build();
 
-    Attribute childAttr1 = parentAttr.cloneBuilder().build();
-    assertEquals("x", childAttr1.getName());
-    assertEquals(txtFiles, childAttr1.getAllowedFileTypesPredicate());
-    assertEquals(Predicates.alwaysTrue(), childAttr1.getAllowedRuleClassesPredicate());
-    assertTrue(childAttr1.isMandatory());
-    assertFalse(childAttr1.isNonEmpty());
+    {
+      Attribute childAttr1 = parentAttr.cloneBuilder().build();
+      assertEquals("x", childAttr1.getName());
+      assertEquals(txtFiles, childAttr1.getAllowedFileTypesPredicate());
+      assertEquals(Predicates.alwaysTrue(), childAttr1.getAllowedRuleClassesPredicate());
+      assertTrue(childAttr1.isMandatory());
+      assertFalse(childAttr1.isNonEmpty());
+      assertThat(childAttr1.getAspects(null /* rule */)).hasSize(1);
+    }
 
-    Attribute childAttr2 = parentAttr.cloneBuilder()
-        .nonEmpty()
-        .allowedRuleClasses(ruleClasses)
-        .build();
-    assertEquals("x", childAttr2.getName());
-    assertEquals(txtFiles, childAttr2.getAllowedFileTypesPredicate());
-    assertEquals(ruleClasses, childAttr2.getAllowedRuleClassesPredicate());
-    assertTrue(childAttr2.isMandatory());
-    assertTrue(childAttr2.isNonEmpty());
+    {
+      Attribute childAttr2 =
+          parentAttr
+              .cloneBuilder()
+              .nonEmpty()
+              .allowedRuleClasses(ruleClasses)
+              .aspect(TestAspects.ErrorAspect.class)
+              .build();
+      assertEquals("x", childAttr2.getName());
+      assertEquals(txtFiles, childAttr2.getAllowedFileTypesPredicate());
+      assertEquals(ruleClasses, childAttr2.getAllowedRuleClassesPredicate());
+      assertTrue(childAttr2.isMandatory());
+      assertTrue(childAttr2.isNonEmpty());
+      assertThat(childAttr2.getAspects(null /* rule */)).hasSize(2);
+    }
 
     //Check if the parent attribute is unchanged
     assertFalse(parentAttr.isNonEmpty());
