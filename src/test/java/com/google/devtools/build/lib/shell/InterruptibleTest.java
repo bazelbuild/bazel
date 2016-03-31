@@ -13,10 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.shell;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 
 import org.junit.After;
 import org.junit.Before;
@@ -89,33 +87,5 @@ public class InterruptibleTest {
     // The interrupter thread should have set the main thread's interrupt flag.
     assertTrue("Main thread was not interrupted during command execution!",
                mainThread.isInterrupted());
-  }
-
-  /**
-   * Test that interrupting a thread in an "interruptible" Command.execute
-   * causes preserves the thread's interruptible status, terminates the
-   * subprocess, and returns promptly.
-   */
-  @Test
-  public void testInterruptibleCommand() throws Exception {
-    try {
-      command.execute(Command.NO_INPUT,
-                      Command.NO_OBSERVER,
-                      System.out,
-                      System.err,
-                      true); // => interruptible
-      fail("Subprocess not aborted!");
-    } catch (AbnormalTerminationException e) {
-      assertEquals("Process terminated by signal 15", // SIGINT
-                   e.getMessage());
-    }
-
-    // We don't assert that the interrupter thread has exited; due to prompt
-    // termination it might still be running.
-
-    // The interrupter thread should have set the main thread's interrupt flag.
-    assertTrue("Main thread was not interrupted during command execution!",
-               mainThread.isInterrupted());
-
   }
 }
