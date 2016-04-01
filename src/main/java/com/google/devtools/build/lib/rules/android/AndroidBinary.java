@@ -831,17 +831,30 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         .add(sdk.getAndroidJar())
         .addTransitive(common.getTransitiveNeverLinkLibraries())
         .build();
-    ProguardOutput result = ProguardHelper.createProguardAction(ruleContext, sdk.getProguard(),
-        deployJarArtifact, proguardSpecs, proguardMapping, libraryJars, proguardOutputJar,
+    ProguardOutput result = ProguardHelper.createProguardAction(
+        ruleContext,
+        sdk.getProguard(),
+        deployJarArtifact,
+        proguardSpecs,
+        proguardMapping,
+        libraryJars,
+        proguardOutputJar,
         ruleContext.attributes().get("proguard_generate_mapping", Type.BOOLEAN),
-        ruleContext.attributes().has("proguard_optimization_passes", Type.INTEGER)
-          ? ruleContext.attributes().get("proguard_optimization_passes", Type.INTEGER)
-          : null);
+        getProguardOptimizationPasses(ruleContext));
     // Since Proguard is being run, add its output artifacts to the given filesBuilder
     result.addAllToSet(filesBuilder);
     return result;
   }
 
+  @Nullable
+  private static Integer getProguardOptimizationPasses(RuleContext ruleContext) {
+    if (ruleContext.attributes().has("proguard_optimization_passes", Type.INTEGER)) {
+      return ruleContext.attributes().get("proguard_optimization_passes", Type.INTEGER);
+    } else {
+      return null;
+    }
+  }
+  
   private static ProguardOutput createEmptyProguardAction(RuleContext ruleContext,
       Artifact proguardOutputJar, Artifact deployJarArtifact) throws InterruptedException {
     ImmutableList.Builder<Artifact> failures =
