@@ -465,6 +465,7 @@ java_test(
     srcs = glob([
         "analysis/*.java",
     ]),
+    shard_count = 2,
     tags = ["analysis"],
     test_class = "com.google.devtools.build.lib.AllTests",
     deps = [
