@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 
 import javax.annotation.Nullable;
 
@@ -30,7 +31,7 @@ public class TurbineOptions {
   private final ImmutableList<String> bootClassPath;
   private final ImmutableList<String> sources;
   private final ImmutableList<String> processorPath;
-  private final ImmutableList<String> processors;
+  private final ImmutableSet<String> processors;
   private final String tempDir;
   private final ImmutableList<String> sourceJars;
   private final Optional<String> outputDeps;
@@ -48,7 +49,7 @@ public class TurbineOptions {
       ImmutableList<String> bootClassPath,
       ImmutableList<String> sources,
       ImmutableList<String> processorPath,
-      ImmutableList<String> processors,
+      ImmutableSet<String> processors,
       String tempDir,
       ImmutableList<String> sourceJars,
       @Nullable String outputDeps,
@@ -110,7 +111,7 @@ public class TurbineOptions {
   }
 
   /** Annotation processor class names. */
-  public ImmutableList<String> processors() {
+  public ImmutableSet<String> processors() {
     return processors;
   }
 
@@ -174,7 +175,7 @@ public class TurbineOptions {
     private final ImmutableList.Builder<String> classPath = ImmutableList.builder();
     private final ImmutableList.Builder<String> sources = ImmutableList.builder();
     private final ImmutableList.Builder<String> processorPath = ImmutableList.builder();
-    private final ImmutableList.Builder<String> processors = ImmutableList.builder();
+    private final ImmutableSet.Builder<String> processors = ImmutableSet.builder();
     private String tempDir;
     private final ImmutableList.Builder<String> sourceJars = ImmutableList.builder();
     private final ImmutableList.Builder<String> bootClassPath = ImmutableList.builder();
@@ -238,7 +239,7 @@ public class TurbineOptions {
       return this;
     }
 
-    public Builder setProcessors(Iterable<String> processors) {
+    public Builder addProcessors(Iterable<String> processors) {
       this.processors.addAll(processors);
       return this;
     }

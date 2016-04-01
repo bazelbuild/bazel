@@ -263,7 +263,7 @@ public class JavacTurbineTest {
         "  }",
         "}");
 
-    optionsBuilder.setProcessors(ImmutableList.of(MyProcessor.class.getName()));
+    optionsBuilder.addProcessors(ImmutableList.of(MyProcessor.class.getName()));
     optionsBuilder.addProcessorPathEntries(
         ImmutableList.copyOf(Splitter.on(':').split(System.getProperty("java.class.path"))));
     optionsBuilder.addClassPathEntries(
@@ -819,7 +819,7 @@ public class JavacTurbineTest {
         "  }",
         "}");
 
-    optionsBuilder.setProcessors(ImmutableList.of(MyBadEncodingProcessor.class.getName()));
+    optionsBuilder.addProcessors(ImmutableList.of(MyBadEncodingProcessor.class.getName()));
     optionsBuilder.addProcessorPathEntries(
         ImmutableList.copyOf(Splitter.on(':').split(System.getProperty("java.class.path"))));
     optionsBuilder.addClassPathEntries(
@@ -961,7 +961,7 @@ public class JavacTurbineTest {
       }
     }
 
-    optionsBuilder.setProcessors(ImmutableList.of(HostClasspathProcessor.class.getName()));
+    optionsBuilder.addProcessors(ImmutableList.of(HostClasspathProcessor.class.getName()));
     optionsBuilder.addProcessorPathEntries(ImmutableList.of(processorJar.toString()));
     optionsBuilder.addClassPathEntries(ImmutableList.<String>of());
 
@@ -1069,7 +1069,7 @@ public class JavacTurbineTest {
   @Test
   public void processorReadsNonexistantFile() throws Exception {
     addSourceLines("Hello.java", "@Deprecated class Hello {}");
-    optionsBuilder.setProcessors(ImmutableList.of(NoSuchFileProcessor.class.getName()));
+    optionsBuilder.addProcessors(ImmutableList.of(NoSuchFileProcessor.class.getName()));
     optionsBuilder.addProcessorPathEntries(
         ImmutableList.copyOf(Splitter.on(':').split(System.getProperty("java.class.path"))));
     optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
