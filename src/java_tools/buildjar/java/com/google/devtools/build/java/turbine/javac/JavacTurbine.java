@@ -17,6 +17,7 @@ package com.google.devtools.build.java.turbine.javac;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps;
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
@@ -158,6 +159,14 @@ public class JavacTurbine implements AutoCloseable {
 
     DependencyModule dependencyModule = buildDependencyModule(turbineOptions, strictDepsMode);
 
+    if (sources.isEmpty()) {
+      // accept compilations with an empty source list for compatibility with JavaBuilder
+      emitClassJar(
+          Paths.get(turbineOptions.outputFile()), ImmutableMap.<String, OutputFileObject>of());
+      dependencyModule.emitDependencyInformation(/*classpath=*/ "", /*successful=*/ true);
+      return Result.OK_WITH_REDUCED_CLASSPATH;
+    }
+
     Result result = Result.ERROR;
     JavacTurbineCompileResult compileResult;
     List<String> actualClasspath;
@@ -210,7 +219,7 @@ public class JavacTurbine implements AutoCloseable {
       return result;
     }
 
-    emitClassJar(Paths.get(turbineOptions.outputFile()), compileResult);
+    emitClassJar(Paths.get(turbineOptions.outputFile()), compileResult.files());
     dependencyModule.emitDependencyInformation(
         CLASSPATH_JOINER.join(actualClasspath), compileResult.success());
 
@@ -236,13 +245,13 @@ public class JavacTurbine implements AutoCloseable {
   }
 
   /** Write the class output from a successful compilation to the output jar. */
-  private static void emitClassJar(Path outputJar, JavacTurbineCompileResult result)
+  private static void emitClassJar(Path outputJar, ImmutableMap<String, OutputFileObject> files)
       throws IOException {
     try (OutputStream fos = Files.newOutputStream(outputJar);
         ZipOutputStream zipOut =
             new ZipOutputStream(new BufferedOutputStream(fos, ZIPFILE_BUFFER_SIZE))) {
       boolean hasEntries = false;
-      for (Map.Entry<String, OutputFileObject> entry : result.files().entrySet()) {
+      for (Map.Entry<String, OutputFileObject> entry : files.entrySet()) {
         if (entry.getValue().location != StandardLocation.CLASS_OUTPUT) {
           continue;
         }

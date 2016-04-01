@@ -1035,6 +1035,7 @@ public class JavacTurbineTest {
   public void invalidJavacopts() throws Exception {
     addSourceLines("Hello.java", "class Hello {}");
     optionsBuilder.addAllJavacOpts(Arrays.asList("-NOT_AN_OPTION"));
+    optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
     StringWriter errOutput = new StringWriter();
     try (JavacTurbine turbine =
         new JavacTurbine(new PrintWriter(errOutput, true), optionsBuilder.build())) {
@@ -1080,5 +1081,13 @@ public class JavacTurbineTest {
       assertThat(turbine.compile()).isEqualTo(Result.ERROR);
     }
     assertThat(errOutput.toString()).contains("FileNotFoundException: /NO_SUCH_FILE");
+  }
+
+  @Test
+  public void emptySources() throws Exception {
+    // don't set up any source files
+    compile();
+    Map<String, byte[]> outputs = collectOutputs();
+    assertThat(outputs.keySet()).containsExactly("dummy");
   }
 }
