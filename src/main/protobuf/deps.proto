@@ -30,9 +30,9 @@ message SourceLocation {
 message Dependency {
 
   enum Kind {
-    // Direct dependency used explicitly in the source.
+    // Dependency used explicitly in the source.
     EXPLICIT = 0;
-    // Transitive dependency that is implicitly loaded and used by the compiler.
+    // Dependency that is implicitly loaded and used by the compiler.
     IMPLICIT = 1;
     // Unused dependency.
     UNUSED = 2;
