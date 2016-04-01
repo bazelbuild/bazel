@@ -16,10 +16,8 @@ package com.google.devtools.build.lib.rules.repository;
 
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.skyframe.FileValue;
-import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
@@ -33,6 +31,7 @@ import java.io.IOException;
  * Access a repository on the local filesystem.
  */
 public class LocalRepositoryFunction extends RepositoryFunction {
+
   @Override
   public boolean isLocal(Rule rule) {
     return true;
@@ -41,9 +40,8 @@ public class LocalRepositoryFunction extends RepositoryFunction {
   @Override
   public SkyValue fetch(
       Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
-          throws SkyFunctionException {
-    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
-    PathFragment pathFragment = new PathFragment(mapper.get("path", Type.STRING));
+      throws SkyFunctionException {
+    PathFragment pathFragment = RepositoryFunction.getTargetPath(rule, directories.getWorkspace());
     try {
       outputDirectory.createSymbolicLink(pathFragment);
     } catch (IOException e) {
