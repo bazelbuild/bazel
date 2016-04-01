@@ -9,7 +9,6 @@ How to update these files:
 7. Update third_party/BUILD to point to the new jar file.
 8. Done.
 
-
 Because maven.org doesn't have a prebuilt binary for linux on ARM, you need to build the binary
 yourself on the target system. Follow the build steps of protocol buffer to create the binary,
 copy it to this directory and rename it to "protoc-linux-arm32.exe".
@@ -20,3 +19,10 @@ $ cp /usr/bin/protoc $BAZEL/third_party/protobuf/protoc-linux-arm32.exe
 
 This should be done before you run ./compile.sh.
 
+How to update the `src/` directory:
+1. Run `git clone http://github.com/google/protobuf.git` in a convenient directory.
+2. `mkdir third_party/protobuf/src/google` in the root of the Bazel tree.
+3. `cp -R <root of protobuf tree>/src/google/protobuf third_party/protobuf/src/google`
+4. Done.
+
+The current version comes from commit `698fa8ee22`.
