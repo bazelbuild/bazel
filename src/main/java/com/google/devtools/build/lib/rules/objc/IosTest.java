@@ -131,7 +131,8 @@ public final class IosTest implements RuleConfiguredTargetFactory {
     }
 
     new CompilationSupport(ruleContext)
-        .registerLinkActions(common.getObjcProvider(), extraLinkArgs, extraLinkInputs)
+        .registerLinkActions(
+            common.getObjcProvider(), extraLinkArgs, extraLinkInputs, DsymOutputType.TEST)
         .registerCompileAndArchiveActions(common)
         .addXcodeSettings(xcodeProviderBuilder, common)
         .validateAttributes();
@@ -143,9 +144,9 @@ public final class IosTest implements RuleConfiguredTargetFactory {
             LinkedBinary.LOCAL_AND_DEPENDENCIES,
             bundleFormat,
             objcConfiguration.getMinimumOs())
-        .registerActions()
+        .registerActions(DsymOutputType.TEST)
         .addXcodeSettings(xcodeProviderBuilder)
-        .addFilesToBuild(filesToBuild)
+        .addFilesToBuild(filesToBuild, DsymOutputType.TEST)
         .validateResources()
         .validateAttributes();
 

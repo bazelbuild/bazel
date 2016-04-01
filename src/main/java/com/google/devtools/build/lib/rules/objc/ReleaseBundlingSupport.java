@@ -172,7 +172,7 @@ public final class ReleaseBundlingSupport {
     this.ruleContext = ruleContext;
     this.objcProvider = objcProvider;
     this.releaseBundling = releaseBundling;
-    this.intermediateArtifacts = releaseBundling.getIntermediateArtifacts();
+    this.intermediateArtifacts = ObjcRuleClasses.intermediateArtifacts(ruleContext);
     this.bundling = bundling(ruleContext, objcProvider, bundleDirFormat, bundleName,
         bundleMinimumOsVersion);
     bundleSupport = new BundleSupport(ruleContext, bundling, extraActoolArgs());
@@ -197,8 +197,14 @@ public final class ReleaseBundlingSupport {
       String bundleDirFormat,
       String bundleName,
       DottedVersion bundleMinimumOsVersion) throws InterruptedException {
-    this(ruleContext, objcProvider, linkedBinary, bundleDirFormat, bundleName,
-        bundleMinimumOsVersion, ReleaseBundling.releaseBundling(ruleContext));
+    this(
+        ruleContext,
+        objcProvider,
+        linkedBinary,
+        bundleDirFormat,
+        bundleName,
+        bundleMinimumOsVersion,
+        ReleaseBundling.releaseBundling(ruleContext));
   }
 
   /**
@@ -277,15 +283,18 @@ public final class ReleaseBundlingSupport {
    * this application if appropriate and combining several single-architecture binaries into one
    * multi-architecture binary.
    *
+   * @param dsymOutputType the file type of the dSYM bundle to be generated
+   *
    * @return this application support
    */
-  ReleaseBundlingSupport registerActions() throws InterruptedException {
+  ReleaseBundlingSupport registerActions(DsymOutputType dsymOutputType)
+      throws InterruptedException {
     bundleSupport.registerActions(objcProvider);
 
     registerCombineArchitecturesAction();
     registerTransformAndCopyBreakpadFilesAction();
-    registerCopyDsymFilesAction();
-    registerCopyDsymPlistAction();
+    registerCopyDsymFilesAction(dsymOutputType);
+    registerCopyDsymPlistAction(dsymOutputType);
     registerCopyLinkmapFilesAction();
     registerSwiftStdlibActionsIfNecessary();
 
@@ -583,9 +592,14 @@ public final class ReleaseBundlingSupport {
    * Adds any files to the given nested set builder that should be built if this application is the
    * top level target in a blaze invocation.
    *
+   * @param filesToBuild a collection of files to be built, where new artifacts to be built are
+   *     going to be placed
+   * @param dsymOutputType the file type of the dSYM bundle to be built
+   *
    * @return this application support
    */
-  ReleaseBundlingSupport addFilesToBuild(NestedSetBuilder<Artifact> filesToBuild)
+  ReleaseBundlingSupport addFilesToBuild(
+      NestedSetBuilder<Artifact> filesToBuild, DsymOutputType dsymOutputType)
       throws InterruptedException {
     NestedSetBuilder<Artifact> debugSymbolBuilder = NestedSetBuilder.<Artifact>stableOrder();
 
@@ -595,7 +609,7 @@ public final class ReleaseBundlingSupport {
 
     if (ObjcRuleClasses.objcConfiguration(ruleContext).generateDebugSymbols()) {
       filesToBuild.addAll(getBreakpadFiles().values());
-      filesToBuild.addAll(getDsymFiles().values());
+      filesToBuild.addAll(getDsymFiles(dsymOutputType).values());
 
       // TODO(bazel-team): Remove the 'if' when the objc_binary rule does not generate a bundle any
       // more. The reason this 'if' is here is because the plist is obtained from the ObjcProvider.
@@ -606,13 +620,13 @@ public final class ReleaseBundlingSupport {
       // only get called by *_application rules, with the plist configured in the provider.
       Artifact cpuPlist = getAnyCpuSpecificDsymPlist();
       if (cpuPlist != null) {
-        filesToBuild.add(intermediateArtifacts.dsymPlist());
+        filesToBuild.add(intermediateArtifacts.dsymPlist(dsymOutputType));
       }
 
       if (linkedBinary == LinkedBinary.LOCAL_AND_DEPENDENCIES) {
         debugSymbolBuilder
-            .add(intermediateArtifacts.dsymPlist())
-            .add(intermediateArtifacts.dsymSymbol())
+            .add(intermediateArtifacts.dsymPlist(dsymOutputType))
+            .add(intermediateArtifacts.dsymSymbol(dsymOutputType))
             .add(intermediateArtifacts.breakpadSym());
       }
     }
@@ -886,9 +900,11 @@ public final class ReleaseBundlingSupport {
    * Registers the actions that copy the debug symbol files from the CPU-specific binaries that are
    * part of this application. The only one step executed is that he dsym files have to be renamed
    * to include their corresponding CPU architecture as a suffix.
+   *
+   * @param dsymOutputType the file type of the dSYM bundle to be copied
    */
-  private void registerCopyDsymFilesAction() {
-    for (Entry<Artifact, Artifact> dsymFiles : getDsymFiles().entrySet()) {
+  private void registerCopyDsymFilesAction(DsymOutputType dsymOutputType) {
+    for (Entry<Artifact, Artifact> dsymFiles : getDsymFiles(dsymOutputType).entrySet()) {
       ruleContext.registerAction(
           new SymlinkAction(
               ruleContext.getActionOwner(),
@@ -900,15 +916,17 @@ public final class ReleaseBundlingSupport {
 
   /**
    * Registers the action that copies the debug symbol plist from the binary.
+   *
+   * @param dsymOutputType the file type of the dSYM bundle to be copied
    */
-  private void registerCopyDsymPlistAction() {
+  private void registerCopyDsymPlistAction(DsymOutputType dsymOutputType) {
     Artifact dsymPlist = getAnyCpuSpecificDsymPlist();
     if (dsymPlist != null) {
       ruleContext.registerAction(
           new SymlinkAction(
               ruleContext.getActionOwner(),
               dsymPlist,
-              intermediateArtifacts.dsymPlist(),
+              intermediateArtifacts.dsymPlist(dsymOutputType),
               "Symlinking dSYM plist"));
     }
   }
@@ -929,11 +947,13 @@ public final class ReleaseBundlingSupport {
   /**
    * Returns a map of input dsym artifacts from the CPU-specific binaries built for this
    * ios_application to the new output dsym artifacts.
+   *
+   * @param dsymOutputType the file type of the dSYM bundle to be generated
    */
-  private ImmutableMap<Artifact, Artifact> getDsymFiles() {
+  private ImmutableMap<Artifact, Artifact> getDsymFiles(DsymOutputType dsymOutputType) {
     ImmutableMap.Builder<Artifact, Artifact> results = ImmutableMap.builder();
     for (Entry<String, Artifact> dsymFile : attributes.cpuSpecificDsymFiles().entrySet()) {
-      Artifact destDsym = intermediateArtifacts.dsymSymbol(dsymFile.getKey());
+      Artifact destDsym = intermediateArtifacts.dsymSymbol(dsymOutputType, dsymFile.getKey());
       results.put(dsymFile.getValue(), destDsym);
     }
     return results.build();
