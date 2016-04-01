@@ -75,8 +75,20 @@ def _ld_library_paths(repository_ctx):
     result = []
     for p in repository_ctx.os.environ["LD_LIBRARY_PATH"].split(":"):
       p = str(repository_ctx.path(p))  # Normalize the path
-      result.append("-Wl,rpath," + p)
+      result.append("-Wl,-rpath," + p)
       result.append("-L" + p)
+    return result
+  else:
+    return []
+
+
+def _cplus_include_paths(repository_ctx):
+  """Use ${CPLUS_INCLUDE_PATH} to compute the list of flags for cxxflag."""
+  if "CPLUS_INCLUDE_PATH" in repository_ctx.os.environ:
+    result = []
+    for p in repository_ctx.os.environ["CPLUS_INCLUDE_PATH"].split(":"):
+      p = str(repository_ctx.path(p))  # Normalize the path
+      result.append("-I" + p)
     return result
   else:
     return []
@@ -143,7 +155,9 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       "target_libc": "macosx" if darwin else "local",
       "target_cpu": cpu_value,
       "target_system_name": "local",
-      "cxx_flag": "-std=c++0x",
+      "cxx_flag": [
+          "-std=c++0x",
+      ] + _cplus_include_paths(repository_ctx),
       "linker_flag": [
           "-lstdc++",
           # Anticipated future default.
@@ -185,10 +199,10 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           "-Wall",
           # Enable a few more warnings that aren't part of -Wall.
       ] + (["-Wthread-safety", "-Wself-assign"] if darwin else [
-          "-Wunused-but-set-parameter",
           # Disable some that are problematic.
           "-Wl,-z,-relro,-z,now"
       ]) + (
+          _add_option_if_supported(repository_ctx, cc, "-Wunused-but-set-parameter") +
           # has false positives
           _add_option_if_supported(repository_ctx, cc, "-Wno-free-nonheap-object") +
           # Enable coloring even if there's no attached terminal. Bazel removes the
