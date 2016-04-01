@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.cmdline;
 
 import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Interner;
+import com.google.common.collect.Interners;
 import com.google.devtools.build.lib.cmdline.LabelValidator.BadLabelException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -63,6 +65,8 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
 
   public static final String EXTERNAL_PATH_PREFIX = "external";
 
+  private static final Interner<Label> LABEL_INTERNER = Interners.newWeakInterner();
+
   /**
    * Factory for Labels from absolute string form. e.g.
    * <pre>
@@ -106,9 +110,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
       if (repo.isEmpty() && ABSOLUTE_PACKAGE_NAMES.contains(packageFragment)) {
         repo = "@";
       }
-      return new Label(
-          PackageIdentifier.create(repo, packageFragment),
-          labelParts.getTargetName());
+      return create(PackageIdentifier.create(repo, packageFragment), labelParts.getTargetName());
     } catch (BadLabelException e) {
       throw new LabelSyntaxException(e.getMessage());
     }
@@ -144,7 +146,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    * @throws LabelSyntaxException if either of the arguments was invalid.
    */
   public static Label create(String packageName, String targetName) throws LabelSyntaxException {
-    return new Label(packageName, targetName);
+    return LABEL_INTERNER.intern(new Label(packageName, targetName));
   }
 
   /**
@@ -153,7 +155,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    */
   public static Label create(PackageIdentifier packageId, String targetName)
       throws LabelSyntaxException {
-    return new Label(packageId, targetName);
+    return LABEL_INTERNER.intern(new Label(packageId, targetName));
   }
 
   /**
@@ -189,7 +191,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
     PathFragment path = workspaceRelativePath.getRelative(label.substring(0, index));
     // Use the String, String constructor, to make sure that the package name goes through the
     // validity check.
-    return new Label(path.getPathString(), label.substring(index + 1));
+    return create(path.getPathString(), label.substring(index + 1));
   }
 
   /**
@@ -409,7 +411,7 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
    * @throws LabelSyntaxException if {@code targetName} is not a valid target name
    */
   public Label getLocalTargetLabel(String targetName) throws LabelSyntaxException {
-    return new Label(packageIdentifier, targetName);
+    return create(packageIdentifier, targetName);
   }
 
   /**
@@ -468,9 +470,9 @@ public final class Label implements Comparable<Label>, Serializable, SkylarkPrin
       return relative;
     } else {
       try {
-        return new Label(
-            PackageIdentifier
-                .create(packageIdentifier.getRepository(), relative.getPackageFragment()),
+        return create(
+            PackageIdentifier.create(
+                packageIdentifier.getRepository(), relative.getPackageFragment()),
             relative.getName());
       } catch (LabelSyntaxException e) {
         // We are creating the new label from an existing one which is guaranteed to be valid, so
