@@ -961,6 +961,9 @@ Objective-C libraries.</p>
            may be included/imported by any source or header in the srcs attribute
            of this target, but not by headers in hdrs or any targets that depend
            on this rule.
+           Additionally, precompiled .o files may be given as srcs.  Be careful to
+           ensure consistency in the architecture of provided .o files and that of the
+           build to avoid missing symbol linker errors.
 
         </td>
       </tr>
@@ -1728,6 +1731,9 @@ libraries.</p>
            may be included/imported by any source or header in the srcs attribute
            of this target, but not by headers in hdrs or any targets that depend
            on this rule.
+           Additionally, precompiled .o files may be given as srcs.  Be careful to
+           ensure consistency in the architecture of provided .o files and that of the
+           build to avoid missing symbol linker errors.
 
         </td>
       </tr>
@@ -2149,6 +2155,9 @@ source file to be defined in either <code>srcs</code> or <code>non_arc_srcs</cod
            may be included/imported by any source or header in the srcs attribute
            of this target, but not by headers in hdrs or any targets that depend
            on this rule.
+           Additionally, precompiled .o files may be given as srcs.  Be careful to
+           ensure consistency in the architecture of provided .o files and that of the
+           build to avoid missing symbol linker errors.
 
         </td>
       </tr>
@@ -3487,6 +3496,9 @@ attributes supported by <code>objc_library</code>.</p>
            may be included/imported by any source or header in the srcs attribute
            of this target, but not by headers in hdrs or any targets that depend
            on this rule.
+           Additionally, precompiled .o files may be given as srcs.  Be careful to
+           ensure consistency in the architecture of provided .o files and that of the
+           build to avoid missing symbol linker errors.
 
         </td>
       </tr>
@@ -3996,6 +4008,9 @@ on both iOS simulator and real devices.
            may be included/imported by any source or header in the srcs attribute
            of this target, but not by headers in hdrs or any targets that depend
            on this rule.
+           Additionally, precompiled .o files may be given as srcs.  Be careful to
+           ensure consistency in the architecture of provided .o files and that of the
+           build to avoid missing symbol linker errors.
 
         </td>
       </tr>
