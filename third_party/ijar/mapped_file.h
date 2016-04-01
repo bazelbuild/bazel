@@ -19,8 +19,8 @@
 
 namespace devtools_ijar {
 
-class MappedInputFileImpl;
-class MappedOutputFileImpl;
+struct MappedInputFileImpl;
+struct MappedOutputFileImpl;
 
 // A memory mapped input file.
 class MappedInputFile {
