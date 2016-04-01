@@ -75,15 +75,23 @@ function test_basic_timeout() {
   assert_stdout "before"
 }
 
+# Tests that process_wrapper sends a SIGTERM to a process on timeout, but gives
+# it a grace period of 10 seconds before killing it with SIGKILL.
+# In this variant we expect the trap (that runs on SIGTERM) to exit within the
+# grace period, thus printing "beforeafter".
 function test_timeout_grace() {
   local code=0
-  $process_wrapper 1 2 $OUT $ERR /bin/bash -c \
+  $process_wrapper 1 10 $OUT $ERR /bin/bash -c \
     'trap "echo -n before; sleep 1; echo after; exit 0" SIGINT SIGTERM SIGALRM; sleep 10' \
     &> $TEST_log || code=$?
   assert_equals 142 "$code" # SIGNAL_BASE + SIGALRM = 128 + 14
   assert_stdout "beforeafter"
 }
 
+# Tests that process_wrapper sends a SIGTERM to a process on timeout, but gives
+# it a grace period of 2 seconds before killing it with SIGKILL.
+# In this variant, we expect the process to be killed with SIGKILL, because the
+# trap takes longer than the grace period, thus only printing "before".
 function test_timeout_kill() {
   local code=0
   $process_wrapper 1 2 $OUT $ERR /bin/bash -c \
