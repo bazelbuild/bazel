@@ -243,7 +243,7 @@ abstract class BinaryLinkingTargetFactory implements RuleConfiguredTargetFactory
     for (SkylarkProviders skylarkProviders :
         ruleContext.getPrerequisites("deps", Mode.TARGET, SkylarkProviders.class)) {
       Object objcSkylarkProvider =
-          skylarkProviders.getValue(ObjcProvider.OBJC_SKYLARK_PROVIDER_NAME);
+          skylarkProviders.getValue(ObjcProvider.OBJC_SKYLARK_PROVIDER_TO_EXPORT_NAME);
       if (objcSkylarkProvider != null) {
         ObjcProvider objcProviderFromSkylark =
             ObjcProvider.fromSkylarkProvider((SkylarkClassObject) objcSkylarkProvider);

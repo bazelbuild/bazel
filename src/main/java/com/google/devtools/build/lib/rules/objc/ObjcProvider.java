@@ -51,6 +51,16 @@ public final class ObjcProvider implements TransitiveInfoProvider {
   public static final String OBJC_SKYLARK_PROVIDER_NAME = "objc";
 
   /**
+   * The name skylark dependents can use to export a native objc provider to depending native
+   * rules.
+   * 
+   * <p>This constant must be different from OBJC_SKYLARK_PROVIDER_NAME to prevent skylark rules
+   * from automatically exporting the ObjcProvider provided to them by dependants.  This can
+   * lead to duplicate symbol linker errors.
+   */
+  public static final String OBJC_SKYLARK_PROVIDER_TO_EXPORT_NAME = "objc_export";
+  
+  /**
    * Represents one of the things this provider can provide transitively. Things are provided as
    * {@link NestedSet}s of type E.
    */
