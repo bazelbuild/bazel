@@ -190,4 +190,28 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
         "Runtime of second action should be visible in output: " + output, output.contains("20s"));
   }
 
+  @Test
+  public void initialProgressBarTimeIndependent() {
+    ManualClock clock = new ManualClock();
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(123));
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+
+    assertFalse(
+        "Initial progress status should be time independent",
+        stateTracker.progressBarTimeDependent());
+  }
+
+  @Test
+  public void runningActionTimeIndependent() {
+    ManualClock clock = new ManualClock();
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(123));
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(1));
+    stateTracker.actionStarted(
+        new ActionStartedEvent(mockAction("Some action", "foo"), clock.nanoTime()));
+
+    assertTrue(
+        "Progress bar showing a running action should be time dependent",
+        stateTracker.progressBarTimeDependent());
+  }
 }

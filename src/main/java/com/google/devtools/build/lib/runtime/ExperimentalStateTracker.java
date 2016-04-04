@@ -147,6 +147,21 @@ class ExperimentalStateTracker {
     }
   }
 
+  /***
+   * Predicate indicating whether the contents of the progress bar can change, if the
+   * only thing that happens is that time passes; this is the case, e.g., if the progress
+   * bar shows time information relative to the current time.
+   */
+  boolean progressBarTimeDependent() {
+    if (status != null) {
+      return false;
+    }
+    if (runningActions.size() >= 1) {
+      return true;
+    }
+    return false;
+  }
+
   synchronized void writeProgressBar(AnsiTerminalWriter terminalWriter) throws IOException {
     if (status != null) {
       if (ok) {

@@ -115,6 +115,10 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
             }
             terminal.flush();
             break;
+          case PROGRESS:
+            if (stateTracker.progressBarTimeDependent()) {
+              refresh();
+            }
         }
       }
     } catch (IOException e) {
