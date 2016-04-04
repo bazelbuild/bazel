@@ -18,6 +18,7 @@ import static com.google.common.base.CaseFormat.LOWER_UNDERSCORE;
 import static com.google.common.base.CaseFormat.UPPER_CAMEL;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicates;
@@ -37,6 +38,8 @@ import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
+
+import java.util.ArrayList;
 
 import javax.annotation.Nullable;
 
@@ -82,6 +85,13 @@ final class ProtoSupport {
       "The portable_proto_filters attribute can't be empty";
 
   private static final String UNIQUE_DIRECTORY_NAME = "_generated_protos";
+
+  /**
+   * List of file name segments that should be upper cased when being generated. More information
+   * available in the generateProtobufFilename() method.
+   */
+  private static final ImmutableSet<String> UPPERCASE_SEGMENTS =
+      ImmutableSet.of("url", "http", "https");
 
   private final RuleContext ruleContext;
   private final Attributes attributes;
@@ -353,11 +363,15 @@ final class ProtoSupport {
   private ImmutableList<Artifact> generatedOutputArtifacts(FileType newFileType) {
     ImmutableList.Builder<Artifact> builder = new ImmutableList.Builder<>();
     for (Artifact protoFile : getFilteredProtos()) {
+      String protoFileName = FileSystemUtils.removeExtension(protoFile.getFilename());
       String generatedOutputName;
       if (attributes.outputsCpp()) {
-        generatedOutputName = protoFile.getFilename();
+        generatedOutputName = protoFileName;
+      } else if (attributes.usesProtobufLibrary()){
+        // The protobuf library generates filenames with some slight modifications.
+        generatedOutputName = generateProtobufFilename(protoFileName);
       } else {
-        String lowerUnderscoreBaseName = protoFile.getFilename().replace('-', '_').toLowerCase();
+        String lowerUnderscoreBaseName = protoFileName.replace('-', '_').toLowerCase();
         generatedOutputName = LOWER_UNDERSCORE.to(UPPER_CAMEL, lowerUnderscoreBaseName);
       }
 
@@ -367,8 +381,8 @@ final class ProtoSupport {
               new PathFragment(generatedOutputName));
 
       PathFragment outputFile =
-          FileSystemUtils.replaceExtension(
-              generatedFilePath, newFileType.getExtensions().get(0), ".proto");
+          FileSystemUtils.appendExtension(
+              generatedFilePath, newFileType.getExtensions().get(0));
 
       if (outputFile != null) {
         builder.add(
@@ -377,6 +391,72 @@ final class ProtoSupport {
       }
     }
     return builder.build();
+  }
+
+  /**
+   * Processes the case of the proto file name in the same fashion as the objective_c generator's
+   * UnderscoresToCamelCase function.
+   *
+   * https://github.com/google/protobuf/blob/master/src/google/protobuf/compiler/objectivec/objectivec_helpers.cc
+   */
+  private String generateProtobufFilename(String protoFilename) {
+    boolean lastCharWasDigit = false;
+    boolean lastCharWasUpper = false;
+    boolean lastCharWasLower = false;
+
+    StringBuilder currentSegment = new StringBuilder();
+
+    ArrayList<String> segments = new ArrayList<>();
+
+    for (int i = 0; i < protoFilename.length(); i++) {
+      char currentChar = protoFilename.charAt(i);
+      if (CharMatcher.javaDigit().matches(currentChar)) {
+        if (!lastCharWasDigit) {
+          segments.add(currentSegment.toString());
+          currentSegment = new StringBuilder();
+        }
+        currentSegment.append(currentChar);
+        lastCharWasDigit = true;
+        lastCharWasUpper = false;
+        lastCharWasLower = false;
+      } else if (CharMatcher.javaLowerCase().matches(currentChar)) {
+        if (!lastCharWasLower && !lastCharWasUpper) {
+          segments.add(currentSegment.toString());
+          currentSegment = new StringBuilder();
+        }
+        currentSegment.append(currentChar);
+        lastCharWasDigit = false;
+        lastCharWasUpper = false;
+        lastCharWasLower = true;
+      } else if (CharMatcher.javaUpperCase().matches(currentChar)) {
+        if (!lastCharWasUpper) {
+          segments.add(currentSegment.toString());
+          currentSegment = new StringBuilder();
+        }
+        currentSegment.append(Character.toLowerCase(currentChar));
+        lastCharWasDigit = false;
+        lastCharWasUpper = true;
+        lastCharWasLower = false;
+      } else {
+        lastCharWasDigit = false;
+        lastCharWasUpper = false;
+        lastCharWasLower = false;
+      }
+    }
+
+    segments.add(currentSegment.toString());
+    ruleContext.ruleWarning(segments.toString());
+
+    StringBuilder casedSegments = new StringBuilder();
+
+    for (String segment : segments) {
+      if (UPPERCASE_SEGMENTS.contains(segment)) {
+        casedSegments.append(segment.toUpperCase());
+      } else {
+        casedSegments.append(LOWER_UNDERSCORE.to(UPPER_CAMEL, segment));
+      }
+    }
+    return casedSegments.toString();
   }
 
   private Iterable<Artifact> getFilteredProtos() {
