@@ -62,8 +62,7 @@ public final class DexArchiveAspect implements NativeAspectFactory, ConfiguredAs
   @Override
   public ConfiguredAspect create(ConfiguredTarget base, RuleContext ruleContext,
       AspectParameters params) throws InterruptedException {
-    if (AndroidCommon.getAndroidConfig(ruleContext).getIncrementalDexing()
-        == AndroidConfiguration.IncrementalDexing.OFF) {
+    if (AndroidCommon.getAndroidConfig(ruleContext).getIncrementalDexingBinaries().isEmpty()) {
       // Dex archives will never be used, so don't bother setting them up.
       return new ConfiguredAspect.Builder(NAME, ruleContext).build();
     }

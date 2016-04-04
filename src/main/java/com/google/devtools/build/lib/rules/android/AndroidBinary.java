@@ -48,7 +48,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration.IncrementalDexing;
+import com.google.devtools.build.lib.rules.android.AndroidConfiguration.AndroidBinaryType;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
 import com.google.devtools.build.lib.rules.cpp.CppHelper;
@@ -1016,11 +1016,11 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
 
     // Always OFF if finalJarIsDerived
-    IncrementalDexing incrementalDexing =
+    ImmutableSet<AndroidBinaryType> incrementalDexing =
         getEffectiveIncrementalDexing(ruleContext, dexopts, finalJarIsDerived);
     if (multidexMode == MultidexMode.OFF) {
       // Single dex mode: generate classes.dex directly from the input jar.
-      if (incrementalDexing.withMonodex) {
+      if (incrementalDexing.contains(AndroidBinaryType.MONODEX)) {
         Artifact classesDex = getDxArtifact(ruleContext, "classes.dex.zip");
         Artifact jarToDex = getDxArtifact(ruleContext, "classes.jar");
         Artifact javaResourceJar = createShuffleJarAction(ruleContext, true, (Artifact) null,
@@ -1054,7 +1054,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         Artifact javaResourceJar =
             createShuffleJarAction(
                 ruleContext,
-                incrementalDexing.withDexShards,
+                incrementalDexing.contains(AndroidBinaryType.MULTIDEX_SHARDED),
                 finalJarIsDerived ? proguardedJar : null,
                 shards,
                 common,
@@ -1066,7 +1066,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           Artifact shard = shards.get(i - 1);
           Artifact shardDex = getDxArtifact(ruleContext, "shard" + i + ".dex.zip");
           shardDexes.add(shardDex);
-          if (incrementalDexing.withDexShards) {
+          if (incrementalDexing.contains(AndroidBinaryType.MULTIDEX_SHARDED)) {
             // If there's a main dex list then the first shard contains exactly those files.
             // To work with devices that lack native multi-dex support we need to make sure that
             // the main dex list becomes one dex file if at all possible.
@@ -1095,7 +1095,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
             .build(ruleContext));
         return new DexingOutput(classesDex, javaResourceJar, shardDexes);
       } else {
-        if (incrementalDexing.withUnshardedMultidex) {
+        if (incrementalDexing.contains(AndroidBinaryType.MULTIDEX_UNSHARDED)) {
           Artifact jarToDex = AndroidBinary.getDxArtifact(ruleContext, "classes.jar");
           Artifact javaResourceJar = createShuffleJarAction(ruleContext, true, (Artifact) null,
               ImmutableList.of(jarToDex), common, attributes, (Artifact) null);
@@ -1120,18 +1120,19 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
     }
   }
 
-  private static IncrementalDexing getEffectiveIncrementalDexing(
+  private static ImmutableSet<AndroidBinaryType> getEffectiveIncrementalDexing(
       RuleContext ruleContext, List<String> dexopts, boolean finalJarIsDerived) {
     if (finalJarIsDerived) {
-      return IncrementalDexing.OFF;
+      return ImmutableSet.of();
     }
-    IncrementalDexing result = AndroidCommon.getAndroidConfig(ruleContext).getIncrementalDexing();
-    if (result != IncrementalDexing.OFF
+    ImmutableSet<AndroidBinaryType> result =
+        AndroidCommon.getAndroidConfig(ruleContext).getIncrementalDexingBinaries();
+    if (!result.isEmpty()
         && Iterables.any(dexopts,
             new FlagMatcher(AndroidCommon
                 .getAndroidConfig(ruleContext)
                 .getTargetDexoptsThatPreventIncrementalDexing()))) {
-      result = IncrementalDexing.OFF;
+      result = ImmutableSet.of();
     }
     return result;
   }

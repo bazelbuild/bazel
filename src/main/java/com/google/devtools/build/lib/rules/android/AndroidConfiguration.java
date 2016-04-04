@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -32,10 +33,14 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute.SplitTransition;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
+import com.google.devtools.common.options.OptionsParsingException;
+
 import java.util.List;
+import java.util.Set;
 
 /**
  * Configuration fragment for Android rules.
@@ -65,7 +70,37 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
    */
   public static final class IncrementalDexingConverter extends EnumConverter<IncrementalDexing> {
     public IncrementalDexingConverter() {
-      super(IncrementalDexing.class, "use incremental dexing");
+      super(IncrementalDexing.class, "incremental dexing option");
+    }
+  }
+
+  /**
+   * Converter for a set of {@link AndroidBinaryType}s.
+   */
+  public static final class AndroidBinaryTypesConverter
+      implements Converter<Set<AndroidBinaryType>> {
+
+    private final EnumConverter<AndroidBinaryType> elementConverter =
+        new EnumConverter<AndroidBinaryType>(AndroidBinaryType.class, "Android binary type") {};
+    private final Splitter splitter = Splitter.on(',').omitEmptyStrings().trimResults();
+
+    public AndroidBinaryTypesConverter() {}
+
+    @Override
+    public ImmutableSet<AndroidBinaryType> convert(String input) throws OptionsParsingException {
+      if ("all".equals(input)) {
+        return ImmutableSet.copyOf(AndroidBinaryType.values());
+      }
+      ImmutableSet.Builder<AndroidBinaryType> result = ImmutableSet.builder();
+      for (String opt : splitter.split(input)) {
+        result.add(elementConverter.convert(opt));
+      }
+      return result.build();
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "comma-separated list of: " + elementConverter.getTypeDescription();
     }
   }
 
@@ -91,23 +126,23 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     }
   }
 
+  /** Types of android binaries as {@link AndroidBinary#dex} distinguishes them. */
+  public enum AndroidBinaryType {
+    MONODEX, MULTIDEX_UNSHARDED, MULTIDEX_SHARDED
+  }
+
   /** When to use incremental dexing (using {@link DexArchiveProvider}). */
-  public enum IncrementalDexing {
-    OFF(false, false, false),
-    WITH_DEX_SHARDS(false, true, false),
-    WITH_MULTIDEX(false, true, true),
-    WITH_MONODEX_OR_DEX_SHARDS(true, true, false),
-    AS_PERMITTED(true, true, true);
+  private enum IncrementalDexing {
+    OFF(),
+    WITH_DEX_SHARDS(AndroidBinaryType.MULTIDEX_SHARDED),
+    WITH_MULTIDEX(AndroidBinaryType.MULTIDEX_UNSHARDED, AndroidBinaryType.MULTIDEX_SHARDED),
+    WITH_MONODEX_OR_DEX_SHARDS(AndroidBinaryType.MONODEX, AndroidBinaryType.MULTIDEX_SHARDED),
+    AS_PERMITTED(AndroidBinaryType.values());
 
-    public final boolean withMonodex;
-    public final boolean withDexShards;
-    public final boolean withUnshardedMultidex;
+    private ImmutableSet<AndroidBinaryType> binaryTypes;
 
-    private IncrementalDexing(
-        boolean withMonodex, boolean withDexShards, boolean withUnshardedMultidex) {
-      this.withMonodex = withMonodex;
-      this.withDexShards = withDexShards;
-      this.withUnshardedMultidex = withUnshardedMultidex;
+    private IncrementalDexing(AndroidBinaryType... binaryTypes) {
+      this.binaryTypes = ImmutableSet.copyOf(binaryTypes);
     }
   }
 
@@ -200,21 +235,38 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
         help = "Enables sanity checks for Jack and Jill compilation.")
     public boolean jackSanityChecks;
 
-    // Do not use on the command line.
-    // The idea is that once this option works, we'll flip the default value in a config file, then
-    // once it is proven that it works, remove it from Bazel and said config file.
     @Option(name = "experimental_incremental_dexing",
         defaultValue = "off",
         category = "undocumented",
         converter = IncrementalDexingConverter.class,
+        deprecationWarning = "Use --incremental_dexing instead to turn on incremental dexing.",
         help = "Does most of the work for dexing separately for each Jar file.  Incompatible with "
             + "Jack and Jill.")
     public IncrementalDexing dexingStrategy;
 
+    @Option(name = "incremental_dexing",
+        defaultValue = "false",
+        category = "semantics",
+        implicitRequirements = "--noexperimental_android_use_jack_for_dexing",
+        help = "Does most of the work for dexing separately for each Jar file.  Incompatible with "
+            + "Jack and Jill.")
+    public boolean incrementalDexing;
+
+    // Do not use on the command line.
+    // The idea is that this option lets us gradually turn on incremental dexing for different
+    // binaries.  Users should rely on --noincremental_dexing to turn it off.
+    @Option(name = "incremental_dexing_binary_types",
+        defaultValue = "multidex_sharded",
+        category = "undocumented",
+        converter = AndroidBinaryTypesConverter.class,
+        implicitRequirements = "--incremental_dexing",
+        help = "Kinds of binaries to incrementally dex if --incremental_dexing is true.")
+    public Set<AndroidBinaryType> incrementalDexingBinaries;
+
     @Option(name = "non_incremental_per_target_dexopts",
         converter = Converters.CommaSeparatedOptionListConverter.class,
         defaultValue = "--no-locals",
-        category = "undocumented",
+        category = "semantics",
         help = "dx flags that that prevent incremental dexing for binary targets that list any of "
             + "the flags listed here in their 'dexopts' attribute, which are ignored with "
             + "incremental dexing.  Defaults to --no-locals for safety but can in general be used "
@@ -292,7 +344,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final boolean useJackForDexing;
   private final boolean jackSanityChecks;
-  private final IncrementalDexing dexingStrategy;
+  private final ImmutableSet<AndroidBinaryType> incrementalDexingBinaries;
   private final ImmutableList<String> targetDexoptsThatPreventIncrementalDexing;
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
   private final boolean useAndroidResourceShrinking;
@@ -307,7 +359,11 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.useJackForDexing = options.useJackForDexing;
     this.jackSanityChecks = options.jackSanityChecks;
-    this.dexingStrategy = options.dexingStrategy;
+    if (options.incrementalDexing) {
+      this.incrementalDexingBinaries = ImmutableSet.copyOf(options.incrementalDexingBinaries);
+    } else {
+      this.incrementalDexingBinaries = options.dexingStrategy.binaryTypes;
+    }
     this.targetDexoptsThatPreventIncrementalDexing =
         ImmutableList.copyOf(options.nonIncrementalPerTargetDexopts);
     this.allowAndroidLibraryDepsWithoutSrcs = options.allowAndroidLibraryDepsWithoutSrcs;
@@ -357,8 +413,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
    * Returns when to use incremental dexing using {@link DexArchiveProvider}.  Note this is disabled
    * if {@link #isJackUsedForDexing()}.
    */
-  public IncrementalDexing getIncrementalDexing() {
-    return isJackUsedForDexing() ? IncrementalDexing.OFF : dexingStrategy;
+  public ImmutableSet<AndroidBinaryType> getIncrementalDexingBinaries() {
+    return isJackUsedForDexing() ? ImmutableSet.<AndroidBinaryType>of() : incrementalDexingBinaries;
   }
 
   /**
