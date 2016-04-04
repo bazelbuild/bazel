@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.util.io.StreamMultiplexer;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -248,14 +249,12 @@ public final class RPCServer {
               return;
             }
           }
+        } catch (EOFException e) {
+          LOG.info("Connection to the client lost: "
+                         + e.getMessage());
         } catch (IOException e) {
-          if (e.getMessage().equals("reached end of stream")) {
-            LOG.info("Connection to the client lost: "
-                           + e.getMessage());
-          } else {
-            // Other cases: print the stack for debugging.
-            printStack(e);
-          }
+          // Something else happened. Print a stack trace for debugging.
+          printStack(e);
         }
       }
     } finally {
