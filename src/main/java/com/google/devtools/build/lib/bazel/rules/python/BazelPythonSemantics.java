@@ -110,7 +110,8 @@ public class BazelPythonSemantics implements PythonSemantics {
         ImmutableList.of(
             Substitution.of("%main%", main),
             Substitution.of("%python_binary%", pythonBinary),
-            Substitution.of("%imports%", Joiner.on(":").join(imports))),
+            Substitution.of("%imports%", Joiner.on(":").join(imports)),
+            Substitution.of("%workspace_name%", ruleContext.getWorkspaceName())),
         true));
   }
 

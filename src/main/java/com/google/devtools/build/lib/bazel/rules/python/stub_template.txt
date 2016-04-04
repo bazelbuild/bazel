@@ -66,9 +66,14 @@ def Main():
                          sys.argv[0])
 
   python_imports = '%imports%'
-  python_path_entries = CreatePythonPathEntries(python_imports, module_space)
+  module_space_with_workspace_name = module_space
+  if '%workspace_name%' != '':
+    module_space_with_workspace_name = os.path.join(module_space, '%workspace_name%')
 
-  external_dir = os.path.join(module_space, 'external')
+  python_path_entries = CreatePythonPathEntries(
+    python_imports, module_space_with_workspace_name)
+
+  external_dir = os.path.join(module_space_with_workspace_name, 'external')
   if os.path.isdir(external_dir):
     external_entries = [os.path.join(external_dir, d) for d in os.listdir(external_dir)]
     repositories = [d for d in external_entries if os.path.isdir(d)]
