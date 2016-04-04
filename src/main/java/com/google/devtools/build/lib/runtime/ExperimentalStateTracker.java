@@ -37,6 +37,7 @@ import java.util.TreeMap;
 class ExperimentalStateTracker {
 
   static final int SAMPLE_SIZE = 3;
+  static final long SHOW_TIME_THRESHOLD_SECONDS = 3;
 
   private String status;
   private String additionalMessage;
@@ -47,6 +48,7 @@ class ExperimentalStateTracker {
   // output as unique identifier.
   private final Deque<String> runningActions;
   private final Map<String, Action> actions;
+  private final Map<String, Long> actionNanoStartTimes;
 
   private int actionsCompleted;
   private boolean ok;
@@ -56,6 +58,7 @@ class ExperimentalStateTracker {
   ExperimentalStateTracker(Clock clock) {
     this.runningActions = new ArrayDeque<>();
     this.actions = new TreeMap<>();
+    this.actionNanoStartTimes = new TreeMap<>();
     this.ok = true;
     this.clock = clock;
   }
@@ -93,8 +96,10 @@ class ExperimentalStateTracker {
   synchronized void actionStarted(ActionStartedEvent event) {
     Action action = event.getAction();
     String name = action.getPrimaryOutput().getPath().getPathString();
+    Long nanoStartTime = event.getNanoTimeStart();
     runningActions.addLast(name);
     actions.put(name, action);
+    actionNanoStartTimes.put(name, nanoStartTime);
   }
 
   synchronized void actionCompletion(ActionCompletionEvent event) {
@@ -103,6 +108,7 @@ class ExperimentalStateTracker {
     String name = action.getPrimaryOutput().getPath().getPathString();
     runningActions.remove(name);
     actions.remove(name);
+    actionNanoStartTimes.remove(name);
 
     // As callers to the experimental state tracker assume we will fully report the new state once
     // informed of an action completion, we need to make sure the progress receiver is aware of the
@@ -112,20 +118,26 @@ class ExperimentalStateTracker {
     }
   }
 
-  private String describeAction(String name) {
+  private String describeAction(String name, long nanoTime) {
     Action action = actions.get(name);
     String message = action.getProgressMessage();
-    if (message != null) {
-      return message;
+    if (message == null) {
+      message = action.prettyPrint();
     }
-    return action.prettyPrint();
+    long nanoRuntime = nanoTime - actionNanoStartTimes.get(name);
+    long runtimeSeconds = nanoRuntime / 1000000000;
+    if (runtimeSeconds > SHOW_TIME_THRESHOLD_SECONDS) {
+      message = message + " " + runtimeSeconds + "s";
+    }
+    return message;
   }
 
   private void sampleOldestActions(AnsiTerminalWriter terminalWriter) throws IOException {
     int count = 0;
+    long nanoTime = clock.nanoTime();
     for (String action : runningActions) {
       count++;
-      terminalWriter.newline().append("    " + describeAction(action));
+      terminalWriter.newline().append("    " + describeAction(action, nanoTime));
       if (count >= SAMPLE_SIZE) {
         break;
       }
@@ -151,7 +163,7 @@ class ExperimentalStateTracker {
       terminalWriter.okStatus().append("Building:");
     }
     if (runningActions.size() == 1) {
-      String statusMessage = describeAction(runningActions.peekFirst());
+      String statusMessage = describeAction(runningActions.peekFirst(), clock.nanoTime());
       terminalWriter.normal().append(" " + statusMessage);
     } else {
       String statusMessage = " " + runningActions.size() + " actions running";

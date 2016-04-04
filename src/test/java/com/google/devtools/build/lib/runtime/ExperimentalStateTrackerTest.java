@@ -34,6 +34,7 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Tests {@link ExperimentalStateTrackerTest}
@@ -162,4 +163,31 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
         "Longest running action '" + messageOld + "' should be visible in output: " + output,
         output.contains(messageOld));
   }
+
+  @Test
+  public void testTimesShown() throws IOException {
+    // For sufficiently long running actions, the time that has passed since their start is shown.
+
+    ManualClock clock = new ManualClock();
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(123));
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(2));
+
+    stateTracker.actionStarted(
+        new ActionStartedEvent(mockAction("First action", "foo"), clock.nanoTime()));
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(7));
+    stateTracker.actionStarted(
+        new ActionStartedEvent(mockAction("Second action", "bar"), clock.nanoTime()));
+    clock.advanceMillis(TimeUnit.SECONDS.toMillis(20));
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter();
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getWritten();
+
+    assertTrue(
+        "Runtime of first action should be visible in output: " + output, output.contains("27s"));
+    assertTrue(
+        "Runtime of second action should be visible in output: " + output, output.contains("20s"));
+  }
+
 }
