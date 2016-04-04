@@ -230,7 +230,9 @@ public class BazelRuleClassProvider {
    * Java objects accessible from Skylark rule implementations using this module.
    */
   public static final ImmutableMap<String, SkylarkType> skylarkBuiltinJavaObects =
-      ImmutableMap.of("android_common", SkylarkType.of(AndroidSkylarkCommon.class));
+      ImmutableMap.of(
+          "android_common", SkylarkType.of(AndroidSkylarkCommon.class),
+          "apple_toolchain", SkylarkType.of(AppleToolchain.class));
 
 
   public static void setup(ConfiguredRuleClassProvider.Builder builder) {

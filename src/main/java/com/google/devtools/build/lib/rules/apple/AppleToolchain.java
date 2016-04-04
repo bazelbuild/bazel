@@ -32,17 +32,23 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBuildSetting;
 
 /**
  * Utility class for resolving items for the Apple toolchain (such as common tool flags, and paths).
  */
+@SkylarkModule(
+  name = "apple_toolchain",
+  doc = "Utilities for resolving items from the Apple toolchain."
+)
 public class AppleToolchain {
   // These next two strings are shared secrets with the xcrunwrapper.sh to allow
   // expansion of DeveloperDir and SDKRoot and runtime, since they aren't known
   // until compile time on any given build machine.
-  private static final String DEVELOPER_DIR = "__BAZEL_XCODE_DEVELOPER_DIR__";
-  private static final String SDKROOT_DIR = "__BAZEL_XCODE_SDKROOT__";
+  @VisibleForTesting public static final String DEVELOPER_DIR = "__BAZEL_XCODE_DEVELOPER_DIR__";
+  @VisibleForTesting public static final String SDKROOT_DIR = "__BAZEL_XCODE_SDKROOT__";
   
   // These two paths are framework paths relative to SDKROOT.
   @VisibleForTesting
@@ -95,6 +101,12 @@ public class AppleToolchain {
   /**
    * Returns the platform directory inside of Xcode for a given platform name (e.g. iphoneos).
    */
+  @SkylarkCallable(
+    name = "platform_dir",
+    doc =
+        "Returns a placeholder for the platform directory inside of Xcode for a given platform "
+            + " name (e.g. iphoneos).  This placeholder is resolved by xcrunwrapper."
+  )
   public static String platformDir(String platformName) {
     return DEVELOPER_DIR + "/Platforms/" + platformName + ".platform";
   }
@@ -102,6 +114,10 @@ public class AppleToolchain {
   /**
    * Returns the platform directory inside of Xcode for a given configuration.
    */
+  @SkylarkCallable(
+    name = "sdk_dir",
+    doc = "Returns the platform directory inside of Xcode for a given configuration."
+  )
   public static String sdkDir() {
     return SDKROOT_DIR;
   }
