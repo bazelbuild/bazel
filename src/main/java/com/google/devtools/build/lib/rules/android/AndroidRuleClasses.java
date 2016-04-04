@@ -281,6 +281,7 @@ public final class AndroidRuleClasses {
 
           if (hasProguardSpecs) {
             functions.add(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_JAR);
+            functions.add(JavaSemantics.JAVA_BINARY_PROGUARD_CONFIG);
             if (mapping) {
               functions.add(JavaSemantics.JAVA_BINARY_PROGUARD_MAP);
             }

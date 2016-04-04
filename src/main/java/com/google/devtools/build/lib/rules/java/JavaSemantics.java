@@ -70,6 +70,8 @@ public interface JavaSemantics {
       fromTemplates("%{name}_deploy.jar.unstripped");
   SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_MAP =
       fromTemplates("%{name}_proguard.map");
+  SafeImplicitOutputsFunction JAVA_BINARY_PROGUARD_CONFIG =
+      fromTemplates("%{name}_proguard.config");
 
   SafeImplicitOutputsFunction JAVA_BINARY_DEPLOY_SOURCE_JAR =
       fromTemplates("%{name}_deploy-src.jar");
