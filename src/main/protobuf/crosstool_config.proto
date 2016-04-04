@@ -170,21 +170,21 @@ message CToolchain {
     // If 'requires' is omitted, the feature is supported independently of which
     // other features are enabled.
     //
-    // Use this for example to filter flags depending on the build mode enabled
-    // (opt / fastbuild / dbg).
+    // Use this for example to filter flags depending on the build mode
+    // enabled (opt / fastbuild / dbg).
     repeated FeatureSet requires = 3;
 
-    // A list of features that are automatically enabled when this feature is
-    // enabled. If any of the implied features cannot be enabled, this feature
-    // will (silently) not be enabled either.
+    // A list of features or action configs that are automatically enabled when
+    // this feature is enabled. If any of the implied features or action configs
+    // cannot be enabled, this feature will (silently) not be enabled either.
     repeated string implies = 4;
 
     // A list of names this feature conflicts with.
     // A feature cannot be enabled if:
-    // - 'provides' contains the name of a different feature that we want to
-    //   enable.
+    // - 'provides' contains the name of a different feature or action config
+    //  that we want to enable.
     // - 'provides' contains the same value as a 'provides' in a different
-    //   feature that we want to enable.
+    //   feature or action config that we want to enable.
     //
     // Use this in order to ensure that incompatible features cannot be
     // accidentally activated at the same time, leading to hard to diagnose
@@ -192,7 +192,75 @@ message CToolchain {
     repeated string provides = 5;
   }
 
+  // Describes a tool associated with a crosstool action config.
+  message Tool {
+    // Path to the tool, relative to the location of the crosstool.
+    required string tool_path = 1;
+
+    // A feature set defining when this tool is applicable.  If this attribute
+    // is left out, the Tool will be assumed to apply for any feature
+    // configuration.
+    optional FeatureSet with_feature = 2;
+
+    // Requirements on the execution environment for the execution of this tool,
+    // to be passed as out-of-band "hints" to the execution backend.
+    // Ex. "requires-darwin"
+    repeated string execution_requirement = 3;
+  }
+
+  // An action config corresponds to a blaze action, and allows selection of
+  // a tool based on activated features.  Action configs come in two varieties:
+  // automatic (the blaze action will exist whether or not the action config
+  // is activated) and attachable (the blaze action will be added to the
+  // action graph only if the action config is activated).
+  //
+  // Action config activation occurs by the same semantics as features: a
+  // feature can 'require' or 'imply' an action config in the same way that it
+  // would another feature.
+  message ActionConfig {
+    // The name other features will use to activate this action config.  Can
+    // be the same as action_name.
+    required string config_name = 1;
+
+    // The name of the blaze action that this config applies to, ex. 'c-compile'
+    // or 'c-module-compile'.
+    required string action_name = 2;
+
+    // The tool applied to the action will be the first Tool with a feature
+    // set that matches the feature configuration.  An error will be thrown
+    // if no tool matches a provided feature configuration - for that reason,
+    // it's a good idea to provide a default tool with an empty feature set.
+    repeated Tool tool = 3;
+
+    // If the given action config is enabled, the flag sets will be applied
+    // to the corresponding action.
+    repeated FlagSet flag_set = 4;
+
+    // If the given action config is enabled, the env sets will be applied
+    // to the corresponding action.
+    repeated EnvSet env_set = 5;
+
+    // A list of feature sets defining when this action config
+    // is supported by the toolchain. The action config is supported if any of
+    // the feature sets fully apply, that is, when all features of a
+    // feature set are enabled.
+    //
+    // If 'requires' is omitted, the action config is supported independently
+    // of which other features are enabled.
+    //
+    // Use this for example to filter actions depending on the build
+    // mode enabled (opt / fastbuild / dbg).
+    repeated FeatureSet requires = 6;
+
+    // A list of features or action configs that are automatically enabled when
+    // this action config is enabled. If any of the implied features or action
+    // configs cannot be enabled, this action config will (silently)
+    // not be enabled either.
+    repeated string implies = 7;
+  }
+
   repeated Feature feature = 50;
+  repeated ActionConfig action_config = 53;
 
   // The unique identifier of the toolchain within the crosstool release. It
   // must be possible to use this as a directory name in a path.
@@ -211,6 +279,9 @@ message CToolchain {
 
   // Tool locations. Relative paths are resolved relative to the configuration
   // file directory.
+  // NOTE: DEPRECATED. Prefer specifying an ActionConfig for the action that
+  // needs the tool.
+  // TODO(b/27903698) migrate to ActionConfig.
   repeated ToolPath tool_path = 9;
 
   // Feature flags.
@@ -333,7 +404,7 @@ message CToolchain {
   // why they are recorded here.
   repeated string debian_extra_requires = 33;
 
-  // Next free id: 53
+  // Next free id: 54
 }
 
 message ToolPath {
