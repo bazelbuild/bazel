@@ -73,7 +73,7 @@ public interface IncludeScannable {
    * does not mention it.
    */
   @Nullable
-  Artifact getBuiltInIncludeFile();
+  List<Artifact> getBuiltInIncludeFiles();
 
   /**
    * Returns the artifact relative to which the {@code getCmdlineIncludes()} should be interpreted. 

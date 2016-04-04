@@ -29,8 +29,6 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MutableClassToInstanceMap;
-import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -179,8 +177,7 @@ public final class BuildConfiguration {
      * <p>Do not use this method to change your fragment's state.
      */
     @SuppressWarnings("unused")
-    public void prepareHook(Path execPath, ArtifactFactory artifactFactory,
-        PackageRootResolver resolver) throws ViewCreationFailedException {
+    public void prepareHook(Path execPath) throws ViewCreationFailedException {
     }
 
     /**
@@ -2341,10 +2338,9 @@ public final class BuildConfiguration {
    * <p>C++ also requires this to resolve artifacts that are unconditionally included in every
    * compilation.</p>
    */
-  public void prepareToBuild(Path execRoot, ArtifactFactory artifactFactory,
-      PackageRootResolver resolver) throws ViewCreationFailedException {
+  public void prepareToBuild(Path execRoot) throws ViewCreationFailedException {
     for (Fragment fragment : fragments.values()) {
-      fragment.prepareHook(execRoot, artifactFactory, resolver);
+      fragment.prepareHook(execRoot);
     }
   }
 

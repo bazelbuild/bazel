@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Actions;
@@ -48,6 +49,11 @@ import java.util.Map;
  * Implementation for the cc_toolchain rule.
  */
 public class CcToolchain implements RuleConfiguredTargetFactory {
+  /**
+   * This file (found under the sysroot) may be unconditionally included in every C/C++ compilation.
+   */
+  private static final PathFragment BUILTIN_INCLUDE_FILE_SUFFIX =
+      new PathFragment("include/stdc-predef.h");
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) {
@@ -60,7 +66,7 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     final NestedSet<Artifact> objcopy = getFiles(ruleContext, "objcopy_files");
     final NestedSet<Artifact> link = getFiles(ruleContext, "linker_files");
     final NestedSet<Artifact> dwp = getFiles(ruleContext, "dwp_files");
-    final NestedSet<Artifact> libcLink = inputsForLibcLink(ruleContext);
+    final NestedSet<Artifact> libcLink = inputsForLibc(ruleContext);
     String purposePrefix = Actions.escapeLabel(label) + "_";
     String runtimeSolibDirBase = "_solib_" + "_" + Actions.escapeLabel(label);
     final PathFragment runtimeSolibDir = ruleContext.getConfiguration()
@@ -143,7 +149,6 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     boolean supportsParamFiles = ruleContext.attributes().get("supports_param_files", BOOLEAN);
     boolean supportsHeaderParsing =
         ruleContext.attributes().get("supports_header_parsing", BOOLEAN);
-
     CcToolchainProvider provider =
         new CcToolchainProvider(
             Preconditions.checkNotNull(ruleContext.getFragment(CppConfiguration.class)),
@@ -163,7 +168,8 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
             context,
             supportsParamFiles,
             supportsHeaderParsing,
-            getBuildVariables(ruleContext));
+            getBuildVariables(ruleContext),
+            getBuiltinIncludes(ruleContext));
     RuleConfiguredTargetBuilder builder =
         new RuleConfiguredTargetBuilder(ruleContext)
             .add(CcToolchainProvider.class, provider)
@@ -192,10 +198,21 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
     return builder.build();
   }
 
-  private NestedSet<Artifact> inputsForLibcLink(RuleContext ruleContext) {
-    TransitiveInfoCollection libcLink = ruleContext.getPrerequisite(":libc_link", Mode.HOST);
-    return libcLink != null
-        ? libcLink.getProvider(FileProvider.class).getFilesToBuild()
+  private ImmutableList<Artifact> getBuiltinIncludes(RuleContext ruleContext) {
+    ImmutableList.Builder<Artifact> result = ImmutableList.builder();
+    for (Artifact artifact : inputsForLibc(ruleContext)) {
+      if (artifact.getExecPath().endsWith(BUILTIN_INCLUDE_FILE_SUFFIX)) {
+        result.add(artifact);
+      }
+    }
+
+    return result.build();
+  }
+
+  private NestedSet<Artifact> inputsForLibc(RuleContext ruleContext) {
+    TransitiveInfoCollection libc = ruleContext.getPrerequisite(":libc_top", Mode.HOST);
+    return libc != null
+        ? libc.getProvider(FileProvider.class).getFilesToBuild()
         : NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER);
   }
 
@@ -203,17 +220,14 @@ public class CcToolchain implements RuleConfiguredTargetFactory {
       NestedSet<Artifact> crosstoolMiddleman) {
     return NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(crosstoolMiddleman)
-        // Use "libc_link" here, because it is functionally identical to the case
-        // below. If we introduce separate filegroups for compiling and linking, we
-        // need to fix that here.
-        .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_link"))
+        .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_top"))
         .build();
   }
 
   private NestedSet<Artifact> fullInputsForLink(RuleContext ruleContext, NestedSet<Artifact> link) {
     return NestedSetBuilder.<Artifact>stableOrder()
         .addTransitive(link)
-        .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_link"))
+        .addTransitive(AnalysisUtils.getMiddlemanFor(ruleContext, ":libc_top"))
         .add(ruleContext.getAnalysisEnvironment().getEmbeddedToolArtifact(
             CppRuleClasses.BUILD_INTERFACE_SO))
         .build();

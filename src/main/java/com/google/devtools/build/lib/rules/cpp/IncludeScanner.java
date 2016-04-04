@@ -106,10 +106,7 @@ public interface IncludeScanner {
       Set<Artifact> includes = Sets.newConcurrentHashSet();
 
       final List<PathFragment> absoluteBuiltInIncludeDirs = new ArrayList<>();
-      Artifact builtInInclude = action.getBuiltInIncludeFile();
-      if (builtInInclude != null) {
-        includes.add(builtInInclude);
-      }
+      includes.addAll(action.getBuiltInIncludeFiles());
 
       Profiler profiler = Profiler.instance();
       try {

@@ -47,7 +47,7 @@ public final class CcToolchainRule implements RuleDefinition {
     return ruleClass.endsWith("cc_toolchain");
   }
 
-  private static final LateBoundLabel<BuildConfiguration> LIBC_LINK =
+  private static final LateBoundLabel<BuildConfiguration> LIBC_TOP =
       new LateBoundLabel<BuildConfiguration>(CppConfiguration.class) {
         @Override
         public Label getDefault(
@@ -75,7 +75,7 @@ public final class CcToolchainRule implements RuleDefinition {
         .add(attr("supports_param_files", BOOLEAN).value(true))
         .add(attr("supports_header_parsing", BOOLEAN).value(false))
         // TODO(bazel-team): Should be using the TARGET configuration.
-        .add(attr(":libc_link", LABEL).cfg(HOST).value(LIBC_LINK))
+        .add(attr(":libc_top", LABEL).cfg(HOST).value(LIBC_TOP))
         .build();
   }
 

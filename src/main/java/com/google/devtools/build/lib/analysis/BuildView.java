@@ -32,7 +32,6 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
-import com.google.devtools.build.lib.actions.PackageRootResolver;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider.ExtraArtifactSet;
 import com.google.devtools.build.lib.analysis.config.BinTools;
@@ -404,10 +403,10 @@ public class BuildView {
         });
   }
 
-  private void prepareToBuild(BuildConfigurationCollection configurations,
-      PackageRootResolver resolver) throws ViewCreationFailedException {
+  private void prepareToBuild(BuildConfigurationCollection configurations)
+      throws ViewCreationFailedException {
     for (BuildConfiguration config : configurations.getAllConfigurations()) {
-      config.prepareToBuild(directories.getExecRoot(), getArtifactFactory(), resolver);
+      config.prepareToBuild(directories.getExecRoot());
     }
   }
 
@@ -485,7 +484,7 @@ public class BuildView {
       }
     }
 
-    prepareToBuild(configurations, new SkyframePackageRootResolver(skyframeExecutor, eventHandler));
+    prepareToBuild(configurations);
     skyframeExecutor.injectWorkspaceStatusData();
     SkyframeAnalysisResult skyframeAnalysisResult;
     try {

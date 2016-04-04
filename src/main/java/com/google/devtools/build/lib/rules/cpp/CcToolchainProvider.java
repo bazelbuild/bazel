@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
@@ -55,7 +56,8 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
           CppCompilationContext.EMPTY,
           false,
           false,
-          ImmutableMap.<String, String>of());
+          ImmutableMap.<String, String>of(),
+          ImmutableList.<Artifact>of());
 
   @Nullable private final CppConfiguration cppConfiguration;
   private final NestedSet<Artifact> crosstool;
@@ -75,6 +77,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
   private final boolean supportsParamFiles;
   private final boolean supportsHeaderParsing;
   private final Map<String, String> buildVariables;
+  private final ImmutableList<Artifact> builtinIncludeFiles;
 
   public CcToolchainProvider(
       @Nullable CppConfiguration cppConfiguration,
@@ -94,7 +97,8 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
       CppCompilationContext cppCompilationContext,
       boolean supportsParamFiles,
       boolean supportsHeaderParsing,
-      Map<String, String> buildVariables) {
+      Map<String, String> buildVariables,
+      ImmutableList<Artifact> builtinIncludeFiles) {
     this.cppConfiguration = cppConfiguration;
     this.crosstool = Preconditions.checkNotNull(crosstool);
     this.crosstoolMiddleman = Preconditions.checkNotNull(crosstoolMiddleman);
@@ -113,6 +117,7 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
     this.supportsParamFiles = supportsParamFiles;
     this.supportsHeaderParsing = supportsHeaderParsing;
     this.buildVariables = buildVariables;
+    this.builtinIncludeFiles = builtinIncludeFiles;
   }
 
   /**
@@ -242,5 +247,13 @@ public final class CcToolchainProvider implements TransitiveInfoProvider {
    */
   public Map<String, String> getBuildVariables() {
     return buildVariables;
+  }
+
+  /**
+   * Return the set of include files that may be included even if they are not mentioned in the
+   * source file or any of the headers included by it.
+   */
+  public ImmutableList<Artifact> getBuiltinIncludeFiles() {
+    return builtinIncludeFiles;
   }
 }
