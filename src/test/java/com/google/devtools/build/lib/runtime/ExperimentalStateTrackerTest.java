@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -94,8 +95,10 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     // somewhere in the progress bar.
 
     String message = "Building foo";
+    ManualClock clock = new ManualClock();
+    clock.advanceMillis(120000);
 
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker();
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
     stateTracker.actionStarted(new ActionStartedEvent(mockAction(message, "bar/foo"), 123456789));
     LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter();
     stateTracker.writeProgressBar(terminalWriter);
@@ -113,9 +116,11 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     String messageFast = "Running quick action";
     String messageSlow = "Running slow action";
 
+    ManualClock clock = new ManualClock();
+    clock.advanceMillis(120000);
     Action fastAction = mockAction(messageFast, "foo/fast");
     Action slowAction = mockAction(messageSlow, "bar/slow");
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker();
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
     stateTracker.actionStarted(new ActionStartedEvent(fastAction, 123456789));
     stateTracker.actionStarted(new ActionStartedEvent(slowAction, 123456999));
     stateTracker.actionCompletion(new ActionCompletionEvent(20, fastAction));
@@ -138,7 +143,9 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
 
     String messageOld = "Running the first-started action";
 
-    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker();
+    ManualClock clock = new ManualClock();
+    clock.advanceMillis(120000);
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
     stateTracker.actionStarted(
         new ActionStartedEvent(mockAction(messageOld, "bar/foo"), 123456789));
     for (int i = 0; i < 30; i++) {

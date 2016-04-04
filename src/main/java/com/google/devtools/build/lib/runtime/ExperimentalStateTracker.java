@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
+import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 
 import java.io.IOException;
@@ -40,6 +41,8 @@ class ExperimentalStateTracker {
   private String status;
   private String additionalMessage;
 
+  private final Clock clock;
+
   // currently running actions, using the path of the primary
   // output as unique identifier.
   private final Deque<String> runningActions;
@@ -50,10 +53,11 @@ class ExperimentalStateTracker {
 
   private ExecutionProgressReceiver executionProgressReceiver;
 
-  ExperimentalStateTracker() {
+  ExperimentalStateTracker(Clock clock) {
     this.runningActions = new ArrayDeque<>();
     this.actions = new TreeMap<>();
     this.ok = true;
+    this.clock = clock;
   }
 
   void buildStarted(BuildStartingEvent event) {
