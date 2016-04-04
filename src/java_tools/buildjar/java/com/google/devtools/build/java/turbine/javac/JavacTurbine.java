@@ -15,6 +15,7 @@
 package com.google.devtools.build.java.turbine.javac;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -339,6 +340,10 @@ public class JavacTurbine implements AutoCloseable {
   static void filterJavacopts(
       ImmutableList.Builder<String> javacArgs, Iterable<String> defaultJavacopts) {
     for (String opt : defaultJavacopts) {
+
+      // TODO(cushon): temporary hack until 4149f08bcc8bd1318d4021cf372ec89240ee3dbb is released
+      opt = CharMatcher.is('\'').trimFrom(opt);
+
       if (isErrorProneFlag(opt)) {
         // drop Error Prone's fake javacopts
         continue;
