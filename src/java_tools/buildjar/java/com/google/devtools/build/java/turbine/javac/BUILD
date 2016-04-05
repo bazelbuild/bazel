@@ -65,6 +65,7 @@ java_library(
     name = "javac_turbine_java_compiler",
     srcs = ["JavacTurbineJavaCompiler.java"],
     deps = [
+        ":javac_turbine_compile_request",
         ":tree_pruner",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/javac/plugins:dependency",
         "//third_party:jsr305",

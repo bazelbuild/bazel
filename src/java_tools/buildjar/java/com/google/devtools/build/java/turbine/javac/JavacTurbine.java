@@ -24,6 +24,7 @@ import com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyMod
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
 import com.google.devtools.build.java.turbine.TurbineOptions;
 import com.google.devtools.build.java.turbine.TurbineOptionsParser;
+import com.google.devtools.build.java.turbine.javac.JavacTurbineCompileRequest.Prune;
 import com.google.devtools.build.java.turbine.javac.ZipOutputFileManager.OutputFileObject;
 
 import com.sun.tools.javac.util.Context;
@@ -78,7 +79,7 @@ public class JavacTurbine implements AutoCloseable {
   }
 
   /** A header compilation result. */
-  enum Result {
+  public enum Result {
     /** The compilation succeeded with the reduced classpath optimization. */
     OK_WITH_REDUCED_CLASSPATH(true),
 
@@ -94,11 +95,11 @@ public class JavacTurbine implements AutoCloseable {
       this.ok = ok;
     }
 
-    boolean ok() {
+    public boolean ok() {
       return ok;
     }
 
-    int exitCode() {
+    public int exitCode() {
       return ok ? 0 : 1;
     }
   }
@@ -155,6 +156,11 @@ public class JavacTurbine implements AutoCloseable {
             .setJavacOptions(argbuilder.build())
             .setBootClassPath(asPaths(turbineOptions.bootClassPath()))
             .setProcessorClassPath(processorpath);
+
+    if (!Collections.disjoint(
+        turbineOptions.processors(), turbineOptions.blacklistedProcessors())) {
+      requestBuilder.setPrune(Prune.NO);
+    }
 
     StrictJavaDeps strictDepsMode = StrictJavaDeps.valueOf(turbineOptions.strictDepsMode());
 

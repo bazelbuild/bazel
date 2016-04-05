@@ -15,6 +15,7 @@
 package com.google.devtools.build.java.turbine.javac;
 
 import com.google.devtools.build.buildjar.javac.plugins.dependency.StrictJavaDepsPlugin;
+import com.google.devtools.build.java.turbine.javac.JavacTurbineCompileRequest.Prune;
 
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.CompileStates.CompileState;
@@ -38,15 +39,21 @@ import javax.tools.JavaFileObject;
 class JavacTurbineJavaCompiler extends JavaCompiler implements AutoCloseable {
 
   @Nullable private final StrictJavaDepsPlugin strictJavaDeps;
+  private final boolean prune;
 
-  public JavacTurbineJavaCompiler(Context context, @Nullable StrictJavaDepsPlugin strictJavaDeps) {
+  public JavacTurbineJavaCompiler(
+      Context context, @Nullable StrictJavaDepsPlugin strictJavaDeps, Prune prune) {
     super(context);
     this.strictJavaDeps = strictJavaDeps;
+    this.prune = prune == Prune.YES;
   }
 
   @Override
   protected JCCompilationUnit parse(JavaFileObject javaFileObject, CharSequence charSequence) {
     JCCompilationUnit result = super.parse(javaFileObject, charSequence);
+    if (!prune) {
+      return result;
+    }
     TreePruner.prune(result);
     return result;
   }
@@ -65,6 +72,10 @@ class JavacTurbineJavaCompiler extends JavaCompiler implements AutoCloseable {
 
   @Override
   protected void flow(Env<AttrContext> env, Queue<Env<AttrContext>> results) {
+    if (!prune) {
+      super.flow(env, results);
+      return;
+    }
     // skip FLOW (as if -relax was enabled, except -relax is broken for JDK >= 8)
     if (!compileStates.isDone(env, CompileState.FLOW)) {
       compileStates.put(env, CompileState.FLOW);
@@ -83,13 +94,14 @@ class JavacTurbineJavaCompiler extends JavaCompiler implements AutoCloseable {
    * Override the default {@link JavaCompiler} implementation with {@link JavacTurbineJavaCompiler}
    * for the given compilation context.
    */
-  public static void preRegister(Context context, @Nullable final StrictJavaDepsPlugin sjd) {
+  public static void preRegister(
+      Context context, @Nullable final StrictJavaDepsPlugin sjd, final Prune prune) {
     context.put(
         compilerKey,
         new Context.Factory<JavaCompiler>() {
           @Override
           public JavaCompiler make(Context c) {
-            return new JavacTurbineJavaCompiler(c, sjd);
+            return new JavacTurbineJavaCompiler(c, sjd, prune);
           }
         });
   }

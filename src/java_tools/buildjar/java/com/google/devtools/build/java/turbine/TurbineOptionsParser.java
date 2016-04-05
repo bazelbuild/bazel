@@ -33,15 +33,24 @@ import javax.annotation.Nullable;
 public class TurbineOptionsParser {
 
   /**
-   * Parses a list of command-line options into a {@link TurbineOptions}, expanding any
-   * {@code @params} files.
+   * Parses command line options into {@link TurbineOptions}, expanding any {@code @params}
+   * files.
    */
   public static TurbineOptions parse(Iterable<String> args) throws IOException {
+    TurbineOptions.Builder builder = TurbineOptions.builder();
+    parse(builder, args);
+    return builder.build();
+  }
+
+  /**
+   * Parses command line options into a {@link TurbineOptions.Builder}, expanding any
+   * {@code @params} files.
+   */
+  public static void parse(TurbineOptions.Builder builder, Iterable<String> args)
+      throws IOException {
     Deque<String> argumentDeque = new ArrayDeque<>();
     expandParamsFiles(argumentDeque, args);
-    TurbineOptions.Builder builder = TurbineOptions.builder();
     parse(builder, argumentDeque);
-    return builder.build();
   }
 
   private static final Splitter ARG_SPLITTER =
