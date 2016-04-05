@@ -483,6 +483,8 @@ public final class BuildConfiguration {
                 return "piii";
               case X86_64:
                 return "k8";
+              case PPC:
+                return "ppc";
               case ARM:
                 return "arm";
             }
