@@ -44,7 +44,6 @@ cc_library(
             "-lrt",
         ],
     }),
-    visibility = ["//visibility:public"],
     deps = [
         "//src/main/cpp/util",
         "//src/main/cpp/util:blaze_exit_code",
@@ -72,13 +71,12 @@ cc_binary(
         "blaze_startup_options.cc",
         "blaze_startup_options.h",
         "blaze_startup_options_common.cc",
-        "blaze_util_platform.h",
         "option_processor.cc",
         "option_processor.h",
     ],
     copts = [
         "-Wno-sign-compare",
-        "-DBLAZE_JAVA_CPU=\\\"k8\\\"",
+        "-DBLAZE_JAVA_CPU=\"k8\"",
     ],
     linkopts = select({
         "//src:darwin": [
