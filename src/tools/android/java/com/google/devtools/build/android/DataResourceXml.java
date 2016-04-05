@@ -58,7 +58,7 @@ public class DataResourceXml implements DataResource {
    * @throws FactoryConfigurationError Thrown with the {@link XMLInputFactory} is misconfigured.
    * @throws IOException Thrown when there is an error reading a file.
    */
-  public static void fromPath(
+  public static void parse(
       XMLInputFactory xmlInputFactory,
       Path path,
       Factory fqnFactory,
@@ -160,8 +160,7 @@ public class DataResourceXml implements DataResource {
   }
 
   @Override
-  public void write(Path newResourceDirectory) throws IOException {
-    // TODO(corysmith): Implement write.
-    throw new UnsupportedOperationException();
+  public void writeResource(FullyQualifiedName key, AndroidDataWritingVisitor mergedDataWriter) {
+    xml.write(key, source, mergedDataWriter);
   }
 }

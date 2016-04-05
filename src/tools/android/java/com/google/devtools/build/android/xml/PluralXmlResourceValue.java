@@ -13,20 +13,27 @@
 // limitations under the License.
 package com.google.devtools.build.android.xml;
 
+import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 
-import java.io.Writer;
-import java.util.Map;
+import java.nio.file.Path;
+import java.util.Map.Entry;
 import java.util.Objects;
+
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
 
 /**
  * Represents an Android Plural Resource.
  *
  * <p>Plurals are a localization construct (http://developer.android.com/guide/topics/resources/
- * string-resource.html#Plurals) that are basically a map of key to value. They are defined in
- * xml as:
+ * string-resource.html#Plurals) that are basically a map of key to
+ * value. They are defined in xml as:
  * <code>
  *   &lt;plurals name="plural_name"&gt;
  *     &lt;item quantity=["zero" | "one" | "two" | "few" | "many" | "other"]&gt;
@@ -35,22 +42,37 @@ import java.util.Objects;
  *   &lt;/plurals&gt;
  * </code>
  */
+@Immutable
 public class PluralXmlResourceValue implements XmlResourceValue {
 
-  private Map<String, String> values;
+  public static final Function<Entry<String, String>, String> ENTRY_TO_PLURAL =
+      new Function<Entry<String, String>, String>() {
+        @Nullable
+        @Override
+        public String apply(Entry<String, String> input) {
+          return String.format("<item quantity='%s'>%s</item>", input.getKey(), input.getValue());
+        }
+      };
+  private final ImmutableMap<String, String> values;
 
-  private PluralXmlResourceValue(Map<String, String> values) {
+  private PluralXmlResourceValue(ImmutableMap<String, String> values) {
     this.values = values;
   }
 
-  public static XmlResourceValue of(Map<String, String> values) {
+  public static XmlResourceValue of(ImmutableMap<String, String> values) {
     return new PluralXmlResourceValue(values);
   }
 
   @Override
-  public void write(Writer buffer, FullyQualifiedName name) {
-    // TODO(corysmith): Implement write.
-    throw new UnsupportedOperationException();
+  public void write(
+      FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
+    mergedDataWriter.writeToValuesXml(
+        key,
+        FluentIterable.of(
+                String.format("<!-- %s -->", source),
+                String.format("<plurals name='%s'>", key.name()))
+            .append(FluentIterable.from(values.entrySet()).transform(ENTRY_TO_PLURAL))
+            .append("</plurals>"));
   }
 
   @Override

@@ -14,17 +14,14 @@
 package com.google.devtools.build.android;
 
 import java.io.IOException;
-import java.nio.file.Path;
 
 /**
  * Represents an Asset created from a binary file.
  */
 public interface DataAsset extends DataValue {
-
   /**
-   * Writes the asset to the given asset directory.
-   * @param newAssetDirectory The new directory for this asset.
-   * @throws IOException if there are issues with writing the asset.
+   * Write the asset value to mergedDataWriter.
    */
-  void write(Path newAssetDirectory) throws IOException;
+  void writeAsset(RelativeAssetPath key, AndroidDataWritingVisitor mergedDataWriter)
+      throws IOException;
 }

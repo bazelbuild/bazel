@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
@@ -37,7 +38,7 @@ import javax.xml.stream.events.StartElement;
 import javax.xml.stream.events.XMLEvent;
 
 /**
- * XmlValues provides methods for getting XmlValue derived classes.
+ * {@link XmlResourceValues} provides methods for getting {@link XmlResourceValue} derived classes.
  *
  * <p>Acts a static factory class containing the general xml parsing logic for resources
  * that are declared inside the &lt;resources&gt; tag.
@@ -58,7 +59,7 @@ public class XmlResourceValues {
   private static final QName ATTR_TYPE = QName.valueOf("type");
 
   static XmlResourceValue parsePlurals(XMLEventReader eventReader) throws XMLStreamException {
-    Map<String, String> values = new HashMap<>();
+    ImmutableMap.Builder<String, String> values = ImmutableMap.builder();
     for (XMLEvent element = eventReader.nextTag();
         !isEndTag(element, TAG_PLURALS);
         element = eventReader.nextTag()) {
@@ -68,7 +69,7 @@ public class XmlResourceValues {
             eventReader.getElementText());
       }
     }
-    return PluralXmlResourceValue.of(values);
+    return PluralXmlResourceValue.of(values.build());
   }
 
   static XmlResourceValue parseStyle(XMLEventReader eventReader, StartElement start)

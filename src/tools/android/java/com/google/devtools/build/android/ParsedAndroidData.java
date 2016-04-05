@@ -18,6 +18,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 
 import com.android.ide.common.res2.MergingException;
 
@@ -34,6 +35,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 
@@ -50,8 +52,7 @@ import javax.xml.stream.XMLStreamException;
  */
 @Immutable
 public class ParsedAndroidData {
-
-  /** A Consumer style interface that will accept a DataKey and DataValue. */
+  /** A Consumer style interface that will appendTo a DataKey and DataValue. */
   interface KeyValueConsumer<K extends DataKey, V extends DataValue> {
     void consume(K key, V value);
   }
@@ -253,7 +254,7 @@ public class ParsedAndroidData {
       try {
         if (!Files.isDirectory(path)) {
           if (inValuesSubtree) {
-            DataResourceXml.fromPath(
+            DataResourceXml.parse(
                 xmlInputFactory, path, fqnFactory, overwritingConsumer, nonOverwritingConsumer);
           } else {
             String rawFqn = deriveRawFullyQualifiedName(path);
@@ -412,15 +413,19 @@ public class ParsedAndroidData {
     return overwritingResources.containsKey(name);
   }
 
-  Iterable<Map.Entry<DataKey, DataResource>> iterateOverwritableEntries() {
+  Iterable<Entry<DataKey, DataResource>> iterateOverwritableEntries() {
     return overwritingResources.entrySet();
+  }
+
+  public Iterable<Entry<DataKey, DataResource>> iterateDataResourceEntries() {
+    return Iterables.concat(overwritingResources.entrySet(), nonOverwritingResources.entrySet());
   }
 
   boolean containsAsset(DataKey name) {
     return assets.containsKey(name);
   }
 
-  Iterable<Map.Entry<DataKey, DataAsset>> iterateAssetEntries() {
+  Iterable<Entry<DataKey, DataAsset>> iterateAssetEntries() {
     return assets.entrySet();
   }
 

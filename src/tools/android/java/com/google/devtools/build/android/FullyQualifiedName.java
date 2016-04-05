@@ -21,6 +21,7 @@ import com.google.common.collect.Ordering;
 
 import com.android.resources.ResourceType;
 
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -42,6 +43,32 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
   private final ImmutableList<String> qualifiers;
   private final ResourceType resourceType;
   private final String resourceName;
+
+  /**
+   * Returns a string path representation of the FullyQualifiedName.
+   *
+   * Non-values Android Resource have a well defined file layout: From the resource directory,
+   * they reside in &lt;resource type&gt;[-&lt;qualifier&gt;]/&lt;resource name&gt;[.extension]
+   *
+   * @param sourceExtension The extension of the resource represented by the FullyQualifiedName
+   * @return A string representation of the FullyQualifiedName with the provided extension.
+   */
+  public String toPathString(String sourceExtension) {
+    // TODO(corysmith): Does the extension belong in the FullyQualifiedName?
+    return Paths.get(
+            Joiner.on("-")
+                .join(
+                    ImmutableList.<String>builder()
+                        .add(resourceType.getName())
+                        .addAll(qualifiers)
+                        .build()),
+            resourceName + sourceExtension)
+        .toString();
+  }
+
+  public String name() {
+    return resourceName;
+  }
 
   /**
    * A factory for parsing an generating FullyQualified names with qualifiers and package.

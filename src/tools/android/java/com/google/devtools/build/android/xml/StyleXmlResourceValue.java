@@ -13,13 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.android.xml;
 
+import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 
-import java.io.Writer;
+import java.nio.file.Path;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
+
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
 
 /**
  * Represents an Android Style Resource.
@@ -38,23 +46,40 @@ import java.util.Objects;
  *  &lt;/resources&gt;
  * </code>
  */
+@Immutable
 public class StyleXmlResourceValue implements XmlResourceValue {
-  private String parent;
-  private Map<String, String> values;
+  public static final Function<Entry<String, String>, String> ENTRY_TO_ITEM =
+      new Function<Entry<String, String>, String>() {
+        @Nullable
+        @Override
+        public String apply(Entry<String, String> input) {
+          return String.format("<item name='%s'>%s</item>", input.getKey(), input.getValue());
+        }
+      };
+  private final String parent;
+  private final ImmutableMap<String, String> values;
 
   public static StyleXmlResourceValue of(String parent, Map<String, String> values) {
-    return new StyleXmlResourceValue(parent, values);
+    return new StyleXmlResourceValue(parent, ImmutableMap.copyOf(values));
   }
 
-  private StyleXmlResourceValue(String parent, Map<String, String> values) {
+  private StyleXmlResourceValue(String parent, ImmutableMap<String, String> values) {
     this.parent = parent;
     this.values = values;
   }
 
   @Override
-  public void write(Writer buffer, FullyQualifiedName name) {
-    // TODO(corysmith): Implement write.
-    throw new UnsupportedOperationException();
+  public void write(
+      FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
+    mergedDataWriter.writeToValuesXml(
+        key,
+        FluentIterable.of(
+                String.format("<!-- %s -->", source),
+                parent == null || parent.isEmpty()
+                    ? String.format("<style name='%s'>", key.name())
+                    : String.format("<style name='%s' parent='%s'>", key.name(), parent))
+            .append(FluentIterable.from(values.entrySet()).transform(ENTRY_TO_ITEM))
+            .append("</style>"));
   }
 
   @Override

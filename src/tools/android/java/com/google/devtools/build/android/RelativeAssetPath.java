@@ -29,7 +29,6 @@ import java.util.Objects;
  * Note: Assets have no qualifiers or packages.
  */
 public class RelativeAssetPath implements DataKey, Comparable<RelativeAssetPath> {
-
   /**
    * A Factory that creates RelativeAssetsPath objects whose paths are relative to a given path.
    */
@@ -76,6 +75,10 @@ public class RelativeAssetPath implements DataKey, Comparable<RelativeAssetPath>
     }
     RelativeAssetPath that = (RelativeAssetPath) other;
     return Objects.equals(relativeAssetPath, that.relativeAssetPath);
+  }
+
+  public String toPathString() {
+    return this.relativeAssetPath.toString();
   }
 
   @Override

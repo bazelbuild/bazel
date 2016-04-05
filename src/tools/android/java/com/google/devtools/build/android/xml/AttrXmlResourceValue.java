@@ -14,24 +14,32 @@
 package com.google.devtools.build.android.xml;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
+import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
+import com.google.common.collect.Ordering;
+import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
 
-import java.io.Writer;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 
+import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLStreamException;
@@ -55,9 +63,10 @@ import javax.xml.stream.events.XMLEvent;
  * each layout attribute *must* have a corresponding attribute which will be used to validate the
  * value/resource reference defined in it.
  *
- * <p>AttrXmlValue, due to the mutiple types of attributes is actually a composite class that
- * contains multiple XmlValue instances for each resource.
+ * <p>AttrXmlValue, due to the multiple types of attributes is actually a composite class that
+ * contains multiple {@link XmlResourceValue} instances for each resource.
  */
+@Immutable
 public class AttrXmlResourceValue implements XmlResourceValue {
 
   private static final String FRACTION = "fraction";
@@ -72,19 +81,19 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   private static final String FLAG = "flag";
   private static final QName TAG_ENUM = QName.valueOf(ENUM);
   private static final QName TAG_FLAG = QName.valueOf(FLAG);
-  private final Map<String, XmlResourceValue> formats;
+  private final ImmutableMap<String, ResourceXmlAttrValue> formats;
 
-  private AttrXmlResourceValue(Map<String, XmlResourceValue> formats) {
+  private AttrXmlResourceValue(ImmutableMap<String, ResourceXmlAttrValue> formats) {
     this.formats = formats;
   }
 
   private static Map<String, String> readSubValues(XMLEventReader reader, QName subTagType)
       throws XMLStreamException {
-    Map<String, String> enumValue = new HashMap<>();
+    Builder<String, String> builder = ImmutableMap.builder();
     while (reader.hasNext()
         && XmlResourceValues.isTag(XmlResourceValues.peekNextTag(reader), subTagType)) {
       StartElement element = reader.nextEvent().asStartElement();
-      enumValue.put(
+      builder.put(
           XmlResourceValues.getElementName(element), XmlResourceValues.getElementValue(element));
       XMLEvent endTag = reader.nextEvent();
       if (!XmlResourceValues.isEndTag(endTag, subTagType)) {
@@ -92,7 +101,7 @@ public class AttrXmlResourceValue implements XmlResourceValue {
             String.format("Unexpected [%s]; Expected %s", endTag, "</enum>"), endTag.getLocation());
       }
     }
-    return enumValue;
+    return builder.build();
   }
 
   private static void endAttrElement(XMLEventReader reader) throws XMLStreamException {
@@ -103,11 +112,11 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   }
 
   @VisibleForTesting
-  private static final class BuilderEntry implements Map.Entry<String, XmlResourceValue> {
+  private static final class BuilderEntry implements Entry<String, ResourceXmlAttrValue> {
     private final String name;
-    private final XmlResourceValue value;
+    private final ResourceXmlAttrValue value;
 
-    public BuilderEntry(String name, XmlResourceValue value) {
+    BuilderEntry(String name, ResourceXmlAttrValue value) {
       this.name = name;
       this.value = value;
     }
@@ -118,19 +127,19 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public XmlResourceValue getValue() {
+    public ResourceXmlAttrValue getValue() {
       return value;
     }
 
     @Override
-    public XmlResourceValue setValue(XmlResourceValue value) {
+    public ResourceXmlAttrValue setValue(ResourceXmlAttrValue value) {
       throw new UnsupportedOperationException();
     }
   }
 
   @SafeVarargs
   @VisibleForTesting
-  public static XmlResourceValue fromFormatEntries(Map.Entry<String, XmlResourceValue>... entries) {
+  public static XmlResourceValue fromFormatEntries(Entry<String, ResourceXmlAttrValue>... entries) {
     return of(ImmutableMap.copyOf(Arrays.asList(entries)));
   }
 
@@ -146,52 +155,52 @@ public class AttrXmlResourceValue implements XmlResourceValue {
       formatNames.add(nextTag.asStartElement().getName().getLocalPart().toLowerCase());
     }
 
-    Map<String, XmlResourceValue> formats = new HashMap<>();
+    Builder<String, ResourceXmlAttrValue> formats = ImmutableMap.builder();
     for (String formatName : formatNames) {
       switch (formatName) {
         case FLAG:
           Map<String, String> flags = readSubValues(eventReader, TAG_FLAG);
           endAttrElement(eventReader);
-          formats.put(formatName, AttrFlagXmlValue.of(flags));
+          formats.put(formatName, FlagResourceXmlAttrValue.of(flags));
           break;
         case ENUM:
           Map<String, String> enums = readSubValues(eventReader, TAG_ENUM);
           endAttrElement(eventReader);
-          formats.put(formatName, AttrEnumXmlValue.of(enums));
+          formats.put(formatName, EnumResourceXmlAttrValue.of(enums));
           break;
         case REFERENCE:
-          formats.put(formatName, AttrReferenceXmlValue.of());
+          formats.put(formatName, ReferenceResourceXmlAttrValue.of());
           break;
         case COLOR:
-          formats.put(formatName, AttrColorXmlValue.of());
+          formats.put(formatName, ColorResourceXmlAttrValue.of());
           break;
         case BOOLEAN:
-          formats.put(formatName, AttrBooleanXmlValue.of());
+          formats.put(formatName, BooleanResourceXmlAttrValue.of());
           break;
         case DIMENSION:
-          formats.put(formatName, AttrDimensionXmlValue.of());
+          formats.put(formatName, DimensionResourceXmlAttrValue.of());
           break;
         case FLOAT:
-          formats.put(formatName, AttrFloatXmlValue.of());
+          formats.put(formatName, FloatResourceXmlAttrValue.of());
           break;
         case INTEGER:
-          formats.put(formatName, AttrIntegerXmlValue.of());
+          formats.put(formatName, IntegerResourceXmlAttrValue.of());
           break;
         case STRING:
-          formats.put(formatName, AttrStringXmlValue.of());
+          formats.put(formatName, StringResourceXmlAttrValue.of());
           break;
         case FRACTION:
-          formats.put(formatName, AttrFractionXmlValue.of());
+          formats.put(formatName, FractionResourceXmlAttrValue.of());
           break;
         default:
           throw new XMLStreamException(
               String.format("Unexpected attr format: %S", formatName), attr.getLocation());
       }
     }
-    return of(formats);
+    return of(formats.build());
   }
 
-  public static XmlResourceValue of(Map<String, XmlResourceValue> formats) {
+  public static XmlResourceValue of(ImmutableMap<String, ResourceXmlAttrValue> formats) {
     return new AttrXmlResourceValue(formats);
   }
 
@@ -218,40 +227,58 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public void write(Writer buffer, FullyQualifiedName name) {
-    // TODO(corysmith): Implement write.
-    throw new UnsupportedOperationException();
+  public void write(
+      FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
+    ImmutableList<String> formatKeys = Ordering.natural().immutableSortedCopy(formats.keySet());
+    FluentIterable<String> iterable =
+        FluentIterable.of(
+            String.format("<!-- %s -->", source),
+            String.format(
+                "<attr name='%s' format='%s'>", key.name(), Joiner.on('|').join(formatKeys)));
+    for (String formatKey : formatKeys) {
+      iterable = formats.get(formatKey).appendTo(iterable);
+    }
+    mergedDataWriter.writeToValuesXml(key, iterable.append("</attr>"));
   }
 
+  @CheckReturnValue
+  interface ResourceXmlAttrValue {
+    FluentIterable<String> appendTo(FluentIterable<String> iterable);
+  }
+
+  // TODO(corysmith): The ResourceXmlAttrValue implementors, other than enum and flag, share a 
+  // lot of boilerplate. Determine how to reduce it.
   /** Represents an Android Enum Attribute resource. */
   @VisibleForTesting
-  public static class AttrEnumXmlValue implements XmlResourceValue {
+  public static class EnumResourceXmlAttrValue implements ResourceXmlAttrValue {
 
+    private static final Function<Entry<String, String>, String> MAP_TO_ENUM =
+        new Function<Entry<String, String>, String>() {
+          @Nullable
+          @Override
+          public String apply(Entry<String, String> entry) {
+            return String.format("<enum name='%s' value='%s'/>", entry.getKey(), entry.getValue());
+          }
+        };
     private Map<String, String> values;
 
-    private AttrEnumXmlValue(Map<String, String> values) {
+    private EnumResourceXmlAttrValue(Map<String, String> values) {
       this.values = values;
     }
 
     @VisibleForTesting
-    public static Map.Entry<String, XmlResourceValue> asEntryOf(String... keyThenValue) {
+    public static Entry<String, ResourceXmlAttrValue> asEntryOf(String... keyThenValue) {
       Preconditions.checkArgument(keyThenValue.length > 0);
       Preconditions.checkArgument(keyThenValue.length % 2 == 0);
-      Builder<String, String> builder = ImmutableMap.<String, String>builder();
+      Builder<String, String> builder = ImmutableMap.builder();
       for (int i = 0; i < keyThenValue.length; i += 2) {
         builder.put(keyThenValue[i], keyThenValue[i + 1]);
       }
       return new BuilderEntry(ENUM, of(builder.build()));
     }
 
-    public static XmlResourceValue of(Map<String, String> values) {
-      return new AttrEnumXmlValue(values);
-    }
-
-    @Override
-    public void write(Writer buffer, FullyQualifiedName name) {
-      // TODO(corysmith): Implement write.
-      throw new UnsupportedOperationException();
+    public static ResourceXmlAttrValue of(Map<String, String> values) {
+      return new EnumResourceXmlAttrValue(values);
     }
 
     @Override
@@ -261,10 +288,10 @@ public class AttrXmlResourceValue implements XmlResourceValue {
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof AttrEnumXmlValue)) {
+      if (!(obj instanceof EnumResourceXmlAttrValue)) {
         return false;
       }
-      AttrEnumXmlValue other = (AttrEnumXmlValue) obj;
+      EnumResourceXmlAttrValue other = (EnumResourceXmlAttrValue) obj;
       return Objects.equals(values, other.values);
     }
 
@@ -272,25 +299,31 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     public String toString() {
       return MoreObjects.toStringHelper(getClass()).add("values", values).toString();
     }
+
+    @Override
+    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
+      return iterable.append(FluentIterable.from(values.entrySet()).transform(MAP_TO_ENUM));
+    }
   }
 
   /** Represents an Android Flag Attribute resource. */
   @VisibleForTesting
-  public static class AttrFlagXmlValue implements XmlResourceValue {
+  public static class FlagResourceXmlAttrValue implements ResourceXmlAttrValue {
 
     private Map<String, String> values;
 
-    private AttrFlagXmlValue(Map<String, String> values) {
+    private FlagResourceXmlAttrValue(Map<String, String> values) {
       this.values = values;
     }
 
-    public static XmlResourceValue of(Map<String, String> values) {
-      return new AttrFlagXmlValue(values);
+    public static ResourceXmlAttrValue of(Map<String, String> values) {
+      // ImmutableMap guarantees a stable order.
+      return new FlagResourceXmlAttrValue(ImmutableMap.copyOf(values));
     }
 
     @VisibleForTesting
-    public static Map.Entry<String, XmlResourceValue> asEntryOf(String... keyThenValue) {
-      Builder<String, String> builder = ImmutableMap.<String, String>builder();
+    public static Entry<String, ResourceXmlAttrValue> asEntryOf(String... keyThenValue) {
+      Builder<String, String> builder = ImmutableMap.builder();
       Preconditions.checkArgument(keyThenValue.length > 0);
       Preconditions.checkArgument(keyThenValue.length % 2 == 0);
       for (int i = 0; i < keyThenValue.length; i += 2) {
@@ -300,22 +333,16 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void write(Writer buffer, FullyQualifiedName name) {
-      // TODO(corysmith): Implement write.
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
     public int hashCode() {
       return values.hashCode();
     }
 
     @Override
     public boolean equals(Object obj) {
-      if (!(obj instanceof AttrFlagXmlValue)) {
+      if (!(obj instanceof FlagResourceXmlAttrValue)) {
         return false;
       }
-      AttrFlagXmlValue other = (AttrFlagXmlValue) obj;
+      FlagResourceXmlAttrValue other = (FlagResourceXmlAttrValue) obj;
       return Objects.equals(values, other.values);
     }
 
@@ -323,14 +350,30 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     public String toString() {
       return MoreObjects.toStringHelper(getClass()).add("values", values).toString();
     }
+
+    @Override
+    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
+      return iterable.append(
+          FluentIterable.from(values.entrySet())
+              .transform(
+                  new Function<Entry<String, String>, String>() {
+                    @Nullable
+                    @Override
+                    public String apply(Entry<String, String> input) {
+                      return String.format(
+                          "<flag name='%s' value='%s'/>", input.getKey(), input.getValue());
+                    }
+                  }));
+    }
   }
 
   /** Represents an Android Reference Attribute resource. */
   @VisibleForTesting
-  public static class AttrReferenceXmlValue implements XmlResourceValue {
-    private static final AttrReferenceXmlValue INSTANCE = new AttrReferenceXmlValue();
+  public static class ReferenceResourceXmlAttrValue implements ResourceXmlAttrValue {
+    private static final ReferenceResourceXmlAttrValue INSTANCE =
+        new ReferenceResourceXmlAttrValue();
 
-    public static XmlResourceValue of() {
+    public static ResourceXmlAttrValue of() {
       return INSTANCE;
     }
 
@@ -340,18 +383,17 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void write(Writer buffer, FullyQualifiedName name) {
-      // TODO(corysmith): Implement write.
-      throw new UnsupportedOperationException();
+    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
+      return iterable;
     }
   }
 
   /** Represents an Android Color Attribute resource. */
   @VisibleForTesting
-  public static class AttrColorXmlValue implements XmlResourceValue {
-    private static final AttrColorXmlValue INSTANCE = new AttrColorXmlValue();
+  public static class ColorResourceXmlAttrValue implements ResourceXmlAttrValue {
+    private static final ColorResourceXmlAttrValue INSTANCE = new ColorResourceXmlAttrValue();
 
-    public static XmlResourceValue of() {
+    public static ResourceXmlAttrValue of() {
       return INSTANCE;
     }
 
@@ -361,18 +403,17 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void write(Writer buffer, FullyQualifiedName name) {
-      // TODO(corysmith): Implement write.
-      throw new UnsupportedOperationException();
+    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
+      return iterable;
     }
   }
 
   /** Represents an Android Boolean Attribute resource. */
   @VisibleForTesting
-  public static class AttrBooleanXmlValue implements XmlResourceValue {
-    private static final AttrBooleanXmlValue INSTANCE = new AttrBooleanXmlValue();
+  public static class BooleanResourceXmlAttrValue implements ResourceXmlAttrValue {
+    private static final BooleanResourceXmlAttrValue INSTANCE = new BooleanResourceXmlAttrValue();
 
-    public static XmlResourceValue of() {
+    public static ResourceXmlAttrValue of() {
       return INSTANCE;
     }
 
@@ -382,18 +423,17 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void write(Writer buffer, FullyQualifiedName name) {
-      // TODO(corysmith): Implement write.
-      throw new UnsupportedOperationException();
+    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
+      return iterable;
     }
   }
 
   /** Represents an Android Float Attribute resource. */
   @VisibleForTesting
-  public static class AttrFloatXmlValue implements XmlResourceValue {
-    private static final AttrFloatXmlValue INSTANCE = new AttrFloatXmlValue();
+  public static class FloatResourceXmlAttrValue implements ResourceXmlAttrValue {
+    private static final FloatResourceXmlAttrValue INSTANCE = new FloatResourceXmlAttrValue();
 
-    public static XmlResourceValue of() {
+    public static ResourceXmlAttrValue of() {
       return INSTANCE;
     }
 
@@ -403,39 +443,38 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void write(Writer buffer, FullyQualifiedName name) {
-      // TODO(corysmith): Implement write.
-      throw new UnsupportedOperationException();
+    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
+      return iterable;
     }
   }
 
   /** Represents an Android Dimension Attribute resource. */
   @VisibleForTesting
-  public static class AttrDimensionXmlValue implements XmlResourceValue {
-    private static final AttrDimensionXmlValue INSTANCE = new AttrDimensionXmlValue();
+  public static class DimensionResourceXmlAttrValue implements ResourceXmlAttrValue {
+    private static final DimensionResourceXmlAttrValue INSTANCE =
+        new DimensionResourceXmlAttrValue();
+
+    public static ResourceXmlAttrValue of() {
+      return INSTANCE;
+    }
 
     @VisibleForTesting
     public static BuilderEntry asEntry() {
       return new BuilderEntry(DIMENSION, of());
     }
 
-    public static XmlResourceValue of() {
-      return INSTANCE;
-    }
-
     @Override
-    public void write(Writer buffer, FullyQualifiedName name) {
-      // TODO(corysmith): Implement write.
-      throw new UnsupportedOperationException();
+    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
+      return iterable;
     }
   }
 
   /** Represents an Android Integer Attribute resource. */
   @VisibleForTesting
-  public static class AttrIntegerXmlValue implements XmlResourceValue {
-    private static final AttrIntegerXmlValue INSTANCE = new AttrIntegerXmlValue();
+  public static class IntegerResourceXmlAttrValue implements ResourceXmlAttrValue {
+    private static final IntegerResourceXmlAttrValue INSTANCE = new IntegerResourceXmlAttrValue();
 
-    public static XmlResourceValue of() {
+    public static ResourceXmlAttrValue of() {
       return INSTANCE;
     }
 
@@ -445,18 +484,17 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void write(Writer buffer, FullyQualifiedName name) {
-      // TODO(corysmith): Implement write.
-      throw new UnsupportedOperationException();
+    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
+      return iterable;
     }
   }
 
   /** Represents an Android String Attribute resource. */
   @VisibleForTesting
-  public static class AttrStringXmlValue implements XmlResourceValue {
-    private static final AttrStringXmlValue INSTANCE = new AttrStringXmlValue();
+  public static class StringResourceXmlAttrValue implements ResourceXmlAttrValue {
+    private static final StringResourceXmlAttrValue INSTANCE = new StringResourceXmlAttrValue();
 
-    public static XmlResourceValue of() {
+    public static ResourceXmlAttrValue of() {
       return INSTANCE;
     }
 
@@ -466,18 +504,17 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void write(Writer buffer, FullyQualifiedName name) {
-      // TODO(corysmith): Implement write.
-      throw new UnsupportedOperationException();
+    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
+      return iterable;
     }
   }
 
   /** Represents an Android Fraction Attribute resource. */
   @VisibleForTesting
-  public static class AttrFractionXmlValue implements XmlResourceValue {
-    private static final AttrFractionXmlValue INSTANCE = new AttrFractionXmlValue();
+  public static class FractionResourceXmlAttrValue implements ResourceXmlAttrValue {
+    private static final FractionResourceXmlAttrValue INSTANCE = new FractionResourceXmlAttrValue();
 
-    public static XmlResourceValue of() {
+    public static ResourceXmlAttrValue of() {
       return INSTANCE;
     }
 
@@ -487,9 +524,8 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     }
 
     @Override
-    public void write(Writer buffer, FullyQualifiedName name) {
-      // TODO(corysmith): Implement write.
-      throw new UnsupportedOperationException();
+    public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
+      return iterable;
     }
   }
 }

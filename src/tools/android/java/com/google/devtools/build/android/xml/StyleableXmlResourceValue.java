@@ -14,14 +14,22 @@
 package com.google.devtools.build.android.xml;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Ordering;
+import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 
-import java.io.Writer;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+
+import javax.annotation.Nullable;
+import javax.annotation.concurrent.Immutable;
 
 /**
  * Represent an Android styleable resource.
@@ -46,26 +54,42 @@ import java.util.Objects;
  *
  * <p>The StyleableXmlValue only contains names of the attributes it holds, not definitions.
  */
+@Immutable
 public class StyleableXmlResourceValue implements XmlResourceValue {
-  private final List<String> attrs;
+  public static final Function<String, String> ITEM_TO_ATTR =
+      new Function<String, String>() {
+        @Nullable
+        @Override
+        public String apply(@Nullable String input) {
+          return String.format("<attr name='%s'/>", input);
+        }
+      };
+  private final ImmutableList<String> attrs;
 
-  private StyleableXmlResourceValue(List<String> attrs) {
+  private StyleableXmlResourceValue(ImmutableList<String> attrs) {
     this.attrs = attrs;
   }
 
   public static XmlResourceValue of(List<String> attrs) {
-    return new StyleableXmlResourceValue(attrs);
+    return new StyleableXmlResourceValue(ImmutableList.copyOf(attrs));
   }
 
   @VisibleForTesting
   public static XmlResourceValue of(String... attrs) {
-    return new StyleableXmlResourceValue(Arrays.asList(attrs));
+    return new StyleableXmlResourceValue(
+        Ordering.natural().immutableSortedCopy(Arrays.asList(attrs)));
   }
 
   @Override
-  public void write(Writer buffer, FullyQualifiedName name) {
-    // TODO(corysmith): Implement write.
-    throw new UnsupportedOperationException();
+  public void write(
+      FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
+    mergedDataWriter.writeToValuesXml(
+        key,
+        FluentIterable.of(
+                String.format("<!-- %s -->", source),
+                String.format("<declare-styleable name='%s'>", key.name()))
+            .append(FluentIterable.from(attrs).transform(ITEM_TO_ATTR))
+            .append("</declare-styleable>"));
   }
 
   @Override

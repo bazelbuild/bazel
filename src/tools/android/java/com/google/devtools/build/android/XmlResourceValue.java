@@ -13,16 +13,18 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import java.io.Writer;
+import java.nio.file.Path;
 
 /**
- * An XmlValue is a value extracted from an xml resource in the resource 'values' directory.
+ * An {@link XmlResourceValue} is extracted from xml files in the resource 'values' directory.
  */
 public interface XmlResourceValue {
   /**
-   * Each XmlValue is expected to write a valid representation in xml to the supplied buffer.
-   * @param buffer The buffer for xml output.
-   * @param name The name of the value being written.
+   * Each XmlValue is expected to write a valid representation in xml to the writer.
+   *
+   * @param key The FullyQualified name for the xml resource being written.
+   * @param source The source of the value to allow for proper comment annotation.
+   * @param mergedDataWriter The target writer.
    */
-  void write(Writer buffer, FullyQualifiedName name);
+  void write(FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter);
 }

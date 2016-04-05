@@ -14,15 +14,18 @@
 package com.google.devtools.build.android.xml;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.FluentIterable;
+import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 
 import com.android.resources.ResourceType;
 
-import java.io.Writer;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Objects;
 
+import javax.annotation.concurrent.Immutable;
 import javax.xml.namespace.QName;
 
 /**
@@ -37,6 +40,7 @@ import javax.xml.namespace.QName;
  * value="<em>value</em>"&gt;. In the interest of keeping the parsing svelte, these are
  * represented by a single class.
  */
+@Immutable
 public class SimpleXmlResourceValue implements XmlResourceValue {
   static final QName TAG_STRING = QName.valueOf("string");
   static final QName TAG_BOOL = QName.valueOf("bool");
@@ -94,8 +98,8 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
     }
   }
 
-  private String value;
-  private Type valueType;
+  private final String value;
+  private final Type valueType;
 
   public static XmlResourceValue of(Type valueType, String value) {
     return new SimpleXmlResourceValue(valueType, value);
@@ -107,9 +111,18 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
   }
 
   @Override
-  public void write(Writer buffer, FullyQualifiedName name) {
-    // TODO(corysmith): Implement write.
-    throw new UnsupportedOperationException();
+  public void write(
+      FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
+    mergedDataWriter.writeToValuesXml(
+        key,
+        FluentIterable.of(
+            String.format("<!-- %s -->", source),
+            String.format(
+                "<%s name='%s'>%s</%s>",
+                valueType.tagName.getLocalPart(),
+                key.name(),
+                value,
+                valueType.tagName.getLocalPart())));
   }
 
   @Override

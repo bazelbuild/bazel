@@ -61,8 +61,23 @@ public class DataValueFile implements DataResource, DataAsset {
   }
 
   @Override
-  public void write(Path newResourceDirectory) throws IOException {
-    // TODO(corysmith): Implement the copy semantics.
-    throw new UnsupportedOperationException();
+  public void writeAsset(RelativeAssetPath key, AndroidDataWritingVisitor mergedDataWriter)
+      throws IOException {
+    mergedDataWriter.copyAsset(source, key.toPathString());
+  }
+
+  @Override
+  public void writeResource(FullyQualifiedName key, AndroidDataWritingVisitor mergedDataWriter)
+      throws IOException {
+    mergedDataWriter.copyResource(source, key.toPathString(getSourceExtension()));
+  }
+  
+  private String getSourceExtension() {
+    String fileName = source.getFileName().toString();
+    int extensionStart = fileName.lastIndexOf('.');
+    if (extensionStart > 0) {
+      return fileName.substring(extensionStart);
+    }
+    return "";
   }
 }

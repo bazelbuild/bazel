@@ -14,16 +14,14 @@
 package com.google.devtools.build.android;
 
 import java.io.IOException;
-import java.nio.file.Path;
 
 /**
  * Represents an Android Resource parsed from an xml or binary file.
  */
 public interface DataResource extends DataValue {
   /**
-   * Writes the resource to the given resource directory.
-   * @param newResourceDirectory The new directory for this resource.
-   * @throws IOException if there are issues with writing the resource.
+   * Write as a resource using the supplied {@link MergeDataWriter}.
    */
-  void write(Path newResourceDirectory) throws IOException;
+  void writeResource(FullyQualifiedName key, AndroidDataWritingVisitor mergedDataWriter)
+      throws IOException;
 }
