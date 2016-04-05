@@ -128,7 +128,7 @@ final class WatchUtils {
         // 1. Copy WK stub binary to watchKitSupportPath.
         "mkdir -p " + watchKitSupportPath,
         "&&",
-        String.format("cp %s %s", WATCH_KIT_STUB_PATH, watchKitSupportPath),
+        String.format("cp -f %s %s", WATCH_KIT_STUB_PATH, watchKitSupportPath),
         // 2. cd to working directory.
         "&&",
         "cd " + workingDirectory,

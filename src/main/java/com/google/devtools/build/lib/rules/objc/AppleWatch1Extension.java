@@ -173,7 +173,7 @@ public class AppleWatch1Extension implements RuleConfiguredTargetFactory {
     ImmutableList<String> command = ImmutableList.of(
         "mkdir -p " + workingDirectory,
         "&&",
-        String.format("/usr/bin/unzip -q %s -d %s",
+        String.format("/usr/bin/unzip -q -o %s -d %s",
             watchApplicationIpa.getExecPathString(),
             workingDirectory),
         "&&",

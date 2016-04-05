@@ -188,12 +188,12 @@ final class WatchApplicationSupport {
 
     ImmutableList<String> command = ImmutableList.of(
         // 1. Copy WK stub as binary
-        String.format("cp %s %s", WatchUtils.WATCH_KIT_STUB_PATH, watchKitStubBinaryPath),
+        String.format("cp -f %s %s", WatchUtils.WATCH_KIT_STUB_PATH, watchKitStubBinaryPath),
         "&&",
         // 2. Copy WK stub as bundle resource.
         "mkdir -p " + watchKitStubResourcePath,
         "&&",
-        String.format("cp %s %s", WatchUtils.WATCH_KIT_STUB_PATH, watchKitStubResourcePath),
+        String.format("cp -f %s %s", WatchUtils.WATCH_KIT_STUB_PATH, watchKitStubResourcePath),
          // 3. Zip them.
         "&&",
         "cd " + workingDirectory,
