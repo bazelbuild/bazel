@@ -49,6 +49,9 @@ public class BlazeCommandDispatcherRcoptionsTest {
   public static class FooOptions extends OptionsBase {
     @Option(name = "numoption", defaultValue = "0")
     public int numOption;
+
+    @Option(name = "stringoption", defaultValue = "[unspecified]")
+    public String stringOption;
   }
 
   @Command(
@@ -71,9 +74,33 @@ public class BlazeCommandDispatcherRcoptionsTest {
     public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {}
   }
 
+  @Command(
+    name = "reportall",
+    options = {FooOptions.class},
+    shortDescription = "",
+    help = ""
+  )
+  private static class ReportAllCommand implements BlazeCommand {
+
+    @Override
+    public ExitCode exec(CommandEnvironment env, OptionsProvider options)
+        throws ShutdownBlazeServerException {
+      FooOptions fooOptions = options.getOptions(FooOptions.class);
+      env.getReporter()
+          .getOutErr()
+          .printOut("" + fooOptions.numOption + " " + fooOptions.stringOption);
+      return ExitCode.SUCCESS;
+    }
+
+    @Override
+    public void editOptions(CommandEnvironment env, OptionsParser optionsParser) {}
+  }
+
+
   private final Scratch scratch = new Scratch();
   private final RecordingOutErr outErr = new RecordingOutErr();
   private final ReportNumCommand reportNum = new ReportNumCommand();
+  private final ReportAllCommand reportAll = new ReportAllCommand();
   private BlazeRuntime runtime;
 
   @Before
@@ -138,5 +165,82 @@ public class BlazeCommandDispatcherRcoptionsTest {
     dispatch.exec(cmdLine, outErr);
     String out = outErr.outAsLatin1();
     assertEquals("Specific options should dominate common options", "42", out);
+  }
+
+  @Test
+  public void testOptionsComined() throws Exception {
+    List<String> blazercOpts =
+        ImmutableList.of(
+            "--rc_source=/etc/bazelrc",
+            "--default_override=0:common=--stringoption=foo",
+            "--rc_source=/home/jrluser/.blazerc",
+            "--default_override=1:common=--numoption=99");
+
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime, reportNum, reportAll);
+    List<String> cmdLine = Lists.newArrayList("reportall");
+    cmdLine.addAll(blazercOpts);
+
+    dispatch.exec(cmdLine, outErr);
+    String out = outErr.outAsLatin1();
+    assertEquals("Options should get accumulated over different rc files", "99 foo", out);
+  }
+
+  @Test
+  public void testOptionsCominedWithOverride() throws Exception {
+    List<String> blazercOpts =
+        ImmutableList.of(
+            "--rc_source=/etc/bazelrc",
+            "--default_override=0:common=--stringoption=foo",
+            "--default_override=0:common=--numoption=42",
+            "--rc_source=/home/jrluser/.blazerc",
+            "--default_override=1:common=--numoption=99");
+
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime, reportNum, reportAll);
+    List<String> cmdLine = Lists.newArrayList("reportall");
+    cmdLine.addAll(blazercOpts);
+
+    dispatch.exec(cmdLine, outErr);
+    String out = outErr.outAsLatin1();
+    assertEquals("The more specific rc-file should override", "99 foo", out);
+  }
+
+  @Test
+  public void testOptionsCominedWithOverrideOtherName() throws Exception {
+    List<String> blazercOpts =
+        ImmutableList.of(
+            "--rc_source=/home/jrluser/.blazerc",
+            "--default_override=0:common=--stringoption=foo",
+            "--default_override=0:common=--numoption=42",
+            "--rc_source=/etc/bazelrc",
+            "--default_override=1:common=--numoption=99");
+
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime, reportNum, reportAll);
+    List<String> cmdLine = Lists.newArrayList("reportall");
+    cmdLine.addAll(blazercOpts);
+
+    dispatch.exec(cmdLine, outErr);
+    String out = outErr.outAsLatin1();
+    assertEquals("The more specific rc-file should override irrespective of name", "99 foo", out);
+  }
+
+  @Test
+  public void testOptionsCominedWithSpecificOverride() throws Exception {
+    List<String> blazercOpts =
+        ImmutableList.of(
+            "--rc_source=/home/jrluser/.blazerc",
+            "--default_override=0:common=--stringoption=foo",
+            "--default_override=0:reportall=--numoption=42",
+            "--rc_source=/etc/bazelrc",
+            "--default_override=1:common=--stringoption=bar",
+            "--default_override=1:common=--numoption=99");
+
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime, reportNum, reportAll);
+    List<String> cmdLine = Lists.newArrayList("reportall");
+    cmdLine.addAll(blazercOpts);
+
+    dispatch.exec(cmdLine, outErr);
+    String out = outErr.outAsLatin1();
+    assertEquals(
+        "The more specific option should override, irrespecitve of source file", "42 bar", out);
   }
 }
