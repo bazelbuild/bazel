@@ -59,7 +59,10 @@ final class ReleaseBundling {
     private final NestedSetBuilder<Artifact> infoplistInputs = NestedSetBuilder.stableOrder();
     private Iterable<Artifact> infoPlistsFromRule;
     private ImmutableSet<TargetDeviceFamily> families;
+    private IntermediateArtifacts intermediateArtifacts;
     private String artifactPrefix;
+    private Artifact entitlements;
+    private Artifact extraEntitlements;
 
     public Builder setIpaArtifact(Artifact ipaArtifact) {
       this.ipaArtifact = ipaArtifact;
@@ -121,6 +124,11 @@ final class ReleaseBundling {
       return this;
     }
 
+    public Builder setIntermediateArtifacts(IntermediateArtifacts intermediateArtifacts) {
+      this.intermediateArtifacts = intermediateArtifacts;
+      return this;
+    }
+
     public Builder setTargetDeviceFamilies(ImmutableSet<TargetDeviceFamily> families) {
       this.families = families;
       return this;
@@ -131,7 +139,18 @@ final class ReleaseBundling {
       return this;
     }
 
+    public Builder setEntitlements(Artifact entitlements) {
+      this.entitlements = entitlements;
+      return this;
+    }
+
+    public Builder setExtraEntitlements(Artifact extraEntitlements) {
+      this.extraEntitlements = extraEntitlements;
+      return this;
+    }
+
     public ReleaseBundling build() {
+      Preconditions.checkNotNull(intermediateArtifacts, "intermediateArtifacts");
       Preconditions.checkNotNull(families, FAMILIES_ATTR);
       return new ReleaseBundling(
           ipaArtifact,
@@ -146,7 +165,10 @@ final class ReleaseBundling {
           infoplistInputs.build(),
           infoPlistsFromRule,
           families,
-          artifactPrefix);
+          intermediateArtifacts,
+          artifactPrefix,
+          entitlements,
+          extraEntitlements);
     }
   }
 
@@ -203,6 +225,10 @@ final class ReleaseBundling {
         .setProvisioningProfile(provisioningProfile)
         .setProvisioningProfileAttributeName(PROVISIONING_PROFILE_ATTR)
         .setTargetDeviceFamilies(families)
+        .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+        .setEntitlements(ruleContext.getPrerequisiteArtifact("entitlements", Mode.TARGET))
+        .setExtraEntitlements(
+            ruleContext.getPrerequisiteArtifact(":extra_entitlements", Mode.TARGET))
         .build();
   }
 
@@ -220,8 +246,11 @@ final class ReleaseBundling {
   private final String provisioningProfileAttributeName;
   private final NestedSet<Artifact> infoplistInputs;
   private final ImmutableSet<TargetDeviceFamily> families;
+  private final IntermediateArtifacts intermediateArtifacts;
   private final Iterable<Artifact> infoPlistsFromRule;
   private final String artifactPrefix;
+  private final Artifact entitlements;
+  private final Artifact extraEntitlements;
 
   private ReleaseBundling(
       Artifact ipaArtifact,
@@ -236,7 +265,10 @@ final class ReleaseBundling {
       NestedSet<Artifact> infoplistInputs,
       Iterable<Artifact> infoPlistsFromRule,
       ImmutableSet<TargetDeviceFamily> families,
-      String artifactPrefix) {
+      IntermediateArtifacts intermediateArtifacts,
+      String artifactPrefix,
+      Artifact entitlements,
+      Artifact extraEntitlements) {
     this.ipaArtifact = Preconditions.checkNotNull(ipaArtifact);
     this.bundleId = bundleId;
     this.primaryBundleId = primaryBundleId;
@@ -250,7 +282,10 @@ final class ReleaseBundling {
     this.infoplistInputs = Preconditions.checkNotNull(infoplistInputs);
     this.infoPlistsFromRule = infoPlistsFromRule;
     this.families = Preconditions.checkNotNull(families);
+    this.intermediateArtifacts = Preconditions.checkNotNull(intermediateArtifacts);
     this.artifactPrefix = artifactPrefix;
+    this.entitlements = entitlements;
+    this.extraEntitlements = extraEntitlements;
   }
 
   /**
@@ -326,6 +361,13 @@ final class ReleaseBundling {
   }
 
   /**
+   * Returns {@link IntermediateArtifacts} used to create this bundle.
+   */
+  public IntermediateArtifacts getIntermediateArtifacts() {
+    return intermediateArtifacts;
+  }
+
+  /**
    * Returns the name of the attribute which is used to specifiy the provisioning profile.
    */
   public String getProvisioningProfileAttrName() {
@@ -347,5 +389,21 @@ final class ReleaseBundling {
    */
   public String getArtifactPrefix() {
     return artifactPrefix;
+  }
+
+  /**
+   * Returns an {@link Artifact} containing the entitlements used to sign this bundle for
+   * non-simulator builds; can be null.
+   */
+  public Artifact getEntitlements() {
+    return entitlements;
+  }
+
+  /**
+   * Returns an {@link Artifact} containing the extra entitlements passed via command line that is
+   * used to sign this bundle for non-simulator builds; can be null.
+   */
+  public Artifact getExtraEntitlements() {
+    return extraEntitlements;
   }
 }

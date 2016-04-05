@@ -35,10 +35,17 @@ public final class IntermediateArtifacts {
 
   private final RuleContext ruleContext;
   private final String archiveFileNameSuffix;
+  private final String outputPrefix;
 
   IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix) {
+    this(ruleContext, archiveFileNameSuffix, "");
+  }
+ 
+  IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix,
+      String outputPrefix) {
     this.ruleContext = ruleContext;
     this.archiveFileNameSuffix = Preconditions.checkNotNull(archiveFileNameSuffix);
+    this.outputPrefix = Preconditions.checkNotNull(outputPrefix);
   }
 
   /**
@@ -52,7 +59,7 @@ public final class IntermediateArtifacts {
     Artifact artifact =
         ruleContext.getDerivedArtifact(
             entitlementsDirectory.replaceName(
-                entitlementsDirectory.getBaseName() + extension),
+                addOutputPrefix(entitlementsDirectory.getBaseName(), extension)),
             ruleContext.getConfiguration().getBinDirectory());
     return artifact;
   }
@@ -69,7 +76,8 @@ public final class IntermediateArtifacts {
    * of the given {@link PathFragment}.
    */
   private Artifact appendExtension(PathFragment original, String extension) {
-    return scopedArtifact(FileSystemUtils.appendExtension(original, extension));
+    return scopedArtifact(FileSystemUtils.appendExtension(original,
+        addOutputPrefix("", extension)));
   }
 
   /**
@@ -78,7 +86,7 @@ public final class IntermediateArtifacts {
    */
   private Artifact appendExtension(String extension) {
     PathFragment name = new PathFragment(ruleContext.getLabel().getName());
-    return scopedArtifact(name.replaceName(name.getBaseName() + extension));
+    return scopedArtifact(name.replaceName(addOutputPrefix(name.getBaseName(), extension)));
   }
 
   /**
@@ -97,7 +105,7 @@ public final class IntermediateArtifacts {
   private Artifact appendExtensionInGenfiles(String extension) {
     PathFragment name = new PathFragment(ruleContext.getLabel().getName());
     return scopedArtifact(
-        name.replaceName(name.getBaseName() + extension), /* inGenfiles = */ true);
+        name.replaceName(addOutputPrefix(name.getBaseName(), extension)), /* inGenfiles = */ true);
   }
 
   /**
@@ -404,4 +412,15 @@ public final class IntermediateArtifacts {
   public Artifact unprocessedIpa() {
     return appendExtension(".unprocessed.ipa");
   }
+
+  /**
+   * Returns artifact name prefixed with an output prefix if specified.
+   */
+  private String addOutputPrefix(String baseName, String artifactName) {
+    if (!outputPrefix.isEmpty()) {
+      return String.format("%s-%s%s", baseName, outputPrefix, artifactName);
+    }
+    return String.format("%s%s", baseName, artifactName);
+  }
+
 }

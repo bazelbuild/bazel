@@ -20,6 +20,7 @@ import static com.google.devtools.build.lib.rules.objc.ObjcProvider.STRINGS;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.XCASSETS_DIR;
 
 import com.google.common.base.Optional;
+import com.google.common.base.Predicate;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -218,10 +219,36 @@ final class BundleSupport {
   ImmutableSet<TargetDeviceFamily> targetDeviceFamilies() {
     return bundling.getTargetDeviceFamilies();
   }
+ 
+  /**
+   * Returns true if this bundle is targeted to {@link TargetDeviceFamily#WATCH}, false otherwise.
+   */
+  boolean isBuildingForWatch() {
+    return Iterables.any(targetDeviceFamilies(),
+        new Predicate<TargetDeviceFamily>() {
+      @Override
+      public boolean apply(TargetDeviceFamily targetDeviceFamily) {
+        return targetDeviceFamily.name().equalsIgnoreCase(TargetDeviceFamily.WATCH.getNameInRule());
+      }
+    });
+  }
+
+  /**
+   * Returns a set containing the {@link TargetDeviceFamily} values the resources in this bundle
+   * are targeting. When watch is included as one of the families, (for example [iphone, watch] for
+   * simulator builds, assets should always be compiled for {@link TargetDeviceFamily#WATCH}.
+   */
+  private ImmutableSet<TargetDeviceFamily> targetDeviceFamiliesForResources() {
+    if (isBuildingForWatch()) {
+      return ImmutableSet.of(TargetDeviceFamily.WATCH);
+    } else {
+      return targetDeviceFamilies();
+    }
+  }
 
   private void registerInterfaceBuilderActions(ObjcProvider objcProvider) {
     for (Artifact storyboardInput : objcProvider.get(ObjcProvider.STORYBOARD)) {
-      String archiveRoot = BundleableFile.flatBundlePath(storyboardInput.getExecPath()) + "c";
+      String archiveRoot = storyboardArchiveRoot(storyboardInput);
       Artifact zipOutput = bundling.getIntermediateArtifacts()
           .compiledStoryboardZip(storyboardInput);
 
@@ -233,6 +260,22 @@ final class BundleSupport {
               .addOutput(zipOutput)
               .addInput(storyboardInput)
               .build(ruleContext));
+    }
+  }
+
+  /**
+   * Returns the root file path to which storyboard interfaces are compiled.
+   */
+  protected String storyboardArchiveRoot(Artifact storyboardInput) {
+    // When storyboards are compiled for {@link TargetDeviceFamily#WATCH}, return the containing
+    // directory if it ends with .lproj to account for localization or "." representing the bundle
+    // root otherwise. Examples: Payload/Foo.app/Base.lproj/<compiled_file>,
+    // Payload/Foo.app/<compile_file_1>
+    if (isBuildingForWatch()) {
+      String containingDir = storyboardInput.getExecPath().getParentDirectory().getBaseName();
+      return containingDir.endsWith(".lproj") ? (containingDir + "/") : ".";
+    } else {
+      return BundleableFile.flatBundlePath(storyboardInput.getExecPath()) + "c";
     }
   }
 
@@ -248,7 +291,7 @@ final class BundleSupport {
             .add("--module")
             .add(ruleContext.getLabel().getName());
 
-    for (TargetDeviceFamily targetDeviceFamily : targetDeviceFamilies()) {
+    for (TargetDeviceFamily targetDeviceFamily : targetDeviceFamiliesForResources()) {
       commandLine.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
     }
 
@@ -406,7 +449,7 @@ final class BundleSupport {
             .add("--minimum-deployment-target")
             .add(bundling.getMinimumOsVersion().toString());
 
-    for (TargetDeviceFamily targetDeviceFamily : targetDeviceFamilies()) {
+    for (TargetDeviceFamily targetDeviceFamily : targetDeviceFamiliesForResources()) {
       commandLine.add("--target-device").add(targetDeviceFamily.name().toLowerCase(Locale.US));
     }
 

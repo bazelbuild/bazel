@@ -63,11 +63,18 @@ final class BundleMergeControlBytes extends ByteSource {
     if (bundling.getBundleInfoplist().isPresent()) {
       control.setBundleInfoPlistFile((bundling.getBundleInfoplist().get().getExecPathString()));
     }
-    
+
     for (Artifact mergeZip : bundling.getMergeZips()) {
       control.addMergeZip(MergeZip.newBuilder()
           .setEntryNamePrefix(mergeZipPrefix)
           .setSourcePath(mergeZip.getExecPathString())
+          .build());
+    }
+
+    for (Artifact rootMergeZip : bundling.getRootMergeZips()) {
+      control.addMergeZip(MergeZip.newBuilder()
+          .setEntryNamePrefix("")
+          .setSourcePath(rootMergeZip.getExecPathString())
           .build());
     }
 

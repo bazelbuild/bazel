@@ -745,7 +745,7 @@ public final class ObjcCommon {
    * <p>When XCode sees a included resource directory of "a/b/res", the entire directory structure
    * up to "res" will be copied into the app bundle.
    */
-  private static Iterable<PathFragment> xcodeStructuredResourceDirs(Iterable<Artifact> artifacts) {
+  static Iterable<PathFragment> xcodeStructuredResourceDirs(Iterable<Artifact> artifacts) {
     ImmutableSet.Builder<PathFragment> containers = new ImmutableSet.Builder<>();
     for (Artifact artifact : artifacts) {
       PathFragment ownerRuleDirectory = artifact.getArtifactOwner().getLabel().getPackageFragment();

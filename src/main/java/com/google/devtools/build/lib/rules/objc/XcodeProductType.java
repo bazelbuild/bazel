@@ -24,7 +24,9 @@ enum XcodeProductType {
   APPLICATION("com.apple.product-type.application"),
   UNIT_TEST("com.apple.product-type.bundle.unit-test"),
   EXTENSION("com.apple.product-type.app-extension"),
-  FRAMEWORK("com.apple.product-type.framework");
+  FRAMEWORK("com.apple.product-type.framework"),
+  WATCH_OS1_APPLICATION("com.apple.product-type.application.watchapp"),
+  WATCH_OS1_EXTENSION("com.apple.product-type.watchkit-extension");
 
   private final String identifier;
 

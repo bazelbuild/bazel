@@ -18,8 +18,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 import static com.google.devtools.build.lib.rules.objc.ObjcProvider.Flag.USES_SWIFT;
 import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.APP_ICON_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.ENTITLEMENTS_ATTR;
-import static com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.ReleaseBundlingRule.EXTRA_ENTITLEMENTS_ATTR;
 import static com.google.devtools.build.lib.rules.objc.TargetDeviceFamily.UI_DEVICE_FAMILY_VALUES;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -172,7 +170,7 @@ public final class ReleaseBundlingSupport {
     this.ruleContext = ruleContext;
     this.objcProvider = objcProvider;
     this.releaseBundling = releaseBundling;
-    this.intermediateArtifacts = ObjcRuleClasses.intermediateArtifacts(ruleContext);
+    this.intermediateArtifacts = releaseBundling.getIntermediateArtifacts();
     this.bundling = bundling(ruleContext, objcProvider, bundleDirFormat, bundleName,
         bundleMinimumOsVersion);
     bundleSupport = new BundleSupport(ruleContext, bundling, extraActoolArgs());
@@ -520,12 +518,12 @@ public final class ReleaseBundlingSupport {
    * <p>Finally, if an entitlements file was provided via {@code --extra_entitlements} it is merged
    * into the substituted entitlements.
    */
-  private void registerEntitlementsActions() throws InterruptedException {
+  private void registerEntitlementsActions() {
     Artifact teamPrefixFile =
         intermediateArtifacts.appendExtensionForEntitlementArtifact(".team_prefix_file");
     registerExtractTeamPrefixAction(teamPrefixFile);
 
-    Artifact entitlementsNeedingSubstitution = attributes.entitlements();
+    Artifact entitlementsNeedingSubstitution = releaseBundling.getEntitlements();
     if (entitlementsNeedingSubstitution == null) {
       entitlementsNeedingSubstitution =
           intermediateArtifacts.appendExtensionForEntitlementArtifact(
@@ -534,10 +532,11 @@ public final class ReleaseBundlingSupport {
     }
 
     Artifact substitutedEntitlements = intermediateArtifacts.entitlements();
-    if (attributes.extraEntitlements() != null) {
+    if (releaseBundling.getExtraEntitlements() != null) {
       substitutedEntitlements =
           intermediateArtifacts.appendExtensionForEntitlementArtifact(".substituted");
-      registerMergeEntitlementsAction(substitutedEntitlements, attributes.extraEntitlements());
+      registerMergeEntitlementsAction(substitutedEntitlements,
+          releaseBundling.getExtraEntitlements());
     }
 
     registerEntitlementsVariableSubstitutionAction(
@@ -760,6 +759,12 @@ public final class ReleaseBundlingSupport {
   }
 
   private void registerCombineArchitecturesAction() {
+    // Skip combining binaries when building for watch as there is only one stub binary and it
+    // it should not be corrupted when combining.
+    if (bundleSupport.isBuildingForWatch()) {
+      return;
+    }
+
     Artifact resultingLinkedBinary = intermediateArtifacts.combinedArchitectureBinary();
     NestedSet<Artifact> linkedBinaries = linkedBinaries();
 
@@ -802,7 +807,12 @@ public final class ReleaseBundlingSupport {
     }
 
     // Convert names to a sequence containing "1" and/or "2" for iPhone and iPad, respectively.
-    ImmutableSet<TargetDeviceFamily> families = bundleSupport.targetDeviceFamilies();
+    ImmutableSet<TargetDeviceFamily> families;
+    if (bundleSupport.isBuildingForWatch()) {
+      families = ImmutableSet.of(TargetDeviceFamily.WATCH);
+    } else {
+      families = bundleSupport.targetDeviceFamilies();
+    }
     Iterable<Integer> familyIndexes =
         families.isEmpty() ? ImmutableList.<Integer>of() : UI_DEVICE_FAMILY_VALUES.get(families);
     buildSettings.add(XcodeprojBuildSetting.newBuilder()
@@ -810,7 +820,7 @@ public final class ReleaseBundlingSupport {
         .setValue(Joiner.on(',').join(familyIndexes))
         .build());
 
-    Artifact entitlements = attributes.entitlements();
+    Artifact entitlements = releaseBundling.getEntitlements();
     if (entitlements != null) {
       buildSettings.add(XcodeprojBuildSetting.newBuilder()
           .setName("CODE_SIGN_ENTITLEMENTS")
@@ -1163,16 +1173,6 @@ public final class ReleaseBundlingSupport {
       return ruleContext.getExecutablePrerequisite("ipa_post_processor", Mode.TARGET);
     }
 
-    @Nullable
-    Artifact entitlements() {
-      return ruleContext.getPrerequisiteArtifact(ENTITLEMENTS_ATTR, Mode.TARGET);
-    }
-
-    @Nullable
-    Artifact extraEntitlements() {
-      return ruleContext.getPrerequisiteArtifact(EXTRA_ENTITLEMENTS_ATTR, Mode.TARGET);
-    }
-
     NestedSet<? extends Artifact> dependentLinkedBinaries() {
       if (ruleContext.attributes().getAttributeDefinition("binary") == null) {
         return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
@@ -1330,7 +1330,7 @@ public final class ReleaseBundlingSupport {
      * transition may exist with the same value in a single Bazel invocation.
      */
     enum ConfigurationDistinguisher {
-      IOS_EXTENSION, IOS_APPLICATION, FRAMEWORK, UNKNOWN
+      IOS_EXTENSION, IOS_APPLICATION, FRAMEWORK, UNKNOWN, WATCH_OS1_EXTENSION
     }
   }
 }

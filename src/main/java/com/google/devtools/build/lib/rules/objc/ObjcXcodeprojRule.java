@@ -50,6 +50,8 @@ public class ObjcXcodeprojRule implements RuleDefinition {
                 "ios_application",
                 "ios_extension_binary",
                 "ios_extension",
+                "apple_watch_extension_binary",
+                "apple_watch1_extension",
                 "ios_framework",
                 "ios_framework_binary",
                 "experimental_ios_test",

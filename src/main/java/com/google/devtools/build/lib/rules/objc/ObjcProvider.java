@@ -214,6 +214,17 @@ public final class ObjcProvider implements TransitiveInfoProvider {
       new Key<>(STABLE_ORDER, "merge_zip", Artifact.class);
 
   /**
+   * Merge zips to include in the ipa and outside the bundle root.
+   *
+   * e.g. For a bundle Test.ipa, unzipped content will be in:
+   *    Test.ipa/<unzipped>
+   *    Test.ipa/Payload
+   *    Test.ipa/Payload/Test.app
+   */
+  public static final Key<Artifact> ROOT_MERGE_ZIP =
+      new Key<>(STABLE_ORDER, "root_merge_zip", Artifact.class);
+
+  /**
    * Exec paths of {@code .framework} directories corresponding to frameworks to link. These cause
    * -F arguments (framework search paths) to be added to each compile action, and -framework (link
    * framework) arguments to be added to each link action.
@@ -312,8 +323,12 @@ public final class ObjcProvider implements TransitiveInfoProvider {
     /**
      * Indicates that the resulting bundle will have embedded frameworks. This affects linking step.
      */
-    USES_FRAMEWORKS
-
+    USES_FRAMEWORKS,
+    
+    /**
+     * Indicates that watch os 1 extension is present in the bundle.
+     */
+    HAS_WATCH1_EXTENSION
   }
 
   /**
@@ -325,7 +340,8 @@ public final class ObjcProvider implements TransitiveInfoProvider {
     ImmutableList.<Key<?>>of(LIBRARY, IMPORTED_LIBRARY, LINKED_BINARY, FORCE_LOAD_LIBRARY,
         FORCE_LOAD_FOR_XCODEGEN, HEADER, SOURCE, DEFINE, ASSET_CATALOG, GENERAL_RESOURCE_FILE,
         SDK_DYLIB, XCDATAMODEL, MODULE_MAP, MERGE_ZIP, FRAMEWORK_FILE, DEBUG_SYMBOLS,
-        DEBUG_SYMBOLS_PLIST, BREAKPAD_FILE, STORYBOARD, XIB, STRINGS, LINKOPT, J2OBJC_LIBRARY);
+        DEBUG_SYMBOLS_PLIST, BREAKPAD_FILE, STORYBOARD, XIB, STRINGS, LINKOPT, J2OBJC_LIBRARY,
+        ROOT_MERGE_ZIP);
 
   private final ImmutableMap<Key<?>, NestedSet<?>> items;
 

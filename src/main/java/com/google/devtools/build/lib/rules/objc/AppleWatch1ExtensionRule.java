@@ -1,4 +1,4 @@
-// Copyright 2015 The Bazel Authors. All rights reserved.
+// Copyright 2016 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,12 +14,11 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -27,73 +26,73 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.objc.ObjcRuleClasses.IpaRule;
 
 /**
- * Rule definition for ios_application.
+ * Rule definition for apple_watch1_extension.
  */
-public class IosApplicationRule implements RuleDefinition {
+public class AppleWatch1ExtensionRule implements RuleDefinition {
+
+  private static final Iterable<String> ALLOWED_DEPS_RULE_CLASSES =
+      ImmutableSet.of("objc_library", "objc_import");
+  static final String WATCH_APP_DEPS_ATTR  = "app_deps";
 
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .requiresConfigurationFragments(ObjcConfiguration.class, AppleConfiguration.class)
-        /*<!-- #BLAZE_RULE(ios_application).IMPLICIT_OUTPUTS -->
+        /*<!-- #BLAZE_RULE(apple_watch1_extension).IMPLICIT_OUTPUTS -->
         <ul>
-         <li><code><var>name</var>.ipa</code>: the application bundle as an <code>.ipa</code>
-             file
+         <li><code><var>name</var>.ipa</code>: the extension bundle as an <code>.ipa</code>
+             file</li>
          <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
-             can be used to develop or build on a Mac.
+             can be used to develop or build on a Mac.</li>
         </ul>
         <!-- #END_BLAZE_RULE.IMPLICIT_OUTPUTS -->*/
         .setImplicitOutputsFunction(
             ImplicitOutputsFunction.fromFunctions(ReleaseBundlingSupport.IPA, XcodeSupport.PBXPROJ))
-        /* <!-- #BLAZE_RULE(ios_application).ATTRIBUTE(binary) -->
-        The binary target included in the final bundle.
+        /* <!-- #BLAZE_RULE(apple_watch1_extension).ATTRIBUTE(binary) -->
+        The binary target containing the logic for the watch extension.
+        ${SYNOPSIS}
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("binary", LABEL)
-            .allowedRuleClasses("objc_binary")
+            .allowedRuleClasses("apple_watch_extension_binary")
             .allowedFileTypes()
             .mandatory()
             .direct_compile_time_input()
-            .cfg(IosApplication.SPLIT_ARCH_TRANSITION))
-        /* <!-- #BLAZE_RULE(ios_application).ATTRIBUTE(extensions) -->
-        Any extensions to include in the final application.
+            .cfg(AppleWatch1Extension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION))
+        /* <!-- #BLAZE_RULE($apple_watch1_extension).ATTRIBUTE(deps) -->
+        The list of targets whose resources files are bundled together to form final watch
+        application bundle.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
-        .add(attr("extensions", LABEL_LIST)
-            .allowedRuleClasses("ios_extension", "apple_watch1_extension")
-            .allowedFileTypes()
-            .direct_compile_time_input())
-        .add(attr("$runner_script_template", LABEL).cfg(HOST)
-            .value(env.getToolsLabel("//tools/objc:ios_runner.sh.mac_template")))
-        .add(attr("$is_executable", BOOLEAN).value(true)
-            .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target"))
+       .add(attr(WATCH_APP_DEPS_ATTR, LABEL_LIST)
+           .direct_compile_time_input()
+           .allowedRuleClasses(ALLOWED_DEPS_RULE_CLASSES)
+           .allowedFileTypes()
+           .cfg(AppleWatch1Extension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION))
         .build();
   }
 
   @Override
+
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
-        .name("ios_application")
-        .factoryClass(IosApplication.class)
-        .ancestors(
-            BaseRuleClasses.BaseRule.class,
-            ObjcRuleClasses.ReleaseBundlingRule.class,
+        .name("apple_watch1_extension")
+        .factoryClass(AppleWatch1Extension.class)
+        .ancestors(BaseRuleClasses.BaseRule.class,
             ObjcRuleClasses.XcodegenRule.class,
-            ObjcRuleClasses.SimulatorRule.class,
-            IpaRule.class)
+            ObjcRuleClasses.WatchApplicationBundleRule.class,
+            ObjcRuleClasses.WatchExtensionBundleRule.class)
         .build();
   }
 }
 
-/*<!-- #BLAZE_RULE (NAME = ios_application, TYPE = BINARY, FAMILY = Objective-C) -->
+/*<!-- #BLAZE_RULE (NAME = apple_watch1_extension, TYPE = BINARY, FAMILY = Objective-C) -->
 
-<p>This rule produces an application bundle for iOS.</p>
-<p>When running an iOS application using the <code>run</code> command, environment variables that
-are prefixed with <code>IOS_</code> will be passed to the launched application, with the prefix
-stripped. For example, if you export <code>IOS_ENV=foo</code>, <code>ENV=foo</code> will be
-passed to the application.</p>
+<p>This rule produces an extension bundle for apple watch OS 1 which also contains the watch
+application bundle</p>
 
 ${IMPLICIT_OUTPUTS}
+
+${ATTRIBUTE_DEFINITION}
 
 <!-- #END_BLAZE_RULE -->*/
