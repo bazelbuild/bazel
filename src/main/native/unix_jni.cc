@@ -232,6 +232,14 @@ void PostFileException(JNIEnv *env, int error_number, const char *filename) {
                   + ")");
 }
 
+// See unix_jni.h.
+void PostSystemException(JNIEnv *env, int error_number, const char *function,
+                         const char *name) {
+  ::PostException(env, error_number, std::string(function) + "(" +
+                                         std::string(name) + ")" + " (" +
+                                         ErrorMessage(error_number) + ")");
+}
+
 // TODO(bazel-team): split out all the FileSystem class's native methods
 // into a separate source file, fsutils.cc.
 
@@ -848,4 +856,17 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_md5sumAsBytes(
   }
   ReleaseStringLatin1Chars(path_chars);
   return result;
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_google_devtools_build_lib_unix_NativePosixSystem_sysctlbynameGetLong(
+    JNIEnv *env, jclass clazz, jstring name) {
+  const char *name_chars = GetStringLatin1Chars(env, name);
+  jlong r;
+  size_t len = sizeof(r);
+  if (portable_sysctlbyname(name_chars, &r, &len) == -1) {
+    ::PostSystemException(env, errno, "sysctlbyname", name_chars);
+  }
+  ReleaseStringLatin1Chars(name_chars);
+  return r;
 }

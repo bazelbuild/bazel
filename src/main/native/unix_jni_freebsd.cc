@@ -79,3 +79,7 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
                            size_t size) {
   return extattr_get_link(path, EXTATTR_NAMESPACE_SYSTEM, name, value, size);
 }
+
+int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
+  return sysctlbyname(name_chars, mibp, sizep, NULL, 0);
+}

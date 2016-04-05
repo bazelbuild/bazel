@@ -20,7 +20,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/sysctl.h>
 #include <sys/syslimits.h>
+#include <sys/types.h>
 
 #include <string>
 
@@ -110,4 +112,8 @@ ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
                            size_t size) {
   errno = ENOSYS;
   return -1;
+}
+
+int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
+  return sysctlbyname(name_chars, mibp, sizep, NULL, 0);
 }

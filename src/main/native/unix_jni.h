@@ -59,6 +59,10 @@ extern void PostException(JNIEnv *env, int error_number,
 extern void PostFileException(JNIEnv *env, int error_number,
                               const char *filename);
 
+// Like PostFileException, but with a different error message.
+extern void PostSystemException(JNIEnv *env, int error_number,
+                                const char *name);
+
 // Returns the standard error message for a given UNIX error number.
 extern std::string ErrorMessage(int error_number);
 
@@ -86,5 +90,8 @@ ssize_t portable_getxattr(const char *path, const char *name, void *value,
 // Run lgetxattr(2), if available. If not, sets errno to ENOSYS.
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
                            size_t size);
+
+// Run sysctlbyname(3), only available on darwin
+int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep);
 
 #endif  // BAZEL_SRC_MAIN_NATIVE_UNIX_JNI_H__

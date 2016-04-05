@@ -14,8 +14,9 @@
 
 #include "src/main/native/unix_jni.h"
 
-#include <string.h>
+#include <errno.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/xattr.h>
 
@@ -72,4 +73,9 @@ ssize_t portable_getxattr(const char *path, const char *name, void *value,
 ssize_t portable_lgetxattr(const char *path, const char *name, void *value,
                            size_t size) {
   return ::lgetxattr(path, name, value, size);
+}
+
+int portable_sysctlbyname(const char *name_chars, long *mibp, size_t *sizep) {
+  errno = ENOSYS;
+  return -1;
 }
