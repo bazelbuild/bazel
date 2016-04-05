@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
  */
 public final class DexArchiveAspect implements NativeAspectFactory, ConfiguredAspectFactory {
   private static final String NAME = "DexArchiveAspect";
+  private static final String ASPECT_DEXBUILDER_PREREQ = "$dex_archive_dexbuilder";
   private static final ImmutableList<String> TRANSITIVE_ATTRIBUTES =
       ImmutableList.of("deps", "exports", "runtime_deps");
 
@@ -49,7 +50,7 @@ public final class DexArchiveAspect implements NativeAspectFactory, ConfiguredAs
     AspectDefinition.Builder result = new AspectDefinition.Builder(NAME)
         // Actually we care about JavaRuntimeJarProvider, but rules don't advertise that provider.
         .requireProvider(JavaCompilationArgsProvider.class)
-        .add(attr("$dexbuilder", LABEL).cfg(HOST).exec()
+        .add(attr(ASPECT_DEXBUILDER_PREREQ, LABEL).cfg(HOST).exec()
         // Parse label here since we don't have RuleDefinitionEnvironment.getLabel like in a rule
             .value(Label.parseAbsoluteUnchecked(TOOLS_REPOSITORY + "//tools/android:dexbuilder")))
         .requiresConfigurationFragments(AndroidConfiguration.class);
@@ -102,15 +103,32 @@ public final class DexArchiveAspect implements NativeAspectFactory, ConfiguredAs
 
   private static Artifact createDexArchiveAction(RuleContext ruleContext, Artifact jar) {
     Artifact result = AndroidBinary.getDxArtifact(ruleContext, jar.getFilename() + ".dex.zip");
-    createDexArchiveAction(ruleContext, jar, result);
+    // Aspect must use attribute name for dexbuilder prereq that's different from the prerequisite
+    // declared on AndroidBinaryBaseRule because the two prereq's can otherwise name-clash when
+    // android_binary targets are built as part of an android_test: building android_test causes
+    // the aspect to apply to the android_binary target, but android_binary itself also declares
+    // a $dexbuilder prerequisite, so if the aspect also used $dexbuilder then
+    // RuleContext.getExecutablePrerequisite would fail with "$dexbuilder produces multiple prereqs"
+    // (note they both resolve to the same artifact but that doesn't seem to prevent the exception
+    // from being thrown).
+    createDexArchiveAction(ruleContext, ASPECT_DEXBUILDER_PREREQ, jar, result);
     return result;
   }
 
-  // Package-private methods for use in AndroidBinary
-
+  /**
+   * Creates a dex archive using an executable prerequisite called {@code "$dexbuilder"}.  Rules
+   * calling this method must declare the appropriate prerequisite, similar to how
+   * {@link #getDefinition} does it for {@link DexArchiveAspect} under a different name.
+   */
+  // Package-private method for use in AndroidBinary
   static void createDexArchiveAction(RuleContext ruleContext, Artifact jar, Artifact dexArchive) {
+    createDexArchiveAction(ruleContext, "$dexbuilder", jar, dexArchive);
+  }
+
+  private static void createDexArchiveAction(RuleContext ruleContext, String dexbuilderPrereq,
+      Artifact jar, Artifact dexArchive) {
     SpawnAction.Builder dexbuilder = new SpawnAction.Builder()
-        .setExecutable(ruleContext.getExecutablePrerequisite("$dexbuilder", Mode.HOST))
+        .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq, Mode.HOST))
         .addArgument("--input_jar")
         .addInputArgument(jar)
         .addArgument("--output_zip")
