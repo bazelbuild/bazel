@@ -34,7 +34,7 @@
   <li><a href="${bazelbuildGithub}/rules_go" target="_blank">Go</a></li>
   <li><a href="${bazelbuildGithub}/rules_jsonnet" target="_blank">Jsonnet</a></li>
   <li><a href="${path}/pkg.html">Packaging</a></li>
-  <li><a href="${bazelbuildGithub}/rules_rust target="_blank"">Rust</a></li>
+  <li><a href="${bazelbuildGithub}/rules_rust" target="_blank">Rust</a></li>
   <li><a href="${bazelbuildGithub}/rules_sass" target="_blank">Sass</a></li>
   <li><a href="${bazelbuildGithub}/rules_scala" target="_blank">Scala</a></li>
 </ul>
