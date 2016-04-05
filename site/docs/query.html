@@ -1309,6 +1309,21 @@ genrule(
   multiple times will always produce the same output.
 </p>
 
+<h3 id="output-build">Print the source form of targets as they would appear in BUILD</h3>
+<pre>--output build</pre>
+<p>
+  With this option, the representation of each target is as if it were
+  hand-written in the BUILD language. All variables and function calls
+  (e.g. glob, macros) are expanded, which is useful for seeing the effect
+  of Skylark macros. Additionally, each effective rule is annotated with
+  the name of the macro (if any, see <code>generator_name</code> and
+  <code>generator_function</code>) that produced it.
+</p>
+<p>
+  Although the output uses the same syntax as BUILD files, it is not
+  guaranteed to produce a valid BUILD file.
+</p>
+
 <h3 id="output-label">Print the label of each target</h3>
 <pre>--output label</pre>
 <p>
