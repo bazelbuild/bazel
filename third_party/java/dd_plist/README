@@ -1,5 +1,5 @@
-URL: http://plist.googlecode.com/svn-history/r111/trunk/
-Version: r111
+URL: https://github.com/3breadt/dd-plist/tree/dd-plist-1.17
+Version: c48d54f5153ff38810e602d998bb9e029738655c
 License: MIT Style
 License File: LICENSE
 
@@ -24,8 +24,6 @@ library can be of great help when it comes to porting iOS apps to Android.
 Local Modifications:
 - LICENSE file has been created for compliance purposes. Not included in
   original distribution.
-- Made PropertyListParser.readAll react properly to InputStreams that sometimes
-  read fewer bytes than are available.
 - Rewrote some functions in ASCIIPropertyListParser.java to support characters
   outside of the 7-bit ASCII range.
 - Support surrogate pairs from \u escaped chars in strings in

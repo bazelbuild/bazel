@@ -91,7 +91,8 @@ public class BinaryPropertyListWriter {
      *
      * @param file the file to write to
      * @param root the source of the data to write to the file
-     * @throws IOException
+     * @throws IOException When an IO error occurs while writing to the file or the object structure contains
+     *                     data that cannot be saved.
      */
     public static void write(File file, NSObject root) throws IOException {
         OutputStream out = new FileOutputStream(file);
@@ -104,7 +105,8 @@ public class BinaryPropertyListWriter {
      *
      * @param out  the stream to write to
      * @param root the source of the data to write to the stream
-     * @throws IOException
+     * @throws IOException When an IO error occurs while writing to the stream or the object structure contains
+     *                     data that cannot be saved.
      */
     public static void write(OutputStream out, NSObject root) throws IOException {
         int minVersion = getMinimumRequiredVersion(root);
@@ -123,7 +125,8 @@ public class BinaryPropertyListWriter {
      *
      * @param root The root object of the property list
      * @return The byte array containing the serialized property list
-     * @throws IOException
+     * @throws IOException When an IO error occurs while writing to the stream or the object structure contains
+     *                     data that cannot be saved.
      */
     public static byte[] writeToArray(NSObject root) throws IOException {
         ByteArrayOutputStream bout = new ByteArrayOutputStream();
@@ -147,7 +150,8 @@ public class BinaryPropertyListWriter {
      * Creates a new binary property list writer
      *
      * @param outStr The output stream into which the binary property list will be written
-     * @throws IOException If an error occured while writing to the stream
+     * @throws IOException When an IO error occurs while writing to the stream or the object structure contains
+     *                     data that cannot be saved.
      */
     BinaryPropertyListWriter(OutputStream outStr) throws IOException {
         out = new BufferedOutputStream(outStr);

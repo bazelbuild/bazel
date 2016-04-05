@@ -35,7 +35,7 @@ import java.util.Set;
 /**
  * A NSDictionary is a collection of keys and values, essentially a Hashtable.
  * The keys are simple Strings whereas the values can be any kind of NSObject.
- * <p/>
+ *
  * You can access the keys through the function <code>allKeys()</code>. Access
  * to the objects stored for each key is given through the function
  * <code>objectoForKey(String key)</code>.
@@ -148,6 +148,8 @@ public class NSDictionary extends NSObject  implements Map<String, NSObject> {
      *         or null, if no value was associated to it.
      */
     public NSObject put(String key, NSObject obj) {
+        if(key == null)
+            return null;
         if(obj == null)
             return dict.get(key);
         return dict.put(key, obj);
@@ -155,7 +157,7 @@ public class NSDictionary extends NSObject  implements Map<String, NSObject> {
 
     /**
      * Puts a new key-value pair into this dictionary.
-     * If the value is null, no operation will be performed on the dictionary.
+     * If key or value are null, no operation will be performed on the dictionary.
      *
      * @param key The key.
      * @param obj The value. Supported object types are numbers, byte-arrays, dates, strings and arrays or sets of those.
@@ -163,39 +165,7 @@ public class NSDictionary extends NSObject  implements Map<String, NSObject> {
      *         or null, if no value was associated to it.
      */
     public NSObject put(String key, Object obj) {
-        if(obj == null)
-            return dict.get(key);
         return put(key, NSObject.wrap(obj));
-    }
-
-    /**
-     * Puts a new key-value pair into this dictionary.
-     *
-     * @param key The key.
-     * @param obj The value.
-     */
-    public NSObject put(String key, long obj) {
-        return put(key, new NSNumber(obj));
-    }
-
-    /**
-     * Puts a new key-value pair into this dictionary.
-     *
-     * @param key The key.
-     * @param obj The value.
-     */
-    public NSObject put(String key, double obj) {
-        return put(key, new NSNumber(obj));
-    }
-
-    /**
-     * Puts a new key-value pair into this dictionary.
-     *
-     * @param key The key.
-     * @param obj The value.
-     */
-    public NSObject put(String key, boolean obj) {
-        return put(key, new NSNumber(obj));
     }
 
     /**

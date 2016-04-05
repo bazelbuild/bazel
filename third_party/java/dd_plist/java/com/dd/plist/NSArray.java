@@ -88,8 +88,6 @@ public class NSArray extends NSObject {
      * @param value The object.
      */
     public void setValue(int key, Object value) {
-        if(value == null)
-            throw new NullPointerException("Cannot add null values to an NSArray!");
         array[key] = NSObject.wrap(value);
     }
 
@@ -123,6 +121,11 @@ public class NSArray extends NSObject {
     public boolean containsObject(Object obj) {
         NSObject nso = NSObject.wrap(obj);
         for (NSObject elem : array) {
+            if(elem == null) {
+                if(obj == null)
+                    return true;
+                continue;
+            }
             if (elem.equals(nso)) {
                 return true;
             }
@@ -197,6 +200,8 @@ public class NSArray extends NSObject {
 
     @Override
     public boolean equals(Object obj) {
+        if(obj == null)
+            return false;
         if(obj.getClass().equals(NSArray.class)) {
             return Arrays.equals(((NSArray) obj).getArray(), this.array);
         } else {
