@@ -15,6 +15,14 @@ title: Objective-C Rules
   <h2>Rules</h2>
   <ul>
     <li>
+      <a href="#apple_watch1_extension">
+        apple_watch1_extension      </a>
+    </li>
+    <li>
+      <a href="#apple_watch_extension_binary">
+        apple_watch_extension_binary      </a>
+    </li>
+    <li>
       <a href="#ios_application">
         ios_application      </a>
     </li>
@@ -81,7 +89,783 @@ title: Objective-C Rules
   </ul>
 </div>
 
-  <h2 id="ios_application">
+  <h2 id="apple_watch1_extension">
+    apple_watch1_extension
+  </h2>
+
+  <pre class="rule-signature">apple_watch1_extension(<a href="#apple_watch1_extension.name">name</a>, <a href="#apple_watch1_extension.app_asset_catalogs">app_asset_catalogs</a>, <a href="#apple_watch1_extension.app_bundle_id">app_bundle_id</a>, <a href="#apple_watch1_extension.app_entitlements">app_entitlements</a>, <a href="#apple_watch1_extension.app_icon">app_icon</a>, <a href="#apple_watch1_extension.app_infoplists">app_infoplists</a>, <a href="#apple_watch1_extension.app_name">app_name</a>, <a href="#apple_watch1_extension.app_provisioning_profile">app_provisioning_profile</a>, <a href="#apple_watch1_extension.app_resources">app_resources</a>, <a href="#apple_watch1_extension.app_strings">app_strings</a>, <a href="#apple_watch1_extension.app_structured_resources">app_structured_resources</a>, <a href="#apple_watch1_extension.binary">binary</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#apple_watch1_extension.ext_bundle_id">ext_bundle_id</a>, <a href="#apple_watch1_extension.ext_entitlements">ext_entitlements</a>, <a href="#apple_watch1_extension.ext_families">ext_families</a>, <a href="#apple_watch1_extension.ext_infoplists">ext_infoplists</a>, <a href="#apple_watch1_extension.ext_provisioning_profile">ext_provisioning_profile</a>, <a href="#apple_watch1_extension.ext_resources">ext_resources</a>, <a href="#apple_watch1_extension.ext_strings">ext_strings</a>, <a href="#apple_watch1_extension.ext_structured_resources">ext_structured_resources</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+
+
+<p>This rule produces an extension bundle for apple watch OS 1 which also contains the watch
+application bundle</p>
+
+<h4 id="apple_watch1_extension_implicit_outputs">Implicit output targets</h4>
+        <ul>
+         <li><code><var>name</var>.ipa</code>: the extension bundle as an <code>.ipa</code>
+             file</li>
+         <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
+             can be used to develop or build on a Mac.</li>
+        </ul>
+
+
+${ATTRIBUTE_DEFINITION}
+
+
+
+  <h3 id="apple_watch1_extension_args">Arguments</h3>
+  <table class="table table-condensed table-bordered table-params">
+    <colgroup>
+      <col class="col-param" />
+      <col class="param-description" />
+    </colgroup>
+    <thead>
+      <tr>
+        <th colspan="2">Attributes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td id="apple_watch1_extension.name"><code>name</code></td>
+        <td>
+          <p><code><a href="../build-ref.html#name">Name</a>; required</code></p>
+          <p>A unique name for this rule.</p>
+
+        </td>
+      </tr>
+                <tr>
+        <td id="apple_watch1_extension.app_asset_catalogs">
+          <code>app_asset_catalogs</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files that comprise the asset catalogs of the final linked binary.
+
+          Each file must have a containing directory named *.xcassets. This
+          containing directory becomes the root of one of the asset catalogs
+          linked with any binary that depends directly or indirectly on this
+          target.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.app_bundle_id">
+          <code>app_bundle_id</code>
+        </td>
+        <td>
+                    <p><code>String; optional</code></p>
+                              The bundle ID (reverse-DNS path followed by app name) of the watch application binary.
+
+          If specified, it will override the bundle ID specified in the associated plist file. If
+          no bundle ID is specified on either this attribute or in the plist file, a junk value
+          will be used.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.app_entitlements">
+          <code>app_entitlements</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                              The entitlements file required for device builds of watch application.
+
+          See
+          <a href="https://developer.apple.com/library/mac/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/AboutEntitlements.html">the apple documentation</a>
+          for more information. If absent, the default entitlements from the
+          provisioning profile will be used.
+          <p>
+          The following variables are substituted as per
+          <a href="https://developer.apple.com/library/ios/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html">their definitions in Apple's documentation</a>:
+          $(AppIdentifierPrefix) and $(CFBundleIdentifier).
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.app_icon">
+          <code>app_icon</code>
+        </td>
+        <td>
+                    <p><code>String; optional</code></p>
+                              The name of the watch application icon.
+
+          The icon should be in one of the asset catalogs of this target or
+          a (transitive) dependency. In a new project, this is initialized
+          to "AppIcon" by Xcode.
+          <p>
+          If the application icon is not in an asset catalog, do not use this
+          attribute. Instead, add a CFBundleIcons entry to the Info.plist file.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.app_infoplists">
+          <code>app_infoplists</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                               Infoplist files to be merged. The merged output corresponds to <i>appname</i>-Info.plist
+           in Xcode projects.  Duplicate keys between infoplist files will cause an error if
+           and only if the values conflict.  If both <code>infoplist</code> and
+           <code>infoplists</code> are specified, the files defined in both attributes will be used.
+           Bazel will perform variable substitution on the plist files for the following values:
+           <ul>
+             <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
+                in the bundle by bazel, which can be used as the value for
+                <code>CFBundleExecutable</code> within the plist.
+             <li><code>${BUNDLE_NAME}</code>: This target's name and bundle suffix (.bundle or .app)
+                in the form<code><var>name</var></code>.<code>suffix</code>.
+             <li><code>${PRODUCT_NAME}</code>: This target's name.
+          </ul>
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.app_name">
+          <code>app_name</code>
+        </td>
+        <td>
+                    <p><code>String; required</code></p>
+                              Name of the final watch application binary.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.app_provisioning_profile">
+          <code>app_provisioning_profile</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                              The provisioning profile (.mobileprovision file) to use when bundling
+          the watch application.
+
+          This is only used for non-simulator builds.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.app_resources">
+          <code>app_resources</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files to include in the final watch application bundle.
+
+          They are not processed or compiled in any way besides the processing
+          done by the rules that actually generate them. These files are placed
+          in the root of the bundle (e.g. Foo.app/...) in most cases.
+          However, if they appear to be localized (i.e. are contained in a
+          directory called *.lproj), they will be placed in a directory of the
+          same name in the app bundle.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.app_strings">
+          <code>app_strings</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files which are plists of strings, often localizable to be added to watch application.
+
+          These files are converted to binary plists (if they are not already)
+          and placed in the bundle root of the final package. If this file's
+          immediate containing directory is named *.lproj (e.g. en.lproj,
+          Base.lproj), it will be placed under a directory of that name in the
+          final bundle. This allows for localizable strings.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.app_structured_resources">
+          <code>app_structured_resources</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files to include in the final watch application bundle.
+
+          They are not processed or compiled in any way besides the processing
+          done by the rules that actually generate them. In differences to
+          <code>resources</code> these files are placed in the bundle root in
+          the same structure passed to this argument, so
+          <code>["res/foo.png"]</code> will end up in
+          <code>Foo.app/res/foo.png</code>.
+          <p>Note that in the generated XCode project file, all files in the top directory of
+          the specified files will be included in the Xcode-generated app bundle. So
+          specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
+          directory <code>res</code>.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.binary">
+          <code>binary</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; required</code></p>
+                            The binary target containing the logic for the watch extension.
+        ${SYNOPSIS}
+
+        </td>
+      </tr>
+                                                    <tr>
+        <td id="apple_watch1_extension.ext_bundle_id">
+          <code>ext_bundle_id</code>
+        </td>
+        <td>
+                    <p><code>String; optional</code></p>
+                              The bundle ID (reverse-DNS path followed by app name) of the watch extension binary.
+
+          If specified, it will override the bundle ID specified in the associated plist file. If
+          no bundle ID is specified on either this attribute or in the plist file, a junk value
+          will be used.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.ext_entitlements">
+          <code>ext_entitlements</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                              The entitlements file required for device builds of watch extension.
+
+          See
+          <a href="https://developer.apple.com/library/mac/documentation/Miscellaneous/Reference/EntitlementKeyReference/Chapters/AboutEntitlements.html">the apple documentation</a>
+          for more information. If absent, the default entitlements from the
+          provisioning profile will be used.
+          <p>
+          The following variables are substituted as per
+          <a href="https://developer.apple.com/library/ios/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html">their definitions in Apple's documentation</a>:
+          $(AppIdentifierPrefix) and $(CFBundleIdentifier).
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.ext_families">
+          <code>ext_families</code>
+        </td>
+        <td>
+                    <p><code>List of strings; optional</code></p>
+                              The device families to which the watch extension is targeted.
+
+          This is known as the <code>TARGETED_DEVICE_FAMILY</code> build setting
+          in Xcode project files. It is a list of one or more of the strings
+          <code>"iphone"</code> and <code>"ipad"</code>.
+
+          <p>By default this is set to <code>"iphone"</code>, if explicitly specified may not be
+          empty.</p>
+          <p>The watch application is always built for <code>"watch"</code> for device builds and
+          <code>"iphone, watch"</code> for simulator builds.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.ext_infoplists">
+          <code>ext_infoplists</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                               Infoplist files to be merged. The merged output corresponds to <i>appname</i>-Info.plist
+           in Xcode projects.  Duplicate keys between infoplist files will cause an error if
+           and only if the values conflict.  If both <code>infoplist</code> and
+           <code>infoplists</code> are specified, the files defined in both attributes will be used.
+           Bazel will perform variable substitution on the plist files for the following values:
+           <ul>
+             <li><code>${EXECUTABLE_NAME}</code>: The name of the executable generated and included
+                in the bundle by bazel, which can be used as the value for
+                <code>CFBundleExecutable</code> within the plist.
+             <li><code>${BUNDLE_NAME}</code>: This target's name and bundle suffix (.bundle or .app)
+                in the form<code><var>name</var></code>.<code>suffix</code>.
+             <li><code>${PRODUCT_NAME}</code>: This target's name.
+          </ul>
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.ext_provisioning_profile">
+          <code>ext_provisioning_profile</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                              The provisioning profile (.mobileprovision file) to use when bundling
+          the watch extension.
+
+          This is only used for non-simulator builds.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.ext_resources">
+          <code>ext_resources</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files to include in the final watch extension bundle.
+
+          They are not processed or compiled in any way besides the processing
+          done by the rules that actually generate them. These files are placed
+          in the root of the bundle (e.g. Foo.app/...) in most cases.
+          However, if they appear to be localized (i.e. are contained in a
+          directory called *.lproj), they will be placed in a directory of the
+          same name in the app bundle.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.ext_strings">
+          <code>ext_strings</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files which are plists of strings, often localizable to be added to watch extension.
+
+          These files are converted to binary plists (if they are not already)
+          and placed in the bundle root of the final package. If this file's
+          immediate containing directory is named *.lproj (e.g. en.lproj,
+          Base.lproj), it will be placed under a directory of that name in the
+          final bundle. This allows for localizable strings.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.ext_structured_resources">
+          <code>ext_structured_resources</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files to include in the final watch extension bundle.
+
+          They are not processed or compiled in any way besides the processing
+          done by the rules that actually generate them. In differences to
+          <code>resources</code> these files are placed in the bundle root in
+          the same structure passed to this argument, so
+          <code>["res/foo.png"]</code> will end up in
+          <code>Foo.app/res/foo.png</code>.
+          <p>Note that in the generated XCode project file, all files in the top directory of
+          the specified files will be included in the Xcode-generated app bundle. So
+          specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
+          directory <code>res</code>.
+
+        </td>
+      </tr>
+                                                                          </tbody>
+  </table>
+    <h2 id="apple_watch_extension_binary">
+    apple_watch_extension_binary
+  </h2>
+
+  <pre class="rule-signature">apple_watch_extension_binary(<a href="#apple_watch_extension_binary.name">name</a>, <a href="#apple_watch_extension_binary.deps">deps</a>, <a href="#apple_watch_extension_binary.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#apple_watch_extension_binary.resources">resources</a>, <a href="#apple_watch_extension_binary.hdrs">hdrs</a>, <a href="#apple_watch_extension_binary.asset_catalogs">asset_catalogs</a>, <a href="#apple_watch_extension_binary.bridging_header">bridging_header</a>, <a href="#apple_watch_extension_binary.bundles">bundles</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#apple_watch_extension_binary.copts">copts</a>, <a href="#apple_watch_extension_binary.datamodels">datamodels</a>, <a href="#apple_watch_extension_binary.defines">defines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#apple_watch_extension_binary.enable_modules">enable_modules</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#apple_watch_extension_binary.includes">includes</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#apple_watch_extension_binary.linkopts">linkopts</a>, <a href="#apple_watch_extension_binary.non_arc_srcs">non_arc_srcs</a>, <a href="#apple_watch_extension_binary.non_propagated_deps">non_propagated_deps</a>, <a href="#apple_watch_extension_binary.pch">pch</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#apple_watch_extension_binary.sdk_dylibs">sdk_dylibs</a>, <a href="#apple_watch_extension_binary.sdk_frameworks">sdk_frameworks</a>, <a href="#apple_watch_extension_binary.sdk_includes">sdk_includes</a>, <a href="#apple_watch_extension_binary.storyboards">storyboards</a>, <a href="#apple_watch_extension_binary.strings">strings</a>, <a href="#apple_watch_extension_binary.structured_resources">structured_resources</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#apple_watch_extension_binary.textual_hdrs">textual_hdrs</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#apple_watch_extension_binary.weak_sdk_frameworks">weak_sdk_frameworks</a>, <a href="#apple_watch_extension_binary.xibs">xibs</a>)</pre>
+
+
+<p>This rule produces a binary for watch extension by linking one or more
+Objective-C libraries.</p>
+
+<h4 id="apple_watch_extension_binary_implicit_outputs">Implicit output targets</h4>
+        <ul>
+         <li><code><var>name</var>.xcodeproj/project.pbxproj</code>: An Xcode project file which
+             can be used to develop or build on a Mac.</li>
+        </ul>
+
+
+
+
+  <h3 id="apple_watch_extension_binary_args">Arguments</h3>
+  <table class="table table-condensed table-bordered table-params">
+    <colgroup>
+      <col class="col-param" />
+      <col class="param-description" />
+    </colgroup>
+    <thead>
+      <tr>
+        <th colspan="2">Attributes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td id="apple_watch_extension_binary.name"><code>name</code></td>
+        <td>
+          <p><code><a href="../build-ref.html#name">Name</a>; required</code></p>
+          <p>A unique name for this rule.</p>
+
+        </td>
+      </tr>
+                <tr>
+        <td id="apple_watch_extension_binary.deps">
+          <code>deps</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                               The list of targets that are linked together to form the final bundle.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch_extension_binary.srcs">
+          <code>srcs</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                               The list of C, C++, Objective-C, and Objective-C++ source and header
+           files that are processed to create the library target.
+           These are your checked-in files, plus any generated files.
+           Source files are compiled into .o files with Clang. Header files
+           may be included/imported by any source or header in the srcs attribute
+           of this target, but not by headers in hdrs or any targets that depend
+           on this rule.
+           Additionally, precompiled .o files may be given as srcs.  Be careful to
+           ensure consistency in the architecture of provided .o files and that of the
+           build to avoid missing symbol linker errors.
+
+        </td>
+      </tr>
+                                <tr>
+        <td id="apple_watch_extension_binary.resources">
+          <code>resources</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files to include in the final application bundle.
+
+          They are not processed or compiled in any way besides the processing
+          done by the rules that actually generate them. These files are placed
+          in the root of the bundle (e.g. Payload/foo.app/...) in most cases.
+          However, if they appear to be localized (i.e. are contained in a
+          directory called *.lproj), they will be placed in a directory of the
+          same name in the app bundle.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch_extension_binary.hdrs">
+          <code>hdrs</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              The list of C, C++, Objective-C, and Objective-C++ files that are
+          included as headers by source files in this rule or by users of this
+          library. These will be compiled separately from the source if modules
+          are enabled.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch_extension_binary.asset_catalogs">
+          <code>asset_catalogs</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files that comprise the asset catalogs of the final linked binary.
+
+          Each file must have a containing directory named *.xcassets. This
+          containing directory becomes the root of one of the asset catalogs
+          linked with any binary that depends directly or indirectly on this
+          target.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch_extension_binary.bridging_header">
+          <code>bridging_header</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                              A header defining the Objective-C interfaces to be exposed in Swift.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch_extension_binary.bundles">
+          <code>bundles</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              The list of bundle targets that this target requires to be included
+          in the final bundle.
+
+        </td>
+      </tr>
+                                <tr>
+        <td id="apple_watch_extension_binary.copts">
+          <code>copts</code>
+        </td>
+        <td>
+                    <p><code>List of strings; optional</code></p>
+                              Extra flags to pass to the compiler.
+          Subject to <a href="make-variables.html">"Make variable"</a> substitution and
+          <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
+          These flags will only apply to this target, and not those upon which
+          it depends, or those which depend on it.
+          <p>
+          Note that for the generated Xcode project, directory paths specified using "-I" flags in
+          copts are parsed out, prepended with "$(WORKSPACE_ROOT)/" if they are relative paths, and
+          added to the header search paths for the associated Xcode target.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch_extension_binary.datamodels">
+          <code>datamodels</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files that comprise the data models of the final linked binary.
+
+          Each file must have a containing directory named *.xcdatamodel, which
+          is usually contained by another *.xcdatamodeld (note the added d)
+          directory.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch_extension_binary.defines">
+          <code>defines</code>
+        </td>
+        <td>
+                    <p><code>List of strings; optional</code></p>
+                               Extra <code>-D</code> flags to pass to the compiler. They should be in
+           the form <code>KEY=VALUE</code> or simply <code>KEY</code> and are
+           passed not only to the compiler for this target (as <code>copts</code>
+           are) but also to all <code>objc_</code> dependers of this target.
+           Subject to <a href="make-variables.html">"Make variable"</a> substitution and
+           <a href="common-definitions.html#sh-tokenization">Bourne shell tokenization</a>.
+
+        </td>
+      </tr>
+                                          <tr>
+        <td id="apple_watch_extension_binary.enable_modules">
+          <code>enable_modules</code>
+        </td>
+        <td>
+                    <p><code>Boolean; optional; default is 0</code></p>
+                               Enables clang module support (via -fmodules).
+           Setting this to 1 will allow you to @import system headers and other targets:
+           @import UIKit;
+           @import path_to_package_target;
+
+        </td>
+      </tr>
+                                <tr>
+        <td id="apple_watch_extension_binary.includes">
+          <code>includes</code>
+        </td>
+        <td>
+                    <p><code>List of strings; optional</code></p>
+                              List of <code>#include/#import</code> search paths to add to this target
+          and all depending targets.
+
+          This is to support third party and open-sourced libraries that do not
+          specify the entire workspace path in their
+          <code>#import/#include</code> statements.
+          <p>
+          The paths are interpreted relative to the package directory, and the
+          genfiles and bin roots (e.g. <code>bazel-genfiles/pkg/includedir</code>
+          and <code>bazel-out/pkg/includedir</code>) are included in addition to the
+          actual client root.
+          <p>
+          Unlike <a href="#objc_library.copts">COPTS</a>, these flags are added for this rule
+          and every rule that depends on it. (Note: not the rules it depends upon!) Be
+          very careful, since this may have far-reaching effects.  When in doubt, add
+          "-I" flags to <a href="#objc_library.copts">COPTS</a> instead.
+
+        </td>
+      </tr>
+                                <tr>
+        <td id="apple_watch_extension_binary.linkopts">
+          <code>linkopts</code>
+        </td>
+        <td>
+                    <p><code>List of strings; optional</code></p>
+                              Extra flags to pass to the linker.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch_extension_binary.non_arc_srcs">
+          <code>non_arc_srcs</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                               The list of Objective-C files that are processed to create the
+           library target that DO NOT use ARC.
+           The files in this attribute are treated very similar to those in the
+           srcs attribute, but are compiled without ARC enabled.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch_extension_binary.non_propagated_deps">
+          <code>non_propagated_deps</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                               The list of targets that are required in order to build this target,
+           but which are not included in the final bundle.
+           This attribute should only rarely be used, and probably only for proto
+           dependencies.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch_extension_binary.pch">
+          <code>pch</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                               Header file to prepend to every source file being compiled (both arc
+           and non-arc).
+           Use of pch files is actively discouraged in BUILD files, and this should be
+           considered deprecated. Since pch files are not actually precompiled this is not
+           a build-speed enhancement, and instead is just a global dependency. From a build
+           efficiency point of view you are actually better including what you need directly
+           in your sources where you need it.
+
+        </td>
+      </tr>
+                                <tr>
+        <td id="apple_watch_extension_binary.sdk_dylibs">
+          <code>sdk_dylibs</code>
+        </td>
+        <td>
+                    <p><code>List of strings; optional</code></p>
+                              Names of SDK .dylib libraries to link with. For instance, "libz" or
+          "libarchive".
+
+          "libc++" is included automatically if the binary has any C++ or
+          Objective-C++ sources in its dependency tree. When linking a binary,
+          all libraries named in that binary's transitive dependency graph are
+          used.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch_extension_binary.sdk_frameworks">
+          <code>sdk_frameworks</code>
+        </td>
+        <td>
+                    <p><code>List of strings; optional</code></p>
+                              Names of SDK frameworks to link with.
+          For instance, "XCTest" or "Cocoa". "UIKit" and "Foundation" are always
+          included and do not mean anything if you include them.
+
+          <p>When linking a library, only those frameworks named in that library's
+          sdk_frameworks attribute are linked in. When linking a binary, all
+          SDK frameworks named in that binary's transitive dependency graph are
+          used.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch_extension_binary.sdk_includes">
+          <code>sdk_includes</code>
+        </td>
+        <td>
+                    <p><code>List of strings; optional</code></p>
+                              List of <code>#include/#import</code> search paths to add to this target
+          and all depending targets, where each path is relative to
+          <code>$(SDKROOT)/usr/include</code>.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch_extension_binary.storyboards">
+          <code>storyboards</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files which are .storyboard resources, possibly localizable.
+
+          These files are compiled to .storyboardc directories, which are
+          placed in the bundle root of the final package. If the storyboards's
+          immediate containing directory is named *.lproj (e.g. en.lproj,
+          Base.lproj), it will be placed under a directory of that name in the
+          final bundle. This allows for localizable UI.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch_extension_binary.strings">
+          <code>strings</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files which are plists of strings, often localizable.
+
+          These files are converted to binary plists (if they are not already)
+          and placed in the bundle root of the final package. If this file's
+          immediate containing directory is named *.lproj (e.g. en.lproj,
+          Base.lproj), it will be placed under a directory of that name in the
+          final bundle. This allows for localizable strings.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch_extension_binary.structured_resources">
+          <code>structured_resources</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files to include in the final application bundle.
+
+          They are not processed or compiled in any way besides the processing
+          done by the rules that actually generate them. In differences to
+          <code>resources</code> these files are placed in the bundle root in
+          the same structure passed to this argument, so
+          <code>["res/foo.png"]</code> will end up in
+          <code>Payload/foo.app/res/foo.png</code>.
+          <p>Note that in the generated XCode project file, all files in the top directory of
+          the specified files will be included in the Xcode-generated app bundle. So
+          specifying <code>["res/foo.png"]</code> will lead to the inclusion of all files in
+          directory <code>res</code>.
+
+        </td>
+      </tr>
+                                          <tr>
+        <td id="apple_watch_extension_binary.textual_hdrs">
+          <code>textual_hdrs</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              The list of C, C++, Objective-C, and Objective-C++ files that are
+          included as headers by source files in this rule or by users of this
+          library. Unlike hdrs, these will not be compiled separately from the
+          sources.
+
+        </td>
+      </tr>
+                                <tr>
+        <td id="apple_watch_extension_binary.weak_sdk_frameworks">
+          <code>weak_sdk_frameworks</code>
+        </td>
+        <td>
+                    <p><code>List of strings; optional</code></p>
+                              Names of SDK frameworks to weakly link with. For instance,
+          "MediaAccessibility".
+
+          In difference to regularly linked SDK frameworks, symbols
+          from weakly linked frameworks do not cause an error if they
+          are not present at runtime.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch_extension_binary.xibs">
+          <code>xibs</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                              Files which are .xib resources, possibly localizable.
+
+          These files are compiled to .nib files and placed the bundle root of
+          the final package. If this file's immediate containing directory is
+          named *.lproj (e.g. en.lproj, Base.lproj), it will be placed under a
+          directory of that name in the final bundle. This allows for
+          localizable UI.
+
+        </td>
+      </tr>
+              </tbody>
+  </table>
+    <h2 id="ios_application">
     ios_application
   </h2>
 
