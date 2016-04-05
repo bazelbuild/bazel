@@ -66,7 +66,7 @@ struct GlobalVariables {
   volatile sig_atomic_t received_signal;
 
   // Contains the relative paths of all the files in the attached zip, and is
-  // populated during GetInstallDir().
+  // populated during GetInstallBase().
   vector<string> extracted_binaries;
 
   // Parsed startup options
