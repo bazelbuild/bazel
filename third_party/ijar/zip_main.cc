@@ -172,7 +172,10 @@ int copy_file_to_buffer(int fd, size_t size, void *buffer) {
 // Execute the extraction (or just listing if just v is provided)
 int extract(char *zipfile, bool verbose, bool extract) {
   char output_root[PATH_MAX];
-  getcwd(output_root, PATH_MAX);
+  if (getcwd(output_root, PATH_MAX) == NULL) {
+    fprintf(stderr, "getcwd() failed: %s.\n", strerror(errno));
+    return -1;
+  }
 
   UnzipProcessor processor(output_root, verbose, extract);
   std::unique_ptr<ZipExtractor> extractor(ZipExtractor::Create(zipfile,
