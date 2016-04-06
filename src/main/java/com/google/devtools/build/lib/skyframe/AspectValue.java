@@ -51,7 +51,8 @@ public final class AspectValue extends ActionLookupValue {
     private final Label label;
     private final BuildConfiguration aspectConfiguration;
     private final BuildConfiguration baseConfiguration;
-    private final Aspect aspect;
+    private final AspectClass aspectClass;
+    private final AspectParameters parameters;
 
     protected AspectKey(
         Label label,
@@ -62,7 +63,8 @@ public final class AspectValue extends ActionLookupValue {
       this.label = label;
       this.aspectConfiguration = aspectConfiguration;
       this.baseConfiguration = baseConfiguration;
-      this.aspect = new Aspect(aspectClass, parameters);
+      this.aspectClass = aspectClass;
+      this.parameters = parameters;
     }
 
     @Override
@@ -77,17 +79,17 @@ public final class AspectValue extends ActionLookupValue {
     }
 
     public AspectClass getAspectClass() {
-      return aspect.getAspectClass();
+      return aspectClass;
     }
 
     @Nullable
     public AspectParameters getParameters() {
-      return aspect.getParameters();
+      return parameters;
     }
 
     @Override
     public String getDescription() {
-      return String.format("%s of %s", aspect.getAspectClass().getName(), getLabel());
+      return String.format("%s of %s", aspectClass.getName(), getLabel());
     }
 
     /**
@@ -128,7 +130,12 @@ public final class AspectValue extends ActionLookupValue {
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(label, aspectConfiguration, baseConfiguration, aspect);
+      return Objects.hashCode(
+          label,
+          aspectConfiguration,
+          baseConfiguration,
+          aspectClass,
+          parameters);
     }
 
     @Override
@@ -145,20 +152,21 @@ public final class AspectValue extends ActionLookupValue {
       return Objects.equal(label, that.label)
           && Objects.equal(aspectConfiguration, that.aspectConfiguration)
           && Objects.equal(baseConfiguration, that.baseConfiguration)
-          && Objects.equal(aspect, that.aspect);
+          && Objects.equal(aspectClass, that.aspectClass)
+          && Objects.equal(parameters, that.parameters);
     }
 
     @Override
     public String toString() {
       return label
           + "#"
-          + aspect.getAspectClass().getName()
+          + aspectClass.getName()
           + " "
           + (aspectConfiguration == null ? "null" : aspectConfiguration.checksum())
           + " "
           + (baseConfiguration == null ? "null" : baseConfiguration.checksum())
           + " "
-          + aspect.getParameters();
+          + parameters;
     }
   }
 
