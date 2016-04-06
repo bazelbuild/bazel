@@ -30,7 +30,8 @@ import javax.annotation.Nullable;
 @Immutable
 @SkylarkModule(name = "fragments", doc = "Possible fields are "
     + "<a href=\"apple.html\">apple</a>, <a href=\"cpp.html\">cpp</a>, "
-    + "<a href=\"java.html\">java</a> and <a href=\"jvm.html\">jvm</a>. "
+    + "<a href=\"java.html\">java</a>, <a href=\"jvm.html\">jvm</a> and "
+    + "<a href=\"objc.html\">objc</a>. "
     + "Access a specific fragment by its field name ex:</p><code>ctx.fragments.apple</code></p>"
     + "Note that rules have to declare their required fragments in order to access them "
     + "(see <a href=\"../rules.html#fragments\">here</a>).")

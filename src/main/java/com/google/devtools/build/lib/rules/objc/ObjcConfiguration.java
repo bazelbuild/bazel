@@ -24,6 +24,8 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.objc.ReleaseBundlingSupport.SplitArchTransition.ConfigurationDistinguisher;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -36,6 +38,7 @@ import javax.annotation.Nullable;
 /**
  * A compiler configuration containing flags required for Objective-C compilation.
  */
+@SkylarkModule(name = "objc", doc = "A configuration fragment for Objective-C")
 @Immutable
 public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @VisibleForTesting
@@ -141,6 +144,9 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   /**
    * Returns the default set of clang options for the current compilation mode.
    */
+  @SkylarkCallable(name = "copts_for_current_compilation_mode", structField = true,
+      doc = "Returns a list of default options to use for compiling Objective-C in the current "
+      + "mode.")
   public ImmutableList<String> getCoptsForCompilationMode() {
     switch (compilationMode) {
       case DBG:
@@ -165,6 +171,10 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    * Returns options passed to (Apple) clang when compiling Objective C. These options should be
    * applied after any default options but before options specified in the attributes of the rule.
    */
+  @SkylarkCallable(name = "copts", structField = true,
+      doc = "Returns a list of options to use for compiling Objective-C."
+      + "These options are applied after any default options but before options specified in the "
+      + "attributes of the rule.")
   public ImmutableList<String> getCopts() {
     return copts;
   }
