@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.PackageRootResolutionException;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.analysis.AspectDescriptor;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView.Options;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
@@ -75,7 +76,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.OutputService;
-import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -1165,10 +1165,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     final List<SkyKey> skyKeys = new ArrayList<>();
     for (Dependency key : keys) {
       skyKeys.add(ConfiguredTargetValue.key(key.getLabel(), configs.get(key)));
-      for (Aspect aspect : key.getAspects()) {
+      for (AspectDescriptor aspectDescriptor : key.getAspects()) {
         skyKeys.add(
             ConfiguredTargetFunction.createAspectKey(
-                key.getLabel(), configs.get(key), configs.get(key), aspect));
+                key.getLabel(), configs.get(key), configs.get(key),
+                aspectDescriptor.getAspectClass(),
+                aspectDescriptor.getParameters()));
       }
     }
 
@@ -1187,10 +1189,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           ((ConfiguredTargetValue) result.get(configuredTargetKey)).getConfiguredTarget();
       List<ConfiguredAspect> configuredAspects = new ArrayList<>();
 
-      for (Aspect aspect : key.getAspects()) {
+      for (AspectDescriptor aspectDescriptor : key.getAspects()) {
         SkyKey aspectKey =
             ConfiguredTargetFunction.createAspectKey(
-                key.getLabel(), configs.get(key), configs.get(key), aspect);
+                key.getLabel(), configs.get(key), configs.get(key),
+                aspectDescriptor.getAspectClass(),
+                aspectDescriptor.getParameters());
         if (result.get(aspectKey) == null) {
           continue DependentNodeLoop;
         }

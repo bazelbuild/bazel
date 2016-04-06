@@ -13,31 +13,49 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Preconditions;
 
-import java.util.Objects;
-
 /**
- * Wrapper around {@link AspectClass} class and {@link AspectParameters}. Aspects are
- * created with help of aspect factory instances and parameters are used to configure them, so we
- * have to keep them together.
+ * An instance of a given {@code AspectClass} with loaded definition and parameters.
+ *
+ * This is an aspect equivalent of {@link Rule} class for build rules.
+ *
+ * Note: this class does not have {@code equals()} and {@code hashCode()} redefined, so should
+ * not be used in SkyKeys.
  */
+@Immutable
 public final class Aspect implements DependencyFilter.AttributeInfoProvider {
   // TODO(bazel-team): class objects are not really hashable or comparable for equality other than
   // by reference. We should identify the aspect here in a way that does not rely on comparison
   // by reference so that keys can be serialized and deserialized properly.
   private final AspectClass aspectClass;
   private final AspectParameters parameters;
+  private final AspectDefinition aspectDefinition;
 
-  public Aspect(AspectClass aspect, AspectParameters parameters) {
-    Preconditions.checkNotNull(aspect);
-    Preconditions.checkNotNull(parameters);
-    this.aspectClass = aspect;
-    this.parameters = parameters;
+  private Aspect(
+      AspectClass aspectClass,
+      AspectDefinition aspectDefinition,
+      AspectParameters parameters) {
+    this.aspectClass = Preconditions.checkNotNull(aspectClass);
+    this.aspectDefinition = Preconditions.checkNotNull(aspectDefinition);
+    this.parameters = Preconditions.checkNotNull(parameters);
   }
 
-  public Aspect(AspectClass aspect) {
-    this(aspect, AspectParameters.EMPTY);
+  public static Aspect forNative(
+      NativeAspectClass<?> nativeAspectClass, AspectParameters parameters) {
+    return new Aspect(nativeAspectClass, nativeAspectClass.getDefinition(parameters), parameters);
+  }
+
+  public static Aspect forNative(NativeAspectClass<?> nativeAspectClass) {
+    return forNative(nativeAspectClass, AspectParameters.EMPTY);
+  }
+
+  public static Aspect forSkylark(
+      SkylarkAspectClass skylarkAspectClass,
+      AspectDefinition definition,
+      AspectParameters parameters) {
+    return new Aspect(skylarkAspectClass,  definition, parameters);
   }
 
   /**
@@ -55,30 +73,12 @@ public final class Aspect implements DependencyFilter.AttributeInfoProvider {
   }
 
   @Override
-  public boolean equals(Object other) {
-    if (this == other) {
-      return true;
-    }
-    if (!(other instanceof Aspect)) {
-      return false;
-    }
-    Aspect that = (Aspect) other;
-    return Objects.equals(this.aspectClass, that.aspectClass)
-        && Objects.equals(this.parameters, that.parameters);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(aspectClass, parameters);
-  }
-
-  @Override
   public String toString() {
     return String.format("Aspect %s(%s)", aspectClass, parameters);
   }
 
   public AspectDefinition getDefinition() {
-    return aspectClass.getDefinition(parameters);
+    return aspectDefinition;
   }
 
   @Override

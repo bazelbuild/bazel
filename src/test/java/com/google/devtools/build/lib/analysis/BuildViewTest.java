@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestBase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
@@ -344,12 +343,12 @@ public class BuildViewTest extends BuildViewTestBase {
           Dependency.withTransitionAndAspects(
               Label.parseAbsolute("//package:inner"),
               Attribute.ConfigurationTransition.NONE,
-              ImmutableSet.<Aspect>of());
+              ImmutableSet.<AspectDescriptor>of());
       fileDependency =
           Dependency.withTransitionAndAspects(
               Label.parseAbsolute("//package:file"),
               Attribute.ConfigurationTransition.NONE,
-              ImmutableSet.<Aspect>of());
+              ImmutableSet.<AspectDescriptor>of());
     } else {
       innerDependency =
           Dependency.withConfiguration(

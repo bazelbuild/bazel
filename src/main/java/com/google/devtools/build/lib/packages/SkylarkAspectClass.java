@@ -52,4 +52,7 @@ public abstract class SkylarkAspectClass implements AspectClass {
   public final int hashCode() {
     return Objects.hash(getExtensionLabel(), getExportedName());
   }
+
+  @Deprecated
+  public abstract AspectDefinition getDefinition();
 }

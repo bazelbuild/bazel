@@ -108,7 +108,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
     return dependencyResolver.dependentNodeMap(
         new TargetAndConfiguration(target, getTargetConfiguration()),
         getHostConfiguration(),
-        aspect != null ? new Aspect(new NativeAspectClass<T>(aspect)) : null,
+        aspect != null ? Aspect.forNative(new NativeAspectClass<T>(aspect)) : null,
         ImmutableSet.<ConfigMatchingProvider>of());
   }
 
@@ -117,7 +117,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
       ListMultimap<Attribute, Dependency> dependentNodeMap,
       String attrName,
       String dep,
-      Aspect... aspects) {
+      AspectDescriptor... aspects) {
     Attribute attr = null;
     for (Attribute candidate : dependentNodeMap.keySet()) {
       if (candidate.getName().equals(attrName)) {
@@ -147,7 +147,8 @@ public class DependencyResolverTest extends AnalysisTestCase {
         "aspect(name='b', foo=[])");
     ListMultimap<Attribute, Dependency> map = dependentNodeMap("//a:a", null);
     assertDep(
-        map, "foo", "//a:b", new Aspect(new NativeAspectClass(TestAspects.SimpleAspect.class)));
+        map, "foo", "//a:b",
+        new AspectDescriptor(new NativeAspectClass<>(TestAspects.SimpleAspect.class)));
   }
 
   @Test
@@ -159,7 +160,8 @@ public class DependencyResolverTest extends AnalysisTestCase {
     ListMultimap<Attribute, Dependency> map =
         dependentNodeMap("//a:a", TestAspects.AttributeAspect.class);
     assertDep(
-        map, "foo", "//a:b", new Aspect(new NativeAspectClass(TestAspects.AttributeAspect.class)));
+        map, "foo", "//a:b",
+        new AspectDescriptor(new NativeAspectClass<>(TestAspects.AttributeAspect.class)));
   }
 
   @Test

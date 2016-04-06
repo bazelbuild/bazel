@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.packages.InputFile;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.PackageGroup;
@@ -449,38 +450,51 @@ public abstract class DependencyResolver {
     }
   }
 
-  private ImmutableSet<Aspect> requiredAspects(
+  private ImmutableSet<AspectDescriptor> requiredAspects(
       Aspect aspect, Attribute attribute, Target target, Rule originalRule) {
     if (!(target instanceof Rule)) {
       return ImmutableSet.of();
     }
 
-    Set<Aspect> aspectCandidates = extractAspectCandidates(aspect, attribute, originalRule);
+    Iterable<Aspect> aspectCandidates = extractAspectCandidates(aspect, attribute, originalRule);
     RuleClass ruleClass = ((Rule) target).getRuleClassObject();
-    ImmutableSet.Builder<Aspect> result = ImmutableSet.builder();
-    for (Aspect candidateClass : aspectCandidates) {
+    ImmutableSet.Builder<AspectDescriptor> result = ImmutableSet.builder();
+    for (Aspect aspectCandidate : aspectCandidates) {
       if (Sets.difference(
-              candidateClass.getDefinition().getRequiredProviders(),
+              aspectCandidate.getDefinition().getRequiredProviders(),
               ruleClass.getAdvertisedProviders())
           .isEmpty()) {
-        result.add(candidateClass);
+        result.add(
+            new AspectDescriptor(
+                aspectCandidate.getAspectClass(),
+                aspectCandidate.getParameters()));
       }
     }
     return result.build();
   }
 
-  private static Set<Aspect> extractAspectCandidates(
-      Aspect aspectWithParameters, Attribute attribute, Rule originalRule) {
+  private static Iterable<Aspect> extractAspectCandidates(
+      Aspect aspect, Attribute attribute, Rule originalRule) {
     // The order of this set will be deterministic. This is necessary because this order eventually
     // influences the order in which aspects are merged into the main configured target, which in
     // turn influences which aspect takes precedence if two emit the same provider (maybe this
     // should be an error)
     Set<Aspect> aspectCandidates = new LinkedHashSet<>();
     aspectCandidates.addAll(attribute.getAspects(originalRule));
-    if (aspectWithParameters != null) {
-      for (AspectClass aspect :
-          aspectWithParameters.getDefinition().getAttributeAspects().get(attribute.getName())) {
-        aspectCandidates.add(new Aspect(aspect, aspectWithParameters.getParameters()));
+    if (aspect != null) {
+      for (AspectClass aspectClass :
+          aspect.getDefinition().getAttributeAspects().get(attribute.getName())) {
+        if (aspectClass.equals(aspect.getAspectClass())) {
+          aspectCandidates.add(aspect);
+        } else if (aspectClass instanceof NativeAspectClass<?>) {
+          aspectCandidates.add(
+              Aspect.forNative((NativeAspectClass<?>) aspectClass, aspect.getParameters()));
+        } else {
+          // If we ever want to support this specifying arbitrary aspects for Skylark aspects,
+          // we will need to do a Skyframe call here to load an up-to-date definition.
+          throw new IllegalStateException(
+              "Skylark aspect classes sending different aspects along attributes is not supported");
+        }
       }
     }
     return aspectCandidates;
