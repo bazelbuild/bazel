@@ -23,6 +23,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
@@ -192,6 +193,7 @@ public class ProtoCompileActionBuilder {
     }
 
     result
+        .useParameterFile(ParameterFile.ParameterFileType.UNQUOTED)
         .addOutputs(outputs)
         .setResources(GENPROTO_RESOURCE_SET)
         .useDefaultShellEnvironment()
