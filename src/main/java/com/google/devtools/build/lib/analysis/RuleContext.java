@@ -720,6 +720,7 @@ public final class RuleContext extends TargetContext
    *
    * @return the {@link FilesToRunProvider} interface of the prerequisite.
    */
+  @Nullable
   public FilesToRunProvider getExecutablePrerequisite(String attributeName, Mode mode) {
     Attribute ruleDefinition = getAttribute(attributeName);
 
