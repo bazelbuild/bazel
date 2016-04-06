@@ -158,6 +158,12 @@ public interface Action extends ActionMetadata, Describable {
   boolean showsOutputUnconditionally();
 
   /**
+   * Returns true if an {@link com.google.devtools.build.lib.rules.extra.ExtraAction} action can be
+   * attached to this action. If not, extra actions should not be attached to this action.
+   */
+  boolean extraActionCanAttach();
+
+  /**
    * Called by {@link com.google.devtools.build.lib.rules.extra.ExtraAction} at execution time to
    * extract information from this action into a protocol buffer to be used by extra_action rules.
    *

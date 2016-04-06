@@ -48,12 +48,14 @@ final class ExtraActionsVisitor extends ActionGraphVisitor {
     extraArtifacts = Lists.newArrayList();
   }
 
-  public void addExtraAction(Action original) {
-    Collection<ExtraActionSpec> extraActions = mnemonicToExtraActionMap.get(
-        original.getMnemonic());
-    if (extraActions != null) {
-      for (ExtraActionSpec extraAction : extraActions) {
-        extraArtifacts.addAll(extraAction.addExtraAction(ruleContext, original));
+  void maybeAddExtraAction(Action original) {
+    if (original.extraActionCanAttach()) {
+      Collection<ExtraActionSpec> extraActions =
+          mnemonicToExtraActionMap.get(original.getMnemonic());
+      if (extraActions != null) {
+        for (ExtraActionSpec extraAction : extraActions) {
+          extraArtifacts.addAll(extraAction.addExtraAction(ruleContext, original));
+        }
       }
     }
   }
@@ -61,7 +63,7 @@ final class ExtraActionsVisitor extends ActionGraphVisitor {
   @Override
   protected void visitAction(Action action) {
     actions.add(action);
-    addExtraAction(action);
+    maybeAddExtraAction(action);
   }
 
   /** Retrieves the collected artifacts since this method was last called and clears the list. */

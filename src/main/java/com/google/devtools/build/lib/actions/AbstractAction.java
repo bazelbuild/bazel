@@ -393,6 +393,11 @@ public abstract class AbstractAction implements Action, SkylarkValue {
   }
 
   @Override
+  public boolean extraActionCanAttach() {
+    return true;
+  }
+
+  @Override
   public ExtraActionInfo.Builder getExtraActionInfo() {
     return ExtraActionInfo.newBuilder()
         .setOwner(getOwner().getLabel().toString())

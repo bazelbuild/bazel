@@ -59,12 +59,12 @@ class ExtraActionUtils {
       ExtraActionsVisitor visitor =
           new ExtraActionsVisitor(ruleContext, computeMnemonicsToExtraActionMap(ruleContext));
 
-      // The action list is modified within the body of the loop by the addExtraAction() call,
+      // The action list is modified within the body of the loop by the maybeAddExtraAction() call,
       // thus the copy
-      for (Action action : ImmutableList.copyOf(
-          ruleContext.getAnalysisEnvironment().getRegisteredActions())) {
+      for (Action action :
+          ImmutableList.copyOf(ruleContext.getAnalysisEnvironment().getRegisteredActions())) {
         if (!actionsWithoutExtraAction.contains(action)) {
-          visitor.addExtraAction(action);
+          visitor.maybeAddExtraAction(action);
         }
       }
 

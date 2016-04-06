@@ -1917,6 +1917,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     return getLinkOptions().contains("-static");
   }
 
+  public boolean alwaysAttachExtraActions() {
+    return true;
+  }
+
   /**
    * Returns true if we should share identical native libraries between different targets.
    */

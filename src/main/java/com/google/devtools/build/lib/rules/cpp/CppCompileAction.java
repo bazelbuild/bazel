@@ -88,24 +88,31 @@ import javax.annotation.concurrent.GuardedBy;
 @ThreadCompatible
 public class CppCompileAction extends AbstractAction implements IncludeScannable {
   /**
-   * Represents logic that determines which artifacts, if any, should be added to the actual inputs
-   * for each included file (in addition to the included file itself)
+   * Represents logic that determines if an artifact is a special input, meaning that it may require
+   * additional inputs when it is compiled or may not be available to other actions.
    */
-  public interface IncludeResolver {
-    /**
-     * Returns the set of files to be added for an included file (as returned in the .d file)
-     */
+  public interface SpecialInputsHandler {
+    /** Returns if {@code includedFile} is special, so may not be available to other actions. */
+    boolean isSpecialFile(Artifact includedFile);
+
+    /** Returns the set of files to be added for an included file (as returned in the .d file). */
     Collection<Artifact> getInputsForIncludedFile(
         Artifact includedFile, ArtifactResolver artifactResolver);
   }
 
-  public static final IncludeResolver VOID_INCLUDE_RESOLVER = new IncludeResolver() {
-    @Override
-    public Collection<Artifact> getInputsForIncludedFile(Artifact includedFile,
-        ArtifactResolver artifactResolver) {
-      return ImmutableList.of();
-    }
-  };
+  static final SpecialInputsHandler VOID_SPECIAL_INPUTS_HANDLER =
+      new SpecialInputsHandler() {
+        @Override
+        public boolean isSpecialFile(Artifact includedFile) {
+          return false;
+        }
+
+        @Override
+        public Collection<Artifact> getInputsForIncludedFile(
+            Artifact includedFile, ArtifactResolver artifactResolver) {
+          return ImmutableList.of();
+        }
+      };
 
   private static final int VALIDATION_DEBUG = 0;  // 0==none, 1==warns/errors, 2==all
   private static final boolean VALIDATION_DEBUG_WARN = VALIDATION_DEBUG >= 1;
@@ -160,7 +167,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @VisibleForTesting
   final CppConfiguration cppConfiguration;
   protected final Class<? extends CppCompileActionContext> actionContext;
-  private final IncludeResolver includeResolver;
+  private final SpecialInputsHandler specialInputsHandler;
 
   /**
    * Identifier for the actual execution time behavior of the action.
@@ -208,7 +215,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * @param copts options for the compiler
    * @param coptsFilter regular expression to remove options from {@code copts}
    */
-  protected CppCompileAction(ActionOwner owner,
+  protected CppCompileAction(
+      ActionOwner owner,
       // TODO(bazel-team): Eventually we will remove 'features'; all functionality in 'features'
       // will be provided by 'featureConfiguration'.
       ImmutableList<String> features,
@@ -232,7 +240,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       Predicate<String> coptsFilter,
       ImmutableList<PathFragment> extraSystemIncludePrefixes,
       @Nullable String fdoBuildStamp,
-      IncludeResolver includeResolver,
+      SpecialInputsHandler specialInputsHandler,
       Iterable<IncludeScannable> lipoScannables,
       UUID actionClassId,
       boolean usePic,
@@ -250,7 +258,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     this.optionalSourceFile = optionalSourceFile;
     this.context = context;
     this.extraSystemIncludePrefixes = extraSystemIncludePrefixes;
-    this.includeResolver = includeResolver;
+    this.specialInputsHandler = specialInputsHandler;
     this.cppConfiguration = cppConfiguration;
     // inputsKnown begins as the logical negation of shouldScanIncludes.
     // When scanning includes, the inputs begin as not known, and become
@@ -413,10 +421,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     ArtifactResolver artifactResolver =
         executor.getContext(IncludeScanningContext.class).getArtifactResolver();
     for (Artifact artifact : initialResult) {
-      result.addAll(includeResolver.getInputsForIncludedFile(artifact, artifactResolver));
+      result.addAll(specialInputsHandler.getInputsForIncludedFile(artifact, artifactResolver));
     }
     for (Artifact artifact : getInputs()) {
-      result.addAll(includeResolver.getInputsForIncludedFile(artifact, artifactResolver));
+      result.addAll(specialInputsHandler.getInputsForIncludedFile(artifact, artifactResolver));
     }
     // TODO(ulfjack): This only works if include scanning is enabled; the cleanup is in progress,
     // and this needs to be fixed before we can even consider disabling it.
@@ -648,6 +656,12 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
   protected final List<String> getArgv(PathFragment outputFile) {
     return cppCompileCommandLine.getArgv(outputFile);
+  }
+
+  @Override
+  public boolean extraActionCanAttach() {
+    return cppConfiguration.alwaysAttachExtraActions()
+        || !specialInputsHandler.isSpecialFile(getPrimaryInput());
   }
 
   @Override
@@ -946,7 +960,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
           inputs.add(artifact);
           // In some cases, execution backends need extra files for each included file. Add them
           // to the set of actual inputs.
-          inputs.addAll(includeResolver.getInputsForIncludedFile(artifact, artifactResolver));
+          inputs.addAll(specialInputsHandler.getInputsForIncludedFile(artifact, artifactResolver));
         } else {
           // Abort if we see files that we can't resolve, likely caused by
           // undeclared includes or illegal include constructs.

@@ -82,7 +82,8 @@ public class FakeCppCompileAction extends CppCompileAction {
       @Nullable String fdoBuildStamp,
       RuleContext ruleContext,
       boolean usePic) {
-    super(owner,
+    super(
+        owner,
         features,
         featureConfiguration,
         variables,
@@ -104,9 +105,18 @@ public class FakeCppCompileAction extends CppCompileAction {
         // cc_fake_binary and for the negative compilation tests that depend on
         // the cc_fake_binary, and the runfiles must be determined at analysis
         // time, so they can't depend on the contents of the ".d" file.)
-        CppCompilationContext.disallowUndeclaredHeaders(context), actionContext, copts, pluginOpts,
-        nocopts, extraSystemIncludePrefixes, fdoBuildStamp, VOID_INCLUDE_RESOLVER,
-        ImmutableList.<IncludeScannable>of(), GUID, usePic, ruleContext);
+        CppCompilationContext.disallowUndeclaredHeaders(context),
+        actionContext,
+        copts,
+        pluginOpts,
+        nocopts,
+        extraSystemIncludePrefixes,
+        fdoBuildStamp,
+        VOID_SPECIAL_INPUTS_HANDLER,
+        ImmutableList.<IncludeScannable>of(),
+        GUID,
+        usePic,
+        ruleContext);
     this.tempOutputFile = Preconditions.checkNotNull(tempOutputFile);
   }
 
