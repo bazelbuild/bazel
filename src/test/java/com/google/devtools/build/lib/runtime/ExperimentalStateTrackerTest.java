@@ -37,7 +37,7 @@ import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Tests {@link ExperimentalStateTrackerTest}
+ * Tests {@link ExperimentalStateTracker}.
  */
 @RunWith(JUnit4.class)
 public class ExperimentalStateTrackerTest extends FoundationTestCase {
