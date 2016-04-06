@@ -70,7 +70,6 @@ import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.devtools.common.options.TriState;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -231,14 +230,6 @@ public final class BuildConfiguration {
      */
     public boolean performsStaticLink() {
       return false;
-    }
-
-    /**
-     * Fragments should delete temporary directories they create for their inner mechanisms.
-     * This is only called for target configuration.
-     */
-    @SuppressWarnings("unused")
-    public void prepareForExecutionPhase() throws IOException {
     }
 
     /**
@@ -2366,16 +2357,6 @@ public final class BuildConfiguration {
       }
     }
     return false;
-  }
-
-  /**
-   * Deletes temporary directories before execution phase. This is only called for
-   * target configuration.
-   */
-  public void prepareForExecutionPhase() throws IOException {
-    for (Fragment fragment : fragments.values()) {
-      fragment.prepareForExecutionPhase();
-    }
   }
 
   /**

@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigu
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Preconditions;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
@@ -52,7 +51,6 @@ import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -1924,20 +1922,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean shareNativeDeps() {
     return cppOptions.shareNativeDeps;
-  }
-
-  @Override
-  public void prepareForExecutionPhase() throws IOException {
-    // _fdo has a prefix of "_", but it should nevertheless be deleted. Detailed description
-    // of the structure of the symlinks / directories can be found at FdoSupport.extractFdoZip().
-    // We actually create a directory named "blaze-fdo" under the exec root, the previous version
-    // of which is deleted in FdoSupport.prepareToBuildExec(). We cannot do that just before the
-    // execution phase because that needs to happen before the analysis phase (in order to create
-    // the artifacts corresponding to the .gcda files).
-    Path tempPath = execRoot.getRelative("_fdo");
-    if (tempPath.exists()) {
-      FileSystemUtils.deleteTree(tempPath);
-    }
   }
 
   @Override

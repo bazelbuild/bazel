@@ -520,10 +520,6 @@ public class ExecutionTool {
     try {
       FileSystemUtils.deleteTreesBelowNotPrefixed(getExecRoot(),
           new String[] { ".", "_", Constants.PRODUCT_NAME + "-"});
-      // Delete the build configuration's temporary directories
-      for (BuildConfiguration configuration : configurations.getTargetConfigurations()) {
-        configuration.prepareForExecutionPhase();
-      }
       FileSystemUtils.plantLinkForest(packageRoots, getExecRoot());
     } catch (IOException e) {
       throw new ExecutorInitException("Source forest creation failed", e);
