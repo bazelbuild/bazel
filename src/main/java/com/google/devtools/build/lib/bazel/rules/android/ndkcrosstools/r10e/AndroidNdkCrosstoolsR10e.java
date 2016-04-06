@@ -12,10 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools;
+package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.NdkRelease;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.OS;
@@ -30,9 +31,8 @@ import java.util.Map.Entry;
 /**
  * Generates a CrosstoolRelease proto for the Android NDK.
  */
-public class AndroidNdkCrosstools {
+public class AndroidNdkCrosstoolsR10e {
 
-  // TODO(bazel-team): Support future versions of the NDK.
   private static final String KNOWN_NDK_REVISION = "r10e";
 
   /**
@@ -44,7 +44,7 @@ public class AndroidNdkCrosstools {
     }
   }
 
-  private AndroidNdkCrosstools() {}
+  private AndroidNdkCrosstoolsR10e() {}
 
   /**
    * Creates a CrosstoolRelease proto for the Android NDK, given the API level to use and the
@@ -57,19 +57,16 @@ public class AndroidNdkCrosstools {
    * @param eventHandler The event handler for sending warning messages.
    * @param repositoryName The name of the repository, which should correspond to the name of the
    *        android_ndk_repository rule. 
-   * @param apiLevel The API level used for the NDK.
    * @param ndkRelease The NDK release
    * @return A CrosstoolRelease for the Android NDK.
-   * @throws NdkCrosstoolsException If the crosstool could not be created.
    */
   public static CrosstoolRelease create(
       EventHandler eventHandler,
       NdkPaths ndkPaths,
       String repositoryName,
-      ApiLevel apiLevel,
       NdkRelease ndkRelease,
       StlImpl stlImpl,
-      String hostPlatform) throws NdkCrosstoolsException {
+      String hostPlatform) {
 
     // Check that the Android NDK revision is both valid and one we know about. 
     if (!ndkRelease.isValid) {

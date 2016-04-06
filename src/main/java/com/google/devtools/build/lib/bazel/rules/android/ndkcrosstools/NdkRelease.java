@@ -52,7 +52,7 @@ public class NdkRelease {
   /**
    * Guesses the bit-ness of the NDK based on the current platform.
    */
-  static NdkRelease guessBitness(String baseReleaseString) {
+  public static NdkRelease guessBitness(String baseReleaseString) {
     NdkRelease baseRelease = create(baseReleaseString);
     boolean is64Bit = (CPU.getCurrent() == CPU.X86_64);
     return new NdkRelease(

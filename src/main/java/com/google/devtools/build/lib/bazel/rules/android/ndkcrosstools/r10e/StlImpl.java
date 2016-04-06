@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools;
+package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e;
 
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;

@@ -24,7 +24,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.AndroidNdkCrosstools.NdkCrosstoolsException;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.AndroidNdkCrosstoolsR10e;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.ApiLevel;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.NdkPaths;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.StlImpl;
+import com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e.StlImpls;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -44,7 +48,7 @@ import java.util.Scanner;
 import java.util.Set;
 
 /**
- * Tests for {@link AndroidNdkCrosstools}.
+ * Tests for {@link AndroidNdkCrosstoolsR10e}.
  */
 @RunWith(JUnit4.class)
 public class AndroidNdkCrosstoolsTest {
@@ -59,48 +63,41 @@ public class AndroidNdkCrosstoolsTest {
   private static final ImmutableMap<String, String> STL_FILEGROUPS;
 
   static {
-    try {
+    // NDK test data is based on the x86 64-bit Linux Android NDK.
+    String hostPlatform = "linux-x86_64";
+    NdkPaths ndkPaths = new NdkPaths(
+        REPOSITORY_NAME,
+        hostPlatform,
+        API_LEVEL);
 
-      // NDK test data is based on the x86 64-bit Linux Android NDK.
-      String hostPlatform = "linux-x86_64";
-      NdkPaths ndkPaths = new NdkPaths(
+    ImmutableList.Builder<CrosstoolRelease> crosstools = ImmutableList.builder();
+    ImmutableMap.Builder<String, String> stlFilegroups = ImmutableMap.builder();
+    for (StlImpl ndkStlImpl : StlImpls.get(ndkPaths)) {
+      // Protos are immutable, so this can be shared between tests.
+      CrosstoolRelease crosstool = AndroidNdkCrosstoolsR10e.create(
+          NullEventHandler.INSTANCE,
+          ndkPaths,
           REPOSITORY_NAME,
-          hostPlatform,
-          API_LEVEL);
-
-      ImmutableList.Builder<CrosstoolRelease> crosstools = ImmutableList.builder();
-      ImmutableMap.Builder<String, String> stlFilegroups = ImmutableMap.builder();
-      for (StlImpl ndkStlImpl : StlImpls.get(ndkPaths)) {
-        // Protos are immutable, so this can be shared between tests.
-        CrosstoolRelease crosstool = AndroidNdkCrosstools.create(
-            NullEventHandler.INSTANCE,
-            ndkPaths,
-            REPOSITORY_NAME,
-            API_LEVEL,
-            NDK_RELEASE,
-            ndkStlImpl,
-            hostPlatform);
-        crosstools.add(crosstool);
-        stlFilegroups.putAll(ndkStlImpl.getFilegroupNamesAndFilegroupFileGlobPatterns());
-      }
-
-      CROSSTOOL_RELEASES = crosstools.build();
-      STL_FILEGROUPS = stlFilegroups.build();
-
-      // ndkfiles.txt contains a list of every file in the ndk, created using this command at the
-      // root of the Android NDK for version r10e (64-bit):
-      //     find . -xtype f | sed 's|^\./||' | sort
-      // and similarly for ndkdirectories, except "-xtype d" is used.
-      //
-      // It's unfortunate to have files like these, since they're large and brittle, but since the
-      // whole NDK can't be checked in to test against, it's about the most that can be done right
-      // now.
-      NDK_FILES = getFiles("ndkfiles.txt");
-      NDK_DIRECTORIES = getFiles("ndkdirectories.txt");
-
-    } catch (NdkCrosstoolsException e) {
-      throw new RuntimeException(e);
+          NDK_RELEASE,
+          ndkStlImpl,
+          hostPlatform);
+      crosstools.add(crosstool);
+      stlFilegroups.putAll(ndkStlImpl.getFilegroupNamesAndFilegroupFileGlobPatterns());
     }
+
+    CROSSTOOL_RELEASES = crosstools.build();
+    STL_FILEGROUPS = stlFilegroups.build();
+
+    // ndkfiles.txt contains a list of every file in the ndk, created using this command at the
+    // root of the Android NDK for version r10e (64-bit):
+    //     find . -xtype f | sed 's|^\./||' | sort
+    // and similarly for ndkdirectories, except "-xtype d" is used.
+    //
+    // It's unfortunate to have files like these, since they're large and brittle, but since the
+    // whole NDK can't be checked in to test against, it's about the most that can be done right
+    // now.
+    NDK_FILES = getFiles("ndkfiles.txt");
+    NDK_DIRECTORIES = getFiles("ndkdirectories.txt");
   }
 
   private static ImmutableSet<String> getFiles(String fileName) {

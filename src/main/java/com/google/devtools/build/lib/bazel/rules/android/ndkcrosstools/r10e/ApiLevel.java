@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools;
+package com.google.devtools.build.lib.bazel.rules.android.ndkcrosstools.r10e;
 
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -114,7 +114,7 @@ public class ApiLevel {
   /**
    * Translates the given API level to the equivalent API level in the NDK.
    */
-  static String getCorrectedApiLevel(
+  private static String getCorrectedApiLevel(
       EventHandler eventHandler, String repositoryName, String apiLevel) {
 
     String correctedApiLevel = API_EQUIVALENCIES.get(apiLevel);
