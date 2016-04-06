@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.standalone.StandaloneSpawnStrategy;
 import com.google.devtools.build.lib.unix.NativePosixFiles;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.FileOutErr;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -54,9 +55,12 @@ import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.AbstractMap.SimpleImmutableEntry;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -252,13 +256,70 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
       MountMap finalizedMounts, Path target, Path source, FileStatus stat) throws IOException {
     // The source must exist.
     Preconditions.checkArgument(stat != null, "%s does not exist", source.toString());
-    finalizedMounts.put(target, source);
 
     if (stat.isSymbolicLink()) {
       Path symlinkTarget = source.resolveSymbolicLinks();
       Preconditions.checkArgument(
           symlinkTarget.exists(), "%s does not exist", symlinkTarget.toString());
-      finalizedMounts.put(symlinkTarget, symlinkTarget);
+      finalizedMounts.put(target, symlinkTarget);
+    } else {
+      finalizedMounts.put(target, source);
+    }
+  }
+
+  /**
+   * Checks if a folder is fully mounted (meaning it can be mounted as a whole instead
+   * of mounting its contents individually).
+   *
+   * The results of previous lookups are cached to make this process faster, and this
+   * function updates those caches as appropriate.
+   *
+   * @param directory the directory to check for being fully mounted or not
+   * @param mounts all of the files which are being mounted
+   * @param fullyMountedDirectories all the directories which have been found to be
+   *                                fully mounted previously
+   * @param notFullyMountedDirectories all the directories which been found to not be
+   *                                   fully mounted previously
+   */
+  private static boolean isFullyMounted(
+      Entry<Path, Path> directory,
+      MountMap mounts,
+      Set<Entry<Path, Path>> fullyMountedDirectories,
+      Set<Entry<Path, Path>> notFullyMountedDirectories)
+      throws IOException {
+    if (fullyMountedDirectories.contains(directory)) {
+      return true;
+    } else if (notFullyMountedDirectories.contains(directory)) {
+      return false;
+    } else {
+      boolean result = true;
+      for (Dirent entry : directory.getValue().readdir(Symlinks.NOFOLLOW)) {
+        Path entryKey = directory.getKey().getChild(entry.getName());
+        Path entryValue = directory.getValue().getChild(entry.getName());
+        if (entry.getType() == Dirent.Type.DIRECTORY) {
+          if (!isFullyMounted(
+              new SimpleImmutableEntry<Path, Path>(entryKey, entryValue),
+              mounts,
+              fullyMountedDirectories,
+              notFullyMountedDirectories)) {
+            result = false;
+            break;
+          }
+        } else {
+          Path mountsValue = mounts.get(entryKey);
+          if (mountsValue == null || !mountsValue.equals(entryValue)) {
+            result = false;
+            break;
+          }
+        }
+      }
+
+      if (result) {
+        fullyMountedDirectories.add(directory);
+      } else {
+        notFullyMountedDirectories.add(directory);
+      }
+      return result;
     }
   }
 
@@ -278,6 +339,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
    */
   @VisibleForTesting
   static MountMap finalizeMounts(Map<Path, Path> mounts) throws IOException {
+    Set<Entry<Path, Path>> fullyMountedDirectories = new HashSet<>();
     MountMap finalizedMounts = new MountMap();
     for (Entry<Path, Path> mount : mounts.entrySet()) {
       Path target = mount.getKey();
@@ -286,16 +348,37 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
       FileStatus stat = source.statNullable(Symlinks.NOFOLLOW);
 
       if (stat != null && stat.isDirectory()) {
+        fullyMountedDirectories.add(new SimpleImmutableEntry<Path, Path>(target, source));
         for (Path subSource : FileSystemUtils.traverseTree(source, Predicates.alwaysTrue())) {
           Path subTarget = target.getRelative(subSource.relativeTo(source));
-          finalizeMountPath(
-              finalizedMounts, subTarget, subSource, subSource.statNullable(Symlinks.NOFOLLOW));
+          FileStatus subStat = subSource.statNullable(Symlinks.NOFOLLOW);
+          if (subStat.isDirectory()) {
+            fullyMountedDirectories.add(new SimpleImmutableEntry<Path, Path>(subTarget, subSource));
+          }
+          finalizeMountPath(finalizedMounts, subTarget, subSource, subStat);
         }
       } else {
         finalizeMountPath(finalizedMounts, target, source, stat);
       }
     }
-    return finalizedMounts;
+
+    MountMap deduplicatedMounts = new MountMap();
+    Set<Entry<Path, Path>> notFullyMountedDirectories = new HashSet<>();
+    for (Entry<Path, Path> mount : finalizedMounts.entrySet()) {
+      Entry<Path, Path> parent =
+          new SimpleImmutableEntry<>(
+              mount.getKey().getParentDirectory(), mount.getValue().getParentDirectory());
+      if (!parent.getKey().equals(parent.getValue())
+          || !isFullyMounted(
+              parent, finalizedMounts, fullyMountedDirectories, notFullyMountedDirectories)) {
+        deduplicatedMounts.put(mount.getKey(), mount.getValue());
+      }
+    }
+
+    for (Entry<Path, Path> mount : fullyMountedDirectories) {
+      deduplicatedMounts.put(mount.getKey(), mount.getValue());
+    }
+    return deduplicatedMounts;
   }
 
   /**
