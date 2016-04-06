@@ -85,9 +85,10 @@ public class StyleableXmlResourceValue implements XmlResourceValue {
       FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
     mergedDataWriter.writeToValuesXml(
         key,
-        FluentIterable.of(
-                String.format("<!-- %s -->", source),
-                String.format("<declare-styleable name='%s'>", key.name()))
+        FluentIterable.from(
+                ImmutableList.of(
+                    String.format("<!-- %s -->", source),
+                    String.format("<declare-styleable name='%s'>", key.name())))
             .append(FluentIterable.from(attrs).transform(ITEM_TO_ATTR))
             .append("</declare-styleable>"));
   }

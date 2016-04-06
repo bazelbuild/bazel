@@ -14,7 +14,7 @@
 package com.google.devtools.build.android.xml;
 
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.FluentIterable;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
@@ -115,7 +115,7 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
       FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
     mergedDataWriter.writeToValuesXml(
         key,
-        FluentIterable.of(
+        ImmutableList.of(
             String.format("<!-- %s -->", source),
             String.format(
                 "<%s name='%s'>%s</%s>",
