@@ -15,9 +15,11 @@
 package com.google.devtools.build.buildjar;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.io.Files;
+import com.google.devtools.build.buildjar.javac.BlazeJavacMain;
 import com.google.devtools.build.buildjar.javac.JavacRunner;
-import com.google.devtools.build.buildjar.javac.JavacRunnerImpl;
+import com.google.devtools.build.buildjar.javac.plugins.BlazeJavaCompilerPlugin;
 
 import com.sun.tools.javac.main.Main.Result;
 
@@ -45,79 +47,32 @@ public abstract class AbstractJavaBuilder extends AbstractLibraryBuilder {
   protected boolean debug = false;
 
   /**
-   * Flush the buffers of this JavaBuilder
-   */
-  @SuppressWarnings("unused")  // IOException
-  public synchronized void flush(OutputStream err) throws IOException {
-  }
-
-  /**
-   * Shut this JavaBuilder down
-   */
-  @SuppressWarnings("unused")  // IOException
-  public synchronized void shutdown(OutputStream err) throws IOException {
-  }
-
-  /**
-   * Prepares a compilation run and sets everything up so that the source files
-   * in the build request can be compiled. Invokes compileSources to do the
-   * actual compilation.
-   *
-   * @param build A JavaLibraryBuildRequest request object describing what to
-   *              compile
-   * @param err PrintWriter for logging any diagnostic output
-   */
-  public void compileJavaLibrary(final JavaLibraryBuildRequest build, final OutputStream err)
-      throws Exception {
-    prepareSourceCompilation(build);
-
-    final Exception[] exception = {null};
-    final JavacRunner javacRunner = new JavacRunnerImpl(build.getPlugins());
-    runWithLargeStack(
-        new Runnable() {
-          @Override
-          public void run() {
-            try {
-              internalCompileJavaLibrary(build, javacRunner, err);
-            } catch (Exception e) {
-              exception[0] = e;
-            }
-          }
-        },
-        4L * 1024 * 1024); // 4MB stack
-
-    if (exception[0] != null) {
-      throw exception[0];
-    }
-  }
-
-  /**
-   * Compiles the java files of the java library specified in the build request.<p>
-   * The compilation consists of two parts:<p>
-   * First, javac is invoked directly to compile the java files in the build request.<p>
-   * Second, additional processing is done to the .class files that came out of the compile.<p>
+   * Prepares a compilation run and sets everything up so that the source files in the build request
+   * can be compiled. Invokes compileSources to do the actual compilation.
    *
    * @param build A JavaLibraryBuildRequest request object describing what to compile
    * @param err OutputStream for logging any diagnostic output
    */
-  private void internalCompileJavaLibrary(JavaLibraryBuildRequest build, JavacRunner javacRunner,
-      OutputStream err) throws IOException, JavacException {
-    // result may not be null, in case somebody changes the set of source files
-    // to the empty set
-    Result result = Result.OK;
-    if (!build.getSourceFiles().isEmpty()) {
-      PrintWriter javacErrorOutputWriter = new PrintWriter(err);
-      try {
-        result = compileSources(build, javacRunner, javacErrorOutputWriter);
-      } finally {
-        javacErrorOutputWriter.flush();
-      }
+  public Result compileJavaLibrary(final JavaLibraryBuildRequest build, final OutputStream err)
+      throws Exception {
+    prepareSourceCompilation(build);
+    if (build.getSourceFiles().isEmpty()) {
+      return Result.OK;
     }
-
-    if (!result.isOK()) {
-      throw new JavacException(result);
+    JavacRunner javacRunner =
+        new JavacRunner() {
+          @Override
+          public Result invokeJavac(
+              ImmutableList<BlazeJavaCompilerPlugin> plugins, String[] args, PrintWriter output) {
+            return new BlazeJavacMain(output, plugins).compile(args);
+          }
+        };
+    Result result;
+    try (PrintWriter javacErrorOutputWriter = new PrintWriter(err)) {
+      result = compileSources(build, javacRunner, javacErrorOutputWriter);
     }
     runClassPostProcessing(build);
+    return result;
   }
 
   /**
@@ -152,59 +107,23 @@ public abstract class AbstractJavaBuilder extends AbstractLibraryBuilder {
   /**
    * Perform the build.
    */
-  public void run(JavaLibraryBuildRequest build, PrintStream err) throws Exception {
-    boolean successful = false;
+  public Result run(JavaLibraryBuildRequest build, PrintStream err) throws Exception {
+    Result result = Result.ERROR;
     try {
-      compileJavaLibrary(build, err);
-      buildJar(build);
-      if (!build.getProcessors().isEmpty()) {
-        if (build.getGeneratedSourcesOutputJar() != null) {
-          buildGensrcJar(build, err);
+      result = compileJavaLibrary(build, err);
+      if (result.isOK()) {
+        buildJar(build);
+        if (!build.getProcessors().isEmpty()) {
+          if (build.getGeneratedSourcesOutputJar() != null) {
+            buildGensrcJar(build, err);
+          }
         }
       }
-      successful = true;
     } finally {
-      build.getDependencyModule().emitDependencyInformation(build.getClassPath(), successful);
+      build.getDependencyModule().emitDependencyInformation(build.getClassPath(), result.isOK());
       build.getProcessingModule().emitManifestProto();
-      shutdown(err);
     }
-  }
-
-  // Utility functions
-
-  /**
-   * Runs "run" in another thread (whose lifetime is contained within the
-   * activation of this function call) using a stack size of 'stackSize' bytes.
-   * Unchecked exceptions thrown by the Runnable will be re-thrown in the main
-   * thread.
-   */
-  private static void runWithLargeStack(final Runnable run, long stackSize) {
-    final Throwable[] unchecked = { null };
-    Thread t = new Thread(null, run, "runWithLargeStack", stackSize);
-    t.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
-        @Override
-        public void uncaughtException(Thread t, Throwable e) {
-          unchecked[0] = e;
-        }
-      });
-    t.start();
-    boolean wasInterrupted = false;
-    for (;;) {
-      try {
-        t.join(0);
-        break;
-      } catch (InterruptedException e) {
-        wasInterrupted = true;
-      }
-    }
-    if (wasInterrupted) {
-      Thread.currentThread().interrupt();
-    }
-    if (unchecked[0] instanceof Error) {
-      throw (Error) unchecked[0];
-    } else if (unchecked[0] instanceof RuntimeException) {
-      throw (RuntimeException) unchecked[0];
-    }
+    return result;
   }
 
   /**

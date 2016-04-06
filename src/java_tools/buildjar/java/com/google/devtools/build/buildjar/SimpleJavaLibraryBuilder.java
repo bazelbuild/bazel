@@ -37,7 +37,7 @@ public class SimpleJavaLibraryBuilder extends AbstractJavaBuilder {
   Result compileSources(JavaLibraryBuildRequest build, JavacRunner javacRunner, PrintWriter err)
       throws IOException {
     String[] javacArguments = makeJavacArguments(build, build.getClassPath());
-    return javacRunner.invokeJavac(javacArguments, err);
+    return javacRunner.invokeJavac(build.getPlugins(), javacArguments, err);
   }
 
   @Override

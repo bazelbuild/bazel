@@ -63,7 +63,7 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
     // Compile!
     StringWriter javacOutput = new StringWriter();
     PrintWriter javacOutputWriter = new PrintWriter(javacOutput);
-    Result result = javacRunner.invokeJavac(javacArguments, javacOutputWriter);
+    Result result = javacRunner.invokeJavac(build.getPlugins(), javacArguments, javacOutputWriter);
     javacOutputWriter.close();
 
     // If javac errored out because of missing entries on the classpath, give it another try.
@@ -78,7 +78,7 @@ public class ReducedClasspathJavaLibraryBuilder extends SimpleJavaLibraryBuilder
 
       // Fall back to the regular compile, but add extra checks to catch transitive uses
       javacArguments = makeJavacArguments(build);
-      result = javacRunner.invokeJavac(javacArguments, err);
+      result = javacRunner.invokeJavac(build.getPlugins(), javacArguments, err);
     } else {
       err.print(javacOutput.getBuffer());
     }
