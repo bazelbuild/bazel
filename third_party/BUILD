@@ -337,6 +337,11 @@ java_import(
 )
 
 java_import(
+    name = "netty",
+    jars = ["netty/netty-all-4.1.0.CR6.jar"],
+)
+
+java_import(
     name = "plexus_component_annotations",
     jars = ["plexus_component_annotations/plexus-component-annotations-1.6.jar"],
 )
