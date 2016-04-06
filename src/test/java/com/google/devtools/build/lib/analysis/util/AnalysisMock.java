@@ -134,5 +134,11 @@ public abstract class AnalysisMock {
     public Collection<String> getOptionOverrides() {
       return delegate.getOptionOverrides();
     }
+
+    @Override
+    public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
+        BlazeDirectories directories) {
+      return delegate.getSkyFunctions(directories);
+    }
   }
 }

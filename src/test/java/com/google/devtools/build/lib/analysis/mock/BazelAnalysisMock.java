@@ -16,7 +16,9 @@ package com.google.devtools.build.lib.analysis.mock;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -32,6 +34,8 @@ import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader;
+import com.google.devtools.build.lib.rules.cpp.FdoSupportFunction;
+import com.google.devtools.build.lib.rules.cpp.FdoSupportValue;
 import com.google.devtools.build.lib.rules.java.JavaConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.objc.J2ObjcConfiguration;
@@ -42,6 +46,8 @@ import com.google.devtools.build.lib.testutil.BuildRuleWithDefaultsBuilder;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -220,5 +226,13 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public MockCcSupport ccSupport() {
     return BazelMockCcSupport.INSTANCE;
+  }
+
+  @Override
+  public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
+    ImmutableMap.Builder<SkyFunctionName, SkyFunction> skyFunctions = ImmutableMap.builder();
+    skyFunctions.putAll(super.getSkyFunctions(directories));
+    skyFunctions.put(FdoSupportValue.SKYFUNCTION, new FdoSupportFunction());
+    return skyFunctions.build();
   }
 }

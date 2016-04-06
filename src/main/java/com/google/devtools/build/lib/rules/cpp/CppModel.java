@@ -287,7 +287,7 @@ public final class CppModel {
     }
 
     builder.setExtraSystemIncludePrefixes(additionalIncludes);
-    builder.setFdoBuildStamp(CppHelper.getFdoBuildStamp(cppConfiguration));
+    builder.setFdoBuildStamp(CppHelper.getFdoBuildStamp(ruleContext));
     builder.setFeatureConfiguration(featureConfiguration);
     return builder;
   }
@@ -367,8 +367,8 @@ public final class CppModel {
     }
 
     if (ccRelativeName != null) {
-      cppConfiguration.getFdoSupport().configureCompilation(builder, buildVariables, ruleContext,
-          ccRelativeName, autoFdoImportPath, usePic, featureConfiguration);
+      CppHelper.getFdoSupport(ruleContext).configureCompilation(builder, buildVariables,
+          ruleContext, ccRelativeName, autoFdoImportPath, usePic, featureConfiguration);
     }
     if (gcnoFile != null) {
       buildVariables.addVariable("gcov_gcno_file", gcnoFile.getExecPathString());

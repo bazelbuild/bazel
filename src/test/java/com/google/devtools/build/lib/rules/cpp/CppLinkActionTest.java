@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.rules.cpp;
 
-import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.NULL_ACTION_OWNER;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -25,11 +24,9 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.ActionTester.ActionCombinationFactory;
-import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -218,19 +215,14 @@ public class CppLinkActionTest extends BuildViewTestCase {
       || resources.getIoUsage() == scaledSet.getIoUsage());
   }
   private Builder createLinkBuilder(Link.LinkTargetType type, String outputPath,
-      Iterable<Artifact> nonLibraryInputs, ImmutableList<LibraryToLink> libraryInputs) {
-    return createLinkBuilder(type, outputPath, nonLibraryInputs, libraryInputs,
-        AnalysisTestUtil.STUB_ANALYSIS_ENVIRONMENT);
-  }
-
-  private Builder createLinkBuilder(Link.LinkTargetType type, String outputPath,
-      Iterable<Artifact> nonLibraryInputs, ImmutableList<LibraryToLink> libraryInputs,
-      AnalysisEnvironment analysisEnv) {
-    Builder builder = CppLinkAction.Builder.createTestBuilder(
-        NULL_ACTION_OWNER,
-        analysisEnv,
+      Iterable<Artifact> nonLibraryInputs, ImmutableList<LibraryToLink> libraryInputs)
+      throws Exception {
+    RuleContext ruleContext = createDummyRuleContext();
+    Builder builder = new CppLinkAction.Builder(
+        ruleContext,
         new Artifact(new PathFragment(outputPath), getTargetConfiguration().getBinDirectory()),
-        getTargetConfiguration())
+        ruleContext.getConfiguration(),
+        null)
         .addNonLibraryInputs(nonLibraryInputs)
         .addLibraries(NestedSetBuilder.wrap(Order.LINK_ORDER, libraryInputs))
         .setLinkType(type)

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionContextConsumer;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
 import com.google.devtools.build.lib.actions.SimpleActionContextProvider;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.actions.FileWriteActionContext;
 import com.google.devtools.build.lib.bazel.rules.cpp.BazelCppRuleClasses;
@@ -31,6 +32,8 @@ import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppCompileActionContext;
 import com.google.devtools.build.lib.rules.cpp.CppLinkActionContext;
+import com.google.devtools.build.lib.rules.cpp.FdoSupportFunction;
+import com.google.devtools.build.lib.rules.cpp.FdoSupportValue;
 import com.google.devtools.build.lib.rules.cpp.IncludeScanningContext;
 import com.google.devtools.build.lib.rules.genquery.GenQuery;
 import com.google.devtools.build.lib.runtime.BlazeModule;
@@ -39,6 +42,8 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.GotOptionsEvent;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
+import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
@@ -193,5 +198,11 @@ public class BazelRulesModule extends BlazeModule {
             return env.getRuntime().getQueryOutputFormatters();
           }
         }));
+  }
+
+  @Override
+  public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
+    return ImmutableMap.<SkyFunctionName, SkyFunction>of(
+        FdoSupportValue.SKYFUNCTION, new FdoSupportFunction());
   }
 }

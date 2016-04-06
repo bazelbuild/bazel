@@ -1503,7 +1503,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
     @Override
     public Artifact getEmbeddedToolArtifact(String embeddedPath) {
-      throw new UnsupportedOperationException();
+      return null;
     }
 
     @Override

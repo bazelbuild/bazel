@@ -214,6 +214,13 @@ public class CppHelper {
     return false;
   }
 
+  @Nullable public static FdoSupport getFdoSupport(RuleContext ruleContext) {
+    return ruleContext
+        .getPrerequisite(":cc_toolchain", Mode.TARGET)
+        .getProvider(FdoSupportProvider.class)
+        .getFdoSupport();
+  }
+
   /**
    * This almost trivial method looks up the :cc_toolchain attribute on the rule context, makes sure
    * that it refers to a rule that has a {@link CcToolchainProvider} (gives an error otherwise), and
@@ -508,8 +515,9 @@ public class CppHelper {
   /**
    * Returns the FDO build subtype.
    */
-  public static String getFdoBuildStamp(CppConfiguration cppConfiguration) {
-    if (cppConfiguration.getFdoSupport().isAutoFdoEnabled()) {
+  public static String getFdoBuildStamp(RuleContext ruleContext) {
+    CppConfiguration cppConfiguration = ruleContext.getFragment(CppConfiguration.class);
+    if (getFdoSupport(ruleContext).isAutoFdoEnabled()) {
       return (cppConfiguration.getLipoMode() == LipoMode.BINARY) ? "ALIPO" : "AFDO";
     }
     if (cppConfiguration.isFdo()) {

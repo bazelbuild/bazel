@@ -403,13 +403,6 @@ public class BuildView {
         });
   }
 
-  private void prepareToBuild(BuildConfigurationCollection configurations)
-      throws ViewCreationFailedException {
-    for (BuildConfiguration config : configurations.getAllConfigurations()) {
-      config.prepareToBuild(directories.getExecRoot());
-    }
-  }
-
   @ThreadCompatible
   public AnalysisResult update(
       LoadingResult loadingResult,
@@ -484,7 +477,6 @@ public class BuildView {
       }
     }
 
-    prepareToBuild(configurations);
     skyframeExecutor.injectWorkspaceStatusData();
     SkyframeAnalysisResult skyframeAnalysisResult;
     try {

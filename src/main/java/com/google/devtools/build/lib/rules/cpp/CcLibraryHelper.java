@@ -922,7 +922,7 @@ public final class CcLibraryHelper {
   }
 
   private TransitiveLipoInfoProvider collectTransitiveLipoInfo(CcCompilationOutputs outputs) {
-    if (ruleContext.getFragment(CppConfiguration.class).getFdoSupport().getFdoRoot() == null) {
+    if (CppHelper.getFdoSupport(ruleContext).getFdoRoot() == null) {
       return TransitiveLipoInfoProvider.EMPTY;
     }
     NestedSetBuilder<IncludeScannable> scannableBuilder = NestedSetBuilder.stableOrder();

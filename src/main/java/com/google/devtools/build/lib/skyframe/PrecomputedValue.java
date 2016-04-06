@@ -98,7 +98,7 @@ public final class PrecomputedValue implements SkyValue {
   public static final Precomputed<Map<BuildInfoKey, BuildInfoFactory>> BUILD_INFO_FACTORIES =
       new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "build_info_factories"));
 
-  static final Precomputed<BlazeDirectories> BLAZE_DIRECTORIES =
+  public static final Precomputed<BlazeDirectories> BLAZE_DIRECTORIES =
       new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "blaze_directories"));
 
   static final Precomputed<ImmutableMap<Action, ConflictException>> BAD_ACTIONS =

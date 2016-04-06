@@ -25,9 +25,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
@@ -40,7 +38,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.rules.cpp.CppConfigurationLoader.CppConfigurationParameters;
-import com.google.devtools.build.lib.rules.cpp.FdoSupport.FdoException;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -51,7 +48,6 @@ import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LinkingModeFlags;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.LipoMode;
-import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.TextFormat.ParseException;
@@ -64,7 +60,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.zip.ZipException;
 
 /**
  * This class represents the C/C++ parts of the {@link BuildConfiguration},
@@ -284,7 +279,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   private final boolean toolchainNeedsPic;
   private final boolean usePicForBinaries;
 
-  private final FdoSupport fdoSupport;
+  private final Path fdoZip;
 
   // TODO(bazel-team): All these labels (except for ccCompilerRuleLabel) can be removed once the
   // transition to the cc_compiler rule is complete.
@@ -390,10 +385,7 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
       }
     }
 
-    this.fdoSupport = new FdoSupport(
-        cppOptions.fdoInstrument, params.fdoZip,
-        cppOptions.lipoMode, execRoot);
-
+    this.fdoZip = params.fdoZip;
     this.stripBinaries =
         (cppOptions.stripBinaries == StripMode.ALWAYS
             || (cppOptions.stripBinaries == StripMode.SOMETIMES
@@ -1481,8 +1473,9 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
    * Returns true if it is AutoFDO LIPO build.
    */
   public boolean isAutoFdoLipo() {
-    return cppOptions.fdoOptimize != null && FdoSupport.isAutoFdo(cppOptions.fdoOptimize)
-           && getLipoMode() != LipoMode.OFF;
+    return cppOptions.fdoOptimize != null
+        && CppFileTypes.GCC_AUTO_PROFILE.matches(cppOptions.fdoOptimize)
+        && getLipoMode() != LipoMode.OFF;
   }
 
   /**
@@ -1636,13 +1629,6 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
 
   public boolean getUseInterfaceSharedObjects() {
     return cppOptions.useInterfaceSharedObjects;
-  }
-
-  /**
-   * Returns the FDO support object.
-   */
-  public FdoSupport getFdoSupport() {
-    return fdoSupport;
   }
 
   /**
@@ -1892,35 +1878,10 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   }
 
   @Override
-  public void prepareHook(Path execRoot) throws ViewCreationFailedException {
-    try {
-      getFdoSupport().prepareToBuild(execRoot);
-    } catch (ZipException e) {
-      throw new ViewCreationFailedException("Error reading provided FDO zip file", e);
-    } catch (FdoException | IOException e) {
-      throw new ViewCreationFailedException("Error while initializing FDO support", e);
-    }
-  }
-
-  @Override
-  public void declareSkyframeDependencies(Environment env) {
-    getFdoSupport().declareSkyframeDependencies(env, execRoot);
-  }
-
-  @Override
-  public void addRoots(List<Root> roots) {
-    // Fdo root can only exist for the target configuration.
-    FdoSupport fdoSupport = getFdoSupport();
-    if (fdoSupport.getFdoRoot() != null) {
-      roots.add(fdoSupport.getFdoRoot());
-    }
-  }
-
-  @Override
   public Map<String, String> getCoverageEnvironment() {
     ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
     env.put("COVERAGE_GCOV_PATH", getGcovExecutable().getPathString());
-    PathFragment fdoInstrument = getFdoSupport().getFdoInstrument();
+    PathFragment fdoInstrument = cppOptions.fdoInstrument;
     if (fdoInstrument != null) {
       env.put("FDO_DIR", fdoInstrument.getPathString());
     }
@@ -1990,6 +1951,14 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
     );
   }
 
+  public PathFragment getFdoInstrument() {
+    return cppOptions.fdoInstrument;
+  }
+
+  public Path getFdoZip() {
+    return fdoZip;
+  }
+
   /**
    * Return set of features enabled by the CppConfiguration, specifically
    * the FDO and LIPO related features enabled by options.
@@ -1997,15 +1966,15 @@ public class CppConfiguration extends BuildConfiguration.Fragment {
   @Override
   public ImmutableSet<String> configurationEnabledFeatures(RuleContext ruleContext) {
     ImmutableSet.Builder<String> requestedFeatures = ImmutableSet.builder();
-    FdoSupport fdoSupport = getFdoSupport();
-    if (fdoSupport.getFdoInstrument() != null) {
+    if (cppOptions.fdoInstrument != null) {
       requestedFeatures.add(CppRuleClasses.FDO_INSTRUMENT);
     }
-    if (fdoSupport.getFdoOptimizeProfile() != null
-        && !fdoSupport.isAutoFdoEnabled()) {
+
+    boolean isFdo = fdoZip != null && compilationMode == CompilationMode.OPT;
+    if (isFdo && !CppFileTypes.GCC_AUTO_PROFILE.matches(fdoZip)) {
       requestedFeatures.add(CppRuleClasses.FDO_OPTIMIZE);
     }
-    if (fdoSupport.isAutoFdoEnabled()) {
+    if (isFdo && CppFileTypes.GCC_AUTO_PROFILE.matches(fdoZip)) {
       requestedFeatures.add(CppRuleClasses.AUTOFDO);
     }
     if (isLipoOptimizationOrInstrumentation()) {

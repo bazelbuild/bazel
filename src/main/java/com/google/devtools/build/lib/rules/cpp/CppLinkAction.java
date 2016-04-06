@@ -1213,24 +1213,6 @@ public final class CppLinkAction extends AbstractAction {
       this.runtimeSolibDir = runtimeSolibDir;
       return this;
     }
-
-    /**
-     * Creates a builder without the need for a {@link RuleContext}.
-     * This is to be used exclusively for testing purposes.
-     *
-     * <p>Link stamping is not supported if using this method.
-     */
-    @VisibleForTesting
-    public static Builder createTestBuilder(
-        final ActionOwner owner, final AnalysisEnvironment analysisEnvironment,
-        final Artifact output, BuildConfiguration config) {
-      return new Builder(null, output, config, analysisEnvironment, null) {
-        @Override
-        protected ActionOwner getOwner() {
-          return owner;
-        }
-      };
-    }
   }
 
   /**

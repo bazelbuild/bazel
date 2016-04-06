@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection.Transitions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -166,18 +165,6 @@ public final class BuildConfiguration {
       ListMultimap<String, Label> implicitLabels = ArrayListMultimap.create();
       addImplicitLabels(implicitLabels);
       return implicitLabels;
-    }
-
-    /**
-     * The fragment may use this hook to perform I/O and read data into memory that is used during
-     * analysis. During the analysis phase disk I/O operations are disallowed.
-     *
-     * <p>This hook is called for all configurations after the loading phase is complete.
-     *
-     * <p>Do not use this method to change your fragment's state.
-     */
-    @SuppressWarnings("unused")
-    public void prepareHook(Path execPath) throws ViewCreationFailedException {
     }
 
     /**
@@ -2329,21 +2316,6 @@ public final class BuildConfiguration {
    */
   public BuildOptions getOptions() {
     return buildOptions;
-  }
-
-  /**
-   * Prepare the fdo support. It reads data into memory that is used during analysis. The analysis
-   * phase is generally not allowed to perform disk I/O. This code is here because it is
-   * conceptually part of the analysis phase, and it needs to happen when the loading phase is
-   * complete.
-   *
-   * <p>C++ also requires this to resolve artifacts that are unconditionally included in every
-   * compilation.</p>
-   */
-  public void prepareToBuild(Path execRoot) throws ViewCreationFailedException {
-    for (Fragment fragment : fragments.values()) {
-      fragment.prepareHook(execRoot);
-    }
   }
 
   /**

@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadHostile;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.skyframe.FileValue;
@@ -47,20 +47,13 @@ import java.util.zip.ZipException;
  * Support class for FDO (feedback directed optimization) and LIPO (lightweight inter-procedural
  * optimization).
  *
- * <p>There is a 1:1 relationship between {@link CppConfiguration} objects and {@code FdoSupport}
- * objects. The FDO support of a build configuration can be retrieved using {@link
- * CppConfiguration#getFdoSupport()}.
- *
- * <p>With respect to thread-safety, the {@link #prepareToBuild} method is not thread-safe, and must
- * not be called concurrently with other methods on this class.
- *
  * <p>Here follows a quick run-down of how FDO/LIPO builds work (for non-FDO/LIPO builds, none
  * of this applies):
  *
- * <p>{@link CppConfiguration#prepareHook} is called before the analysis phase, which calls
- * {@link #prepareToBuild}, which extracts the FDO .zip (in case we work with an explicitly
- * generated FDO profile file) or analyzes the .afdo.imports file next to the .afdo file (if
- * AutoFDO is in effect).
+ * <p>{@link FdoSupport#create} is called from {@link FdoSupportFunction} (a {@link SkyFunction}),
+ * which is requested from Skyframe by the {@code cc_toolchain} rule. It extracts the FDO .zip (in
+ * case we work with an explicitly generated FDO profile file) or analyzes the .afdo.imports file
+ * next to the .afdo file (if AutoFDO is in effect).
  *
  * <p>.afdo.imports files contain one import a line. A line is two paths separated by a colon,
  * with functions in the second path being referenced by functions in the first path. These are
@@ -108,7 +101,28 @@ import java.util.zip.ZipException;
  * {@code CachingAnalysisEnvironment.allowRegisteringActions}, which causes actions to be silently
  * discarded after configured targets are created.
  */
+@Immutable
 public class FdoSupport {
+
+  /**
+   * The FDO mode we are operating in.
+   *
+   * LIPO can only be active if this is not <code>OFF</code>, but all of the modes below can work
+   * with LIPO either off or on.
+   */
+  private enum FdoMode {
+    /** FDO is turned off. */
+    OFF,
+
+    /** Profiling-based FDO using an explicitly recorded profile. */
+    VANILLA,
+
+    /** FDO based on automatically collected data. */
+    AUTO_FDO,
+
+    /** Instrumentation-based FDO implemented on LLVM. */
+    LLVM_FDO,
+  }
 
   /**
    * Path within profile data .zip files that is considered the root of the
@@ -170,24 +184,15 @@ public class FdoSupport {
   private final LipoMode lipoMode;
 
   /**
-   * Flag indicating whether to use AutoFDO (as opposed to
-   * instrumentation-based FDO).
+   * FDO mode.
    */
-  private final boolean useAutoFdo;
-
-  /**
-   * Flag indicating whether to use LLVM instrumentation-based FDO (as
-   * opposed to GCC instrumentation-based FDO).
-   */
-  private final boolean useLLVMFdo;
+  private final FdoMode fdoMode;
 
   /**
    * The {@code .gcda} files that have been extracted from the ZIP file,
    * relative to the root of the ZIP file.
-   *
-   * <p>Set only in {@link #prepareToBuild}.
    */
-  private ImmutableSet<PathFragment> gcdaFiles = ImmutableSet.of();
+  private final ImmutableSet<PathFragment> gcdaFiles;
 
   /**
    * Multimap from .gcda file base names to auxiliary input files.
@@ -198,10 +203,8 @@ public class FdoSupport {
    *
    * <p>The contents of the multimap are copied verbatim from the .gcda.imports
    * files and not yet checked for validity.
-   *
-   * <p>Set only in {@link #prepareToBuild}.
    */
-  private ImmutableMultimap<PathFragment, PathFragment> imports;
+  private final ImmutableMultimap<PathFragment, PathFragment> imports;
 
   /**
    * Creates an FDO support object.
@@ -210,83 +213,122 @@ public class FdoSupport {
    * @param fdoProfile path to the profile file passed to --fdo_optimize option
    * @param lipoMode value of the --lipo_mode option
    */
-  public FdoSupport(PathFragment fdoInstrument, Path fdoProfile, LipoMode lipoMode, Path execRoot) {
+  private FdoSupport(FdoMode fdoMode, LipoMode lipoMode, Root fdoRoot, PathFragment fdoRootExecPath,
+      PathFragment fdoInstrument, Path fdoProfile, FdoZipContents fdoZipContents) {
     this.fdoInstrument = fdoInstrument;
     this.fdoProfile = fdoProfile;
-    this.fdoRoot = (fdoProfile == null)
-        ? null
-        : Root.asDerivedRoot(execRoot, execRoot.getRelative("blaze-fdo"));
-    this.fdoRootExecPath = fdoProfile == null
-        ? null
-        : fdoRoot.getExecPath().getRelative(FileSystemUtils.removeExtension(
-            new PathFragment("_fdo").getChild(fdoProfile.getBaseName())));
+    this.fdoRoot = fdoRoot;
+    this.fdoRootExecPath = fdoRootExecPath;
     this.fdoPath = fdoProfile == null
         ? null
         : FileSystemUtils.removeExtension(new PathFragment("_fdo").getChild(
             fdoProfile.getBaseName()));
     this.lipoMode = lipoMode;
-    this.useAutoFdo = fdoProfile != null && isAutoFdo(fdoProfile.getBaseName());
-    this.useLLVMFdo = fdoProfile != null && isLLVMFdo(fdoProfile.getBaseName());
+    this.fdoMode = fdoMode;
+    this.gcdaFiles = fdoZipContents.gcdaFiles;
+    this.imports = fdoZipContents.imports;
   }
 
   public Root getFdoRoot() {
     return fdoRoot;
   }
 
-  public void declareSkyframeDependencies(SkyFunction.Environment env, Path execRoot) {
+  /**
+   * Creates an initialized {@link FdoSupport} instance.
+   */
+  static FdoSupport create(SkyFunction.Environment env, PathFragment fdoInstrument,
+      Path fdoProfile, LipoMode lipoMode, Path execRoot) throws IOException, FdoException {
+    FdoMode fdoMode;
+    if (fdoProfile != null && isAutoFdo(fdoProfile.getBaseName())) {
+      fdoMode = FdoMode.AUTO_FDO;
+    } else if (fdoProfile != null && isLLVMFdo(fdoProfile.getBaseName())) {
+      fdoMode = FdoMode.LLVM_FDO;
+    } else if (fdoProfile != null) {
+      fdoMode = FdoMode.VANILLA;
+    } else {
+      fdoMode = FdoMode.OFF;
+    }
+
+    if (fdoProfile == null) {
+      lipoMode = LipoMode.OFF;
+    }
+
+    Root fdoRoot = (fdoProfile == null)
+        ? null
+        : Root.asDerivedRoot(execRoot, execRoot.getRelative("blaze-fdo"));
+
+    PathFragment fdoRootExecPath = fdoProfile == null
+        ? null
+        : fdoRoot.getExecPath().getRelative(FileSystemUtils.removeExtension(
+            new PathFragment("_fdo").getChild(fdoProfile.getBaseName())));
+
     if (fdoProfile != null) {
-      if (isLipoEnabled()) {
+      if (lipoMode != LipoMode.OFF) {
         // Incrementality is not supported for LIPO builds, see FdoSupport#scannables.
         // Ensure that the Skyframe value containing the configuration will not be reused to avoid
         // incrementality issues.
         PrecomputedValue.dependOnBuildId(env);
-        return;
-      }
-
-      // IMPORTANT: Keep the following in sync with #prepareToBuild.
-      Path path;
-      if (useAutoFdo) {
-        path = fdoProfile.getParentDirectory().getRelative(
-            fdoProfile.getBaseName() + ".imports");
       } else {
-        path = fdoProfile;
+        Path path = fdoMode == FdoMode.AUTO_FDO ? getAutoFdoImportsPath(fdoProfile) : fdoProfile;
+        env.getValue(FileValue.key(RootedPath.toRootedPathMaybeUnderRoot(path,
+            ImmutableList.of(execRoot))));
       }
-      env.getValue(FileValue.key(RootedPath.toRootedPathMaybeUnderRoot(path,
-          ImmutableList.of(execRoot))));
+    }
+
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    FdoZipContents fdoZipContents = extractFdoZip(
+        fdoMode, lipoMode, execRoot, fdoProfile, fdoRootExecPath);
+    return new FdoSupport(
+        fdoMode, lipoMode, fdoRoot, fdoRootExecPath, fdoInstrument, fdoProfile, fdoZipContents);
+  }
+
+  @Immutable
+  private static class FdoZipContents {
+    private final ImmutableSet<PathFragment> gcdaFiles;
+    private final ImmutableMultimap<PathFragment, PathFragment> imports;
+
+    private FdoZipContents(ImmutableSet<PathFragment> gcdaFiles,
+        ImmutableMultimap<PathFragment, PathFragment> imports) {
+      this.gcdaFiles = gcdaFiles;
+      this.imports = imports;
     }
   }
 
   /**
-   * Prepares the FDO support for building.
+   * Extracts the FDO zip file and collects data from it that's needed during analysis.
    *
    * <p>When an {@code --fdo_optimize} compile is requested, unpacks the given
    * FDO gcda zip file into a clean working directory under execRoot.
    *
    * @throws FdoException if the FDO ZIP contains a file of unknown type
    */
-  @ThreadHostile // must be called before starting the build
-  public void prepareToBuild(Path execRoot)
+  private static FdoZipContents extractFdoZip(FdoMode fdoMode, LipoMode lipoMode, Path execRoot,
+      Path fdoProfile, PathFragment fdoRootExecPath)
       throws IOException, FdoException {
     // The execRoot != null case is only there for testing. We cannot provide a real ZIP file in
     // tests because ZipFileSystem does not work with a ZIP on an in-memory file system.
     // IMPORTANT: Keep in sync with #declareSkyframeDependencies to avoid incrementality issues.
+    ImmutableSet<PathFragment> gcdaFiles = ImmutableSet.of();
+    ImmutableMultimap<PathFragment, PathFragment> imports = ImmutableMultimap.of();
+
     if (fdoProfile != null && execRoot != null) {
       Path fdoDirPath = execRoot.getRelative(fdoRootExecPath);
 
       FileSystemUtils.deleteTreesBelow(fdoDirPath);
       FileSystemUtils.createDirectoryAndParents(fdoDirPath);
 
-      if (useAutoFdo) {
-        Path fdoImports = fdoProfile.getParentDirectory().getRelative(
-            fdoProfile.getBaseName() + ".imports");
-        if (isLipoEnabled()) {
-          imports = readAutoFdoImports(fdoImports);
+      if (fdoMode == FdoMode.AUTO_FDO) {
+        if (lipoMode != LipoMode.OFF) {
+          imports = readAutoFdoImports(getAutoFdoImportsPath(fdoProfile));
         }
         FileSystemUtils.ensureSymbolicLink(
-            execRoot.getRelative(getAutoProfilePath()), fdoProfile);
-      } else if (useLLVMFdo) {
+            execRoot.getRelative(getAutoProfilePath(fdoProfile, fdoRootExecPath)), fdoProfile);
+      } else if (fdoMode == FdoMode.LLVM_FDO) {
         FileSystemUtils.ensureSymbolicLink(
-            execRoot.getRelative(getLLVMProfilePath()), fdoProfile);
+            execRoot.getRelative(getLLVMProfilePath(fdoProfile, fdoRootExecPath)), fdoProfile);
       } else {
         Path zipFilePath = new ZipFileSystem(fdoProfile).getRootDirectory();
         if (!zipFilePath.getRelative("blaze-out").isDirectory()) {
@@ -296,11 +338,13 @@ public class FdoSupport {
         ImmutableSet.Builder<PathFragment> gcdaFilesBuilder = ImmutableSet.builder();
         ImmutableMultimap.Builder<PathFragment, PathFragment> importsBuilder =
             ImmutableMultimap.builder();
-        extractFdoZip(zipFilePath, fdoDirPath, gcdaFilesBuilder, importsBuilder);
+        extractFdoZipDirectory(zipFilePath, fdoDirPath, gcdaFilesBuilder, importsBuilder);
         gcdaFiles = gcdaFilesBuilder.build();
         imports = importsBuilder.build();
       }
     }
+
+    return new FdoZipContents(gcdaFiles, imports);
   }
 
   /**
@@ -320,7 +364,7 @@ public class FdoSupport {
    * @throws IOException if any of the I/O operations failed
    * @throws FdoException if the FDO ZIP contains a file of unknown type
    */
-  private void extractFdoZip(Path sourceDir, Path targetDir,
+  private static void extractFdoZipDirectory(Path sourceDir, Path targetDir,
       ImmutableSet.Builder<PathFragment> gcdaFilesBuilder,
       ImmutableMultimap.Builder<PathFragment, PathFragment> importsBuilder)
           throws IOException, FdoException {
@@ -328,7 +372,7 @@ public class FdoSupport {
       Path targetFile = targetDir.getRelative(sourceFile.getBaseName());
       if (sourceFile.isDirectory()) {
         targetFile.createDirectory();
-        extractFdoZip(sourceFile, targetFile, gcdaFilesBuilder, importsBuilder);
+        extractFdoZipDirectory(sourceFile, targetFile, gcdaFilesBuilder, importsBuilder);
       } else {
         if (CppFileTypes.COVERAGE_DATA.matches(sourceFile)) {
           FileSystemUtils.copyFile(sourceFile, targetFile);
@@ -343,12 +387,13 @@ public class FdoSupport {
     }
   }
 
+
   /**
    * Reads a .gcda.imports file and stores the imports information.
    *
    * @throws FdoException if an auxiliary LIPO input was not found
    */
-  private void readCoverageImports(Path importsFile,
+  private static void readCoverageImports(Path importsFile,
       ImmutableMultimap.Builder<PathFragment, PathFragment> importsBuilder)
           throws IOException, FdoException {
     PathFragment key = importsFile.asFragment().relativeTo(ZIP_ROOT);
@@ -373,7 +418,7 @@ public class FdoSupport {
   /**
    * Reads a .afdo.imports file and stores the imports information.
    */
-  private ImmutableMultimap<PathFragment, PathFragment> readAutoFdoImports(Path importsFile)
+  private static ImmutableMultimap<PathFragment, PathFragment> readAutoFdoImports(Path importsFile)
           throws IOException, FdoException {
     ImmutableMultimap.Builder<PathFragment, PathFragment> importBuilder =
         ImmutableMultimap.builder();
@@ -396,6 +441,10 @@ public class FdoSupport {
     return importBuilder.build();
   }
 
+  private static Path getAutoFdoImportsPath(Path fdoProfile) {
+     return fdoProfile.getParentDirectory().getRelative(fdoProfile.getBaseName() + ".imports");
+  }
+
   /**
    * Returns the imports from the .afdo.imports file of a source file.
    *
@@ -403,7 +452,7 @@ public class FdoSupport {
    */
   private Collection<Artifact> getAutoFdoImports(RuleContext ruleContext,
       PathFragment sourceExecPath, LipoContextProvider lipoContextProvider) {
-    Preconditions.checkState(isLipoEnabled());
+    Preconditions.checkState(lipoMode != LipoMode.OFF);
     ImmutableCollection<PathFragment> afdoImports = imports.get(sourceExecPath);
     Preconditions.checkState(afdoImports != null,
         "AutoFDO import data missing for %s", sourceExecPath);
@@ -427,7 +476,7 @@ public class FdoSupport {
    * @param objectName the object file
    */
   private Iterable<PathFragment> getImports(PathFragment objDirectory, PathFragment objectName) {
-    Preconditions.checkState(isLipoEnabled());
+    Preconditions.checkState(lipoMode != LipoMode.OFF);
     Preconditions.checkState(imports != null,
         "Tried to look up imports of uninitialized FDOSupport");
     PathFragment key = objDirectory.getRelative(FileSystemUtils.removeExtension(objectName));
@@ -449,7 +498,7 @@ public class FdoSupport {
     // It is a bug if this method is called with useLipo if lipo is disabled. However, it is legal
     // if is is called with !useLipo, even though lipo is enabled.
     LipoContextProvider lipoInputProvider = CppHelper.getLipoContextProvider(ruleContext);
-    Preconditions.checkArgument(lipoInputProvider == null || isLipoEnabled());
+    Preconditions.checkArgument(lipoInputProvider == null || lipoMode != LipoMode.OFF);
 
     // FDO is disabled -> do nothing.
     if ((fdoInstrument == null) && (fdoRoot == null)) {
@@ -474,12 +523,12 @@ public class FdoSupport {
       if (!Iterables.isEmpty(auxiliaryInputs)) {
         if (featureConfiguration.isEnabled(CppRuleClasses.AUTOFDO)) {
           buildVariables.addVariable("fdo_profile_path",
-              getAutoProfilePath().getPathString());
+              getAutoProfilePath(fdoProfile, fdoRootExecPath).getPathString());
         }
         if (featureConfiguration.isEnabled(CppRuleClasses.FDO_OPTIMIZE)) {
-          if (useLLVMFdo) {
+          if (fdoMode == FdoMode.LLVM_FDO) {
             buildVariables.addVariable("fdo_profile_path",
-                getLLVMProfilePath().getPathString());
+                getLLVMProfilePath(fdoProfile, fdoRootExecPath).getPathString());
           } else {
             buildVariables.addVariable("fdo_profile_path",
                 fdoRootExecPath.getPathString());
@@ -498,12 +547,12 @@ public class FdoSupport {
     // If --fdo_optimize was not specified, we don't have any additional inputs.
     if (fdoProfile == null) {
       return ImmutableSet.of();
-    } else if (useAutoFdo || useLLVMFdo) {
+    } else if (fdoMode == FdoMode.AUTO_FDO || fdoMode == FdoMode.LLVM_FDO) {
       ImmutableSet.Builder<Artifact> auxiliaryInputs = ImmutableSet.builder();
 
-      PathFragment profileRootRelativePath = (useLLVMFdo)
-          ? getLLVMProfileRootRelativePath()
-          : getAutoProfileRootRelativePath();
+      PathFragment profileRootRelativePath = fdoMode == FdoMode.LLVM_FDO
+          ? getLLVMProfileRootRelativePath(fdoProfile)
+          : getAutoProfileRootRelativePath(fdoProfile);
       Artifact artifact = env.getDerivedArtifact(
           fdoPath.getRelative(profileRootRelativePath), fdoRoot);
       env.registerAction(new FdoStubAction(ruleContext.getActionOwner(), artifact));
@@ -607,29 +656,21 @@ public class FdoSupport {
   }
 
 
-  private PathFragment getAutoProfilePath() {
-    return fdoRootExecPath.getRelative(getAutoProfileRootRelativePath());
+  private static PathFragment getAutoProfilePath(Path fdoProfile, PathFragment fdoRootExecPath) {
+    return fdoRootExecPath.getRelative(getAutoProfileRootRelativePath(fdoProfile));
   }
 
-  private PathFragment getAutoProfileRootRelativePath() {
+  private static PathFragment getAutoProfileRootRelativePath(Path fdoProfile) {
     return new PathFragment(fdoProfile.getBaseName());
   }
 
 
-  private PathFragment getLLVMProfilePath() {
-    return fdoRootExecPath.getRelative(getLLVMProfileRootRelativePath());
+  private static PathFragment getLLVMProfilePath(Path fdoProfile, PathFragment fdoRootExecPath) {
+    return fdoRootExecPath.getRelative(getLLVMProfileRootRelativePath(fdoProfile));
   }
 
-  private PathFragment getLLVMProfileRootRelativePath() {
+  private static PathFragment getLLVMProfileRootRelativePath(Path fdoProfile) {
     return new PathFragment(fdoProfile.getBaseName());
-  }
-
-  /**
-   * Returns whether LIPO is enabled.
-   */
-  @ThreadSafe
-  public boolean isLipoEnabled() {
-    return fdoProfile != null && lipoMode != LipoMode.OFF;
   }
 
   /**
@@ -637,7 +678,7 @@ public class FdoSupport {
    */
   @ThreadSafe
   public boolean isAutoFdoEnabled() {
-    return useAutoFdo;
+    return fdoMode == FdoMode.AUTO_FDO;
   }
 
   /**
@@ -661,29 +702,6 @@ public class FdoSupport {
   @VisibleForTesting
   public PathFragment getFdoOptimizeDir() {
     return fdoRootExecPath;
-  }
-
-  /**
-   * Returns the path of the FDO zip containing the .gcda profile files, or null
-   * if FDO is not enabled.
-   */
-  @VisibleForTesting
-  public Path getFdoOptimizeProfile() {
-    return fdoProfile;
-  }
-
-  /**
-   * Returns the path fragment of the instrumentation output dir for gcc when
-   * FDO is enabled, or null if FDO is not enabled.
-   */
-  @ThreadSafe
-  public PathFragment getFdoInstrument() {
-    return fdoInstrument;
-  }
-
-  @VisibleForTesting
-  public void setGcdaFilesForTesting(ImmutableSet<PathFragment> gcdaFiles) {
-    this.gcdaFiles = gcdaFiles;
   }
 
   /**

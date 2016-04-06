@@ -29,6 +29,8 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
+import com.google.devtools.build.lib.rules.cpp.FdoSupportFunction;
+import com.google.devtools.build.lib.rules.cpp.FdoSupportValue;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
@@ -86,7 +88,8 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
           new RepositoryDelegatorFunction(
               directories, repositoryHandlers, skylarkRepositoryFunction, new AtomicBoolean(true)),
           SkyFunctions.REPOSITORY,
-          new RepositoryLoaderFunction());
+          new RepositoryLoaderFunction(),
+          FdoSupportValue.SKYFUNCTION, new FdoSupportFunction());
     }
 
     @Override

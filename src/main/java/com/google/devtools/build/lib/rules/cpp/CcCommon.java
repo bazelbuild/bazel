@@ -178,7 +178,7 @@ public final class CcCommon {
   }
 
   public TransitiveLipoInfoProvider collectTransitiveLipoLabels(CcCompilationOutputs outputs) {
-    if (cppConfiguration.getFdoSupport().getFdoRoot() == null
+    if (CppHelper.getFdoSupport(ruleContext).getFdoRoot() == null
         || !cppConfiguration.isLipoContextCollector()) {
       return TransitiveLipoInfoProvider.EMPTY;
     }
