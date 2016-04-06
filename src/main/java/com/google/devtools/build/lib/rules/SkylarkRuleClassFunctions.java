@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -555,7 +554,7 @@ public class SkylarkRuleClassFunctions {
             throw new EvalException(definitionLocation,
                 "All aspects applied to rule dependencies must be top-level values");
           }
-          attributeBuilder.aspect(skylarkAspect.getAspectClass());
+          attributeBuilder.aspect(skylarkAspect.getAspectClass(), skylarkAspect.getDefinition());
         }
 
         addAttribute(definitionLocation, builder,
@@ -860,7 +859,7 @@ public class SkylarkRuleClassFunctions {
     private final ImmutableSet<String> fragments;
     private final ImmutableSet<String> hostFragments;
     private final Environment funcallEnv;
-    private Exported exported;
+    private SkylarkAspectClass aspectClass;
 
     public SkylarkAspect(
         BaseFunction implementation,
@@ -893,20 +892,6 @@ public class SkylarkRuleClassFunctions {
       return attributes;
     }
 
-    /**
-     * Gets the set of configuration fragment names needed in the target configuration.
-     */
-    public ImmutableSet<String> getFragments() {
-      return fragments;
-    }
-
-    /**
-     * Gets the set of configuration fragment names needed in the host configuration.
-     */
-    public ImmutableSet<String> getHostFragments() {
-      return hostFragments;
-    }
-
     @Override
     public boolean isImmutable() {
       return implementation.isImmutable();
@@ -924,86 +909,29 @@ public class SkylarkRuleClassFunctions {
 
     public SkylarkAspectClass getAspectClass() {
       Preconditions.checkState(isExported());
-      return new SkylarkAspectClassImpl(this);
+      return aspectClass;
     }
 
     void export(Label extensionLabel, String name) {
-      this.exported = new Exported(extensionLabel, name);
+      Preconditions.checkArgument(!isExported());
+      this.aspectClass = new SkylarkAspectClass(extensionLabel, name);
     }
 
     public boolean isExported() {
-      return exported != null;
+      return aspectClass != null;
     }
 
-    private Label getExtensionLabel() {
-      Preconditions.checkArgument(isExported());
-      return exported.extensionLabel;
-    }
-
-    private String getExportedName() {
-      Preconditions.checkArgument(isExported());
-      return exported.name;
-    }
-
-    @Immutable
-    private static class Exported {
-      private final Label extensionLabel;
-      private final String name;
-
-      public Exported(Label extensionLabel, String name) {
-        this.extensionLabel = extensionLabel;
-        this.name = name;
-      }
-
-      @Override
-      public String toString() {
-        return extensionLabel.toString() + "%" + name;
-      }
-    }
-  }
-
-  /**
-   * Implementation of an aspect class defined in Skylark.
-   */
-  @Immutable
-  private static final class SkylarkAspectClassImpl extends SkylarkAspectClass {
-    private final AspectDefinition aspectDefinition;
-    private final Label extensionLabel;
-    private final String exportedName;
-
-    public SkylarkAspectClassImpl(SkylarkAspect skylarkAspect) {
-      Preconditions.checkArgument(skylarkAspect.isExported(), "Skylark aspects must be exported");
-      this.extensionLabel = skylarkAspect.getExtensionLabel();
-      this.exportedName = skylarkAspect.getExportedName();
-
+    public AspectDefinition getDefinition() {
       AspectDefinition.Builder builder = new AspectDefinition.Builder(getName());
-      for (String attributeAspect : skylarkAspect.getAttributeAspects()) {
-        builder.attributeAspect(attributeAspect, this);
+      for (String attributeAspect : attributeAspects) {
+        builder.attributeAspect(attributeAspect, aspectClass);
       }
-      ImmutableList<Pair<String, Descriptor>> attributes = skylarkAspect.getAttributes();
       for (Pair<String, Descriptor> attribute : attributes) {
         builder.add(attribute.second.getAttributeBuilder().build(attribute.first));
       }
-      builder.requiresConfigurationFragmentsBySkylarkModuleName(skylarkAspect.getFragments());
-      builder.requiresHostConfigurationFragmentsBySkylarkModuleName(
-          skylarkAspect.getHostFragments());
-      this.aspectDefinition = builder.build();
+      builder.requiresConfigurationFragmentsBySkylarkModuleName(fragments);
+      builder.requiresHostConfigurationFragmentsBySkylarkModuleName(hostFragments);
+      return builder.build();
     }
-
-    @Override
-    public AspectDefinition getDefinition() {
-      return aspectDefinition;
-    }
-
-    @Override
-    public Label getExtensionLabel() {
-      return extensionLabel;
-    }
-
-    @Override
-    public String getExportedName() {
-      return exportedName;
-    }
-
   }
 }

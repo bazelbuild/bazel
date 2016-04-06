@@ -140,10 +140,10 @@ public final class AspectFunction implements SkyFunction {
         return null;
       }
 
-      aspectFactory = new SkylarkAspectFactory(skylarkAspect.getName(), skylarkAspect);
+      aspectFactory = new SkylarkAspectFactory(skylarkAspect);
       aspect = Aspect.forSkylark(
           skylarkAspect.getAspectClass(),
-          skylarkAspect.getAspectClass().getDefinition(),
+          skylarkAspect.getDefinition(),
           key.getParameters());
     } else {
       throw new IllegalStateException();

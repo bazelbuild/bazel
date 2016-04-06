@@ -41,11 +41,9 @@ import java.util.Map;
  */
 public class SkylarkAspectFactory implements ConfiguredAspectFactory {
 
-  private final String name;
   private final SkylarkAspect skylarkAspect;
 
-  public SkylarkAspectFactory(String name, SkylarkAspect skylarkAspect) {
-    this.name = name;
+  public SkylarkAspectFactory(SkylarkAspect skylarkAspect) {
     this.skylarkAspect = skylarkAspect;
   }
 
@@ -86,7 +84,8 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
           return null;
         }
 
-        ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(name, ruleContext);
+        ConfiguredAspect.Builder builder = new ConfiguredAspect.Builder(
+            skylarkAspect.getName(), ruleContext);
 
         SkylarkClassObject struct = (SkylarkClassObject) aspectSkylarkObject;
         Location loc = struct.getCreationLoc();
@@ -126,7 +125,7 @@ public class SkylarkAspectFactory implements ConfiguredAspectFactory {
     if (e instanceof EvalExceptionWithStackTrace) {
       ((EvalExceptionWithStackTrace) e)
           .registerPhantomFuncall(
-              String.format("%s(...)", name),
+              String.format("%s(...)", skylarkAspect.getName()),
               base.getTarget().getAssociatedRule().getLocation(),
               skylarkAspect.getImplementation());
     }

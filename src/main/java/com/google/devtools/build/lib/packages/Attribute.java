@@ -86,15 +86,18 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   private static class SkylarkRuleAspect extends RuleAspect<SkylarkAspectClass> {
-    public SkylarkRuleAspect(SkylarkAspectClass aspectClass) {
+    private final AspectDefinition definition;
+
+    public SkylarkRuleAspect(SkylarkAspectClass aspectClass, AspectDefinition definition) {
       super(aspectClass, NO_PARAMETERS);
+      this.definition = definition;
     }
 
     @Override
     public Aspect getAspect(Rule rule) {
       return Aspect.forSkylark(
           aspectClass,
-          aspectClass.getDefinition(),
+          definition,
           parametersExtractor.apply(rule));
     }
   }
@@ -795,8 +798,8 @@ public final class Attribute implements Comparable<Attribute> {
       return this.aspect(aspect, noParameters);
     }
 
-    public Builder<TYPE> aspect(SkylarkAspectClass aspectClass) {
-      this.aspects.add(new SkylarkRuleAspect(aspectClass));
+    public Builder<TYPE> aspect(SkylarkAspectClass aspectClass, AspectDefinition definition) {
+      this.aspects.add(new SkylarkRuleAspect(aspectClass, definition));
       return this;
     }
 

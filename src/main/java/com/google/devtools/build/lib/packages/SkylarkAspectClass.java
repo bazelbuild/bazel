@@ -15,17 +15,31 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 import java.util.Objects;
 
 /**
  * {@link AspectClass} for aspects defined in Skylark.
  */
-public abstract class SkylarkAspectClass implements AspectClass {
+@Immutable
+public final class SkylarkAspectClass implements AspectClass {
+  private final Label extensionLabel;
+  private final String exportedName;
 
-  public abstract Label getExtensionLabel();
+  public SkylarkAspectClass(Label extensionLabel, String exportedName) {
+    this.extensionLabel = extensionLabel;
+    this.exportedName = exportedName;
+  }
 
-  public abstract String getExportedName();
+  public Label getExtensionLabel() {
+    return extensionLabel;
+  }
+
+  public String getExportedName() {
+    return exportedName;
+  }
+
 
   @Override
   public final String getName() {
@@ -44,15 +58,12 @@ public abstract class SkylarkAspectClass implements AspectClass {
 
     SkylarkAspectClass that = (SkylarkAspectClass) o;
 
-    return getExtensionLabel().equals(that.getExtensionLabel())
-        && getExportedName().equals(that.getExportedName());
+    return extensionLabel.equals(that.extensionLabel)
+        && exportedName.equals(that.exportedName);
   }
 
   @Override
   public final int hashCode() {
     return Objects.hash(getExtensionLabel(), getExportedName());
   }
-
-  @Deprecated
-  public abstract AspectDefinition getDefinition();
 }
