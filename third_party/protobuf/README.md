@@ -22,9 +22,9 @@ the following steps on an x86_64 machine:
 
 How to update the `src/` directory:
 
-1. Run `git clone http://github.com/google/protobuf.git` in a convenient directory.
-2. `mkdir third_party/protobuf/src/google` in the root of the Bazel tree.
+1. `git clone http://github.com/google/protobuf.git`
+2. `git checkout <commithash>` (current is `d5fb408d` or `3.0.0-beta-2`)
+2. `mkdir -p third_party/protobuf/src/google` in the root of the Bazel tree.
 3. `cp -R <root of protobuf tree>/src/google/protobuf third_party/protobuf/src/google`
-4. Done.
-
-The current version comes from commit `698fa8ee22`.
+4. Update rules in `third_party/protobuf/BUILD` with the rules in the protobuf repository.
+5. Done.
