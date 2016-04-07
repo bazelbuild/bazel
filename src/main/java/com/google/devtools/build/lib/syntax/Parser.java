@@ -1404,7 +1404,8 @@ public class Parser {
       list.add(parseIfStatement());
     } else if (token.kind == TokenKind.FOR && parsingMode == SKYLARK) {
       if (isTopLevel) {
-        reportError(lexer.createLocation(token.left, token.right),
+        reportError(
+            lexer.createLocation(token.left, token.right),
             "for loops are not allowed on top-level. Put it into a function");
       }
       parseForStatement(list);
@@ -1446,7 +1447,11 @@ public class Parser {
     int start = token.left;
     Token blockToken = token;
     syncTo(EnumSet.of(TokenKind.COLON, TokenKind.EOF)); // skip over expression or name
-    if (parsingMode != PYTHON) {
+    if (blockToken.kind == TokenKind.ELSE && parsingMode == SKYLARK) {
+      reportError(
+          lexer.createLocation(blockToken.left, blockToken.right),
+          "syntax error at 'else': not allowed here.");
+    } else if (parsingMode != PYTHON) {
       String msg =
           ILLEGAL_BLOCK_KEYWORDS.containsKey(blockToken.kind)
               ? String.format("%ss are not supported.", ILLEGAL_BLOCK_KEYWORDS.get(blockToken.kind))

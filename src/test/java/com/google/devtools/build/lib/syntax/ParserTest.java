@@ -1422,7 +1422,18 @@ public class ParserTest extends EvaluationTestCase {
         "def func(a):",
         // no if
         "  else: return a");
-    assertContainsError("syntax error at 'else'");
+    assertContainsError("syntax error at 'else': not allowed here.");
+  }
+
+  @Test
+  public void testForElse() throws Exception {
+    setFailFast(false);
+    parseFileForSkylark(
+        "def func(a):",
+        "  for i in range(a):",
+        "    print(i)",
+        "  else: return a");
+    assertContainsError("syntax error at 'else': not allowed here.");
   }
 
   @Test
