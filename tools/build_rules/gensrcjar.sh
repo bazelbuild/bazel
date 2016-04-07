@@ -65,14 +65,8 @@ main() {
   "${PREPROCESSOR}" <"${SOURCE}" >"${processed_source}" \
       || err "Preprocessor ${PREPROCESSOR} failed"
 
-  if [ -n "${GRPC_JAVA_PLUGIN}" ]; then
-    "${PROTO_COMPILER}" --plugin=protoc-gen-grpc="${GRPC_JAVA_PLUGIN}" \
-        --grpc_out="${proto_output}" --java_out="${proto_output}" "${processed_source}" \
-        || err "proto_compiler failed"
-  else
-    "${PROTO_COMPILER}" --java_out="${proto_output}" "${processed_source}" \
-        || err "proto_compiler failed"
-  fi
+  "${PROTO_COMPILER}" --java_out="${proto_output}" "${processed_source}" \
+      || err "proto_compiler failed"
   find "${proto_output}" -exec touch -t "${TIMESTAMP}" '{}' \; \
       || err "Failed to reset timestamps"
   "${JAR}" cMf "${OUTPUT}.tmp" -C "${proto_output}" . \
