@@ -27,7 +27,6 @@ filegroup(
         "//third_party:darwin": ["protoc-osx-x86_32.exe"],
         "//third_party:k8": ["protoc-linux-x86_64.exe"],
         "//third_party:piii": ["protoc-linux-x86_32.exe"],
-        "//third_party:arm": ["protoc-linux-arm32.exe"],
         "//third_party:freebsd": ["protoc-linux-x86_32.exe"],
     }),
 )

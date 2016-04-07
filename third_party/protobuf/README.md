@@ -9,10 +9,6 @@ How to update the binaries other than `protoc-linux-x86_64.exe` and `protoc-linu
 7. Update third_party/BUILD to point to the new jar file.
 8. Done.
 
-Because maven.org doesn't have a prebuilt binary for linux on ARM, you need to build the binary
-yourself on the target system. Follow the build steps of protocol buffer to create the binary,
-copy it to this directory and rename it to "protoc-linux-arm32.exe".
-
 The 64-bit Linux version of the proto compiler is linked statically. To update it, do
 the following steps on an x86_64 machine:
 
@@ -23,13 +19,6 @@ the following steps on an x86_64 machine:
 5. Change `LDFLAGS = -static` to `LDFLAGS = -all-static` in  `src/Makefile`.
 6. `make`
 7. `cp src/protoc <Bazel tree>/third_party/protobuf/protoc-linux-x86_64.exe` .
-
-
-For example:
-
-$ cp /usr/bin/protoc $BAZEL/third_party/protobuf/protoc-linux-arm32.exe
-
-This should be done before you run ./compile.sh.
 
 How to update the `src/` directory:
 
