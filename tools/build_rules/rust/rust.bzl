@@ -169,10 +169,10 @@ def _get_features_flags(features):
 
 def _rust_toolchain(ctx):
   return struct(
-      rustc_path = ctx.file._rustc.path,
-      rustc_lib_path = ctx.files._rustc_lib[0].dirname,
-      rustlib_path = ctx.files._rustlib[0].dirname,
-      rustdoc_path = ctx.file._rustdoc.path)
+      rustc_path = ctx.file.rustc.path,
+      rustc_lib_path = ctx.files.rustc_lib[0].dirname,
+      rustlib_path = ctx.files.rustlib[0].dirname,
+      rustdoc_path = ctx.file.rustdoc.path)
 
 def _build_rustc_command(ctx, crate_name, crate_type, src, output_dir,
                          depinfo, rust_flags=[]):
@@ -292,9 +292,9 @@ def _rust_library_impl(ctx):
       ctx.files.data +
       depinfo.libs +
       depinfo.transitive_libs +
-      [ctx.file._rustc] +
-      ctx.files._rustc_lib +
-      ctx.files._rustlib)
+      [ctx.file.rustc] +
+      ctx.files.rustc_lib +
+      ctx.files.rustlib)
 
   ctx.action(
       inputs = compile_inputs,
@@ -344,9 +344,9 @@ def _rust_binary_impl(ctx):
       ctx.files.data +
       depinfo.libs +
       depinfo.transitive_libs +
-      [ctx.file._rustc] +
-      ctx.files._rustc_lib +
-      ctx.files._rustlib)
+      [ctx.file.rustc] +
+      ctx.files.rustc_lib +
+      ctx.files.rustlib)
 
   ctx.action(
       inputs = compile_inputs,
@@ -405,9 +405,9 @@ def _rust_test_common(ctx, test_binary):
   compile_inputs = (target.srcs +
                     depinfo.libs +
                     depinfo.transitive_libs +
-                    [ctx.file._rustc] +
-                    ctx.files._rustc_lib +
-                    ctx.files._rustlib)
+                    [ctx.file.rustc] +
+                    ctx.files.rustc_lib +
+                    ctx.files.rustlib)
 
   ctx.action(
       inputs = compile_inputs,
@@ -513,9 +513,9 @@ def _rust_doc_impl(ctx):
   # Rustdoc action
   rustdoc_inputs = (target.srcs +
                     depinfo.libs +
-                    [ctx.file._rustdoc] +
-                    ctx.files._rustc_lib +
-                    ctx.files._rustlib)
+                    [ctx.file.rustdoc] +
+                    ctx.files.rustc_lib +
+                    ctx.files.rustlib)
 
   ctx.action(
       inputs = rustdoc_inputs,
@@ -572,9 +572,9 @@ def _rust_doc_test_impl(ctx):
   doc_test_inputs = (target.srcs +
                      depinfo.libs +
                      depinfo.transitive_libs +
-                     [ctx.file._rustdoc] +
-                     ctx.files._rustc_lib +
-                     ctx.files._rustlib)
+                     [ctx.file.rustdoc] +
+                     ctx.files.rustc_lib +
+                     ctx.files.rustlib)
 
   runfiles = ctx.runfiles(files = doc_test_inputs, collect_data = True)
   return struct(runfiles = runfiles)
@@ -595,18 +595,18 @@ _rust_common_attrs = {
 }
 
 _rust_toolchain_attrs = {
-    "_rustc": attr.label(
+    "rustc": attr.label(
         default = Label("@bazel_tools//tools/build_rules/rust:rustc"),
         executable = True,
         single_file = True,
     ),
-    "_rustc_lib": attr.label(
+    "rustc_lib": attr.label(
         default = Label("@bazel_tools//tools/build_rules/rust:rustc_lib"),
     ),
-    "_rustlib": attr.label(
+    "rustlib": attr.label(
         default = Label("@bazel_tools//tools/build_rules/rust:rustlib"),
     ),
-    "_rustdoc": attr.label(
+    "rustdoc": attr.label(
         default = Label("@bazel_tools//tools/build_rules/rust:rustdoc"),
         executable = True,
         single_file = True,
