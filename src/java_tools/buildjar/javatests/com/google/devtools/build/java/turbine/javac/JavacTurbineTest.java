@@ -1209,4 +1209,31 @@ public class JavacTurbineTest {
     String output = new String(outputs.get("output.txt"), UTF_8);
     assertThat(output).isEqualTo("[42, hello, 42.1]");
   }
+
+  public static class TransitiveDep {}
+
+  public static class DirectDep extends TransitiveDep {}
+
+  @Test
+  public void noNativeHeaderOutput() throws Exception {
+
+    // deliberately exclude TransitiveDep
+    Path deps = createClassJar("libdeps.jar", JavacTurbineTest.class, DirectDep.class);
+
+    // compilation will complete supertypes of DirectDep iff NATIVE_HEADER_OUTPUT is set
+    addSourceLines(
+        "Hello.java",
+        "import " + DirectDep.class.getCanonicalName() + ";",
+        "class Hello {",
+        "  public native DirectDep foo() /*-{",
+        "  }-*/;",
+        "}");
+
+    optionsBuilder.addClassPathEntries(Collections.singleton(deps.toString()));
+    optionsBuilder.addDirectJarToTarget(deps.toString(), "//deps");
+
+    compile();
+    Map<String, byte[]> outputs = collectOutputs();
+    assertThat(outputs.keySet()).containsExactly("Hello.class");
+  }
 }

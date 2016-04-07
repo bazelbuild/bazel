@@ -38,6 +38,7 @@ import javax.tools.FileObject;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
 import javax.tools.SimpleJavaFileObject;
+import javax.tools.StandardLocation;
 
 /** A {@link JavacFileManager} that collects output into a zipfile. */
 @Trusted
@@ -55,7 +56,7 @@ public class ZipOutputFileManager extends JavacFileManager {
    * implementation.
    */
   private boolean ownedLocation(Location location) {
-    return location.isOutputLocation();
+    return location.isOutputLocation() && location != StandardLocation.NATIVE_HEADER_OUTPUT;
   }
 
   @Override
