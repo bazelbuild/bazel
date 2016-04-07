@@ -182,8 +182,12 @@ the <code class='flag'>--bazelrc=<var>file</var></code> option, and the
 </p>
 <p>
   Options specified in the command line always take precedence over
-  those from a configuration file, and options in the user-specific
-  configuration file always take precedence over the master one.
+  those from a configuration file. In configuration files, lines for a more specific command take
+  precedence over lines for a less specific command (e.g. the 'test' command inherits all the
+  options from the 'build' command, so a 'test --foo=bar' line takes precedence over a
+  'build --foo=baz' line, regardless of which configuration files these two lines are in) and lines
+  equally specific for which command they apply have precedence based on the configuration file they
+  are in, with the user-specific configuration file taking precedence over the master one.
 </p>
 <p>
   Options may include words other than flags, such as the names of

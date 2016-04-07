@@ -492,9 +492,8 @@ public class BlazeCommandDispatcher {
 
   private static List<String> getCommandNamesToParse(Command commandAnnotation) {
     List<String> result = new ArrayList<>();
-    getCommandNamesToParseHelper(commandAnnotation, result);
     result.add("common");
-    // TODO(bazel-team): This statement is a NO-OP: Lists.reverse(result);
+    getCommandNamesToParseHelper(commandAnnotation, result);
     return result;
   }
 
