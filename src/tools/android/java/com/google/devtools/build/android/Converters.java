@@ -98,6 +98,12 @@ public final class Converters {
     @Override
     public FullRevision convert(String input) throws OptionsParsingException {
       try {
+        // TODO(bazel-team): The current version of FullRevision doesn't know
+        // how to properly parse build tool revisions with "-preview", and
+        // upgrading to the lastest version will take time. Since we don't
+        // currently need to distinguish between preview and non-preview build
+        // tools, for now just remove the suffix.
+        input = input.replace("-preview", "");
         return FullRevision.parseRevision(input);
       } catch (NumberFormatException e) {
         throw new OptionsParsingException(e.getMessage());
