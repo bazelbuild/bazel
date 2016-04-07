@@ -353,6 +353,18 @@ import javax.annotation.Nullable;
       contents.add(element);
     }
 
+    /**
+     * Inserts an item at a given position to the MutableList.
+     * @param index the index of the given position
+     * @param element the element to add
+     * @param loc the Location at which to report any error
+     * @param env the Environment requesting the modification
+     */
+    public void add(int index, E element, Location loc, Environment env) throws EvalException {
+      checkMutable(loc, env);
+      contents.add(index, element);
+    }
+
     public void remove(int index, Location loc, Environment env) throws EvalException {
       checkMutable(loc, env);
       contents.remove(index);

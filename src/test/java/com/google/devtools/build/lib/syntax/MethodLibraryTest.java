@@ -1531,6 +1531,22 @@ public class MethodLibraryTest extends EvaluationTestCase {
   @Test
   public void testPyListAppend() throws Exception {
     new BuildTest()
+        .setUp("FOO = ['a', 'b']", "FOO.insert(0, 'c')")
+        .testLookup("FOO", MutableList.of(env, "c", "a", "b"))
+        .setUp("FOO.insert(1, 'd')")
+        .testLookup("FOO", MutableList.of(env, "c", "d", "a", "b"))
+        .setUp("FOO.insert(4, 'e')")
+        .testLookup("FOO", MutableList.of(env, "c", "d", "a", "b", "e"))
+        .setUp("FOO.insert(-10, 'f')")
+        .testLookup("FOO", MutableList.of(env, "f", "c", "d", "a", "b", "e"))
+        .setUp("FOO.insert(10, 'g')")
+        .testLookup("FOO", MutableList.of(env, "f", "c", "d", "a", "b", "e", "g"))
+        .testIfErrorContains("Type tuple has no function insert(int)", "(1, 2).insert(3)");
+  }
+
+  @Test
+  public void testPyListInsert() throws Exception {
+    new BuildTest()
         .setUp("FOO = ['a', 'b']", "FOO.append('c')")
         .testLookup("FOO", MutableList.of(env, "a", "b", "c"))
         .testIfErrorContains("Type tuple has no function append(int)", "(1, 2).append(3)");

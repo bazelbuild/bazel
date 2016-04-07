@@ -1263,19 +1263,45 @@ public class MethodLibrary {
       };
 
   @SkylarkSignature(
+    name = "insert",
+    objectType = MutableList.class,
+    returnType = Runtime.NoneType.class,
+    doc = "Inserts an item at a given position.",
+    mandatoryPositionals = {
+      @Param(name = "self", type = MutableList.class, doc = "This list."),
+      @Param(name = "index", type = Integer.class, doc = "The index of the given position."),
+      @Param(name = "item", type = Object.class, doc = "The item.")
+    },
+    useLocation = true,
+    useEnvironment = true
+  )
+  private static final BuiltinFunction insert =
+      new BuiltinFunction("insert") {
+        public Runtime.NoneType invoke(
+            MutableList<Object> self, Integer index, Object item, Location loc, Environment env)
+            throws EvalException, ConversionException {
+          self.add(clampIndex(index, self.size()), item, loc, env);
+          return Runtime.NONE;
+        }
+      };
+
+  @SkylarkSignature(
     name = "extend",
     objectType = MutableList.class,
     returnType = Runtime.NoneType.class,
     doc = "Adds all items to the end of the list.",
     mandatoryPositionals = {
       @Param(name = "self", type = MutableList.class, doc = "This list."),
-      @Param(name = "items", type = SkylarkList.class, doc = "Items to add at the end.")},
+      @Param(name = "items", type = SkylarkList.class, doc = "Items to add at the end.")
+    },
     useLocation = true,
-    useEnvironment = true)
+    useEnvironment = true
+  )
   private static final BuiltinFunction extend =
       new BuiltinFunction("extend") {
-        public Runtime.NoneType invoke(MutableList<Object> self, SkylarkList<Object> items,
-            Location loc, Environment env) throws EvalException, ConversionException {
+        public Runtime.NoneType invoke(
+            MutableList<Object> self, SkylarkList<Object> items, Location loc, Environment env)
+            throws EvalException, ConversionException {
           self.addAll(items, loc, env);
           return Runtime.NONE;
         }
