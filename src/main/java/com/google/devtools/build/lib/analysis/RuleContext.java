@@ -688,6 +688,29 @@ public final class RuleContext extends TargetContext
   }
 
   /**
+   * For a given attribute, returns all {@link TransitiveInfoProvider}s provided by targets
+   * of that attribute. Each {@link TransitiveInfoProvider} is keyed by the
+   * {@link BuildConfiguration} under which the provider was created.
+   */
+  public <C extends TransitiveInfoProvider> ImmutableListMultimap<BuildConfiguration, C>
+      getPrerequisitesByConfiguration(String attributeName, Mode mode, final Class<C> classType) {
+    AnalysisUtils.checkProvider(classType);
+    List<? extends TransitiveInfoCollection> transitiveInfoCollections =
+        getPrerequisites(attributeName, mode);
+    
+    // Use an ImmutableListMultimap.Builder here to preserve ordering.
+    ImmutableListMultimap.Builder<BuildConfiguration, C> result =
+        ImmutableListMultimap.builder();
+    for (TransitiveInfoCollection prerequisite : transitiveInfoCollections) {
+      C prerequisiteProvider = prerequisite.getProvider(classType);
+      if (prerequisiteProvider != null) {
+        result.put(prerequisite.getConfiguration(), prerequisiteProvider);
+      }
+    }
+    return result.build();
+  }
+
+  /**
    * Returns all the providers of the specified type that are listed under the specified attribute
    * of this target in the BUILD file.
    */
