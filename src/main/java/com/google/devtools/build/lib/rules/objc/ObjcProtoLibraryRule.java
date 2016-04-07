@@ -140,7 +140,6 @@ public class ObjcProtoLibraryRule implements RuleDefinition {
             // be present in the root workspace.
             attr(PROTOBUF_WELL_KNOWN_TYPES, LABEL)
                 .cfg(HOST)
-                .exec()
                 .value(env.getLabel("//tools/objc:protobuf_well_known_types")))
         .add(
             attr(XCODE_GEN_ATTR, LABEL)
