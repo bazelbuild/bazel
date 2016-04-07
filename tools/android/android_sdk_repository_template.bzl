@@ -174,7 +174,11 @@ def create_android_sdk_rules(name, build_tools_version, api_level):
 
   native.filegroup(
       name = "build_tools_libs",
-      srcs = native.glob(["build-tools/%s/lib/**" % build_tools_version])
+      srcs = native.glob([
+          "build-tools/%s/lib/**" % build_tools_version,
+          # Build tools version 24.0.0 added a lib64 folder.
+          "build-tools/%s/lib64/**" % build_tools_version,
+      ])
   )
 
   [native.genrule(
