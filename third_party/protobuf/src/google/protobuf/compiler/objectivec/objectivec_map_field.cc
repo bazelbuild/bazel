@@ -84,14 +84,13 @@ const char* MapEntryTypeName(const FieldDescriptor* descriptor, bool isKey) {
 
 }  // namespace
 
-MapFieldGenerator::MapFieldGenerator(const FieldDescriptor* descriptor,
-                                     const Options& options)
-    : RepeatedFieldGenerator(descriptor, options) {
+MapFieldGenerator::MapFieldGenerator(const FieldDescriptor* descriptor)
+    : RepeatedFieldGenerator(descriptor) {
   const FieldDescriptor* key_descriptor =
       descriptor->message_type()->FindFieldByName("key");
   const FieldDescriptor* value_descriptor =
       descriptor->message_type()->FindFieldByName("value");
-  value_field_generator_.reset(FieldGenerator::Make(value_descriptor, options));
+  value_field_generator_.reset(FieldGenerator::Make(value_descriptor));
 
   // Pull over some variables_ from the value.
   variables_["field_type"] = value_field_generator_->variable("field_type");
@@ -118,61 +117,45 @@ MapFieldGenerator::MapFieldGenerator(const FieldDescriptor* descriptor,
   variables_["fieldflags"] = BuildFlagsString(field_flags);
 
   ObjectiveCType value_objc_type = GetObjectiveCType(value_descriptor);
-  const bool value_is_object_type =
+  if ((GetObjectiveCType(key_descriptor) == OBJECTIVECTYPE_STRING) &&
       ((value_objc_type == OBJECTIVECTYPE_STRING) ||
        (value_objc_type == OBJECTIVECTYPE_DATA) ||
-       (value_objc_type == OBJECTIVECTYPE_MESSAGE));
-  if ((GetObjectiveCType(key_descriptor) == OBJECTIVECTYPE_STRING) &&
-      value_is_object_type) {
+       (value_objc_type == OBJECTIVECTYPE_MESSAGE))) {
     variables_["array_storage_type"] = "NSMutableDictionary";
-    variables_["array_property_type"] =
-        "NSMutableDictionary<NSString*, " +
-        value_field_generator_->variable("storage_type") + "*>";
   } else {
-    string class_name("GPB");
-    class_name += MapEntryTypeName(key_descriptor, true);
-    class_name += MapEntryTypeName(value_descriptor, false);
-    class_name += "Dictionary";
-    variables_["array_storage_type"] = class_name;
-    if (value_is_object_type) {
-      variables_["array_property_type"] =
-          class_name + "<" +
-          value_field_generator_->variable("storage_type") + "*>";
-    }
+    string base_name = MapEntryTypeName(key_descriptor, true);
+    base_name += MapEntryTypeName(value_descriptor, false);
+    base_name += "Dictionary";
+    variables_["array_storage_type"] = "GPB" + base_name;
   }
-
-  variables_["dataTypeSpecific_name"] =
-      value_field_generator_->variable("dataTypeSpecific_name");
-  variables_["dataTypeSpecific_value"] =
-      value_field_generator_->variable("dataTypeSpecific_value");
 }
 
 MapFieldGenerator::~MapFieldGenerator() {}
 
 void MapFieldGenerator::FinishInitialization(void) {
   RepeatedFieldGenerator::FinishInitialization();
-  // Use the array_comment support in RepeatedFieldGenerator to output what the
+  // Use the array_comment suport in RepeatedFieldGenerator to output what the
   // values in the map are.
   const FieldDescriptor* value_descriptor =
       descriptor_->message_type()->FindFieldByName("value");
-  if (GetObjectiveCType(value_descriptor) == OBJECTIVECTYPE_ENUM) {
+  ObjectiveCType value_objc_type = GetObjectiveCType(value_descriptor);
+  if ((value_objc_type == OBJECTIVECTYPE_MESSAGE) ||
+      (value_objc_type == OBJECTIVECTYPE_DATA) ||
+      (value_objc_type == OBJECTIVECTYPE_STRING) ||
+      (value_objc_type == OBJECTIVECTYPE_ENUM)) {
     variables_["array_comment"] =
         "// |" + variables_["name"] + "| values are |" + value_field_generator_->variable("storage_type") + "|\n";
+  } else {
+    variables_["array_comment"] = "";
   }
 }
 
-void MapFieldGenerator::DetermineForwardDeclarations(
-    set<string>* fwd_decls) const {
-  RepeatedFieldGenerator::DetermineForwardDeclarations(fwd_decls);
-  const FieldDescriptor* value_descriptor =
-      descriptor_->message_type()->FindFieldByName("value");
-  if (GetObjectiveCType(value_descriptor) == OBJECTIVECTYPE_MESSAGE) {
-    const string& value_storage_type =
-        value_field_generator_->variable("storage_type");
-    fwd_decls->insert("@class " + value_storage_type);
-  }
+void MapFieldGenerator::GenerateFieldDescriptionTypeSpecific(
+    io::Printer* printer) const {
+  // Relay it to the value generator to provide enum validator, message
+  // class, etc.
+  value_field_generator_->GenerateFieldDescriptionTypeSpecific(printer);
 }
-
 
 }  // namespace objectivec
 }  // namespace compiler

@@ -1772,17 +1772,6 @@ GenerateShutdownCode(io::Printer* printer) {
 
 void MessageGenerator::
 GenerateClassMethods(io::Printer* printer) {
-  // mutable_unknown_fields wrapper function for LazyStringOutputStream
-  // callback.
-  if (!UseUnknownFieldSet(descriptor_->file())) {
-    printer->Print(
-        "static ::std::string* MutableUnknownFieldsFor$classname$(\n"
-        "    $classname$* ptr) {\n"
-        "  return ptr->mutable_unknown_fields();\n"
-        "}\n"
-        "\n",
-        "classname", classname_);
-  }
   if (IsAnyMessage(descriptor_)) {
     printer->Print(
       "void $classname$::PackFrom(const ::google::protobuf::Message& message) {\n"
@@ -2825,9 +2814,7 @@ GenerateMergeFrom(io::Printer* printer) {
         "}\n");
     } else {
       printer->Print(
-        "if (!from.unknown_fields().empty()) {\n"
-        "  mutable_unknown_fields()->append(from.unknown_fields());\n"
-        "}\n");
+        "mutable_unknown_fields()->append(from.unknown_fields());\n");
     }
   }
 
@@ -2902,16 +2889,11 @@ GenerateMergeFromCodedStream(io::Printer* printer) {
     "classname", classname_);
 
   if (!UseUnknownFieldSet(descriptor_->file())) {
-    // Use LazyStringOutputString to avoid initializing unknown fields string
-    // unless it is actually needed. For the same reason, disable eager refresh
-    // on the CodedOutputStream.
     printer->Print(
-      "  ::google::protobuf::io::LazyStringOutputStream unknown_fields_string(\n"
-      "      ::google::protobuf::internal::NewPermanentCallback(\n"
-      "          &MutableUnknownFieldsFor$classname$, this));\n"
+      "  ::google::protobuf::io::StringOutputStream unknown_fields_string(\n"
+      "      mutable_unknown_fields());\n"
       "  ::google::protobuf::io::CodedOutputStream unknown_fields_stream(\n"
-      "      &unknown_fields_string, false);\n",
-      "classname", classname_);
+      "      &unknown_fields_string);\n");
   }
 
   printer->Print(

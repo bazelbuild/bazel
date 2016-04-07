@@ -134,49 +134,10 @@ bool IsReserved(const string& ident) {
 
 // Returns a copy of |filename| with any trailing ".protodevel" or ".proto
 // suffix stripped.
-// TODO(robinson): Unify with copy in compiler/cpp/internal/helpers.cc.
 string StripProto(const string& filename) {
   const char* suffix = HasSuffixString(filename, ".protodevel")
       ? ".protodevel" : ".proto";
   return StripSuffixString(filename, suffix);
-}
-
-// Given a filename like foo/bar/baz.proto, returns the correspoding JavaScript
-// file foo/bar/baz.js.
-string GetJSFilename(const string& filename) {
-  const char* suffix = HasSuffixString(filename, ".protodevel")
-      ? ".protodevel" : ".proto";
-  return StripSuffixString(filename, suffix) + "_pb.js";
-}
-
-// Given a filename like foo/bar/baz.proto, returns the root directory
-// path ../../
-string GetRootPath(const string& filename) {
-  size_t slashes = std::count(filename.begin(), filename.end(), '/');
-  if (slashes == 0) {
-    return "./";
-  }
-  string result = "";
-  for (size_t i = 0; i < slashes; i++) {
-    result += "../";
-  }
-  return result;
-}
-
-// Returns the alias we assign to the module of the given .proto filename
-// when importing.
-string ModuleAlias(const string& filename) {
-  // This scheme could technically cause problems if a file includes any 2 of:
-  //   foo/bar_baz.proto
-  //   foo_bar_baz.proto
-  //   foo_bar/baz.proto
-  //
-  // We'll worry about this problem if/when we actually see it.  This name isn't
-  // exposed to users so we can change it later if we need to.
-  string basename = StripProto(filename);
-  StripString(&basename, "-", '$');
-  StripString(&basename, "/", '_');
-  return basename + "_pb";
 }
 
 // Returns the fully normalized JavaScript path for the given
@@ -252,26 +213,6 @@ string GetPath(const GeneratorOptions& options,
   return GetPath(
       options,
       value_descriptor->type()) + "." + value_descriptor->name();
-}
-
-string MaybeCrossFileRef(const GeneratorOptions& options,
-                         const FileDescriptor* from_file,
-                         const Descriptor* to_message) {
-  if (options.import_style == GeneratorOptions::IMPORT_COMMONJS &&
-      from_file != to_message->file()) {
-    // Cross-file ref in CommonJS needs to use the module alias instead of
-    // the global name.
-    return ModuleAlias(to_message->file()->name()) + "." + to_message->name();
-  } else {
-    // Within a single file we use a full name.
-    return GetPath(options, to_message);
-  }
-}
-
-string SubmessageTypeRef(const GeneratorOptions& options,
-                         const FieldDescriptor* field) {
-  GOOGLE_CHECK(field->cpp_type() == FieldDescriptor::CPPTYPE_MESSAGE);
-  return MaybeCrossFileRef(options, field->file(), field->message_type());
 }
 
 // - Object field name: LOWER_UNDERSCORE -> LOWER_CAMEL, except for group fields
@@ -1011,13 +952,11 @@ string RelativeTypeName(const FieldDescriptor* field) {
 }
 
 string JSExtensionsObjectName(const GeneratorOptions& options,
-                              const FileDescriptor* from_file,
                               const Descriptor* desc) {
   if (desc->full_name() == "google.protobuf.bridge.MessageSet") {
-    // TODO(haberman): fix this for the IMPORT_COMMONJS case.
     return "jspb.Message.messageSetExtensions";
   } else {
-    return MaybeCrossFileRef(options, from_file, desc) + ".extensions";
+    return GetPath(options, desc) + ".extensions";
   }
 }
 
@@ -1174,24 +1113,19 @@ void Generator::GenerateHeader(const GeneratorOptions& options,
                  "\n");
 }
 
-void Generator::FindProvidesForFile(const GeneratorOptions& options,
-                                    io::Printer* printer,
-                                    const FileDescriptor* file,
-                                    std::set<string>* provided) const {
-  for (int i = 0; i < file->message_type_count(); i++) {
-    FindProvidesForMessage(options, printer, file->message_type(i), provided);
-  }
-  for (int i = 0; i < file->enum_type_count(); i++) {
-    FindProvidesForEnum(options, printer, file->enum_type(i), provided);
-  }
-}
-
 void Generator::FindProvides(const GeneratorOptions& options,
                              io::Printer* printer,
                              const vector<const FileDescriptor*>& files,
                              std::set<string>* provided) const {
   for (int i = 0; i < files.size(); i++) {
-    FindProvidesForFile(options, printer, files[i], provided);
+    for (int j = 0; j < files[i]->message_type_count(); j++) {
+      FindProvidesForMessage(options, printer, files[i]->message_type(j),
+                                 provided);
+    }
+    for (int j = 0; j < files[i]->enum_type_count(); j++) {
+      FindProvidesForEnum(options, printer, files[i]->enum_type(j),
+                              provided);
+    }
   }
 
   printer->Print("\n");
@@ -1270,45 +1204,38 @@ void Generator::GenerateRequires(const GeneratorOptions& options,
                                  io::Printer* printer,
                                  const vector<const FileDescriptor*>& files,
                                  std::set<string>* provided) const {
-  if (options.import_style == GeneratorOptions::IMPORT_BROWSER) {
-    return;
-  } else if (options.import_style == GeneratorOptions::IMPORT_CLOSURE) {
-    // For Closure imports we need to import every message type individually.
-    std::set<string> required;
-    std::set<string> forwards;
-    bool have_extensions = false;
-    bool have_message = false;
+  std::set<string> required;
+  std::set<string> forwards;
+  bool have_extensions = false;
+  bool have_message = false;
 
-    for (int i = 0; i < files.size(); i++) {
-      for (int j = 0; j < files[i]->message_type_count(); j++) {
-        FindRequiresForMessage(options,
-                               files[i]->message_type(j),
-                               &required, &forwards, &have_message);
-      }
-      if (!have_extensions && HasExtensions(files[i])) {
-        have_extensions = true;
-      }
-
-      for (int j = 0; j < files[i]->extension_count(); j++) {
-        const FieldDescriptor* extension = files[i]->extension(j);
-        if (IgnoreField(extension)) {
-          continue;
-        }
-        if (extension->containing_type()->full_name() !=
-            "google.protobuf.bridge.MessageSet") {
-          required.insert(GetPath(options, extension->containing_type()));
-        }
-        FindRequiresForField(options, extension, &required, &forwards);
-        have_extensions = true;
-      }
+  for (int i = 0; i < files.size(); i++) {
+    for (int j = 0; j < files[i]->message_type_count(); j++) {
+      FindRequiresForMessage(options,
+                             files[i]->message_type(j),
+                             &required, &forwards, &have_message);
+    }
+    if (!have_extensions && HasExtensions(files[i])) {
+      have_extensions = true;
     }
 
-    GenerateRequiresImpl(options, printer, &required, &forwards, provided,
-                         /* require_jspb = */ have_message,
-                         /* require_extension = */ have_extensions);
-  } else if (options.import_style == GeneratorOptions::IMPORT_COMMONJS) {
-    // CommonJS imports are based on files
+    for (int j = 0; j < files[i]->extension_count(); j++) {
+      const FieldDescriptor* extension = files[i]->extension(j);
+      if (IgnoreField(extension)) {
+        continue;
+      }
+      if (extension->containing_type()->full_name() !=
+          "google.protobuf.bridge.MessageSet") {
+        required.insert(GetPath(options, extension->containing_type()));
+      }
+      FindRequiresForField(options, extension, &required, &forwards);
+      have_extensions = true;
+    }
   }
+
+  GenerateRequiresImpl(options, printer, &required, &forwards, provided,
+                       /* require_jspb = */ have_message,
+                       /* require_extension = */ have_extensions);
 }
 
 void Generator::GenerateRequires(const GeneratorOptions& options,
@@ -1478,12 +1405,6 @@ void Generator::GenerateClass(const GeneratorOptions& options,
     GenerateClassFields(options, printer, desc);
     if (IsExtendable(desc) && desc->full_name() != "google.protobuf.bridge.MessageSet") {
       GenerateClassExtensionFieldInfo(options, printer, desc);
-    }
-
-    if (options.import_style != GeneratorOptions:: IMPORT_CLOSURE) {
-      for (int i = 0; i < desc->extension_count(); i++) {
-        GenerateExtension(options, printer, desc->extension(i));
-      }
     }
   }
 
@@ -1702,7 +1623,7 @@ void Generator::GenerateClassToObject(const GeneratorOptions& options,
         "obj,\n"
         "      $extObject$, $class$.prototype.getExtension,\n"
         "      includeInstance);\n",
-        "extObject", JSExtensionsObjectName(options, desc->file(), desc),
+        "extObject", JSExtensionsObjectName(options, desc),
         "class", GetPath(options, desc));
   }
 
@@ -1731,13 +1652,13 @@ void Generator::GenerateClassFieldToObject(const GeneratorOptions& options,
         printer->Print("jspb.Message.toObjectList(msg.get$getter$(),\n"
                        "    $type$.toObject, includeInstance)",
                        "getter", JSGetterName(field),
-                       "type", SubmessageTypeRef(options, field));
+                       "type", GetPath(options, field->message_type()));
       }
     } else {
       printer->Print("(f = msg.get$getter$()) && "
                      "$type$.toObject(includeInstance, f)",
                      "getter", JSGetterName(field),
-                     "type", SubmessageTypeRef(options, field));
+                     "type", GetPath(options, field->message_type()));
     }
   } else {
     // Simple field (singular or repeated).
@@ -1802,7 +1723,7 @@ void Generator::GenerateClassFieldFromObject(
             "      }));\n",
             "name", JSObjectFieldName(field),
             "index", JSFieldIndex(field),
-            "fieldclass", SubmessageTypeRef(options, field));
+            "fieldclass", GetPath(options, field->message_type()));
       }
     } else {
       printer->Print(
@@ -1810,7 +1731,7 @@ void Generator::GenerateClassFieldFromObject(
           "      msg, $index$, $fieldclass$.fromObject(obj.$name$));\n",
           "name", JSObjectFieldName(field),
           "index", JSFieldIndex(field),
-          "fieldclass", SubmessageTypeRef(options, field));
+          "fieldclass", GetPath(options, field->message_type()));
     }
   } else {
     // Simple (primitive) field.
@@ -1894,7 +1815,7 @@ void Generator::GenerateClassField(const GeneratorOptions& options,
                                       /* always_singular = */ false),
         "rpt", (field->is_repeated() ? "Repeated" : ""),
         "index", JSFieldIndex(field),
-        "wrapperclass", SubmessageTypeRef(options, field),
+        "wrapperclass", GetPath(options, field->message_type()),
         "required", (field->label() == FieldDescriptor::LABEL_REQUIRED ?
                      ", 1" : ""));
     printer->Print(
@@ -2122,7 +2043,7 @@ void Generator::GenerateClassDeserializeBinary(const GeneratorOptions& options,
         "        $class$.prototype.getExtension,\n"
         "        $class$.prototype.setExtension);\n"
         "      break;\n",
-        "extobj", JSExtensionsObjectName(options, desc->file(), desc),
+        "extobj", JSExtensionsObjectName(options, desc),
         "class", GetPath(options, desc));
   } else {
     printer->Print(
@@ -2152,7 +2073,7 @@ void Generator::GenerateClassDeserializeBinaryField(
         "      var value = new $fieldclass$;\n"
         "      reader.read$msgOrGroup$($grpfield$value,"
         "$fieldclass$.deserializeBinaryFromReader);\n",
-        "fieldclass", SubmessageTypeRef(options, field),
+        "fieldclass", GetPath(options, field->message_type()),
         "msgOrGroup", (field->type() == FieldDescriptor::TYPE_GROUP) ?
                       "Group" : "Message",
         "grpfield", (field->type() == FieldDescriptor::TYPE_GROUP) ?
@@ -2228,7 +2149,7 @@ void Generator::GenerateClassSerializeBinary(const GeneratorOptions& options,
     printer->Print(
         "  jspb.Message.serializeBinaryExtensions(this, writer, $extobj$,\n"
         "    $class$.prototype.getExtension);\n",
-        "extobj", JSExtensionsObjectName(options, desc->file(), desc),
+        "extobj", JSExtensionsObjectName(options, desc),
         "class", GetPath(options, desc));
   }
 
@@ -2301,7 +2222,7 @@ void Generator::GenerateClassSerializeBinaryField(
     printer->Print(
         ",\n"
         "      $submsg$.serializeBinaryToWriter\n",
-        "submsg", SubmessageTypeRef(options, field));
+        "submsg", GetPath(options, field->message_type()));
   } else {
     printer->Print("\n");
   }
@@ -2369,9 +2290,9 @@ void Generator::GenerateExtension(const GeneratorOptions& options,
       "index", SimpleItoa(field->number()),
       "name", JSObjectFieldName(field),
       "ctor", (field->cpp_type() == FieldDescriptor::CPPTYPE_MESSAGE ?
-               SubmessageTypeRef(options, field) : string("null")),
+               GetPath(options, field->message_type()) : string("null")),
       "toObject", (field->cpp_type() == FieldDescriptor::CPPTYPE_MESSAGE ?
-                   (SubmessageTypeRef(options, field) + ".toObject") :
+                   (GetPath(options, field->message_type()) + ".toObject") :
                    string("null")),
       "repeated", (field->is_repeated() ? "1" : "0"));
 
@@ -2387,11 +2308,11 @@ void Generator::GenerateExtension(const GeneratorOptions& options,
         "binaryWriterFn", JSBinaryWriterMethodName(field),
         "binaryMessageSerializeFn",
         (field->cpp_type() == FieldDescriptor::CPPTYPE_MESSAGE) ?
-        (SubmessageTypeRef(options, field) +
+        (GetPath(options, field->message_type()) +
          ".serializeBinaryToWriter") : "null",
         "binaryMessageDeserializeFn",
         (field->cpp_type() == FieldDescriptor::CPPTYPE_MESSAGE) ?
-        (SubmessageTypeRef(options, field) +
+        (GetPath(options, field->message_type()) +
          ".deserializeBinaryFromReader") : "null",
         "isPacked", (field->is_packed() ? "true" : "false"));
   } else {
@@ -2403,8 +2324,7 @@ void Generator::GenerateExtension(const GeneratorOptions& options,
       "// toObject() will function correctly.\n"
       "$extendName$[$index$] = $class$.$name$;\n"
       "\n",
-      "extendName", JSExtensionsObjectName(options, field->file(),
-                                           field->containing_type()),
+      "extendName", JSExtensionsObjectName(options, field->containing_type()),
       "index", SimpleItoa(field->number()),
       "class", extension_scope,
       "name", JSObjectFieldName(field));
@@ -2444,19 +2364,6 @@ bool GeneratorOptions::ParseFromOptions(
       namespace_prefix = options[i].second;
     } else if (options[i].first == "library") {
       library = options[i].second;
-    } else if (options[i].first == "import_style") {
-      if (options[i].second == "closure") {
-        import_style = IMPORT_CLOSURE;
-      } else if (options[i].second == "commonjs") {
-        import_style = IMPORT_COMMONJS;
-      } else if (options[i].second == "browser") {
-        import_style = IMPORT_BROWSER;
-      } else if (options[i].second == "es6") {
-        import_style = IMPORT_ES6;
-      } else {
-        *error = "Unknown import style " + options[i].second + ", expected " +
-                 "one of: closure, commonjs, browser, es6.";
-      }
     } else {
       // Assume any other option is an output directory, as long as it is a bare
       // `key` rather than a `key=value` option.
@@ -2466,11 +2373,6 @@ bool GeneratorOptions::ParseFromOptions(
       }
       output_dir = options[i].first;
     }
-  }
-
-  if (!library.empty() && import_style != IMPORT_CLOSURE) {
-    *error = "The library option should only be used for "
-             "import_style=closure";
   }
 
   return true;
@@ -2516,63 +2418,6 @@ void Generator::GenerateFileAndDeps(
   }
 }
 
-void Generator::GenerateFile(const GeneratorOptions& options,
-                             io::Printer* printer,
-                             const FileDescriptor* file) const {
-  GenerateHeader(options, printer);
-
-  // Generate "require" statements.
-  if (options.import_style == GeneratorOptions::IMPORT_COMMONJS) {
-    printer->Print("var jspb = require('google-protobuf');\n");
-    printer->Print("var goog = jspb;\n");
-    printer->Print("var global = Function('return this')();\n\n");
-
-    for (int i = 0; i < file->dependency_count(); i++) {
-      const std::string& name = file->dependency(i)->name();
-      printer->Print(
-          "var $alias$ = require('$file$');\n",
-          "alias", ModuleAlias(name),
-          "file", GetRootPath(file->name()) + GetJSFilename(name));
-    }
-  }
-
-  // We aren't using Closure's import system, but we use goog.exportSymbol()
-  // to construct the expected tree of objects, eg.
-  //
-  //   goog.exportSymbol('foo.bar.Baz', null, this);
-  //
-  //   // Later generated code expects foo.bar = {} to exist:
-  //   foo.bar.Baz = function() { /* ... */ }
-  std::set<std::string> provided;
-
-  // Cover the case where this file declares extensions but no messages.
-  // This will ensure that the file-level object will be declared to hold
-  // the extensions.
-  for (int i = 0; i < file->extension_count(); i++) {
-    provided.insert(file->extension(i)->full_name());
-  }
-
-  FindProvidesForFile(options, printer, file, &provided);
-  for (std::set<string>::iterator it = provided.begin();
-       it != provided.end(); ++it) {
-    printer->Print("goog.exportSymbol('$name$', null, global);\n",
-                   "name", *it);
-  }
-
-  GenerateClassesAndEnums(options, printer, file);
-
-  // Extensions nested inside messages are emitted inside
-  // GenerateClassesAndEnums().
-  for (int i = 0; i < file->extension_count(); i++) {
-    GenerateExtension(options, printer, file->extension(i));
-  }
-
-  if (options.import_style == GeneratorOptions::IMPORT_COMMONJS) {
-    printer->Print("goog.object.extend(exports, $package$);\n",
-                   "package", GetPath(options, file));
-  }
-}
-
 bool Generator::GenerateAll(const vector<const FileDescriptor*>& files,
                             const string& parameter,
                             GeneratorContext* context,
@@ -2585,14 +2430,10 @@ bool Generator::GenerateAll(const vector<const FileDescriptor*>& files,
   }
 
 
-  // There are three schemes for where output files go:
-  //
-  // - import_style = IMPORT_CLOSURE, library non-empty: all output in one file
-  // - import_style = IMPORT_CLOSURE, library empty: one output file per type
-  // - import_style != IMPORT_CLOSURE: one output file per .proto file
-  if (options.import_style == GeneratorOptions::IMPORT_CLOSURE &&
-      options.library != "") {
-    // All output should go in a single file.
+  // We're either generating a single library file with definitions for message
+  // and enum types in *all* FileDescriptor inputs, or we're generating a single
+  // file for each type.
+  if (options.library != "") {
     string filename = options.output_dir + "/" + options.library + ".js";
     google::protobuf::scoped_ptr<io::ZeroCopyOutputStream> output(context->Open(filename));
     GOOGLE_CHECK(output.get());
@@ -2628,7 +2469,7 @@ bool Generator::GenerateAll(const vector<const FileDescriptor*>& files,
     if (printer.failed()) {
       return false;
     }
-  } else if (options.import_style == GeneratorOptions::IMPORT_CLOSURE) {
+  } else {
     // Collect all types, and print each type to a separate file. Pull out
     // free-floating extensions while we make this pass.
     map< string, vector<const FieldDescriptor*> > extensions_by_namespace;
@@ -2768,24 +2609,6 @@ bool Generator::GenerateAll(const vector<const FileDescriptor*>& files,
         if (ShouldGenerateExtension(it->second[j])) {
           GenerateExtension(options, &printer, it->second[j]);
         }
-      }
-    }
-  } else {
-    // Generate one output file per input (.proto) file.
-
-    for (int i = 0; i < files.size(); i++) {
-      const google::protobuf::FileDescriptor* file = files[i];
-
-      string filename = options.output_dir + "/" + GetJSFilename(file->name());
-      google::protobuf::scoped_ptr<io::ZeroCopyOutputStream> output(
-          context->Open(filename));
-      GOOGLE_CHECK(output.get());
-      io::Printer printer(output.get(), '$');
-
-      GenerateFile(options, &printer, file);
-
-      if (printer.failed()) {
-        return false;
       }
     }
   }

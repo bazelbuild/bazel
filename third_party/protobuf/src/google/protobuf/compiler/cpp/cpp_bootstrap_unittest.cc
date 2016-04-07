@@ -107,7 +107,7 @@ class MockGeneratorContext : public GeneratorContext {
 
   virtual io::ZeroCopyOutputStream* Open(const string& filename) {
     string** map_slot = &files_[filename];
-    delete *map_slot;
+    if (*map_slot != NULL) delete *map_slot;
     *map_slot = new string;
 
     return new io::StringOutputStream(*map_slot);

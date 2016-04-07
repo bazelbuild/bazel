@@ -45,23 +45,22 @@ namespace protobuf {
 // This is also found in GPBBootstrap.h, and needs to be kept in sync.  It
 // is the version check done to ensure generated code works with the current
 // runtime being used.
-const int32 GOOGLE_PROTOBUF_OBJC_GEN_VERSION = 30001;
+const int32 GOOGLE_PROTOBUF_OBJC_GEN_VERSION = 30000;
 
 namespace compiler {
 namespace objectivec {
 
-FileGenerator::FileGenerator(const FileDescriptor *file, const Options& options)
+FileGenerator::FileGenerator(const FileDescriptor *file)
     : file_(file),
       root_class_name_(FileClassName(file)),
-      is_public_dep_(false),
-      options_(options) {
+      is_public_dep_(false) {
   for (int i = 0; i < file_->enum_type_count(); i++) {
     EnumGenerator *generator = new EnumGenerator(file_->enum_type(i));
     enum_generators_.push_back(generator);
   }
   for (int i = 0; i < file_->message_type_count(); i++) {
     MessageGenerator *generator =
-        new MessageGenerator(root_class_name_, file_->message_type(i), options_);
+        new MessageGenerator(root_class_name_, file_->message_type(i));
     message_generators_.push_back(generator);
   }
   for (int i = 0; i < file_->extension_count(); i++) {
@@ -151,15 +150,13 @@ void FileGenerator::GenerateHeader(io::Printer *printer) {
   printer->Print(
       "#pragma mark - $root_class_name$\n"
       "\n"
-      "/// Exposes the extension registry for this file.\n"
-      "///\n"
-      "/// The base class provides:\n"
-      "/// @code\n"
-      "///   + (GPBExtensionRegistry *)extensionRegistry;\n"
-      "/// @endcode\n"
-      "/// which is a @c GPBExtensionRegistry that includes all the extensions defined by\n"
-      "/// this file and all files that it depends on.\n"
       "@interface $root_class_name$ : GPBRootObject\n"
+      "\n"
+      "// The base class provides:\n"
+      "//   + (GPBExtensionRegistry *)extensionRegistry;\n"
+      "// which is an GPBExtensionRegistry that includes all the extensions defined by\n"
+      "// this file and all files that it depends on.\n"
+      "\n"
       "@end\n"
       "\n",
       "root_class_name", root_class_name_);
@@ -355,8 +352,7 @@ const vector<FileGenerator *> &FileGenerator::DependencyGenerators() {
       public_import_names.insert(file_->public_dependency(i)->name());
     }
     for (int i = 0; i < file_->dependency_count(); i++) {
-      FileGenerator *generator =
-          new FileGenerator(file_->dependency(i), options_);
+      FileGenerator *generator = new FileGenerator(file_->dependency(i));
       const string& name = file_->dependency(i)->name();
       bool public_import = (public_import_names.count(name) != 0);
       generator->SetIsPublicDependency(public_import);

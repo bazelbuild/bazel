@@ -224,14 +224,14 @@ inline StatusOr<T>& StatusOr<T>::operator=(const StatusOr<T>& other) {
 template<typename T>
 template<typename U>
 inline StatusOr<T>::StatusOr(const StatusOr<U>& other)
-    : status_(other.status_), value_(other.status_.ok() ? other.value_ : NULL) {
+    : status_(other.status_), value_(other.value_) {
 }
 
 template<typename T>
 template<typename U>
 inline StatusOr<T>& StatusOr<T>::operator=(const StatusOr<U>& other) {
   status_ = other.status_;
-  if (status_.ok()) value_ = other.value_;
+  value_ = other.value_;
   return *this;
 }
 

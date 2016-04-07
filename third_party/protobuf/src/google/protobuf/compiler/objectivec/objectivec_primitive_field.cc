@@ -74,7 +74,7 @@ const char* PrimitiveTypeName(const FieldDescriptor* descriptor) {
     case OBJECTIVECTYPE_ENUM:
       return "int32_t";
     case OBJECTIVECTYPE_MESSAGE:
-      return NULL;  // Messages go through objectivec_message_field.cc|h.
+      return NULL;
   }
 
   // Some compilers report reaching end of function even though all cases of
@@ -107,8 +107,7 @@ const char* PrimitiveArrayTypeName(const FieldDescriptor* descriptor) {
     case OBJECTIVECTYPE_ENUM:
       return "Enum";
     case OBJECTIVECTYPE_MESSAGE:
-      // Want NSArray (but goes through objectivec_message_field.cc|h).
-      return "";
+      return "";  // Want NSArray
   }
 
   // Some compilers report reaching end of function even though all cases of
@@ -127,42 +126,16 @@ void SetPrimitiveVariables(const FieldDescriptor* descriptor,
 }  // namespace
 
 PrimitiveFieldGenerator::PrimitiveFieldGenerator(
-    const FieldDescriptor* descriptor, const Options& options)
-    : SingleFieldGenerator(descriptor, options) {
+    const FieldDescriptor* descriptor)
+    : SingleFieldGenerator(descriptor) {
   SetPrimitiveVariables(descriptor, &variables_);
 }
 
 PrimitiveFieldGenerator::~PrimitiveFieldGenerator() {}
 
-void PrimitiveFieldGenerator::GenerateFieldStorageDeclaration(
-    io::Printer* printer) const {
-  if (GetObjectiveCType(descriptor_) == OBJECTIVECTYPE_BOOLEAN) {
-    // Nothing, BOOLs are stored in the has bits.
-  } else {
-    SingleFieldGenerator::GenerateFieldStorageDeclaration(printer);
-  }
-}
-
-int PrimitiveFieldGenerator::ExtraRuntimeHasBitsNeeded(void) const {
-  if (GetObjectiveCType(descriptor_) == OBJECTIVECTYPE_BOOLEAN) {
-    // Reserve a bit for the storage of the boolean.
-    return 1;
-  }
-  return 0;
-}
-
-void PrimitiveFieldGenerator::SetExtraRuntimeHasBitsBase(int has_base) {
-  if (GetObjectiveCType(descriptor_) == OBJECTIVECTYPE_BOOLEAN) {
-    // Set into the offset the has bit to use for the actual value.
-    variables_["storage_offset_value"] = SimpleItoa(has_base);
-    variables_["storage_offset_comment"] =
-        "  // Stored in _has_storage_ to save space.";
-  }
-}
-
 PrimitiveObjFieldGenerator::PrimitiveObjFieldGenerator(
-    const FieldDescriptor* descriptor, const Options& options)
-    : ObjCObjFieldGenerator(descriptor, options) {
+    const FieldDescriptor* descriptor)
+    : ObjCObjFieldGenerator(descriptor) {
   SetPrimitiveVariables(descriptor, &variables_);
   variables_["property_storage_attribute"] = "copy";
 }
@@ -170,8 +143,8 @@ PrimitiveObjFieldGenerator::PrimitiveObjFieldGenerator(
 PrimitiveObjFieldGenerator::~PrimitiveObjFieldGenerator() {}
 
 RepeatedPrimitiveFieldGenerator::RepeatedPrimitiveFieldGenerator(
-    const FieldDescriptor* descriptor, const Options& options)
-    : RepeatedFieldGenerator(descriptor, options) {
+    const FieldDescriptor* descriptor)
+    : RepeatedFieldGenerator(descriptor) {
   SetPrimitiveVariables(descriptor, &variables_);
 
   string base_name = PrimitiveArrayTypeName(descriptor);
@@ -179,12 +152,18 @@ RepeatedPrimitiveFieldGenerator::RepeatedPrimitiveFieldGenerator(
     variables_["array_storage_type"] = "GPB" + base_name + "Array";
   } else {
     variables_["array_storage_type"] = "NSMutableArray";
-    variables_["array_property_type"] =
-        "NSMutableArray<" + variables_["storage_type"] + "*>";
   }
 }
 
 RepeatedPrimitiveFieldGenerator::~RepeatedPrimitiveFieldGenerator() {}
+
+void RepeatedPrimitiveFieldGenerator::FinishInitialization(void) {
+  RepeatedFieldGenerator::FinishInitialization();
+  if (IsPrimitiveType(descriptor_)) {
+    // No comment needed for primitive types.
+    variables_["array_comment"] = "";
+  }
+}
 
 }  // namespace objectivec
 }  // namespace compiler

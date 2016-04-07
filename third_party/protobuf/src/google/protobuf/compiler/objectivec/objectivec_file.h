@@ -55,7 +55,7 @@ class MessageGenerator;
 
 class FileGenerator {
  public:
-  FileGenerator(const FileDescriptor* file, const Options& options);
+  explicit FileGenerator(const FileDescriptor* file);
   ~FileGenerator();
 
   void GenerateSource(io::Printer* printer);
@@ -83,8 +83,6 @@ class FileGenerator {
   vector<MessageGenerator*> message_generators_;
   vector<ExtensionGenerator*> extension_generators_;
   bool is_public_dep_;
-
-  const Options options_;
 
   const vector<FileGenerator*>& DependencyGenerators();
 

@@ -33,7 +33,6 @@
 //  Sanjay Ghemawat, Jeff Dean, and others.
 
 #include <google/protobuf/compiler/command_line_interface.h>
-#include <google/protobuf/stubs/platform_macros.h>
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -48,10 +47,6 @@
 #include <errno.h>
 #include <iostream>
 #include <ctype.h>
-
-#ifdef GOOGLE_PROTOBUF_ARCH_SPARC 
-#include <limits.h> //For PATH_MAX
-#endif
 
 #include <memory>
 #ifndef _SHARED_PTR_H

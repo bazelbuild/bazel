@@ -42,15 +42,6 @@ namespace protobuf {
 namespace compiler {
 namespace objectivec {
 
-// Generator options (see objectivec_generator.cc for a description of each):
-struct Options {
-  Options();
-  string expected_prefixes_path;
-};
-
-// Escape C++ trigraphs by escaping question marks to "\?".
-string EscapeTrigraphs(const string& to_escape);
-
 // Strips ".proto" or ".protodevel" from the end of a filename.
 string StripProto(const string& filename);
 
@@ -73,7 +64,7 @@ string FilePath(const FileDescriptor* file);
 
 // Gets the name of the root class we'll generate in the file.  This class
 // is not meant for external consumption, but instead contains helpers that
-// the rest of the classes need
+// the rest of the the classes need
 string FileClassName(const FileDescriptor* file);
 
 // These return the fully-qualified class name corresponding to the given
@@ -146,22 +137,18 @@ bool IsReferenceType(const FieldDescriptor* field);
 
 string GPBGenericValueFieldName(const FieldDescriptor* field);
 string DefaultValue(const FieldDescriptor* field);
-bool HasNonZeroDefaultValue(const FieldDescriptor* field);
 
 string BuildFlagsString(const vector<string>& strings);
 
-// Builds a HeaderDoc style comment out of the comments in the .proto file.
 string BuildCommentsString(const SourceLocation& location);
 
 // Checks the prefix for a given file and outputs any warnings needed, if
 // there are flat out errors, then out_error is filled in and the result is
 // false.
-bool ValidateObjCClassPrefix(const FileDescriptor* file,
-                             const Options& generation_options,
-                             string* out_error);
+bool ValidateObjCClassPrefix(const FileDescriptor* file, string *out_error);
 
 // Generate decode data needed for ObjC's GPBDecodeTextFormatName() to transform
-// the input into the expected output.
+// the input into the the expected output.
 class LIBPROTOC_EXPORT TextFormatDecodeData {
  public:
   TextFormatDecodeData() {}

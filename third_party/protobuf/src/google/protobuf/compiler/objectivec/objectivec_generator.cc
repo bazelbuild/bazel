@@ -49,31 +49,21 @@ bool ObjectiveCGenerator::Generate(const FileDescriptor* file,
                                    const string& parameter,
                                    OutputDirectory* output_directory,
                                    string* error) const {
-  // -----------------------------------------------------------------
-  // Parse generator options.
-
-  Options generation_options;
-
+  // ObjC doesn't have any options at the moment, error if passed one.
   vector<pair<string, string> > options;
   ParseGeneratorParameter(parameter, &options);
   for (int i = 0; i < options.size(); i++) {
-    if (options[i].first == "expected_prefixes_path") {
-      generation_options.expected_prefixes_path = options[i].second;
-    } else {
-      *error = "error: Unknown generator option: " + options[i].first;
-      return false;
-    }
+    *error = "error:: Unknown generator option: " + options[i].first;
+    return false;
   }
 
-  // -----------------------------------------------------------------
-
   // Validate the objc prefix/package pairing.
-  if (!ValidateObjCClassPrefix(file, generation_options, error)) {
+  if (!ValidateObjCClassPrefix(file, error)) {
     // *error will have been filled in.
     return false;
   }
 
-  FileGenerator file_generator(file, generation_options);
+  FileGenerator file_generator(file);
   string filepath = FilePath(file);
 
   // Generate header.

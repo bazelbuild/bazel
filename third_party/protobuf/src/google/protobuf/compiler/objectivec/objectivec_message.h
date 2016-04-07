@@ -54,9 +54,7 @@ class EnumGenerator;
 
 class MessageGenerator {
  public:
-  MessageGenerator(const string& root_classname,
-                   const Descriptor* descriptor,
-                   const Options& options);
+  MessageGenerator(const string& root_classname, const Descriptor* descriptor);
   ~MessageGenerator();
 
   void GenerateStaticVariablesInitialization(io::Printer* printer);
