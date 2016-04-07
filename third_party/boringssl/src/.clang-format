@@ -1,4 +1,0 @@
-BasedOnStyle: Google
-MaxEmptyLinesToKeep: 3
-AllowShortIfStatementsOnASingleLine: false
-AllowShortLoopsOnASingleLine: false
