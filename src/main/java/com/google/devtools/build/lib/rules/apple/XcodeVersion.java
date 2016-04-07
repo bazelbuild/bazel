@@ -27,8 +27,12 @@ public class XcodeVersion implements RuleConfiguredTargetFactory {
 
   @Override
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
+    XcodeVersionRuleData ruleData =
+        new XcodeVersionRuleData(ruleContext.getLabel(), ruleContext.getRule());
+
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
+        .addProvider(XcodeVersionProperties.class, ruleData.getXcodeVersionProperties())
         .build();
   }
 }

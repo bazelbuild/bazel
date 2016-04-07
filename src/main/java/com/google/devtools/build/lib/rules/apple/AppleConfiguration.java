@@ -41,6 +41,11 @@ import javax.annotation.Nullable;
 @SkylarkModule(name = "apple", doc = "A configuration fragment for Apple platforms")
 @Immutable
 public class AppleConfiguration extends BuildConfiguration.Fragment {
+  /**
+   * Environment variable name for the xcode version. The value of this environment variable should
+   * be set to the version (for example, "7.2") of xcode to use when invoking part of the apple
+   * toolkit in action execution.
+   **/
   public static final String XCODE_VERSION_ENV_NAME = "XCODE_VERSION_OVERRIDE";
   /**
    * Environment variable name for the apple SDK version. If unset, uses the system default of the
@@ -158,11 +163,20 @@ public class AppleConfiguration extends BuildConfiguration.Fragment {
     )
   public Map<String, String> getAppleHostSystemEnv() {
     Optional<DottedVersion> xcodeVersion = getXcodeVersion();
-    ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
     if (xcodeVersion.isPresent()) {
-      builder.put(AppleConfiguration.XCODE_VERSION_ENV_NAME, xcodeVersion.get().toString());
+      return getXcodeVersionEnv(xcodeVersion.get());
+    } else {
+      return ImmutableMap.of();
     }
-    return builder.build();   
+  }
+
+  /**
+   * Returns a map of environment variables that should be propagated for actions that require
+   * a version of xcode to be explicitly declared. Keys are variable names and values are their
+   * corresponding values.
+   */
+  public Map<String, String> getXcodeVersionEnv(DottedVersion xcodeVersion) {
+    return ImmutableMap.of(AppleConfiguration.XCODE_VERSION_ENV_NAME, xcodeVersion.toString());
   }
 
   /**

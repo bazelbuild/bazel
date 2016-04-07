@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction.Su
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
+import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.rules.test.TestEnvironmentProvider;
 import com.google.devtools.build.lib.syntax.Type;
@@ -251,12 +252,16 @@ public class TestSupport {
    * builder.
    */
   public Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> getExtraProviders() {
+    IosDeviceProvider deviceProvider =
+        ruleContext.getPrerequisite(IosTest.TARGET_DEVICE, Mode.TARGET, IosDeviceProvider.class);
+    DottedVersion xcodeVersion = deviceProvider.getXcodeVersion();
     AppleConfiguration configuration = ruleContext.getFragment(AppleConfiguration.class);
 
     ImmutableMap.Builder<String, String> envBuilder = ImmutableMap.builder();
 
-    envBuilder.putAll(configuration.getTargetAppleEnvironment(configuration.getIosCpuPlatform()));
-    envBuilder.putAll(configuration.getAppleHostSystemEnv());
+    if (xcodeVersion != null) {
+      envBuilder.putAll(configuration.getXcodeVersionEnv(xcodeVersion));
+    }
 
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       envBuilder.put("COVERAGE_GCOV_PATH",
