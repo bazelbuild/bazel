@@ -37,6 +37,7 @@ filegroup(
         ":cc-compiler-freebsd",
         ":cc-compiler-local",
         ":cc-compiler-x64_windows",
+        ":cc-compiler-x64_windows_msvc",
         ":empty",
     ],
 )
@@ -123,6 +124,34 @@ cc_toolchain(
     static_runtime_libs = [":empty"],
     strip_files = ":empty",
     supports_param_files = 0,
+)
+
+cc_toolchain(
+    name = "cc-compiler-x64_windows_msvc",
+    all_files = ":every-file-x64_windows",
+    compiler_files = ":compile-x64_windows",
+    cpu = "x64_windows",
+    dwp_files = ":empty",
+    dynamic_runtime_libs = [":empty"],
+    linker_files = ":empty",
+    objcopy_files = ":empty",
+    static_runtime_libs = [":empty"],
+    strip_files = ":empty",
+)
+
+filegroup(
+    name = "every-file-x64_windows",
+    srcs = [
+        ":compile-x64_windows",
+    ],
+)
+
+filegroup(
+    name = "compile-x64_windows",
+    srcs = glob([
+        "wrapper/bin/msvc_*",
+        "wrapper/bin/pydir/msvc*",
+    ]),
 )
 
 filegroup(
