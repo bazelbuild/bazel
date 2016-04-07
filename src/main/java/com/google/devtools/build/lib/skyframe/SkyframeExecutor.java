@@ -1729,9 +1729,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           relativeWorkingDirectory.getPathString(), options.compileOneDependency,
           options.buildTestsOnly, determineTests,
           TestFilter.forOptions(options, eventHandler, ruleClassNames));
-      EvaluationResult<TargetPatternPhaseValue> evalResult =
-          buildDriver.evaluate(
-              ImmutableList.of(key), keepGoing, /*numThreads=*/10, eventHandler);
+      EvaluationResult<TargetPatternPhaseValue> evalResult;
+      LoadingProgressReceiver loadingProgressReceiver = new LoadingProgressReceiver();
+      progressReceiver.loadingProgressReceiver = loadingProgressReceiver;
+      try {
+        evalResult =
+            buildDriver.evaluate(
+                ImmutableList.of(key), keepGoing, /*numThreads=*/ 10, eventHandler);
+      } finally {
+        progressReceiver.loadingProgressReceiver = null;
+      }
       if (evalResult.hasError()) {
         ErrorInfo errorInfo = evalResult.getError(key);
         if (!Iterables.isEmpty(errorInfo.getCycleInfo())) {
@@ -1780,6 +1787,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     protected boolean ignoreInvalidations = false;
     /** This receiver is only needed for execution, so it is null otherwise. */
     @Nullable EvaluationProgressReceiver executionProgressReceiver = null;
+    /** This receiver is only needed for loading, so it is null otherwise. */
+    @Nullable EvaluationProgressReceiver loadingProgressReceiver = null;
 
     @Override
     public void invalidated(SkyKey skyKey, InvalidationState state) {
@@ -1795,6 +1804,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         return;
       }
       skyframeBuildView.getInvalidationReceiver().enqueueing(skyKey);
+      if (loadingProgressReceiver != null) {
+        loadingProgressReceiver.enqueueing(skyKey);
+      }
       if (executionProgressReceiver != null) {
         executionProgressReceiver.enqueueing(skyKey);
       }
@@ -1809,6 +1821,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         return;
       }
       skyframeBuildView.getInvalidationReceiver().evaluated(skyKey, valueSupplier, state);
+      if (loadingProgressReceiver != null) {
+        loadingProgressReceiver.evaluated(skyKey, valueSupplier, state);
+      }
       if (executionProgressReceiver != null) {
         executionProgressReceiver.evaluated(skyKey, valueSupplier, state);
       }
