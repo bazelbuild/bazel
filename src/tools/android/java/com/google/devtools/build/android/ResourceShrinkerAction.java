@@ -21,6 +21,7 @@ import com.google.devtools.build.android.AndroidResourceProcessor.FlagAaptOption
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.PathConverter;
 import com.google.devtools.build.android.Converters.PathListConverter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
@@ -38,7 +39,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -106,6 +109,13 @@ public class ResourceShrinkerAction {
         help = "A list of paths to the manifests of the dependencies.")
     public List<Path> dependencyManifests;
 
+    @Option(name = "resourcePackages",
+        defaultValue = "",
+        category = "input",
+        converter = CommaSeparatedOptionListConverter.class,
+        help = "A list of packages that resources have been generated for.")
+    public List<String> resourcePackages;
+
     @Option(name = "shrunkResourceApk",
         defaultValue = "null",
         category = "output",
@@ -130,14 +140,14 @@ public class ResourceShrinkerAction {
     return manifestData.getPackage();
   }
 
-  private static List<String> getManifestPackages(Path primaryManifest, List<Path> otherManifests)
+  private static Set<String> getManifestPackages(Path primaryManifest, List<Path> otherManifests)
           throws SAXException, IOException, StreamException, ParserConfigurationException {
-    ImmutableList.Builder<String> manifestPackages = ImmutableList.builder();
+    Set<String> manifestPackages = new HashSet<>();
     manifestPackages.add(getManifestPackage(primaryManifest));
     for (Path manifest : otherManifests) {
       manifestPackages.add(getManifestPackage(manifest));
     }
-    return manifestPackages.build();
+    return manifestPackages;
   }
 
   public static void main(String[] args) throws Exception {
@@ -160,8 +170,9 @@ public class ResourceShrinkerAction {
       final Path shrunkResources = working.resolve("shrunk_resources");
 
       // Gather package list from manifests.
-      List<String> resourcePackages = getManifestPackages(
+      Set<String> resourcePackages = getManifestPackages(
           options.primaryManifest, options.dependencyManifests);
+      resourcePackages.addAll(options.resourcePackages);
 
       // Expand resource files zip into working directory.
       try (ZipInputStream zin = new ZipInputStream(

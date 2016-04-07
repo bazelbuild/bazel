@@ -175,6 +175,9 @@ public class ResourceShrinkerActionBuilder {
     commandLine.addJoinExecPaths("--dependencyManifests", ":", dependencyManifests);
     inputs.addAll(dependencyManifests);
 
+    List<String> resourcePackages = getResourcePackages(primaryResources, dependencyResources);
+    commandLine.addJoinStrings("--resourcePackages", ",", resourcePackages);
+
     commandLine.addExecPath("--shrunkResourceApk", resourceApkOut);
     outputs.add(resourceApkOut);
 
@@ -203,6 +206,16 @@ public class ResourceShrinkerActionBuilder {
       }
     }
     return manifests.build();
+  }
+
+  private List<String> getResourcePackages(ResourceContainer primaryResources,
+      ResourceDependencies resourceDependencies) {
+    ImmutableList.Builder<String> resourcePackages = ImmutableList.builder();
+    resourcePackages.add(primaryResources.getJavaPackage());
+    for (ResourceContainer resources : resourceDependencies.getResources()) {
+      resourcePackages.add(resources.getJavaPackage());
+    }
+    return resourcePackages.build();
   }
 }
 

@@ -123,7 +123,7 @@ public class ResourceShrinker {
   private static final Logger logger = Logger.getLogger(ResourceShrinker.class.getName());
 
   public static final int TYPICAL_RESOURCE_COUNT = 200;
-  private final List<String> resourcePackages;
+  private final Set<String> resourcePackages;
   private final Path rTxt;
   private final Path classesJar;
   private final Path mergedManifest;
@@ -155,7 +155,7 @@ public class ResourceShrinker {
   private Map<String, ResourceType> resourceClassOwners = Maps.newHashMapWithExpectedSize(20);
 
   public ResourceShrinker(
-      List<String> resourcePackages,
+      Set<String> resourcePackages,
       @NonNull Path rTxt,
       @NonNull Path classesJar,
       @NonNull Path manifest,
@@ -874,7 +874,7 @@ public class ResourceShrinker {
     }
   }
 
-  private void parseResourceTxtFile(Path rTxt, List<String> resourcePackages) throws IOException {
+  private void parseResourceTxtFile(Path rTxt, Set<String> resourcePackages) throws IOException {
     BufferedReader reader = java.nio.file.Files.newBufferedReader(rTxt, Charset.defaultCharset());
     String line;
     while ((line = reader.readLine()) != null) {
