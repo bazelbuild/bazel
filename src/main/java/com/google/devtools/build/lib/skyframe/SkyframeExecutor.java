@@ -1731,6 +1731,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           TestFilter.forOptions(options, eventHandler, ruleClassNames));
       EvaluationResult<TargetPatternPhaseValue> evalResult;
       LoadingProgressReceiver loadingProgressReceiver = new LoadingProgressReceiver();
+      eventBus.post(new LoadingPhaseStartedEvent(loadingProgressReceiver));
       progressReceiver.loadingProgressReceiver = loadingProgressReceiver;
       try {
         evalResult =
