@@ -68,6 +68,11 @@ java_import(
 )
 
 java_import(
+    name = "apache_commons_lang",
+    jars = ["apache_commons_lang/commons-lang-2.6.jar"],
+)
+
+java_import(
     name = "apache_commons_compress",
     jars = ["apache_commons_compress/apache-commons-compress-1.9.jar"],
 )
@@ -95,6 +100,10 @@ java_import(
 java_import(
     name = "apache_velocity",
     jars = ["apache_velocity/velocity-1.7.jar"],
+    deps = [
+        ":apache_commons_collections",
+        ":apache_commons_lang",
+    ],
 )
 
 java_import(
@@ -178,7 +187,7 @@ java_library(
 
 java_import(
     name = "auto_value_value",
-    jars = ["auto/auto-value-1.0.jar"],
+    jars = ["auto/auto-value-1.2.jar"],
 )
 
 java_import(
