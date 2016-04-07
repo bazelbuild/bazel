@@ -113,6 +113,15 @@ public class JavaOptions extends FragmentOptions {
       help = "The name of the toolchain rule for Java.")
   public Label javaToolchain;
 
+  @Option(
+    name = "host_java_toolchain",
+    defaultValue = "@bazel_tools//tools/jdk:toolchain",
+    category = "version",
+    converter = LabelConverter.class,
+    help = "The Java toolchain used to build tools that are executed during a build."
+  )
+  public Label hostJavaToolchain;
+
   @Option(name = "host_javabase",
       defaultValue = "@bazel_tools//tools/jdk:jdk",
       category = "version",
@@ -340,6 +349,7 @@ public class JavaOptions extends FragmentOptions {
     host.javacExtdir = javacExtdir;
     host.headerCompilation = headerCompilation;
     host.javaBuilderTop = javaBuilderTop;
+    // TODO(cushon): switch to hostJavaToolchain after cl/118829419 makes a blaze release
     host.javaToolchain = javaToolchain;
     host.singleJarTop = singleJarTop;
     host.genClassTop = genClassTop;
