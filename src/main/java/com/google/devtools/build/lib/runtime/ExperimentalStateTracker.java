@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
+import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
+import com.google.devtools.build.lib.skyframe.LoadingProgressReceiver;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 
@@ -54,6 +56,7 @@ class ExperimentalStateTracker {
   private boolean ok;
 
   private ExecutionProgressReceiver executionProgressReceiver;
+  private LoadingProgressReceiver loadingProgressReceiver;
 
   ExperimentalStateTracker(Clock clock) {
     this.runningActions = new ArrayDeque<>();
@@ -68,7 +71,13 @@ class ExperimentalStateTracker {
     additionalMessage = "";
   }
 
+  void loadingStarted(LoadingPhaseStartedEvent event) {
+    status = null;
+    loadingProgressReceiver = event.getLoadingProgressReceiver();
+  }
+
   void loadingComplete(LoadingPhaseCompleteEvent event) {
+    loadingProgressReceiver = null;
     int count = event.getTargets().size();
     status = "Analysing";
     additionalMessage = "" + count + " targets";
@@ -159,6 +168,12 @@ class ExperimentalStateTracker {
     if (runningActions.size() >= 1) {
       return true;
     }
+    if (loadingProgressReceiver != null) {
+      // This is kind-of a hack: since the event handler does not get informed about updates
+      // in the loading phase, indicate that the progress bar might change even though no
+      // explicit update event is known to the event handler.
+      return true;
+    }
     return false;
   }
 
@@ -170,6 +185,14 @@ class ExperimentalStateTracker {
         terminalWriter.failStatus();
       }
       terminalWriter.append(status + ":").normal().append(" " + additionalMessage);
+      return;
+    }
+    if (loadingProgressReceiver != null) {
+      terminalWriter
+          .okStatus()
+          .append("Loading:")
+          .normal()
+          .append(" " + loadingProgressReceiver.progressState());
       return;
     }
     if (executionProgressReceiver != null) {

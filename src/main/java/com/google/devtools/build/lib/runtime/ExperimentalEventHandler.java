@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressRecei
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
+import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.LineCountingAnsiTerminalWriter;
@@ -146,6 +147,12 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   @Subscribe
   public void buildStarted(BuildStartingEvent event) {
     stateTracker.buildStarted(event);
+    refresh();
+  }
+
+  @Subscribe
+  public void loadingStarted(LoadingPhaseStartedEvent event) {
+    stateTracker.loadingStarted(event);
     refresh();
   }
 

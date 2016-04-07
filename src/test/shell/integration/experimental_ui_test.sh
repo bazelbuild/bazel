@@ -140,6 +140,13 @@ function test_subcommand_notdefault {
   expect_not_log "dragons"
 }
 
-
+function test_loading_progress {
+  bazel clean || fail "bazel clean failed"
+  bazel test --experimental_ui \
+    --experimental_skyframe_target_pattern_evaluator pkg:true 2>$TEST_log \
+    || fail "bazel test failed"
+  # some progress indicator is shown during loading
+  expect_log 'Loading.*[0-9,]* / [0-9,]*'
+}
 
 run_suite "Integration tests for bazel's experimental UI"
