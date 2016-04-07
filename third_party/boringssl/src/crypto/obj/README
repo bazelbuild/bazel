@@ -1,0 +1,37 @@
+OID information is generated via a series of perl scripts. In order, the full
+list of commands to run are:
+
+        perl objects.pl objects.txt obj_mac.num ../../include/openssl/obj_mac.h
+        perl obj_dat.pl ../../include/openssl/obj_mac.h obj_dat.h
+        perl obj_xref.pl obj_mac.num obj_xref.txt > obj_xref.h
+
+objects.txt contains the list of all built-in OIDs. It is processed by
+objects.pl to output obj_mac.num and obj_mac.h. obj_mac.num is the list of NID
+values for each OID. This is an input/output parameter so NID values are stable
+across regenerations. obj_mac.h is the header which defines macros for all the
+built-in OIDs in C.
+
+obj_mac.h is read by obj_dat.pl to generate obj_dat.h. obj_dat.h contains the
+ASN1_OBJECTs corresponding to built-in OIDs themselves along with lookup tables
+for search by short name, OID, etc.
+
+obj_mac.num and obj_xref.txt are read by obj_xref.pl to generate
+obj_xref.h. obj_xref.txt links signature OIDs to corresponding public key
+algorithms and digests. obj_xref.h contains lookup tables for querying this
+information in both directions.
+
+Dependency graph:
+
+                        objects.txt
+                            |
+                            V
+                       [objects.pl] <--+
+                         /      \      |
+                        V        V     |
+                  obj_mac.h    obj_mac.num  obj_xref.txt
+                      |              \      /
+                      V               V    V
+                 [obj_dat.pl]      [obj_xref.pl]
+                      |                  |
+                      V                  V
+                  obj_dat.h         obj_xref.h
