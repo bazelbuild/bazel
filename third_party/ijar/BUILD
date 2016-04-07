@@ -24,10 +24,7 @@ cc_library(
         "mapped_file.h",
         "zip.h",
     ],
-    # TODO(bazel-team): we should replace the -lz flag, it is non-hermetic.
-    #  We should instead use a new_local_repository once the autoconf
-    #  mechanism is ready.
-    linkopts = ["-lz"],
+    deps = ["//third_party/zlib"],
 )
 
 cc_binary(
