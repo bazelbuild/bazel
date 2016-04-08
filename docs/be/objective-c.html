@@ -1243,7 +1243,7 @@ passed to the application.</p>
     ios_device
   </h2>
 
-  <pre class="rule-signature">ios_device(<a href="#ios_device.name">name</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_device.ios_version">ios_version</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#ios_device.type">type</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">ios_device(<a href="#ios_device.name">name</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#ios_device.ios_version">ios_version</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#ios_device.type">type</a>, <a href="common-definitions.html#common.visibility">visibility</a>, <a href="#ios_device.xcode">xcode</a>)</pre>
 
 
 <p>This rule defines an iOS device profile that defines a simulator against
@@ -1278,7 +1278,9 @@ which to run tests.</p>
         <td>
                     <p><code>String; optional</code></p>
                             The operating system version of the device. This corresponds to the
-        <code>simctl</code> runtime. Defaults to the ios sdk version configuration value.
+        <code>simctl</code> runtime. Defaults to the default ios sdk version for the xcode
+        version defined in the <code>xcode</code> attribute, or uses the ios sdk version
+        configuration value, if <code>xcode</code> is unspecified.
 
         </td>
       </tr>
@@ -1293,7 +1295,18 @@ which to run tests.</p>
 
         </td>
       </tr>
-                        </tbody>
+                                <tr>
+        <td id="ios_device.xcode">
+          <code>xcode</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                            The version of xcode to use to run the simulator. Defaults to the xcode version build
+        configuration value.
+
+        </td>
+      </tr>
+              </tbody>
   </table>
     <h2 id="ios_extension">
     ios_extension
