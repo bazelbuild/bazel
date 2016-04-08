@@ -127,7 +127,6 @@ public class TurbineOptionsTest {
     TurbineOptions options =
         TurbineOptionsParser.parse(Iterables.concat(BASE_ARGS, Arrays.asList(lines)));
 
-    assertThat(options.strictDepsMode()).isEqualTo("OFF");
     assertThat(options.targetLabel()).isEqualTo("//java/com/google/test");
     assertThat(options.directJarsToTargets())
         .containsExactlyEntriesIn(ImmutableMap.of("blaze-out/foo/libbar.jar", "//foo/bar"));

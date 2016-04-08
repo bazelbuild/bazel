@@ -132,7 +132,8 @@ public class TurbineOptionsParser {
           builder.setTargetLabel(readOne(argumentDeque));
           break;
         case "--strict_java_deps":
-          builder.setStrictJavaDeps(readOne(argumentDeque));
+          // TODO(cushon): remove once Blaze no longer passes this flag
+          readOne(argumentDeque); // ignored
           break;
         case "--rule_kind":
           builder.setRuleKind(readOne(argumentDeque));

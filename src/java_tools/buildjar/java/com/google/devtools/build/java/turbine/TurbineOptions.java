@@ -40,7 +40,6 @@ public class TurbineOptions {
   private final ImmutableMap<String, String> indirectJarsToTargets;
   private final String targetLabel;
   private final ImmutableList<String> depsArtifacts;
-  private final String strictDepsMode;
   private final String ruleKind;
   private final ImmutableList<String> javacOpts;
 
@@ -59,7 +58,6 @@ public class TurbineOptions {
       ImmutableMap<String, String> indirectJarsToTargets,
       String targetLabel,
       ImmutableList<String> depsArtifacts,
-      String strictDepsMode,
       String ruleKind,
       ImmutableList<String> javacOpts) {
     this.output = checkNotNull(output, "output must not be null");
@@ -79,7 +77,6 @@ public class TurbineOptions {
         checkNotNull(indirectJarsToTargets, "indirectJarsToTargets must not be null");
     this.targetLabel = checkNotNull(targetLabel, "targetLabel must not be null");
     this.depsArtifacts = checkNotNull(depsArtifacts, "depsArtifacts must not be null");
-    this.strictDepsMode = checkNotNull(strictDepsMode, "strictDepsMode must not be null");
     this.ruleKind = checkNotNull(ruleKind, "ruleKind must not be null");
     this.javacOpts = checkNotNull(javacOpts, "javacOpts must not be null");
   }
@@ -157,15 +154,6 @@ public class TurbineOptions {
     return depsArtifacts;
   }
 
-  /**
-   * The Strict Java Deps mode.
-   *
-   * <p>See {@link com.google.devtools.build.buildjar.javac.plugins.dependency.DependencyModule.StrictJavaDeps}.
-   */
-  public String strictDepsMode() {
-    return strictDepsMode;
-  }
-
   /** The kind of the build rule being compiled (e.g. {@code java_library}). */
   public String ruleKind() {
     return ruleKind;
@@ -198,7 +186,6 @@ public class TurbineOptions {
         ImmutableMap.builder();
     private String targetLabel;
     private final ImmutableList.Builder<String> depsArtifacts = ImmutableList.builder();
-    private String strictDepsMode = "OFF";
     private String ruleKind;
     private final ImmutableList.Builder<String> javacOpts = ImmutableList.builder();
 
@@ -218,14 +205,8 @@ public class TurbineOptions {
           indirectJarsToTargets.build(),
           targetLabel,
           depsArtifacts.build(),
-          strictDepsMode,
           ruleKind,
           javacOpts.build());
-    }
-
-    public Builder setStrictJavaDeps(String strictDepsMode) {
-      this.strictDepsMode = strictDepsMode;
-      return this;
     }
 
     public Builder setOutput(String output) {

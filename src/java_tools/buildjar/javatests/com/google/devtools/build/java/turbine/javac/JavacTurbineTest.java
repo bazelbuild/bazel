@@ -118,7 +118,6 @@ public class JavacTurbineTest {
         .addBootClassPathEntries(
             ImmutableList.copyOf(Splitter.on(':').split(System.getProperty("sun.boot.class.path"))))
         .setOutputDeps(outputDeps.toString())
-        .setStrictJavaDeps("ERROR")
         .addAllJavacOpts(Arrays.asList("-source", "7", "-target", "7"))
         .setTargetLabel("//test")
         .setRuleKind("java_library");
@@ -1235,5 +1234,34 @@ public class JavacTurbineTest {
     compile();
     Map<String, byte[]> outputs = collectOutputs();
     assertThat(outputs.keySet()).containsExactly("Hello.class");
+  }
+
+  public static class Lib {}
+
+  @Test
+  public void ignoreStrictDepsErrors() throws Exception {
+
+    Path lib = createClassJar("deps.jar",
+        JavacTurbineTest.class,
+        Lib.class);
+
+    addSourceLines(
+        "Hello.java",
+        "import " + Lib.class.getCanonicalName() + ";",
+        "class Hello extends Lib {}");
+
+    optionsBuilder.addIndirectJarToTarget(lib.toString(), "//lib");
+    optionsBuilder.addClassPathEntries(ImmutableList.of(lib.toString()));
+
+    optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
+
+    StringWriter errOutput = new StringWriter();
+    Result result;
+    try (JavacTurbine turbine =
+        new JavacTurbine(new PrintWriter(errOutput, true), optionsBuilder.build())) {
+      result = turbine.compile();
+    }
+    assertThat(errOutput.toString()).contains("warning: [strict]");
+    assertThat(result).isNotEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
   }
 }
