@@ -3,9 +3,15 @@
 import os
 import re
 import sys
+import subprocess
 
+# Return True if running on Windows
+def IsWindows():
+  return os.name == 'nt'
 
 PYTHON_BINARY = '%python_binary%'
+if IsWindows() and not PYTHON_BINARY.endswith('.exe'):
+  PYTHON_BINARY = PYTHON_BINARY + '.exe'
 
 # Find a file in a given search path.
 def SearchPath(name):
@@ -80,9 +86,10 @@ def Main():
     python_path_entries += repositories
 
   old_python_path = os.environ.get('PYTHONPATH')
-  python_path = ':'.join(python_path_entries)
+  separator = ';' if IsWindows() else ':'
+  python_path = separator.join(python_path_entries)
   if old_python_path:
-    python_path += ':' + old_python_path
+    python_path += separator + old_python_path
 
   new_env['PYTHONPATH'] = python_path
 
@@ -104,7 +111,7 @@ def Main():
 
   try:
     sys.stdout.flush()
-    os.execv(program, args)
+    exit(subprocess.call(args))
   except EnvironmentError as e:
     # This exception occurs when os.execv() fails for some reason.
     if not getattr(e, 'filename', None):
