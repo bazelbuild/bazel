@@ -140,11 +140,6 @@ public class SkylarkRepositoryModule {
         throws EvalException, InterruptedException {
       String ruleClassName = ast.getFunction().getName();
       try {
-        if (ruleClassName.startsWith("_")) {
-          throw new EvalException(
-              ast.getLocation(),
-              "Invalid rule class name '" + ruleClassName + "', cannot be private");
-        }
         RuleClass ruleClass = builder.build(ruleClassName);
         PackageContext context = PackageFactory.getContext(env, ast);
         @SuppressWarnings("unchecked")
