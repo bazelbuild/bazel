@@ -98,6 +98,13 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_localtest_test",
+    srcs = ["bazel_localtest_test.sh"],
+    data = [":test-deps"],
+    tags = ["local"],
+)
+
+sh_test(
     name = "bazel_objc_test",
     srcs = ["bazel_objc_test.sh"],
     data = [

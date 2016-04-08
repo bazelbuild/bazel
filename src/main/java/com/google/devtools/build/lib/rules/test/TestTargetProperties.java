@@ -83,6 +83,9 @@ public class TestTargetProperties {
 
     Map<String, String> executionInfo = Maps.newLinkedHashMap();
     executionInfo.putAll(TargetUtils.getExecutionInfo(rule));
+    if (isLocal) {
+      executionInfo.put("local", "");
+    }
     if (executionRequirements != null) {
       // This will overwrite whatever TargetUtils put there, which might be confusing.
       executionInfo.putAll(executionRequirements.getExecutionInfo());
