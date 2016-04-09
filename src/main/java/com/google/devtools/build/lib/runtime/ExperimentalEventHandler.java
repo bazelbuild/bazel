@@ -42,6 +42,7 @@ import java.util.logging.Logger;
 public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   private static Logger LOG = Logger.getLogger(ExperimentalEventHandler.class.getName());
 
+  private final boolean cursorControl;
   private final AnsiTerminal terminal;
   private final boolean debugAllEvents;
   private final ExperimentalStateTracker stateTracker;
@@ -54,6 +55,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   public ExperimentalEventHandler(
       OutErr outErr, BlazeCommandEventHandler.Options options, Clock clock) {
     super(outErr, options);
+    this.cursorControl = options.useCursorControl();
     this.terminal = new AnsiTerminal(outErr.getErrorStream());
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     this.debugAllEvents = options.experimentalUiDebugAllEvents;
@@ -224,6 +226,9 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   }
 
   private void clearProgressBar() throws IOException {
+    if (!cursorControl) {
+      return;
+    }
     for (int i = 0; i < numLinesProgressBar; i++) {
       terminal.cr();
       terminal.cursorUp(1);

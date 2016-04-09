@@ -67,6 +67,19 @@ function test_basic_progress() {
   expect_log $'\x1b\[1A\x1b\[K'
 }
 
+function test_basic_progress_no_curses() {
+  bazel test --experimental_ui --curses=no --color=yes pkg:true 2>$TEST_log \
+    || fail "bazel test failed"
+  # some progress indicator is shown
+  expect_log '\[[0-9,]* / [0-9,]*\]'
+  # cursor is not moved up
+  expect_not_log $'\x1b\[1A'
+  # no line is deleted
+  expect_not_log $'\x1b\[K'
+  # but some green color is used
+  expect_log $'\x1b\[32m'
+}
+
 function test_pass() {
   bazel test --experimental_ui --curses=yes --color=yes pkg:true >$TEST_log || fail "bazel test failed"
   # PASS is written in green on the same line as the test target
