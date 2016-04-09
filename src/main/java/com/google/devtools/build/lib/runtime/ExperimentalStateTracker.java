@@ -152,7 +152,7 @@ class ExperimentalStateTracker {
       }
     }
     if (count < runningActions.size()) {
-      terminalWriter.newline().append("    ...");
+      terminalWriter.append(" ...");
     }
   }
 
