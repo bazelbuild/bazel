@@ -6,6 +6,7 @@ How to update the C++ sources of gRPC:
 4. `cp -R <gRPC git tree>/src/{compiler,core-cpp} third_party/grpc/src`
 5. `cp -R <gRPC git tree>/include third_party/grpc`
 6. Update BUILD files by copying the rules from the BUILD file of gRPC
+7. Patch in grpc.patch. It makes gRPC work under msys2.
 
 
 How to update the Java plugin:

@@ -1,0 +1,224 @@
+diff --git a/third_party/grpc/BUILD b/third_party/grpc/BUILD
+index 51e861f..a635ebc 100644
+--- a/third_party/grpc/BUILD
++++ b/third_party/grpc/BUILD
+@@ -438,7 +438,7 @@ cc_library(
+     ],
+     copts = [
+         "-std=gnu99",
+-        "-Wno-implicit-function-declaration",
++        "-w",
+     ],
+     includes = [
+         ".",
+@@ -570,6 +570,7 @@ cc_library(
+         "include/grpc++/support/sync_stream.h",
+         "include/grpc++/support/time.h",
+     ],
++    copts = ["-w"],
+     includes = [
+         ".",
+         "include",
+diff --git a/third_party/grpc/include/grpc/impl/codegen/port_platform.h b/third_party/grpc/include/grpc/impl/codegen/port_platform.h
+index d265e9b..d22bffb 100644
+--- a/third_party/grpc/include/grpc/impl/codegen/port_platform.h
++++ b/third_party/grpc/include/grpc/impl/codegen/port_platform.h
+@@ -74,7 +74,45 @@
+    things.  */
+ 
+ #if !defined(GPR_NO_AUTODETECT_PLATFORM)
+-#if defined(_WIN64) || defined(WIN64)
++
++#if defined(__MSYS__)
++#define GPR_PLATFORM_STRING "msys2"
++#define GPR_POSIX_CRASH_HANDLER 1
++#ifndef _BSD_SOURCE
++#define _BSD_SOURCE
++#endif
++#ifndef _DEFAULT_SOURCE
++#define _DEFAULT_SOURCE
++#endif
++#ifndef _GNU_SOURCE
++#define _GNU_SOURCE
++#endif
++#include <features.h>
++#define GPR_CPU_POSIX 1
++#define GPR_GCC_ATOMIC 1
++#define GPR_GCC_TLS 1
++#define GPR_POSIX_MULTIPOLL_WITH_POLL
++#define GPR_POSIX_WAKEUP_FD 1
++#define GPR_POSIX_SOCKET 1
++#define GPR_POSIX_SOCKETADDR 1
++#define GPR_POSIX_ENV 1
++#define GPR_POSIX_NO_SPECIAL_WAKEUP_FD 1
++#define GPR_POSIX_SOCKETUTILS
++#define GPR_POSIX_FILE 1
++#define GPR_POSIX_STRING 1
++#define GPR_POSIX_SUBPROCESS 1
++#define GPR_POSIX_SYNC 1
++#define GPR_POSIX_TIME 1
++#define GPR_POSIX_LOG 1
++#define GPR_GETPID_IN_UNISTD_H 1
++#define GPR_HAVE_MSG_NOSIGNAL 1
++#ifdef _LP64
++#define GPR_ARCH_64 1
++#else /* _LP64 */
++#define GPR_ARCH_32 1
++#endif /* _LP64 */
++
++#elif defined(_WIN64) || defined(WIN64)
+ #define GPR_PLATFORM_STRING "windows"
+ #define GPR_WIN32 1
+ #define GPR_ARCH_64 1
+diff --git a/third_party/grpc/src/core/iomgr/tcp_server_posix.c b/third_party/grpc/src/core/iomgr/tcp_server_posix.c
+index 5e07f82..44b970d 100644
+--- a/third_party/grpc/src/core/iomgr/tcp_server_posix.c
++++ b/third_party/grpc/src/core/iomgr/tcp_server_posix.c
+@@ -280,13 +280,38 @@ static int prepare_socket(int fd, const struct sockaddr *addr,
+     goto error;
+   }
+ 
+-  if (!grpc_set_socket_nonblocking(fd, 1) || !grpc_set_socket_cloexec(fd, 1) ||
+-      (addr->sa_family != AF_UNIX && (!grpc_set_socket_low_latency(fd, 1) ||
+-                                      !grpc_set_socket_reuse_addr(fd, 1))) ||
+-      !grpc_set_socket_no_sigpipe_if_possible(fd)) {
+-    gpr_log(GPR_ERROR, "Unable to configure socket %d: %s", fd,
+-            strerror(errno));
+-    goto error;
++
++  if (!grpc_set_socket_nonblocking(fd, 1)) {
++      gpr_log(GPR_ERROR, "Unable to set socket %d to nonblocking mode: %s", fd,
++              strerror(errno));
++      goto error;
++  }
++  if (!grpc_set_socket_cloexec(fd, 1)) {
++      gpr_log(GPR_ERROR, "Unable to set socket %d to close-on-exec: %s", fd,
++              strerror(errno));
++      goto error;
++  }
++
++  if (addr->sa_family != AF_UNIX) {
++    if (!grpc_set_socket_low_latency(fd, 1)) {
++      gpr_log(GPR_ERROR, "Unable to set socket %d to low-latency mode: %s", fd,
++              strerror(errno));
++      goto error;
++    }
++
++#if !defined(__MSYS__)
++    if (!grpc_set_socket_reuse_addr(fd, 1)) {
++      gpr_log(GPR_ERROR, "Unable to set SO_REUSEADDR on socket %d: %s", fd,
++              strerror(errno));
++      goto error;
++    }
++#endif
++
++    if (!grpc_set_socket_no_sigpipe_if_possible(fd)) {
++      gpr_log(GPR_ERROR, "Unable to set SO_NOSIGPIPE on socket %d: %s", fd,
++              strerror(errno));
++      goto error;
++    }
+   }
+ 
+   GPR_ASSERT(addr_len < ~(socklen_t)0);
+diff --git a/tools/build_rules/genproto.bzl b/tools/build_rules/genproto.bzl
+index 62284a3..bc76cd1 100644
+--- a/tools/build_rules/genproto.bzl
++++ b/tools/build_rules/genproto.bzl
+@@ -25,6 +25,8 @@ def gensrcjar_impl(ctx):
+         "JAR='%s'" % ctx.executable._jar.path,
+         "OUTPUT='%s'" % out.path,
+         "PROTO_COMPILER='%s'" % ctx.executable._proto_compiler.path,
++        "GRPC_JAVA_PLUGIN='%s'" % ctx.executable.grpc_java_plugin.path if \
++            ctx.executable.grpc_java_plugin else "",
+         "SOURCE='%s'" % ctx.file.src.path,
+         ctx.executable._gensrcjar.path,
+     ]),
+@@ -43,14 +45,19 @@ gensrcjar = rule(
+             allow_files = proto_filetype,
+             single_file = True,
+         ),
++        "grpc_java_plugin": attr.label(
++            cfg = HOST_CFG,
++            executable = True,
++            single_file = True,
++        ),
+         "_gensrcjar": attr.label(
+-            default = Label("@bazel_tools//tools/build_rules:gensrcjar"),
++            default = Label("//tools/build_rules:gensrcjar"),
+             executable = True,
+         ),
+         # TODO(bazel-team): this should be a hidden attribute with a default
+         # value, but Skylark needs to support select first.
+         "_proto_compiler": attr.label(
+-            default = Label("@bazel_tools//third_party/protobuf:protoc"),
++            default = Label("//third_party/protobuf:protoc"),
+             allow_files = True,
+             executable = True,
+             single_file = True,
+@@ -73,13 +80,42 @@ gensrcjar = rule(
+     outputs = {"srcjar": "lib%{name}.srcjar"},
+ )
+ 
++def cc_grpc_library(name, src):
++  basename = src[:-len(".proto")]
++
++  native.genrule(
++      name = name + "_codegen",
++      srcs = [src],
++      tools = ["//third_party/protobuf:protoc", "//third_party/grpc:cpp_plugin"],
++      cmd = "\\\n".join([
++          "$(location //third_party/protobuf:protoc)",
++          "    --plugin=protoc-gen-grpc=$(location //third_party/grpc:cpp_plugin)",
++          "    --cpp_out=$(GENDIR)",
++          "    --grpc_out=$(GENDIR)",
++          "    $(location " + src + ")"]),
++      outs = [basename + ".grpc.pb.h", basename + ".grpc.pb.cc", basename + ".pb.cc", basename + ".pb.h"])
++
++  native.cc_library(
++      name = name,
++      srcs = [basename + ".grpc.pb.cc", basename + ".pb.cc"],
++      hdrs = [basename + ".grpc.pb.h", basename + ".pb.h"],
++      deps = ["//third_party/grpc:grpc++"],
++      includes = ["."])
++
+ # TODO(bazel-team): support proto => proto dependencies too
+-def java_proto_library(name, src):
+-  gensrcjar(name=name + "_srcjar", src=src)
++def java_proto_library(name, src, use_grpc_plugin=False):
++  grpc_java_plugin = None
++  if use_grpc_plugin:
++    grpc_java_plugin = "//third_party/grpc:grpc-java-plugin"
++
++  gensrcjar(name=name + "_srcjar", src=src, grpc_java_plugin=grpc_java_plugin)
++  deps = ["//third_party/protobuf"]
++  if use_grpc_plugin:
++    deps += ["//third_party/grpc:grpc-jar", "//third_party:guava"]
+   native.java_library(
+     name=name,
+     srcs=[name + "_srcjar"],
+-    deps=["@bazel_tools//third_party/protobuf"],
++    deps=deps,
+     # The generated code has lots of 'rawtypes' warnings.
+     javacopts=["-Xlint:-rawtypes"],
+ )
+diff --git a/tools/build_rules/gensrcjar.sh b/tools/build_rules/gensrcjar.sh
+index b94408a..c1674a3 100755
+--- a/tools/build_rules/gensrcjar.sh
++++ b/tools/build_rules/gensrcjar.sh
+@@ -65,8 +65,14 @@ main() {
+   "${PREPROCESSOR}" <"${SOURCE}" >"${processed_source}" \
+       || err "Preprocessor ${PREPROCESSOR} failed"
+ 
+-  "${PROTO_COMPILER}" --java_out="${proto_output}" "${processed_source}" \
+-      || err "proto_compiler failed"
++  if [ -n "${GRPC_JAVA_PLUGIN}" ]; then
++    "${PROTO_COMPILER}" --plugin=protoc-gen-grpc="${GRPC_JAVA_PLUGIN}" \
++        --grpc_out="${proto_output}" --java_out="${proto_output}" "${processed_source}" \
++        || err "proto_compiler failed"
++  else
++    "${PROTO_COMPILER}" --java_out="${proto_output}" "${processed_source}" \
++        || err "proto_compiler failed"
++  fi
+   find "${proto_output}" -exec touch -t "${TIMESTAMP}" '{}' \; \
+       || err "Failed to reset timestamps"
+   "${JAR}" cMf "${OUTPUT}.tmp" -C "${proto_output}" . \

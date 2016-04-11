@@ -280,13 +280,38 @@ static int prepare_socket(int fd, const struct sockaddr *addr,
     goto error;
   }
 
-  if (!grpc_set_socket_nonblocking(fd, 1) || !grpc_set_socket_cloexec(fd, 1) ||
-      (addr->sa_family != AF_UNIX && (!grpc_set_socket_low_latency(fd, 1) ||
-                                      !grpc_set_socket_reuse_addr(fd, 1))) ||
-      !grpc_set_socket_no_sigpipe_if_possible(fd)) {
-    gpr_log(GPR_ERROR, "Unable to configure socket %d: %s", fd,
-            strerror(errno));
-    goto error;
+
+  if (!grpc_set_socket_nonblocking(fd, 1)) {
+      gpr_log(GPR_ERROR, "Unable to set socket %d to nonblocking mode: %s", fd,
+              strerror(errno));
+      goto error;
+  }
+  if (!grpc_set_socket_cloexec(fd, 1)) {
+      gpr_log(GPR_ERROR, "Unable to set socket %d to close-on-exec: %s", fd,
+              strerror(errno));
+      goto error;
+  }
+
+  if (addr->sa_family != AF_UNIX) {
+    if (!grpc_set_socket_low_latency(fd, 1)) {
+      gpr_log(GPR_ERROR, "Unable to set socket %d to low-latency mode: %s", fd,
+              strerror(errno));
+      goto error;
+    }
+
+#if !defined(__MSYS__)
+    if (!grpc_set_socket_reuse_addr(fd, 1)) {
+      gpr_log(GPR_ERROR, "Unable to set SO_REUSEADDR on socket %d: %s", fd,
+              strerror(errno));
+      goto error;
+    }
+#endif
+
+    if (!grpc_set_socket_no_sigpipe_if_possible(fd)) {
+      gpr_log(GPR_ERROR, "Unable to set SO_NOSIGPIPE on socket %d: %s", fd,
+              strerror(errno));
+      goto error;
+    }
   }
 
   GPR_ASSERT(addr_len < ~(socklen_t)0);

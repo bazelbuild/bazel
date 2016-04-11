@@ -438,7 +438,7 @@ cc_library(
     ],
     copts = [
         "-std=gnu99",
-        "-Wno-implicit-function-declaration",
+        "-w",
     ],
     includes = [
         ".",
@@ -570,6 +570,7 @@ cc_library(
         "include/grpc++/support/sync_stream.h",
         "include/grpc++/support/time.h",
     ],
+    copts = ["-w"],
     includes = [
         ".",
         "include",
