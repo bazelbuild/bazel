@@ -121,8 +121,9 @@ public final class Environment implements Freezable {
      * @return a new Frame with the existing frame's properties plus the label.
      */
     public Frame setLabel(Label label) {
-      this.label = label;
-      return this;
+      Frame result = new Frame(mutability, this);
+      result.label = label;
+      return result;
     }
 
     /**
