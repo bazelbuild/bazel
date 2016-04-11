@@ -128,6 +128,19 @@ genrule(
     tools = ["gen_source_debug_extension"],
 )
 
+java_library(
+    name = "local_and_anonymous_lib",
+    srcs = ["LocalAndAnonymous.java"],
+)
+
+genrule(
+    name = "local_and_anonymous_interface",
+    srcs = [":liblocal_and_anonymous_lib.jar"],
+    outs = ["local_and_anonymous-interface.jar"],
+    cmd = "$(location //third_party/ijar) $< $@",
+    tools = ["//third_party/ijar"],
+)
+
 java_test(
     name = "IjarTests",
     size = "small",
@@ -141,13 +154,17 @@ java_test(
         "UseRestrictedAnnotation.java",
         "package-info.java",
         ":interface_ijar_testlib",
+        ":liblocal_and_anonymous_lib.jar",
+        ":local_and_anonymous-interface.jar",
     ],
     tags = ["zip"],
     test_class = "IjarTests",
     deps = [
         "//src/java_tools/buildjar:BazelJavaCompiler",
         "//third_party:asm",
+        "//third_party:guava",
         "//third_party:junit4",
+        "//third_party:truth",
     ],
 )
 

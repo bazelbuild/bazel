@@ -72,17 +72,19 @@ enum CONSTANT {
 };
 
 // See Tables 4.1, 4.4, 4.5 in JVM Spec.
-enum ACCESS  {
-  ACC_PUBLIC          = 0x0001,
-  ACC_PRIVATE         = 0x0002,
-  ACC_PROTECTED       = 0x0004,
-  ACC_STATIC          = 0x0008,
-  ACC_FINAL           = 0x0010,
-  ACC_SYNCHRONIZED    = 0x0020,
-  ACC_VOLATILE        = 0x0040,
-  ACC_TRANSIENT       = 0x0080,
-  ACC_INTERFACE       = 0x0200,
-  ACC_ABSTRACT        = 0x0400
+enum ACCESS {
+  ACC_PUBLIC = 0x0001,
+  ACC_PRIVATE = 0x0002,
+  ACC_PROTECTED = 0x0004,
+  ACC_STATIC = 0x0008,
+  ACC_FINAL = 0x0010,
+  ACC_SYNCHRONIZED = 0x0020,
+  ACC_BRIDGE = 0x0040,
+  ACC_VOLATILE = 0x0040,
+  ACC_TRANSIENT = 0x0080,
+  ACC_INTERFACE = 0x0200,
+  ACC_ABSTRACT = 0x0400,
+  ACC_SYNTHETIC = 0x1000
 };
 
 // See Table 4.7.20-A in Java 8 JVM Spec.
@@ -503,21 +505,22 @@ struct InnerClassesAttribute : Attribute {
            ++i_entry) {
         Entry* entry = entries_[i_entry];
         if (entry->inner_class_info->Kept() ||
-            used_class_names.find(entry->inner_class_info->Display())
-                != used_class_names.end() ||
-            entry->outer_class_info == class_name ||
-            entry->outer_class_info == NULL ||
-            entry->inner_name == NULL) {
+            used_class_names.find(entry->inner_class_info->Display()) !=
+                used_class_names.end() ||
+            entry->outer_class_info == class_name) {
+          if (entry->inner_name == NULL) {
+            // JVMS 4.7.6: inner_name_index is zero iff the class is anonymous
+            continue;
+          }
+
           kept_entries.insert(i_entry);
 
-          // These are zero for anonymous inner classes
+          // JVMS 4.7.6: outer_class_info_index is zero for top-level classes
           if (entry->outer_class_info != NULL) {
             entry->outer_class_info->slot();
           }
 
-          if (entry->inner_name != NULL) {
-            entry->inner_name->slot();
-          }
+          entry->inner_name->slot();
         }
       }
       iteration += 1;
@@ -1292,7 +1295,7 @@ struct ClassFile : HasAttrs {
 
   bool ReadConstantPool(const u1 *&p);
 
-  void StripIfAnonymous();
+  bool IsLocalOrAnonymous();
 
   void WriteHeader(u1 *&p) {
     put_u4be(p, magic);
@@ -1524,53 +1527,15 @@ bool ClassFile::ReadConstantPool(const u1 *&p) {
   return true;
 }
 
-// Anonymous inner classes are stripped to opaque classes that only extend
-// Object. None of their methods or fields are accessible anyway.
-void ClassFile::StripIfAnonymous() {
-  int enclosing_index = -1;
-  int inner_classes_index = -1;
-
-  for (size_t ii = 0; ii < attributes.size(); ++ii) {
-    if (attributes[ii]->attribute_name_->Display() == "EnclosingMethod") {
-      enclosing_index = ii;
-    } else if (attributes[ii]->attribute_name_->Display() == "InnerClasses") {
-      inner_classes_index = ii;
+bool ClassFile::IsLocalOrAnonymous() {
+  for (const Attribute *attribute : attributes) {
+    if (attribute->attribute_name_->Display() == "EnclosingMethod") {
+      // JVMS 4.7.6: a class must has EnclosingMethod attribute iff it
+      // represents a local class or an anonymous class
+      return true;
     }
   }
-
-  // Presence of an EnclosingMethod attribute indicates a local or anonymous
-  // class, which can be stripped.
-  if (enclosing_index > -1) {
-    // Clear the signature to only extend java.lang.Object.
-    super_class = NULL;
-    interfaces.clear();
-
-    // Clear away all fields (implementation details).
-    for (size_t ii = 0; ii < fields.size(); ++ii) {
-      delete fields[ii];
-    }
-    fields.clear();
-
-    // Clear away all methods (implementation details).
-    for (size_t ii = 0; ii < methods.size(); ++ii) {
-      delete methods[ii];
-    }
-    methods.clear();
-
-    // Only preserve the InnerClasses attribute to comply with the spec.
-    Attribute *attr = NULL;
-    for (size_t ii = 0; ii < attributes.size(); ++ii) {
-      if (static_cast<int>(ii) != inner_classes_index) {
-        delete attributes[ii];
-      } else {
-        attr = attributes[ii];
-      }
-    }
-    attributes.clear();
-    if (attr != NULL) {
-      attributes.push_back(attr);
-    }
-  }
+  return false;
 }
 
 static ClassFile *ReadClass(const void *classdata, size_t length) {
@@ -1609,9 +1574,11 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
   for (int ii = 0; ii < fields_count; ++ii) {
     Member *field = Member::Read(p);
 
-    if (!(field->access_flags & ACC_PRIVATE)) { // drop private fields
-      clazz->fields.push_back(field);
+    if ((field->access_flags & ACC_PRIVATE) == ACC_PRIVATE) {
+      // drop private fields
+      continue;
     }
+    clazz->fields.push_back(field);
   }
 
   u2 methods_count = get_u2be(p);
@@ -1621,13 +1588,21 @@ static ClassFile *ReadClass(const void *classdata, size_t length) {
     // drop class initializers
     if (method->name->Display() == "<clinit>") continue;
 
-    if (!(method->access_flags & ACC_PRIVATE)) { // drop private methods
-      clazz->methods.push_back(method);
+    if ((method->access_flags & ACC_PRIVATE) == ACC_PRIVATE) {
+      // drop private methods
+      continue;
     }
+    if ((method->access_flags & (ACC_SYNTHETIC | ACC_BRIDGE)) ==
+        ACC_SYNTHETIC) {
+      // drop non-bridge synthetic methods, e.g. package-private synthetic
+      // constructors used to instantiate private nested classes within their
+      // declaring compilation unit
+      continue;
+    }
+    clazz->methods.push_back(method);
   }
 
   clazz->ReadAttrs(p);
-  clazz->StripIfAnonymous();
 
   return clazz;
 }
@@ -1807,12 +1782,14 @@ void ClassFile::WriteClass(u1 *&p) {
   delete[] body;
 }
 
-
-void StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length) {
+bool StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length) {
   ClassFile *clazz = ReadClass(classdata_in, in_length);
+  bool keep = true;
   if (clazz == NULL) {
     // Class is invalid. Simply copy it to the output and call it a day.
     put_n(classdata_out, classdata_in, in_length);
+  } else if (clazz->IsLocalOrAnonymous()) {
+    keep = false;
   } else {
 
     // Constant pool item zero is a dummy entry.  Setting it marks the
@@ -1832,6 +1809,7 @@ void StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length) {
 
   const_pool_in.clear();
   const_pool_out.clear();
+  return keep;
 }
 
 }  // namespace devtools_ijar

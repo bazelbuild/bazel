@@ -12,25 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.fail;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.io.ByteStreams;
 import com.google.devtools.build.java.bazel.BazelJavaCompiler;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.ClassVisitor;
+import org.objectweb.asm.Opcodes;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -43,7 +51,6 @@ import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
-import javax.tools.ToolProvider;
 
 /**
  * JUnit tests for ijar tool.
@@ -52,7 +59,7 @@ import javax.tools.ToolProvider;
 public class IjarTests {
 
   private static File getTmpDir() {
-    String tmpdir = System.getenv("TEST_TMPDIR");    
+    String tmpdir = System.getenv("TEST_TMPDIR");
     if (tmpdir == null) {
       // Fall back on the system temporary directory
       tmpdir = System.getProperty("java.io.tmpdir");
@@ -190,5 +197,73 @@ public class IjarTests {
           diagnostic.getMessage(Locale.ENGLISH)));
     }
     return builder.toString();
+  }
+
+  @Test
+  public void localAndAnonymous() throws Exception {
+    Map<String, byte[]> lib = readJar("third_party/ijar/test/liblocal_and_anonymous_lib.jar");
+    Map<String, byte[]> ijar = readJar("third_party/ijar/test/local_and_anonymous-interface.jar");
+
+    assertThat(lib.keySet())
+        .containsExactly(
+            "LocalAndAnonymous$1.class",
+            "LocalAndAnonymous$2.class",
+            "LocalAndAnonymous$1LocalClass.class",
+            "LocalAndAnonymous.class",
+            "LocalAndAnonymous$NestedClass.class",
+            "LocalAndAnonymous$InnerClass.class",
+            "LocalAndAnonymous$PrivateInnerClass.class");
+    assertThat(ijar.keySet())
+        .containsExactly(
+            "LocalAndAnonymous.class",
+            "LocalAndAnonymous$NestedClass.class",
+            "LocalAndAnonymous$InnerClass.class",
+            "LocalAndAnonymous$PrivateInnerClass.class");
+
+    assertThat(innerClasses(lib.get("LocalAndAnonymous.class")))
+        .isEqualTo(
+            ImmutableMap.<String, String>builder()
+                .put("LocalAndAnonymous$1", "null")
+                .put("LocalAndAnonymous$2", "null")
+                .put("LocalAndAnonymous$1LocalClass", "null")
+                .put("LocalAndAnonymous$InnerClass", "LocalAndAnonymous")
+                .put("LocalAndAnonymous$NestedClass", "LocalAndAnonymous")
+                .put("LocalAndAnonymous$PrivateInnerClass", "LocalAndAnonymous")
+                .build());
+    assertThat(innerClasses(ijar.get("LocalAndAnonymous.class")))
+        .containsExactly(
+            "LocalAndAnonymous$InnerClass", "LocalAndAnonymous",
+            "LocalAndAnonymous$NestedClass", "LocalAndAnonymous",
+            "LocalAndAnonymous$PrivateInnerClass", "LocalAndAnonymous");
+  }
+
+  static Map<String, byte[]> readJar(String path) throws IOException {
+    Map<String, byte[]> classes = new HashMap<>();
+    try (JarFile jf = new JarFile(path)) {
+      Enumeration<JarEntry> entries = jf.entries();
+      while (entries.hasMoreElements()) {
+        JarEntry je = entries.nextElement();
+        if (!je.getName().endsWith(".class")) {
+          continue;
+        }
+        classes.put(je.getName(), ByteStreams.toByteArray(jf.getInputStream(je)));
+      }
+    }
+    return classes;
+  }
+
+  static Map<String, String> innerClasses(byte[] bytes) {
+    final Map<String, String> innerClasses = new HashMap<>();
+    new ClassReader(bytes)
+        .accept(
+            new ClassVisitor(Opcodes.ASM5) {
+              @Override
+              public void visitInnerClass(
+                  String name, String outerName, String innerName, int access) {
+                innerClasses.put(name, String.valueOf(outerName));
+              }
+            },
+            /*flags=*/ 0);
+    return innerClasses;
   }
 }
