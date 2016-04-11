@@ -4,7 +4,7 @@ cc_library(
     name = "zlib",
     srcs = glob(["*.c"]),
     hdrs = glob(["*.h"]),
-    copts = ["-Wno-error"],
+    copts = ["-w"],
     includes = ["."],
     visibility = ["//visibility:public"],
 )
