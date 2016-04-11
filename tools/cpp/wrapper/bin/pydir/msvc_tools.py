@@ -27,6 +27,12 @@ MAX_DRIVE_LENGTH = 3  # The maximum length of a drive.
 ASSEMBLY_AS_C_SOURCE = '/Tc'
 LIB_SUFFIX = '.lib'
 
+VC_PATH = 'C:\\Program Files (x86)\\Microsoft Visual Studio 14.0'
+VC_VERSION = '140'
+PLATFORM_SDK_PATH = 'C:\\Program Files (x86)\\Windows Kits'
+PLATFORM_SDK_VERSION = '10.0.10240.0'
+TMP_PATH = 'C:\\Windows\\Temp'
+
 
 class Error(Exception):
   """Base class for all script-specific errors."""
@@ -289,10 +295,93 @@ class WindowsRunner(object):
     return None
 
   def SetupEnvironment(self, build_arch):
-    pass
+    """Setup proper path for running.
+
+    Args:
+      build_arch: Either 'x64' or 'x86', which binary architecture to build for.
+
+    Returns:
+      An environment suitable for running on Windows.
+    """
+
+    common_paths = [
+        'C:\\Windows',
+        'C:\\Windows\\system32',
+        'C:\\Windows\\System32\\Wbem',
+        os.path.join(VC_PATH, 'Common7\\IDE'),
+        os.path.join(VC_PATH,
+                     'Common7\\IDE\\CommonExtensions\\Microsoft\\TestWindow'),
+        os.path.join(VC_PATH, 'Common7\\Tools'),
+        os.path.join(VC_PATH, 'VC\\VCPackages'),
+    ]
+
+    x86_paths = [
+        os.path.join(VC_PATH, 'VC\\bin'),
+        os.path.join(VC_PATH, 'VC\\redist\\x86\\Microsoft.VC' + VC_VERSION +
+                     '.CRT'),
+        os.path.join(PLATFORM_SDK_PATH, 'bin\\x86'),
+    ] + common_paths
+
+    x64_paths = [
+        os.path.join(VC_PATH, 'VC\\bin\\x86_amd64'),
+        os.path.join(VC_PATH, 'VC\\bin'),
+        os.path.join(VC_PATH, 'VC\\redist\\x64\\Microsoft.VC' + VC_VERSION +
+                     '.CRT'),
+        os.path.join(VC_PATH, 'VC\\redist\\x86\\Microsoft.VC' + VC_VERSION +
+                     '.CRT'),
+        os.path.join(PLATFORM_SDK_PATH, 'bin\\x64'),
+    ] + common_paths
+
+    path = x86_paths if build_arch == 'x86' else x64_paths
+
+    include = [
+        os.path.join(VC_PATH, 'VC\\INCLUDE'),
+        os.path.join(VC_PATH, 'VC\\ATLMFC\\INCLUDE'),
+        os.path.join(PLATFORM_SDK_PATH, '10\\include', PLATFORM_SDK_VERSION,
+                     'ucrt'),
+        os.path.join(PLATFORM_SDK_PATH, '8.1\\include'),
+        os.path.join(PLATFORM_SDK_PATH, '8.1\\include\\um'),
+        os.path.join(PLATFORM_SDK_PATH, '8.1\\include\\shared'),
+        os.path.join(PLATFORM_SDK_PATH, '8.1\\include\\winrt'),
+        os.path.join(PLATFORM_SDK_PATH, 'NETFXSDK\\4.6.1\\include\\um'),
+    ]
+
+    x86_lib_path = [
+        os.path.join(VC_PATH, 'VC\\bin'),
+        os.path.join(VC_PATH, 'VC\\LIB'),
+        os.path.join(VC_PATH, 'VC\\ATLMFC\\LIB'),
+        os.path.join(VC_PATH,
+                     'VC\\redist\\x86\\Microsoft.VC' + VC_VERSION + '.CRT'),
+        os.path.join(PLATFORM_SDK_PATH, '10\\lib', PLATFORM_SDK_VERSION,
+                     'ucrt\\x86'),
+        os.path.join(PLATFORM_SDK_PATH, '8.1\\lib\\winv6.3\\um\\x86'),
+        os.path.join(PLATFORM_SDK_PATH, 'NETFXSDK\\4.6.1\\lib\\um\\x86'),
+    ]
+
+    x64_lib_path = [
+        os.path.join(VC_PATH, 'VC\\bin\\x86_amd64'),
+        os.path.join(VC_PATH, 'VC\\LIB\\amd64'),
+        os.path.join(VC_PATH, 'VC\\ATLMFC\\LIB\\amd64'),
+        os.path.join(VC_PATH,
+                     'VC\\redist\\x64\\Microsoft.VC' + VC_VERSION + '.CRT'),
+        os.path.join(PLATFORM_SDK_PATH, '10\\lib', PLATFORM_SDK_VERSION,
+                     'ucrt\\x64'),
+        os.path.join(PLATFORM_SDK_PATH, '8.1\\lib\\winv6.3\\um\\x64'),
+        os.path.join(PLATFORM_SDK_PATH, 'NETFXSDK\\4.6.1\\lib\\um\\x64'),
+    ]
+
+    lib = x86_lib_path if build_arch == 'x86' else x64_lib_path
+
+    build_env = os.environ.copy()
+    build_env['PATH'] = ';'.join([build_env['PATH']] + path)
+    build_env['INCLUDE'] = ';'.join(include)
+    build_env['LIB'] = ';'.join(lib)
+    build_env['TEMP'] = TMP_PATH
+    build_env['TMP'] = TMP_PATH
+    return build_env
 
   def RunBinary(self, binary, args, build_arch, parser):
-    """Runs binary under wine with the passed args.
+    """Runs binary on Windows with the passed args.
 
     Args:
       binary: The binary to run.
@@ -330,70 +419,8 @@ class WindowsRunner(object):
 
     # Setup the Windows paths and the build environment.
     # TODO(pcloudy): make these paths configurable
-    self.SetupEnvironment(build_arch)
-    path = [
-        'C:\\Program Files\\Microsoft DNX\\Dnvm\\',
-        'C:\\Program Files (x86)\\Microsoft SDKs\\Windows\\v10.0A\\bin\\NETFX '
-        '4.6.1 Tools\\x64\\',
-        'C:\\Program Files (x86)\\Microsoft Visual Studio 14.0\\Common7\\IDE',
-        'C:\\Program Files (x86)\\Microsoft Visual Studio '
-        '14.0\\Common7\\IDE\\CommonExtensions\\Microsoft\\TestWindow',
-        'C:\\Program Files (x86)\\Microsoft Visual Studio 14.0\\Common7\\Tools',
-        'C:\\Program Files (x86)\\Microsoft Visual Studio 14.0\\Team '
-        'Tools\\Performance Tools\\x64',
-        'C:\\Program Files (x86)\\Microsoft Visual Studio 14.0\\VC\\BIN\\amd64',
-        'C:\\Program Files (x86)\\Microsoft Visual Studio 14.0\\VC\\VCPackages',
-        'C:\\Program Files (x86)\\MSBuild\\14.0\\bin\\amd64',
-        'C:\\Program Files (x86)\\Windows Kits\\8.1\\bin\\x64',
-        'C:\\Program Files (x86)\\Windows Kits\\8.1\\Windows Performance '
-        'Toolkit\\',
-        'C:\\Windows', 'C:\\Windows\\system32', 'C:\\Windows\\System32\\Wbem'
-    ]
+    build_env = self.SetupEnvironment(build_arch)
 
-    include = [
-        'C:\\Program Files (x86)\\Microsoft Visual Studio 14.0\\VC\\INCLUDE',
-        'C:\\Program Files (x86)\\Microsoft Visual Studio '
-        '14.0\\VC\\ATLMFC\\INCLUDE',
-        'C:\\Program Files (x86)\\Windows Kits\\10'
-        '\\include\\10.0.10240.0\\ucrt',
-        'C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.6.1\\include\\um',
-        'C:\\Program Files (x86)\\Windows Kits\\8.1\\include\\\\shared',
-        'C:\\Program Files (x86)\\Windows Kits\\8.1\\include\\\\um',
-        'C:\\Program Files (x86)\\Windows Kits\\8.1\\include\\\\winrt',
-        'C:\\Program Files (x86)\\Microsoft Visual Studio 14.0\\VC\\INCLUDE',
-        'C:\\Program Files (x86)\\Microsoft Visual Studio '
-        '14.0\\VC\\ATLMFC\\INCLUDE',
-        'C:\\Program Files (x86)\\Windows Kits\\10\\'
-        'include\\10.0.10240.0\\ucrt',
-        'C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.6.1\\include\\um',
-        'C:\\Program Files (x86)\\Windows Kits\\8.1\\include\\\\shared',
-        'C:\\Program Files (x86)\\Windows Kits\\8.1\\include\\\\um',
-        'C:\\Program Files (x86)\\Windows Kits\\8.1\\include\\\\winrt'
-    ]
-
-    lib = [
-        'C:\\Program Files (x86)\\Microsoft Visual Studio 14.0\\VC\\LIB\\amd64',
-        'C:\\Program Files (x86)\\Microsoft Visual Studio '
-        '14.0\\VC\\ATLMFC\\LIB\\amd64',
-        'C:\\Program Files (x86)\\Windows Kits\\10\\lib'
-        '\\10.0.10240.0\\ucrt\\x64',
-        'C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.6.1\\lib\\um\\x64',
-        'C:\\Program Files (x86)\\Windows Kits\\8.1\\lib\\winv6.3\\um\\x64',
-        'C:\\Program Files (x86)\\Microsoft Visual Studio 14.0\\VC\\LIB',
-        'C:\\Program Files (x86)\\Microsoft Visual Studio 14.0'
-        '\\VC\\ATLMFC\\LIB',
-        'C:\\Program Files (x86)\\Windows Kits\\10\\lib\\10.0.10240.0'
-        '\\ucrt\\x86',
-        'C:\\Program Files (x86)\\Windows Kits\\NETFXSDK\\4.6.1\\lib\\um\\x86',
-        'C:\\Program Files (x86)\\Windows Kits\\8.1\\lib\\winv6.3\\um\\x86'
-    ]
-
-    build_env = os.environ.copy()
-    build_env['PATH'] += ';'.join[build_env['PATH'] + path]
-    build_env['INCLUDE'] = ';'.join(include)
-    build_env['LIB'] = ';'.join(lib)
-    build_env['TEMP'] = 'C:\\Windows\\Temp'
-    build_env['TMP'] = 'C:\\Windows\\Temp'
     # Construct a large regular expression for all filters.
     output_filter = re.compile('(' + ')|('.join(filters) + ')')
     includes_filter = re.compile(r'Note: including file:\s+(.*)')
