@@ -80,6 +80,13 @@ function test_basic_progress_no_curses() {
   expect_log $'\x1b\[32m'
 }
 
+function test_no_curses_no_linebreak() {
+  bazel test --experimental_ui --curses=no --color=yes --terminal_columns=9 \
+    pkg:true 2>$TEST_log || fail "bazel test failed"
+  # expect a long-ish status line
+  expect_log '\[[0-9,]* / [0-9,]*\]......'
+}
+
 function test_pass() {
   bazel test --experimental_ui --curses=yes --color=yes pkg:true >$TEST_log || fail "bazel test failed"
   # PASS is written in green on the same line as the test target

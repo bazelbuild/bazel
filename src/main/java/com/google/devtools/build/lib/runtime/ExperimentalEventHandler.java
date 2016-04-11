@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.io.AnsiTerminal;
+import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineCountingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineWrappingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -243,10 +244,14 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   }
 
   private void addProgressBar() throws IOException {
-    LineCountingAnsiTerminalWriter terminalWriter = new LineCountingAnsiTerminalWriter(terminal);
-    stateTracker.writeProgressBar(
-        new LineWrappingAnsiTerminalWriter(terminalWriter, terminalWidth - 1));
+    LineCountingAnsiTerminalWriter countingTerminalWriter =
+        new LineCountingAnsiTerminalWriter(terminal);
+    AnsiTerminalWriter terminalWriter = countingTerminalWriter;
+    if (cursorControl) {
+      terminalWriter = new LineWrappingAnsiTerminalWriter(terminalWriter, terminalWidth - 1);
+    }
+    stateTracker.writeProgressBar(terminalWriter);
     terminalWriter.newline();
-    numLinesProgressBar = terminalWriter.getWrittenLines();
+    numLinesProgressBar = countingTerminalWriter.getWrittenLines();
   }
 }
