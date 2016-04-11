@@ -271,23 +271,6 @@ android_sdk_repository(
 EOF
 }
 
-function setup_protoc_support() {
-  mkdir -p third_party/protobuf
-  [ -e third_party/protobuf/protoc ] \
-    || ln -s ${protoc_compiler} third_party/protobuf/protoc
-  [ -e third_party/protobuf/protobuf-java.jar ] \
-    || ln -s ${protoc_jar} third_party/protobuf/protobuf-java.jar
-
-cat <<EOF > third_party/BUILD
-package(default_visibility = ["//visibility:public"])
-exports_files(["protoc"])
-java_import(
-  name = "protobuf",
-  jars = ["protobuf-java.jar"])
-
-EOF
-}
-
 function setup_javatest_common() {
   # TODO(bazel-team): we should use remote repositories.
   mkdir -p third_party

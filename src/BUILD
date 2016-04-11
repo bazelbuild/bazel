@@ -92,7 +92,7 @@ genrule(
     srcs = [
         ":create_embedded_tools.sh",
         "//tools:embedded_tools_srcs",
-        "//third_party:srcs",
+        "//third_party:embedded_tools_srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/ideinfo:embedded_tools",

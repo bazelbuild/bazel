@@ -11,3 +11,9 @@ filegroup(
     srcs = glob(["**"]),
     visibility = ["//tools:__pkg__"],
 )
+
+filegroup(
+    name = "embedded_tools_srcs",
+    srcs = ["test_rules.bzl"],
+    visibility = ["//visibility:public"],
+)

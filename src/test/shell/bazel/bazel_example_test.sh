@@ -168,12 +168,4 @@ function test_java_test_skylark() {
   assert_test_fails //${javatests}:fail
 }
 
-function test_protobuf() {
-  setup_protoc_support
-  local jar=bazel-bin/examples/proto/libtest_proto.jar
-  assert_build_output $jar //examples/proto:test_proto
-  unzip -v $jar | grep -q 'KeyVal\.class' \
-    || fail "Did not find KeyVal class in proto jar."
-}
-
 run_suite "examples"

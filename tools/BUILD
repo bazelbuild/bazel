@@ -39,7 +39,7 @@ filegroup(
         "//tools/build_defs/pkg:srcs",
         "//tools/build_rules/closure:srcs",
         "//tools/build_rules/rust:srcs",
-        "//tools/build_rules:srcs",
+        "//tools/build_rules:embedded_tools_srcs",
         "//tools/buildstamp:srcs",
         "//tools/cpp:srcs",
         "//tools/genrule:srcs",

@@ -2,7 +2,7 @@ package(default_visibility = ["//visibility:public"])
 
 licenses(["notice"])
 
-load("@bazel_tools//third_party/protobuf:protobuf.bzl", "py_proto_library")
+load("//third_party/protobuf:protobuf.bzl", "py_proto_library")
 
 filegroup(
     name = "srcs",
