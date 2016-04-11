@@ -348,7 +348,10 @@ public class PackageFunction implements SkyFunction {
       EvalException.class, SkylarkImportFailedException.class);
     } catch (IOException | FileSymlinkException | InconsistentFilesystemException
           | EvalException | SkylarkImportFailedException e) {
-      throw new PackageFunctionException(new BadWorkspaceFileException(e.getMessage()),
+      throw new PackageFunctionException(
+          new NoSuchPackageException(
+              Label.EXTERNAL_PACKAGE_IDENTIFIER,
+              "Error encountered while dealing with the WORKSPACE file: " + e.getMessage()),
           Transience.PERSISTENT);
     }
     if (workspace == null) {
@@ -378,7 +381,7 @@ public class PackageFunction implements SkyFunction {
     } catch (InconsistentFilesystemException e) {
       // This error is not transient from the perspective of the PackageFunction.
       throw new PackageFunctionException(
-          new InternalInconsistentFilesystemException(packageId, e), Transience.PERSISTENT);
+          new NoSuchPackageException(packageId, e.getMessage(), e), Transience.PERSISTENT);
     }
     if (packageLookupValue == null) {
       return null;
@@ -445,7 +448,9 @@ public class PackageFunction implements SkyFunction {
           ErrorReadingSkylarkExtensionException.class, InconsistentFilesystemException.class);
     } catch (ErrorReadingSkylarkExtensionException | InconsistentFilesystemException e) {
       throw new PackageFunctionException(
-          new BadPreludeFileException(packageId, e.getMessage()), Transience.PERSISTENT);
+          new NoSuchPackageException(
+              packageId, "Error encountered while reading the prelude file: " + e.getMessage()),
+          Transience.PERSISTENT);
     }
     if (astLookupValue == null) {
       return null;
@@ -481,7 +486,8 @@ public class PackageFunction implements SkyFunction {
           packageLookupValue.getRoot(), packageId, legacyPkgBuilder, env);
     } catch (InternalInconsistentFilesystemException e) {
       packageFunctionCache.invalidate(packageId);
-      throw new PackageFunctionException(e,
+      throw new PackageFunctionException(
+          e.toNoSuchPackageException(),
           e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
     }
     Set<SkyKey> globKeys = packageBuilderAndGlobDeps.globDepKeys;
@@ -493,7 +499,8 @@ public class PackageFunction implements SkyFunction {
               env, globKeys, subincludes, packageId, legacyPkgBuilder.containsErrors());
     } catch (InternalInconsistentFilesystemException e) {
       packageFunctionCache.invalidate(packageId);
-      throw new PackageFunctionException(e,
+      throw new PackageFunctionException(
+          e.toNoSuchPackageException(),
           e.isTransient() ? Transience.TRANSIENT : Transience.PERSISTENT);
     }
     if (env.valuesMissing()) {
@@ -647,7 +654,7 @@ public class PackageFunction implements SkyFunction {
           new BuildFileContainsErrorsException(packageId, e.getMessage()), Transience.PERSISTENT);
     } catch (InconsistentFilesystemException e) {
       throw new PackageFunctionException(
-          new InternalInconsistentFilesystemException(packageId, e), Transience.PERSISTENT);
+          new NoSuchPackageException(packageId, e.getMessage(), e), Transience.PERSISTENT);
     }
 
     if (valuesMissing) {
@@ -1184,8 +1191,10 @@ public class PackageFunction implements SkyFunction {
     return packageFunctionCacheEntry;
   }
 
-  private static class InternalInconsistentFilesystemException extends NoSuchPackageException {
+  private static class InternalInconsistentFilesystemException extends Exception {
     private boolean isTransient;
+
+    private PackageIdentifier packageIdentifier;
 
     /**
      * Used to represent a filesystem inconsistency discovered outside the
@@ -1193,7 +1202,8 @@ public class PackageFunction implements SkyFunction {
      */
     public InternalInconsistentFilesystemException(PackageIdentifier packageIdentifier,
         InconsistentFilesystemException e) {
-      super(packageIdentifier, e.getMessage(), e);
+      super(e.getMessage(), e);
+      this.packageIdentifier = packageIdentifier;
       // This is not a transient error from the perspective of the PackageFunction.
       this.isTransient = false;
     }
@@ -1208,19 +1218,10 @@ public class PackageFunction implements SkyFunction {
     public boolean isTransient() {
       return isTransient;
     }
-  }
 
-  private static class BadWorkspaceFileException extends NoSuchPackageException {
-    private BadWorkspaceFileException(String message) {
-      super(
-          Label.EXTERNAL_PACKAGE_IDENTIFIER,
-          "Error encountered while dealing with the WORKSPACE file: " + message);
-    }
-  }
-
-  private static class BadPreludeFileException extends NoSuchPackageException {
-    private BadPreludeFileException(PackageIdentifier packageIdentifier, String message) {
-      super(packageIdentifier, "Error encountered while reading the prelude file: " + message);
+    private NoSuchPackageException toNoSuchPackageException() {
+      return new NoSuchPackageException(
+          packageIdentifier, this.getMessage(), (Exception) this.getCause());
     }
   }
 

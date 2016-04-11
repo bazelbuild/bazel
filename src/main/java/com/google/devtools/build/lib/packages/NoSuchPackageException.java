@@ -19,33 +19,33 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 /**
  * Exception indicating an attempt to access a package which is not found, does
  * not exist, or can't be parsed into a package.
+ *
+ * <p>Prefer using more-specific subclasses, when appropriate.
  */
-public abstract class NoSuchPackageException extends NoSuchThingException {
+public class NoSuchPackageException extends NoSuchThingException {
 
   private final PackageIdentifier packageId;
 
   public NoSuchPackageException(PackageIdentifier packageId, String message) {
-    this(packageId, "no such package", message);
-  }
-
-  public NoSuchPackageException(PackageIdentifier packageId, String message,
-      Exception cause) {
-    this(packageId, "no such package", message, cause);
-  }
-
-  protected NoSuchPackageException(
-      PackageIdentifier packageId, String messagePrefix, String message) {
-    super(messagePrefix + " '" + packageId + "': " + message);
+    super(message);
     this.packageId = packageId;
   }
 
-  protected NoSuchPackageException(PackageIdentifier packageId, String messagePrefix,
-      String message, Exception cause) {
-    super(messagePrefix + " '" + packageId + "': " + message, cause);
+  public NoSuchPackageException(PackageIdentifier packageId, String message, Exception cause) {
+    super(message, cause);
     this.packageId = packageId;
   }
 
   public PackageIdentifier getPackageId() {
     return packageId;
+  }
+
+  public String getRawMessage() {
+    return super.getMessage();
+  }
+
+  @Override
+  public String getMessage() {
+    return String.format("%s '%s': %s", "no such package", packageId, getRawMessage());
   }
 }
