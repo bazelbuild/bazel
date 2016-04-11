@@ -25,6 +25,8 @@ def gensrcjar_impl(ctx):
         "JAR='%s'" % ctx.executable._jar.path,
         "OUTPUT='%s'" % out.path,
         "PROTO_COMPILER='%s'" % ctx.executable._proto_compiler.path,
+        "GRPC_JAVA_PLUGIN='%s'" % ctx.executable.grpc_java_plugin.path if \
+            ctx.executable.grpc_java_plugin else "",
         "SOURCE='%s'" % ctx.file.src.path,
         ctx.executable._gensrcjar.path,
     ]),
@@ -41,6 +43,11 @@ gensrcjar = rule(
     attrs = {
         "src": attr.label(
             allow_files = proto_filetype,
+            single_file = True,
+        ),
+        "grpc_java_plugin": attr.label(
+            cfg = HOST_CFG,
+            executable = True,
             single_file = True,
         ),
         "_gensrcjar": attr.label(
@@ -73,13 +80,42 @@ gensrcjar = rule(
     outputs = {"srcjar": "lib%{name}.srcjar"},
 )
 
+def cc_grpc_library(name, src):
+  basename = src[:-len(".proto")]
+
+  native.genrule(
+      name = name + "_codegen",
+      srcs = [src],
+      tools = ["//third_party/protobuf:protoc", "//third_party/grpc:cpp_plugin"],
+      cmd = "\\\n".join([
+          "$(location //third_party/protobuf:protoc)",
+          "    --plugin=protoc-gen-grpc=$(location //third_party/grpc:cpp_plugin)",
+          "    --cpp_out=$(GENDIR)",
+          "    --grpc_out=$(GENDIR)",
+          "    $(location " + src + ")"]),
+      outs = [basename + ".grpc.pb.h", basename + ".grpc.pb.cc", basename + ".pb.cc", basename + ".pb.h"])
+
+  native.cc_library(
+      name = name,
+      srcs = [basename + ".grpc.pb.cc", basename + ".pb.cc"],
+      hdrs = [basename + ".grpc.pb.h", basename + ".pb.h"],
+      deps = ["//third_party/grpc:grpc++"],
+      includes = ["."])
+
 # TODO(bazel-team): support proto => proto dependencies too
-def java_proto_library(name, src):
-  gensrcjar(name=name + "_srcjar", src=src)
+def java_proto_library(name, src, use_grpc_plugin=False):
+  grpc_java_plugin = None
+  if use_grpc_plugin:
+    grpc_java_plugin = "//third_party/grpc:grpc-java-plugin"
+
+  gensrcjar(name=name + "_srcjar", src=src, grpc_java_plugin=grpc_java_plugin)
+  deps = ["//third_party/protobuf"]
+  if use_grpc_plugin:
+    deps += ["//third_party/grpc:grpc-jar", "//third_party:guava"]
   native.java_library(
     name=name,
     srcs=[name + "_srcjar"],
-    deps=["//third_party/protobuf"],
+    deps=deps,
     # The generated code has lots of 'rawtypes' warnings.
     javacopts=["-Xlint:-rawtypes"],
 )
