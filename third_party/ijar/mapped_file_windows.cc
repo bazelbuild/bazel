@@ -38,6 +38,15 @@ void PrintLastError(const char* op) {
   LocalFree(message);
 }
 
+char* ToUnicodePath(const char* path) {
+  // Add \\?\ as prefix to enable unicode path which allows path length longer
+  // than 260
+  int length = strlen(path) + 5;
+  char* unicode_path = reinterpret_cast<char*>(malloc(length));
+  snprintf(unicode_path, length, "\\\\?\\%s", path);
+  return unicode_path;
+}
+
 struct MappedInputFileImpl {
   HANDLE file_;
   HANDLE mapping_;
@@ -55,9 +64,11 @@ MappedInputFile::MappedInputFile(const char* name) {
 
   char* path = reinterpret_cast<char*>(
       cygwin_create_path(CCP_POSIX_TO_WIN_A, name));
-  HANDLE file = CreateFile(
-      path, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, 0, NULL);
+  char* unicode_path = ToUnicodePath(path);
   free(path);
+  HANDLE file = CreateFile(unicode_path, GENERIC_READ, FILE_SHARE_READ, NULL,
+                           OPEN_EXISTING, 0, NULL);
+  free(unicode_path);
   if (file == INVALID_HANDLE_VALUE) {
     PrintLastError("CreateFile()");
     return;
@@ -138,9 +149,11 @@ MappedOutputFile::MappedOutputFile(const char* name, u8 estimated_size) {
 
   char* path = reinterpret_cast<char*>(
       cygwin_create_path(CCP_POSIX_TO_WIN_A, name));
-  HANDLE file = CreateFile(
-      path, GENERIC_READ | GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
+  char* unicode_path = ToUnicodePath(path);
   free(path);
+  HANDLE file = CreateFile(unicode_path, GENERIC_READ | GENERIC_WRITE, 0, NULL,
+                           CREATE_ALWAYS, 0, NULL);
+  free(unicode_path);
   if (file == INVALID_HANDLE_VALUE) {
     PrintLastError("CreateFile()");
     return;
