@@ -85,7 +85,7 @@ public abstract class ProguardHelper {
    * <p>If this method returns artifacts then {@link DeployArchiveBuilder} needs to write the
    * assumed input artifact (instead of the conventional deploy.jar, which now Proguard writes).
    * Do not use this method for binary rules that themselves declare {@link #PROGUARD_SPECS}
-   * attributes, which includes of 1/2016 {@code android_binary} and {@code android_test}.
+   * attributes, which as of includes 1/2016 {@code android_binary} and {@code android_test}.
    */
   @Nullable
   public ProguardOutput applyProguardIfRequested(
@@ -111,7 +111,7 @@ public abstract class ProguardHelper {
     Artifact singleJar =
         ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_MERGED_JAR);
     return createProguardAction(ruleContext, proguard, singleJar, proguardSpecs, (Artifact) null,
-        bootclasspath, deployJar, /* mappingRequested */ false, /* optimizationPases */ null);
+        bootclasspath, deployJar, /* mappingRequested */ false, /* optimizationPasses */ 3);
   }
 
   private ImmutableList<Artifact> collectProguardSpecs(
@@ -258,8 +258,8 @@ public abstract class ProguardHelper {
     }
 
     Artifact proguardConfigOutput =
-        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_CONFIG); 
-    
+        ruleContext.getImplicitOutputArtifact(JavaSemantics.JAVA_BINARY_PROGUARD_CONFIG);
+
     if (optimizationPasses == null) {
       // Run proguard as a single step.
       Builder builder = makeBuilder(
