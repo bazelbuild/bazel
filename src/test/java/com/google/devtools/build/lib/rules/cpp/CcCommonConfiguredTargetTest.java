@@ -519,6 +519,21 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCcLibraryRootIncludesError() throws Exception {
+    checkError(
+        "root",
+        "lib",
+        // message:
+        "in includes attribute of cc_library rule //root:lib: '..' resolves to the workspace root, "
+            + "which would allow this rule and all of its transitive dependents to include any "
+            + "file in your workspace. Please include only what you need",
+        // build file:
+        "cc_library(name = 'lib',",
+        "           srcs = ['foo.cc'],",
+        "           includes = ['..'])");
+  }
+
+  @Test
   public void testStaticallyLinkedBinaryNeedsSharedObject() throws Exception {
     scratch.file(
         "third_party/sophos_av_pua/BUILD",

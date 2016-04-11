@@ -408,7 +408,15 @@ public final class CcCommon {
         ruleContext.attributeError("includes",
             "Path references a path above the execution root.");
       }
-      if (!includesPath.startsWith(packageFragment)) {
+      if (includesPath.segmentCount() == 0) {
+        ruleContext.attributeError(
+            "includes",
+            "'"
+                + includesAttr
+                + "' resolves to the workspace root, which would allow this rule and all of its "
+                + "transitive dependents to include any file in your workspace. Please include only"
+                + " what you need");
+      } else if (!includesPath.startsWith(packageFragment)) {
         ruleContext.attributeWarning(
             "includes",
             "'"
