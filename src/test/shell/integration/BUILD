@@ -29,6 +29,7 @@ sh_test(
     size = "medium",
     srcs = ["experimental_ui_test.sh"],
     data = [":test-deps"],
+    shard_count = 4,
 )
 
 sh_test(

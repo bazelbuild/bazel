@@ -42,6 +42,12 @@ import java.util.logging.Logger;
  */
 public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   private static Logger LOG = Logger.getLogger(ExperimentalEventHandler.class.getName());
+  /** Latest refresh of the progress bar, if contents other than time changed */
+  static final long MAXIMAL_UPDATE_DELAY_MILLIS = 200L;
+  /** Periodic update interval of a time-dependent progress bar if it can be updated in place */
+  static final long SHORT_REFRESH_MILLIS = 1000L;
+  /** Periodic update interval of a time-dependent progress bar if it cannot be updated in place */
+  static final long LONG_REFRESH_MILLIS = 5000L;
 
   private final long minimalDelayMillis;
   private final boolean cursorControl;
@@ -69,7 +75,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     this.stateTracker = new ExperimentalStateTracker(clock);
     this.numLinesProgressBar = 0;
     this.minimalDelayMillis = Math.round(options.showProgressRateLimit * 1000);
-    this.minimalUpdateInterval = Math.max(this.minimalDelayMillis, 1000L);
+    this.minimalUpdateInterval = Math.max(this.minimalDelayMillis, MAXIMAL_UPDATE_DELAY_MILLIS);
     // The progress bar has not been updated yet.
     ignoreRefreshLimitOnce();
   }
@@ -229,7 +235,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     long nowMillis = clock.currentTimeMillis();
     if (lastRefreshMillis + minimalDelayMillis < nowMillis) {
       try {
-        if (progressBarNeedsRefresh || stateTracker.progressBarTimeDependent()) {
+        if (progressBarNeedsRefresh || timeBasedRefresh()) {
           progressBarNeedsRefresh = false;
           lastRefreshMillis = nowMillis;
           clearProgressBar();
@@ -248,6 +254,19 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
       // timely manner, as it best describes the current state.
       startUpdateThread();
     }
+  }
+
+  /**
+   * Decide wheter the progress bar should be redrawn only for the reason
+   * that time has passed.
+   */
+  private synchronized boolean timeBasedRefresh () {
+    if (!stateTracker.progressBarTimeDependent()) {
+      return false;
+    }
+    long nowMillis = clock.currentTimeMillis();
+    long intervalMillis = cursorControl ? SHORT_REFRESH_MILLIS : LONG_REFRESH_MILLIS;
+    return lastRefreshMillis + intervalMillis < nowMillis;
   }
 
   private void ignoreRefreshLimitOnce() {
@@ -322,7 +341,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     if (cursorControl) {
       terminalWriter = new LineWrappingAnsiTerminalWriter(terminalWriter, terminalWidth - 1);
     }
-    stateTracker.writeProgressBar(terminalWriter);
+    stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ !cursorControl);
     terminalWriter.newline();
     numLinesProgressBar = countingTerminalWriter.getWrittenLines();
   }

@@ -191,4 +191,17 @@ function test_times_fresh {
   expect_log 'Testing.*slow.*[789]s'
 }
 
+function test_nocurses_little_output {
+  bazel clean || fail "bazel clean failed"
+  bazel test --experimental_ui --curses=no --color=yes pkg:slow 2>$TEST_log \
+    || fail "bazel test failed"
+  # We have ensured that the slow test is run. It takes about 10 seconds
+  # and we expect an update about every five second, so, in totoal, we
+  # expect to see two or three lines about the progress of the slow test.
+  # Five definitely is way off.
+  line_count=`grep 'Testing.*slow' $TEST_log | wc -l`
+  [ $line_count -lt 5 ] \
+    || fail "Too many progress updates in the log: `cat $TEST_log`"
+}
+
 run_suite "Integration tests for bazel's experimental UI"
