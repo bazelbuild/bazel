@@ -122,12 +122,7 @@ public final class InvocationPolicyEnforcer {
    * @throws OptionsParsingException if any flag policy is invalid.
    */
   public void enforce(OptionsParser parser, String command) throws OptionsParsingException {
-    if (invocationPolicy == null) {
-      return;
-    }
-
-    if (invocationPolicy.getFlagPoliciesCount() == 0) {
-      log.warning("InvocationPolicy contains no flag policies.");
+    if (invocationPolicy == null || invocationPolicy.getFlagPoliciesCount() == 0) {
       return;
     }
 
