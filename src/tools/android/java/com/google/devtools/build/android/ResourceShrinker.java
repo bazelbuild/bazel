@@ -1028,13 +1028,13 @@ public class ResourceShrinker {
   private class UsageVisitor extends ClassVisitor {
 
     public UsageVisitor() {
-      super(Opcodes.ASM4);
+      super(Opcodes.ASM5);
     }
 
     @Override
     public MethodVisitor visitMethod(int access, final String name,
         String desc, String signature, String[] exceptions) {
-      return new MethodVisitor(Opcodes.ASM4) {
+      return new MethodVisitor(Opcodes.ASM5) {
         @Override
         public void visitLdcInsn(Object cst) {
           if (cst instanceof Integer) {
