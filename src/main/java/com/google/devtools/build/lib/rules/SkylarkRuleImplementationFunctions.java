@@ -94,7 +94,10 @@ public class SkylarkRuleImplementationFunctions {
     name = "action",
     doc =
         "Creates an action that runs an executable or a shell command. You must specify either "
-            + "<code>command</code> or <code>executable</code>.",
+            + "<code>command</code> or <code>executable</code>.\n"
+            + "Actions and genrules are very similar, but have different use cases. Actions are "
+            + "used inside rules, and genrules are used inside macros. Genrules also have make "
+            + "variable expansion.",
     objectType = SkylarkRuleContext.class,
     returnType = Runtime.NoneType.class,
     mandatoryPositionals = {
