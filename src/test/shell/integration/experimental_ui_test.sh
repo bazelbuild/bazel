@@ -35,6 +35,12 @@ function set_up() {
 exit 0
 EOF
   chmod 755 pkg/true.sh
+  cat > pkg/slow.sh <<EOF
+#!/bin/sh
+sleep 10
+exit 0
+EOF
+  chmod 755 pkg/slow.sh
   cat > pkg/false.sh <<EOF
 #!/bin/sh
 exit 1
@@ -44,6 +50,10 @@ EOF
 sh_test(
   name = "true",
   srcs = ["true.sh"],
+)
+sh_test(
+  name = "slow",
+  srcs = ["slow.sh"],
 )
 sh_test(
   name = "false",
@@ -167,6 +177,18 @@ function test_loading_progress {
     || fail "bazel test failed"
   # some progress indicator is shown during loading
   expect_log 'Loading.*[0-9,]* / [0-9,]*'
+}
+
+function test_times_fresh {
+  bazel clean || fail "bazel clean failed"
+  bazel test --experimental_ui --curses=yes --color=yes pkg:slow 2>$TEST_log \
+    || fail "bazel test failed"
+  # We have ensured that the slow test is run. It takes at least 10 seconds
+  # and we expect an update about once per second. Due to lack of knowledge
+  # of the phasing, we cannot expect a particular run-time to be visible;
+  # however, if none of three adjacent seconds are shown in the upddate the
+  # refreshing is certainly not working.
+  expect_log 'Testing.*slow.*[789]s'
 }
 
 run_suite "Integration tests for bazel's experimental UI"

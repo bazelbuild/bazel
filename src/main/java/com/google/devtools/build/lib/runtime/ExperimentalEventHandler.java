@@ -43,13 +43,18 @@ import java.util.logging.Logger;
 public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   private static Logger LOG = Logger.getLogger(ExperimentalEventHandler.class.getName());
 
+  private final long minimalDelayMillis;
   private final boolean cursorControl;
+  private final Clock clock;
   private final AnsiTerminal terminal;
   private final boolean debugAllEvents;
   private final ExperimentalStateTracker stateTracker;
+  private final long minimalUpdateInterval;
+  private long lastRefreshMillis;
   private int numLinesProgressBar;
   private boolean buildComplete;
   private boolean progressBarNeedsRefresh;
+  private Thread updateThread;
 
   public final int terminalWidth;
 
@@ -59,9 +64,14 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     this.cursorControl = options.useCursorControl();
     this.terminal = new AnsiTerminal(outErr.getErrorStream());
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
+    this.clock = clock;
     this.debugAllEvents = options.experimentalUiDebugAllEvents;
     this.stateTracker = new ExperimentalStateTracker(clock);
     this.numLinesProgressBar = 0;
+    this.minimalDelayMillis = Math.round(options.showProgressRateLimit * 1000);
+    this.minimalUpdateInterval = Math.max(this.minimalDelayMillis, 1000L);
+    // The progress bar has not been updated yet.
+    ignoreRefreshLimitOnce();
   }
 
   @Override
@@ -150,13 +160,18 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   @Subscribe
   public void buildStarted(BuildStartingEvent event) {
     stateTracker.buildStarted(event);
+    // As a new phase started, inform immediately.
+    ignoreRefreshLimitOnce();
     refresh();
   }
 
   @Subscribe
   public void loadingStarted(LoadingPhaseStartedEvent event) {
     stateTracker.loadingStarted(event);
+    // As a new phase started, inform immediately.
+    ignoreRefreshLimitOnce();
     refresh();
+    startUpdateThread();
   }
 
   @Subscribe
@@ -174,6 +189,9 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   @Subscribe
   public void progressReceiverAvailable(ExecutionProgressReceiverAvailableEvent event) {
     stateTracker.progressReceiverAvailable(event);
+    // As this is the first time we have a progress message, update immediately.
+    ignoreRefreshLimitOnce();
+    startUpdateThread();
   }
 
   @Subscribe
@@ -181,11 +199,13 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     stateTracker.buildComplete(event);
     refresh();
     buildComplete = true;
+    stopUpdateThread();
   }
 
   @Subscribe
   public void noBuild(NoBuildEvent event) {
     buildComplete = true;
+    stopUpdateThread();
   }
 
   @Subscribe
@@ -206,15 +226,67 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   }
 
   private synchronized void doRefresh() {
-    try {
-      if (progressBarNeedsRefresh) {
-        progressBarNeedsRefresh = false;
-        clearProgressBar();
-        addProgressBar();
-        terminal.flush();
+    long nowMillis = clock.currentTimeMillis();
+    if (lastRefreshMillis + minimalDelayMillis < nowMillis) {
+      try {
+        if (progressBarNeedsRefresh || stateTracker.progressBarTimeDependent()) {
+          progressBarNeedsRefresh = false;
+          lastRefreshMillis = nowMillis;
+          clearProgressBar();
+          addProgressBar();
+          terminal.flush();
+        }
+      } catch (IOException e) {
+        LOG.warning("IO Error writing to output stream: " + e);
       }
-    } catch (IOException e) {
-      LOG.warning("IO Error writing to output stream: " + e);
+      if (!stateTracker.progressBarTimeDependent()) {
+        stopUpdateThread();
+      }
+    } else {
+      // We skipped an update due to rate limiting. If this however, turned
+      // out to be the last update for a long while, we need to show it in a
+      // timely manner, as it best describes the current state.
+      startUpdateThread();
+    }
+  }
+
+  private void ignoreRefreshLimitOnce() {
+    // Set refresh time variables in a state such that the next progress bar
+    // update will definitely be written out.
+    lastRefreshMillis = clock.currentTimeMillis() - minimalDelayMillis - 1;
+  }
+
+  private synchronized void startUpdateThread() {
+    if (updateThread == null) {
+      final ExperimentalEventHandler eventHandler = this;
+      updateThread =
+          new Thread(
+              new Runnable() {
+                @Override
+                public void run() {
+                  try {
+                    while (true) {
+                      Thread.sleep(minimalUpdateInterval);
+                      eventHandler.doRefresh();
+                    }
+                  } catch (InterruptedException e) {
+                    // Ignore
+                  }
+                }
+              });
+      updateThread.start();
+    }
+  }
+
+  private synchronized void stopUpdateThread() {
+    if (updateThread != null) {
+      updateThread.interrupt();
+      try {
+        updateThread.join();
+      } catch (InterruptedException e) {
+        // Ignore
+      }
+      updateThread = null;
     }
   }
 
