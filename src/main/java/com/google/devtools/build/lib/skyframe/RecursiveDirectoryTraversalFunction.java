@@ -13,8 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.base.Function;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -34,6 +38,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.ValueOrException;
 import com.google.devtools.build.skyframe.ValueOrException4;
 
 import java.io.IOException;
@@ -108,6 +113,18 @@ abstract class RecursiveDirectoryTraversalFunction
      */
     void visitPackageValue(Package pkg, Environment env);
   }
+
+  private static final Function<ValueOrException<NoSuchPackageException>, SkyValue> GET_SKYVALUE =
+      new Function<ValueOrException<NoSuchPackageException>, SkyValue>() {
+        @Override
+        public SkyValue apply(ValueOrException<NoSuchPackageException> val) {
+          try {
+            return Preconditions.checkNotNull(val.get(), val);
+          } catch (NoSuchPackageException e) {
+            throw new IllegalStateException(e);
+          }
+        }
+      };
 
   /**
    * Looks in the directory specified by {@code recursivePkgKey} for a package, does some work
@@ -192,47 +209,6 @@ abstract class RecursiveDirectoryTraversalFunction
     }
 
     TVisitor visitor = getInitialVisitor();
-    if (pkgLookupValue.packageExists()) {
-      if (pkgLookupValue.getRoot().equals(root)) {
-        Package pkg = null;
-        try {
-          PackageValue pkgValue = (PackageValue)
-              env.getValueOrThrow(PackageValue.key(packageId), NoSuchPackageException.class);
-          if (pkgValue == null) {
-            return null;
-          }
-          pkg = pkgValue.getPackage();
-          if (pkg.containsErrors()) {
-            env
-                .getListener()
-                .handle(
-                    Event.error("package contains errors: " + rootRelativePath.getPathString()));
-          }
-        } catch (NoSuchPackageException e) {
-          // The package had errors, but don't fail-fast as there might be subpackages below the
-          // current directory.
-          env
-              .getListener()
-              .handle(Event.error("package contains errors: " + rootRelativePath.getPathString()));
-        }
-        if (pkg != null) {
-          visitor.visitPackageValue(pkg, env);
-          if (env.valuesMissing()) {
-            return null;
-          }
-        }
-      }
-      // The package lookup succeeded, but was under a different root. We still, however, need to
-      // recursively consider subdirectories. For example:
-      //
-      //  Pretend --package_path=rootA/workspace:rootB/workspace and these are the only files:
-      //    rootA/workspace/foo/
-      //    rootA/workspace/foo/bar/BUILD
-      //    rootB/workspace/foo/BUILD
-      //  If we're doing a recursive package lookup under 'rootA/workspace' starting at 'foo', note
-      //  that even though the package 'foo' is under 'rootB/workspace', there is still a package
-      //  'foo/bar' under 'rootA/workspace'.
-    }
 
     DirectoryListingValue dirListingValue;
     try {
@@ -298,7 +274,47 @@ abstract class RecursiveDirectoryTraversalFunction
       childDeps.add(getSkyKeyForSubdirectory(recursivePkgKey.getRepository(),
           subdirectoryRootedPath, excludedSubdirectoriesBeneathThisSubdirectory));
     }
-    Map<SkyKey, SkyValue> subdirectorySkyValues = env.getValues(childDeps);
+
+    Map<SkyKey, SkyValue> subdirectorySkyValues;
+    if (pkgLookupValue.packageExists() && pkgLookupValue.getRoot().equals(root)) {
+      SkyKey packageKey = PackageValue.key(packageId);
+      Map<SkyKey, ValueOrException<NoSuchPackageException>> dependentSkyValues =
+          env.getValuesOrThrow(
+              Iterables.concat(childDeps, ImmutableList.of(packageKey)),
+              NoSuchPackageException.class);
+      if (env.valuesMissing()) {
+        return null;
+      }
+      Package pkg = null;
+      try {
+        PackageValue pkgValue = (PackageValue) dependentSkyValues.get(packageKey).get();
+        if (pkgValue == null) {
+          return null;
+        }
+        pkg = pkgValue.getPackage();
+        if (pkg.containsErrors()) {
+          env.getListener()
+              .handle(Event.error("package contains errors: " + rootRelativePath.getPathString()));
+        }
+      } catch (NoSuchPackageException e) {
+        // The package had errors, but don't fail-fast as there might be subpackages below the
+        // current directory.
+        env.getListener()
+            .handle(Event.error("package contains errors: " + rootRelativePath.getPathString()));
+      }
+      if (pkg != null) {
+        visitor.visitPackageValue(pkg, env);
+        if (env.valuesMissing()) {
+          return null;
+        }
+      }
+      subdirectorySkyValues =
+          Maps.transformValues(
+              Maps.filterKeys(dependentSkyValues, Predicates.not(Predicates.equalTo(packageKey))),
+              GET_SKYVALUE);
+    } else {
+      subdirectorySkyValues = env.getValues(childDeps);
+    }
     if (env.valuesMissing()) {
       return null;
     }
