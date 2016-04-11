@@ -177,7 +177,8 @@ class ExperimentalStateTracker {
     return false;
   }
 
-  synchronized void writeProgressBar(AnsiTerminalWriter terminalWriter) throws IOException {
+  synchronized void writeProgressBar(AnsiTerminalWriter terminalWriter, boolean shortVersion)
+      throws IOException {
     if (status != null) {
       if (ok) {
         terminalWriter.okStatus();
@@ -200,13 +201,25 @@ class ExperimentalStateTracker {
     } else {
       terminalWriter.okStatus().append("Building:");
     }
-    if (runningActions.size() == 1) {
+    if (runningActions.size() == 0) {
+      terminalWriter.normal().append(" no actions running");
+    } else if (runningActions.size() == 1) {
       String statusMessage = describeAction(runningActions.peekFirst(), clock.nanoTime());
       terminalWriter.normal().append(" " + statusMessage);
     } else {
-      String statusMessage = " " + runningActions.size() + " actions running";
-      terminalWriter.normal().append(" " + statusMessage);
-      sampleOldestActions(terminalWriter);
+      if (shortVersion) {
+        String statusMessage = describeAction(runningActions.peekFirst(), clock.nanoTime());
+        statusMessage += " ... (" + runningActions.size() + " actions)";
+        terminalWriter.normal().append(" " + statusMessage);
+      } else {
+        String statusMessage = " " + runningActions.size() + " actions running";
+        terminalWriter.normal().append(" " + statusMessage);
+        sampleOldestActions(terminalWriter);
+      }
     }
+  }
+
+  void writeProgressBar(AnsiTerminalWriter terminalWriter) throws IOException {
+    writeProgressBar(terminalWriter, false);
   }
 }
