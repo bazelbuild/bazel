@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.actions.ResourceManager.ResourceHandle;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
+import com.google.devtools.build.lib.actions.SpawnActionContext;
 import com.google.devtools.build.lib.actions.TestExecException;
 import com.google.devtools.build.lib.analysis.RunfilesSupplierImpl;
 import com.google.devtools.build.lib.analysis.config.BinTools;
@@ -166,13 +167,14 @@ public class StandaloneTestStrategy extends TestStrategy {
 
   private TestResultData execute(
       ActionExecutionContext actionExecutionContext, Spawn spawn, TestRunnerAction action)
-      throws TestExecException, InterruptedException {
+      throws ExecException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
     Closeable streamed = null;
     Path testLogPath = action.getTestLog().getPath();
     TestResultData.Builder builder = TestResultData.newBuilder();
 
     long startTime = executor.getClock().currentTimeMillis();
+    SpawnActionContext spawnActionContext = executor.getSpawnActionContext(action.getMnemonic());
     try {
       try {
         if (executionOptions.testOutput.equals(TestOutputFormat.STREAMED)) {
@@ -180,7 +182,7 @@ public class StandaloneTestStrategy extends TestStrategy {
               Reporter.outErrForReporter(
                   actionExecutionContext.getExecutor().getEventHandler()), testLogPath);
         }
-        executor.getSpawnActionContext(action.getMnemonic()).exec(spawn, actionExecutionContext);
+        spawnActionContext.exec(spawn, actionExecutionContext);
 
         builder.setTestPassed(true)
             .setStatus(BlazeTestStatus.PASSED)
@@ -195,6 +197,9 @@ public class StandaloneTestStrategy extends TestStrategy {
             .setTestPassed(false)
             .setStatus(e.hasTimedOut() ? BlazeTestStatus.TIMEOUT : BlazeTestStatus.FAILED)
             .addFailedLogs(testLogPath.getPathString());
+        if (spawnActionContext.shouldPropagateExecException()) {
+          throw e;
+        }
       } finally {
         long duration = executor.getClock().currentTimeMillis() - startTime;
         builder.addTestTimes(duration);

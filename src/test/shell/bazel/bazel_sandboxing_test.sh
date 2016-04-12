@@ -418,6 +418,22 @@ function test_sandbox_add_path_workspace_child() {
   expect_log "Mounting subdirectory of WORKSPACE or OUTPUTBASE to sandbox is not allowed"
 }
 
+function test_sandbox_fail_command() {
+  mkdir -p "javatests/orange"
+  echo "java_test(name = 'Orange', srcs = ['Orange.java'])" > javatests/orange/BUILD
+  cat > javatests/orange/Orange.java <<EOF
+package orange;
+import junit.framework.TestCase;
+public class Orange extends TestCase {
+  public void testFails() { fail("juice"); }
+}
+EOF
+  bazel test --sandbox_debug --verbose_failures //javatests/orange:Orange >& $TEST_log \
+    && fail "Expected failure" || true
+
+  expect_log "Sandboxed execution failed, which may be legitimate"
+}
+
 # The test shouldn't fail if the environment doesn't support running it.
 check_supported_platform || exit 0
 check_sandbox_allowed || exit 0

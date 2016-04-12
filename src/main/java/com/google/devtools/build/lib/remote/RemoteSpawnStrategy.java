@@ -259,4 +259,9 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     // Returning true here just helps to estimate the cost of this computation is zero.
     return remotable;
   }
+
+  @Override
+  public boolean shouldPropagateExecException() {
+    return false;
+  }
 }

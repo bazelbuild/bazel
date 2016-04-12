@@ -269,4 +269,9 @@ public final class WorkerSpawnStrategy implements SpawnActionContext {
   public boolean willExecuteRemotely(boolean remotable) {
     return false;
   }
+
+  @Override
+  public boolean shouldPropagateExecException() {
+    return false;
+  }
 }

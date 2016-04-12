@@ -33,4 +33,11 @@ public interface SpawnActionContext extends Executor.ActionContext {
    * execute spawns remotely, i.e., force remote execution.
    */
   boolean willExecuteRemotely(boolean remotable);
+
+  /**
+   * If an ExecException should be rethrown by the strategy that executed this.
+   * Currently only works for LinuxSandboxedStrategy:
+   * If true, will throw ExecException and give reproduction instruction for sandbox.
+   */
+  boolean shouldPropagateExecException();
 }

@@ -196,4 +196,9 @@ public class StandaloneSpawnStrategy implements SpawnActionContext {
     }
     return AppleHostInfo.getSdkRoot(execRoot, developerDir, iosSdkVersion, appleSdkPlatform);
   }
+
+  @Override
+  public boolean shouldPropagateExecException() {
+    return false;
+  }
 }

@@ -68,8 +68,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 /**
  * Strategy that uses sandboxing to execute a process.
  */
-@ExecutionStrategy(name = {"sandboxed"},
-                   contextType = SpawnActionContext.class)
+@ExecutionStrategy(
+  name = {"sandboxed"},
+  contextType = SpawnActionContext.class
+)
 public class LinuxSandboxedStrategy implements SpawnActionContext {
   private final ExecutorService backgroundWorkers;
 
@@ -683,5 +685,10 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
   @Override
   public String toString() {
     return "sandboxed";
+  }
+
+  @Override
+  public boolean shouldPropagateExecException() {
+    return verboseFailures && sandboxDebug;
   }
 }
