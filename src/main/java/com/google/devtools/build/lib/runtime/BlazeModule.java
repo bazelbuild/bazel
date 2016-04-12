@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.exec.OutputService;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.Preprocessor;
+import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.engine.QueryEnvironment.QueryFunction;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
@@ -374,8 +375,10 @@ public abstract class BlazeModule {
    * Returns a factory for creating {@link SkyframeExecutor} objects. If the module does not
    * provide any SkyframeExecutorFactory, it returns null. Note that only one factory per
    * Bazel/Blaze runtime is allowed.
+   *
+   * @param directories the workspace directories
    */
-  public SkyframeExecutorFactory getSkyframeExecutorFactory() {
+  public SkyframeExecutorFactory getSkyframeExecutorFactory(BlazeDirectories directories) {
     return null;
   }
 

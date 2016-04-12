@@ -20,7 +20,6 @@ import com.google.common.io.ByteStreams;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.UserExecException;
-import com.google.devtools.build.lib.analysis.config.BinTools;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
@@ -81,9 +80,9 @@ public class NamespaceSandboxRunner {
 
   static boolean isSupported(CommandEnvironment commandEnv) {
     Path execRoot = commandEnv.getExecRoot();
-    BinTools binTools = commandEnv.getRuntime().getBinTools();
 
-    PathFragment embeddedTool = binTools.getExecPath(NAMESPACE_SANDBOX);
+    PathFragment embeddedTool =
+        commandEnv.getBlazeWorkspace().getBinTools().getExecPath(NAMESPACE_SANDBOX);
     if (embeddedTool == null) {
       // The embedded tool does not exist, meaning that we don't support sandboxing (e.g., while
       // bootstrapping).

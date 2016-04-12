@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
-import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
@@ -126,7 +125,6 @@ public class RunCommand implements BlazeCommand  {
 
   @Override
   public ExitCode exec(CommandEnvironment env, OptionsProvider options) {
-    BlazeRuntime runtime = env.getRuntime();
     RunOptions runOptions = options.getOptions(RunOptions.class);
     // This list should look like: ["//executable:target", "arg1", "arg2"]
     List<String> targetAndArgs = options.getResidue();
@@ -146,7 +144,7 @@ public class RunCommand implements BlazeCommand  {
         : ImmutableList.of(targetString);
     BuildRequest request = BuildRequest.create(
         this.getClass().getAnnotation(Command.class).name(), options,
-        runtime.getStartupOptionsProvider(), targets, outErr,
+        env.getRuntime().getStartupOptionsProvider(), targets, outErr,
         env.getCommandId(), env.getCommandStartTime());
 
     currentRunUnder = runUnder;
@@ -246,7 +244,8 @@ public class RunCommand implements BlazeCommand  {
             options.getOptions(BuildRequestOptions.class).getSymlinkPrefix());
     List<String> cmdLine = new ArrayList<>();
     if (runOptions.scriptPath == null) {
-      PathFragment processWrapperPath = runtime.getBinTools().getExecPath(PROCESS_WRAPPER);
+      PathFragment processWrapperPath =
+          env.getBlazeWorkspace().getBinTools().getExecPath(PROCESS_WRAPPER);
       Preconditions.checkNotNull(
           processWrapperPath, PROCESS_WRAPPER + " not found in embedded tools");
       cmdLine.add(env.getExecRoot().getRelative(processWrapperPath).getPathString());
@@ -372,7 +371,7 @@ public class RunCommand implements BlazeCommand  {
         runfilesDir,
         false);
     helper.createSymlinksUsingCommand(env.getExecRoot(), target.getConfiguration(),
-        env.getRuntime().getBinTools());
+        env.getBlazeWorkspace().getBinTools());
     return workingDir;
   }
 

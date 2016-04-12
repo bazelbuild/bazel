@@ -192,7 +192,8 @@ public class ExecutionTool {
             new FilesetActionContextImpl.Provider(
                 env.getReporter(), env.getWorkspaceName()),
             new SimpleActionContextProvider(
-                new SymlinkTreeStrategy(env.getOutputService(), runtime.getBinTools())));
+                new SymlinkTreeStrategy(
+                    env.getOutputService(), env.getBlazeWorkspace().getBinTools())));
     StrategyConverter strategyConverter = new StrategyConverter(actionContextProviders);
 
     ImmutableList<ActionContextConsumer> actionContextConsumers =
@@ -509,7 +510,7 @@ public class ExecutionTool {
 
   private void createToolsSymlinks() throws ExecutorInitException {
     try {
-      runtime.getBinTools().setupBuildTools();
+      env.getBlazeWorkspace().getBinTools().setupBuildTools();
     } catch (ExecException e) {
       throw new ExecutorInitException("Tools symlink creation failed", e);
     }
