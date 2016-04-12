@@ -28,6 +28,8 @@ trap "rm -fr \"${PACKAGE_DIR}\"" EXIT
 
 for i in $*; do
   case "$i" in
+    *javac.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac.jar ;;
+    *tools_jdk_jdk7.build) OUTPUT_PATH=tools/jdk/BUILD ;;
     *JavaBuilder_deploy.jar) OUTPUT_PATH=tools/jdk/JavaBuilder_deploy.jar ;;
     *SingleJar_deploy.jar) OUTPUT_PATH=tools/jdk/SingleJar_deploy.jar ;;
     *GenClass_deploy.jar) OUTPUT_PATH=tools/jdk/GenClass_deploy.jar ;;

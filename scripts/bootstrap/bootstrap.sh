@@ -28,21 +28,33 @@ if [ -n "${EMBED_LABEL}" ]; then
     EMBED_LABEL_ARG=(--stamp --embed_label "${EMBED_LABEL}")
 fi
 
-: ${JAVA_VERSION:="1.8"}
-
-: ${BAZEL_ARGS:=--singlejar_top=//src/java_tools/singlejar:bootstrap_deploy.jar \
-      --javabuilder_top=//src/java_tools/buildjar:bootstrap_deploy.jar \
-      --genclass_top=//src/java_tools/buildjar:bootstrap_genclass_deploy.jar \
-      --ijar_top=//third_party/ijar \
+COMMON_BAZEL_ARGS="--singlejar_top=//src/java_tools/singlejar:bootstrap_deploy.jar \
+    --genclass_top=//src/java_tools/buildjar:bootstrap_genclass_deploy.jar \
+    --ijar_top=//third_party/ijar"
+if [[ "${JAVA_VERSION-}" == 1.7 ]]; then
+  # Set the various arguments when JDK 7 is required (deprecated).
+  # This setting is here to continue to build binary release of Bazel
+  # for JDK 7. We will drop this method and JDK 7 support when our
+  # ci system turn red on this one.
+  : ${BAZEL_ARGS:=--java_toolchain=//tools/jdk:toolchain7 \
+      --javabuilder_top=@io_bazel_javabuilder_jdk7//file \
+      --java_langtools=@io_bazel_javac_jdk7//file \
+      ${COMMON_BAZEL_ARGS} \
+      "${EXTRA_BAZEL_ARGS:-}"}
+  : ${BAZEL_FLAVOUR:="-jdk7"}
+else
+  : ${BAZEL_ARGS:=--javabuilder_top=//src/java_tools/buildjar:bootstrap_deploy.jar \
       --strategy=Javac=worker --worker_quit_after_build \
       --genrule_strategy=standalone --spawn_strategy=standalone \
+      ${COMMON_BAZEL_ARGS} \
       "${EXTRA_BAZEL_ARGS:-}"}
+  : ${BAZEL_FLAVOUR:=""}
+fi
 
 if [ -z "${BAZEL-}" ]; then
   function bazel_build() {
     bootstrap_build ${BAZEL_ARGS-} \
                     --verbose_failures \
-                    --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
                     "${EMBED_LABEL_ARG[@]}" \
                     "${@}"
   }
@@ -51,7 +63,6 @@ else
     ${BAZEL} --bazelrc=${BAZELRC} build \
            ${BAZEL_ARGS-} \
            --verbose_failures \
-           --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
            "${EMBED_LABEL_ARG[@]}" \
            "${@}"
   }
@@ -77,7 +88,7 @@ function get_outputs_sum() {
 function bootstrap_test() {
   local BAZEL_BIN=$1
   local BAZEL_SUM=$2
-  local BAZEL_TARGET=${3:-src:bazel}
+  local BAZEL_TARGET=${3:-src:bazel${BAZEL_FLAVOUR}}
   [ -x "${BAZEL_BIN}" ] || fail "syntax: bootstrap bazel-binary"
   run ${BAZEL_BIN} --nomaster_bazelrc --bazelrc=${BAZELRC} clean \
       --expunge || return $?
@@ -85,7 +96,6 @@ function bootstrap_test() {
       ${EXTRA_BAZEL_ARGS-} \
       --strategy=Javac=worker --worker_quit_after_build \
       --fetch --nostamp \
-      --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
       ${BAZEL_TARGET} || return $?
   if [ -n "${BAZEL_SUM}" ]; then
     cat bazel-genfiles/src/java.version >${BAZEL_SUM}
@@ -93,7 +103,7 @@ function bootstrap_test() {
   fi
   if [ -z "${BOOTSTRAP:-}" ]; then
     tempdir
-    BOOTSTRAP=${NEW_TMPDIR}/bazel
+    BOOTSTRAP=${NEW_TMPDIR}/bazel${BAZEL_FLAVOUR}
     local FILE=bazel-bin/${BAZEL_TARGET##//}
     cp -f ${FILE/:/\/} $BOOTSTRAP
     chmod +x $BOOTSTRAP
