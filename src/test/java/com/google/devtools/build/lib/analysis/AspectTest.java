@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -94,6 +95,29 @@ public class AspectTest extends AnalysisTestCase {
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     assertThat(a.getProvider(RuleInfo.class).getData()).containsExactly("rule //a:a");
   }
+
+  // Disabled because this is a bug. Also note that if we fix this, query also needs to be fixed
+  // so that it reports implicit dependencies reached through these aspects.
+  //@Test
+  public void aspectCreationWorksThroughBind() throws Exception {
+    setRules(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
+        new TestAspects.AspectRequiringProviderRule());
+
+    pkg("a",
+        "aspect_requiring_provider(name='a', foo=['//external:b'])",
+        "honest(name='b', foo=[])");
+
+    scratch.overwriteFile("WORKSPACE",
+        "bind(name='b', actual='//a:b')");
+
+    skyframeExecutor.invalidateFilesUnderPathForTesting(reporter,
+        ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    assertThat(a.getProvider(RuleInfo.class).getData())
+        .containsExactly("rule //a:a", "aspect //a:b");
+  }
+
 
   @Test
   public void aspectCreatedIfAdvertisedProviderIsPresent() throws Exception {
