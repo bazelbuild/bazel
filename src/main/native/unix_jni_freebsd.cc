@@ -22,10 +22,10 @@
 #include <sys/extattr.h>
 #include <sys/param.h>
 #include <sys/stat.h>
+#include <sys/sysctl.h>
+#include <sys/types.h>
 
 #include <string>
-
-const int PATH_MAX2 = PATH_MAX * 2;
 
 using std::string;
 
