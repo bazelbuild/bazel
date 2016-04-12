@@ -391,17 +391,7 @@ public final class SkyframeBuildView {
       if (culprit.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
         return ((ConfiguredTargetKey) culprit.argument()).getLabel();
       } else {
-        // For other types of cycles (e.g. file symlink cycles), the root cause is the furthest
-        // target dependency that itself depended on the cycle.
-        Label furthestTarget = labelToLoad;
-        for (SkyKey skyKey : cycleInfo.getPathToCycle()) {
-          if (skyKey.functionName().equals(SkyFunctions.CONFIGURED_TARGET)) {
-            furthestTarget = (Label) skyKey.argument();
-          } else {
-            break;
-          }
-        }
-        return furthestTarget;
+        return labelToLoad;
       }
     }
     return null;
