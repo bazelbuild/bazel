@@ -183,7 +183,7 @@ function test_times_fresh {
   bazel clean || fail "bazel clean failed"
   bazel test --experimental_ui --curses=yes --color=yes \
     --nocache_test_results --show_progress_rate_limit=0.03 \
-    pkg:slow 2>$TEST_log \
+    --progress_report_interval=1 pkg:slow 2>$TEST_log \
     || fail "bazel test failed"
   # We have ensured that the slow test is run. It takes at least 10 seconds
   # and we expect an update about once per second. Due to lack of knowledge
