@@ -48,11 +48,19 @@
 #include <time.h>
 #include <unistd.h>
 #include <utime.h>
+
+#include <grpc/grpc.h>
+#include <grpc++/channel.h>
+#include <grpc++/client_context.h>
+#include <grpc++/create_channel.h>
+#include <grpc++/security/credentials.h>
+
 #include <algorithm>
 #include <set>
 #include <string>
 #include <utility>
 #include <vector>
+
 
 #include "src/main/cpp/blaze_abrupt_exit.h"
 #include "src/main/cpp/blaze_globals.h"
@@ -68,6 +76,9 @@
 #include "src/main/cpp/util/port.h"
 #include "src/main/cpp/util/strings.h"
 #include "third_party/ijar/zip.h"
+
+#include "src/main/protobuf/command_server.grpc.pb.h"
+
 
 using blaze_util::Md5Digest;
 using blaze_util::die;
@@ -1672,4 +1683,19 @@ int main(int argc, const char *argv[]) {
 
 int main(int argc, const char *argv[]) {
   return blaze::main(argc, argv);
+}
+
+// Unused method just to make sure that we can compile and link with gRPC
+void InvokeServer(const std::string& address) {
+  std::shared_ptr<grpc::Channel> channel(
+      grpc::CreateChannel(address, grpc::InsecureChannelCredentials()));
+  std::unique_ptr<command_server::CommandServer::Stub> client(
+      command_server::CommandServer::NewStub(channel));
+  command_server::Request request;
+  command_server::Response response;
+  grpc::ClientContext context;
+
+  request.set_number(42);
+  grpc::Status status = client->Run(&context, request, &response);
+  fprintf(stderr, "The response is %d\n", response.number());
 }

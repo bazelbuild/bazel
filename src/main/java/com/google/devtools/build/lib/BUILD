@@ -859,10 +859,12 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:build_java_proto",
+        "//src/main/protobuf:command_server_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//third_party:joda_time",
         "//third_party:jsr305",
+        "//third_party/grpc:grpc-jar",
         "//third_party/protobuf",
     ],
 )

@@ -88,6 +88,7 @@ cc_binary(
         ],
         "//conditions:default": [
             "-lrt",
+            "-ldl",
         ],
     }),
     visibility = ["//src:__pkg__"],
@@ -97,6 +98,7 @@ cc_binary(
         "//src/main/cpp/util",
         "//src/main/cpp/util:md5",
         "//src/main/cpp/util:strings",
+        "//src/main/protobuf:command_server_cc_proto",
         "//third_party/ijar:zip",
     ],
 )

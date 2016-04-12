@@ -19,6 +19,7 @@
 PROTO_FILES=$(ls src/main/protobuf/*.proto)
 LIBRARY_JARS=$(find third_party -name '*.jar' | tr "\n" " ")
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} ${OUTPUT_DIR}/src)
+EXCLUDE_FILES=src/main/java/com/google/devtools/build/lib/server/GrpcServer.java
 
 mkdir -p ${OUTPUT_DIR}/classes
 mkdir -p ${OUTPUT_DIR}/src
@@ -98,8 +99,9 @@ JAR="${JAVA_HOME}/bin/jar"
 function java_compilation() {
   local name=$1
   local directories=$2
-  local library_jars=$3
-  local output=$4
+  local excludes=$3
+  local library_jars=$4
+  local output=$5
 
   local classpath=${library_jars// /$PATHSEP}:$5
   local sourcepath=${directories// /$PATHSEP}
@@ -107,13 +109,22 @@ function java_compilation() {
   tempdir
   local tmp="${NEW_TMPDIR}"
   local paramfile="${tmp}/param"
+  local filelist="${tmp}/filelist"
+  local excludefile="${tmp}/excludefile"
   touch $paramfile
 
   mkdir -p "${output}/classes"
 
   # Compile .java files (incl. generated ones) using javac
   log "Compiling $name code..."
-  find ${directories} -name "*.java" > "$paramfile"
+  find ${directories} -name "*.java" | sort > "$filelist"
+  # Quotes around $excludes intentionally omitted in the for statement so that
+  # it's split on spaces
+  (for i in $excludes; do
+    echo $i
+  done) | sort > "$excludefile"
+
+  comm -23 "$filelist" "$excludefile" > "$paramfile"
 
   if [ ! -z "$BAZEL_DEBUG_JAVA_COMPILATION" ]; then
     echo "directories=${directories}" >&2
@@ -160,7 +171,7 @@ if [ -z "${BAZEL_SKIP_JAVA_COMPILATION}" ]; then
     run "${PROTOC}" -Isrc/main/protobuf/ --java_out=${OUTPUT_DIR}/src "$f"
   done
 
-  java_compilation "Bazel Java" "$DIRS" "$LIBRARY_JARS" "${OUTPUT_DIR}"
+  java_compilation "Bazel Java" "$DIRS" "$EXCLUDE_FILES" "$LIBRARY_JARS" "${OUTPUT_DIR}"
 
   # help files: all non java and BUILD files in src/main/java.
   for i in $(find src/main/java -type f -a \! -name '*.java' -a \! -name 'BUILD' | sed 's|src/main/java/||'); do
