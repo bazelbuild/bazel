@@ -82,7 +82,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Override
   protected Preprocessor.Factory.Supplier getPreprocessorFactorySupplier() {
-    return new SubincludePreprocessor.FactorySupplier(scratch.getFileSystem());
+    return new SubincludePreprocessor.FactorySupplier();
   }
 
   @Override

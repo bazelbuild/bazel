@@ -44,14 +44,10 @@ import java.util.regex.Pattern;
 public class SubincludePreprocessor implements Preprocessor {
   /** Creates SubincludePreprocessor factories. */
   public static class FactorySupplier implements Preprocessor.Factory.Supplier {
-    private final FileSystem fileSystem;
-
-    public FactorySupplier(FileSystem fileSystem) {
-      this.fileSystem = fileSystem;
-    }
-
     @Override
-    public Factory getFactory(final CachingPackageLocator loc) {
+    public Factory getFactory(CachingPackageLocator loc, Path outputBase) {
+      final SubincludePreprocessor preprocessor =
+          new SubincludePreprocessor(outputBase.getFileSystem(), loc);
       return new Factory() {
         @Override
         public boolean isStillValid() {
@@ -65,18 +61,18 @@ public class SubincludePreprocessor implements Preprocessor {
 
         @Override
         public Preprocessor getPreprocessor() {
-          return new SubincludePreprocessor(fileSystem, loc);
+          return preprocessor;
         }
       };
     }
   }
 
-  private final FileSystem fileSystem;
-  private final CachingPackageLocator packageLocator;
-
   private static final Pattern SUBINCLUDE_REGEX =
       Pattern.compile("\\bsubinclude\\(['\"]([^'\"=]*)['\"]\\)", Pattern.MULTILINE);
   public static final String TRANSIENT_ERROR = "TRANSIENT_ERROR";
+
+  private final FileSystem fileSystem;
+  private final CachingPackageLocator packageLocator;
 
   /**
    * Constructs a SubincludePreprocessor using the specified package
