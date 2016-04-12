@@ -613,6 +613,68 @@ public class RuleClassTest extends PackageLoadingTestCase {
                  attributes.get("my-sorted-stringlist-attr", Type.STRING_LIST));
   }
 
+  @Test
+  public void testNonEmptyGood() throws Exception {
+    RuleClass mneRuleClass = setupNonEmpty(
+        attr("list1", LABEL_LIST).mandatory().legacyAllowAnyFileType().build(),
+        attr("list2", LABEL_LIST).nonEmpty().legacyAllowAnyFileType().build(),
+        attr("list3", STRING_LIST).nonEmpty().build());
+
+    Map<String, Object> attributeValues = new LinkedHashMap<>();
+    attributeValues.put("list1", Lists.newArrayList());
+    attributeValues.put("list2", Lists.newArrayList(":nodup1", ":nodup2"));
+    attributeValues.put("list3", Lists.newArrayList("val1", "val2"));
+
+    createRule(mneRuleClass, "ruleTestMNE", attributeValues, testRuleLocation);
+  }
+
+  @Test
+  public void testNonEmptyFail() throws Exception {
+    RuleClass mandNonEmptyRuleClass = setupNonEmpty(
+        attr("list", LABEL_LIST).nonEmpty().legacyAllowAnyFileType().build());
+
+    Map<String, Object> attributeValues = new LinkedHashMap<>();
+    attributeValues.put("list", Lists.newArrayList());
+
+    reporter.removeHandler(failFastHandler);
+    createRule(mandNonEmptyRuleClass, "ruleTestMNE", attributeValues, testRuleLocation);
+
+    assertSame(1, eventCollector.count());
+    assertContainsEvent(getErrorMsgNonEmptyList(
+        "list", "ruleMNE", "//testpackage:ruleTestMNE"));
+  }
+
+  private RuleClass setupNonEmpty(Attribute... attributes) {
+    RuleClass mandNonEmptyRuleClass = new RuleClass(
+        "ruleMNE", false, false, false, false, false, false,
+        ImplicitOutputsFunction.NONE, RuleClass.NO_CHANGE, DUMMY_CONFIGURED_TARGET_FACTORY,
+        PredicatesWithMessage.<Rule>alwaysTrue(), PREFERRED_DEPENDENCY_PREDICATE,
+        ImmutableSet.<Class<?>>of(), null, NO_EXTERNAL_BINDINGS, null, ImmutableSet.<Class<?>>of(),
+        MissingFragmentPolicy.FAIL_ANALYSIS, true, attributes);
+    return mandNonEmptyRuleClass;
+  }
+
+  @Test
+  public void testNonEmptyWrongDefVal() throws Exception {
+    List<Label> emptyList = ImmutableList.of();
+    RuleClass mandNonEmptyRuleClass = new RuleClass(
+        "ruleMNE", false, false, false, false, false, false,
+        ImplicitOutputsFunction.NONE, RuleClass.NO_CHANGE, DUMMY_CONFIGURED_TARGET_FACTORY,
+        PredicatesWithMessage.<Rule>alwaysTrue(), PREFERRED_DEPENDENCY_PREDICATE,
+        ImmutableSet.<Class<?>>of(), null, NO_EXTERNAL_BINDINGS, null, ImmutableSet.<Class<?>>of(),
+        MissingFragmentPolicy.FAIL_ANALYSIS, true, attr("list", LABEL_LIST)
+        .nonEmpty().legacyAllowAnyFileType().value(emptyList).build());
+
+    Map<String, Object> attributeValues = new LinkedHashMap<>();
+    reporter.removeHandler(failFastHandler);
+    createRule(mandNonEmptyRuleClass, "ruleTestMNE", attributeValues, testRuleLocation);
+
+    assertSame(1, eventCollector.count());
+
+    assertContainsEvent(getErrorMsgNonEmptyList(
+        "list", "ruleMNE", "//testpackage:ruleTestMNE"));
+  }
+
   private Rule createRule(RuleClass ruleClass, String name, Map<String, Object> attributeValues,
       Location location) throws LabelSyntaxException, InterruptedException {
     Package.Builder pkgBuilder = createDummyPackageBuilder();
