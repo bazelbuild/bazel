@@ -27,10 +27,6 @@ function put_bazel_on_path() {
   put_blaze_on_path "$@"
 }
 
-function write_default_bazelrc() {
-  write_default_blazerc "$@"
-}
-
 function put_bazel_on_path() {
   # do nothing as test-setup already does that
   true
