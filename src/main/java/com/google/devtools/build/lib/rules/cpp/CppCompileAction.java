@@ -128,6 +128,16 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   public static final String CPP_COMPILE = "c++-compile";
 
   /**
+   * A string constant for the objc compilation action.
+   */
+  public static final String OBJC_COMPILE = "objc-compile";
+
+  /**
+   * A string constant for the objc++ compile action.
+   */
+  public static final String OBJCPP_COMPILE = "objc++-compile";
+  
+  /**
    * A string constant for the c++ header parsing.
    */
   public static final String CPP_HEADER_PARSING = "c++-header-parsing";
@@ -1336,6 +1346,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         return C_COMPILE;
       } else if (CppFileTypes.CPP_SOURCE.matches(sourcePath)) {
         return CPP_COMPILE;
+      } else if (CppFileTypes.OBJC_SOURCE.matches(sourcePath)) {
+        return OBJC_COMPILE;
+      } else if (CppFileTypes.OBJCPP_SOURCE.matches(sourcePath)) {
+        return OBJCPP_COMPILE;
       } else if (CppFileTypes.ASSEMBLER.matches(sourcePath)) {
         return ASSEMBLE;
       } else if (CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR.matches(sourcePath)) {

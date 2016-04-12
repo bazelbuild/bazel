@@ -69,11 +69,20 @@ import javax.annotation.Nullable;
  * methods.
  */
 public final class CcLibraryHelper {
+  
+  /**
+   * Candidate source types for the CcLibraryHelper.
+   * 
+   * <p>This is distinct from the set of candidate "srcs" for cc_* targets, which cannot, for
+   * example, contain objective-c sources.
+   */
   static final FileTypeSet SOURCE_TYPES =
       FileTypeSet.of(
           CppFileTypes.CPP_SOURCE,
           CppFileTypes.CPP_HEADER,
           CppFileTypes.C_SOURCE,
+          CppFileTypes.OBJC_SOURCE,
+          CppFileTypes.OBJCPP_SOURCE,
           CppFileTypes.ASSEMBLER,
           CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR);
   
