@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.AggregatingAttributeMapper;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.DependencyFilter;
+import com.google.devtools.build.lib.packages.License;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.engine.OutputFormatterCallback;
@@ -350,6 +351,12 @@ public abstract class OutputFormatter implements Serializable {
             out.printf("  %s = ", attr.getPublicName());
             if (value instanceof Label) {
               value = ((Label) value).getDefaultCanonicalForm();
+            } else if (value instanceof License) {
+              List<String> licenseTypes = new ArrayList<String>();
+              for (License.LicenseType licenseType : ((License) value).getLicenseTypes()) {
+                licenseTypes.add(licenseType.toString().toLowerCase());
+              }
+              value = licenseTypes;
             } else if (value instanceof List<?> && EvalUtils.isImmutable(value)) {
               // Display it as a list (and not as a tuple). Attributes can never be tuples.
               value = new ArrayList<>((List<?>) value);
