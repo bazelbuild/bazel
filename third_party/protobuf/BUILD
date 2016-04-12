@@ -81,11 +81,7 @@ py_proto_library(
 
 COPTS = [
     "-DHAVE_PTHREAD",
-    "-Wall",
-    "-Wwrite-strings",
-    "-Woverloaded-virtual",
-    "-Wno-sign-compare",
-    "-Wno-error=unused-function",
+    "-w",
 ]
 
 LINK_OPTS = ["-lpthread"]
