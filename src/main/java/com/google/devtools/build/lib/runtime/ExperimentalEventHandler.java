@@ -203,6 +203,7 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   @Subscribe
   public void buildComplete(BuildCompleteEvent event) {
     stateTracker.buildComplete(event);
+    ignoreRefreshLimitOnce();
     refresh();
     buildComplete = true;
     stopUpdateThread();
