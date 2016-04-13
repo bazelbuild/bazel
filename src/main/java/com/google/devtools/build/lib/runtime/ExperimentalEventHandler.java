@@ -32,6 +32,8 @@ import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineCountingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.LineWrappingAnsiTerminalWriter;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -235,9 +237,30 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
   }
 
   @Subscribe
-  public void testSummary(TestSummary event) {
-    stateTracker.testSummary(event);
-    refresh();
+  public synchronized void testSummary(TestSummary summary) {
+    stateTracker.testSummary(summary);
+    if (summary.getStatus() != BlazeTestStatus.PASSED) {
+      // For failed test, write the failure to the scroll-back buffer immediately
+      try {
+        clearProgressBar();
+        setEventKindColor(EventKind.ERROR);
+        terminal.writeString("FAIL: ");
+        terminal.resetTerminal();
+        terminal.writeString(summary.getTarget().getLabel().toString());
+        crlf();
+        for (Path logPath : summary.getFailedLogs()) {
+          terminal.writeString("      " + logPath.getPathString());
+          crlf();
+        }
+        crlf();
+        addProgressBar();
+        terminal.flush();
+      } catch (IOException e) {
+        LOG.warning("IO Error writing to output stream: " + e);
+      }
+    } else {
+      refresh();
+    }
   }
 
   private void refresh() {

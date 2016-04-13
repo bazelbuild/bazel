@@ -57,6 +57,7 @@ class ExperimentalStateTracker {
   private int actionsCompleted;
   private int totalTests;
   private int completedTests;
+  private TestSummary mostRecentTest;
   private int failedTests;
   private boolean ok;
 
@@ -169,6 +170,7 @@ class ExperimentalStateTracker {
 
   public synchronized void testSummary(TestSummary summary) {
     completedTests++;
+    mostRecentTest = summary;
     if (summary.getStatus() != BlazeTestStatus.PASSED) {
       failedTests++;
     }
@@ -194,6 +196,25 @@ class ExperimentalStateTracker {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Maybe add a note about the last test that passed. Return true, if the note was added (and
+   * hence a line break is appropriate if more data is to come. If a null value is provided for
+   * the terminal writer, only return wether a note would be added.
+   */
+  private boolean maybeShowRecentTest(AnsiTerminalWriter terminalWriter, boolean shortVersion)
+      throws IOException {
+    if (!shortVersion && mostRecentTest != null) {
+      if (terminalWriter != null) {
+        terminalWriter
+            .normal()
+            .append("; recent test: " + mostRecentTest.getTarget().getLabel().toString());
+      }
+      return true;
+    } else {
+      return false;
+    }
   }
 
   synchronized void writeProgressBar(AnsiTerminalWriter terminalWriter, boolean shortVersion)
@@ -229,17 +250,28 @@ class ExperimentalStateTracker {
     }
     if (runningActions.size() == 0) {
       terminalWriter.normal().append(" no actions running");
+      maybeShowRecentTest(terminalWriter, shortVersion);
     } else if (runningActions.size() == 1) {
       String statusMessage = describeAction(runningActions.peekFirst(), clock.nanoTime());
-      terminalWriter.normal().append(" " + statusMessage);
+      if (maybeShowRecentTest(null, shortVersion)) {
+        // As we will break lines anyway, also show the number of running actions, to keep
+        // things stay roughly in the same place (also compensating for the missing plural-s
+        // in the word action).
+        terminalWriter.normal().append("  1 action running");
+        maybeShowRecentTest(terminalWriter, shortVersion);
+        terminalWriter.normal().newline().append("    " + statusMessage);
+      } else {
+        terminalWriter.normal().append(" " + statusMessage);
+      }
     } else {
       if (shortVersion) {
         String statusMessage = describeAction(runningActions.peekFirst(), clock.nanoTime());
         statusMessage += " ... (" + runningActions.size() + " actions)";
         terminalWriter.normal().append(" " + statusMessage);
       } else {
-        String statusMessage = " " + runningActions.size() + " actions running";
+        String statusMessage = "" + runningActions.size() + " actions running";
         terminalWriter.normal().append(" " + statusMessage);
+        maybeShowRecentTest(terminalWriter, shortVersion);
         sampleOldestActions(terminalWriter);
       }
     }
