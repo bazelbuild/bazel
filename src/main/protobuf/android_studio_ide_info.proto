@@ -107,7 +107,7 @@ message RuleIdeInfo {
   }
 
   string label = 1;
-  Kind kind = 2;
+  Kind kind = 2 [deprecated=true];
   // deprecated -- this is not machine agnostic and will be removed in a future release
   string build_file = 3 [deprecated=true];
   repeated string dependencies = 4;
@@ -123,4 +123,6 @@ message RuleIdeInfo {
 
   CRuleIdeInfo c_rule_ide_info = 12;
   CToolchainIdeInfo c_toolchain_ide_info = 13;
+
+  string kind_string = 14;
 }

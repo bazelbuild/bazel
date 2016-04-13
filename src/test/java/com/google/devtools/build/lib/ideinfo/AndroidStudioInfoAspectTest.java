@@ -64,6 +64,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
           .isEqualTo(buildFilePath.toString());
     }
     assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.JAVA_LIBRARY);
+    assertThat(ruleIdeInfo.getKindString()).isEqualTo("java_library");
     assertThat(ruleIdeInfo.getDependenciesCount()).isEqualTo(0);
     assertThat(relativePathsForJavaSourcesOf(ruleIdeInfo))
         .containsExactly("com/google/example/simple/Simple.java");
@@ -325,6 +326,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     final RuleIdeInfo libInfo = getRuleInfoAndVerifyLabel("//com/google/example:lib", ruleIdeInfos);
     RuleIdeInfo impInfo = getRuleInfoAndVerifyLabel("//com/google/example:imp", ruleIdeInfos);
     assertThat(impInfo.getKind()).isEqualTo(Kind.JAVA_IMPORT);
+    assertThat(impInfo.getKindString()).isEqualTo("java_import");
     assertThat(libInfo.getDependenciesList()).containsExactly("//com/google/example:imp");
 
     JavaRuleIdeInfo javaRuleIdeInfo = impInfo.getJavaRuleIdeInfo();
@@ -371,6 +373,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     RuleIdeInfo impInfo = getRuleInfoAndVerifyLabel("//com/google/example:imp", ruleIdeInfos);
 
     assertThat(impInfo.getKind()).isEqualTo(Kind.JAVA_IMPORT);
+    assertThat(impInfo.getKindString()).isEqualTo("java_import");
     assertThat(impInfo.getDependenciesList()).containsExactly("//com/google/example:foobar");
     assertThat(libInfo.getDependenciesList())
         .containsExactly("//com/google/example:foobar", "//com/google/example:imp")
@@ -472,6 +475,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     RuleIdeInfo testInfo = getRuleInfoAndVerifyLabel(
         "//java/com/google/example:FooBarTest", ruleIdeInfos);
     assertThat(testInfo.getKind()).isEqualTo(Kind.JAVA_TEST);
+    assertThat(testInfo.getKindString()).isEqualTo("java_test");
     assertThat(relativePathsForJavaSourcesOf(testInfo))
         .containsExactly("java/com/google/example/FooBarTest.java");
     assertThat(testInfo.getDependenciesList()).contains("//java/com/google/example:foobar");
@@ -509,6 +513,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     RuleIdeInfo binaryInfo = getRuleInfoAndVerifyLabel(
         "//com/google/example:foobar-exe", ruleIdeInfos);
     assertThat(binaryInfo.getKind()).isEqualTo(Kind.JAVA_BINARY);
+    assertThat(binaryInfo.getKindString()).isEqualTo("java_binary");
     assertThat(relativePathsForJavaSourcesOf(binaryInfo))
         .containsExactly("com/google/example/FooBarMain.java");
     assertThat(binaryInfo.getDependenciesList()).contains("//com/google/example:foobar");
@@ -549,6 +554,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:l");
     RuleIdeInfo ruleInfo = getRuleInfoAndVerifyLabel("//com/google/example:l", ruleIdeInfos);
     assertThat(ruleInfo.getKind()).isEqualTo(Kind.ANDROID_LIBRARY);
+    assertThat(ruleInfo.getKindString()).isEqualTo("android_library");
     assertThat(relativePathsForJavaSourcesOf(ruleInfo)).containsExactly("com/google/example/Main.java");
     assertThat(transform(ruleInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
         .containsExactly(
@@ -603,6 +609,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     Map<String, RuleIdeInfo> ruleIdeInfos = buildRuleIdeInfo("//com/google/example:b");
     RuleIdeInfo ruleInfo = getRuleInfoAndVerifyLabel("//com/google/example:b", ruleIdeInfos);
     assertThat(ruleInfo.getKind()).isEqualTo(Kind.ANDROID_BINARY);
+    assertThat(ruleInfo.getKindString()).isEqualTo("android_binary");
     assertThat(relativePathsForJavaSourcesOf(ruleInfo)).containsExactly("com/google/example/Main.java");
     assertThat(transform(ruleInfo.getJavaRuleIdeInfo().getJarsList(), LIBRARY_ARTIFACT_TO_STRING))
         .containsExactly(
@@ -961,6 +968,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
         "//java/com/google/example:plugin", ruleIdeInfos);
 
     assertThat(plugin.getKind()).isEqualTo(Kind.JAVA_PLUGIN);
+    assertThat(plugin.getKindString()).isEqualTo("java_plugin");
     assertThat(transform(
         plugin.getJavaRuleIdeInfo().getJarsList(),
         LIBRARY_ARTIFACT_TO_STRING))
@@ -1022,6 +1030,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
       assertThat(location.getRelativePath()).isEqualTo("com/google/example/BUILD");
     }
     assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.CC_LIBRARY);
+    assertThat(ruleIdeInfo.getKindString()).isEqualTo("cc_library");
     assertThat(ruleIdeInfo.getDependenciesCount()).isEqualTo(1);
 
     assertThat(relativePathsForCSourcesOf(ruleIdeInfo))
@@ -1178,6 +1187,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
       assertThat(location.getRelativePath()).isEqualTo("com/google/example/BUILD");
     }
     assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.CC_BINARY);
+    assertThat(ruleIdeInfo.getKindString()).isEqualTo("cc_binary");
     assertThat(ruleIdeInfo.getDependenciesCount()).isEqualTo(1);
 
     assertThat(relativePathsForCSourcesOf(ruleIdeInfo))
@@ -1218,6 +1228,7 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
       assertThat(location.getRelativePath()).isEqualTo("com/google/example/BUILD");
     }
     assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.CC_TEST);
+    assertThat(ruleIdeInfo.getKindString()).isEqualTo("cc_test");
     assertThat(ruleIdeInfo.getDependenciesCount()).isEqualTo(1);
 
     assertThat(relativePathsForCSourcesOf(ruleIdeInfo))
@@ -1449,15 +1460,18 @@ public class AndroidStudioInfoAspectTest extends AndroidStudioInfoAspectTestBase
     RuleIdeInfo ruleIdeInfo = getRuleInfoAndVerifyLabel(
         "//java/com/google/example:simple", ruleIdeInfos);
     assertThat(ruleIdeInfo.getKind()).isEqualTo(Kind.ANDROID_BINARY);
+    assertThat(ruleIdeInfo.getKindString()).isEqualTo("android_binary");
   }
 
   @Test
   public void testAndroidBinaryIsSerialized() throws Exception {
     RuleIdeInfo.Builder builder = RuleIdeInfo.newBuilder();
     builder.setKind(Kind.ANDROID_BINARY);
+    builder.setKindString("android_binary");
     ByteString byteString = builder.build().toByteString();
     RuleIdeInfo result = RuleIdeInfo.parseFrom(byteString);
     assertThat(result.getKind()).isEqualTo(Kind.ANDROID_BINARY);
+    assertThat(result.getKindString()).isEqualTo("android_binary");
   }
 
   /**

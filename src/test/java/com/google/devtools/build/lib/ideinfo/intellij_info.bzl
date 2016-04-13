@@ -15,6 +15,7 @@
 # Implementaion of AndroidStudio-specific information collecting aspect.
 
 # A map to convert rule names to a RuleIdeInfo.Kind
+# Deprecated - only here for backwards compatibility with the tests
 _kind_to_kind_id = {
   "android_binary"  : 0,
   "android_library" : 1,
@@ -38,7 +39,7 @@ _kind_to_kind_id = {
 
 _unrecognized_rule = -1;
 
-def get_kind(target, ctx):
+def get_kind_legacy(target, ctx):
   """ Gets kind of a rule given a target and rule context.
   """
   return _kind_to_kind_id.get(ctx.rule.kind, _unrecognized_rule)
@@ -52,6 +53,7 @@ DEPS = struct(
       "_proto1_java_lib", # From proto_library
       "_junit", # From android_robolectric_test
       "_cc_toolchain", # From C rules
+      "module_target",
     ],
     label_list = [
       "deps",
@@ -327,7 +329,8 @@ def collect_export_deps(rule_attrs):
 def _aspect_impl(target, ctx):
   """ Aspect implementation function
   """
-  kind = get_kind(target, ctx)
+  kind_legacy = get_kind_legacy(target, ctx)
+  kind_string = ctx.rule.kind
   rule_attrs = ctx.rule.attr
 
   # Collect transitive values
@@ -377,7 +380,8 @@ def _aspect_impl(target, ctx):
   # Build RuleIdeInfo proto
   info = struct_omit_none(
       label = str(target.label),
-      kind = kind if kind != _unrecognized_rule else None,
+      kind = kind_legacy if kind_legacy != _unrecognized_rule else None,
+      kind_string = kind_string,
       dependencies = list(compiletime_deps),
       runtime_deps = list(runtime_deps),
       build_file_artifact_location = build_file_artifact_location(ctx.build_file_path),
