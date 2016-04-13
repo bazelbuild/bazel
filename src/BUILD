@@ -38,7 +38,6 @@ filegroup(
     }),
 ) for suffix, embedded_tools in {
     "": [":embedded_tools"],
-    "-jdk7": [":embedded_tools-jdk7"],
     "_notools": [],
 }.items()]
 
@@ -88,32 +87,25 @@ filegroup(
     }),
 )
 
-filegroup(
-    name = "common_embedded_tools",
+genrule(
+    name = "embedded_tools",
     srcs = [
-        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
+        ":create_embedded_tools.sh",
+        "//tools:embedded_tools_srcs",
+        "//third_party:embedded_tools_srcs",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/jarhelper:srcs",
-        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
-        "//src/java_tools/singlejar:SingleJar_deploy.jar",
-        "//src/main/protobuf:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/ideinfo:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:embedded_tools",
         "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:embedded_tools",
-        "//third_party:embedded_tools_srcs",
+        "//src/main/protobuf:srcs",
+        "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
+        "//src/java_tools/singlejar:SingleJar_deploy.jar",
+        "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
+        "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
         "//third_party/ijar",
         "//third_party/java/apkbuilder:embedded_tools",
-        "//tools:embedded_tools_srcs",
-    ],
-)
-
-genrule(
-    name = "embedded_tools",
-    srcs = [
-        ":create_embedded_tools.sh",
-        ":common_embedded_tools",
-        "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
     ] + select({
         ":darwin": [
             ":darwin_tools",
@@ -130,40 +122,9 @@ genrule(
     cmd = "$(location :create_embedded_tools.sh) $@ $(SRCS)",
 )
 
-genrule(
-    name = "tools_jdk_jdk7_build",
-    srcs = ["//tools/jdk:BUILD"],
-    outs = ["tools_jdk_jdk7.build"],
-    cmd = "cat $< | sed 's|\"toolchain\"|\"toolchain8\"|' | sed 's|\"toolchain7\"|\"toolchain\"|' > $@",
-)
-
-genrule(
-    name = "embedded_tools-jdk7",
-    srcs = [
-        ":create_embedded_tools.sh",
-        ":common_embedded_tools",
-        "@io_bazel_javabuilder_jdk7//file",
-        "@io_bazel_javac_jdk7//file",
-        ":tools_jdk_jdk7_build",
-    ] + select({
-        ":darwin": [
-            ":darwin_tools",
-            "//third_party/ijar:zipper",
-        ],
-        ":darwin_x86_64": [
-            ":darwin_tools",
-            "//third_party/ijar:zipper",
-        ],
-        ":windows": [],  # Windows specifically exclude zipper for now.
-        "//conditions:default": ["//third_party/ijar:zipper"],
-    }),
-    outs = ["embedded_tools-jdk7.zip"],
-    cmd = "$(location :create_embedded_tools.sh) $@ $(SRCS)",
-)
-
 [genrule(
     name = "package-zip" + suffix,
-    srcs = ([":embedded_%s.zip" % embed] if embed else []) + [
+    srcs = ([":embedded_tools.zip"] if embed else []) + [
         # The script assumes that the embedded tools zip (if exists) is the
         # first item here, the deploy jar the second and install base key is the
         # third
@@ -183,9 +144,8 @@ genrule(
     cmd = "$(location :package-bazel.sh) $@ " + ("" if embed else "''") + " $(SRCS)",
     tools = ["package-bazel.sh"],
 ) for suffix, embed in [
-    ("", "tools"),
-    ("_notools", None),
-    ("-jdk7", "tools-jdk7"),
+    ("", True),
+    ("_notools", False),
 ]]
 
 [genrule(
@@ -206,7 +166,6 @@ genrule(
 ) for suffix in [
     "",
     "_notools",
-    "-jdk7",
 ]]
 
 # Build an executable named `bazel.exe`.
@@ -227,7 +186,6 @@ genrule(
 ) for suffix in [
     "",
     "_notools",
-    "-jdk7",
 ]]
 
 config_setting(

@@ -23,22 +23,6 @@ bind(
     actual = "//:dummy",
 )
 
-# For building for JDK 7
-# This is a JDK 7 JavaBuilder from release 0.1.0.
-# Do not use the skylark bootstrapped version of JavaBuilder
-http_file(
-    name = "io_bazel_javabuilder_jdk7",
-    # This was built from Bazel 0.1.0 (after ./compile.sh) and JDK 7.
-    url = "https://storage.googleapis.com/bazel/0.1.0/JavaBuilder_deploy.jar",
-    sha256 = "374f07be2f73ec170ef6bdd8057530e6842cb0cbc7a240caccbd7b80be239366",
-)
-
-http_file(
-    name = "io_bazel_javac_jdk7",
-    url = "https://github.com/bazelbuild/bazel/blob/0.1.0/third_party/java/jdk/langtools/javac.jar?raw=true",
-    sha256 = "e063cf60cf9a1d24acd043f55dc605da559b913793c6a4e51c5ddbc4f5d494df",
-)
-
 # For tools/cpp/test/...
 load("//tools/cpp/test:docker_repository.bzl", "docker_repository")
 docker_repository()

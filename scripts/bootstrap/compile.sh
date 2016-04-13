@@ -17,7 +17,7 @@
 # Script for building bazel from scratch without bazel
 
 PROTO_FILES=$(ls src/main/protobuf/*.proto)
-LIBRARY_JARS=$(find third_party -name '*.jar' | grep -v "javac.jar" | tr "\n" " ")
+LIBRARY_JARS=$(find third_party -name '*.jar' | tr "\n" " ")
 DIRS=$(echo src/{java_tools/singlejar/java/com/google/devtools/build/zip,main/java,tools/xcode-common/java/com/google/devtools/build/xcode/{common,util}} ${OUTPUT_DIR}/src)
 EXCLUDE_FILES=src/main/java/com/google/devtools/build/lib/server/GrpcServer.java
 

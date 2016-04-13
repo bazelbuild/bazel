@@ -102,14 +102,6 @@ java_toolchain(
     target_version = "8",
 )
 
-java_toolchain(
-    name = "toolchain7",
-    encoding = "UTF-8",
-    jvm_opts = ["-client"],
-    source_version = "7",
-    target_version = "7",
-)
-
 filegroup(
     name = "srcs",
     srcs = [

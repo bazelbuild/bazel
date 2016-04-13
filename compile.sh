@@ -96,8 +96,8 @@ if [ $DO_COMPILE ]; then
   new_step 'Building Bazel with Bazel'
   display "."
   log "Building output/bazel"
-  bazel_build "src:bazel${BAZEL_FLAVOUR}${EXE_EXT}"
-  cp -f "bazel-bin/src/bazel${BAZEL_FLAVOUR}${EXE_EXT}" "output/bazel${EXE_EXT}"
+  bazel_build "src:bazel${EXE_EXT}"
+  cp -f "bazel-bin/src/bazel${EXE_EXT}" "output/bazel${EXE_EXT}"
   chmod 0755 "output/bazel${EXE_EXT}"
   BAZEL="$(pwd)/output/bazel${EXE_EXT}"
 fi
@@ -155,6 +155,7 @@ if [ $DO_TESTS ]; then
   $BAZEL --bazelrc=${BAZELRC} --nomaster_bazelrc test \
       --test_tag_filters="${BAZEL_TEST_FILTERS-}" \
       --build_tests_only \
+      --nolegacy_bazel_java_test \
       ${EXTRA_BAZEL_ARGS} \
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
       -k --test_output=errors //src/... //third_party/ijar/... //scripts/... \
