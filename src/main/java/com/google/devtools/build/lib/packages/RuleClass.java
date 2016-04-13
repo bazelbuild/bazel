@@ -1401,7 +1401,6 @@ public final class RuleClass {
       boolean explicit = attributeValues.isAttributeExplicitlySpecified(attributeName);
       setRuleAttributeValue(rule, eventHandler, attr, nativeAttributeValue, explicit);
       definedAttrIndices.set(attrIndex);
-      checkAttrValNonEmpty(rule, eventHandler, attributeValue, attr);
     }
     return definedAttrIndices;
   }
@@ -1457,7 +1456,6 @@ public final class RuleClass {
         attrsWithComputedDefaults.add(attr);
       } else {
         Object defaultValue = getAttributeNoncomputedDefaultValue(attr, pkgBuilder);
-        checkAttrValNonEmpty(rule, eventHandler, defaultValue, attr);
         rule.setAttributeValue(attr, defaultValue, /*explicit=*/ false);
         checkAllowedValues(rule, attr, eventHandler);
       }
@@ -1500,26 +1498,27 @@ public final class RuleClass {
         /*explicit=*/false);
   }
 
-  private void checkAttrValNonEmpty(
-      Rule rule, EventHandler eventHandler, Object attributeValue, Attribute attr) {
-    if (!attr.isNonEmpty()) {
-      return;
-    }
+  public void checkAttributesNonEmpty(
+      Rule rule, RuleErrorConsumer ruleErrorConsumer, AttributeMap attributes) {
+    for (String attributeName : attributes.getAttributeNames()) {
+      Attribute attr = attributes.getAttributeDefinition(attributeName);
+      if (!attr.isNonEmpty()) {
+        continue;
+      }
+      Object attributeValue = attributes.get(attributeName, attr.getType());
 
-    boolean isEmpty = false;
+      boolean isEmpty = false;
+      if (attributeValue instanceof SkylarkList) {
+        isEmpty = ((SkylarkList) attributeValue).isEmpty();
+      } else if (attributeValue instanceof List<?>) {
+        isEmpty = ((List<?>) attributeValue).isEmpty();
+      } else if (attributeValue instanceof Map<?, ?>) {
+        isEmpty = ((Map<?, ?>) attributeValue).isEmpty();
+      }
 
-    if (attributeValue instanceof SkylarkList) {
-      isEmpty = ((SkylarkList) attributeValue).isEmpty();
-    } else if (attributeValue instanceof List<?>) {
-      isEmpty = ((List<?>) attributeValue).isEmpty();
-    } else if (attributeValue instanceof Map<?, ?>) {
-      isEmpty = ((Map<?, ?>) attributeValue).isEmpty();
-    }
-
-    if (isEmpty) {
-      rule.reportError(rule.getLabel() + ": non empty attribute '" + attr.getName()
-          + "' in '" + name + "' rule '" + rule.getLabel() + "' has to have at least one value",
-          eventHandler);
+      if (isEmpty) {
+        ruleErrorConsumer.attributeError(attr.getName(), "attribute must be non empty");
+      }
     }
   }
 

@@ -158,6 +158,7 @@ public final class RuleContext extends TargetContext
 
   private RuleContext(
       Builder builder,
+      AttributeMap attributes,
       ListMultimap<String, ConfiguredTarget> targetMap,
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap,
       Set<ConfigMatchingProvider> configConditions,
@@ -172,8 +173,7 @@ public final class RuleContext extends TargetContext
     this.targetMap = targetMap;
     this.filesetEntryMap = filesetEntryMap;
     this.configConditions = configConditions;
-    this.attributes =
-        ConfiguredAttributeMapper.of(builder.rule, configConditions);
+    this.attributes = attributes;
     this.features = getEnabledFeatures();
     this.ruleClassNameForLogging = ruleClassNameForLogging;
     this.aspectAttributes = aspectAttributes;
@@ -1330,17 +1330,24 @@ public final class RuleContext extends TargetContext
       Preconditions.checkNotNull(prerequisiteMap);
       Preconditions.checkNotNull(configConditions);
       Preconditions.checkNotNull(visibility);
+      AttributeMap attributes = ConfiguredAttributeMapper.of(rule, configConditions);
+      validateAttributes(attributes);
       ListMultimap<String, ConfiguredTarget> targetMap = createTargetMap();
       ListMultimap<String, ConfiguredFilesetEntry> filesetEntryMap =
           createFilesetEntryMap(rule, configConditions);
       return new RuleContext(
           this,
+          attributes,
           targetMap,
           filesetEntryMap,
           configConditions,
           universalFragment,
           getRuleClassNameForLogging(),
           aspectAttributes != null ? aspectAttributes : ImmutableMap.<String, Attribute>of());
+    }
+
+    private void validateAttributes(AttributeMap attributes) {
+      rule.getRuleClassObject().checkAttributesNonEmpty(rule, reporter, attributes);
     }
 
     Builder setVisibility(NestedSet<PackageSpecification> visibility) {

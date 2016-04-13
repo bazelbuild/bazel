@@ -276,9 +276,4 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter, ModifiedFileSet.EVERYTHING_MODIFIED, rootDirectory);
   }
-
-  protected String getErrorMsgNonEmptyList(String attrName, String ruleType, String ruleName) {
-    return "non empty attribute '" + attrName + "' in '" + ruleType
-        + "' rule '" + ruleName + "' has to have at least one value";
-  }
 }

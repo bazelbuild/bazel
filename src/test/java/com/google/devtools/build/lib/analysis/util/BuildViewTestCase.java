@@ -1449,8 +1449,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   protected String getErrorMsgNonEmptyList(String attrName, String ruleType, String ruleName) {
-    return "non empty attribute '" + attrName + "' in '" + ruleType
-        + "' rule '" + ruleName + "' has to have at least one value";
+    return "in " + attrName + " attribute of " + ruleType + " rule " + ruleName + ": attribute "
+        + "must be non empty";
   }
 
   protected String getErrorMsgMandatoryMissing(String attrName, String ruleType) {
