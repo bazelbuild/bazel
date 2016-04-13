@@ -17,11 +17,14 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionStartedEvent;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
@@ -245,5 +248,31 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     assertTrue(
         "Progress bar showing a running action should be time dependent",
         stateTracker.progressBarTimeDependent());
+  }
+
+  @Test
+  public void testCountVisible() throws IOException {
+    // The test count should be visible in the status bar, as well as the short status bar
+    ManualClock clock = new ManualClock();
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
+    TestFilteringCompleteEvent filteringComplete = Mockito.mock(TestFilteringCompleteEvent.class);
+    ConfiguredTarget targetA = Mockito.mock(ConfiguredTarget.class);
+    ConfiguredTarget targetB = Mockito.mock(ConfiguredTarget.class);
+    when(filteringComplete.getTestTargets()).thenReturn(ImmutableSet.of(targetA, targetB));
+    TestSummary testSummary = Mockito.mock(TestSummary.class);
+    stateTracker.testFilteringComplete(filteringComplete);
+    stateTracker.testSummary(testSummary);
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter();
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getWritten();
+    assertTrue(
+        "Test count should be visible in output: " + output, output.contains(" 1 / 2 tests"));
+
+    terminalWriter = new LoggingTerminalWriter();
+    stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
+    output = terminalWriter.getWritten();
+    assertTrue(
+        "Test count should be visible in short output: " + output, output.contains(" 1 / 2 tests"));
   }
 }

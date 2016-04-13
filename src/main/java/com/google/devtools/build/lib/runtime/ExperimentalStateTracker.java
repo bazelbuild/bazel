@@ -21,11 +21,13 @@ import com.google.devtools.build.lib.buildtool.ExecutionProgressReceiver;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
+import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingProgressReceiver;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
+import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -53,6 +55,9 @@ class ExperimentalStateTracker {
   private final Map<String, Long> actionNanoStartTimes;
 
   private int actionsCompleted;
+  private int totalTests;
+  private int completedTests;
+  private int failedTests;
   private boolean ok;
 
   private ExecutionProgressReceiver executionProgressReceiver;
@@ -156,6 +161,20 @@ class ExperimentalStateTracker {
     }
   }
 
+  public void testFilteringComplete(TestFilteringCompleteEvent event) {
+    if (event.getTestTargets() != null) {
+      totalTests = event.getTestTargets().size();
+    }
+  }
+
+  public synchronized void testSummary(TestSummary summary) {
+    completedTests++;
+    if (summary.getStatus() != BlazeTestStatus.PASSED) {
+      failedTests++;
+    }
+  }
+
+
   /***
    * Predicate indicating whether the contents of the progress bar can change, if the
    * only thing that happens is that time passes; this is the case, e.g., if the progress
@@ -200,6 +219,13 @@ class ExperimentalStateTracker {
       terminalWriter.okStatus().append(executionProgressReceiver.getProgressString());
     } else {
       terminalWriter.okStatus().append("Building:");
+    }
+    if (completedTests > 0) {
+      terminalWriter.normal().append(" " + completedTests + " / " + totalTests + " tests");
+      if (failedTests > 0) {
+        terminalWriter.append(", ").failStatus().append("" + failedTests + " failed").normal();
+      }
+      terminalWriter.append(";");
     }
     if (runningActions.size() == 0) {
       terminalWriter.normal().append(" no actions running");
