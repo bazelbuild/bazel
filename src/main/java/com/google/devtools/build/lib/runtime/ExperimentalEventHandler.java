@@ -112,7 +112,9 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
             }
             stream.flush();
             if (!buildComplete) {
-              addProgressBar();
+              if (cursorControl) {
+                addProgressBar();
+              }
               terminal.flush();
             }
             break;
@@ -253,7 +255,9 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
           crlf();
         }
         crlf();
-        addProgressBar();
+        if (cursorControl) {
+          addProgressBar();
+        }
         terminal.flush();
       } catch (IOException e) {
         LOG.warning("IO Error writing to output stream: " + e);
