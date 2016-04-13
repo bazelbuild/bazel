@@ -196,6 +196,11 @@ mkdir -p ${ARCHIVE_DIR}/_embedded_binaries
 # Dummy build-runfiles
 cat <<'EOF' >${ARCHIVE_DIR}/_embedded_binaries/build-runfiles${EXE_EXT}
 #!/bin/bash
+win_arg='--windows_compatible'
+if [ $1 == $win_arg ];
+then
+     shift
+fi
 mkdir -p $2/MANIFEST
 cp $1 $2/MANIFEST
 EOF

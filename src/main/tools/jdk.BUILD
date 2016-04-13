@@ -75,7 +75,13 @@ filegroup(
 
 filegroup(
     name = "jre-bin",
-    srcs = glob(["jre/bin/**"]),
+    srcs = select({
+        # In some configurations, Java browser plugin is considered harmful and
+        # common antivirus software blocks access to npjp2.dll interfering with Bazel,
+        # so do not include it in JRE on Windows.
+        ":windows" : glob(["jre/bin/**"], exclude = ["jre/bin/plugin2/**"]),
+        "//conditions:default" : glob(["jre/bin/**"])
+    }),
 )
 
 filegroup(

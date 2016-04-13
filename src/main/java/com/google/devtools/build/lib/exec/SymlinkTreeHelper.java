@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnixFileSystem;
 import com.google.devtools.build.lib.vfs.UnixFileSystem.SymlinkStrategy;
+import com.google.devtools.build.lib.vfs.WindowsFileSystem;
 
 import java.util.List;
 
@@ -149,8 +150,9 @@ public final class SymlinkTreeHelper {
     }
 
     FileSystem fs = execRoot.getFileSystem();
-    if (fs instanceof UnixFileSystem
-        && ((UnixFileSystem) fs).getSymlinkStrategy() == SymlinkStrategy.WINDOWS_COMPATIBLE) {
+    if ((fs instanceof WindowsFileSystem)
+        || (fs instanceof UnixFileSystem
+            && ((UnixFileSystem) fs).getSymlinkStrategy() == SymlinkStrategy.WINDOWS_COMPATIBLE)) {
       args.add("--windows_compatible");
     }
 
