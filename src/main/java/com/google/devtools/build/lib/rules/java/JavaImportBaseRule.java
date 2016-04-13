@@ -46,7 +46,6 @@ public class JavaImportBaseRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("jars", LABEL_LIST)
             .mandatory()
-            .nonEmpty()
             .allowedFileTypes(JavaSemantics.JAR))
         /* <!-- #BLAZE_RULE(java_import).ATTRIBUTE(srcjar) -->
         A JAR file that contains source code for the compiled JAR files.
