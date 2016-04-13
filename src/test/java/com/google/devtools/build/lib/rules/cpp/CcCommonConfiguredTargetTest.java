@@ -506,31 +506,47 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testCcLibraryUplevelIncludesWarned() throws Exception {
     checkWarning(
-        "uplevel",
+        "third_party/uplevel",
         "lib",
         // message:
-        "in includes attribute of cc_library rule //uplevel:lib: '../bar' resolves to 'bar' not "
-            + "below the relative path of its package 'uplevel'. This will be an error in the "
-            + "future",
+        "in includes attribute of cc_library rule //third_party/uplevel:lib: '../bar' resolves to "
+            + "'third_party/bar' not below the relative path of its package 'third_party/uplevel'. "
+            + "This will be an error in the future",
         // build file:
+        "licenses(['unencumbered'])",
         "cc_library(name = 'lib',",
         "           srcs = ['foo.cc'],",
         "           includes = ['../bar'])");
   }
 
   @Test
-  public void testCcLibraryRootIncludesError() throws Exception {
-    checkError(
-        "root",
+  public void testCcLibraryNonThirdPartyIncludesWarned() throws Exception {
+    checkWarning(
+        "topdir",
         "lib",
         // message:
-        "in includes attribute of cc_library rule //root:lib: '..' resolves to the workspace root, "
-            + "which would allow this rule and all of its transitive dependents to include any "
-            + "file in your workspace. Please include only what you need",
+        "in includes attribute of cc_library rule //topdir:lib: './' resolves to 'topdir' not "
+            + "in 'third_party'. This will be an error in the future",
         // build file:
         "cc_library(name = 'lib',",
         "           srcs = ['foo.cc'],",
-        "           includes = ['..'])");
+        "           includes = ['./'])");
+  }
+
+  @Test
+  public void testCcLibraryRootIncludesError() throws Exception {
+    checkError(
+        "third_party/root",
+        "lib",
+        // message:
+        "in includes attribute of cc_library rule //third_party/root:lib: '../..' resolves to the "
+            + "workspace root, which would allow this rule and all of its transitive dependents to "
+            + "include any file in your workspace. Please include only what you need",
+        // build file:
+        "licenses(['unencumbered'])",
+        "cc_library(name = 'lib',",
+        "           srcs = ['foo.cc'],",
+        "           includes = ['../..'])");
   }
 
   @Test

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.apple.Platform;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
@@ -427,6 +428,16 @@ public final class CcCommon {
                 + packageFragment
                 + "'. This will be an error in the future");
         // TODO(janakr): Add a link to a page explaining the problem and fixes?
+      } else if (!packageFragment.startsWith(RuleClass.THIRD_PARTY_PREFIX)) {
+        ruleContext.attributeWarning(
+            "includes",
+            "'"
+                + includesAttr
+                + "' resolves to '"
+                + includesPath
+                + "' not in '"
+                + RuleClass.THIRD_PARTY_PREFIX
+                + "'. This will be an error in the future");
       }
       result.add(includesPath);
       result.add(ruleContext.getConfiguration().getGenfilesFragment().getRelative(includesPath));
