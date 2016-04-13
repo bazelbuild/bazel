@@ -201,7 +201,7 @@ public class ArtifactTest {
 
   @Test
   public void testAddExpandedArtifacts() throws Exception {
-    List<ArtifactFile> expanded = new ArrayList<>();
+    List<Artifact> expanded = new ArrayList<>();
     MutableActionGraph actionGraph = new MapBasedActionGraph();
     List<Artifact> original = getFooBarArtifacts(actionGraph, true);
     Artifact.addExpandedArtifacts(original, expanded,
@@ -252,7 +252,7 @@ public class ArtifactTest {
   // TODO consider tests for the future
   @Test
   public void testAddExpandedArtifactsNewActionGraph() throws Exception {
-    List<ArtifactFile> expanded = new ArrayList<>();
+    List<Artifact> expanded = new ArrayList<>();
     MutableActionGraph actionGraph = new MapBasedActionGraph();
     List<Artifact> original = getFooBarArtifacts(actionGraph, true);
     Artifact.addExpandedArtifacts(original, expanded,

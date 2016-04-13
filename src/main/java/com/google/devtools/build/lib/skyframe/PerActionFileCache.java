@@ -56,6 +56,12 @@ class PerActionFileCache implements ActionInputFileCache {
     if (!(input instanceof Artifact)) {
       return null;
     }
+
+    // TODO(rduan): Implement action file caching for TreeFileArtifacts.
+    if (((Artifact) input).hasParent()) {
+      return null;
+    }
+
     return Preconditions.checkNotNull(inputArtifactData.get(input), input);
   }
 

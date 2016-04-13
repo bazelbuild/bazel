@@ -21,7 +21,6 @@ import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactFile;
 import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.concurrent.Sharder;
 import com.google.devtools.build.lib.concurrent.ThrowableRecordingRunnableWrapper;
@@ -216,7 +215,7 @@ public class FilesystemValueChecker {
     return new Runnable() {
       @Override
       public void run() {
-        Map<ArtifactFile, Pair<SkyKey, ActionExecutionValue>> fileToKeyAndValue = new HashMap<>();
+        Map<Artifact, Pair<SkyKey, ActionExecutionValue>> fileToKeyAndValue = new HashMap<>();
         Map<Artifact, Pair<SkyKey, ActionExecutionValue>> treeArtifactsToKeyAndValue =
             new HashMap<>();
         for (Pair<SkyKey, ActionExecutionValue> keyAndValue : shard) {
@@ -224,9 +223,9 @@ public class FilesystemValueChecker {
           if (actionValue == null) {
             dirtyKeys.add(keyAndValue.getFirst());
           } else {
-            for (ArtifactFile file : actionValue.getAllFileValues().keySet()) {
-              if (shouldCheckFile(knownModifiedOutputFiles, file)) {
-                fileToKeyAndValue.put(file, keyAndValue);
+            for (Artifact artifact : actionValue.getAllFileValues().keySet()) {
+              if (shouldCheckFile(knownModifiedOutputFiles, artifact)) {
+                fileToKeyAndValue.put(artifact, keyAndValue);
               }
             }
 
@@ -242,11 +241,11 @@ public class FilesystemValueChecker {
           }
         }
 
-        List<ArtifactFile> files = ImmutableList.copyOf(fileToKeyAndValue.keySet());
+        List<Artifact> artifacts = ImmutableList.copyOf(fileToKeyAndValue.keySet());
         List<FileStatusWithDigest> stats;
         try {
           stats = batchStatter.batchStat(/*includeDigest=*/true, /*includeLinks=*/true,
-              Artifact.asPathFragments(files));
+              Artifact.asPathFragments(artifacts));
         } catch (IOException e) {
           // Batch stat did not work. Log an exception and fall back on system calls.
           LoggingUtil.logToRemote(Level.WARNING, "Unable to process batch stat", e);
@@ -257,17 +256,17 @@ public class FilesystemValueChecker {
           return;
         }
 
-        Preconditions.checkState(files.size() == stats.size(),
-            "artifacts.size() == %s stats.size() == %s", files.size(), stats.size());
-        for (int i = 0; i < files.size(); i++) {
-          ArtifactFile file = files.get(i);
+        Preconditions.checkState(artifacts.size() == stats.size(),
+            "artifacts.size() == %s stats.size() == %s", artifacts.size(), stats.size());
+        for (int i = 0; i < artifacts.size(); i++) {
+          Artifact artifact = artifacts.get(i);
           FileStatusWithDigest stat = stats.get(i);
-          Pair<SkyKey, ActionExecutionValue> keyAndValue = fileToKeyAndValue.get(file);
+          Pair<SkyKey, ActionExecutionValue> keyAndValue = fileToKeyAndValue.get(artifact);
           ActionExecutionValue actionValue = keyAndValue.getSecond();
           SkyKey key = keyAndValue.getFirst();
-          FileValue lastKnownData = actionValue.getAllFileValues().get(file);
+          FileValue lastKnownData = actionValue.getAllFileValues().get(artifact);
           try {
-            FileValue newData = ActionMetadataHandler.fileValueFromArtifactFile(file, stat,
+            FileValue newData = ActionMetadataHandler.fileValueFromArtifact(artifact, stat,
                 tsgm);
             if (!newData.equals(lastKnownData)) {
               updateIntraBuildModifiedCounter(stat != null ? stat.getLastChangeTime() : -1,
@@ -366,12 +365,13 @@ public class FilesystemValueChecker {
   private boolean actionValueIsDirtyWithDirectSystemCalls(ActionExecutionValue actionValue,
       ImmutableSet<PathFragment> knownModifiedOutputFiles) {
     boolean isDirty = false;
-    for (Map.Entry<ArtifactFile, FileValue> entry : actionValue.getAllFileValues().entrySet()) {
-      ArtifactFile file = entry.getKey();
+    for (Map.Entry<Artifact, FileValue> entry : actionValue.getAllFileValues().entrySet()) {
+      Artifact file = entry.getKey();
       FileValue lastKnownData = entry.getValue();
       if (shouldCheckFile(knownModifiedOutputFiles, file)) {
         try {
-          FileValue fileValue = ActionMetadataHandler.fileValueFromArtifactFile(file, null, tsgm);
+          FileValue fileValue = ActionMetadataHandler.fileValueFromArtifact(file, null,
+              tsgm);
           if (!fileValue.equals(lastKnownData)) {
             updateIntraBuildModifiedCounter(fileValue.exists()
                 ? fileValue.realRootedPath().asPath().getLastModifiedTime()
@@ -410,9 +410,9 @@ public class FilesystemValueChecker {
   }
 
   private static boolean shouldCheckFile(ImmutableSet<PathFragment> knownModifiedOutputFiles,
-      ArtifactFile file) {
+      Artifact artifact) {
     return knownModifiedOutputFiles == null
-        || knownModifiedOutputFiles.contains(file.getExecPath());
+        || knownModifiedOutputFiles.contains(artifact.getExecPath());
   }
 
   private BatchDirtyResult getDirtyValues(ValueFetcher fetcher,

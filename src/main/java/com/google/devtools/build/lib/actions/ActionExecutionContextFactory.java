@@ -25,5 +25,5 @@ import java.util.Map;
  */
 public interface ActionExecutionContextFactory {
   ActionExecutionContext getContext(ActionInputFileCache graphFileCache,
-      MetadataHandler metadataHandler, Map<Artifact, Collection<ArtifactFile>> expandedInputs);
+      MetadataHandler metadataHandler, Map<Artifact, Collection<Artifact>> expandedInputs);
 }

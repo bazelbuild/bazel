@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.ActionInputHelper.artifactFile;
+import static com.google.devtools.build.lib.actions.ActionInputHelper.treeFileArtifact;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -28,7 +28,7 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
-import com.google.devtools.build.lib.actions.ArtifactFile;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.cache.DigestUtils;
@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.DirtinessCheckerUtils.BasicFilesystemDirtinessChecker;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.BatchStat;
 import com.google.devtools.build.lib.vfs.FileStatus;
@@ -391,14 +390,14 @@ public class FilesystemValueCheckerTest {
     // contents into ActionExecutionValues.
 
     Artifact out1 = createTreeArtifact("one");
-    ArtifactFile file11 = artifactFile(out1, "fizz");
+    TreeFileArtifact file11 = treeFileArtifact(out1, "fizz");
     FileSystemUtils.createDirectoryAndParents(out1.getPath());
     FileSystemUtils.writeContentAsLatin1(file11.getPath(), "buzz");
 
     Artifact out2 = createTreeArtifact("two");
     FileSystemUtils.createDirectoryAndParents(out2.getPath().getChild("subdir"));
-    ArtifactFile file21 = artifactFile(out2, "moony");
-    ArtifactFile file22 = artifactFile(out2, "subdir/wormtail");
+    TreeFileArtifact file21 = treeFileArtifact(out2, "moony");
+    TreeFileArtifact file22 = treeFileArtifact(out2, "subdir/wormtail");
     FileSystemUtils.writeContentAsLatin1(file21.getPath(), "padfoot");
     FileSystemUtils.writeContentAsLatin1(file22.getPath(), "prongs");
 
@@ -484,11 +483,11 @@ public class FilesystemValueCheckerTest {
         .containsExactly(ActionExecutionValue.key(action1));
 
     // Test that directory contents (and nested contents) matter
-    ArtifactFile out1new = artifactFile(out1, "julius/caesar");
+    Artifact out1new = treeFileArtifact(out1, "julius/caesar");
     FileSystemUtils.createDirectoryAndParents(out1.getPath().getChild("julius"));
     FileSystemUtils.writeContentAsLatin1(out1new.getPath(), "octavian");
     // even for empty directories
-    ArtifactFile outEmptyNew = artifactFile(outEmpty, "marcus");
+    Artifact outEmptyNew = treeFileArtifact(outEmpty, "marcus");
     FileSystemUtils.writeContentAsLatin1(outEmptyNew.getPath(), "aurelius");
     // so does removing
     file21.getPath().delete();
@@ -624,7 +623,7 @@ public class FilesystemValueCheckerTest {
         FileStatusWithDigest stat =
             forceDigest ? statWithDigest(path, path.statIfFound(Symlinks.NOFOLLOW)) : null;
         artifactData.put(output,
-            ActionMetadataHandler.fileValueFromArtifactFile(output, stat, null));
+            ActionMetadataHandler.fileValueFromArtifact(output, stat, null));
       } catch (IOException e) {
         throw new IllegalStateException(e);
       }
@@ -637,28 +636,27 @@ public class FilesystemValueCheckerTest {
 
   private ActionExecutionValue actionValueWithEmptyDirectory(Artifact emptyDir) {
     TreeArtifactValue emptyValue = TreeArtifactValue.create
-        (ImmutableMap.<PathFragment, FileArtifactValue>of());
+        (ImmutableMap.<TreeFileArtifact, FileArtifactValue>of());
 
     return new ActionExecutionValue(
-        ImmutableMap.<ArtifactFile, FileValue>of(),
+        ImmutableMap.<Artifact, FileValue>of(),
         ImmutableMap.of(emptyDir, emptyValue),
         ImmutableMap.<Artifact, FileArtifactValue>of());
   }
 
-  private ActionExecutionValue actionValueWithTreeArtifacts(List<ArtifactFile> contents) {
-    Map<ArtifactFile, FileValue> fileData = new HashMap<>();
-    Map<Artifact, Map<ArtifactFile, FileArtifactValue>> directoryData = new HashMap<>();
+  private ActionExecutionValue actionValueWithTreeArtifacts(List<TreeFileArtifact> contents) {
+    Map<Artifact, FileValue> fileData = new HashMap<>();
+    Map<Artifact, Map<TreeFileArtifact, FileArtifactValue>> directoryData = new HashMap<>();
 
-    for (ArtifactFile output : contents) {
-      Preconditions.checkState(!(output instanceof Artifact));
+    for (TreeFileArtifact output : contents) {
       try {
-        Map<ArtifactFile, FileArtifactValue> dirDatum =
+        Map<TreeFileArtifact, FileArtifactValue> dirDatum =
             directoryData.get(output.getParent());
         if (dirDatum == null) {
           dirDatum = new HashMap<>();
           directoryData.put(output.getParent(), dirDatum);
         }
-        FileValue fileValue = ActionMetadataHandler.fileValueFromArtifactFile(output, null, null);
+        FileValue fileValue = ActionMetadataHandler.fileValueFromArtifact(output, null, null);
         // Always test with digests. TreeArtifact checking behavior doesn't depend on the
         // presence/absence of digests. FileValue checking w/o digests is already tested.
         byte[] digest = DigestUtils.getDigestOrFail(output.getPath(), 1);
@@ -671,14 +669,9 @@ public class FilesystemValueCheckerTest {
     }
 
     Map<Artifact, TreeArtifactValue> treeArtifactData = new HashMap<>();
-    for (Map.Entry<Artifact, Map<ArtifactFile, FileArtifactValue>> dirDatum :
+    for (Map.Entry<Artifact, Map<TreeFileArtifact, FileArtifactValue>> dirDatum :
         directoryData.entrySet()) {
-      Map<PathFragment, FileArtifactValue> artifactValues = new HashMap<>();
-      for (Map.Entry<ArtifactFile, FileArtifactValue> dirEntry : dirDatum.getValue().entrySet()) {
-        ArtifactFile file = dirEntry.getKey();
-        artifactValues.put(file.getParentRelativePath(), dirEntry.getValue());
-      }
-      treeArtifactData.put(dirDatum.getKey(), TreeArtifactValue.create(artifactValues));
+      treeArtifactData.put(dirDatum.getKey(), TreeArtifactValue.create(dirDatum.getValue()));
     }
 
     return new ActionExecutionValue(fileData, treeArtifactData,

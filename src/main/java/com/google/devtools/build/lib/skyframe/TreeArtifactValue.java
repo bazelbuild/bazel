@@ -14,13 +14,14 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Function;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactFile;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.cache.Digest;
 import com.google.devtools.build.lib.actions.cache.Metadata;
 import com.google.devtools.build.lib.vfs.Path;
@@ -36,13 +37,21 @@ import javax.annotation.Nullable;
 
 /**
  * Value for TreeArtifacts, which contains a digest and the {@link FileArtifactValue}s
- * of its child {@link ArtifactFile}s.
+ * of its child {@link TreeFileArtifact}s.
  */
 public class TreeArtifactValue extends ArtifactValue {
-  private final byte[] digest;
-  private final Map<PathFragment, FileArtifactValue> childData;
+  private static final Function<Artifact, PathFragment> PARENT_RELATIVE_PATHS =
+      new Function<Artifact, PathFragment>() {
+        @Override
+        public PathFragment apply(Artifact artifact) {
+            return artifact.getParentRelativePath();
+        }
+      };
 
-  private TreeArtifactValue(byte[] digest, Map<PathFragment, FileArtifactValue> childData) {
+  private final byte[] digest;
+  private final Map<TreeFileArtifact, FileArtifactValue> childData;
+
+  private TreeArtifactValue(byte[] digest, Map<TreeFileArtifact, FileArtifactValue> childData) {
     this.digest = digest;
     this.childData = ImmutableMap.copyOf(childData);
   }
@@ -52,11 +61,13 @@ public class TreeArtifactValue extends ArtifactValue {
    * and their corresponding FileArtifactValues.
    */
   @VisibleForTesting
-  public static TreeArtifactValue create(Map<PathFragment, FileArtifactValue> childFileValues) {
+  public static TreeArtifactValue create(Map<TreeFileArtifact, FileArtifactValue> childFileValues) {
     Map<String, Metadata> digestBuilder =
         Maps.newHashMapWithExpectedSize(childFileValues.size());
-    for (Map.Entry<PathFragment, FileArtifactValue> e : childFileValues.entrySet()) {
-      digestBuilder.put(e.getKey().getPathString(), new Metadata(e.getValue().getDigest()));
+    for (Map.Entry<TreeFileArtifact, FileArtifactValue> e : childFileValues.entrySet()) {
+      digestBuilder.put(
+          e.getKey().getParentRelativePath().getPathString(),
+          new Metadata(e.getValue().getDigest()));
     }
 
     return new TreeArtifactValue(
@@ -68,22 +79,25 @@ public class TreeArtifactValue extends ArtifactValue {
     return FileArtifactValue.createProxy(digest);
   }
 
-  /** Returns the inputs that this artifact expands to, in no particular order. */
-  Iterable<ArtifactFile> getChildren(final Artifact base) {
-    return ActionInputHelper.asArtifactFiles(base, childData.keySet());
-  }
-
   public Metadata getMetadata() {
     return new Metadata(digest.clone());
   }
 
   public Set<PathFragment> getChildPaths() {
-    return childData.keySet();
+    return ImmutableSet.copyOf(Iterables.transform(childData.keySet(), PARENT_RELATIVE_PATHS));
   }
 
   @Nullable
   public byte[] getDigest() {
     return digest.clone();
+  }
+
+  public Iterable<TreeFileArtifact> getChildren() {
+    return childData.keySet();
+  }
+
+  public FileArtifactValue getChildValue(TreeFileArtifact artifact) {
+    return childData.get(artifact);
   }
 
   @Override
@@ -122,14 +136,19 @@ public class TreeArtifactValue extends ArtifactValue {
    * This is occasionally useful because Java's concurrent collections disallow null members.
    */
   static final TreeArtifactValue MISSING_TREE_ARTIFACT = new TreeArtifactValue(null,
-      ImmutableMap.<PathFragment, FileArtifactValue>of()) {
+      ImmutableMap.<TreeFileArtifact, FileArtifactValue>of()) {
     @Override
     public FileArtifactValue getSelfData() {
       throw new UnsupportedOperationException();
     }
 
     @Override
-    Iterable<ArtifactFile> getChildren(Artifact base) {
+    public Iterable<TreeFileArtifact> getChildren() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FileArtifactValue getChildValue(TreeFileArtifact artifact) {
       throw new UnsupportedOperationException();
     }
 

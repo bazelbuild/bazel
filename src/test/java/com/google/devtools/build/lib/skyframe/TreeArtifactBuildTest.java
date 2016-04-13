@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Throwables.getRootCause;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.actions.ActionInputHelper.artifactFile;
+import static com.google.devtools.build.lib.actions.ActionInputHelper.treeFileArtifact;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -34,7 +34,7 @@ import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
-import com.google.devtools.build.lib.actions.ArtifactFile;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -67,20 +67,20 @@ import javax.annotation.Nullable;
 /** Timestamp builder tests for TreeArtifacts. */
 @RunWith(JUnit4.class)
 public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
-  // Common Artifacts, ArtifactFiles, and Buttons. These aren't all used in all tests, but they're
-  // used often enough that we can save ourselves a lot of copy-pasted code by creating them
+  // Common Artifacts, TreeFileArtifact, and Buttons. These aren't all used in all tests, but
+  // they're used often enough that we can save ourselves a lot of copy-pasted code by creating them
   // in setUp().
 
   Artifact in;
 
   Artifact outOne;
-  ArtifactFile outOneFileOne;
-  ArtifactFile outOneFileTwo;
+  TreeFileArtifact outOneFileOne;
+  TreeFileArtifact outOneFileTwo;
   Button buttonOne = new Button();
 
   Artifact outTwo;
-  ArtifactFile outTwoFileOne;
-  ArtifactFile outTwoFileTwo;
+  TreeFileArtifact outTwoFileOne;
+  TreeFileArtifact outTwoFileTwo;
   Button buttonTwo = new Button();
 
   @Before
@@ -89,12 +89,12 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     writeFile(in, "input_content");
 
     outOne = createTreeArtifact("outputOne");
-    outOneFileOne = artifactFile(outOne, "out_one_file_one");
-    outOneFileTwo = artifactFile(outOne, "out_one_file_two");
+    outOneFileOne = treeFileArtifact(outOne, "out_one_file_one");
+    outOneFileTwo = treeFileArtifact(outOne, "out_one_file_two");
 
     outTwo = createTreeArtifact("outputTwo");
-    outTwoFileOne = artifactFile(outTwo, "out_one_file_one");
-    outTwoFileTwo = artifactFile(outTwo, "out_one_file_two");
+    outTwoFileOne = treeFileArtifact(outTwo, "out_one_file_one");
+    outTwoFileTwo = treeFileArtifact(outTwo, "out_one_file_two");
   }
 
   /** Simple smoke test. If this isn't passing, something is very wrong... */
@@ -489,42 +489,42 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
    * exactly one output TreeArtifact, and some path fragment inputs/outputs.
    */
   private abstract static class TreeArtifactTestAction extends TestAction {
-    final Iterable<ArtifactFile> inputFiles;
-    final Iterable<ArtifactFile> outputFiles;
+    final Iterable<TreeFileArtifact> inputFiles;
+    final Iterable<TreeFileArtifact> outputFiles;
 
     TreeArtifactTestAction(final Artifact output, final String... subOutputs) {
       this(Runnables.doNothing(),
           null,
-          ImmutableList.<ArtifactFile>of(),
+          ImmutableList.<TreeFileArtifact>of(),
           output,
           Collections2.transform(
               Arrays.asList(subOutputs),
-              new Function<String, ArtifactFile>() {
+              new Function<String, TreeFileArtifact>() {
                 @Nullable
                 @Override
-                public ArtifactFile apply(String s) {
-                  return ActionInputHelper.artifactFile(output, s);
+                public TreeFileArtifact apply(String s) {
+                  return ActionInputHelper.treeFileArtifact(output, s);
                 }
               }));
     }
 
-    TreeArtifactTestAction(Runnable effect, ArtifactFile... outputFiles) {
+    TreeArtifactTestAction(Runnable effect, TreeFileArtifact... outputFiles) {
       this(effect, Arrays.asList(outputFiles));
     }
 
-    TreeArtifactTestAction(Runnable effect, Collection<ArtifactFile> outputFiles) {
-      this(effect, null, ImmutableList.<ArtifactFile>of(),
+    TreeArtifactTestAction(Runnable effect, Collection<TreeFileArtifact> outputFiles) {
+      this(effect, null, ImmutableList.<TreeFileArtifact>of(),
           outputFiles.iterator().next().getParent(), outputFiles);
     }
 
     TreeArtifactTestAction(Runnable effect, Artifact inputFile,
-        Collection<ArtifactFile> outputFiles) {
-      this(effect, inputFile, ImmutableList.<ArtifactFile>of(),
+        Collection<TreeFileArtifact> outputFiles) {
+      this(effect, inputFile, ImmutableList.<TreeFileArtifact>of(),
           outputFiles.iterator().next().getParent(), outputFiles);
     }
 
-    TreeArtifactTestAction(Runnable effect, Collection<ArtifactFile> inputFiles,
-        Collection<ArtifactFile> outputFiles) {
+    TreeArtifactTestAction(Runnable effect, Collection<TreeFileArtifact> inputFiles,
+        Collection<TreeFileArtifact> outputFiles) {
       this(effect, inputFiles.iterator().next().getParent(), inputFiles,
           outputFiles.iterator().next().getParent(), outputFiles);
     }
@@ -532,9 +532,9 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     TreeArtifactTestAction(
         Runnable effect,
         @Nullable Artifact input,
-        Collection<ArtifactFile> inputFiles,
+        Collection<TreeFileArtifact> inputFiles,
         Artifact output,
-        Collection<ArtifactFile> outputFiles) {
+        Collection<TreeFileArtifact> outputFiles) {
       super(effect,
           input == null ? ImmutableList.<Artifact>of() : ImmutableList.of(input),
           ImmutableList.of(output));
@@ -543,10 +543,10 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       Preconditions.checkArgument(output == null || output.isTreeArtifact());
       this.inputFiles = ImmutableList.copyOf(inputFiles);
       this.outputFiles = ImmutableList.copyOf(outputFiles);
-      for (ArtifactFile inputFile : inputFiles) {
+      for (TreeFileArtifact inputFile : inputFiles) {
         Preconditions.checkState(inputFile.getParent().equals(input));
       }
-      for (ArtifactFile outputFile : outputFiles) {
+      for (TreeFileArtifact outputFile : outputFiles) {
         Preconditions.checkState(outputFile.getParent().equals(output));
       }
     }
@@ -561,7 +561,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
           throw new IllegalStateException("action's input Artifact does not exist: "
               + input.getPath());
         }
-        for (ArtifactFile inputFile : inputFiles) {
+        for (Artifact inputFile : inputFiles) {
           if (!inputFile.getPath().exists()) {
             throw new IllegalStateException("action's input does not exist: " + inputFile);
           }
@@ -573,7 +573,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
       try {
         effect.call();
         executeTestBehavior(actionExecutionContext);
-        for (ArtifactFile outputFile : outputFiles) {
+        for (TreeFileArtifact outputFile : outputFiles) {
           actionExecutionContext.getMetadataHandler().addExpandedTreeOutput(outputFile);
         }
       } catch (RuntimeException e) {
@@ -611,37 +611,37 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
     void registerOutput(ActionExecutionContext context, String outputName) throws IOException {
       context.getMetadataHandler().addExpandedTreeOutput(
-          artifactFile(getSoleOutput(), new PathFragment(outputName)));
+          treeFileArtifact(getSoleOutput(), new PathFragment(outputName)));
     }
 
-    static List<ArtifactFile> asArtifactFiles(final Artifact parent, String... files) {
+    static List<TreeFileArtifact> asTreeFileArtifacts(final Artifact parent, String... files) {
       return Lists.transform(
           Arrays.asList(files),
-          new Function<String, ArtifactFile>() {
+          new Function<String, TreeFileArtifact>() {
             @Nullable
             @Override
-            public ArtifactFile apply(String s) {
-              return ActionInputHelper.artifactFile(parent, s);
+            public TreeFileArtifact apply(String s) {
+              return ActionInputHelper.treeFileArtifact(parent, s);
             }
           });
     }
   }
 
-  /** An action that touches some output ArtifactFiles. Takes no inputs. */
+  /** An action that touches some output TreeFileArtifacts. Takes no inputs. */
   private static class TouchingTestAction extends TreeArtifactTestAction {
-    TouchingTestAction(ArtifactFile... outputPaths) {
+    TouchingTestAction(TreeFileArtifact... outputPaths) {
       super(Runnables.doNothing(), outputPaths);
     }
 
     TouchingTestAction(Runnable effect, Artifact output, String... outputPaths) {
-      super(effect, asArtifactFiles(output, outputPaths));
+      super(effect, asTreeFileArtifacts(output, outputPaths));
     }
 
     @Override
     public void executeTestBehavior(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
       try {
-        for (ArtifactFile file : outputFiles) {
+        for (Artifact file : outputFiles) {
           touchFile(file);
         }
       } catch (IOException e) {
@@ -652,14 +652,14 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
 
   /** Takes an input file and populates several copies inside a TreeArtifact. */
   private static class WriteInputToFilesAction extends TreeArtifactTestAction {
-    WriteInputToFilesAction(Artifact input, ArtifactFile... outputs) {
+    WriteInputToFilesAction(Artifact input, TreeFileArtifact... outputs) {
       this(Runnables.doNothing(), input, outputs);
     }
 
     WriteInputToFilesAction(
         Runnable effect,
         Artifact input,
-        ArtifactFile... outputs) {
+        TreeFileArtifact... outputs) {
       super(effect, input, Arrays.asList(outputs));
       Preconditions.checkArgument(!input.isTreeArtifact());
     }
@@ -668,7 +668,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     public void executeTestBehavior(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
       try {
-        for (ArtifactFile file : outputFiles) {
+        for (Artifact file : outputFiles) {
           FileSystemUtils.createDirectoryAndParents(file.getPath().getParentDirectory());
           FileSystemUtils.copyFile(getSoleInput().getPath(), file.getPath());
         }
@@ -678,37 +678,37 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     }
   }
 
-  /** Copies the given ArtifactFile inputs to the given outputs, in respective order. */
+  /** Copies the given TreeFileArtifact inputs to the given outputs, in respective order. */
   private static class CopyTreeAction extends TreeArtifactTestAction {
 
     CopyTreeAction(Runnable effect, Artifact input, Artifact output, String... sourcesAndDests) {
-      super(effect, input, asArtifactFiles(input, sourcesAndDests), output,
-          asArtifactFiles(output, sourcesAndDests));
+      super(effect, input, asTreeFileArtifacts(input, sourcesAndDests), output,
+          asTreeFileArtifacts(output, sourcesAndDests));
     }
 
     CopyTreeAction(
-        Collection<ArtifactFile> inputPaths,
-        Collection<ArtifactFile> outputPaths) {
+        Collection<TreeFileArtifact> inputPaths,
+        Collection<TreeFileArtifact> outputPaths) {
       super(Runnables.doNothing(), inputPaths, outputPaths);
     }
 
     CopyTreeAction(
         Runnable effect,
-        Collection<ArtifactFile> inputPaths,
-        Collection<ArtifactFile> outputPaths) {
+        Collection<TreeFileArtifact> inputPaths,
+        Collection<TreeFileArtifact> outputPaths) {
       super(effect, inputPaths, outputPaths);
     }
 
     @Override
     public void executeTestBehavior(ActionExecutionContext actionExecutionContext)
         throws ActionExecutionException {
-      Iterator<ArtifactFile> inputIterator = inputFiles.iterator();
-      Iterator<ArtifactFile> outputIterator = outputFiles.iterator();
+      Iterator<TreeFileArtifact> inputIterator = inputFiles.iterator();
+      Iterator<TreeFileArtifact> outputIterator = outputFiles.iterator();
 
       try {
         while (inputIterator.hasNext() || outputIterator.hasNext()) {
-          ArtifactFile input = inputIterator.next();
-          ArtifactFile output = outputIterator.next();
+          Artifact input = inputIterator.next();
+          Artifact output = outputIterator.next();
           FileSystemUtils.createDirectoryAndParents(output.getPath().getParentDirectory());
           FileSystemUtils.copyFile(input.getPath(), output.getPath());
         }
@@ -746,7 +746,7 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     FileSystemUtils.writeContentAsLatin1(path, contents);
   }
 
-  private static void writeFile(ArtifactFile file, String contents) throws IOException {
+  private static void writeFile(Artifact file, String contents) throws IOException {
     writeFile(file.getPath(), contents);
   }
 
@@ -756,11 +756,11 @@ public class TreeArtifactBuildTest extends TimestampBuilderTestCase {
     FileSystemUtils.touchFile(path);
   }
 
-  private static void touchFile(ArtifactFile file) throws IOException {
+  private static void touchFile(Artifact file) throws IOException {
     touchFile(file.getPath());
   }
 
-  private static void deleteFile(ArtifactFile file) throws IOException {
+  private static void deleteFile(Artifact file) throws IOException {
     Path path = file.getPath();
     // sometimes we write read-only files
     if (path.exists()) {

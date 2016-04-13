@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.ArtifactFile;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
@@ -730,7 +729,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       throws ActionExecutionException {
     IncludeProblems errors = new IncludeProblems();
     IncludeProblems warnings = new IncludeProblems();
-    Set<ArtifactFile> allowedIncludes = new HashSet<>();
+    Set<Artifact> allowedIncludes = new HashSet<>();
     for (Artifact input : mandatoryInputs) {
       if (input.isMiddlemanArtifact() || input.isTreeArtifact()) {
         artifactExpander.expand(input, allowedIncludes);

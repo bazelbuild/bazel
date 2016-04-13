@@ -40,7 +40,6 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.ArtifactFile;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
 import com.google.devtools.build.lib.actions.CachedActionEvent;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
@@ -432,17 +431,17 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   }
 
   private static class ArtifactExpanderImpl implements ArtifactExpander {
-    private final Map<Artifact, Collection<ArtifactFile>> expandedInputs;
+    private final Map<Artifact, Collection<Artifact>> expandedInputs;
 
-    private ArtifactExpanderImpl(Map<Artifact, Collection<ArtifactFile>> expandedInputMiddlemen) {
+    private ArtifactExpanderImpl(Map<Artifact, Collection<Artifact>> expandedInputMiddlemen) {
       this.expandedInputs = expandedInputMiddlemen;
     }
 
     @Override
-    public void expand(Artifact artifact, Collection<? super ArtifactFile> output) {
+    public void expand(Artifact artifact, Collection<? super Artifact> output) {
       Preconditions.checkState(artifact.isMiddlemanArtifact() || artifact.isTreeArtifact(),
           artifact);
-      Collection<ArtifactFile> result = expandedInputs.get(artifact);
+      Collection<Artifact> result = expandedInputs.get(artifact);
       // Note that result may be null for non-aggregating middlemen.
       if (result != null) {
         output.addAll(result);
@@ -458,7 +457,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   @Override
   public ActionExecutionContext getContext(
       ActionInputFileCache graphFileCache, MetadataHandler metadataHandler,
-      Map<Artifact, Collection<ArtifactFile>> expandedInputs) {
+      Map<Artifact, Collection<Artifact>> expandedInputs) {
     FileOutErr fileOutErr = actionLogBufferPathGenerator.generate();
     return new ActionExecutionContext(
         executorEngine,
@@ -616,7 +615,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
             "%s %s", actionExecutionContext.getMetadataHandler(), metadataHandler);
         prepareScheduleExecuteAndCompleteAction(action, actionExecutionContext, actionStartTime);
         return new ActionExecutionValue(
-            metadataHandler.getOutputArtifactFileData(),
+            metadataHandler.getOutputArtifactData(),
             metadataHandler.getOutputTreeArtifactData(),
             metadataHandler.getAdditionalOutputData());
       } finally {
@@ -851,14 +850,14 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   }
 
   private static void setPathReadOnlyAndExecutable(MetadataHandler metadataHandler,
-      ArtifactFile file)
+      Artifact artifact)
       throws IOException {
     // If the metadata was injected, we assume the mode is set correct and bail out early to avoid
     // the additional overhead of resetting it.
-    if (metadataHandler.isInjected(file)) {
+    if (metadataHandler.isInjected(artifact)) {
       return;
     }
-    Path path = file.getPath();
+    Path path = artifact.getPath();
     if (path.isFile(Symlinks.NOFOLLOW)) { // i.e. regular files only.
       // We trust the files created by the execution-engine to be non symlinks with expected
       // chmod() settings already applied.
@@ -877,7 +876,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
       }
     } else {
       setPathReadOnlyAndExecutable(
-          metadataHandler, ActionInputHelper.artifactFile(parent, subpath));
+          metadataHandler, ActionInputHelper.treeFileArtifact(parent, subpath));
     }
   }
 
