@@ -98,6 +98,7 @@ import com.google.devtools.build.lib.rules.java.JavaOptions;
 import com.google.devtools.build.lib.rules.java.JavaToolchainRule;
 import com.google.devtools.build.lib.rules.java.JvmConfigurationLoader;
 import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
+import com.google.devtools.build.lib.rules.objc.AppleSkylarkCommon;
 import com.google.devtools.build.lib.rules.objc.AppleWatch1ExtensionRule;
 import com.google.devtools.build.lib.rules.objc.AppleWatchExtensionBinaryRule;
 import com.google.devtools.build.lib.rules.objc.ExperimentalObjcLibraryRule;
@@ -235,9 +236,8 @@ public class BazelRuleClassProvider {
   public static final ImmutableMap<String, SkylarkType> skylarkBuiltinJavaObects =
       ImmutableMap.of(
           "android_common", SkylarkType.of(AndroidSkylarkCommon.class),
-          "apple_toolchain", SkylarkType.of(AppleToolchain.class));
-
-
+          "apple_common", SkylarkType.of(AppleSkylarkCommon.class));
+          
   public static void setup(ConfiguredRuleClassProvider.Builder builder) {
     builder
         .addBuildInfoFactory(new BazelJavaBuildInfoFactory())

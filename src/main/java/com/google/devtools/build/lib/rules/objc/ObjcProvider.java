@@ -28,6 +28,8 @@ import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
+import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
 import com.google.devtools.build.lib.syntax.SkylarkNestedSet;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -64,6 +66,7 @@ public final class ObjcProvider implements TransitiveInfoProvider {
    * Represents one of the things this provider can provide transitively. Things are provided as
    * {@link NestedSet}s of type E.
    */
+  @SkylarkModule(name = "Key", doc = "An ObjcProvider key.")
   public static class Key<E> {
     private final Order order;
     private final String skylarkKeyName;
@@ -78,6 +81,7 @@ public final class ObjcProvider implements TransitiveInfoProvider {
     /**
      * Returns the name of the collection represented by this key in the Skylark provider.
      */
+    @SkylarkCallable(name = "name", structField = true)
     public String getSkylarkKeyName() {
       return skylarkKeyName;
     }
@@ -331,18 +335,6 @@ public final class ObjcProvider implements TransitiveInfoProvider {
     HAS_WATCH1_EXTENSION
   }
 
-  /**
-   * All keys in ObjcProvider that will be passed in the corresponding Skylark provider.
-   */
-  // Only keys for Artifact or primitive types can be in the Skylark provider, as other types
-  // are not supported as Skylark types.
-  private static final ImmutableList<Key<?>> KEYS_FOR_SKYLARK =
-    ImmutableList.<Key<?>>of(LIBRARY, IMPORTED_LIBRARY, LINKED_BINARY, FORCE_LOAD_LIBRARY,
-        FORCE_LOAD_FOR_XCODEGEN, HEADER, SOURCE, DEFINE, ASSET_CATALOG, GENERAL_RESOURCE_FILE,
-        SDK_DYLIB, XCDATAMODEL, MODULE_MAP, MERGE_ZIP, FRAMEWORK_FILE, DEBUG_SYMBOLS,
-        DEBUG_SYMBOLS_PLIST, BREAKPAD_FILE, STORYBOARD, XIB, STRINGS, LINKOPT, J2OBJC_LIBRARY,
-        ROOT_MERGE_ZIP);
-
   private final ImmutableMap<Key<?>, NestedSet<?>> items;
 
   // Items which should be passed to direct dependers, but not transitive dependers.
@@ -392,7 +384,7 @@ public final class ObjcProvider implements TransitiveInfoProvider {
    */
   public SkylarkClassObject toSkylarkProvider() {
     ImmutableMap.Builder<String, Object> providerBuilder = ImmutableMap.<String, Object>builder();
-    for (Key<?> key : KEYS_FOR_SKYLARK) {
+    for (Key<?> key : SkylarkKeyStore.KEYS_FOR_SKYLARK) {
       providerBuilder.put(key.getSkylarkKeyName(), new SkylarkNestedSet(key.getType(), get(key)));
     }
     return new SkylarkClassObject(providerBuilder.build(), "No such attribute '%s'");
@@ -405,7 +397,7 @@ public final class ObjcProvider implements TransitiveInfoProvider {
    */
   public static ObjcProvider fromSkylarkProvider(SkylarkClassObject skylarkProvider) {
     Builder builder = new Builder();
-    for (Key<?> key : KEYS_FOR_SKYLARK) {
+    for (Key<?> key : SkylarkKeyStore.KEYS_FOR_SKYLARK) {
       SkylarkNestedSet skylarkSet =
           (SkylarkNestedSet) skylarkProvider.getValue(key.getSkylarkKeyName());
       if (skylarkSet != null) {

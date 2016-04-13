@@ -44,6 +44,7 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBu
   doc = "Utilities for resolving items from the Apple toolchain."
 )
 public class AppleToolchain {
+  
   // These next two strings are shared secrets with the xcrunwrapper.sh to allow
   // expansion of DeveloperDir and SDKRoot and runtime, since they aren't known
   // until compile time on any given build machine.
@@ -77,10 +78,6 @@ public class AppleToolchain {
           .put("GCC_WARN_UNUSED_FUNCTION", "-Wunused-function")
           .put("GCC_WARN_UNUSED_VARIABLE", "-Wunused-variable")
           .build();
-
-  private AppleToolchain() {
-    throw new UnsupportedOperationException("static-only");
-  }
 
   /**
    * Returns the platform plist name (for example, iPhoneSimulator) for the platform corresponding
