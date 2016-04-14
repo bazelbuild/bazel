@@ -69,13 +69,42 @@ import javax.annotation.Nullable;
  * methods.
  */
 public final class CcLibraryHelper {
-  static final FileTypeSet SOURCE_TYPES =
-      FileTypeSet.of(
-          CppFileTypes.CPP_SOURCE,
-          CppFileTypes.CPP_HEADER,
-          CppFileTypes.C_SOURCE,
-          CppFileTypes.ASSEMBLER,
-          CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR);
+  
+  /**
+   * A group of source file types for builds controlled by CcLibraryHelper.  Determines what
+   * file types CcLibraryHelper considers sources.
+   */
+  public static enum SourceCategory {
+    CC(
+        FileTypeSet.of(
+            CppFileTypes.CPP_SOURCE,
+            CppFileTypes.CPP_HEADER,
+            CppFileTypes.C_SOURCE,
+            CppFileTypes.ASSEMBLER,
+            CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR)),
+    CC_AND_OBJC(
+        FileTypeSet.of(
+            CppFileTypes.CPP_SOURCE,
+            CppFileTypes.CPP_HEADER,
+            CppFileTypes.OBJC_SOURCE,
+            CppFileTypes.OBJCPP_SOURCE,
+            CppFileTypes.C_SOURCE,
+            CppFileTypes.ASSEMBLER,
+            CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR));
+
+    private final FileTypeSet sourceTypeSet;
+
+    private SourceCategory(FileTypeSet sourceTypeSet) {
+      this.sourceTypeSet = sourceTypeSet;
+    }
+
+    /**
+     * Returns the set of file types that are valid for this catagory.
+     */
+    public FileTypeSet getSourceTypes() {
+      return sourceTypeSet;
+    }
+  }
   
   /** Function for extracting module maps from CppCompilationDependencies. */
   public static final Function<TransitiveInfoCollection, CppModuleMap> CPP_DEPS_TO_MODULES =
@@ -195,17 +224,42 @@ public final class CcLibraryHelper {
   private boolean emitDynamicLibrary = true;
   private boolean checkDepsGenerateCpp = true;
   private boolean emitCompileProviders;
+  private SourceCategory sourceCatagory;
 
   private final FeatureConfiguration featureConfiguration;
 
-  public CcLibraryHelper(RuleContext ruleContext, CppSemantics semantics,
-      FeatureConfiguration featureConfiguration) {
+  /**
+   * Creates a CcLibraryHelper.
+   *
+   * @param ruleContext  the RuleContext for the rule being built
+   * @param semantics  CppSemantics for the build
+   * @param featureConfiguration  activated features and action configs for the build
+   * @param sourceCatagory  the candidate source types for the build
+   */
+  public CcLibraryHelper(
+      RuleContext ruleContext,
+      CppSemantics semantics,
+      FeatureConfiguration featureConfiguration,
+      SourceCategory sourceCatagory) {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
     this.configuration = ruleContext.getConfiguration();
     this.semantics = Preconditions.checkNotNull(semantics);
     this.featureConfiguration = Preconditions.checkNotNull(featureConfiguration);
+    this.sourceCatagory = Preconditions.checkNotNull(sourceCatagory);
   }
 
+  /**
+   * Creates a CcLibraryHelper for cpp source files.
+   *
+   * @param ruleContext  the RuleContext for the rule being built
+   * @param semantics  CppSemantics for the build
+   * @param featureConfiguration  activated features and action configs for the build
+   */
+  public CcLibraryHelper(
+      RuleContext ruleContext, CppSemantics semantics, FeatureConfiguration featureConfiguration) {
+    this(ruleContext, semantics, featureConfiguration, SourceCategory.CC);
+  }
+  
   /**
    * Sets fields that overlap for cc_library and cc_binary rules.
    */
@@ -330,7 +384,7 @@ public final class CcLibraryHelper {
   private void addSource(Artifact source, Label label) {
     boolean isHeader = CppFileTypes.CPP_HEADER.matches(source.getExecPath());
     boolean isTextualInclude = CppFileTypes.CPP_TEXTUAL_INCLUDE.matches(source.getExecPath());
-    boolean isCompiledSource = SOURCE_TYPES.matches(source.getExecPathString());
+    boolean isCompiledSource = sourceCatagory.getSourceTypes().matches(source.getExecPathString());
     if (isHeader || isTextualInclude) {
       privateHeaders.add(source);
     }

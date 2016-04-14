@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.rules.cpp.CcLibraryHelper.SourceCategory;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -207,7 +209,7 @@ public final class CcCommon {
         Label oldLabel = map.put(artifact, provider.getLabel());
         boolean isHeader = CppFileTypes.CPP_HEADER.matches(artifact.getExecPath());
         if (!isHeader
-            && CcLibraryHelper.SOURCE_TYPES.matches(artifact.getExecPathString())
+            && SourceCategory.CC_AND_OBJC.getSourceTypes().matches(artifact.getExecPathString())
             && oldLabel != null
             && !oldLabel.equals(provider.getLabel())) {
           ruleContext.attributeError("srcs", String.format(
@@ -459,7 +461,8 @@ public final class CcCommon {
       for (FileProvider provider :
           ruleContext.getPrerequisites("srcs", Mode.TARGET, FileProvider.class)) {
         prerequisites.addAll(
-            FileType.filter(provider.getFilesToBuild(), CcLibraryHelper.SOURCE_TYPES));
+            FileType.filter(
+                provider.getFilesToBuild(), SourceCategory.CC_AND_OBJC.getSourceTypes()));
       }
     }
     prerequisites.addTransitive(context.getDeclaredIncludeSrcs());
