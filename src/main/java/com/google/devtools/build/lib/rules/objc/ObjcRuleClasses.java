@@ -53,7 +53,6 @@ import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain;
 import com.google.devtools.build.lib.rules.apple.AppleToolchain.RequiresXcodeConfigRule;
 import com.google.devtools.build.lib.rules.apple.Platform;
-import com.google.devtools.build.lib.rules.cpp.CppConfiguration;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -126,49 +125,11 @@ public class ObjcRuleClasses {
     return !ASSEMBLY_SOURCES.matches(sourceArtifact.getFilename());
   }
 
+
   @VisibleForTesting
   static final Iterable<SdkFramework> AUTOMATIC_SDK_FRAMEWORKS = ImmutableList.of(
       new SdkFramework("Foundation"), new SdkFramework("UIKit"));
 
-  /**
-   * Label of a filegroup that contains all crosstool and grte files for all configurations,
-   * as specified on the command-line.
-   *
-   * <p> Since this is the loading-phase default for the :cc_toolchain attribute of rules
-   * using the crosstool, it must contain in its transitive closure the computer value
-   * of that attribute under the default configuration.
-   */
-  public static final String CROSSTOOL_LABEL = "//tools/defaults:crosstool";
-
-  /**
-   * Late-bound attribute giving the CcToolchain for CROSSTOOL_LABEL.
-   *
-   * TODO(cpeyser): Use AppleCcToolchain instead of CcToolchain once released.
-   */
-  public static final LateBoundLabel<BuildConfiguration> APPLE_TOOLCHAIN =
-      new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL, CppConfiguration.class) {
-        @Override
-        public Label getDefault(
-            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
-        }
-      };
-
-  /**
-   * A null value for the lipo context colletor.  Objc builds do not use a lipo context collector.
-   */
-  // TODO(b/28084560): Allow :lipo_context_collector not to be set instead of having a null 
-  // instance.
-  public static final LateBoundLabel<BuildConfiguration> NULL_LIPO_CONTEXT_COLLECTOR =
-      new LateBoundLabel<BuildConfiguration>() {
-        @Override
-        public Label getDefault(
-            Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
-          return null;
-        }
-      };
-      
-      
   /**
    * Creates a new spawn action builder with apple environment variables set that are typically
    * needed by the apple toolchain. This should be used to start to build spawn actions that, in
@@ -549,31 +510,6 @@ public class ObjcRuleClasses {
   }
 
   /**
-   * Common attributes for {@code objc_*} rules that depend on a crosstool.
-   */
-  public static class CrosstoolRule implements RuleDefinition {
-
-    @Override
-    public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
-      return builder
-          .add(attr(":cc_toolchain", LABEL).value(APPLE_TOOLCHAIN))
-          .add(
-              attr(":lipo_context_collector", LABEL)
-                  .value(NULL_LIPO_CONTEXT_COLLECTOR)
-                  .skipPrereqValidatorCheck())
-          .build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return RuleDefinition.Metadata.builder()
-          .name("$objc_crosstool_rule")
-          .type(RuleClassType.ABSTRACT)
-          .build();
-    }
-  }
-
-  /**
    * Common attributes for {@code objc_*} rules that can be input to compilation (i.e. can be
    * dependencies of other compiling rules).
    */
@@ -656,8 +592,7 @@ public class ObjcRuleClasses {
             "cc_library",
             "cc_inc_library",
             "ios_framework",
-            "swift_library",
-            "experimental_objc_library");
+            "swift_library");
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
