@@ -179,33 +179,6 @@ function test_loading_progress {
   expect_log 'Loading.*[0-9,]* / [0-9,]*'
 }
 
-function test_times_fresh {
-  bazel clean || fail "bazel clean failed"
-  bazel test --experimental_ui --curses=yes --color=yes \
-    --nocache_test_results --show_progress_rate_limit=0.03 \
-    --progress_report_interval=1 pkg:slow 2>$TEST_log \
-    || fail "bazel test failed"
-  # We have ensured that the slow test is run. It takes at least 10 seconds
-  # and we expect an update about once per second. Due to lack of knowledge
-  # of the phasing, we cannot expect a particular run-time to be visible;
-  # however, if none of three adjacent seconds are shown in the upddate the
-  # refreshing is certainly not working.
-  expect_log 'Testing.*slow.*[789]s'
-}
-
-function test_nocurses_little_output {
-  bazel clean || fail "bazel clean failed"
-  bazel test --experimental_ui --curses=no --color=yes pkg:slow 2>$TEST_log \
-    || fail "bazel test failed"
-  # We have ensured that the slow test is run. It takes about 10 seconds
-  # and we expect an update about every five second, so, in totoal, we
-  # expect to see two or three lines about the progress of the slow test.
-  # Five definitely is way off.
-  line_count=`grep 'Testing.*slow' $TEST_log | wc -l`
-  [ $line_count -lt 5 ] \
-    || fail "Too many progress updates in the log: `cat $TEST_log`"
-}
-
 function test_failure_scrollback_buffer_curses {
   bazel clean || fail "bazel clean failed"
   bazel test --experimental_ui --curses=yes --color=yes \
