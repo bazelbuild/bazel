@@ -136,7 +136,7 @@ public abstract class PersistentMap<K, V> extends ForwardingMap<K, V> {
    * Marks the map as dirty and potentially writes updated entries to the
    * journal.
    */
-  private void markAsDirty() {
+  protected void markAsDirty() {
     dirty = true;
     if (updateJournal()) {
       writeJournal();

@@ -17,6 +17,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.CompactStringIndexer;
 import com.google.devtools.build.lib.util.PersistentMap;
@@ -36,6 +37,8 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 /**
  * An implementation of the ActionCache interface that uses
@@ -49,7 +52,9 @@ import java.util.Map;
                          // different cache root
 public class CompactPersistentActionCache implements ActionCache {
   private static final int SAVE_INTERVAL_SECONDS = 3;
-  private static final long NANOS_PER_SECOND = 1000 * 1000 * 1000;
+  // Log if periodically saving the action cache incurs more than 5% overhead.
+  private static final int MIN_TIME_FOR_LOGGING_MILLIS =
+      (int) (TimeUnit.SECONDS.toMillis(SAVE_INTERVAL_SECONDS) * 0.05);
 
   // Key of the action cache record that holds information used to verify referential integrity
   // between action cache and string indexer. Must be < 0 to avoid conflict with real action
@@ -60,25 +65,27 @@ public class CompactPersistentActionCache implements ActionCache {
 
   private static final int VERSION = 11;
 
+  private static final Logger LOG = Logger.getLogger(CompactPersistentActionCache.class.getName());
+
   private final class ActionMap extends PersistentMap<Integer, byte[]> {
     private final Clock clock;
-    private long nextUpdate;
+    private long nextUpdateSecs;
 
     public ActionMap(Map<Integer, byte[]> map, Clock clock, Path mapFile, Path journalFile)
         throws IOException {
       super(VERSION, map, mapFile, journalFile);
       this.clock = clock;
       // Using nanoTime. currentTimeMillis may not provide enough granularity.
-      nextUpdate = clock.nanoTime() / NANOS_PER_SECOND + SAVE_INTERVAL_SECONDS;
+      nextUpdateSecs = TimeUnit.NANOSECONDS.toSeconds(clock.nanoTime()) + SAVE_INTERVAL_SECONDS;
       load();
     }
 
     @Override
     protected boolean updateJournal() {
       // Using nanoTime. currentTimeMillis may not provide enough granularity.
-      long time = clock.nanoTime() / NANOS_PER_SECOND;
-      if (SAVE_INTERVAL_SECONDS == 0 || time > nextUpdate) {
-        nextUpdate = time + SAVE_INTERVAL_SECONDS;
+      long timeSecs = TimeUnit.NANOSECONDS.toSeconds(clock.nanoTime());
+      if (SAVE_INTERVAL_SECONDS == 0 || timeSecs > nextUpdateSecs) {
+        nextUpdateSecs = timeSecs + SAVE_INTERVAL_SECONDS;
         // Force flushing of the PersistentStringIndexer instance. This is needed to ensure
         // that filename index data on disk is always up-to-date when we save action cache
         // data.
@@ -86,6 +93,14 @@ public class CompactPersistentActionCache implements ActionCache {
         return true;
       }
       return false;
+    }
+
+    @Override
+    protected void markAsDirty() {
+      try (AutoProfiler p =
+          AutoProfiler.logged("slow write to journal", LOG, MIN_TIME_FOR_LOGGING_MILLIS)) {
+        super.markAsDirty();
+      }
     }
 
     @Override
