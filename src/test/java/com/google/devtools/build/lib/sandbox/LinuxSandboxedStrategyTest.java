@@ -29,6 +29,7 @@ import org.junit.runners.JUnit4;
 
 import java.io.IOException;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -104,24 +105,12 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
   private ImmutableMap<String, String> userFriendlyAsserts(List<String> asserts) {
     return userFriendlyMap(asserts(asserts));
   }
-  private ImmutableMap<String, String> userFriendlyAsserts(Map<String, String> asserts) {
-    return userFriendlyMap(asserts(asserts));
-  }
 
   private ImmutableMap<Path, Path> asserts(List<String> asserts) {
     ImmutableMap.Builder<Path, Path> pathifiedAsserts = ImmutableMap.builder();
     for (String fileName : asserts) {
       Path inputPath = workspaceDir.getRelative(fileName);
       pathifiedAsserts.put(inputPath, inputPath);
-    }
-    return pathifiedAsserts.build();
-  }
-
-  private ImmutableMap<Path, Path> asserts(Map<String, String> asserts) {
-    ImmutableMap.Builder<Path, Path> pathifiedAsserts = ImmutableMap.builder();
-    for (Map.Entry<String, String> file : asserts.entrySet()) {
-      pathifiedAsserts.put(
-          workspaceDir.getRelative(file.getKey()), workspaceDir.getRelative(file.getValue()));
     }
     return pathifiedAsserts.build();
   }
@@ -148,9 +137,10 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
     Map<String, String> testFiles = new LinkedHashMap<>();
     testFiles.put("symlink.txt", "goal.txt");
     testFiles.put("goal.txt", "");
-    testFiles.put("other.txt", "");
 
-    Map<String, String> assertMounts = ImmutableMap.of("symlink.txt", "goal.txt");
+    List<String> assertMounts = new ArrayList<>();
+    assertMounts.add("symlink.txt");
+    assertMounts.add("goal.txt");
 
     assertThat(userFriendlyMounts(testFiles)).isEqualTo(userFriendlyAsserts(assertMounts));
   }
@@ -160,10 +150,9 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
     Map<String, String> testFiles =
         ImmutableMap.of(
             "symlink.txt", "x/goal.txt",
-            "x/goal.txt", "",
-            "x/other.txt", "");
+            "x/goal.txt", "");
 
-    Map<String, String> assertMounts = ImmutableMap.of("symlink.txt", "x/goal.txt");
+    List<String> assertMounts = ImmutableList.of("symlink.txt", "x/goal.txt");
     assertThat(userFriendlyMounts(testFiles)).isEqualTo(userFriendlyAsserts(assertMounts));
   }
 
@@ -172,10 +161,9 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
     Map<String, String> testFiles =
         ImmutableMap.of(
             "x/symlink.txt", "../goal.txt",
-            "goal.txt", "",
-            "x/other.txt", "");
+            "goal.txt", "");
 
-    Map<String, String> assertMounts = ImmutableMap.of("x/symlink.txt", "goal.txt");
+    List<String> assertMounts = ImmutableList.of("x/symlink.txt", "goal.txt");
 
     assertThat(userFriendlyMounts(testFiles)).isEqualTo(userFriendlyAsserts(assertMounts));
   }
@@ -190,73 +178,7 @@ public class LinuxSandboxedStrategyTest extends LinuxSandboxedStrategyTestCase {
             "a/b/y.txt", "z.txt",
             "a/b/z.txt", "");
 
-    List<String> assertMounts = ImmutableList.of("a/b");
-
-    assertThat(userFriendlyMounts(testFiles, inputFile))
-        .isEqualTo(userFriendlyAsserts(assertMounts));
-  }
-
-  @Test
-  public void testDetectsWholeDir() throws Exception {
-    ImmutableList<String> inputFile = ImmutableList.of("a/x.txt", "a/z.txt");
-
-    Map<String, String> testFiles =
-        ImmutableMap.of(
-            "a/x.txt", "",
-            "a/z.txt", "");
-
-    List<String> assertMounts = ImmutableList.of("a");
-
-    assertThat(userFriendlyMounts(testFiles, inputFile))
-        .isEqualTo(userFriendlyAsserts(assertMounts));
-  }
-
-  @Test
-  public void testExcludesOtherDir() throws Exception {
-    ImmutableList<String> inputFile = ImmutableList.of("a/x.txt", "a/y.txt");
-
-    Map<String, String> testFiles =
-        ImmutableMap.of(
-            "a/x.txt", "",
-            "a/y.txt", "",
-            "a/b/", "");
-
-    List<String> assertMounts = ImmutableList.of("a/x.txt", "a/y.txt");
-
-    assertThat(userFriendlyMounts(testFiles, inputFile))
-        .isEqualTo(userFriendlyAsserts(assertMounts));
-  }
-
-  @Test
-  public void testExcludesOtherFiles() throws Exception {
-    ImmutableList<String> inputFile = ImmutableList.of("a/x.txt", "a/z.txt");
-
-    Map<String, String> testFiles =
-        ImmutableMap.of(
-            "a/x.txt", "",
-            "a/y.txt", "z.txt",
-            "a/z.txt", "");
-
-    List<String> assertMounts = ImmutableList.of("a/x.txt", "a/z.txt");
-
-    assertThat(userFriendlyMounts(testFiles, inputFile))
-        .isEqualTo(userFriendlyAsserts(assertMounts));
-  }
-
-  @Test
-  public void testRecognizesOtherSymlinks() throws Exception {
-    ImmutableList<String> inputFile = ImmutableList.of("a/a/x.txt", "a/a/y.txt");
-
-    Map<String, String> testFiles =
-        ImmutableMap.of(
-            "a/a/x.txt", "../b/x.txt",
-            "a/a/y.txt", "",
-            "a/b/x.txt", "");
-
-    Map<String, String> assertMounts =
-        ImmutableMap.of(
-            "a/a/x.txt", "a/b/x.txt",
-            "a/a/y.txt", "a/a/y.txt");
+    List<String> assertMounts = ImmutableList.of("a/b/x.txt", "a/b/y.txt", "a/b/z.txt");
 
     assertThat(userFriendlyMounts(testFiles, inputFile))
         .isEqualTo(userFriendlyAsserts(assertMounts));
