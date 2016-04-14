@@ -155,7 +155,10 @@ genrule(
         "package-zip" + suffix,
     ],
     outs = ["bazel" + suffix],
-    cmd = "cat $(location //src/main/cpp:client) $(location :package-zip" + suffix + ") > $@ && zip -qA $@",
+    # In msys, a file path without .exe suffix(say foo), refers to a file with .exe
+    # suffix(say foo.exe), if foo.exe exists and foo doesn't. So, on windows, we
+    # need to remove bazel.exe first, so that cat to bazel won't fail.
+    cmd = "rm -f $@; cat $(location //src/main/cpp:client) $(location :package-zip" + suffix + ") > $@ && zip -qA $@",
     executable = 1,
     output_to_bindir = 1,
     visibility = [

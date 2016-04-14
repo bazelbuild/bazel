@@ -260,8 +260,13 @@ class RunfilesCreator {
       }
 
       FileInfoMap::iterator expected_it = manifest_.find(entry_path);
+      // When windows_compatible is enabled, if the hard link already existing
+      // is still
+      // in the mainifest, no need to recreate it.
+      // Note: here we assume the content won't change, which might not be true
+      // in some rare cases.
       if (expected_it == manifest_.end() ||
-          expected_it->second != actual_info) {
+          (!windows_compatible_ && expected_it->second != actual_info)) {
         DelTree(entry_path, actual_info.type);
       } else {
         manifest_.erase(expected_it);
