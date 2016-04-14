@@ -196,6 +196,7 @@ public final class QueryCommand implements BlazeCommand {
       if (!catastrophe) {
         if (streamResults) {
           output.flush();
+          queryEnv.afterCommand();
         }
         try {
           callback.close();
@@ -225,6 +226,7 @@ public final class QueryCommand implements BlazeCommand {
         env.getReporter().handle(Event.error("I/O error: " + e.getMessage()));
         return ExitCode.LOCAL_ENVIRONMENTAL_ERROR;
       } finally {
+        queryEnv.afterCommand();
         // Note that PrintStream#checkError first flushes and then returns whether any
         // error was ever encountered.
         if (output.checkError()) {
