@@ -359,7 +359,7 @@ public class AndroidResourcesProcessorBuilder {
             .setCommandLine(builder.build())
             .setExecutable(
                 ruleContext.getExecutablePrerequisite("$android_resources_processor", Mode.HOST))
-            .setProgressMessage("Processing resources")
+            .setProgressMessage("Processing Android resources for " + ruleContext.getLabel())
             .setMnemonic("AndroidAapt")
             .build(context));
 
