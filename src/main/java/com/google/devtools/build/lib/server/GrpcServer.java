@@ -11,21 +11,31 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.lib.server;
 
-import io.grpc.stub.StreamObserver;
+import com.google.devtools.build.lib.runtime.CommandExecutor;
+import com.google.devtools.build.lib.util.Clock;
+
+import java.io.IOException;
 
 /**
- * Unused class just to make sure that we can compile with gRPC.
+ * Interface for the gRPC server.
+ *
+ * <p>This is necessary so that Bazel kind of works during bootstrapping, at which time the
+ * gRPC server is not compiled on so that we don't need gRPC for bootstrapping.
  */
-public class GrpcServer implements CommandServerGrpc.CommandServer {
-  @Override
-  public void run(CommandProtos.Request request, StreamObserver<CommandProtos.Response> observer) {
-    CommandProtos.Response response = CommandProtos.Response.newBuilder()
-        .setNumber(request.getNumber() + 1)
-        .build();
-    observer.onNext(response);
-    observer.onCompleted();
+public interface GrpcServer {
+
+  /**
+   * Factory class.
+   *
+   * Present so that we don't need to invoke a constructor with multiple arguments by reflection.
+   */
+  interface Factory {
+    GrpcServer create(CommandExecutor commandExecutor, Clock clock, int port,
+      String outputBase);
   }
+
+  void serve() throws IOException;
+  void terminate();
 }

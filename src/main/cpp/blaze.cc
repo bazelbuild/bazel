@@ -265,6 +265,11 @@ static vector<string> GetArgumentArray() {
   result.push_back(blaze::ConvertPath(
       blaze_util::JoinPath(real_install_dir, globals->extracted_binaries[0])));
 
+  if (globals->options.grpc_port != -1) {
+    result.push_back("--grpc_port");
+    result.push_back(ToString(globals->options.grpc_port));
+  }
+
   if (!globals->options.batch) {
     result.push_back("--max_idle_secs");
     result.push_back(ToString(globals->options.max_idle_secs));

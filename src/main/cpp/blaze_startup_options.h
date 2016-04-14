@@ -210,8 +210,9 @@ class BlazeStartupOptions {
   // the --host_javabase option.
   string GetHostJavabase();
 
-  // Port for web status server, 0 to disable
-  int webstatus_port;
+  // Port for gRPC command server. 0 means let the kernel choose, -1 means no
+  // gRPC command server.
+  int grpc_port;
 
   // Invocation policy proto. May be NULL.
   const char* invocation_policy;

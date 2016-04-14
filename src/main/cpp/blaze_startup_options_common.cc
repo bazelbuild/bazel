@@ -50,7 +50,7 @@ void BlazeStartupOptions::Init() {
   // 3 hours (but only 5 seconds if used within a test)
   max_idle_secs = testing ? 5 : (3 * 3600);
   oom_more_eagerly_threshold = 100;
-  webstatus_port = 0;
+  grpc_port = -1;
   oom_more_eagerly = false;
   watchfs = false;
   invocation_policy = NULL;
@@ -81,7 +81,7 @@ void BlazeStartupOptions::Copy(
   lhs->batch_cpu_scheduling = rhs.batch_cpu_scheduling;
   lhs->io_nice_level = rhs.io_nice_level;
   lhs->max_idle_secs = rhs.max_idle_secs;
-  lhs->webstatus_port = rhs.webstatus_port;
+  lhs->grpc_port = rhs.grpc_port;
   lhs->oom_more_eagerly = rhs.oom_more_eagerly;
   lhs->watchfs = rhs.watchfs;
   lhs->allow_configurable_attributes = rhs.allow_configurable_attributes;
@@ -233,12 +233,13 @@ blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
     watchfs = false;
     option_sources["watchfs"] = rcfile;
   } else if ((value = GetUnaryOption(
-      arg, next_arg, "--use_webstatusserver")) != NULL) {
-    if (!blaze_util::safe_strto32(value, &webstatus_port) ||
-        webstatus_port < 0 || webstatus_port > 65535) {
+      arg, next_arg, "--grpc_port")) != NULL) {
+    if (!blaze_util::safe_strto32(value, &grpc_port) ||
+        grpc_port < -1 || grpc_port > 65535) {
       blaze_util::StringPrintf(error,
-          "Invalid argument to --use_webstatusserver: '%s'. "
-          "Must be a valid port number or 0 if server disabled.\n", value);
+          "Invalid argument to --grpc_port: '%s'. "
+          "Must be a valid port number or -1 to disable the gRPC server.\n",
+          value);
       return blaze_exit_code::BAD_ARGV;
     }
     option_sources["webstatusserver"] = rcfile;

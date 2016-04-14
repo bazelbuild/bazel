@@ -63,8 +63,8 @@ import com.google.devtools.build.lib.runtime.commands.ShutdownCommand;
 import com.google.devtools.build.lib.runtime.commands.TestCommand;
 import com.google.devtools.build.lib.runtime.commands.VersionCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
+import com.google.devtools.build.lib.server.GrpcServer;
 import com.google.devtools.build.lib.server.RPCServer;
-import com.google.devtools.build.lib.server.ServerCommand;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
 import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -102,8 +102,6 @@ import com.google.devtools.common.options.TriState;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintWriter;
-import java.io.StringWriter;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -133,6 +131,16 @@ import javax.annotation.Nullable;
  * <p>The parts specific to the current command are stored in {@link CommandEnvironment}.
  */
 public final class BlazeRuntime {
+  private static class BlazeServer {
+    private final RPCServer afUnixServer;
+    private final GrpcServer grpcServer;
+
+    private BlazeServer(RPCServer afUnixServer, GrpcServer grpcServer) {
+      this.afUnixServer = afUnixServer;
+      this.grpcServer = grpcServer;
+    }
+  }
+
   private static final Pattern suppressFromLog = Pattern.compile(".*(auth|pass|cookie).*",
       Pattern.CASE_INSENSITIVE);
 
@@ -837,7 +845,16 @@ public final class BlazeRuntime {
    */
   private static int serverMain(Iterable<BlazeModule> modules, OutErr outErr, String[] args) {
     try {
-      createBlazeRPCServer(modules, Arrays.asList(args)).serve();
+      BlazeServer blazeServer = createBlazeRPCServer(modules, Arrays.asList(args));
+      if (blazeServer.grpcServer != null) {
+        blazeServer.grpcServer.serve();
+      }
+
+      // TODO(lberki): Make this call non-blocking and terminate the two servers at the same time
+      blazeServer.afUnixServer.serve();
+      if (blazeServer.grpcServer != null) {
+        blazeServer.grpcServer.serve();
+      }
       return ExitCode.SUCCESS.getNumericExitCode();
     } catch (OptionsParsingException e) {
       outErr.printErr(e.getMessage());
@@ -863,7 +880,7 @@ public final class BlazeRuntime {
   /**
    * Creates and returns a new Blaze RPCServer. Call {@link RPCServer#serve()} to start the server.
    */
-  private static RPCServer createBlazeRPCServer(Iterable<BlazeModule> modules, List<String> args)
+  private static BlazeServer createBlazeRPCServer(Iterable<BlazeModule> modules, List<String> args)
       throws IOException, OptionsParsingException, AbruptExitException {
     OptionsProvider options = parseOptions(modules, args);
     BlazeServerStartupOptions startupOptions = options.getOptions(BlazeServerStartupOptions.class);
@@ -871,44 +888,26 @@ public final class BlazeRuntime {
     final BlazeRuntime runtime = newRuntime(modules, options);
     final BlazeCommandDispatcher dispatcher = new BlazeCommandDispatcher(runtime);
 
-    final ServerCommand blazeCommand;
-
-    // Adaptor from RPC mechanism to BlazeCommandDispatcher:
-    blazeCommand = new ServerCommand() {
-      private boolean shutdown = false;
-
-      @Override
-      public int exec(List<String> args, OutErr outErr, long firstContactTime) {
-        LOG.info(getRequestLogString(args));
-
-        try {
-          return dispatcher.exec(args, outErr, firstContactTime);
-        } catch (BlazeCommandDispatcher.ShutdownBlazeServerException e) {
-          if (e.getCause() != null) {
-            StringWriter message = new StringWriter();
-            message.write("Shutting down due to exception:\n");
-            PrintWriter writer = new PrintWriter(message, true);
-            e.printStackTrace(writer);
-            writer.flush();
-            LOG.severe(message.toString());
-          }
-          shutdown = true;
-          runtime.shutdown();
-          dispatcher.shutdown();
-          return e.getExitStatus();
-        }
-      }
-
-      @Override
-      public boolean shutdown() {
-        return shutdown;
-      }
-    };
-
-    RPCServer server = RPCServer.newServerWith(runtime.getClock(), blazeCommand,
+    CommandExecutor commandExecutor = new CommandExecutor(runtime, dispatcher);
+    RPCServer afUnixServer = RPCServer.newServerWith(runtime.getClock(), commandExecutor,
         runtime.getServerDirectory(), runtime.workspace.getWorkspace(),
         startupOptions.maxIdleSeconds);
-    return server;
+    GrpcServer grpcServer = null;
+    if (startupOptions.grpcPort != -1) {
+      try {
+        // We don't want to directly depend on this class so that we don't need gRPC for
+        // bootstrapping, so we instantiate it using a factory class and reflection
+        Class<?> factoryClass = Class.forName(
+            "com.google.devtools.build.lib.server.GrpcServerImpl$Factory");
+        GrpcServer.Factory factory = (GrpcServer.Factory) factoryClass.newInstance();
+        grpcServer = factory.create(commandExecutor, runtime.getClock(),
+            startupOptions.grpcPort, startupOptions.outputBase.getPathString());
+      } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
+        throw new AbruptExitException("gRPC server not compiled in", ExitCode.BLAZE_INTERNAL_ERROR);
+      }
+    }
+
+    return new BlazeServer(afUnixServer, grpcServer);
   }
 
   private static Function<String, String> sourceFunctionForMap(final Map<String, String> map) {

@@ -5,6 +5,7 @@ package(default_visibility = ["//visibility:public"])
 java_import(
     name = "grpc-jar",
     jars = ["grpc-all-0.13.2.jar"],
+    runtime_deps = ["//third_party:netty"],
 )
 
 filegroup(
@@ -438,7 +439,7 @@ cc_library(
     ],
     copts = [
         "-std=gnu99",
-        "-w",
+        "-Wno-implicit-function-declaration",
     ],
     includes = [
         ".",
@@ -570,7 +571,6 @@ cc_library(
         "include/grpc++/support/sync_stream.h",
         "include/grpc++/support/time.h",
     ],
-    copts = ["-w"],
     includes = [
         ".",
         "include",
