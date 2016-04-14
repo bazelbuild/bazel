@@ -469,7 +469,6 @@ public final class CompilationSupport {
    *
    * @param sourceFile the artifact to compile
    * @param objFile the resulting object artifact
-   * @param intermediateArtifacts intermediary artifacts
    * @param objcProvider ObjcProvider instance for this invocation
    */
   private void registerSwiftCompileAction(
@@ -1265,7 +1264,7 @@ public final class CompilationSupport {
     Artifact debugSymbolFile = intermediateArtifacts.dsymSymbol(dsymOutputType);
     Artifact dsymPlist = intermediateArtifacts.dsymPlist(dsymOutputType);
 
-    PathFragment dsymOutputDir = removeSuffix(tempDsymBundleZip.getExecPath(), ".zip");
+    PathFragment dsymOutputDir = removeSuffix(tempDsymBundleZip.getExecPath(), ".temp.zip");
     PathFragment dsymPlistZipEntry = dsymPlist.getExecPath().relativeTo(dsymOutputDir);
     PathFragment debugSymbolFileZipEntry =
         debugSymbolFile
