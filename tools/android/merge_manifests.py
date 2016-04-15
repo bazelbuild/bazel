@@ -418,7 +418,7 @@ def main():
     for line in merged_manifests.split('\n'):
       if not line.strip():
         continue
-      out_file.write(line + '\n')
+      out_file.write(line.encode('utf8') + '\n')
 
 if __name__ == '__main__':
   FLAGS(sys.argv)
