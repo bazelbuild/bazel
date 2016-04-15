@@ -9,12 +9,19 @@ An interface for a set of runfiles.
 <div class="toc">
   <h2>Methods</h2>
   <ul>
-          <li><a href="#files">files</a></li>
+          <li><a href="#empty_filenames">empty_filenames</a></li>
+              <li><a href="#files">files</a></li>
               <li><a href="#symlinks">symlinks</a></li>
         </ul>
 </div>
 
-      <h2 id="files">files</h2>
+      <h2 id="empty_filenames">empty_filenames</h2>
+        <p><pre>set runfiles.empty_filenames</pre></p>
+
+    Returns names of empty files to create.
+
+
+        <h2 id="files">files</h2>
         <p><pre>set runfiles.files</pre></p>
 
     Returns the set of runfiles as files
