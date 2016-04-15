@@ -369,7 +369,7 @@ public final class SequencedSkyframeExecutor extends SkyframeExecutor {
     ExternalFilesHelper tmpExternalFilesHelper =
         externalFilesHelper.cloneWithFreshExternalFilesKnowledge();
     // See the comment for FileType.OUTPUT for why we need to consider output files here.
-    EnumSet fileTypesToCheck = checkOutputFiles
+    EnumSet<FileType> fileTypesToCheck = checkOutputFiles
         ? EnumSet.of(FileType.EXTERNAL_MUTABLE, FileType.EXTERNAL_REPO, FileType.OUTPUT)
         : EnumSet.of(FileType.EXTERNAL_MUTABLE, FileType.EXTERNAL_REPO);
     Differencer.Diff diff =
