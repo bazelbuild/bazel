@@ -63,7 +63,8 @@ def Main():
       stub_filename = os.path.join(os.path.dirname(stub_filename), link)
       continue
 
-    matchobj = re.match("(.*\.runfiles)/.*", os.path.abspath(sys.argv[0]))
+    runfiles_pattern = "(.*\.runfiles)\\.*" if IsWindows() else "(.*\.runfiles)/.*"
+    matchobj = re.match(runfiles_pattern, os.path.abspath(sys.argv[0]))
     if matchobj:
       module_space = matchobj.group(1)
       break
