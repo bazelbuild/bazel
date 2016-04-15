@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.rules.cpp.CcLibraryHelper;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainProvider;
+import com.google.devtools.build.lib.rules.cpp.PrecompiledFiles;
 import com.google.devtools.build.lib.rules.objc.ObjcCommon.CompilationAttributes;
 
 import java.util.Collection;
@@ -39,6 +40,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
     CompilationArtifacts compilationArtifacts =
         CompilationSupport.compilationArtifacts(ruleContext);
     CompilationAttributes compilationAttributes = new CompilationAttributes(ruleContext);
+    PrecompiledFiles precompiledFiles = new PrecompiledFiles(ruleContext);
 
     ObjcCommon common = common(ruleContext, compilationAttributes, compilationArtifacts);
 
@@ -62,6 +64,7 @@ public class ExperimentalObjcLibrary implements RuleConfiguredTargetFactory {
             .addSources(privateHdrs)
             .enableCompileProviders()
             .addPublicHeaders(publicHdrs)
+            .addPrecompiledFiles(precompiledFiles)
             .addDeps(ruleContext.getPrerequisites("deps", Mode.TARGET));
 
     CcLibraryHelper.Info info = helper.build();
