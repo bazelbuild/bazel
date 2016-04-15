@@ -27,8 +27,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
+import com.google.devtools.build.lib.testutil.LoggingTerminalWriter;
 import com.google.devtools.build.lib.testutil.ManualClock;
-import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
@@ -57,44 +57,6 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     return action;
   }
 
-  private class LoggingTerminalWriter implements AnsiTerminalWriter {
-    private String written;
-
-    LoggingTerminalWriter() {
-      this.written = "";
-    }
-
-    @Override
-    public LoggingTerminalWriter append(String text) throws IOException {
-      written += text;
-      return this;
-    }
-
-    @Override
-    public LoggingTerminalWriter newline() throws IOException {
-      return this;
-    }
-
-    @Override
-    public LoggingTerminalWriter okStatus() throws IOException {
-      return this;
-    }
-
-    @Override
-    public LoggingTerminalWriter failStatus() throws IOException {
-      return this;
-    }
-
-    @Override
-    public LoggingTerminalWriter normal() throws IOException {
-      return this;
-    }
-
-    String getWritten() {
-      return written;
-    }
-  }
-
   @Test
   public void testActionVisible() throws IOException {
     // If there is only one action running, it should be visible
@@ -107,16 +69,16 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock);
     stateTracker.actionStarted(new ActionStartedEvent(mockAction(message, "bar/foo"), 123456789));
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter();
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
-    String output = terminalWriter.getWritten();
+    String output = terminalWriter.getTranscript();
     assertTrue(
         "Action message '" + message + "' should be present in output: " + output,
         output.contains(message));
 
     terminalWriter = new LoggingTerminalWriter();
     stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
-    output = terminalWriter.getWritten();
+    output = terminalWriter.getTranscript();
     assertTrue(
         "Action message '" + message + "' should be present in short output: " + output,
         output.contains(message));
@@ -140,9 +102,9 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     stateTracker.actionStarted(new ActionStartedEvent(slowAction, 123456999));
     stateTracker.actionCompletion(new ActionCompletionEvent(20, fastAction));
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter();
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
-    String output = terminalWriter.getWritten();
+    String output = terminalWriter.getTranscript();
     assertFalse(
         "Completed action '" + messageFast + "' should not be present in output: " + output,
         output.contains(messageFast));
@@ -152,7 +114,7 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
 
     terminalWriter = new LoggingTerminalWriter();
     stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
-    output = terminalWriter.getWritten();
+    output = terminalWriter.getTranscript();
     assertFalse(
         "Completed action '" + messageFast + "' should not be present in short output: " + output,
         output.contains(messageFast));
@@ -179,16 +141,16 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
               mockAction("Other action " + i, "some/other/actions/number" + i), 123456790 + i));
     }
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter();
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
-    String output = terminalWriter.getWritten();
+    String output = terminalWriter.getTranscript();
     assertTrue(
         "Longest running action '" + messageOld + "' should be visible in output: " + output,
         output.contains(messageOld));
 
-    terminalWriter = new LoggingTerminalWriter();
+    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
-    output = terminalWriter.getWritten();
+    output = terminalWriter.getTranscript();
     assertTrue(
         "Longest running action '" + messageOld + "' should be visible in short output: " + output,
         output.contains(messageOld));
@@ -211,17 +173,17 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
         new ActionStartedEvent(mockAction("Second action", "bar"), clock.nanoTime()));
     clock.advanceMillis(TimeUnit.SECONDS.toMillis(20));
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter();
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
-    String output = terminalWriter.getWritten();
+    String output = terminalWriter.getTranscript();
     assertTrue(
         "Runtime of first action should be visible in output: " + output, output.contains("27s"));
     assertTrue(
         "Runtime of second action should be visible in output: " + output, output.contains("20s"));
 
-    terminalWriter = new LoggingTerminalWriter();
+    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
-    output = terminalWriter.getWritten();
+    output = terminalWriter.getTranscript();
     assertTrue(
         "Runtime of first action should be visible in short output: " + output,
         output.contains("27s"));
@@ -269,15 +231,15 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     stateTracker.testFilteringComplete(filteringComplete);
     stateTracker.testSummary(testSummary);
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter();
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
-    String output = terminalWriter.getWritten();
+    String output = terminalWriter.getTranscript();
     assertTrue(
         "Test count should be visible in output: " + output, output.contains(" 1 / 2 tests"));
 
-    terminalWriter = new LoggingTerminalWriter();
+    terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter, /* shortVersion=*/ true);
-    output = terminalWriter.getWritten();
+    output = terminalWriter.getTranscript();
     assertTrue(
         "Test count should be visible in short output: " + output, output.contains(" 1 / 2 tests"));
   }
@@ -300,9 +262,9 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     stateTracker.testFilteringComplete(filteringComplete);
     stateTracker.testSummary(testSummary);
 
-    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter();
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
     stateTracker.writeProgressBar(terminalWriter);
-    String output = terminalWriter.getWritten();
+    String output = terminalWriter.getTranscript();
 
     assertTrue(
         "Label " + labelA.toString() + " should be present in progress bar: " + output,
