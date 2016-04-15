@@ -921,4 +921,50 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
               + "in the WORKSPACE file (for repository 'foo')");
     }
   }
+
+  @Test
+  public void testAccessingRunfiles() throws Exception {
+    scratch.file("test/a.py");
+    scratch.file("test/b.py");
+    scratch.file("test/__init__.py");
+    scratch.file(
+        "test/rule.bzl",
+        "def _impl(ctx):",
+        "  return",
+        "skylark_rule = rule(",
+        "  implementation = _impl,",
+        "  attrs = {",
+        "    'dep': attr.label(),",
+        "  },",
+        ")");
+    scratch.file(
+        "test/BUILD",
+        "load('/test/rule', 'skylark_rule')",
+        "py_library(name = 'lib', srcs = ['a.py', 'b.py'])",
+        "skylark_rule(name = 'foo', dep = ':lib')",
+        "py_library(name = 'lib_with_init', srcs = ['a.py', 'b.py', '__init__.py'])",
+        "skylark_rule(name = 'foo_with_init', dep = ':lib_with_init')");
+
+    SkylarkRuleContext ruleContext = createRuleContext("//test:foo");
+    Object filenames =
+        evalRuleContextCode(
+            ruleContext, "[f.short_path for f in ruleContext.attr.dep.default_runfiles.files]");
+    assertThat(filenames).isInstanceOf(SkylarkList.class);
+    SkylarkList filenamesList = (SkylarkList) filenames;
+    assertThat(filenamesList).containsExactly("test/a.py", "test/b.py").inOrder();
+    Object emptyFilenames =
+        evalRuleContextCode(
+            ruleContext, "list(ruleContext.attr.dep.default_runfiles.empty_filenames)");
+    assertThat(emptyFilenames).isInstanceOf(SkylarkList.class);
+    SkylarkList emptyFilenamesList = (SkylarkList) emptyFilenames;
+    assertThat(emptyFilenamesList).containsExactly("test/__init__.py").inOrder();
+
+    SkylarkRuleContext ruleWithInitContext = createRuleContext("//test:foo_with_init");
+    Object noEmptyFilenames =
+        evalRuleContextCode(
+            ruleWithInitContext, "list(ruleContext.attr.dep.default_runfiles.empty_filenames)");
+    assertThat(noEmptyFilenames).isInstanceOf(SkylarkList.class);
+    SkylarkList noEmptyFilenamesList = (SkylarkList) noEmptyFilenames;
+    assertThat(noEmptyFilenamesList).containsExactly().inOrder();
+  }
 }

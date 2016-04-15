@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import java.util.TreeSet;
 
 import javax.annotation.Nullable;
 
@@ -74,6 +75,22 @@ public final class Runfiles {
         @Override
         public Iterable<PathFragment> getExtraPaths(Set<PathFragment> manifestPaths) {
           return ImmutableList.of();
+        }
+      };
+
+  private static final Function<Artifact, PathFragment> GET_ROOT_RELATIVE_PATH =
+      new Function<Artifact, PathFragment>() {
+        @Override
+        public PathFragment apply(Artifact input) {
+          return input.getRootRelativePath();
+        }
+      };
+
+  private static final Function<PathFragment, String> PATH_FRAGMENT_TO_STRING =
+      new Function<PathFragment, String>() {
+        @Override
+        public String apply(PathFragment input) {
+          return input.toString();
         }
       };
 
@@ -317,6 +334,20 @@ public final class Runfiles {
   @SkylarkCallable(name = "symlinks", doc = "Returns the set of symlinks", structField = true)
   public NestedSet<SymlinkEntry> getSymlinks() {
     return symlinks;
+  }
+
+  @SkylarkCallable(
+    name = "empty_filenames",
+    doc = "Returns names of empty files to create.",
+    structField = true
+  )
+  public NestedSet<String> getEmptyFilenames() {
+    Set<PathFragment> manifest = new TreeSet();
+    Iterables.addAll(
+        manifest, Iterables.transform(getArtifacts().toCollection(), GET_ROOT_RELATIVE_PATH));
+    return NestedSetBuilder.wrap(
+        Order.STABLE_ORDER,
+        Iterables.transform(emptyFilesSupplier.getExtraPaths(manifest), PATH_FRAGMENT_TO_STRING));
   }
 
   /**
