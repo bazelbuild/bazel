@@ -48,6 +48,16 @@ public class LineWrappingAnsiTerminalWriterTest {
   }
 
   @Test
+  public void testWrapLate() throws IOException {
+    LoggingTerminalWriter terminal = new LoggingTerminalWriter();
+    (new LineWrappingAnsiTerminalWriter(terminal, 5, '+')).append("1234");
+    // Lines are only wrapped, once a character is written that cannot fit in the current line, and
+    // not already once the last usable character of a line is used. Hence, in this example, we do
+    // not want to see the continuation character.
+    assertEquals("1234", terminal.getTranscript());
+  }
+
+  @Test
   public void testNewlineTranslated() throws IOException {
     LoggingTerminalWriter terminal = new LoggingTerminalWriter();
     (new LineWrappingAnsiTerminalWriter(terminal, 80, '+')).append("foo\nbar\n");
