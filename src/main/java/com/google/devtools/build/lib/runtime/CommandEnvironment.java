@@ -335,7 +335,7 @@ public final class CommandEnvironment {
       throw new InvalidConfigurationException("Configuration creation failed");
     }
     return getSkyframeExecutor().createConfigurations(reporter, runtime.getConfigurationFactory(),
-        buildOptions, getDirectories(), ImmutableSet.<String>of(), keepGoing);
+        buildOptions, ImmutableSet.<String>of(), keepGoing);
   }
 
   // TODO(ulfjack): Do we even need this method? With Skyframe, the config creation should

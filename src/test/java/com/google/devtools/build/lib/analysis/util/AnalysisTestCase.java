@@ -274,7 +274,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     BuildRequestOptions requestOptions = optionsParser.getOptions(BuildRequestOptions.class);
     ImmutableSortedSet<String> multiCpu = ImmutableSortedSet.copyOf(requestOptions.multiCpus);
     masterConfig = skyframeExecutor.createConfigurations(
-        reporter, configurationFactory, buildOptions, directories, multiCpu, false);
+        reporter, configurationFactory, buildOptions, multiCpu, false);
     analysisResult =
         buildView.update(
             loadingResult,

@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.skyframe.DiffAwareness;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker;
-import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -80,7 +79,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     public List<String> multiCpus;
   }
 
-  protected SkyframeExecutor skyframeExecutor;
+  protected SequencedSkyframeExecutor skyframeExecutor;
   protected ConfigurationFactory configurationFactory;
   protected Path workspace;
   protected ImmutableList<Class<? extends FragmentOptions>> buildOptionClasses;
@@ -163,9 +162,9 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
         parser.getOptions(TestOptions.class).multiCpus);
 
     BuildOptions buildOptions = BuildOptions.of(buildOptionClasses, parser);
+    skyframeExecutor.handleDiffs(reporter);
     BuildConfigurationCollection collection = skyframeExecutor.createConfigurations(
-        reporter, configurationFactory, buildOptions,
-        new BlazeDirectories(outputBase, outputBase, workspace), multiCpu, false);
+        reporter, configurationFactory, buildOptions, multiCpu, false);
     return collection;
   }
 

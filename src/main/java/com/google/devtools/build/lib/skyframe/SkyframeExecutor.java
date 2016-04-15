@@ -639,8 +639,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     PrecomputedValue.DEFAULT_VISIBILITY.set(injectable(), defaultVisibility);
   }
 
-  private void maybeInjectPrecomputedValuesForAnalysis() {
+  protected void maybeInjectPrecomputedValuesForAnalysis() {
     if (needToInjectPrecomputedValuesForAnalysis) {
+      PrecomputedValue.BLAZE_DIRECTORIES.set(injectable(), directories);
       injectBuildInfoFactories();
       injectExtraPrecomputedValues();
       needToInjectPrecomputedValuesForAnalysis = false;
@@ -981,28 +982,17 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.skyframeActionExecutor.setActionLogBufferPathGenerator(actionLogBufferPathGenerator);
   }
 
-  @VisibleForTesting
-  public void setConfigurationDataForTesting(BlazeDirectories directories,
-      ConfigurationFactory configurationFactory) {
-    PrecomputedValue.BLAZE_DIRECTORIES.set(injectable(), directories);
-    this.configurationFactory.set(configurationFactory);
-    this.configurationFragments.set(ImmutableList.copyOf(configurationFactory.getFactories()));
-  }
-
   /**
    * Asks the Skyframe evaluator to build the value for BuildConfigurationCollection and returns the
    * result. Also invalidates {@link PrecomputedValue#BLAZE_DIRECTORIES} if it has changed.
    */
   public BuildConfigurationCollection createConfigurations(
       EventHandler eventHandler, ConfigurationFactory configurationFactory,
-      BuildOptions buildOptions, BlazeDirectories directories, Set<String> multiCpu,
+      BuildOptions buildOptions, Set<String> multiCpu,
       boolean keepGoing)
           throws InvalidConfigurationException, InterruptedException {
     this.configurationFactory.set(configurationFactory);
     this.configurationFragments.set(ImmutableList.copyOf(configurationFactory.getFactories()));
-    // TODO(bazel-team): find a way to use only BuildConfigurationKey instead of
-    // BlazeDirectories.
-    PrecomputedValue.BLAZE_DIRECTORIES.set(injectable(), directories);
 
     SkyKey skyKey = ConfigurationCollectionValue.key(
         buildOptions, ImmutableSortedSet.copyOf(multiCpu));
