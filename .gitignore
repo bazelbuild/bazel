@@ -6,7 +6,6 @@
 /.project
 /.settings
 /WORKSPACE.user.bzl
-/base_workspace/*
 /bazel-bazel
 /bazel-bin
 /bazel-genfiles
