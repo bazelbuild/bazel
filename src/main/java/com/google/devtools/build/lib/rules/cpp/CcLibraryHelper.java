@@ -69,7 +69,7 @@ import javax.annotation.Nullable;
  * methods.
  */
 public final class CcLibraryHelper {
-  
+
   /**
    * A group of source file types for builds controlled by CcLibraryHelper.  Determines what
    * file types CcLibraryHelper considers sources.
