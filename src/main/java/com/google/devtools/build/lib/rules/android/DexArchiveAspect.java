@@ -19,14 +19,18 @@ import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTran
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDefinition;
@@ -127,18 +131,33 @@ public final class DexArchiveAspect implements NativeAspectFactory, ConfiguredAs
 
   private static void createDexArchiveAction(RuleContext ruleContext, String dexbuilderPrereq,
       Artifact jar, Artifact dexArchive) {
-    SpawnAction.Builder dexbuilder = new SpawnAction.Builder()
-        .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq, Mode.HOST))
-        .addArgument("--input_jar")
-        .addInputArgument(jar)
-        .addArgument("--output_zip")
-        .addOutputArgument(dexArchive)
-        .setMnemonic("DexBuilder")
-        .setProgressMessage("Dexing " + jar.prettyPrint());
+    // Write command line arguments into a params file for compatibility with WorkerSpawnStrategy
+    CustomCommandLine.Builder args = new CustomCommandLine.Builder()
+        .addExecPath("--input_jar", jar)
+        .addExecPath("--output_zip", dexArchive);
     if (ruleContext.getConfiguration().isCodeCoverageEnabled()) {
       // Match what we do in AndroidCommon.createDexAction
-      dexbuilder.addArgument("--nolocals"); // TODO(bazel-team): Still needed? See createDexAction
+      args.add("--nolocals"); // TODO(bazel-team): Still needed? See createDexAction
     }
+    Artifact paramFile =
+        ruleContext.getDerivedArtifact(
+            ParameterFile.derivePath(dexArchive.getRootRelativePath()), dexArchive.getRoot());
+    ruleContext.registerAction(
+        new ParameterFileWriteAction(
+            ruleContext.getActionOwner(),
+            paramFile,
+            args.build(),
+            ParameterFile.ParameterFileType.UNQUOTED,
+            ISO_8859_1));
+    SpawnAction.Builder dexbuilder = new SpawnAction.Builder()
+        .setExecutable(ruleContext.getExecutablePrerequisite(dexbuilderPrereq, Mode.HOST))
+        // WorkerSpawnStrategy expects the last argument to be @paramfile
+        .addArgument("@" + paramFile.getExecPathString())
+        .addInput(jar)
+        .addInput(paramFile)
+        .addOutput(dexArchive)
+        .setMnemonic("DexBuilder")
+        .setProgressMessage("Dexing " + jar.prettyPrint());
     ruleContext.registerAction(dexbuilder.build(ruleContext));
   }
 }
