@@ -71,7 +71,6 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
     private final Options options;
     private final String username;
     private final String hostname;
-    private final long timestamp;
     private final com.google.devtools.build.lib.shell.Command getWorkspaceStatusCommand;
 
     private BazelWorkspaceStatusAction(
@@ -89,7 +88,6 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       this.volatileStatus = volatileStatus;
       this.username = USER_NAME.value();
       this.hostname = NetUtil.findShortHostName();
-      this.timestamp = System.currentTimeMillis();
       this.getWorkspaceStatusCommand =
           options.workspaceStatusCommand.equals(PathFragment.EMPTY_FRAGMENT)
               ? null
@@ -139,6 +137,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
                 BuildInfo.BUILD_HOST + " " + hostname,
                 BuildInfo.BUILD_USER + " " + username);
         FileSystemUtils.writeContent(stableStatus.getPath(), info.getBytes(StandardCharsets.UTF_8));
+        long timestamp = System.currentTimeMillis();
         String volatileInfo =
             joiner.join(
                 BuildInfo.BUILD_TIMESTAMP + " " + timestamp,
