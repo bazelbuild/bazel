@@ -57,6 +57,14 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     return action;
   }
 
+  private int longestLine(String output) {
+    int maxLength = 0;
+    for (String line : output.split("\n")) {
+      maxLength = Math.max(maxLength, line.length());
+    }
+    return maxLength;
+  }
+
   @Test
   public void testActionVisible() throws IOException {
     // If there is only one action running, it should be visible
@@ -269,5 +277,74 @@ public class ExperimentalStateTrackerTest extends FoundationTestCase {
     assertTrue(
         "Label " + labelA.toString() + " should be present in progress bar: " + output,
         output.contains(labelA.toString()));
+  }
+
+  private void doTestOutputLength(boolean withTest, int actions) throws Exception {
+    // If we target 70 characters, then there should be enough space to both,
+    // keep the line limit, and show the local part of the running actions and
+    // the passed test.
+    ManualClock clock = new ManualClock();
+    ExperimentalStateTracker stateTracker = new ExperimentalStateTracker(clock, 70);
+
+    Action foobuildAction = mockAction(
+        "Building //src/some/very/long/path/long/long/long/long/long/long/long/foo/foobuild.jar",
+        "//src/some/very/long/path/long/long/long/long/long/long/long/foo:foobuild");
+    Action bazbuildAction = mockAction(
+        "Building //src/some/very/long/path/long/long/long/long/long/long/long/baz/bazbuild.jar",
+        "//src/some/very/long/path/long/long/long/long/long/long/long/baz:bazbuild");
+
+    Label bartestLabel = Label.parseAbsolute(
+        "//src/another/very/long/long/path/long/long/long/long/long/long/long/long/bars:bartest");
+    ConfiguredTarget bartestTarget = Mockito.mock(ConfiguredTarget.class);
+    when(bartestTarget.getLabel()).thenReturn(bartestLabel);
+
+    TestFilteringCompleteEvent filteringComplete = Mockito.mock(TestFilteringCompleteEvent.class);
+    when(filteringComplete.getTestTargets()).thenReturn(ImmutableSet.of(bartestTarget));
+
+    TestSummary testSummary = Mockito.mock(TestSummary.class);
+    when(testSummary.getStatus()).thenReturn(BlazeTestStatus.PASSED);
+    when(testSummary.getTarget()).thenReturn(bartestTarget);
+
+    if (actions >= 1) {
+      stateTracker.actionStarted(new ActionStartedEvent(foobuildAction, 123456789));
+    }
+    if (actions >= 2) {
+      stateTracker.actionStarted(new ActionStartedEvent(bazbuildAction, 123456900));
+    }
+    if (withTest) {
+      stateTracker.testFilteringComplete(filteringComplete);
+      stateTracker.testSummary(testSummary);
+    }
+
+    LoggingTerminalWriter terminalWriter = new LoggingTerminalWriter(/*discardHighlight=*/ true);
+    stateTracker.writeProgressBar(terminalWriter);
+    String output = terminalWriter.getTranscript();
+
+    assertTrue(
+        "Only lines with at most 70 chars should be present in the output:\n" + output,
+        longestLine(output) <= 70);
+    if (actions >= 1) {
+      assertTrue(
+          "Running action 'foobuild' should be mentioned in output:\n" + output,
+          output.contains("foobuild"));
+    }
+    if (actions >= 2) {
+      assertTrue(
+          "Running action 'bazbuild' should be mentioned in output:\n" + output,
+          output.contains("bazbuild"));
+    }
+    if (withTest) {
+      assertTrue(
+          "Passed test ':bartest' should be mentioned in output:\n" + output,
+          output.contains(":bartest"));
+    }
+  }
+
+  @Test
+  public void testOutputLength() throws Exception {
+    for (int i = 0; i < 3; i++) {
+      doTestOutputLength(true, i);
+      doTestOutputLength(false, i);
+    }
   }
 }

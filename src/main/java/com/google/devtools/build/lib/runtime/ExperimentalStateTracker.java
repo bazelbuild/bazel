@@ -22,11 +22,13 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionProgressReceiverAvailableEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.TestFilteringCompleteEvent;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.pkgcache.LoadingPhaseCompleteEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingProgressReceiver;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.io.AnsiTerminalWriter;
+import com.google.devtools.build.lib.util.io.PositionAwareAnsiTerminalWriter;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 
 import java.io.IOException;
@@ -42,11 +44,16 @@ class ExperimentalStateTracker {
 
   static final int SAMPLE_SIZE = 3;
   static final long SHOW_TIME_THRESHOLD_SECONDS = 3;
+  static final String ELLIPSIS = "...";
 
   private String status;
   private String additionalMessage;
 
   private final Clock clock;
+
+  // Desired maximal width of the progress bar, if positive.
+  // Non-positive values indicate not to aim for a particular width.
+  private final int targetWidth;
 
   // currently running actions, using the path of the primary
   // output as unique identifier.
@@ -64,12 +71,17 @@ class ExperimentalStateTracker {
   private ExecutionProgressReceiver executionProgressReceiver;
   private LoadingProgressReceiver loadingProgressReceiver;
 
-  ExperimentalStateTracker(Clock clock) {
+  ExperimentalStateTracker(Clock clock, int targetWidth) {
     this.runningActions = new ArrayDeque<>();
     this.actions = new TreeMap<>();
     this.actionNanoStartTimes = new TreeMap<>();
     this.ok = true;
     this.clock = clock;
+    this.targetWidth = targetWidth;
+  }
+
+  ExperimentalStateTracker(Clock clock) {
+    this(clock, 0);
   }
 
   void buildStarted(BuildStartingEvent event) {
@@ -133,31 +145,95 @@ class ExperimentalStateTracker {
     }
   }
 
-  private String describeAction(String name, long nanoTime) {
+  /**
+   * From a string, take a suffix of at most the given length.
+   */
+  private String suffix(String s, int len) {
+    int startPos = s.length() - len;
+    if (startPos <= 0) {
+      return s;
+    }
+    return s.substring(startPos);
+  }
+
+  /**
+   * If possible come up with a human-readable description of the label
+   * that fits within the given width; a non-positive width indicates not
+   * no restriction at all.
+   */
+  private String shortenedLabelString(Label label, int width) {
+    if (width <= 0) {
+      return label.toString();
+    }
+    String name = label.toString();
+    if (name.length() <= width) {
+      return name;
+    }
+    name = suffix(name, width - ELLIPSIS.length());
+    int slashPos = name.indexOf('/');
+    if (slashPos >= 0) {
+      return ELLIPSIS + name.substring(slashPos);
+    }
+    int colonPos = name.indexOf(':');
+    if (slashPos >= 0) {
+      return ELLIPSIS + name.substring(colonPos);
+    }
+    // no reasonable place found to shorten; as last resort, just truncate
+    if (3 * ELLIPSIS.length() <= width) {
+      return ELLIPSIS + suffix(label.toString(), width - ELLIPSIS.length());
+    }
+    return label.toString();
+  }
+
+  private String describeAction(String name, long nanoTime, int desiredWidth) {
     Action action = actions.get(name);
+
+    String postfix = "";
+    long nanoRuntime = nanoTime - actionNanoStartTimes.get(name);
+    long runtimeSeconds = nanoRuntime / 1000000000;
+    if (runtimeSeconds > SHOW_TIME_THRESHOLD_SECONDS) {
+      postfix = " " + runtimeSeconds + "s";
+    }
+
     String message = action.getProgressMessage();
     if (message == null) {
       message = action.prettyPrint();
     }
-    long nanoRuntime = nanoTime - actionNanoStartTimes.get(name);
-    long runtimeSeconds = nanoRuntime / 1000000000;
-    if (runtimeSeconds > SHOW_TIME_THRESHOLD_SECONDS) {
-      message = message + " " + runtimeSeconds + "s";
+
+    if (desiredWidth <= 0) {
+      return message + postfix;
     }
-    return message;
+    if (message.length() + postfix.length() <= desiredWidth) {
+      return message + postfix;
+    }
+    if (action.getOwner() != null) {
+      if (action.getOwner().getLabel() != null) {
+        String shortLabel =
+            shortenedLabelString(action.getOwner().getLabel(), desiredWidth - postfix.length());
+        if (shortLabel.length() + postfix.length() <= desiredWidth) {
+          return shortLabel + postfix;
+        }
+      }
+    }
+    if (3 * ELLIPSIS.length() <= desiredWidth) {
+      message = ELLIPSIS + suffix(message, desiredWidth - ELLIPSIS.length() - postfix.length());
+    }
+    return message + postfix;
   }
 
   private void sampleOldestActions(AnsiTerminalWriter terminalWriter) throws IOException {
     int count = 0;
     long nanoTime = clock.nanoTime();
+    int actionCount = runningActions.size();
     for (String action : runningActions) {
       count++;
-      terminalWriter.newline().append("    " + describeAction(action, nanoTime));
+      int width = (count >= SAMPLE_SIZE && count < actionCount) ? targetWidth - 8 : targetWidth - 4;
+      terminalWriter.newline().append("    " + describeAction(action, nanoTime, width));
       if (count >= SAMPLE_SIZE) {
         break;
       }
     }
-    if (count < runningActions.size()) {
+    if (count < actionCount) {
       terminalWriter.append(" ...");
     }
   }
@@ -202,14 +278,19 @@ class ExperimentalStateTracker {
    * Maybe add a note about the last test that passed. Return true, if the note was added (and
    * hence a line break is appropriate if more data is to come. If a null value is provided for
    * the terminal writer, only return wether a note would be added.
+   *
+   * The width parameter gives advice on to which length the the description of the test should
+   * the shortened to, if possible.
    */
-  private boolean maybeShowRecentTest(AnsiTerminalWriter terminalWriter, boolean shortVersion)
-      throws IOException {
+  private boolean maybeShowRecentTest(
+      AnsiTerminalWriter terminalWriter, boolean shortVersion, int width) throws IOException {
+    final String prefix = "; last test: ";
     if (!shortVersion && mostRecentTest != null) {
       if (terminalWriter != null) {
         terminalWriter
             .normal()
-            .append("; recent test: " + mostRecentTest.getTarget().getLabel().toString());
+            .append(prefix + shortenedLabelString(
+                mostRecentTest.getTarget().getLabel(), width - prefix.length()));
       }
       return true;
     } else {
@@ -217,8 +298,10 @@ class ExperimentalStateTracker {
     }
   }
 
-  synchronized void writeProgressBar(AnsiTerminalWriter terminalWriter, boolean shortVersion)
+  synchronized void writeProgressBar(AnsiTerminalWriter rawTerminalWriter, boolean shortVersion)
       throws IOException {
+    PositionAwareAnsiTerminalWriter terminalWriter =
+        new PositionAwareAnsiTerminalWriter(rawTerminalWriter);
     if (status != null) {
       if (ok) {
         terminalWriter.okStatus();
@@ -249,29 +332,41 @@ class ExperimentalStateTracker {
       terminalWriter.append(";");
     }
     if (runningActions.size() == 0) {
-      terminalWriter.normal().append(" no actions running");
-      maybeShowRecentTest(terminalWriter, shortVersion);
+      terminalWriter.normal().append(" no action");
+      maybeShowRecentTest(terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
     } else if (runningActions.size() == 1) {
-      String statusMessage = describeAction(runningActions.peekFirst(), clock.nanoTime());
-      if (maybeShowRecentTest(null, shortVersion)) {
+      if (maybeShowRecentTest(null, shortVersion, targetWidth - terminalWriter.getPosition())) {
         // As we will break lines anyway, also show the number of running actions, to keep
         // things stay roughly in the same place (also compensating for the missing plural-s
         // in the word action).
-        terminalWriter.normal().append("  1 action running");
-        maybeShowRecentTest(terminalWriter, shortVersion);
+        terminalWriter.normal().append("  1 action");
+        maybeShowRecentTest(
+            terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
+        String statusMessage =
+            describeAction(runningActions.peekFirst(), clock.nanoTime(), targetWidth - 4);
         terminalWriter.normal().newline().append("    " + statusMessage);
       } else {
+        String statusMessage =
+            describeAction(
+                runningActions.peekFirst(),
+                clock.nanoTime(),
+                targetWidth - terminalWriter.getPosition() - 1);
         terminalWriter.normal().append(" " + statusMessage);
       }
     } else {
       if (shortVersion) {
-        String statusMessage = describeAction(runningActions.peekFirst(), clock.nanoTime());
+        String statusMessage =
+            describeAction(
+                runningActions.peekFirst(),
+                clock.nanoTime(),
+                targetWidth - terminalWriter.getPosition());
         statusMessage += " ... (" + runningActions.size() + " actions)";
         terminalWriter.normal().append(" " + statusMessage);
       } else {
-        String statusMessage = "" + runningActions.size() + " actions running";
+        String statusMessage = "" + runningActions.size() + " actions";
         terminalWriter.normal().append(" " + statusMessage);
-        maybeShowRecentTest(terminalWriter, shortVersion);
+        maybeShowRecentTest(
+            terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
         sampleOldestActions(terminalWriter);
       }
     }

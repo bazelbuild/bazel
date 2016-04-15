@@ -75,7 +75,16 @@ public class ExperimentalEventHandler extends BlazeCommandEventHandler {
     this.terminalWidth = (options.terminalColumns > 0 ? options.terminalColumns : 80);
     this.clock = clock;
     this.debugAllEvents = options.experimentalUiDebugAllEvents;
-    this.stateTracker = new ExperimentalStateTracker(clock);
+    // If we have cursor control, we try to fit in the terminal width to avoid having
+    // to wrap the progress bar. We will wrap the progress bar to terminalWidth - 1
+    // characters to avoid depending on knowing whether the underlying terminal does the
+    // line feed already when reaching the last character of the line, or only once an
+    // additional character is written. Another column is lost for the continuation character
+    // in the wrapping process.
+    this.stateTracker =
+        this.cursorControl
+            ? new ExperimentalStateTracker(clock, this.terminalWidth - 2)
+            : new ExperimentalStateTracker(clock);
     this.numLinesProgressBar = 0;
     this.minimalDelayMillis = Math.round(options.showProgressRateLimit * 1000);
     this.minimalUpdateInterval = Math.max(this.minimalDelayMillis, MAXIMAL_UPDATE_DELAY_MILLIS);
