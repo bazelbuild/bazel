@@ -51,7 +51,12 @@ string GetSelfPath() {
 }
 
 string GetOutputRoot() {
-  return "/var/tmp";
+  char* tmpdir = getenv("TMPDIR");
+  if (tmpdir == 0 || strlen(tmpdir) == 0) {
+    return "/var/tmp";
+  } else {
+    return string(tmpdir);
+  }
 }
 
 pid_t GetPeerProcessId(int socket) {

@@ -127,6 +127,34 @@ static string GetHashedBaseDir(const string &root,
   return root + "/" + digest.String();
 }
 
+// Builds a shorter output base dir name for Windows.
+// This MD5s together user name and workspace directory,
+// and only uses 1/3 of the bits to get 8-char alphanumeric
+// file name.
+static string GetHashedBaseDirForWindows(const string &root,
+                                         const string &product_name,
+                                         const string &user_name,
+                                         const string &workspace_directory) {
+  static const char* alphabet
+    // Exactly 64 characters.
+    = "abcdefghigklmnopqrstuvwxyzABCDEFGHIGKLMNOPQRSTUVWXYZ0123456789$-";
+
+  // The length of the resulting filename (8 characters).
+  static const int filename_length = Md5Digest::kDigestLength / 2;
+  unsigned char buf[Md5Digest::kDigestLength];
+  char coded_name[filename_length + 1];
+  Md5Digest digest;
+  digest.Update(user_name.data(), user_name.size());
+  digest.Update(workspace_directory.data(), workspace_directory.size());
+  digest.Finish(buf);
+  for (int i = 0; i < filename_length; i++) {
+    coded_name[i] = alphabet[buf[i] & 0x3F];
+  }
+  coded_name[filename_length] = '\0';
+  return root + "/" + product_name + "/" + string(coded_name);
+}
+
+
 // A devtools_ijar::ZipExtractorProcessor to extract the InstallKeyFile
 class GetInstallKeyFileProcessor : public devtools_ijar::ZipExtractorProcessor {
  public:
@@ -1465,8 +1493,14 @@ static void ComputeBaseDirectories(const string &self_path) {
   }
 
   if (globals->options.output_base.empty()) {
+#if !defined(__CYGWIN__)
     globals->options.output_base = GetHashedBaseDir(
         globals->options.output_user_root, globals->workspace);
+#else
+    globals->options.output_base = GetHashedBaseDirForWindows(
+        blaze::GetOutputRoot(), globals->options.GetProductName(),
+        blaze::GetUserName(), globals->workspace);
+#endif
   }
 
   struct stat buf;
