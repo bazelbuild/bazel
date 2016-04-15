@@ -78,6 +78,7 @@ public class AndroidResourcesProcessorBuilder {
   private Artifact manifestOut;
   private Artifact mergedResourcesOut;
   private boolean isLibrary;
+  private boolean crunchPng = true;
 
   /**
    * @param ruleContext The RuleContext that was used to create the SpawnAction.Builder.
@@ -105,6 +106,11 @@ public class AndroidResourcesProcessorBuilder {
   public AndroidResourcesProcessorBuilder setUncompressedExtensions(
       List<String> uncompressedExtensions) {
     this.uncompressedExtensions = uncompressedExtensions;
+    return this;
+  }
+
+  public AndroidResourcesProcessorBuilder setCrunchPng(boolean crunchPng) {
+    this.crunchPng = crunchPng;
     return this;
   }
 
@@ -324,6 +330,9 @@ public class AndroidResourcesProcessorBuilder {
     }
     if (!uncompressedExtensions.isEmpty()) {
       builder.addJoinStrings("--uncompressedExtensions", ",", uncompressedExtensions);
+    }
+    if (!crunchPng) {
+      builder.add("--useAaptCruncher=no");
     }
     if (!assetsToIgnore.isEmpty()) {
       builder.addJoinStrings("--assetsToIgnore", ",", assetsToIgnore);

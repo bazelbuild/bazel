@@ -88,6 +88,7 @@ public abstract class AndroidLibrary implements RuleConfiguredTargetFactory {
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_SYMBOLS_TXT),
           ImmutableList.<String>of(), /* configurationFilters */
           ImmutableList.<String>of(), /* uncompressedExtensions */
+          false, /* crunchPng */
           ImmutableList.<String>of(), /* densities */
           null /* applicationId */,
           null /* versionCode */,

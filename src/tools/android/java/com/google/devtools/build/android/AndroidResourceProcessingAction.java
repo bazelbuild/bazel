@@ -33,6 +33,7 @@ import com.android.builder.core.VariantConfiguration;
 import com.android.ide.common.internal.AaptCruncher;
 import com.android.ide.common.internal.CommandLineRunner;
 import com.android.ide.common.internal.LoggedErrorException;
+import com.android.ide.common.internal.PngCruncher;
 import com.android.ide.common.res2.MergingException;
 import com.android.utils.StdLogger;
 
@@ -249,8 +250,7 @@ public class AndroidResourceProcessingAction {
           mergedResources,
           mergedAssets,
           modifiers,
-          useAaptCruncher() ?  new AaptCruncher(aaptConfigOptions.aapt.toString(),
-              new CommandLineRunner(STD_LOGGER)) : null,
+          selectPngCruncher(),
           true);
 
       LOGGER.fine(String.format("Merging finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
@@ -288,7 +288,7 @@ public class AndroidResourceProcessingAction {
           options.resourcesOutput != null
               ? processedManifestData.getResourceDir().resolve("values").resolve("public.xml")
               : null);
-      LOGGER.fine(String.format("appt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+      LOGGER.fine(String.format("aapt finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
 
       if (options.manifestOutput != null) {
         resourceProcessor.copyManifestToOutput(processedManifestData, options.manifestOutput);
@@ -326,12 +326,25 @@ public class AndroidResourceProcessingAction {
     LOGGER.fine(String.format("Resources processed in %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
   }
 
-  private static boolean useAaptCruncher() {
+  private static boolean usePngCruncher() {
     // If the value was set, use that.
     if (aaptConfigOptions.useAaptCruncher != TriState.AUTO) {
       return aaptConfigOptions.useAaptCruncher == TriState.YES;
     }
     // By default png cruncher shouldn't be invoked on a library -- the work is just thrown away.
     return options.packageType != VariantConfiguration.Type.LIBRARY;
+  }
+
+  private static PngCruncher selectPngCruncher() {
+    // Use the full cruncher if asked to do so.
+    if (usePngCruncher()) {
+      return new AaptCruncher(aaptConfigOptions.aapt.toString(), new CommandLineRunner(STD_LOGGER));
+    }
+    // Otherwise, if this is a binary, we need to at least process nine-patch PNGs.
+    if (options.packageType != VariantConfiguration.Type.LIBRARY) {
+      return new NinePatchOnlyCruncher(
+          aaptConfigOptions.aapt.toString(), new CommandLineRunner(STD_LOGGER));
+    }
+    return null;
   }
 }

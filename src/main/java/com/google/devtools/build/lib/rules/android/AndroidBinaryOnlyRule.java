@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
+import static com.google.devtools.build.lib.syntax.Type.BOOLEAN;
 import static com.google.devtools.build.lib.syntax.Type.STRING;
 import static com.google.devtools.build.lib.syntax.Type.STRING_LIST;
 
@@ -71,6 +72,11 @@ public final class AndroidBinaryOnlyRule implements RuleDefinition {
         A list of file extension to leave uncompressed in apk.
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("nocompress_extensions", STRING_LIST))
+        /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(crunch_png) -->
+        Do PNG crunching (or not). This is independent of nine-patch processing, which is always
+        done. Currently only supported for local resources (not android_resources).
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(attr("crunch_png", BOOLEAN).value(true))
         /* <!-- #BLAZE_RULE(android_binary).ATTRIBUTE(resource_configuration_filters) -->
         A list of resource configuration filters, such 'en' that will limit the resources in the
         apk to only the ones in the 'en' configuration.

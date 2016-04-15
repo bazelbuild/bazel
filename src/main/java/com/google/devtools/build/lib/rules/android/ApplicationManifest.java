@@ -211,13 +211,14 @@ public final class ApplicationManifest {
         false, /* isLibrary */
         resourceDeps,
         rTxt,
-        null, /* configurationFilters */
+        null, /* symbolsTxt */
+        ImmutableList.<String>of(), /* configurationFilters */
         ImmutableList.<String>of(), /* uncompressedExtensions */
+        true, /* crunchPng */
         ImmutableList.<String>of(), /* densities */
-        ImmutableList.<String>of(), /* String applicationId */
+        null, /* String applicationId */
         null, /* String versionCode */
         null, /* String versionName */
-        null, /* Artifact symbolsTxt */
         incremental,
         data,
         proguardCfg,
@@ -237,6 +238,7 @@ public final class ApplicationManifest {
       Artifact symbolsTxt,
       List<String> configurationFilters,
       List<String> uncompressedExtensions,
+      boolean crunchPng,
       List<String> densities,
       String applicationId,
       String versionCode,
@@ -269,6 +271,7 @@ public final class ApplicationManifest {
         symbolsTxt,
         configurationFilters,
         uncompressedExtensions,
+        crunchPng,
         densities,
         applicationId,
         versionCode,
@@ -288,6 +291,7 @@ public final class ApplicationManifest {
       Artifact symbolsTxt,
       List<String> configurationFilters,
       List<String> uncompressedExtensions,
+      boolean crunchPng,
       List<String> densities,
       String applicationId,
       String versionCode,
@@ -319,6 +323,7 @@ public final class ApplicationManifest {
             .setApkOut(resourceContainer.getApk())
             .setConfigurationFilters(configurationFilters)
             .setUncompressedExtensions(uncompressedExtensions)
+            .setCrunchPng(crunchPng)
             .setJavaPackage(resourceContainer.getJavaPackage())
             .setDebug(ruleContext.getConfiguration().getCompilationMode() != CompilationMode.OPT)
             .setManifestOut(manifestOut)
