@@ -170,7 +170,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private final Collection<PathFragment> extraSystemIncludePrefixes;
   private final Iterable<IncludeScannable> lipoScannables;
   private final ImmutableList<Artifact> builtinIncludeFiles;
-  private final CppCompileCommandLine cppCompileCommandLine;
+  @VisibleForTesting public final CppCompileCommandLine cppCompileCommandLine;
   private final boolean usePic;
 
   @VisibleForTesting
@@ -1269,7 +1269,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     private final List<String> pluginOpts;
     private final Collection<String> features;
     private final FeatureConfiguration featureConfiguration;
-    private final CcToolchainFeatures.Variables variables;
+    @VisibleForTesting public final CcToolchainFeatures.Variables variables;
 
     // The value of the BUILD_FDO_TYPE macro to be defined on command line
     @Nullable private final String fdoBuildStamp;
