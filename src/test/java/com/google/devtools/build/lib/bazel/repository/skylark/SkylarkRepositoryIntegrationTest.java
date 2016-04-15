@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -75,8 +74,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
     }
 
     @Override
-    public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(
-        BlazeDirectories directories) {
+    public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions() {
       // Add both the local repository and the skylark repository functions
       RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
       SkylarkRepositoryFunction skylarkRepositoryFunction = new SkylarkRepositoryFunction();
@@ -86,7 +84,7 @@ public class SkylarkRepositoryIntegrationTest extends BuildViewTestCase {
       return ImmutableMap.of(
           SkyFunctions.REPOSITORY_DIRECTORY,
           new RepositoryDelegatorFunction(
-              directories, repositoryHandlers, skylarkRepositoryFunction, new AtomicBoolean(true)),
+              repositoryHandlers, skylarkRepositoryFunction, new AtomicBoolean(true)),
           SkyFunctions.REPOSITORY,
           new RepositoryLoaderFunction(),
           FdoSupportValue.SKYFUNCTION, new FdoSupportFunction());

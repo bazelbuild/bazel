@@ -170,7 +170,7 @@ public class BazelRepositoryModule extends BlazeModule {
     builder.put(
         SkyFunctions.REPOSITORY_DIRECTORY,
         new RepositoryDelegatorFunction(
-            directories, repositoryHandlers, skylarkRepositoryFunction, isFetch));
+            repositoryHandlers, skylarkRepositoryFunction, isFetch));
     builder.put(MavenServerFunction.NAME, new MavenServerFunction(directories));
     return builder.build();
   }

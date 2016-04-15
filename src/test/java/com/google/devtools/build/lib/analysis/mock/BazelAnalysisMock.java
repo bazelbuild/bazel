@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
@@ -229,9 +228,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
   }
 
   @Override
-  public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions(BlazeDirectories directories) {
+  public ImmutableMap<SkyFunctionName, SkyFunction> getSkyFunctions() {
     ImmutableMap.Builder<SkyFunctionName, SkyFunction> skyFunctions = ImmutableMap.builder();
-    skyFunctions.putAll(super.getSkyFunctions(directories));
+    skyFunctions.putAll(super.getSkyFunctions());
     skyFunctions.put(FdoSupportValue.SKYFUNCTION, new FdoSupportFunction());
     return skyFunctions.build();
   }

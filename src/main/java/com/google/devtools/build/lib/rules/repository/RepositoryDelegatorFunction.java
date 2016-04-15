@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleSerializer;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.RepositoryFunctionException;
 import com.google.devtools.build.lib.skyframe.FileValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -59,14 +60,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   // This is a reference to isFetch in BazelRepositoryModule, which tracks whether the current
   // command is a fetch. Remote repository lookups are only allowed during fetches.
   private final AtomicBoolean isFetch;
-  private final BlazeDirectories directories;
 
   public RepositoryDelegatorFunction(
-      BlazeDirectories directories,
       ImmutableMap<String, RepositoryFunction> handlers,
       @Nullable RepositoryFunction skylarkHandler,
       AtomicBoolean isFetch) {
-    this.directories = directories;
     this.handlers = handlers;
     this.skylarkHandler = skylarkHandler;
     this.isFetch = isFetch;
@@ -85,12 +83,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
-    Rule rule = RepositoryFunction
-        .getRule(repositoryName, null, env);
+    Rule rule = RepositoryFunction.getRule(repositoryName, null, env);
     if (rule == null) {
       return null;
     }
 
+    BlazeDirectories directories = PrecomputedValue.BLAZE_DIRECTORIES.get(env);
+    if (directories == null) {
+      return null;
+    }
     RepositoryFunction handler;
     if (rule.getRuleClassObject().isSkylark()) {
       handler = skylarkHandler;

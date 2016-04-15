@@ -93,7 +93,7 @@ public class PackageCacheTest extends FoundationTestCase {
             ImmutableList.<DiffAwareness.Factory>of(),
             Predicates.<PathFragment>alwaysFalse(),
             Preprocessor.Factory.Supplier.NullSupplier.INSTANCE,
-            AnalysisMock.get().getSkyFunctions(directories),
+            AnalysisMock.get().getSkyFunctions(),
             ImmutableList.<PrecomputedValue.Injected>of(),
             ImmutableList.<SkyValueDirtinessChecker>of());
     setUpSkyframe(parsePackageCacheOptions());
