@@ -56,6 +56,7 @@
 #include <grpc++/security/credentials.h>
 
 #include <algorithm>
+#include <chrono>  // NOLINT (gRPC requires this)
 #include <set>
 #include <string>
 #include <utility>
@@ -504,14 +505,41 @@ static int StartServer() {
 }
 
 class BlazeServer {
+ public:
+  virtual ~BlazeServer() {}
+
+  virtual bool Connect() = 0;
+  virtual void Disconnect() = 0;
+  virtual void Communicate() = 0;
+};
+
+class AfUnixBlazeServer : public BlazeServer {
  private:
   int server_socket;
 
  public:
-  BlazeServer();
-  bool Connect();
-  void Disconnect();
-  void ATTRIBUTE_NORETURN Communicate();
+  AfUnixBlazeServer();
+  virtual ~AfUnixBlazeServer() {}
+
+  bool Connect() override;
+  void Disconnect() override;
+  void Communicate() override;
+};
+
+class GrpcBlazeServer : public BlazeServer {
+ private:
+  std::unique_ptr<command_server::CommandServer::Stub> client;
+
+  std::string request_cookie;
+  std::string response_cookie;
+
+ public:
+  GrpcBlazeServer();
+  virtual ~GrpcBlazeServer() {}
+
+  bool Connect() override;
+  void Disconnect() override;
+  void Communicate() override;
 };
 
 static bool KillRunningServerIfAny(BlazeServer *server);
@@ -563,11 +591,11 @@ static void StartStandalone(BlazeServer* server) {
   pdie(blaze_exit_code::INTERNAL_ERROR, "execv of '%s' failed", exe.c_str());
 }
 
-BlazeServer::BlazeServer() {
+AfUnixBlazeServer::AfUnixBlazeServer() {
   server_socket = -1;
 }
 
-bool BlazeServer::Connect() {
+bool AfUnixBlazeServer::Connect() {
   if (server_socket == -1) {
     server_socket = socket(PF_UNIX, SOCK_STREAM, 0);
     if (server_socket == -1)  {
@@ -603,7 +631,7 @@ bool BlazeServer::Connect() {
   }
 }
 
-void BlazeServer::Disconnect() {
+void AfUnixBlazeServer::Disconnect() {
   close(server_socket);
   server_socket = -1;
 }
@@ -663,7 +691,7 @@ static void forward_server_output(int socket, int output) {
   }
 }
 
-void ATTRIBUTE_NORETURN BlazeServer::Communicate() {
+void AfUnixBlazeServer::Communicate() {
   const string request = BuildServerRequest();
 
   // Send request (Request is written in a single chunk.)
@@ -832,7 +860,7 @@ static bool ConnectToServer(BlazeServer *server, bool start) {
       }
       fputc('.', stderr);
       fflush(stderr);
-      poll(NULL, 0, 100);  // sleep 100ms.  (usleep(3) is obsolete.)
+      poll(NULL, 0, 1000);  // sleep 100ms.  (usleep(3) is obsolete.)
       char c;
       if (read(fd, &c, 1) != -1 || errno != EAGAIN) {
         fprintf(stderr, "\nunexpected pipe read status: %s\n"
@@ -1374,6 +1402,8 @@ static ATTRIBUTE_NORETURN void SendServerRequest(BlazeServer* server) {
   signal(SIGQUIT, handler);
 
   server->Communicate();
+  fprintf(stderr, "Communicate() did not exit");
+  exit(blaze_exit_code::INTERNAL_ERROR);
 }
 
 // Parse the options, storing parsed values in globals.
@@ -1695,39 +1725,112 @@ int main(int argc, const char *argv[]) {
   WarnFilesystemType(globals->options.output_base);
   EnsureFiniteStackLimit();
 
-  BlazeServer server;
+  std::unique_ptr<BlazeServer> server(
+      globals->options.grpc_port >= 0
+      ? static_cast<BlazeServer *>(new GrpcBlazeServer())
+      : static_cast<BlazeServer *>(new AfUnixBlazeServer()));
 
   ExtractData(self_path);
-  EnsureCorrectRunningVersion(&server);
-  KillRunningServerIfDifferentStartupOptions(&server);
+  EnsureCorrectRunningVersion(server.get());
+  KillRunningServerIfDifferentStartupOptions(server.get());
 
   if (globals->options.batch) {
     SetScheduling(globals->options.batch_cpu_scheduling,
                   globals->options.io_nice_level);
-    StartStandalone(&server);
+    StartStandalone(server.get());
   } else {
-    SendServerRequest(&server);
+    SendServerRequest(server.get());
   }
   return 0;
+}
+
+GrpcBlazeServer::GrpcBlazeServer() {
+}
+
+bool GrpcBlazeServer::Connect() {
+  std::string server_dir = globals->options.output_base + "/server";
+  std::string port;
+
+  if (!ReadFile(server_dir + "/grpc_port", &port)) {
+    return false;
+  }
+
+  if (!ReadFile(server_dir + "/request_cookie", &request_cookie)) {
+    return false;
+  }
+
+  if (!ReadFile(server_dir + "/response_cookie", &response_cookie)) {
+    return false;
+  }
+
+  std::shared_ptr<grpc::Channel> channel(grpc::CreateChannel(
+      "localhost:" + port, grpc::InsecureChannelCredentials()));
+  std::unique_ptr<command_server::CommandServer::Stub> client(
+      command_server::CommandServer::NewStub(channel));
+
+  grpc::ClientContext context;
+  context.set_deadline(
+      std::chrono::system_clock::now() + std::chrono::milliseconds(50));
+
+  command_server::PingRequest request;
+  command_server::PingResponse response;
+  request.set_cookie(request_cookie);
+  grpc::Status status = client->Ping(&context, request, &response);
+
+  if (!status.ok()) {
+    return false;
+  }
+
+  this->client = std::move(client);
+  return true;
+}
+
+void GrpcBlazeServer::Communicate() {
+  vector<string> arg_vector;
+  string command = globals->option_processor.GetCommand();
+  if (command != "") {
+    arg_vector.push_back(command);
+    AddLoggingArgs(&arg_vector);
+  }
+
+  globals->option_processor.GetCommandArguments(&arg_vector);
+
+  command_server::RunRequest request;
+  request.set_cookie(request_cookie);
+  for (const string& arg : arg_vector) {
+    request.add_arg(arg);
+  }
+
+  grpc::ClientContext context;
+  command_server::RunResponse response;
+  std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
+      client->Run(&context, request));
+  while (reader->Read(&response)) {
+    if (response.stdout().size() > 0) {
+      write(1, response.stdout().c_str(), response.stdout().size());
+    }
+
+    if (response.stderr().size() > 0) {
+      write(2, response.stderr().c_str(), response.stderr().size());
+    }
+  }
+
+  if (!response.finished()) {
+    fprintf(stderr, "\nServer finished RPC without an explicit exit code\n");
+    exit(blaze_exit_code::INTERNAL_ERROR);
+  }
+
+  exit(response.exit_code());
+}
+
+void GrpcBlazeServer::Disconnect() {
+  client.reset();
+  request_cookie = "";
+  response_cookie = "";
 }
 
 }  // namespace blaze
 
 int main(int argc, const char *argv[]) {
   return blaze::main(argc, argv);
-}
-
-// Unused method just to make sure that we can compile and link with gRPC
-void InvokeServer(const std::string& address) {
-  std::shared_ptr<grpc::Channel> channel(
-      grpc::CreateChannel(address, grpc::InsecureChannelCredentials()));
-  std::unique_ptr<command_server::CommandServer::Stub> client(
-      command_server::CommandServer::NewStub(channel));
-  command_server::Request request;
-  command_server::Response response;
-  grpc::ClientContext context;
-
-  request.set_number(42);
-  grpc::Status status = client->Run(&context, request, &response);
-  fprintf(stderr, "The response is %d\n", response.number());
 }
