@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.AbstractUniquifier;
 import com.google.devtools.build.lib.query2.engine.RdepsFunction;
 import com.google.devtools.build.lib.query2.engine.TargetLiteral;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
+import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
@@ -108,6 +109,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   protected WalkableGraph graph;
 
   private ImmutableList<TargetPatternKey> universeTargetPatternKeys;
+  private ImmutableSet<PathFragment> blacklistPatterns;
 
   private final Map<String, Set<Label>> precomputedPatterns = new HashMap<>();
   private final BlazeTargetAccessor accessor = new BlazeTargetAccessor(this);
@@ -155,6 +157,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
           eventHandler);
     }
     graph = result.getWalkableGraph();
+
+    blacklistPatterns = 
+        Preconditions.checkNotNull(
+            (BlacklistedPackagePrefixesValue) graph.getValue(BlacklistedPackagePrefixesValue.key()))
+        .getPatterns();
 
     SkyKey universeKey = graphFactory.getUniverseKey(universeScope, parserPrefix);
     universeTargetPatternKeys =
@@ -457,9 +464,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
                 TargetPatternValue.key(
                         pattern, TargetPatternEvaluator.DEFAULT_FILTERING_POLICY, parserPrefix)
                     .argument());
-        GraphBackedRecursivePackageProvider provider =
-            new GraphBackedRecursivePackageProvider(graph, universeTargetPatternKeys, pkgPath);
-
+        GraphBackedRecursivePackageProvider provider = new GraphBackedRecursivePackageProvider(
+            graph, universeTargetPatternKeys, pkgPath);
         ExecutorService threadPool = Executors.newFixedThreadPool(
             Runtime.getRuntime().availableProcessors(),
             new ThreadFactoryBuilder().setNameFormat("GetPackages-%d").build());
@@ -467,9 +473,11 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
             new RecursivePackageProviderBackedTargetPatternResolver(
                 provider, eventHandler, targetPatternKey.getPolicy(), threadPool);
         TargetPattern parsedPattern = targetPatternKey.getParsedPattern();
+        ImmutableSet<PathFragment> subdirectoriesToExclude =
+            targetPatternKey.getAllSubdirectoriesToExclude(blacklistPatterns);
         FilteringBatchingUniquifyingCallback wrapper =
             new FilteringBatchingUniquifyingCallback(callback);
-        parsedPattern.eval(resolver, wrapper, QueryException.class);
+        parsedPattern.eval(resolver, subdirectoriesToExclude, wrapper, QueryException.class);
         wrapper.processLastPending();
       } catch (TargetParsingException e) {
         reportBuildFileError(owner, e.getMessage());
