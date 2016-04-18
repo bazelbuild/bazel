@@ -46,6 +46,11 @@ function run_external_skylark_load_test() {
   create_new_workspace
   external_repo=${new_workspace_dir}
 
+  # Since we're creating an artifical WORKSPACE file in this test, we must
+  # first remove the symlink to the actual bazel/WORKSPACE file.
+  rm ${WORKSPACE_DIR}/WORKSPACE
+  touch ${WORKSPACE_DIR}/WORKSPACE
+
   cat > ${WORKSPACE_DIR}/WORKSPACE <<EOF
 local_repository(name = "external_repo", path = "${external_repo}")
 EOF

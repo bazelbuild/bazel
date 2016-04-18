@@ -13,7 +13,10 @@ filegroup(
 filegroup(
     name = "workspace-file",
     srcs = [":WORKSPACE"],
-    visibility = ["//tools/cpp/test:__pkg__"],
+    visibility = [
+        "//src/test/shell/bazel:__pkg__",
+        "//tools/cpp/test:__pkg__",
+    ],
 )
 
 filegroup(

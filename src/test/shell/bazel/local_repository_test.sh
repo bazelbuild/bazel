@@ -657,6 +657,10 @@ EOF
 int main() { return 0; };
 EOF
 
+  # Since we're creating an artifical WORKSPACE file in this test, we must
+  # first remove the symlink to the actual bazel/WORKSPACE file.
+  rm ${WORKSPACE_DIR}/WORKSPACE
+  touch ${WORKSPACE_DIR}/WORKSPACE
   cat > WORKSPACE <<EOF
 local_repository(
     name = "r",
