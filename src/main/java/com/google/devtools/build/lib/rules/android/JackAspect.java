@@ -63,6 +63,9 @@ public final class JackAspect implements NativeAspectFactory, ConfiguredAspectFa
         ruleContext
             .getAnalysisEnvironment()
             .getDerivedArtifact(jackLibraryPath, ruleContext.getBinOrGenfilesDirectory());
+    if (!AndroidSdkProvider.verifyPresence(ruleContext)) {
+      return null;
+    }
     AndroidSdkProvider androidSdk = AndroidSdkProvider.fromRuleContext(ruleContext);
     JackCompilationHelper jackHelper =
         new JackCompilationHelper.Builder()
