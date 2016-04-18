@@ -999,7 +999,7 @@ public class CcToolchainFeatures implements Serializable {
     /**
      * @return whether the given {@code feature} is enabled.
      */
-    boolean isEnabled(String feature) {
+    public boolean isEnabled(String feature) {
       return enabledFeatureNames.contains(feature);
     }
 

@@ -88,6 +88,11 @@ public class CppRuleClasses {
    * A string constant for the preprocess_headers feature.
    */
   public static final String PREPROCESS_HEADERS = "preprocess_headers";
+  
+  /**
+   * A string constant for the disable_pbh feature.
+   */
+  public static final String DISABLE_PBH = "disable_pbh";
 
   /**
    * A string constant for the module_maps feature; this is a precondition to the layering_check and

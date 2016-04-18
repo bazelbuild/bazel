@@ -61,6 +61,7 @@ public final class CppModel {
 
   // compile model
   private CppCompilationContext context;
+  private CppCompilationContext interfaceContext;
   private final List<Pair<Artifact, Label>> sourceFiles = new ArrayList<>();
   private final List<String> copts = new ArrayList<>();
   private final List<PathFragment> additionalIncludes = new ArrayList<>();
@@ -119,6 +120,15 @@ public final class CppModel {
    */
   public CppModel setContext(CppCompilationContext context) {
     this.context = context;
+    return this;
+  }
+  
+  /**
+   * Sets the compilation context, i.e. include directories and allowed header files inclusions, for
+   * the compilation of this model's interface, e.g. header module.
+   */
+  public CppModel setInterfaceContext(CppCompilationContext context) {
+    this.interfaceContext = context;
     return this;
   }
 
@@ -279,9 +289,10 @@ public final class CppModel {
    * Returns a {@code CppCompileActionBuilder} with the common fields for a C++ compile action
    * being initialized.
    */
-  private CppCompileActionBuilder initializeCompileAction(Artifact sourceArtifact,
-      Label sourceLabel) {
-    CppCompileActionBuilder builder = createCompileActionBuilder(sourceArtifact, sourceLabel);
+  private CppCompileActionBuilder initializeCompileAction(
+      Artifact sourceArtifact, Label sourceLabel, boolean forInterface) {
+    CppCompileActionBuilder builder =
+        createCompileActionBuilder(sourceArtifact, sourceLabel, forInterface);
     if (nocopts != null) {
       builder.addNocopts(nocopts);
     }
@@ -395,7 +406,8 @@ public final class CppModel {
       Artifact moduleMapArtifact = context.getCppModuleMap().getArtifact();
       Label moduleMapLabel = Label.parseAbsoluteUnchecked(context.getCppModuleMap().getName());
       PathFragment outputName = getObjectOutputPath(moduleMapArtifact, objectDir);
-      CppCompileActionBuilder builder = initializeCompileAction(moduleMapArtifact, moduleMapLabel);
+      CppCompileActionBuilder builder =
+          initializeCompileAction(moduleMapArtifact, moduleMapLabel, /*forInterface=*/ true);
 
       // A header module compile action is just like a normal compile action, but:
       // - the compiled source file is the module map
@@ -408,7 +420,8 @@ public final class CppModel {
       Artifact sourceArtifact = source.getFirst();
       Label sourceLabel = source.getSecond();
       PathFragment outputName = getObjectOutputPath(sourceArtifact, objectDir);
-      CppCompileActionBuilder builder = initializeCompileAction(sourceArtifact, sourceLabel);
+      CppCompileActionBuilder builder =
+          initializeCompileAction(sourceArtifact, sourceLabel, /*forInterface=*/ false);
       
       if (CppFileTypes.CPP_HEADER.matches(source.first.getExecPath())) {
         createHeaderAction(outputName, result, env, builder);
@@ -734,13 +747,11 @@ public final class CppModel {
    * crosstool inputs, output and dotd file names, compilation context and copts.
    */
   private CppCompileActionBuilder createCompileActionBuilder(
-      Artifact source, Label label) {
+      Artifact source, Label label, boolean forInterface) {
     CppCompileActionBuilder builder = new CppCompileActionBuilder(
         ruleContext, source, label);
 
-    builder
-        .setContext(context)
-        .addCopts(copts);
+    builder.setContext(forInterface ? interfaceContext : context).addCopts(copts);
     return builder;
   }
 

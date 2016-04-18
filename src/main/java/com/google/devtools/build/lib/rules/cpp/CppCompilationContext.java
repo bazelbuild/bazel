@@ -614,7 +614,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
    * Builder class for {@link CppCompilationContext}.
    */
   public static class Builder {
-    private String purpose = "cpp_compilation_prerequisites";
+    private String purpose;
     private final Set<Artifact> compilationPrerequisites = new LinkedHashSet<>();
     private final Set<PathFragment> includeDirs = new LinkedHashSet<>();
     private final Set<PathFragment> quoteIncludeDirs = new LinkedHashSet<>();
@@ -654,7 +654,17 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
      * Creates a new builder for a {@link CppCompilationContext} instance.
      */
     public Builder(RuleContext ruleContext) {
+      this(ruleContext, /*forInterface=*/ false);
+    }
+
+    /**
+     * Creates a new builder for a {@link CppCompilationContext} instance.
+     *
+     * @param forInterface if true, this context is designated for the compilation of an interface.
+     */
+    public Builder(RuleContext ruleContext, boolean forInterface) {
       this.ruleContext = ruleContext;
+      this.purpose = forInterface ? "cpp_interface_prerequisites" : "cpp_compilation_prerequisites";
     }
 
     /**
