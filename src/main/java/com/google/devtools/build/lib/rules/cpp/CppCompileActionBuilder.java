@@ -262,10 +262,6 @@ public class CppCompileActionBuilder {
     }
     realMandatoryInputsBuilder.addTransitive(context.getAdditionalInputs(usePic));
 
-    if (cppConfiguration.sendTransitiveHeaderModuleSrcs()) {
-      realMandatoryInputsBuilder.addTransitive(context.getTransitiveHeaderModuleSrcs());
-    }
-
     realMandatoryInputsBuilder.addTransitive(pluginInputsBuilder.build());
     realMandatoryInputsBuilder.add(sourceFile);
     boolean fake = tempOutputFile != null;

@@ -283,18 +283,12 @@ public class CppOptions extends FragmentOptions {
   )
   public boolean skipStaticOutputs;
 
-  // Add all sources of transitively found modules. Although they are also embedded in the .pcm
-  // files, Clang currently verifies that all files specified in a cppmap do exist.
-  // TODO(djasper): Once Clang's r264664 is released, the default can be flipped and this option
-  // can be removed.
+  // TODO(djasper): Remove once it has been removed from the global blazerc.
   @Option(
     name = "send_transitive_header_module_srcs",
     defaultValue = "true",
     category = "semantics",
-    help =
-        "This flag is only used for a transition and will go away. "
-            + "If true, treat all headers mentioned in transitive .cppmap files as mandatory "
-            + "inputs."
+    help = "Obsolete. Don't use."
   )
   public boolean sendTransitiveHeaderModuleSrcs;
 
