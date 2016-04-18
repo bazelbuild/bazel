@@ -545,6 +545,8 @@ public class BuildView {
     if (coverageReportActionFactory != null) {
       CoverageReportActionsWrapper actionsWrapper;
       actionsWrapper = coverageReportActionFactory.createCoverageReportActionsWrapper(
+          eventHandler,
+          directories,
           allTargetsToTest,
           baselineCoverageArtifacts,
           getArtifactFactory(),
