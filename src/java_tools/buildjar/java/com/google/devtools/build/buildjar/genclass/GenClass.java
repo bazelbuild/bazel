@@ -22,8 +22,11 @@ import com.google.devtools.build.buildjar.proto.JavaCompilation.Manifest;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.jar.JarEntry;
@@ -36,9 +39,29 @@ import java.util.jar.JarFile;
  */
 public class GenClass {
 
+  /**
+   * Recursively delete a directory.
+   */
+  private static void deleteTree(Path directory) throws IOException {
+    Files.walkFileTree(directory, new SimpleFileVisitor<Path>() {
+      @Override
+      public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+        Files.delete(file);
+        return FileVisitResult.CONTINUE;
+      }
+
+      @Override
+      public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+        Files.delete(dir);
+        return FileVisitResult.CONTINUE;
+      }
+    });
+  }
+
   public static void main(String[] args) throws IOException {
     GenClassOptions options = GenClassOptionsParser.parse(Arrays.asList(args));
     Manifest manifest = readManifest(options.manifest());
+    deleteTree(options.tempDir());
     extractGeneratedClasses(options.classJar(), manifest, options.tempDir());
     writeOutputJar(options);
   }
