@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -38,7 +39,7 @@ public class ActionLookupValue implements SkyValue {
   private static Map<Artifact, Action> filterSharedActionsAndThrowRuntimeIfConflict(
       Iterable<Action> actions) {
     try {
-      return ConfiguredTargetFunction.filterSharedActionsAndThrowIfConflict(actions);
+      return Actions.filterSharedActionsAndThrowActionConflict(actions);
     } catch (ActionConflictException e) {
       // Programming bug.
       throw new IllegalStateException(e);

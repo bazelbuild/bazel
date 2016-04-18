@@ -14,11 +14,21 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.escape.Escaper;
 import com.google.common.escape.Escapers;
+import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.PathFragment;
+
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.SortedMap;
 
 /**
  * Helper class for actions.
@@ -57,6 +67,95 @@ public final class Actions {
       return false;
     }
     return true;
+  }
+
+
+  /**
+   * Finds action conflicts. An action conflict happens if two actions generate the same output
+   * artifact. Shared actions are tolerated. See {@link #canBeShared} for details.
+   *
+   * @param actions a list of actions to check for action conflicts
+   * @return a map between generated artifacts and their associated generating actions. If there is
+   *     more than one action generating the same output artifact, only one action is chosen.
+   * @throws ActionConflictException iff there are two unshareable actions generating the same
+   *     output
+   */
+  public static Map<Artifact, Action> filterSharedActionsAndThrowActionConflict(
+      Iterable<Action> actions) throws ActionConflictException {
+    return Actions.maybeFilterSharedActionsAndThrowIfConflict(
+        actions, /*allowSharedAction=*/ true);
+  }
+
+  private static Map<Artifact, Action> maybeFilterSharedActionsAndThrowIfConflict(
+      Iterable<Action> actions, boolean allowSharedAction) throws ActionConflictException {
+    Map<Artifact, Action> generatingActions = new HashMap<>();
+    for (Action action : actions) {
+      for (Artifact artifact : action.getOutputs()) {
+        Action previousAction = generatingActions.put(artifact, action);
+        if (previousAction != null && previousAction != action) {
+          if (!allowSharedAction || !Actions.canBeShared(previousAction, action)) {
+            throw new ActionConflictException(artifact, previousAction, action);
+          }
+        }
+      }
+    }
+    return generatingActions;
+  }
+
+  /**
+   * Finds Artifact prefix conflicts between generated artifacts. An artifact prefix conflict
+   * happens if one action generates an artifact whose path is a prefix of another artifact's path.
+   * Those two artifacts cannot exist simultaneously in the output tree.
+   *
+   * @param actionGraph the {@link ActionGraph} to query for artifact conflicts
+   * @param artifactPathMap a map mapping generated artifacts to their exec paths
+   * @return A map between actions that generated the conflicting artifacts and their associated
+   *     {@link ArtifactPrefixConflictException}.
+   */
+  public static Map<Action, ArtifactPrefixConflictException> findArtifactPrefixConflicts(
+      ActionGraph actionGraph, SortedMap<PathFragment, Artifact> artifactPathMap) {
+    // No actions in graph -- currently happens only in tests. Special-cased because .next() call
+    // below is unconditional.
+    if (artifactPathMap.isEmpty()) {
+      return ImmutableMap.<Action, ArtifactPrefixConflictException>of();
+    }
+
+    // Keep deterministic ordering of bad actions.
+    Map<Action, ArtifactPrefixConflictException> badActions = new LinkedHashMap();
+    Iterator<PathFragment> iter = artifactPathMap.keySet().iterator();
+
+    // Report an error for every derived artifact which is a prefix of another.
+    // If x << y << z (where x << y means "y starts with x"), then we only report (x,y), (x,z), but
+    // not (y,z).
+    for (PathFragment pathJ = iter.next(); iter.hasNext(); ) {
+      // For each comparison, we have a prefix candidate (pathI) and a suffix candidate (pathJ).
+      // At the beginning of the loop, we set pathI to the last suffix candidate, since it has not
+      // yet been tested as a prefix candidate, and then set pathJ to the paths coming after pathI,
+      // until we come to one that does not contain pathI as a prefix. pathI is then verified not to
+      // be the prefix of any path, so we start the next run of the loop.
+      PathFragment pathI = pathJ;
+      // Compare pathI to the paths coming after it.
+      while (iter.hasNext()) {
+        pathJ = iter.next();
+        if (pathJ.startsWith(pathI)) { // prefix conflict.
+          Artifact artifactI = Preconditions.checkNotNull(artifactPathMap.get(pathI), pathI);
+          Artifact artifactJ = Preconditions.checkNotNull(artifactPathMap.get(pathJ), pathJ);
+          Action actionI =
+              Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactI), artifactI);
+          Action actionJ =
+              Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactJ), artifactJ);
+          if (actionI.shouldReportPathPrefixConflict(actionJ)) {
+            ArtifactPrefixConflictException exception = new ArtifactPrefixConflictException(pathI,
+                pathJ, actionI.getOwner().getLabel(), actionJ.getOwner().getLabel());
+            badActions.put(actionI, exception);
+            badActions.put(actionJ, exception);
+          }
+        } else { // pathJ didn't have prefix pathI, so no conflict possible for pathI.
+          break;
+        }
+      }
+    }
+    return ImmutableMap.copyOf(badActions);
   }
 
   /**

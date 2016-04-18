@@ -850,27 +850,13 @@ final class ConfiguredTargetFunction implements SkyFunction {
     // Check for conflicting actions within this configured target (that indicates a bug in the
     // rule implementation).
     try {
-      generatingActions = filterSharedActionsAndThrowIfConflict(analysisEnvironment.getRegisteredActions());
+      generatingActions = Actions.filterSharedActionsAndThrowActionConflict(
+          analysisEnvironment.getRegisteredActions());
     } catch (ActionConflictException e) {
       throw new ConfiguredTargetFunctionException(e);
     }
     return new ConfiguredTargetValue(
         configuredTarget, generatingActions, transitivePackages.build());
-  }
-
-  static Map<Artifact, Action> filterSharedActionsAndThrowIfConflict(Iterable<Action> actions)
-      throws ActionConflictException {
-    Map<Artifact, Action> generatingActions = new HashMap<>();
-    for (Action action : actions) {
-      for (Artifact artifact : action.getOutputs()) {
-        Action previousAction = generatingActions.put(artifact, action);
-        if (previousAction != null && previousAction != action
-            && !Actions.canBeShared(previousAction, action)) {
-          throw new ActionConflictException(artifact, previousAction, action);
-        }
-      }
-    }
-    return generatingActions;
   }
 
   /**

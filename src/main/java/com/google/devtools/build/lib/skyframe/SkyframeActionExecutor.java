@@ -77,7 +77,6 @@ import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -222,44 +221,14 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
     ActionGraph actionGraph = result.first;
     SortedMap<PathFragment, Artifact> artifactPathMap = result.second;
 
-    // Report an error for every derived artifact which is a prefix of another.
-    // If x << y << z (where x << y means "y starts with x"), then we only report (x,y), (x,z), but
-    // not (y,z).
-    Iterator<PathFragment> iter = artifactPathMap.keySet().iterator();
-    if (!iter.hasNext()) {
-      // No actions in graph -- currently happens only in tests. Special-cased because .next() call
-      // below is unconditional.
-      this.badActionMap = ImmutableMap.of();
-      return;
+    Map<Action, ArtifactPrefixConflictException> actionsWithArtifactPrefixConflict =
+        Actions.findArtifactPrefixConflicts(actionGraph, artifactPathMap);
+    for (Map.Entry<Action, ArtifactPrefixConflictException> actionExceptionPair :
+        actionsWithArtifactPrefixConflict.entrySet()) {
+      temporaryBadActionMap.put(
+          actionExceptionPair.getKey(), new ConflictException(actionExceptionPair.getValue()));
     }
-    for (PathFragment pathJ = iter.next(); iter.hasNext(); ) {
-      // For each comparison, we have a prefix candidate (pathI) and a suffix candidate (pathJ).
-      // At the beginning of the loop, we set pathI to the last suffix candidate, since it has not
-      // yet been tested as a prefix candidate, and then set pathJ to the paths coming after pathI,
-      // until we come to one that does not contain pathI as a prefix. pathI is then verified not to
-      // be the prefix of any path, so we start the next run of the loop.
-      PathFragment pathI = pathJ;
-      // Compare pathI to the paths coming after it.
-      while (iter.hasNext()) {
-        pathJ = iter.next();
-        if (pathJ.startsWith(pathI)) { // prefix conflict.
-          Artifact artifactI = Preconditions.checkNotNull(artifactPathMap.get(pathI), pathI);
-          Artifact artifactJ = Preconditions.checkNotNull(artifactPathMap.get(pathJ), pathJ);
-          Action actionI =
-              Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactI), artifactI);
-          Action actionJ =
-              Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactJ), artifactJ);
-          if (actionI.shouldReportPathPrefixConflict(actionJ)) {
-            ArtifactPrefixConflictException exception = new ArtifactPrefixConflictException(pathI,
-                pathJ, actionI.getOwner().getLabel(), actionJ.getOwner().getLabel());
-            temporaryBadActionMap.put(actionI, new ConflictException(exception));
-            temporaryBadActionMap.put(actionJ, new ConflictException(exception));
-          }
-        } else { // pathJ didn't have prefix pathI, so no conflict possible for pathI.
-          break;
-        }
-      }
-    }
+
     this.badActionMap = ImmutableMap.copyOf(temporaryBadActionMap);
   }
 
