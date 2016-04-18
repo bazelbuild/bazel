@@ -47,6 +47,13 @@ public class BuildSummaryStatsModule extends BlazeModule {
     eventBus.register(this);
   }
 
+  @Override
+  public void afterCommand() {
+    this.criticalPathComputer = null;
+    this.eventBus = null;
+    this.reporter = null;
+  }
+
   @Subscribe
   public void executionPhaseStarting(ExecutionStartingEvent event) {
     criticalPathComputer = new SimpleCriticalPathComputer(BlazeClock.instance());
