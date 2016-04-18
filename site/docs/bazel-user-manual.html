@@ -686,8 +686,7 @@ $ bazel fetch //...
     <code class='flag'>--compiler</code>,
     <code class='flag'>--thin_archives</code>,
     <code class='flag'>--use_ijars</code>,
-    <code class='flag'>--java_langtools</code>,
-    <code class='flag'>--javabuilder_top</code>.
+    <code class='flag'>--java_toolchain</code>,
     If <code class='flag'>--host_crosstool_top</code> is used, then the value of
     <code class='flag'>--host_cpu</code> is used to look up a
     <code>default_toolchain</code> in the Crosstool
@@ -1714,16 +1713,10 @@ the compilation of binaries during the build.
   glibc version, and target CPU are allowed.
 </p>
 
-<h4 id='flag--javabuilder_top'><code class='flag'>--javabuilder_top <var>label</var></code></h4>
+<h4 id='flag--java_toolchain'><code class='flag'>--java_toolchain <var>label</var></code></h4>
 <p>
-  This option specifies the label of the JavaBuilder used to compile Java
+  This option specifies the label of the java_toolchain used to compile Java
   source files.
-</p>
-
-<h4 id='flag--java_langtools'><code class='flag'>--java_langtools <var>label</var></code></h4>
-<p>
-  This option specifies the label of the Java langtools jar (used by
-  Java compilation tools, for example JavaBuilder).
 </p>
 
 <h4 id='flag--javabase'><code class='flag'>--javabase (<var>path</var>|<var>label</var>)</code></h4>
@@ -1739,26 +1732,8 @@ the compilation of binaries during the build.
 <p>
   This does not select the Java compiler that is used to compile Java
   source files. The compiler can be selected by settings the
-  <a href="#flag--java_langtools"><code class='flag'>--java_langtools</code></a>
-  and the
-  <a href="#flag--javabuilder_top"><code class='flag'>--javabuilder_top</code></a>
-  options.
-</p>
-
-<h4 id='flag--javac_bootclasspath'><code class='flag'>--javac_bootclasspath <var>label</var></code></h4>
-<p>
-  This option specifies the label of the bootstrap classes that Java code
-  should be compiled against. This option should always be set together with
-  <a href="#flag--javac_extdir"><code class='flag'>--javac_extdir</code></a>
-  when cross-compiling to a different Java platform version.
-</p>
-
-<h4 id='flag--javac_extdir'><code class='flag'>--javac_extdir <var>label</var></code></h4>
-<p>
-  This option specifies the label of the extension classes that Java code
-  should be compiled against. This option should always be set together with
-  <a href="#flag--javac_bootclasspath"><code class='flag'>--javac_bootclasspath</code></a>
-  when cross-compiling to a different Java platform version.
+  <a href="#flag--java_toolchain"><code class='flag'>--java_toolchain</code></a>
+  option.
 </p>
 
 <h3 id='strategy-options'>Build strategy options</h3>

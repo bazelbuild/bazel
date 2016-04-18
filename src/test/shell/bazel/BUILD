@@ -3,7 +3,7 @@ package(default_visibility = ["//visibility:private"])
 genrule(
     name = "langtools-copy",
     testonly = 1,
-    srcs = ["//tools/defaults:java_langtools"],
+    srcs = ["//third_party/java/jdk/langtools:javac_jar"],
     outs = ["langtools.jar"],
     cmd = "cp $< $@",
 )

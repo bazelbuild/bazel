@@ -74,7 +74,6 @@ public class BazelJavaRuleClasses {
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
       return builder
-          .add(attr("$ijar", LABEL).cfg(HOST).exec().value(env.getLabel("//tools/defaults:ijar")))
           .add(
               attr(":java_toolchain", LABEL)
                   .allowedRuleClasses("java_toolchain")
@@ -102,18 +101,6 @@ public class BazelJavaRuleClasses {
       return builder
           .add(attr(":jvm", LABEL).cfg(HOST).value(JavaSemantics.JVM))
           .add(attr(":host_jdk", LABEL).cfg(HOST).value(JavaSemantics.HOST_JDK))
-          .add(attr("$javac_extdir", LABEL).cfg(HOST)
-              .value(env.getLabel(JavaSemantics.JAVAC_EXTDIR_LABEL)))
-          .add(attr("$java_langtools", LABEL).cfg(HOST)
-              .value(env.getLabel("//tools/defaults:java_langtools")))
-          .add(attr("$javac_bootclasspath", LABEL).cfg(HOST)
-              .value(env.getLabel(JavaSemantics.JAVAC_BOOTCLASSPATH_LABEL)))
-          .add(attr("$javabuilder", LABEL).cfg(HOST)
-              .value(env.getLabel(JavaSemantics.JAVABUILDER_LABEL)))
-          .add(attr("$singlejar", LABEL).cfg(HOST)
-              .value(env.getLabel(JavaSemantics.SINGLEJAR_LABEL)))
-          .add(attr("$genclass", LABEL).cfg(HOST)
-              .value(env.getLabel(JavaSemantics.GENCLASS_LABEL)))
           .add(attr("$jacoco_instrumentation", LABEL).cfg(HOST))
           .build();
     }

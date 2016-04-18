@@ -111,32 +111,6 @@ public interface JavaSemantics {
       OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "gen_jars";
 
   /**
-   * Label of a pseudo-filegroup that contains the boot-classpath entries.
-   */
-  String JAVAC_BOOTCLASSPATH_LABEL = "//tools/defaults:javac_bootclasspath";
-
-  /**
-   * Label of the javac extdir used for compiling Java source code.
-   */
-  String JAVAC_EXTDIR_LABEL = "//tools/defaults:javac_extdir";
-
-  /**
-   * Label of the JavaBuilder JAR used for compiling Java source code.
-   */
-  String JAVABUILDER_LABEL = "//tools/defaults:javabuilder";
-
-  /**
-   * Label of the SingleJar JAR used for creating deploy jars.
-   */
-  String SINGLEJAR_LABEL = "//tools/defaults:singlejar";
-
-  /**
-   * Label of the GenClass JAR used for creating the jar for classes from sources generated from
-   * annotation processors.
-   */
-  String GENCLASS_LABEL = "//tools/defaults:genclass";
-
-  /**
    * Label of pseudo-cc_binary that tells Blaze a java target's JAVABIN is never to be replaced by
    * the contents of --java_launcher; only the JDK's launcher will ever be used.
    */

@@ -36,3 +36,19 @@ filegroup(
     ],
     visibility = ["//src:__pkg__"],
 )
+
+java_toolchain(
+    name = "bootstrap_toolchain",
+    bootclasspath = ["//tools/jdk:bootclasspath"],
+    encoding = "UTF-8",
+    extclasspath = ["//tools/jdk:extdir"],
+    genclass = ["bootstrap_genclass_deploy.jar"],
+    ijar = ["//third_party/ijar"],
+    javabuilder = ["bootstrap_deploy.jar"],
+    javac = ["//third_party/java/jdk/langtools:javac_jar"],
+    jvm_opts = ["-client"],
+    singlejar = ["//src/java_tools/singlejar:bootstrap_deploy.jar"],
+    source_version = "8",
+    target_version = "8",
+    visibility = ["//visibility:public"],
+)

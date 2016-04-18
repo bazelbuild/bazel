@@ -96,7 +96,7 @@ bootstrap_java_library(
         "//third_party:jsr305-jars",
         "//third_party/protobuf:protobuf-jars",
     ],
-    neverlink_jars = ["//tools/defaults:java_langtools"],
+    neverlink_jars = ["//third_party/java/jdk/langtools:javac_jar"],
     srcjars = [
         "//src/main/protobuf:deps_java_proto_srcjar",
         "//src/main/protobuf:worker_protocol_java_proto_srcjar",

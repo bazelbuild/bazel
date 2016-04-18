@@ -30,10 +30,7 @@ fi
 
 : ${JAVA_VERSION:="1.8"}
 
-: ${BAZEL_ARGS:=--singlejar_top=//src/java_tools/singlejar:bootstrap_deploy.jar \
-      --javabuilder_top=//src/java_tools/buildjar:bootstrap_deploy.jar \
-      --genclass_top=//src/java_tools/buildjar:bootstrap_genclass_deploy.jar \
-      --ijar_top=//third_party/ijar \
+: ${BAZEL_ARGS:=--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
       --strategy=Javac=worker --worker_quit_after_build \
       --genrule_strategy=standalone --spawn_strategy=standalone \
       "${EXTRA_BAZEL_ARGS:-}"}

@@ -370,10 +370,6 @@ public final class AndroidRuleClasses {
               attr(":java_toolchain", LABEL)
                   .allowedRuleClasses("java_toolchain")
                   .value(JavaSemantics.JAVA_TOOLCHAIN))
-          .add(
-              attr("$javac_bootclasspath", LABEL)
-                  .cfg(HOST)
-                  .value(environment.getLabel(JavaSemantics.JAVAC_BOOTCLASSPATH_LABEL)))
           .build();
     }
 

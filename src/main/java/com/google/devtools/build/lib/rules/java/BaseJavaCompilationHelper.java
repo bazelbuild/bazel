@@ -57,33 +57,6 @@ public class BaseJavaCompilationHelper {
     return AnalysisUtils.getMiddlemanFor(ruleContext, ":host_jdk" + implicitAttributesSuffix);
   }
 
-  /** Returns the langtools jar Artifact. */
-  protected final Artifact getLangtoolsJar() {
-    Artifact javac = javaToolchain.getJavac();
-    if (javac != null) {
-      return javac;
-    }
-    return ruleContext.getHostPrerequisiteArtifact("$java_langtools" + implicitAttributesSuffix);
-  }
-
-  /** Returns the JavaBuilder jar Artifact. */
-  protected final Artifact getJavaBuilderJar() {
-    Artifact javaBuilder = javaToolchain.getJavaBuilder();
-    if (javaBuilder != null) {
-      return javaBuilder;
-    }
-    return ruleContext.getPrerequisiteArtifact(
-        "$javabuilder" + implicitAttributesSuffix, Mode.HOST);
-  }
-
-  protected FilesToRunProvider getIJar() {
-    FilesToRunProvider ijar = javaToolchain.getIjar();
-    if (ijar != null) {
-      return ijar;
-    }
-    return ruleContext.getExecutablePrerequisite("$ijar" + implicitAttributesSuffix, Mode.HOST);
-  }
-
   /**
    * Returns the instrumentation jar in the given semantics.
    */
@@ -105,12 +78,7 @@ public class BaseJavaCompilationHelper {
       RuleContext ruleContext,
       JavaToolchainProvider javaToolchain,
       String implicitAttributesSuffix) {
-    NestedSet<Artifact> toolchainBootclasspath = javaToolchain.getBootclasspath();
-    if (toolchainBootclasspath != null) {
-      return ImmutableList.copyOf(toolchainBootclasspath);
-    }
-    return ruleContext.getPrerequisiteArtifacts(
-        "$javac_bootclasspath" + implicitAttributesSuffix, Mode.HOST).list();
+    return ImmutableList.copyOf(javaToolchain.getBootclasspath());
   }
 
   /**
@@ -124,12 +92,7 @@ public class BaseJavaCompilationHelper {
    * Returns the extdir artifacts.
    */
   protected final ImmutableList<Artifact> getExtdirInputs() {
-    NestedSet<Artifact> toolchainExtclasspath = javaToolchain.getExtclasspath();
-    if (toolchainExtclasspath != null) {
-      return ImmutableList.copyOf(toolchainExtclasspath);
-    }
-    return ruleContext.getPrerequisiteArtifacts(
-        "$javac_extdir" + implicitAttributesSuffix, Mode.HOST).list();
+    return ImmutableList.copyOf(javaToolchain.getExtclasspath());
   }
 
   private Artifact getIjarArtifact(Artifact jar, boolean addPrefix) {
@@ -155,7 +118,7 @@ public class BaseJavaCompilationHelper {
    */
   protected Artifact createIjarAction(Artifact inputJar, boolean addPrefix) {
     Artifact interfaceJar = getIjarArtifact(inputJar, addPrefix);
-    FilesToRunProvider ijarTarget = getIJar();
+    FilesToRunProvider ijarTarget = javaToolchain.getIjar();
     if (!ruleContext.hasErrors()) {
       ruleContext.registerAction(new SpawnAction.Builder()
           .addInput(inputJar)

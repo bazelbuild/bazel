@@ -71,6 +71,8 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
         "  outs = ['d.txt'])",
         "java_library(name = 'jl',",
         "  srcs = ['a.java'])",
+        "android_library(name = 'androidlib',",
+        "  srcs = ['a.java'])",
         "java_import(name = 'asr',",
         "  jars = [ 'asr.jar' ],",
         "  srcjar = 'asr-src.jar',",
@@ -604,26 +606,26 @@ public class SkylarkRuleContextTest extends SkylarkTestCase {
 
   @Test
   public void testGetExecutablePrerequisite() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:jl");
-    Object result = evalRuleContextCode(ruleContext, "ruleContext.executable._ijar");
-    assertEquals("ijar", ((Artifact) result).getFilename());
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:androidlib");
+    Object result = evalRuleContextCode(ruleContext, "ruleContext.executable._jarjar_bin");
+    assertEquals("jarjar_bin", ((Artifact) result).getFilename());
   }
 
   @Test
   public void testCreateSpawnActionArgumentsWithExecutableFilesToRunProvider() throws Exception {
-    SkylarkRuleContext ruleContext = createRuleContext("//foo:jl");
+    SkylarkRuleContext ruleContext = createRuleContext("//foo:androidlib");
     evalRuleContextCode(
         ruleContext,
         "ruleContext.action(\n"
             + "  inputs = ruleContext.files.srcs,\n"
             + "  outputs = ruleContext.files.srcs,\n"
             + "  arguments = ['--a','--b'],\n"
-            + "  executable = ruleContext.executable._ijar)\n");
+            + "  executable = ruleContext.executable._jarjar_bin)\n");
     SpawnAction action =
         (SpawnAction)
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
-    assertThat(action.getCommandFilename()).endsWith("/ijar");
+    assertThat(action.getCommandFilename()).endsWith("/jarjar_bin");
   }
 
   @Test

@@ -134,8 +134,8 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     builder.addClasspathResources(attributes.getClassPathResources());
     builder.setBootclasspathEntries(getBootclasspathOrDefault());
     builder.setExtdirInputs(getExtdirInputs());
-    builder.setLangtoolsJar(getLangtoolsJar());
-    builder.setJavaBuilderJar(getJavaBuilderJar());
+    builder.setLangtoolsJar(javaToolchain.getJavac());
+    builder.setJavaBuilderJar(javaToolchain.getJavaBuilder());
     builder.addTranslations(getTranslations());
     builder.setOutputJar(outputJar);
     builder.setManifestProtoOutput(manifestProtoOutput);
@@ -280,7 +280,7 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     builder.setRuleKind(attributes.getRuleKind());
     builder.setTargetLabel(attributes.getTargetLabel());
     builder.setJavaBaseInputs(getHostJavabaseInputsNonStatic(ruleContext));
-    builder.setJavacJar(getLangtoolsJar());
+    builder.setJavacJar(javaToolchain.getJavac());
     builder.build();
 
     artifactBuilder.setCompileTimeDependencies(headerDeps);
@@ -418,12 +418,12 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
     builder.addResources(attributes.getResources());
     builder.addClasspathResources(attributes.getClassPathResources());
     builder.setExtdirInputs(getExtdirInputs());
-    builder.setLangtoolsJar(getLangtoolsJar());
+    builder.setLangtoolsJar(javaToolchain.getJavac());
     builder.addTranslations(getTranslations());
     builder.setCompressJar(true);
     builder.setTempDirectory(tempDir(resourceJar));
     builder.setClassDirectory(classDir(resourceJar));
-    builder.setJavaBuilderJar(getJavaBuilderJar());
+    builder.setJavaBuilderJar(javaToolchain.getJavaBuilder());
     builder.setJavacOpts(getDefaultJavacOptsFromRule(getRuleContext()));
     builder.setJavacJvmOpts(javaToolchain.getJavacJvmOptions());
     getAnalysisEnvironment().registerAction(builder.build());

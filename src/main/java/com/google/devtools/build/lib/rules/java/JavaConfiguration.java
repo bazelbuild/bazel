@@ -126,8 +126,6 @@ public final class JavaConfiguration extends Fragment {
 
   private final ImmutableList<String> commandLineJavacFlags;
   private final Label javaLauncherLabel;
-  private final Label javaBuilderTop;
-  private final Label javaLangtoolsJar;
   private final boolean useIjars;
   private final boolean useHeaderCompilation;
   private final boolean generateJavaDeps;
@@ -136,8 +134,6 @@ public final class JavaConfiguration extends Fragment {
   private final ImmutableList<String> defaultJvmFlags;
   private final ImmutableList<String> checkedConstraints;
   private final StrictDepsMode strictJavaDeps;
-  private final Label javacBootclasspath;
-  private final Label javacExtdir;
   private final ImmutableList<String> javacOpts;
   private final Label proguardBinary;
   private final ImmutableList<Label> extraProguardSpecs;
@@ -156,8 +152,6 @@ public final class JavaConfiguration extends Fragment {
     this.commandLineJavacFlags =
         ImmutableList.copyOf(JavaHelper.tokenizeJavaOptions(javaOptions.javacOpts));
     this.javaLauncherLabel = javaOptions.javaLauncher;
-    this.javaBuilderTop = javaOptions.javaBuilderTop;
-    this.javaLangtoolsJar = javaOptions.javaLangtoolsJar;
     this.useIjars = javaOptions.useIjars;
     this.useHeaderCompilation = javaOptions.headerCompilation;
     this.generateJavaDeps = generateJavaDeps;
@@ -166,8 +160,6 @@ public final class JavaConfiguration extends Fragment {
     this.defaultJvmFlags = ImmutableList.copyOf(defaultJvmFlags);
     this.checkedConstraints = ImmutableList.copyOf(javaOptions.checkedConstraints);
     this.strictJavaDeps = javaOptions.strictJavaDeps;
-    this.javacBootclasspath = javaOptions.javacBootclasspath;
-    this.javacExtdir = javaOptions.javacExtdir;
     this.javacOpts = ImmutableList.copyOf(javaOptions.javacOpts);
     this.proguardBinary = javaOptions.proguard;
     this.extraProguardSpecs = ImmutableList.copyOf(javaOptions.extraProguardSpecs);
@@ -210,20 +202,6 @@ public final class JavaConfiguration extends Fragment {
   public void addGlobalMakeVariables(Builder<String, String> globalMakeEnvBuilder) {
     globalMakeEnvBuilder.put("JAVA_TRANSLATIONS", buildTranslations() ? "1" : "0");
     globalMakeEnvBuilder.put("JAVA_CPU", javaCpu);
-  }
-
-  /**
-   * Returns the default javabuilder jar
-   */
-  public Label getDefaultJavaBuilderJar() {
-    return javaBuilderTop;
-  }
-
-  /**
-   * Returns the default java langtools jar
-   */
-  public Label getDefaultJavaLangtoolsJar() {
-    return javaLangtoolsJar;
   }
 
   /**
@@ -284,14 +262,6 @@ public final class JavaConfiguration extends Fragment {
    */
   public Label getJavaLauncherLabel() {
     return javaLauncherLabel;
-  }
-
-  public Label getJavacBootclasspath() {
-    return javacBootclasspath;
-  }
-
-  public Label getJavacExtdir() {
-    return javacExtdir;
   }
 
   public ImmutableList<String> getJavacOpts() {
