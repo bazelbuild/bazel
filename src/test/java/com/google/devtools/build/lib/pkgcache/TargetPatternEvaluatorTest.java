@@ -676,6 +676,21 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     }
   }
 
+  @Test
+  public void testSubdirectoryCircularSymlinkNoKeepGoingPrimedParent() throws Exception {
+    setupSubDirectoryCircularSymlink();
+    // We make sure that the parent package is present, so that in the subsequent nokeep_going
+    // build, the pattern parsing will have as many of its deps available as possible, which
+    // exercises more code coverage during error bubbling.
+    assertThat(parseList("//parent:all")).containsExactly(Label.parseAbsolute("//parent:parent"));
+    try {
+      parseList("//parent/...");
+      fail();
+    } catch (TargetParsingException e) {
+      // Expected.
+    }
+  }
+
   /** Regression test for bug: "Bogus 'helpful' error message" */
   @Test
   public void testHelpfulMessageForFileOutsideOfAnyPackage() throws Exception {

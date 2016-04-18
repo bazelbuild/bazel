@@ -13,9 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -111,18 +111,6 @@ abstract class RecursiveDirectoryTraversalFunction
      */
     void visitPackageValue(Package pkg, Environment env);
   }
-
-  private static final Function<ValueOrException<NoSuchPackageException>, SkyValue> GET_SKYVALUE =
-      new Function<ValueOrException<NoSuchPackageException>, SkyValue>() {
-        @Override
-        public SkyValue apply(ValueOrException<NoSuchPackageException> val) {
-          try {
-            return Preconditions.checkNotNull(val.get(), val);
-          } catch (NoSuchPackageException e) {
-            throw new IllegalStateException(e);
-          }
-        }
-      };
 
   /**
    * Looks in the directory specified by {@code recursivePkgKey} for a package, does some work
@@ -300,10 +288,17 @@ abstract class RecursiveDirectoryTraversalFunction
           return null;
         }
       }
-      subdirectorySkyValues =
-          Maps.transformValues(
-              Maps.filterKeys(dependentSkyValues, Predicates.not(Predicates.equalTo(packageKey))),
-              GET_SKYVALUE);
+      ImmutableMap.Builder<SkyKey, SkyValue> subdirectoryBuilder = ImmutableMap.builder();
+      for (Map.Entry<SkyKey, ValueOrException<NoSuchPackageException>> entry :
+          Maps.filterKeys(dependentSkyValues, Predicates.not(Predicates.equalTo(packageKey)))
+              .entrySet()) {
+        try {
+          subdirectoryBuilder.put(entry.getKey(), entry.getValue().get());
+        } catch (NoSuchPackageException e) {
+          // ignored.
+        }
+      }
+      subdirectorySkyValues = subdirectoryBuilder.build();
     } else {
       subdirectorySkyValues = env.getValues(childDeps);
     }
