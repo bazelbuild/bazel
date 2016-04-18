@@ -45,7 +45,7 @@ public final class JavaToolchain implements RuleConfiguredTargetFactory {
     final NestedSet<Artifact> extclasspath = getArtifactList("extclasspath", ruleContext);
     final String encoding = ruleContext.attributes().get("encoding", Type.STRING);
     final List<String> xlint = ruleContext.attributes().get("xlint", Type.STRING_LIST);
-    final List<String> misc = ruleContext.attributes().get("misc", Type.STRING_LIST);
+    final List<String> misc = ruleContext.getTokenizedStringListAttr("misc");
     final List<String> jvmOpts = ruleContext.attributes().get("jvm_opts", Type.STRING_LIST);
     Artifact javac = getArtifact("javac", ruleContext);
     Artifact javabuilder = getArtifact("javabuilder", ruleContext);
