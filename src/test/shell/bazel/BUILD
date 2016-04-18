@@ -45,7 +45,6 @@ filegroup(
         "testenv.sh",
         "testing_server.py",
         ":langtools-copy",
-        "//:workspace-file",
         "//examples:srcs",
         "//external:bootclasspath",
         "//external:extdir",
@@ -301,16 +300,6 @@ sh_test(
     size = "large",
     srcs = ["bazel_workspace_status_test.sh"],
     data = [":test-deps"],
-)
-
-sh_test(
-    name = "bound_targets_test",
-    size = "large",
-    srcs = ["bound_targets_test.sh"],
-    data = [
-        ":objc-deps",
-        ":test-deps",
-    ],
 )
 
 test_suite(

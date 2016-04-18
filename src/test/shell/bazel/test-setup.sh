@@ -366,7 +366,7 @@ function create_new_workspace() {
   ln -s "${junitrunner_path}" tools/jdk/TestRunner_deploy.jar
   ln -s "${ijar_path}" tools/jdk/ijar/ijar
 
-  ln -sv ${workspace_file} WORKSPACE
+  touch WORKSPACE
 }
 
 # Set-up a clean default workspace.

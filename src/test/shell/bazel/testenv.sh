@@ -23,9 +23,6 @@
 source "${TEST_SRCDIR}/src/test/shell/unittest.bash" || \
   { echo "Failed to source unittest.bash" >&2; exit 1; }
 
-# WORKSPACE file
-workspace_file="${TEST_SRCDIR}/WORKSPACE"
-
 # Bazel
 bazel_tree="${TEST_SRCDIR}/src/test/shell/bazel/doc-srcs.zip"
 bazel="${TEST_SRCDIR}/src/bazel"
