@@ -40,9 +40,9 @@ import java.util.Collection;
 import javax.annotation.Nullable;
 
 /**
- * Abstract implementation of Action which implements basic functionality: the
- * inputs, outputs, and toString method.  Both input and output sets are
- * immutable.
+ * Abstract implementation of Action which implements basic functionality: the inputs, outputs, and
+ * toString method. Both input and output sets are immutable. Subclasses must be generally
+ * immutable - see the documentation on {@link Action}.
  */
 @Immutable @ThreadSafe
 public abstract class AbstractAction implements Action, SkylarkValue {
