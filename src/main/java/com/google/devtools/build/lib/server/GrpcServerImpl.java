@@ -81,8 +81,8 @@ public class GrpcServerImpl implements CommandServerGrpc.CommandServer, GrpcServ
           .setCookie(responseCookie);
 
       switch (type) {
-        case STDOUT: response.setStdout(input); break;
-        case STDERR: response.setStderr(input); break;
+        case STDOUT: response.setStandardOutput(input); break;
+        case STDERR: response.setStandardError(input); break;
         default: throw new IllegalStateException();
       }
 

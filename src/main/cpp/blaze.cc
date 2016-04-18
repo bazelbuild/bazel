@@ -1840,12 +1840,14 @@ void GrpcBlazeServer::Communicate() {
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
       client->Run(&context, request));
   while (reader->Read(&response)) {
-    if (response.stdout().size() > 0) {
-      write(1, response.stdout().c_str(), response.stdout().size());
+    if (response.standard_output().size() > 0) {
+      write(1, response.standard_output().c_str(),
+            response.standard_output().size());
     }
 
-    if (response.stderr().size() > 0) {
-      write(2, response.stderr().c_str(), response.stderr().size());
+    if (response.standard_error().size() > 0) {
+      write(2, response.standard_error().c_str(),
+            response.standard_error().size());
     }
   }
 
