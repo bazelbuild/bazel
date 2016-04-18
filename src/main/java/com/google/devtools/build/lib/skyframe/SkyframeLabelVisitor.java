@@ -164,11 +164,7 @@ final class SkyframeLabelVisitor implements TransitivePackageLoader {
   }
 
   private static void warnAboutLoadingFailure(Label label, EventHandler eventHandler) {
-    eventHandler.handle(Event.warn(
-        // TODO(bazel-team): We use 'analyzing' here so that we print the same message as legacy
-        // Blaze. Once we get rid of legacy we should be able to change to 'loading' or
-        // similar.
-        "errors encountered while analyzing target '" + label + "': it will not be built"));
+    eventHandler.handle(Event.warn("errors encountered while loading target '" + label + "'"));
   }
 
   private static Set<Label> getRootCausesOfCycles(Label labelToLoad, Iterable<CycleInfo> cycles) {

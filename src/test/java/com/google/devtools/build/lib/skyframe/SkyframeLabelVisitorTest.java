@@ -394,7 +394,7 @@ public class SkyframeLabelVisitorTest extends SkyframeLabelVisitorTestCase {
     Collection<Event> warnings = assertNewBuildFileConflict();
     assertThat(warnings).hasSize(1);
     assertThat(warnings.iterator().next().toString())
-        .contains("errors encountered while analyzing target '//pkg:x': it will not be built");
+        .contains("errors encountered while loading target '//pkg:x'");
   }
 
   @Test
