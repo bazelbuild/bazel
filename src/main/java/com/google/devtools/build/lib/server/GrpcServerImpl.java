@@ -23,21 +23,19 @@ import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.OutErr;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.OutputStreamWriter;
 import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
 import java.nio.channels.ServerSocketChannel;
-import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 
 /**
@@ -46,15 +44,15 @@ import java.security.SecureRandom;
  * <p>Only this class should depend on gRPC so that we only need to exclude this during
  * bootstrapping.
  */
-public class GrpcServerImpl implements CommandServerGrpc.CommandServer, GrpcServer {
+public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.CommandServer {
   /**
    * Factory class. Instantiated by reflection.
    */
-  public static class Factory implements GrpcServer.Factory {
+  public static class Factory implements RPCServer.Factory {
     @Override
-    public GrpcServer create(CommandExecutor commandExecutor, Clock clock, int port,
-      String outputBase) {
-      return new GrpcServerImpl(commandExecutor, clock, port, outputBase);
+    public RPCServer create(CommandExecutor commandExecutor, Clock clock, int port,
+      Path serverDirectory) throws IOException {
+      return new GrpcServerImpl(commandExecutor, clock, port, serverDirectory);
     }
   }
 
@@ -96,14 +94,14 @@ public class GrpcServerImpl implements CommandServerGrpc.CommandServer, GrpcServ
     }
   }
 
-  // These paths are all relative to the output base
-  private static final String PORT_FILE = "server/grpc_port";
-  private static final String REQUEST_COOKIE_FILE = "server/request_cookie";
-  private static final String RESPONSE_COOKIE_FILE = "server/response_cookie";
+  // These paths are all relative to the server directory
+  private static final String PORT_FILE = "grpc_port";
+  private static final String REQUEST_COOKIE_FILE = "request_cookie";
+  private static final String RESPONSE_COOKIE_FILE = "response_cookie";
 
   private final CommandExecutor commandExecutor;
   private final Clock clock;
-  private final String outputBase;
+  private final Path serverDirectory;
   private final String requestCookie;
   private final String responseCookie;
 
@@ -112,10 +110,11 @@ public class GrpcServerImpl implements CommandServerGrpc.CommandServer, GrpcServ
   boolean serving;
 
   public GrpcServerImpl(CommandExecutor commandExecutor, Clock clock, int port,
-      String outputBase) {
+      Path serverDirectory) throws IOException {
+    super(serverDirectory);
     this.commandExecutor = commandExecutor;
     this.clock = clock;
-    this.outputBase = outputBase;
+    this.serverDirectory = serverDirectory;
     this.port = port;
     this.serving = false;
 
@@ -135,6 +134,7 @@ public class GrpcServerImpl implements CommandServerGrpc.CommandServer, GrpcServ
     return result.toString();
   }
 
+  @Override
   public void serve() throws IOException {
     Preconditions.checkState(!serving);
     server = ServerBuilder.forPort(port)
@@ -148,17 +148,22 @@ public class GrpcServerImpl implements CommandServerGrpc.CommandServer, GrpcServ
       port = getActualServerPort();
     }
 
-    writeFile(PORT_FILE, Integer.toString(port));
-    writeFile(REQUEST_COOKIE_FILE, requestCookie);
-    writeFile(RESPONSE_COOKIE_FILE, responseCookie);
+    writeServerFile(PORT_FILE, Integer.toString(port));
+    writeServerFile(REQUEST_COOKIE_FILE, requestCookie);
+    writeServerFile(RESPONSE_COOKIE_FILE, responseCookie);
 
+    try {
+      server.awaitTermination();
+    } catch (InterruptedException e) {
+      // TODO(lberki): Handle SIGINT in a reasonable way
+      throw new IllegalStateException(e);
+    }
   }
 
-  private void writeFile(String path, String contents) throws IOException {
-    OutputStreamWriter writer = new OutputStreamWriter(
-        new FileOutputStream(new File(outputBase + "/" + path)), StandardCharsets.UTF_8);
-    writer.write(contents);
-    writer.close();
+  private void writeServerFile(String name, String contents) throws IOException {
+    Path file = serverDirectory.getChild(name);
+    FileSystemUtils.writeContentAsLatin1(file, contents);
+    deleteAtExit(file, false);
   }
 
   /**
@@ -197,28 +202,6 @@ public class GrpcServerImpl implements CommandServerGrpc.CommandServer, GrpcServ
     return instance;
   }
 
-  public void terminate() {
-    server.shutdownNow();
-    // This is Uninterruptibles#callUninterruptibly. Calling that method properly is about the same
-    // amount of code as implementing it ourselves.
-    boolean interrupted = false;
-    try {
-      while (true) {
-        try {
-          server.awaitTermination();
-          serving = false;
-          return;
-        } catch (InterruptedException e) {
-          interrupted = true;
-        }
-      }
-    } finally {
-      if (interrupted) {
-        Thread.currentThread().interrupt();
-      }
-    }
-  }
-
   @Override
   public void run(
       RunRequest request, StreamObserver<RunResponse> observer) {
@@ -245,6 +228,10 @@ public class GrpcServerImpl implements CommandServerGrpc.CommandServer, GrpcServ
 
     observer.onNext(response);
     observer.onCompleted();
+
+    if (commandExecutor.shutdown()) {
+      server.shutdownNow();
+    }
   }
 
   @Override

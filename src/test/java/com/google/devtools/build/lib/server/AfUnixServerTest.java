@@ -42,14 +42,14 @@ import java.util.List;
  */
 @TestSpec(size = Suite.MEDIUM_TESTS)
 @RunWith(JUnit4.class)
-public class RPCServerTest {
+public class AfUnixServerTest {
 
   private static final long MAX_IDLE_MILLIS = 10000;
   private static final long HEALTH_CHECK_MILLIS = 1000 * 3;
   private static final String COMMAND_STDOUT = "Heelllloo....";
   private static final String COMMAND_STDERR = "...world!";
 
-  private RPCServer server;
+  private AfUnixServer server;
   private FsApparatus scratch = FsApparatus.newNative();
   private RecordingOutErr outErr = new RecordingOutErr();
   private Path serverDir;
@@ -89,7 +89,7 @@ public class RPCServerTest {
     client = new RPCTestingClient(
         outErr, serverDir.getRelative("server.socket"));
     RPCService service = new RPCService(helloWorldCommand);
-    server = new RPCServer(new JavaClock(), service, MAX_IDLE_MILLIS, HEALTH_CHECK_MILLIS,
+    server = new AfUnixServer(new JavaClock(), service, MAX_IDLE_MILLIS, HEALTH_CHECK_MILLIS,
         serverDir, workspaceDir);
     serverThread.start();
   }
