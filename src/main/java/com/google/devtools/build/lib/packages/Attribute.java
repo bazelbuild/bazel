@@ -149,11 +149,27 @@ public final class Attribute implements Comparable<Attribute> {
 
     /** Transition from the target configuration to the data configuration. */
     // TODO(bazel-team): Move this elsewhere.
-    DATA;
+    DATA,
+
+    /** 
+     * Transition to one or more configurations. To obtain the actual child configurations,
+     * invoke {@link Attribute#getSplitTransition(Rule)}. See {@link SplitTransition}.
+     **/
+    SPLIT(true);
+
+    private boolean defaultsToSelf;
+
+    ConfigurationTransition() {
+      this(false);
+    }
+
+    ConfigurationTransition(boolean defaultsToSelf) {
+      this.defaultsToSelf = defaultsToSelf;
+    }
 
     @Override
     public boolean defaultsToSelf() {
-      return false;
+      return defaultsToSelf;
     }
   }
 
@@ -270,6 +286,37 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
+   * Provides a {@link SplitTransition} given the originating target {@link Rule}. The split
+   * transition may be constant for all instances of the originating rule, or it may differ
+   * based on attributes of that rule. For instance, a split transition on a rule's deps may differ
+   * depending on the 'platform' attribute of the rule.
+   */
+  public interface SplitTransitionProvider {
+    /**
+     * Returns the {@link SplitTransition} given the originating rule.
+     */
+    SplitTransition<?> apply(Rule fromRule);
+  }
+  
+  /**
+   * Implementation of {@link SplitTransitionProvider} that returns a single {@link SplitTransition}
+   * regardless of the originating rule.
+   */
+  private static class BasicSplitTransitionProvider implements SplitTransitionProvider {
+
+    private final SplitTransition<?> splitTransition;
+
+    BasicSplitTransitionProvider(SplitTransition<?> splitTransition) {
+      this.splitTransition = splitTransition;
+    }
+
+    @Override
+    public SplitTransition<?> apply(Rule fromRule) {
+      return splitTransition;
+    }
+  }
+
+  /**
    * A predicate class to check if the value of the attribute comes from a predefined set.
    */
   public static class AllowedValueSet implements PredicateWithMessage<Object> {
@@ -340,6 +387,7 @@ public final class Attribute implements Comparable<Attribute> {
     private Predicate<RuleClass> allowedRuleClassesForLabels = Predicates.alwaysTrue();
     private Predicate<RuleClass> allowedRuleClassesForLabelsWarning = Predicates.alwaysFalse();
     private Configurator<?, ?> configurator;
+    private SplitTransitionProvider splitTransitionProvider;
     private FileTypeSet allowedFileTypesForLabels;
     private ValidityPredicate validityPredicate = ANY_EDGE;
     private Object value;
@@ -444,14 +492,40 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
+     * Defines the configuration transition for this attribute.
+     */
+    public Builder<TYPE> cfg(SplitTransitionProvider splitTransitionProvider) {
+      Preconditions.checkState(this.configTransition == ConfigurationTransition.NONE,
+          "the configuration transition is already set");
+
+      this.splitTransitionProvider = Preconditions.checkNotNull(splitTransitionProvider);
+      this.configTransition = ConfigurationTransition.SPLIT;
+      return this;
+    }
+
+    /**
+     * Defines the configuration transition for this attribute. Defaults to
+     * {@code NONE}.
+     */
+    public Builder<TYPE> cfg(SplitTransition<?> configTransition) {
+      return cfg(new BasicSplitTransitionProvider(Preconditions.checkNotNull(configTransition)));
+    }
+
+    /**
      * Defines the configuration transition for this attribute. Defaults to
      * {@code NONE}.
      */
     public Builder<TYPE> cfg(Transition configTransition) {
       Preconditions.checkState(this.configTransition == ConfigurationTransition.NONE,
           "the configuration transition is already set");
-      this.configTransition = configTransition;
-      return this;
+      Preconditions.checkArgument(configTransition != ConfigurationTransition.SPLIT,
+          "split transitions must be defined using the SplitTransition object");
+      if (configTransition instanceof SplitTransition) {
+        return cfg((SplitTransition<?>) configTransition);
+      } else {
+        this.configTransition = configTransition;
+        return this;
+      }
     }
 
     public Builder<TYPE> cfg(Configurator<?, ?> configurator) {
@@ -877,6 +951,7 @@ public final class Attribute implements Comparable<Attribute> {
           valueSet ? value : type.getDefaultValue(),
           configTransition,
           configurator,
+          splitTransitionProvider,
           allowedRuleClassesForLabels,
           allowedRuleClassesForLabelsWarning,
           allowedFileTypesForLabels,
@@ -1135,6 +1210,7 @@ public final class Attribute implements Comparable<Attribute> {
   private final Transition configTransition;
 
   private final Configurator<?, ?> configurator;
+  private final SplitTransitionProvider splitTransitionProvider;
 
   /**
    * For label or label-list attributes, this predicate returns which rule
@@ -1192,6 +1268,7 @@ public final class Attribute implements Comparable<Attribute> {
       Object defaultValue,
       Transition configTransition,
       Configurator<?, ?> configurator,
+      SplitTransitionProvider splitTransitionProvider,
       Predicate<RuleClass> allowedRuleClassesForLabels,
       Predicate<RuleClass> allowedRuleClassesForLabelsWarning,
       FileTypeSet allowedFileTypesForLabels,
@@ -1225,6 +1302,7 @@ public final class Attribute implements Comparable<Attribute> {
     this.defaultValue = defaultValue;
     this.configTransition = configTransition;
     this.configurator = configurator;
+    this.splitTransitionProvider = splitTransitionProvider;
     this.allowedRuleClassesForLabels = allowedRuleClassesForLabels;
     this.allowedRuleClassesForLabelsWarning = allowedRuleClassesForLabelsWarning;
     this.allowedFileTypesForLabels = allowedFileTypesForLabels;
@@ -1326,6 +1404,25 @@ public final class Attribute implements Comparable<Attribute> {
    */
   public Configurator<?, ?> getConfigurator() {
     return configurator;
+  }
+
+  /**
+   * Returns the split configuration transition for this attribute. 
+   * 
+   * @param rule the originating {@link Rule} which owns this attribute
+   * @throws IllegalStateException if {@link #hasSplitConfigurationTransition} is not true 
+   */
+  public SplitTransition<?> getSplitTransition(Rule rule) {
+    Preconditions.checkState(hasSplitConfigurationTransition());
+    return splitTransitionProvider.apply(rule);
+  }
+
+  /**
+   * Returns true if this attribute transitions on a split transition.
+   * See {@link SplitTransition}.
+   */
+  public boolean hasSplitConfigurationTransition() {
+    return (splitTransitionProvider != null);
   }
 
   /**
@@ -1539,6 +1636,7 @@ public final class Attribute implements Comparable<Attribute> {
     builder.validityPredicate = validityPredicate;
     builder.condition = condition;
     builder.configTransition = configTransition;
+    builder.splitTransitionProvider = splitTransitionProvider;
     builder.propertyFlags = propertyFlags.isEmpty() ?
         EnumSet.noneOf(PropertyFlag.class) : EnumSet.copyOf(propertyFlags);
     builder.value = defaultValue;

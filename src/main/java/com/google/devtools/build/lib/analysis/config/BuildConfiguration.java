@@ -1825,9 +1825,9 @@ public final class BuildConfiguration {
       return;
     }
 
-    if (attribute.getConfigurationTransition() instanceof SplitTransition) {
+    if (attribute.hasSplitConfigurationTransition()) {
       Preconditions.checkState(attribute.getConfigurator() == null);
-      transitionApplier.split((SplitTransition<?>) attribute.getConfigurationTransition());
+      transitionApplier.split(attribute.getSplitTransition(fromRule));
     } else {
       // III. Attributes determine configurations. The configuration of a prerequisite is determined
       // by the attribute.

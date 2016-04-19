@@ -584,8 +584,7 @@ public final class RuleContext extends TargetContext
   public List<? extends TransitiveInfoCollection> getPrerequisites(String attributeName,
       Mode mode) {
     Attribute attributeDefinition = getAttribute(attributeName);
-    if ((mode == Mode.TARGET)
-        && (attributeDefinition.getConfigurationTransition() instanceof SplitTransition)) {
+    if ((mode == Mode.TARGET) && (attributeDefinition.hasSplitConfigurationTransition())) {
       // TODO(bazel-team): If you request a split-configured attribute in the target configuration,
       // we return only the list of configured targets for the first architecture; this is for
       // backwards compatibility with existing code in cases where the call to getPrerequisites is
@@ -617,8 +616,7 @@ public final class RuleContext extends TargetContext
     checkAttribute(attributeName, Mode.SPLIT);
 
     Attribute attributeDefinition = getAttribute(attributeName);
-    SplitTransition<?> transition =
-        (SplitTransition<?>) attributeDefinition.getConfigurationTransition();
+    SplitTransition<?> transition = attributeDefinition.getSplitTransition(rule);
     List<BuildConfiguration> configurations =
         getConfiguration().getTransitions().getSplitConfigurations(transition);
     if (configurations.size() == 1) {
@@ -969,7 +967,7 @@ public final class RuleContext extends TargetContext
             + " is not configured for the data configuration");
       }
     } else if (mode == Mode.SPLIT) {
-      if (!(attributeDefinition.getConfigurationTransition() instanceof SplitTransition)) {
+      if (!(attributeDefinition.hasSplitConfigurationTransition())) {
         throw new IllegalStateException(getRule().getLocation() + ": "
             + getRuleClassNameForLogging() + " attribute " + attributeName
             + " is not configured for a split transition");
@@ -998,7 +996,7 @@ public final class RuleContext extends TargetContext
       return Mode.TARGET;
     } else if (attributeDefinition.getConfigurationTransition() == ConfigurationTransition.DATA) {
       return Mode.DATA;
-    } else if (attributeDefinition.getConfigurationTransition() instanceof SplitTransition) {
+    } else if (attributeDefinition.hasSplitConfigurationTransition()) {
       return Mode.SPLIT;
     }
     throw new IllegalStateException(getRule().getLocation() + ": "
