@@ -109,6 +109,15 @@ def _get_cpu_value(repository_ctx):
 _INC_DIR_MARKER_BEGIN = "#include <...> search starts here:"
 _INC_DIR_MARKER_END = "End of search list."
 
+# OSX add " (framework directory)" at the end of line, strip it.
+_OSX_FRAMEWORK_SUFFIX = " (framework directory)"
+_OSX_FRAMEWORK_SUFFIX_LEN =  len(_OSX_FRAMEWORK_SUFFIX)
+def _cxx_inc_convert(path):
+  """Convert path returned by cc -E xc++ in a complete path."""
+  path = path.strip()
+  if path.endswith(_OSX_FRAMEWORK_SUFFIX):
+    path = path[:-_OSX_FRAMEWORK_SUFFIX_LEN].strip()
+  return path
 
 def _get_cxx_inc_directories(repository_ctx, cc):
   """Compute the list of default C++ include directories."""
@@ -120,8 +129,8 @@ def _get_cxx_inc_directories(repository_ctx, cc):
   if index2 == -1:
     return []
   inc_dirs = result.stderr[index1 + len(_INC_DIR_MARKER_BEGIN):index2].strip()
-  return [repository_ctx.path(p.strip()) for p in inc_dirs.split("\n")]
-
+  return [repository_ctx.path(_cxx_inc_convert(p))
+          for p in inc_dirs.split("\n")]
 
 def _add_option_if_supported(repository_ctx, cc, option):
   """Checks that `option` is supported by the C compiler."""
