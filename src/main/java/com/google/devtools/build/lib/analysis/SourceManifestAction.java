@@ -192,17 +192,21 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   protected String computeKey() {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
-    Map<PathFragment, Artifact> symlinks = runfiles.getSymlinksAsMap(null);
+    Map<PathFragment, Artifact> symlinks = runfiles.getSymlinksAsMap();
     f.addInt(symlinks.size());
     for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
       f.addPath(symlink.getKey());
-      f.addPath(symlink.getValue().getPath());
+      if (symlink.getValue() != null) {
+        f.addPath(symlink.getValue().getPath());
+      }
     }
     Map<PathFragment, Artifact> rootSymlinks = runfiles.getRootSymlinksAsMap(null);
     f.addInt(rootSymlinks.size());
     for (Map.Entry<PathFragment, Artifact> rootSymlink : rootSymlinks.entrySet()) {
       f.addPath(rootSymlink.getKey());
-      f.addPath(rootSymlink.getValue().getPath());
+      if (rootSymlink.getValue() != null) {
+        f.addPath(rootSymlink.getValue().getPath());
+      }
     }
 
     for (Artifact artifact : runfiles.getArtifactsWithoutMiddlemen()) {
@@ -294,16 +298,18 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
     private final Artifact output;
     private final Runfiles.Builder runfilesBuilder;
 
-    public Builder(String prefix, ManifestType manifestType, ActionOwner owner, Artifact output) {
-      this.runfilesBuilder = new Runfiles.Builder(prefix);
+    public Builder(
+        String prefix, ManifestType manifestType, ActionOwner owner, Artifact output,
+        boolean legacyExternalRunfiles) {
+      this.runfilesBuilder = new Runfiles.Builder(prefix, legacyExternalRunfiles);
       manifestWriter = manifestType;
       this.owner = owner;
       this.output = output;
     }
 
-    @VisibleForTesting
+    @VisibleForTesting  // Only used for testing.
     Builder(String prefix, ManifestWriter manifestWriter, ActionOwner owner, Artifact output) {
-      this.runfilesBuilder = new Runfiles.Builder(prefix);
+      this.runfilesBuilder = new Runfiles.Builder(prefix, false);
       this.manifestWriter = manifestWriter;
       this.owner = owner;
       this.output = output;

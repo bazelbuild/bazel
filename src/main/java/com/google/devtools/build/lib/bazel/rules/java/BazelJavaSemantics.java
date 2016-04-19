@@ -204,7 +204,7 @@ public class BazelJavaSemantics implements JavaSemantics {
         buffer.append(delimiter);
       }
       buffer.append("${RUNPATH}");
-      buffer.append(artifact.getRootRelativePath().getPathString());
+      buffer.append(artifact.getRunfilesPath().getPathString());
     }
   }
 

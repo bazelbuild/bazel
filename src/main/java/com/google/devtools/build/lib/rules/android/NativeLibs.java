@@ -149,7 +149,7 @@ public final class NativeLibs {
     Artifact inputManifest = AndroidBinary.getDxArtifact(ruleContext, "native_symlinks.manifest");
     ruleContext.registerAction(new SourceManifestAction.Builder(
         ruleContext.getWorkspaceName(), ManifestType.SOURCE_SYMLINKS, ruleContext.getActionOwner(),
-        inputManifest)
+        inputManifest, ruleContext.getConfiguration().legacyExternalRunfiles())
             .addRootSymlinks(symlinks)
             .build());
     Artifact outputManifest = AndroidBinary.getDxArtifact(ruleContext, "native_symlinks/MANIFEST");

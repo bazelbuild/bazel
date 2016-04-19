@@ -36,7 +36,8 @@ public class ShLibrary implements RuleConfiguredTargetFactory {
         .addAll(ruleContext.getPrerequisiteArtifacts("deps", Mode.TARGET).list())
         .addAll(ruleContext.getPrerequisiteArtifacts("data", Mode.DATA).list())
         .build();
-    Runfiles runfiles = new Runfiles.Builder(ruleContext.getWorkspaceName())
+    Runfiles runfiles = new Runfiles.Builder(
+        ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
         .addTransitiveArtifacts(filesToBuild)
         .build();
     return new RuleConfiguredTargetBuilder(ruleContext)

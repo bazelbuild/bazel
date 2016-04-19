@@ -97,7 +97,8 @@ public class RunfilesSupport {
         && TargetUtils.isTestRule(ruleContext.getRule())) {
       TransitiveInfoCollection runUnderTarget =
           ruleContext.getPrerequisite(":run_under", Mode.DATA);
-      runfiles = new Runfiles.Builder(ruleContext.getWorkspaceName())
+      runfiles = new Runfiles.Builder(
+          ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
           .merge(getRunfiles(runUnderTarget))
           .merge(runfiles)
           .build();
@@ -230,6 +231,13 @@ public class RunfilesSupport {
    */
   public Iterable<Artifact> getRunfilesArtifactsWithoutMiddlemen() {
     return runfiles.getArtifactsWithoutMiddlemen();
+  }
+
+  /**
+   * Returns the name of the workspace that the build is occurring in.
+   */
+  public PathFragment getWorkspaceName() {
+    return runfiles.getSuffix();
   }
 
   /**

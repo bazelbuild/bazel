@@ -334,7 +334,9 @@ public final class SkylarkRuleConfiguredTargetBuilder {
     if (executable == null) {
       return runfiles;
     }
-    return new Runfiles.Builder(ruleContext.getWorkspaceName()).addArtifact(executable)
+    return new Runfiles.Builder(
+        ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
+        .addArtifact(executable)
         .merge(runfiles).build();
   }
 }

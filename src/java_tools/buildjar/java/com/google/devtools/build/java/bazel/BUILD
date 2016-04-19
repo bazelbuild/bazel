@@ -14,6 +14,7 @@ genrule(
     outs = ["JavacBootclasspathLocations.java"],
     cmd = """
 declare -a paths=($(SRCS)) && paths=($${paths[@]#$(GENDIR)/}) &&
+paths=($$(echo $${paths[@]} | sed s_external/__g)) &&
 IFS=: &&
 cat > $@ <<EOF
 package com.google.devtools.build.java.bazel;
@@ -44,7 +45,7 @@ genrule(
     srcs = ["//third_party/java/jdk/langtools:javac_jar"],
     outs = ["JavaLangtoolsLocation.java"],
     cmd = """
-path=$(SRCS) && path=$${path#$(GENDIR)/} &&
+path=$(SRCS) && path=$${path#$(GENDIR)/} && path="io_bazel/$${path}" &&
 cat > $@ <<EOF
 package com.google.devtools.build.java.bazel;
 public class JavaLangtoolsLocation {

@@ -18,9 +18,8 @@ set -eu
 
 # This allows the script to be both a binary and a library script. If our binary has defined
 # RUNFILES then we use it, otherwise we look for our own runfiles.
-RUNFILES=${RUNFILES:-$0.runfiles}
+RUNFILES=${RUNFILES:-$0.runfiles/io_bazel}
 
 function showfile {
   cat "${RUNFILES}/examples/shell/data/file.txt"
 }
-

@@ -688,7 +688,8 @@ public final class ReleaseBundlingSupport {
    * Returns a {@link RunfilesSupport} that uses the provided runner script as the executable.
    */
   RunfilesSupport runfilesSupport(Artifact runnerScript) throws InterruptedException {
-    Runfiles runfiles = new Runfiles.Builder(ruleContext.getWorkspaceName())
+    Runfiles runfiles = new Runfiles.Builder(
+        ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
         .addArtifact(releaseBundling.getIpaArtifact())
         .addArtifact(runnerScript)
         .addArtifact(attributes.iossim())

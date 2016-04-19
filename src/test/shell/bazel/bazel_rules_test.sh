@@ -63,7 +63,7 @@ function test_extra_action() {
   # a program that parses the proto here.
   cat > mypkg/echoer.sh <<EOF
 #!/bin/bash
-if [[ ! -e \$0.runfiles/mypkg/runfile ]]; then
+if [[ ! -e \$0.runfiles/__main__/mypkg/runfile ]]; then
   echo "Runfile not found" >&2
   exit 1
 fi
@@ -357,8 +357,8 @@ def Fib(n):
 EOF
 
  cat > module2/bez.py <<EOF
-from external.remote.module_a import foo
-from external.remote.module_b import bar
+from remote.module_a import foo
+from remote.module_b import bar
 from module1 import fib
 
 print "The number is %d" % foo.GetNumber()

@@ -56,11 +56,16 @@ public class Filegroup implements RuleConfiguredTargetFactory {
             InstrumentedFilesCollector.NO_METADATA_COLLECTOR, filesToBuild);
 
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(
-        new Runfiles.Builder(ruleContext.getWorkspaceName())
+        new Runfiles.Builder(
+            ruleContext.getWorkspaceName(),
+            ruleContext.getConfiguration().legacyExternalRunfiles())
             .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
             .build(),
         // If you're visiting a filegroup as data, then we also visit its data as data.
-        new Runfiles.Builder(ruleContext.getWorkspaceName()).addTransitiveArtifacts(filesToBuild)
+        new Runfiles.Builder(
+            ruleContext.getWorkspaceName(),
+            ruleContext.getConfiguration().legacyExternalRunfiles())
+            .addTransitiveArtifacts(filesToBuild)
             .addDataDeps(ruleContext).build());
 
     return new RuleConfiguredTargetBuilder(ruleContext)

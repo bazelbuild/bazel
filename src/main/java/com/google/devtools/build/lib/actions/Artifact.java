@@ -498,6 +498,21 @@ public class Artifact
   }
 
   /**
+   * For targets in external repositories, this returns the path the artifact live at in the
+   * runfiles tree. For local targets, it returns the rootRelativePath.
+   */
+  public final PathFragment getRunfilesPath() {
+    PathFragment relativePath = rootRelativePath;
+    if (relativePath.segmentCount() > 1
+        && relativePath.getSegment(0).equals(Label.EXTERNAL_PATH_PREFIX)) {
+      // Turn external/repo/foo into ../repo/foo.
+      relativePath = relativePath.relativeTo(Label.EXTERNAL_PATH_PREFIX);
+      relativePath = new PathFragment("..").getRelative(relativePath);
+    }
+    return relativePath;
+  }
+
+  /**
    * Returns this.getExecPath().getPathString().
    */
   @Override

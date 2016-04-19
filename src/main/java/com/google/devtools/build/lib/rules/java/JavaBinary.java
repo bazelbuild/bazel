@@ -66,7 +66,8 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
   public ConfiguredTarget create(RuleContext ruleContext) throws InterruptedException {
     final JavaCommon common = new JavaCommon(ruleContext, semantics);
     DeployArchiveBuilder deployArchiveBuilder =  new DeployArchiveBuilder(semantics, ruleContext);
-    Runfiles.Builder runfilesBuilder = new Runfiles.Builder(ruleContext.getWorkspaceName());
+    Runfiles.Builder runfilesBuilder = new Runfiles.Builder(
+        ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles());
     List<String> jvmFlags = new ArrayList<>();
 
     JavaTargetAttributes.Builder attributesBuilder = common.initCommon();
@@ -266,7 +267,11 @@ public class JavaBinary implements RuleConfiguredTargetFactory {
 
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(
         defaultRunfiles,
-        new Runfiles.Builder(ruleContext.getWorkspaceName()).merge(runfilesSupport).build());
+        new Runfiles.Builder(
+            ruleContext.getWorkspaceName(),
+            ruleContext.getConfiguration().legacyExternalRunfiles())
+            .merge(runfilesSupport)
+            .build());
 
     ImmutableList<String> deployManifestLines =
         getDeployManifestLines(ruleContext, originalMainClass);

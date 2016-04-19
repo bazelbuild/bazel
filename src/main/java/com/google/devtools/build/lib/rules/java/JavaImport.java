@@ -94,7 +94,9 @@ public class JavaImport implements RuleConfiguredTargetFactory {
     // runfiles from this target or its dependencies.
     Runfiles runfiles = neverLink ?
         Runfiles.EMPTY :
-        new Runfiles.Builder(ruleContext.getWorkspaceName())
+        new Runfiles.Builder(
+            ruleContext.getWorkspaceName(),
+            ruleContext.getConfiguration().legacyExternalRunfiles())
             // add the jars to the runfiles
             .addArtifacts(javaArtifacts.getRuntimeJars())
             .addTargets(targets, RunfilesProvider.DEFAULT_RUNFILES)
