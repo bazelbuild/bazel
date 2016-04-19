@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.buildtool.TargetValidator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SymlinkTreeHelper;
+import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Rule;
@@ -493,11 +494,10 @@ public class RunCommand implements BlazeCommand  {
 
   /**
    * Return true iff {@code target} is a rule that has an executable file. This includes
-   * *_test rules, *_binary rules, and generated outputs.
+   * *_test rules, *_binary rules, generated outputs, and inputs.
    */
   private static boolean isExecutable(Target target) {
-    return isOutputFile(target) || isExecutableNonTestRule(target)
-        || TargetUtils.isTestRule(target);
+    return isPlainFile(target) || isExecutableNonTestRule(target) || TargetUtils.isTestRule(target);
   }
 
   /**
@@ -515,7 +515,7 @@ public class RunCommand implements BlazeCommand  {
     return false;
   }
 
-  private static boolean isOutputFile(Target target) {
-    return (target instanceof OutputFile);
+  private static boolean isPlainFile(Target target) {
+    return (target instanceof OutputFile) || (target instanceof InputFile);
   }
 }
