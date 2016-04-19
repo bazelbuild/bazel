@@ -34,9 +34,12 @@ import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig;
 
@@ -531,6 +534,50 @@ public class CcCommonConfiguredTargetTest extends BuildViewTestCase {
         "cc_library(name = 'lib',",
         "           srcs = ['foo.cc'],",
         "           includes = ['./'])");
+  }
+
+  @Test
+  public void testCcLibraryThirdPartyIncludesNotWarned() throws Exception {
+    eventCollector.clear();
+    ConfiguredTarget target =
+        scratchConfiguredTarget(
+            "third_party/pkg",
+            "lib",
+            "licenses(['unencumbered'])",
+            "cc_library(name = 'lib',",
+            "           srcs = ['foo.cc'],",
+            "           includes = ['./'])");
+    assertThat(view.hasErrors(target)).isFalse();
+    assertNoEvents();
+  }
+
+  @Test
+  public void testCcLibraryExternalIncludesNotWarned() throws Exception {
+    eventCollector.clear();
+    FileSystemUtils.appendIsoLatin1(
+        scratch.resolve("WORKSPACE"),
+        "local_repository(",
+        "    name = 'pkg',",
+        "    path = '/foo')");
+    getSkyframeExecutor()
+        .invalidateFilesUnderPathForTesting(
+            eventCollector,
+            new ModifiedFileSet.Builder().modify(new PathFragment("WORKSPACE")).build(),
+            rootDirectory);
+    FileSystemUtils.createDirectoryAndParents(scratch.resolve("/foo/bar"));
+    scratch.file("/foo/WORKSPACE", "workspace(name = 'pkg')");
+    scratch.file(
+        "/foo/bar/BUILD",
+        "cc_library(name = 'lib',",
+        "           srcs = ['foo.cc'],",
+        "           includes = ['./'])");
+    Target target = getTarget("@pkg//bar:lib");
+    ensureTargetsVisited(target.getLabel());
+    assertThat(
+            view.hasErrors(
+                view.getConfiguredTargetForTesting(reporter, target.getLabel(), targetConfig)))
+        .isFalse();
+    assertNoEvents();
   }
 
   @Test
