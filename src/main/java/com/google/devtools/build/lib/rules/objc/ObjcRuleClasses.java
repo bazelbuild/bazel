@@ -74,6 +74,22 @@ public class ObjcRuleClasses {
     throw new UnsupportedOperationException("static-only");
   }
 
+  /**
+   * Creates and returns an {@link IntermediateArtifacts} object, using the given rule context
+   * for fetching current-rule attributes, and using the given build configuration to determine
+   * the appropriate output directory in which to root artifacts.
+   */
+  public static IntermediateArtifacts intermediateArtifacts(RuleContext ruleContext,
+      BuildConfiguration buildConfiguration) {
+    return new IntermediateArtifacts(ruleContext, /*archiveFileNameSuffix*/ "",
+        /*outputPrefix*/ "", buildConfiguration);
+  }
+
+  /**
+   * Creates and returns an {@link IntermediateArtifacts} object, using the given rule context
+   * for fetching current-rule attributes and the current rule's configuration for determining the
+   * appropriate output output directory in which to root artifacts.
+   */
   public static IntermediateArtifacts intermediateArtifacts(RuleContext ruleContext) {
     return new IntermediateArtifacts(ruleContext, /*archiveFileNameSuffix=*/ "");
   }
@@ -195,6 +211,8 @@ public class ObjcRuleClasses {
    * order to run, require both a darwin architecture and a collection of environment variables
    * which contain information about the target and host architectures.
    */
+  // TODO(cparsons): Refactor this method to take the configuration fragment instead of
+  // retrieving it from the rule context.
   static SpawnAction.Builder spawnAppleEnvActionBuilder(RuleContext ruleContext,
       Platform targetPlatform) {
     AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);

@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -41,16 +42,23 @@ public final class IntermediateArtifacts {
   static final String DSYM_ZIP_EXTENSION = ".temp.zip";
 
   private final RuleContext ruleContext;
+  private final BuildConfiguration buildConfiguration;
   private final String archiveFileNameSuffix;
   private final String outputPrefix;
 
+  IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix,
+      String outputPrefix) {
+    this(ruleContext, archiveFileNameSuffix, outputPrefix, ruleContext.getConfiguration());
+  }
+
   IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix) {
-    this(ruleContext, archiveFileNameSuffix, "");
+    this(ruleContext, archiveFileNameSuffix, "", ruleContext.getConfiguration());
   }
  
   IntermediateArtifacts(RuleContext ruleContext, String archiveFileNameSuffix,
-      String outputPrefix) {
+      String outputPrefix, BuildConfiguration buildConfiguration) {
     this.ruleContext = ruleContext;
+    this.buildConfiguration = buildConfiguration;
     this.archiveFileNameSuffix = Preconditions.checkNotNull(archiveFileNameSuffix);
     this.outputPrefix = Preconditions.checkNotNull(outputPrefix);
   }
@@ -67,7 +75,7 @@ public final class IntermediateArtifacts {
         ruleContext.getDerivedArtifact(
             entitlementsDirectory.replaceName(
                 addOutputPrefix(entitlementsDirectory.getBaseName(), extension)),
-            ruleContext.getConfiguration().getBinDirectory());
+            buildConfiguration.getBinDirectory());
     return artifact;
   }
 
@@ -180,8 +188,8 @@ public final class IntermediateArtifacts {
   private Artifact scopedArtifact(PathFragment scopeRelative, boolean inGenfiles) {
     Root root =
         inGenfiles
-            ? ruleContext.getConfiguration().getGenfilesDirectory()
-            : ruleContext.getConfiguration().getBinDirectory();
+            ? buildConfiguration.getGenfilesDirectory()
+            : buildConfiguration.getBinDirectory();
 
     // The path of this artifact will be RULE_PACKAGE/SCOPERELATIVE
     return ruleContext.getPackageRelativeArtifact(scopeRelative, root);
@@ -385,7 +393,7 @@ public final class IntermediateArtifacts {
    * {@link CppModuleMap} that provides the clang module map for this target.
    */
   public CppModuleMap moduleMap() {
-    if (!ObjcRuleClasses.objcConfiguration(ruleContext).moduleMapsEnabled()) {
+    if (!buildConfiguration.getFragment(ObjcConfiguration.class).moduleMapsEnabled()) {
       throw new IllegalStateException();
     }
     String moduleName =
