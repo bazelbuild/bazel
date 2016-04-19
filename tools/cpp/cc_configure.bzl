@@ -173,6 +173,8 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       ] + _add_option_if_supported(repository_ctx, cc, "-no-canonical-prefixes") + (
           ["-undefined", "dynamic_lookup"] if darwin else [
               "-B" + str(repository_ctx.path(cc).dirname),
+              # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
+              "-B/usr/bin",
               # Have gcc return the exit code from ld.
               "-pass-exit-codes",
               # Stamp the binary with a unique identifier.
