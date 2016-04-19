@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -32,7 +33,8 @@ import javax.annotation.Nullable;
  * Action responsible for the symlink tree creation.
  * Used to generate runfiles and fileset symlink farms.
  */
-public class SymlinkTreeAction extends AbstractAction {
+@Immutable
+public final class SymlinkTreeAction extends AbstractAction {
 
   private static final String GUID = "63412bda-4026-4c8e-a3ad-7deb397728d4";
 

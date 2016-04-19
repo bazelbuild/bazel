@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 
@@ -35,9 +36,9 @@ import java.util.SortedMap;
 /**
  * This action creates a set of symbolic links.
  */
+@Immutable
 public final class CreateIncSymlinkAction extends AbstractAction {
-
-  private final SortedMap<Artifact, Artifact> symlinks;
+  private final ImmutableSortedMap<Artifact, Artifact> symlinks;
 
   /**
    * Creates a new instance. The symlinks map maps symlinks to their targets, i.e. the symlink paths

@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 import java.io.IOException;
 
@@ -38,6 +39,7 @@ import java.io.IOException;
  * library depends on it, and only references one of the headers, the other
  * grep-includes will have been wasted.
  */
+@Immutable
 final class ExtractInclusionAction extends AbstractAction {
 
   private static final String GUID = "45b43e5a-4734-43bb-a05e-012313808142";

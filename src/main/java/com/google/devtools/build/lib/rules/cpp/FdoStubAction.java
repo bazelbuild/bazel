@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.vfs.Path;
 
 /**
@@ -30,7 +31,8 @@ import com.google.devtools.build.lib.vfs.Path;
  * would complain that these files have no generating action if we did not set it to an instance of
  * this class.
  */
-public class FdoStubAction extends AbstractAction {
+@Immutable
+public final class FdoStubAction extends AbstractAction {
   public FdoStubAction(ActionOwner owner, Artifact output) {
     // TODO(bazel-team): Make extracting the zip file a honest-to-God action so that we can do away
     // with this ugliness.

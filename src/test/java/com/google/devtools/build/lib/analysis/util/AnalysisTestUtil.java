@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Key;
 import com.google.devtools.build.lib.analysis.buildinfo.BuildInfoFactory.BuildInfoKey;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationCollection;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -185,7 +186,8 @@ public final class AnalysisTestUtil {
     }
   }
 
-  public static class DummyWorkspaceStatusAction extends WorkspaceStatusAction {
+  @Immutable
+  public static final class DummyWorkspaceStatusAction extends WorkspaceStatusAction {
     private final String key;
     private final Artifact stableStatus;
     private final Artifact volatileStatus;

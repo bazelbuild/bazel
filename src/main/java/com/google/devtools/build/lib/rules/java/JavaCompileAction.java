@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.collect.ImmutableIterable;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.JavaClasspathMode;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -71,8 +72,8 @@ import java.util.Map;
 /**
  * Action that represents a Java compilation.
  */
-@ThreadCompatible
-public class JavaCompileAction extends AbstractAction {
+@ThreadCompatible @Immutable
+public final class JavaCompileAction extends AbstractAction {
   private static final String GUID = "786e174d-ed97-4e79-9f61-ae74430714cf";
 
   private static final ResourceSet LOCAL_RESOURCES =
@@ -100,7 +101,7 @@ public class JavaCompileAction extends AbstractAction {
   /**
    * The path to the extdir to specify to javac.
    */
-  private final Collection<Artifact> extdirInputs;
+  private final ImmutableList<Artifact> extdirInputs;
 
   /**
    * The list of classpath entries to search for annotation processors.
@@ -181,7 +182,7 @@ public class JavaCompileAction extends AbstractAction {
       Artifact outputJar,
       NestedSet<Artifact> classpathEntries,
       ImmutableList<Artifact> bootclasspathEntries,
-      Collection<Artifact> extdirInputs,
+      ImmutableList<Artifact> extdirInputs,
       List<Artifact> processorPath,
       List<String> processorNames,
       Collection<Artifact> messages,

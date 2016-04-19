@@ -15,13 +15,13 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 
 /**
  * FailAction is an Action that always fails to execute.  (Used as scaffolding
  * for rules we haven't yet implemented.  Also useful for testing.)
  */
-@ThreadSafe
+@Immutable
 public final class FailAction extends AbstractAction {
 
   private static final String GUID = "626cb78a-810f-4af3-979c-ee194955f04c";

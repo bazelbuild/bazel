@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
@@ -44,8 +45,8 @@ import java.io.IOException;
  * Such symlinks are used by the linker to ensure that all rpath entries can be
  * specified relative to the $ORIGIN.
  */
+@Immutable
 public final class SolibSymlinkAction extends AbstractAction {
-
   private final Artifact library;
   private final Path target;
   private final Artifact symlink;
