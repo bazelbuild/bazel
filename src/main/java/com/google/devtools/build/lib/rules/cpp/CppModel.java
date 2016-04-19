@@ -737,7 +737,7 @@ public final class CppModel {
   private CppLinkAction.Builder newLinkActionBuilder(Artifact outputArtifact) {
     return new CppLinkAction.Builder(ruleContext, outputArtifact)
         .setCrosstoolInputs(CppHelper.getToolchain(ruleContext).getLink())
-        .addNonLibraryInputs(context.getCompilationPrerequisites());
+        .addNonLibraryInputs(context.getTransitiveCompilationPrerequisites());
   }
 
   /**

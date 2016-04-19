@@ -93,13 +93,17 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
   }
 
   /**
-   * Returns the compilation prerequisites consolidated into middlemen
+   * Returns the transitive compilation prerequisites consolidated into middlemen
    * prerequisites, or an empty set if there are no prerequisites.
    *
-   * <p>For correct dependency tracking, and to reduce the overhead to establish
-   * dependencies on generated headers, we express the dependency on compilation
-   * prerequisites as a transitive dependency via a middleman. After they have
-   * been accumulated (using
+   * <p>Transitive compilation prerequisites are the prerequisites that will be needed by all
+   * reverse dependencies; note that these do specifically not include any compilation prerequisites
+   * that are only needed by the rule itself (for example, compiled source files from the
+   * {@code srcs} attribute).
+   *
+   * <p>To reduce the number of edges in the action graph, we express the dependency on compilation
+   * prerequisites as a transitive dependency via a middleman.
+   * After they have been accumulated (using
    * {@link Builder#addCompilationPrerequisites(Iterable)},
    * {@link Builder#mergeDependentContext(CppCompilationContext)}, and
    * {@link Builder#mergeDependentContexts(Iterable)}, they are consolidated
@@ -108,7 +112,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
    * <p>The returned set can be empty if there are no prerequisites. Usually it
    * contains a single middleman, but if LIPO is used there can be two.
    */
-  public ImmutableSet<Artifact> getCompilationPrerequisites() {
+  public ImmutableSet<Artifact> getTransitiveCompilationPrerequisites() {
     return compilationPrerequisites;
   }
 
@@ -693,7 +697,7 @@ public final class CppCompilationContext implements TransitiveInfoProvider {
      */
     public Builder mergeDependentContext(CppCompilationContext otherContext) {
       Preconditions.checkNotNull(otherContext);
-      compilationPrerequisites.addAll(otherContext.getCompilationPrerequisites());
+      compilationPrerequisites.addAll(otherContext.getTransitiveCompilationPrerequisites());
       includeDirs.addAll(otherContext.getIncludeDirs());
       quoteIncludeDirs.addAll(otherContext.getQuoteIncludeDirs());
       systemIncludeDirs.addAll(otherContext.getSystemIncludeDirs());

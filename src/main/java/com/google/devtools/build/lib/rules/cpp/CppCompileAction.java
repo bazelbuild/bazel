@@ -263,12 +263,15 @@ public class CppCompileAction extends AbstractAction
       ImmutableSet<String> executionRequirements,
       String actionName,
       RuleContext ruleContext) {
-    super(owner,
-          createInputs(ruleContext,
-              mandatoryInputs, context.getCompilationPrerequisites(), optionalSourceFile),
-          CollectionUtils.asListWithoutNulls(outputFile,
-              (dotdFile == null ? null : dotdFile.artifact()),
-              gcnoFile, dwoFile));
+    super(
+        owner,
+        createInputs(
+            ruleContext,
+            mandatoryInputs,
+            context.getTransitiveCompilationPrerequisites(),
+            optionalSourceFile),
+        CollectionUtils.asListWithoutNulls(
+            outputFile, (dotdFile == null ? null : dotdFile.artifact()), gcnoFile, dwoFile));
     this.configuration = configuration;
     this.sourceLabel = sourceLabel;
     this.outputFile = Preconditions.checkNotNull(outputFile);
@@ -769,7 +772,7 @@ public class CppCompileAction extends AbstractAction
     Set<PathFragment> warnIncludeDirs = Sets.newHashSet(context.getDeclaredIncludeWarnDirs());
     Set<Artifact> declaredIncludeSrcs = Sets.newHashSet(context.getDeclaredIncludeSrcs());
     for (Artifact input : inputsForValidation) {
-      if (context.getCompilationPrerequisites().contains(input)
+      if (context.getTransitiveCompilationPrerequisites().contains(input)
           || allowedIncludes.contains(input)) {
         continue; // ignore our fixed source in mandatoryInput: we just want includes
       }
@@ -901,7 +904,7 @@ public class CppCompileAction extends AbstractAction
       if (optionalSourceFile != null) {
         inputs.add(optionalSourceFile);
       }
-      inputs.addAll(context.getCompilationPrerequisites());
+      inputs.addAll(context.getTransitiveCompilationPrerequisites());
       inputs.addTransitive(discoveredInputs);
       inputsKnown = true;
     } finally {
@@ -1057,7 +1060,7 @@ public class CppCompileAction extends AbstractAction
     Map<PathFragment, Artifact> allowedDerivedInputMap = new HashMap<>();
     addToMap(allowedDerivedInputMap, mandatoryInputs);
     addToMap(allowedDerivedInputMap, context.getDeclaredIncludeSrcs());
-    addToMap(allowedDerivedInputMap, context.getCompilationPrerequisites());
+    addToMap(allowedDerivedInputMap, context.getTransitiveCompilationPrerequisites());
     Artifact artifact = getSourceFile();
     if (!artifact.isSourceArtifact()) {
       allowedDerivedInputMap.put(artifact.getExecPath(), artifact);
