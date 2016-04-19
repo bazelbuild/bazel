@@ -289,6 +289,8 @@ def _impl(repository_ctx):
     # Windows support is still experimental, let's not fiddle with autoconfiguration for now.
     repository_ctx.symlink(Label("@bazel_tools//tools/cpp:CROSSTOOL"), "CROSSTOOL")
     repository_ctx.symlink(Label("@bazel_tools//tools/cpp:BUILD.static"), "BUILD")
+    msvc_wrapper = repository_ctx.path(Label("@bazel_tools//tools/cpp:CROSSTOOL")).dirname.get_child("wrapper").get_child("bin")
+    repository_ctx.symlink(msvc_wrapper, "wrapper/bin")
   else:
     darwin = cpu_value == "darwin"
     cc = _find_cc(repository_ctx)
