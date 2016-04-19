@@ -44,6 +44,11 @@ Peloton Technology is an automated vehicle technology company that tackles
 truck accidents and fuel use. They use Bazel to _enable reliable builds for
 automotive safety systems_.
 
+## [Stripe](https://stripe.com)
+
+Stripe provides mobile payment solutions.  They are the main maintainers of the
+[Bazel Scala rules](https://github.com/bazelbuild/rules_scala).
+
 # Open-source projects using Bazel
 
 If you'd like your project listed here, please
