@@ -23,6 +23,8 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyValue;
 
+import java.io.IOException;
+
 /**
  * Create a repository from a directory on the local filesystem.
  */
@@ -44,7 +46,6 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
       return null;
     }
 
-    prepareLocalRepositorySymlinkTree(rule, outputDirectory);
     PathFragment pathFragment = getTargetPath(rule, directories.getWorkspace());
 
     // Link x/y/z to /some/path/to/y/z.
@@ -54,7 +55,19 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     }
 
     buildFileHandler.finishBuildFile(outputDirectory);
-    
+
+    // If someone specified *new*_local_repository, we can assume they didn't want the existing
+    // repository info.
+    Path workspaceFile = outputDirectory.getRelative("WORKSPACE");
+    if (workspaceFile.exists()) {
+      try {
+        workspaceFile.delete();
+      } catch (IOException e) {
+        throw new RepositoryFunctionException(e, SkyFunctionException.Transience.TRANSIENT);
+      }
+    }
+    createWorkspaceFile(outputDirectory, rule);
+
     return RepositoryDirectoryValue.create(outputDirectory);
   }
 

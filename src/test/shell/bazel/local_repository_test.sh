@@ -504,6 +504,26 @@ EOF
   expect_log "//external:my_repo"
 }
 
+function test_override_workspace_file() {
+  local bar=$TEST_TMPDIR/bar
+  mkdir -p "$bar"
+  cat > "$bar/WORKSPACE" <<EOF
+workspace(name = "foo")
+EOF
+
+  cat > WORKSPACE <<EOF
+new_local_repository(
+    name = "bar",
+    path = "$bar",
+    build_file = "BUILD",
+)
+EOF
+  touch BUILD
+  bazel build @bar//... &> $TEST_log || fail "Build failed"
+  expect_not_log "Workspace name in .* does not match the name given in the repository's definition (@bar); this will cause a build error in future versions."
+}
+
+
 function test_overlaid_build_file() {
   local mutant=$TEST_TMPDIR/mutant
   mkdir $mutant
