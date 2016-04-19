@@ -79,6 +79,15 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_windows_cpp_test",
+    size = "large",
+    srcs = ["bazel_windows_cpp_test.sh"],
+    data = [
+        ":test-deps",
+    ],
+)
+
+sh_test(
     name = "bazel_rust_example_test",
     srcs = ["bazel_rust_example_test.sh"],
     data = [":test-deps"],
