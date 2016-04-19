@@ -69,6 +69,11 @@ FFruit is a free & open source Android application to the popular service
 A language-and-platform-neutral remote procedure call system. (Bazel is a
 supported, although not primary, build system.)
 
+## [Gulava](http://www.github.com/google/gulava/)
+
+A Java code generator that lets you write Prolog-style predicates and use them
+seamlessly from normal Java code.
+
 ## [Jsonnet](http://google.github.io/jsonnet/doc/)
 
 An elegant, formally-specified config generation language for JSON. (Bazel is a
