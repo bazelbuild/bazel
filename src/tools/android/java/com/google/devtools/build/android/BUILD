@@ -49,12 +49,12 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:package_manifest_java_proto",
+        "//src/tools/android/java/com/google/devtools/build/android/proto:serialize_format_proto",
         "//third_party:android_common",
         "//third_party:apache_commons_compress",
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/bazel/src/tools/android/java/com/google/devtools/build/android/proto:serialize_format_proto",
         "//third_party/protobuf",
     ],
 )

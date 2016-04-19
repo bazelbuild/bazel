@@ -1,0 +1,80 @@
+// Copyright 2016 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+syntax = "proto2";
+
+
+package xml;
+
+option java_package = "com.google.devtools.build.android.proto";
+
+// A header message describing information about the rest of the message stream,
+// It will be the first message in a buffer that contain these messages.
+// See com.google.devtools.build.android.AndroidDataSerializer for details on
+// how these messages are used.
+message Header {
+  // The number of primary entries stored a serialized buffer.
+  optional int32 primary_entries = 1;
+  // The number of transitive entries stored a serialized buffer.
+  optional int32 transitive_entries = 2;
+  // The source information for the manifest associated with these resources.
+  // Required
+  optional ProtoSource manifest_path = 3;
+}
+
+// The serialized format for a DataKey.
+message DataKey {
+  // Used for both the FullyQualifiedName name and RelativeAssetPath path
+  optional string key_value = 2;
+  // The resource type for FullyQualifiedNames
+  optional string resource_type = 3;
+  optional string key_package = 4;
+  repeated string qualifiers = 5;
+  // The size of the associated value. Useful for calculating an offset.
+  // Required
+  optional int32 value_size = 6;
+}
+
+// The serialized format for a DataValue.
+message DataValue {
+  // Required
+  optional ProtoSource source = 1;
+  // If xml_value is defined it's an xml value, otherwise, it's a file value.
+  optional DataValueXml xml_value= 2;
+}
+
+// A container for all the source information to be persisited.
+message ProtoSource {
+  // Required
+  optional string filename = 1;
+}
+
+// The container for a serialized xml value.
+message DataValueXml {
+  enum XmlType {
+    ARRAY = 0;
+    ATTR = 1;
+    ID = 2;
+    PLURAL = 3;
+    SIMPLE = 4;
+    STYLEABLE = 5;
+    STYLE = 6;
+  }
+
+  optional XmlType type = 1;
+  map<string, string> mapped_string_value = 2;
+  map<string, DataValueXml> mapped_xml_value = 3;
+  repeated string list_value = 4;
+  optional string value = 5;
+  optional string value_type = 6;
+}
