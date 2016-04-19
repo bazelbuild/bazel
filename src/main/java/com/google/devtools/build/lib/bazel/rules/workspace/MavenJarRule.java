@@ -83,6 +83,16 @@ public class MavenJarRule implements RuleDefinition {
 
 <p>Downloads a jar from Maven and makes it available to be used as a Java dependency.</p>
 
+<h4 id="maven_jar_name">Naming</h4>
+
+<p>Note that the maven_jar name is used as a repository name, so it is limited by the rules
+governing workspace names: it cannot contain dashes nor dots (see
+<a href="http://bazel.io/docs/be/functions.html#workspace">the documentation on workspace names</a>
+for the exact specification). By convention, maven_jar names should match the artifact name,
+replacing illegal characters with underscores and leaving off the version.  For example, a rule
+with <code>artifact = "org.apache.commons:commons-lang3:3.4"</code> should have
+<code>name = "org_apache_commons_commons_lang3"</code>.</p>
+
 <h4 id="maven_jar_examples">Examples</h4>
 
 Suppose that the current repostory contains a java_library target that needs to depend on Guava.
@@ -100,7 +110,7 @@ With Bazel, add the following lines to the WORKSPACE file:
 
 <pre>
 maven_jar(
-    name = "guava",
+    name = "com_google_guava_guava",
     artifact = "com.google.guava:guava:18.0",
     sha1 = "cce0823396aa693798f8882e64213b1772032b09",
 )
