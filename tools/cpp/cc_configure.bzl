@@ -261,15 +261,15 @@ def _dbg_content():
 
 def _find_cc(repository_ctx):
   """Find the C++ compiler."""
+  cc_name = "gcc"
   if "CC" in repository_ctx.os.environ:
-    return repository_ctx.path(repository_ctx.os.environ["CC"])
-  else:
-    cc = repository_ctx.which("gcc")
-    if cc == None:
-      fail(
-          "Cannot find gcc, either correct your path or set the CC" +
-          " ennvironment variable")
-    return cc
+    cc_name = repository_ctx.os.environ["CC"]
+  cc = repository_ctx.which(cc_name)
+  if cc == None:
+    fail(
+        "Cannot find gcc, either correct your path or set the CC" +
+        " environment variable")
+  return cc
 
 
 def _tpl(repository_ctx, tpl, substitutions={}):
