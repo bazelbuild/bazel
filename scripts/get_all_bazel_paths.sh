@@ -21,7 +21,7 @@ cd $(dirname "$0")
 cd ..
 
 function query() {
-    ./output/bazel query "$@"
+    ./output/bazel query --keep_going "$@"
 }
 
 # Compile bazel
@@ -30,8 +30,9 @@ function query() {
 # Build almost everything.
 # //third_party/ijar/test/... is disabled due to #273.
 # xcode and android tools do not work out of the box.
-./output/bazel build -- //src/{main,java_tools,test/{java,cpp}}/... //third_party/... \
-  -//third_party/ijar/test/... -//third_party/java/j2objc/... >&2 \
+targets_to_build=(//src/{main,java_tools,test/{java,cpp}}/... //third_party/...)
+targets_to_omit=(-//third_party/ijar/test/... -//third_party/java/j2objc/...)
+./output/bazel build -- ${targets_to_build[@]} ${targets_to_omit[@]} >&2 \
   || exit $?
 
 # Source roots.
@@ -71,7 +72,7 @@ function get_consuming_target() {
   # Get the rule that generated this file.
   local generating_target=$(query "kind(rule, deps(${target}, 1)) - ${target}")
   [[ -n $generating_target ]] || echo "Couldn't get generating target for ${target}" 1>&2
-  local java_library=$(query "rdeps(//src/..., ${generating_target}, 1) - ${generating_target}")
+  local java_library=$(query "rdeps(set(${targets_to_build[@]}) ${targets_to_omit[@]}, ${generating_target}, 1) - ${generating_target}")
   echo "${java_library}"
 }
 
