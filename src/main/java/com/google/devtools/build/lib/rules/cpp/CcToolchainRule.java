@@ -50,7 +50,7 @@ public final class CcToolchainRule implements RuleDefinition {
   private static final LateBoundLabel<BuildConfiguration> LIBC_TOP =
       new LateBoundLabel<BuildConfiguration>(CppConfiguration.class) {
         @Override
-        public Label getDefault(
+        public Label resolve(
             Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
           return configuration.getFragment(CppConfiguration.class).getLibcLabel();
         }

@@ -76,7 +76,7 @@ public class AspectDefinitionTest {
         .build();
     LateBoundLabel<String> latebound = new LateBoundLabel<String>() {
         @Override
-        public Label getDefault(Rule rule, AttributeMap attributes, String configuration) {
+        public Label resolve(Rule rule, AttributeMap attributes, String configuration) {
           return Label.parseAbsoluteUnchecked("//run:away");
         }
     };

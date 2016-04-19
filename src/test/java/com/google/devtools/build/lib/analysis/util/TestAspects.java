@@ -66,7 +66,7 @@ public class TestAspects {
 
   public static final LateBoundLabel EMPTY_LATE_BOUND_LABEL = new LateBoundLabel<Object>() {
     @Override
-    public Label getDefault(Rule rule, AttributeMap attributes, Object configuration) {
+    public Label resolve(Rule rule, AttributeMap attributes, Object configuration) {
       return null;
     }
   };

@@ -116,7 +116,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
               .value(
                   new Attribute.LateBoundLabel<BuildConfiguration>() {
                     @Override
-                    public Label getDefault(Rule rule, AttributeMap attributes,
+                    public Label resolve(Rule rule, AttributeMap attributes,
                         BuildConfiguration configuration) {
                       return Label.parseAbsoluteUnchecked("//helpers:latebound");
                     }

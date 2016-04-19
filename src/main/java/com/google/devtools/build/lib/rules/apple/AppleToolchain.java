@@ -189,7 +189,7 @@ public class AppleToolchain {
         new LateBoundLabel<BuildConfiguration>(
             AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL, AppleConfiguration.class) {
           @Override
-          public Label getDefault(Rule rule, AttributeMap attributes,
+          public Label resolve(Rule rule, AttributeMap attributes,
               BuildConfiguration configuration) {
             return configuration.getFragment(AppleConfiguration.class).getXcodeConfigLabel();
           }

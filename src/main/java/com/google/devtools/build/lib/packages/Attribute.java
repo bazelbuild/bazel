@@ -981,7 +981,7 @@ public final class Attribute implements Comparable<Attribute> {
      * @param attributes interface for retrieving the values of the rule's other attributes
      * @param o the configuration to evaluate with
      */
-    Object getDefault(Rule rule, AttributeMap attributes, T o)
+    Object resolve(Rule rule, AttributeMap attributes, T o)
         throws EvalException, InterruptedException;
   }
 
@@ -1035,7 +1035,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     @Override
-    public abstract Label getDefault(Rule rule, AttributeMap attributes, T configuration);
+    public abstract Label resolve(Rule rule, AttributeMap attributes, T configuration);
   }
 
   /**
@@ -1069,7 +1069,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     @Override
-    public abstract List<Label> getDefault(Rule rule, AttributeMap attributes, T configuration);
+    public abstract List<Label> resolve(Rule rule, AttributeMap attributes, T configuration);
   }
 
   /**
@@ -1099,7 +1099,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     @Override
-    public Object getDefault(Rule rule, AttributeMap attributes, Object o)
+    public Object resolve(Rule rule, AttributeMap attributes, Object o)
         throws EvalException, InterruptedException {
       Map<String, Object> attrValues = new HashMap<>();
       for (Attribute attr : rule.getAttributes()) {

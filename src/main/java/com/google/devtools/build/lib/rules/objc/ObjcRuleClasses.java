@@ -148,7 +148,7 @@ public class ObjcRuleClasses {
   public static final LateBoundLabel<BuildConfiguration> APPLE_TOOLCHAIN =
       new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL, CppConfiguration.class) {
         @Override
-        public Label getDefault(
+        public Label resolve(
             Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
           return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
         }
@@ -162,7 +162,7 @@ public class ObjcRuleClasses {
   public static final LateBoundLabel<BuildConfiguration> NULL_LIPO_CONTEXT_COLLECTOR =
       new LateBoundLabel<BuildConfiguration>() {
         @Override
-        public Label getDefault(
+        public Label resolve(
             Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
           return null;
         }
@@ -927,7 +927,7 @@ public class ObjcRuleClasses {
                   .value(
                       new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
                         @Override
-                        public Label getDefault(
+                        public Label resolve(
                             Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
                           return configuration
                               .getFragment(ObjcConfiguration.class)
@@ -953,7 +953,7 @@ public class ObjcRuleClasses {
                   .value(
                       new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
                         @Override
-                        public Label getDefault(Rule rule, AttributeMap attributes,
+                        public Label resolve(Rule rule, AttributeMap attributes,
                             BuildConfiguration configuration) {
                           AppleConfiguration appleConfiguration =
                               configuration.getFragment(AppleConfiguration.class);
@@ -1250,7 +1250,7 @@ public class ObjcRuleClasses {
                   .value(
                       new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
                         @Override
-                        public Label getDefault(Rule rule, AttributeMap attributes,
+                        public Label resolve(Rule rule, AttributeMap attributes,
                             BuildConfiguration configuration) {
                           AppleConfiguration appleConfiguration =
                               configuration.getFragment(AppleConfiguration.class);
@@ -1433,7 +1433,7 @@ public class ObjcRuleClasses {
                   .value(
                       new LateBoundLabel<BuildConfiguration>(ObjcConfiguration.class) {
                         @Override
-                        public Label getDefault(Rule rule, AttributeMap attributes,
+                        public Label resolve(Rule rule, AttributeMap attributes,
                             BuildConfiguration configuration) {
                           AppleConfiguration appleConfiguration =
                               configuration.getFragment(AppleConfiguration.class);

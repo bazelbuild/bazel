@@ -117,7 +117,7 @@ public class SkylarkRuleClassFunctions {
   private static final LateBoundLabel<BuildConfiguration> RUN_UNDER =
       new LateBoundLabel<BuildConfiguration>() {
         @Override
-        public Label getDefault(Rule rule, AttributeMap attributes,
+        public Label resolve(Rule rule, AttributeMap attributes,
             BuildConfiguration configuration) {
           RunUnder runUnder = configuration.getRunUnder();
           return runUnder == null ? null : runUnder.getLabel();
@@ -130,7 +130,7 @@ public class SkylarkRuleClassFunctions {
   private static final LateBoundLabelList<BuildConfiguration> GCOV =
       new LateBoundLabelList<BuildConfiguration>(ImmutableList.of(COVERAGE_SUPPORT_LABEL)) {
         @Override
-        public List<Label> getDefault(Rule rule, AttributeMap attributes,
+        public List<Label> resolve(Rule rule, AttributeMap attributes,
             BuildConfiguration configuration) {
           return configuration.isCodeCoverageEnabled()
               ? ImmutableList.copyOf(configuration.getGcovLabels())
@@ -141,7 +141,7 @@ public class SkylarkRuleClassFunctions {
   private static final LateBoundLabelList<BuildConfiguration> COVERAGE_REPORT_GENERATOR =
       new LateBoundLabelList<BuildConfiguration>(ImmutableList.of(COVERAGE_SUPPORT_LABEL)) {
         @Override
-        public List<Label> getDefault(Rule rule, AttributeMap attributes,
+        public List<Label> resolve(Rule rule, AttributeMap attributes,
             BuildConfiguration configuration) {
           return configuration.isCodeCoverageEnabled()
               ? ImmutableList.copyOf(configuration.getCoverageReportGeneratorLabels())
@@ -152,7 +152,7 @@ public class SkylarkRuleClassFunctions {
   private static final LateBoundLabelList<BuildConfiguration> COVERAGE_SUPPORT =
       new LateBoundLabelList<BuildConfiguration>(ImmutableList.of(COVERAGE_SUPPORT_LABEL)) {
         @Override
-        public List<Label> getDefault(Rule rule, AttributeMap attributes,
+        public List<Label> resolve(Rule rule, AttributeMap attributes,
             BuildConfiguration configuration) {
           return configuration.isCodeCoverageEnabled()
               ? ImmutableList.copyOf(configuration.getCoverageLabels())

@@ -162,7 +162,7 @@ public class BazelCppRuleClasses {
   public static final LateBoundLabel<BuildConfiguration> CC_TOOLCHAIN =
       new LateBoundLabel<BuildConfiguration>(CROSSTOOL_LABEL) {
         @Override
-        public Label getDefault(Rule rule, AttributeMap attributes,
+        public Label resolve(Rule rule, AttributeMap attributes,
             BuildConfiguration configuration) {
           return configuration.getFragment(CppConfiguration.class).getCcToolchainRuleLabel();
         }
@@ -171,7 +171,7 @@ public class BazelCppRuleClasses {
   public static final LateBoundLabel<BuildConfiguration> DEFAULT_MALLOC =
       new LateBoundLabel<BuildConfiguration>() {
         @Override
-        public Label getDefault(Rule rule, AttributeMap attributes,
+        public Label resolve(Rule rule, AttributeMap attributes,
             BuildConfiguration configuration) {
           return configuration.getFragment(CppConfiguration.class).customMalloc();
         }
@@ -180,7 +180,7 @@ public class BazelCppRuleClasses {
   public static final LateBoundLabel<BuildConfiguration> STL =
       new LateBoundLabel<BuildConfiguration>() {
         @Override
-        public Label getDefault(Rule rule, AttributeMap attributes,
+        public Label resolve(Rule rule, AttributeMap attributes,
             BuildConfiguration configuration) {
           return getStl(rule, configuration);
         }
@@ -192,7 +192,7 @@ public class BazelCppRuleClasses {
   public static final LateBoundLabel<BuildConfiguration> LIPO_CONTEXT_COLLECTOR =
       new LateBoundLabel<BuildConfiguration>() {
     @Override
-    public Label getDefault(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+    public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
       // This attribute connects a target to the LIPO context target configured with the
       // lipo input collector configuration.
       CppConfiguration cppConfiguration = configuration.getFragment(CppConfiguration.class);
@@ -680,7 +680,7 @@ public class BazelCppRuleClasses {
   private static final LateBoundLabel<BuildConfiguration> LIPO_CONTEXT =
       new LateBoundLabel<BuildConfiguration>() {
     @Override
-    public Label getDefault(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+    public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
       Label result = configuration.getFragment(CppConfiguration.class).getLipoContextLabel();
       return (rule == null || rule.getLabel().equals(result)) ? null : result;
     }
