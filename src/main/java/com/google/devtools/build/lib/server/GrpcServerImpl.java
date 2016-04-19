@@ -30,7 +30,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 
 import io.grpc.Server;
-import io.grpc.ServerBuilder;
+import io.grpc.netty.NettyServerBuilder;
 import io.grpc.stub.StreamObserver;
 
 import java.io.IOException;
@@ -167,7 +167,7 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
   @Override
   public void serve() throws IOException {
     Preconditions.checkState(!serving);
-    server = ServerBuilder.forPort(port)
+    server = NettyServerBuilder.forAddress(new InetSocketAddress("localhost", port))
         .addService(CommandServerGrpc.bindService(this))
         .build();
 
