@@ -156,6 +156,13 @@ function test_help_color_nobuild {
   expect_not_log "Building"
 }
 
+function test_version_nobuild {
+  bazel version --experimental_ui --curses=yes 2>$TEST_log \
+   || fail "bazel version failed"
+  expect_not_log "action"
+  expect_not_log "Building"
+}
+
 function test_subcommand {
   bazel clean || fail "bazel clean failed"
   bazel build --experimental_ui -s pkg:gentext 2>$TEST_log \

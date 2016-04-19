@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.devtools.build.lib.analysis.BlazeVersionInfo;
+import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.Command;
@@ -43,6 +44,7 @@ public final class VersionCommand implements BlazeCommand {
       env.getReporter().handle(Event.error("Version information not available"));
       return ExitCode.COMMAND_LINE_ERROR;
     }
+    env.getEventBus().post(new NoBuildEvent());
     env.getReporter().getOutErr().printOutLn(info.getSummary());
     return ExitCode.SUCCESS;
   }
