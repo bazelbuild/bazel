@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -49,12 +50,14 @@ import javax.annotation.Nullable;
  * <p>Note that this action carefully avoids building the manifest content in
  * memory.
  */
-public class SourceManifestAction extends AbstractFileWriteAction {
+@Immutable // if all ManifestWriter implementations are immutable
+public final class SourceManifestAction extends AbstractFileWriteAction {
 
   private static final String GUID = "07459553-a3d0-4d37-9d78-18ed942470f4";
 
   /**
-   * Interface for defining manifest formatting and reporting specifics.
+   * Interface for defining manifest formatting and reporting specifics. Implementations must be
+   * immutable.
    */
   @VisibleForTesting
   interface ManifestWriter {

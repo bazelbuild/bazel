@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
@@ -33,7 +34,8 @@ import java.util.List;
  * An action that writes the a parameter file to {@code incremental_install.py} based on the command
  * line arguments to {@code blaze mobile-install}.
  */
-public class WriteAdbArgsAction extends AbstractFileWriteAction {
+@Immutable // note that it accesses data non-hermetically during the execution phase
+public final class WriteAdbArgsAction extends AbstractFileWriteAction {
   private static final String GUID = "16720416-3c01-4b0a-a543-ead7e563a1ca";
 
   /**

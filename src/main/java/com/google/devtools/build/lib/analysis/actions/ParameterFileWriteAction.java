@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ShellEscaper;
 
@@ -31,6 +32,7 @@ import java.nio.charset.Charset;
 /**
  * Action to write a parameter file for a {@link CommandLine}.
  */
+@Immutable // if commandLine and charset are immutable
 public final class ParameterFileWriteAction extends AbstractFileWriteAction {
 
   private static final String GUID = "45f678d8-e395-401e-8446-e795ccc6361f";

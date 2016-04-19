@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -38,6 +39,7 @@ import java.util.Map;
  * An action that creates a C++ header containing the build information in the
  * form of #define directives.
  */
+@Immutable
 public final class WriteBuildInfoHeaderAction extends AbstractFileWriteAction {
   private static final String GUID = "b0798174-1352-4a54-854a-9785aaea491b";
 

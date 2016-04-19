@@ -22,6 +22,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.cache.MetadataHandler;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.collect.CollectionUtils;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.rules.android.apkmanifest.ApkManifestOuterClass;
 import com.google.devtools.build.lib.rules.android.apkmanifest.ApkManifestOuterClass.ApkManifest;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -33,7 +35,8 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Map;
 
-public class ApkManifestAction extends AbstractFileWriteAction {
+@Immutable
+public final class ApkManifestAction extends AbstractFileWriteAction {
 
   private static Iterable<Artifact> makeInputs(
       AndroidSdkProvider sdk,
@@ -92,8 +95,8 @@ public class ApkManifestAction extends AbstractFileWriteAction {
       Iterable<Artifact> jars,
       ResourceApk resourceApk,
       NativeLibs nativeLibs) {
-
     super(owner, makeInputs(sdk, jars, resourceApk, nativeLibs), outputFile, false);
+    CollectionUtils.checkImmutable(jars);
     this.textOutput = textOutput;
     this.sdk = sdk;
     this.jars = jars;

@@ -2200,7 +2200,7 @@ public final class BuildConfiguration {
    * Returns user-specified test environment variables and their values, as
    * set by the --test_env options.
    */
-  public Map<String, String> getTestEnv() {
+  public ImmutableMap<String, String> getTestEnv() {
     return testEnvironment;
   }
 

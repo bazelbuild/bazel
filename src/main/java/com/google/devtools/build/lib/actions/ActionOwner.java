@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Location;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -26,6 +27,7 @@ import javax.annotation.Nullable;
  * but to avoid storing heavyweight analysis objects in actions, and to avoid coupling between the
  * analysis and actions packages, the RuleConfiguredTarget provides an instance of this class.
  */
+@Immutable
 public final class ActionOwner {
   /** An action owner for special cases. Usage is strongly discouraged. */
   public static final ActionOwner SYSTEM_ACTION_OWNER =

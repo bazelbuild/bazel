@@ -34,6 +34,9 @@ import java.util.List;
  * @see CollectionUtils#checkImmutable(Iterable)
  */
 public final class IterablesChain<T> implements Iterable<T> {
+  public static <T> Iterable<T> concat(Iterable<? extends T> a, Iterable<? extends T> b) {
+    return IterablesChain.<T>builder().add(a).add(b).build();
+  }
 
   private final Iterable<T> chain;
 
@@ -61,7 +64,7 @@ public final class IterablesChain<T> implements Iterable<T> {
  *
    */
   public static class Builder<T> {
-    private List<Iterable<T>> iterables = new ArrayList<>();
+    private List<Iterable<? extends T>> iterables = new ArrayList<>();
     private boolean deduplicate;
 
     private Builder() {
@@ -72,7 +75,7 @@ public final class IterablesChain<T> implements Iterable<T> {
      *
      * <p>If the iterable can not be confirmed to be immutable, a runtime error is thrown.
      */
-    public Builder<T> add(Iterable<T> iterable) {
+    public Builder<T> add(Iterable<? extends T> iterable) {
       CollectionUtils.checkImmutable(iterable);
       if (!Iterables.isEmpty(iterable)) {
         iterables.add(iterable);

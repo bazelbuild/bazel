@@ -103,7 +103,7 @@ public final class AndroidResourcesProvider implements TransitiveInfoProvider {
     private final boolean manifestExported;
     private final Artifact javaSourceJar;
     private final Artifact rTxt;
-    private Artifact symbolsTxt;
+    private final Artifact symbolsTxt;
 
     public ResourceContainer(Label label,
         String javaPackage,

@@ -79,7 +79,7 @@ public class TestSupport {
     String runMemleaks =
         ruleContext.getFragment(ObjcConfiguration.class).runMemleaks() ? "true" : "false";
 
-    Map<String, String> testEnv = ruleContext.getConfiguration().getTestEnv();
+    ImmutableMap<String, String> testEnv = ruleContext.getConfiguration().getTestEnv();
 
     // The substitutions below are common for simulator and lab device.
     ImmutableList.Builder<Substitution> substitutions =

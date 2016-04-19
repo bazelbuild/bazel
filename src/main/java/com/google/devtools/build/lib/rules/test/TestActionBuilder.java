@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.EnumConverter;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -204,7 +203,7 @@ public final class TestActionBuilder {
     if (collectCodeCoverage) {
       // Add instrumented file manifest artifact to the list of inputs. This file will contain
       // exec paths of all source files that should be included into the code coverage output.
-      Collection<Artifact> metadataFiles =
+      ImmutableList<Artifact> metadataFiles =
           ImmutableList.copyOf(instrumentedFiles.getInstrumentationMetadataFiles());
       inputsBuilder.addTransitive(NestedSetBuilder.wrap(Order.STABLE_ORDER, metadataFiles));
       for (TransitiveInfoCollection dep :

@@ -25,7 +25,7 @@ import javax.annotation.Nullable;
  * unsigned APKs.
  */
 @Immutable
-public class ResourceApk {
+public final class ResourceApk {
   // TODO(bazel-team): The only field that is legitimately nullable is javaSrcJar. The rest is
   // marked as such due to .fromTransitiveResources(). It seems like there should be a better way
   // to do this.

@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction.Builder;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
+import com.google.devtools.build.lib.collect.IterablesChain;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -769,7 +770,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       ResourceApk resourceApk,
       NativeLibs nativeLibs) {
 
-    Iterable<Artifact> jars = Iterables.concat(
+    Iterable<Artifact> jars = IterablesChain.concat(
         resourceClasses.getArchiveInputs(true), androidCommon.getRuntimeJars());
 
     AndroidSdkProvider sdk = AndroidSdkProvider.fromRuleContext(ruleContext);

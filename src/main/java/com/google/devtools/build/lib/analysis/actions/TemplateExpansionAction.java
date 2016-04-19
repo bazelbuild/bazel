@@ -18,10 +18,12 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Objects;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import com.google.devtools.build.lib.util.StringUtilities;
@@ -34,12 +36,12 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Action to expand a template and write the expanded content to a file.
  */
-public class TemplateExpansionAction extends AbstractFileWriteAction {
+@Immutable // if all substitutions are immutable
+public final class TemplateExpansionAction extends AbstractFileWriteAction {
 
   private static final String GUID = "786c1fe0-dca8-407a-b108-e1ecd6d1bc7f";
 
@@ -52,6 +54,7 @@ public class TemplateExpansionAction extends AbstractFileWriteAction {
    * <p>It should be assumed that the {@link #getKey} invocation is cheap, and
    * that the {@link #getValue} invocation is expensive.
    */
+  @Immutable // if the keys and values in the passed in lists and maps are all immutable
   public abstract static class Substitution {
     private Substitution() {
     }
@@ -80,7 +83,8 @@ public class TemplateExpansionAction extends AbstractFileWriteAction {
      * Returns an immutable Substitution instance for the key and list of values. The
      * values will be joined by spaces before substitution.
      */
-    public static Substitution ofSpaceSeparatedList(final String key, final List<?> value) {
+    public static Substitution ofSpaceSeparatedList(
+        final String key, final ImmutableList<?> value) {
       return new Substitution() {
         @Override
         public String getKey() {
@@ -101,7 +105,8 @@ public class TemplateExpansionAction extends AbstractFileWriteAction {
      *
      * <p>For example, the map <(a,1), (b,2), (c,3)> will become "a=1 b=2 c=3".
      */
-    public static Substitution ofSpaceSeparatedMap(final String key, final Map<?, ?> value) {
+    public static Substitution ofSpaceSeparatedMap(
+        final String key, final ImmutableMap<?, ?> value) {
       return new Substitution() {
         @Override
         public String getKey() {
@@ -164,6 +169,7 @@ public class TemplateExpansionAction extends AbstractFileWriteAction {
    * A template that contains text content, or alternatively throws an {@link
    * IOException}.
    */
+  @Immutable // all subclasses are immutable
   public abstract static class Template {
 
     private static final Charset DEFAULT_CHARSET = StandardCharsets.UTF_8;
@@ -258,7 +264,7 @@ public class TemplateExpansionAction extends AbstractFileWriteAction {
   }
 
   private final Template template;
-  private final List<Substitution> substitutions;
+  private final ImmutableList<Substitution> substitutions;
 
   /**
    * Creates a new TemplateExpansionAction instance.

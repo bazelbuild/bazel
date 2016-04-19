@@ -131,7 +131,7 @@ public final class RuleContext extends TargetContext
      * Targets from FilesetEntry.files, or null if the user omitted it.
      */
     @Nullable
-    public List<TransitiveInfoCollection> getFiles() {
+    public ImmutableList<TransitiveInfoCollection> getFiles() {
       return files;
     }
   }
@@ -782,7 +782,7 @@ public final class RuleContext extends TargetContext
    * @param attributeName the name of the attribute to process
    * @return a list of strings containing the expanded and tokenized values for the attribute
    */
-  public List<String> getTokenizedStringListAttr(String attributeName) {
+  public ImmutableList<String> getTokenizedStringListAttr(String attributeName) {
     return getExpandedStringListAttr(attributeName, Tokenize.YES);
   }
 
@@ -793,7 +793,7 @@ public final class RuleContext extends TargetContext
    * @param attributeName the name of the attribute to process
    * @return a list of strings containing the processed values for the attribute
    */
-  public List<String> getExpandedStringListAttr(String attributeName, Tokenize tokenize) {
+  public ImmutableList<String> getExpandedStringListAttr(String attributeName, Tokenize tokenize) {
     if (!getRule().isAttrDefined(attributeName, Type.STRING_LIST)) {
       // TODO(bazel-team): This should be an error.
       return ImmutableList.of();

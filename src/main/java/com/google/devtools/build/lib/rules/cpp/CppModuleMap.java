@@ -20,7 +20,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
  * Structure for C++ module maps. Stores the name of the module and a .cppmap artifact.
  */
 @Immutable
-public class CppModuleMap {
+public final class CppModuleMap {
   // NOTE: If you add a field here, you'll likely need to update CppModuleMapAction.computeKey().
   private final Artifact artifact;
   private final String name;

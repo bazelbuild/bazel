@@ -20,6 +20,7 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -30,6 +31,7 @@ import java.io.OutputStream;
 /**
  * Action to write a binary file.
  */
+@Immutable // if source is immutable
 public final class BinaryFileWriteAction extends AbstractFileWriteAction {
 
   private static final String GUID = "eeee07fe-4b40-11e4-82d6-eba0b4f713e2";

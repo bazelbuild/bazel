@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -33,21 +34,20 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.Arrays;
-import java.util.Collection;
 
 /**
  * Creates instrumented file manifest to list instrumented source files.
  */
-class InstrumentedFileManifestAction extends AbstractFileWriteAction {
-
+@Immutable
+final class InstrumentedFileManifestAction extends AbstractFileWriteAction {
   private static final String GUID = "d9ddb800-f9a1-01Da-238d-988311a8475b";
 
-  private final Collection<Artifact> collectedSourceFiles;
-  private final Collection<Artifact> metadataFiles;
+  private final ImmutableList<Artifact> collectedSourceFiles;
+  private final ImmutableList<Artifact> metadataFiles;
   private final RegexFilter instrumentationFilter;
 
-  private InstrumentedFileManifestAction(ActionOwner owner, Collection<Artifact> inputs,
-      Collection<Artifact> additionalSourceFiles, Collection<Artifact> gcnoFiles,
+  private InstrumentedFileManifestAction(ActionOwner owner, ImmutableList<Artifact> inputs,
+      ImmutableList<Artifact> additionalSourceFiles, ImmutableList<Artifact> gcnoFiles,
       Artifact output, RegexFilter instrumentationFilter) {
     super(owner, inputs, output, false);
     this.collectedSourceFiles = additionalSourceFiles;
@@ -102,17 +102,14 @@ class InstrumentedFileManifestAction extends AbstractFileWriteAction {
    * @param metadataFiles *.gcno/*.em files collected by the {@link InstrumentedFilesCollector}
    * @return instrumented file manifest artifact
    */
-  public static Artifact getInstrumentedFileManifest(final RuleContext ruleContext,
-      final Collection<Artifact> additionalSourceFiles, final Collection<Artifact> metadataFiles) {
+  public static Artifact getInstrumentedFileManifest(RuleContext ruleContext,
+      ImmutableList<Artifact> additionalSourceFiles, ImmutableList<Artifact> metadataFiles) {
     // Instrumented manifest makes sense only for rules with binary output.
     Preconditions.checkState(ruleContext.getRule().hasBinaryOutput());
     Artifact instrumentedFileManifest = ruleContext.getPackageRelativeArtifact(
         ruleContext.getTarget().getName()  + ".instrumented_files",
         ruleContext.getConfiguration().getBinDirectory());
 
-    // Instrumented manifest artifact might already exist in case when multiple test
-    // actions that use slightly different subsets of runfiles set are generated for the same rule.
-    // So check whether we need to create a new action instance.
     ImmutableList<Artifact> inputs = ImmutableList.<Artifact>builder()
         .addAll(additionalSourceFiles)
         .addAll(metadataFiles)
