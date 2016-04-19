@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Path;
 
 /**
@@ -26,4 +28,9 @@ public interface DataValue {
    * Provides the Path to the file from which the DataValue was derived.
    */
   Path source();
+
+  /**
+   * Serializes to a supplied stream and returns the number of bytes written.
+   */
+  int serializeTo(DataKey key, OutputStream output) throws IOException;
 }

@@ -27,7 +27,11 @@ import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
+import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.protobuf.InvalidProtocolBufferException;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,22 +53,24 @@ import javax.xml.stream.events.XMLEvent;
 /**
  * Represents an Android Resource custom attribute.
  *
- * <p>Attribute are the most complicated Android resource, and therefore the least documented. Most
- * of the information about them is found by reading the android compatibility library source. An
+ * <p>
+ * Attribute are the most complicated Android resource, and therefore the least documented. Most of
+ * the information about them is found by reading the android compatibility library source. An
  * Attribute defines a parameter that can be passed into a view class -- as such you can think of
  * attributes as creating slots for other resources to fit into. Each slot will have at least one
- * format, and can have multiples. Simple attributes (color, boolean, reference, dimension,
- * float, integer, string, and fraction) are defined as &lt;attr name="<em>name</em>"
- * format="<em>format</em>" /&gt; while the complex ones, flag and enum, have sub tags:
- * &lt;attr name="<em>name</em>" &gt&lt;flag name="<em>name</em>" value="<em>value</em>"&gt;
- * &lt;/attr&gt;.
+ * format, and can have multiples. Simple attributes (color, boolean, reference, dimension, float,
+ * integer, string, and fraction) are defined as &lt;attr name="<em>name</em>" format=
+ * "<em>format</em>" /&gt; while the complex ones, flag and enum, have sub tags: &lt;attr name=
+ * "<em>name</em>" &gt&lt;flag name="<em>name</em>" value="<em>value</em>"&gt; &lt;/attr&gt;.
  *
- * <p>Attributes also have a double duty as defining validation logic for layout resources --
- * each layout attribute *must* have a corresponding attribute which will be used to validate the
+ * <p>
+ * Attributes also have a double duty as defining validation logic for layout resources -- each
+ * layout attribute *must* have a corresponding attribute which will be used to validate the
  * value/resource reference defined in it.
  *
- * <p>AttrXmlValue, due to the multiple types of attributes is actually a composite class that
- * contains multiple {@link XmlResourceValue} instances for each resource.
+ * <p>
+ * AttrXmlValue, due to the multiple types of attributes is actually a composite class that contains
+ * multiple {@link XmlResourceValue} instances for each resource.
  */
 @Immutable
 public class AttrXmlResourceValue implements XmlResourceValue {
@@ -141,6 +147,51 @@ public class AttrXmlResourceValue implements XmlResourceValue {
   @VisibleForTesting
   public static XmlResourceValue fromFormatEntries(Entry<String, ResourceXmlAttrValue>... entries) {
     return of(ImmutableMap.copyOf(Arrays.asList(entries)));
+  }
+
+  public static XmlResourceValue from(SerializeFormat.DataValueXml proto)
+      throws InvalidProtocolBufferException {
+    Builder<String, ResourceXmlAttrValue> formats =
+        ImmutableMap.<String, AttrXmlResourceValue.ResourceXmlAttrValue>builder();
+    for (Entry<String, SerializeFormat.DataValueXml> entry : proto.getMappedXmlValue().entrySet()) {
+      switch (entry.getKey()) {
+        case FLAG:
+          formats.put(
+              entry.getKey(), FlagResourceXmlAttrValue.of(entry.getValue().getMappedStringValue()));
+          break;
+        case ENUM:
+          formats.put(
+              entry.getKey(), EnumResourceXmlAttrValue.of(entry.getValue().getMappedStringValue()));
+          break;
+        case REFERENCE:
+          formats.put(entry.getKey(), ReferenceResourceXmlAttrValue.of());
+          break;
+        case COLOR:
+          formats.put(entry.getKey(), ColorResourceXmlAttrValue.of());
+          break;
+        case BOOLEAN:
+          formats.put(entry.getKey(), BooleanResourceXmlAttrValue.of());
+          break;
+        case DIMENSION:
+          formats.put(entry.getKey(), DimensionResourceXmlAttrValue.of());
+          break;
+        case FLOAT:
+          formats.put(entry.getKey(), FloatResourceXmlAttrValue.of());
+          break;
+        case INTEGER:
+          formats.put(entry.getKey(), IntegerResourceXmlAttrValue.of());
+          break;
+        case STRING:
+          formats.put(entry.getKey(), StringResourceXmlAttrValue.of());
+          break;
+        case FRACTION:
+          formats.put(entry.getKey(), FractionResourceXmlAttrValue.of());
+          break;
+        default:
+          throw new InvalidProtocolBufferException("Unexpected format: " + entry.getKey());
+      }
+    }
+    return of(formats.build());
   }
 
   public static XmlResourceValue from(
@@ -242,9 +293,26 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     mergedDataWriter.writeToValuesXml(key, iterable.append("</attr>"));
   }
 
+  @Override
+  public int serializeTo(Path source, OutputStream output) throws IOException {
+    SerializeFormat.DataValue.Builder builder = XmlResourceValues.newProtoDataBuilder(source);
+    SerializeFormat.DataValueXml.Builder xmlValueBuilder =
+        SerializeFormat.DataValueXml.newBuilder();
+    xmlValueBuilder.setType(SerializeFormat.DataValueXml.XmlType.ATTR);
+    for (Entry<String, ResourceXmlAttrValue> entry : formats.entrySet()) {
+      xmlValueBuilder
+          .getMutableMappedXmlValue()
+          .put(entry.getKey(), entry.getValue().appendTo(builder.getXmlValueBuilder()));
+    }
+    builder.setXmlValue(xmlValueBuilder);
+    return XmlResourceValues.serializeProtoDataValue(output, builder);
+  }
+
   @CheckReturnValue
   interface ResourceXmlAttrValue {
     FluentIterable<String> appendTo(FluentIterable<String> iterable);
+
+    SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder);
   }
 
   // TODO(corysmith): The ResourceXmlAttrValue implementors, other than enum and flag, share a
@@ -304,6 +372,11 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     @Override
     public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
       return iterable.append(FluentIterable.from(values.entrySet()).transform(MAP_TO_ENUM));
+    }
+
+    @Override
+    public SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder) {
+      return builder.putAllMappedStringValue(values).build();
     }
   }
 
@@ -366,6 +439,11 @@ public class AttrXmlResourceValue implements XmlResourceValue {
                     }
                   }));
     }
+
+    @Override
+    public SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder) {
+      return builder.putAllMappedStringValue(values).build();
+    }
   }
 
   /** Represents an Android Reference Attribute resource. */
@@ -387,6 +465,11 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
       return iterable;
     }
+
+    @Override
+    public SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder) {
+      return builder.build();
+    }
   }
 
   /** Represents an Android Color Attribute resource. */
@@ -406,6 +489,11 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     @Override
     public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
       return iterable;
+    }
+
+    @Override
+    public SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder) {
+      return builder.build();
     }
   }
 
@@ -427,6 +515,11 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
       return iterable;
     }
+
+    @Override
+    public SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder) {
+      return builder.build();
+    }
   }
 
   /** Represents an Android Float Attribute resource. */
@@ -446,6 +539,11 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     @Override
     public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
       return iterable;
+    }
+
+    @Override
+    public SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder) {
+      return builder.build();
     }
   }
 
@@ -468,6 +566,11 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
       return iterable;
     }
+
+    @Override
+    public SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder) {
+      return builder.build();
+    }
   }
 
   /** Represents an Android Integer Attribute resource. */
@@ -487,6 +590,11 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     @Override
     public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
       return iterable;
+    }
+
+    @Override
+    public SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder) {
+      return builder.build();
     }
   }
 
@@ -508,6 +616,11 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
       return iterable;
     }
+
+    @Override
+    public SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder) {
+      return builder.build();
+    }
   }
 
   /** Represents an Android Fraction Attribute resource. */
@@ -527,6 +640,11 @@ public class AttrXmlResourceValue implements XmlResourceValue {
     @Override
     public FluentIterable<String> appendTo(FluentIterable<String> iterable) {
       return iterable;
+    }
+
+    @Override
+    public SerializeFormat.DataValueXml appendTo(SerializeFormat.DataValueXml.Builder builder) {
+      return builder.build();
     }
   }
 }

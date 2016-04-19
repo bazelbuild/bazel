@@ -18,7 +18,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
+import com.google.devtools.build.android.XmlResourceValues;
+import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.protobuf.CodedOutputStream;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Path;
 
 import javax.annotation.concurrent.Immutable;
@@ -26,11 +31,12 @@ import javax.annotation.concurrent.Immutable;
 /**
  * Represents an Android Resource id.
  *
- * <p>Ids (http://developer.android.com/guide/topics/resources/more-resources.html#Id) are
- * special -- unlike other resources they cannot be overridden. This is due to the
- * nature of their usage. Each id corresponds to context sensitive resource of component, meaning
- * that they have no intrinsic defined value. They exist to reference parts of other resources.
- * Ids can also be declared on the fly in components with the syntax @[+][package:]id/resource_name.
+ * <p>
+ * Ids (http://developer.android.com/guide/topics/resources/more-resources.html#Id) are special --
+ * unlike other resources they cannot be overridden. This is due to the nature of their usage. Each
+ * id corresponds to context sensitive resource of component, meaning that they have no intrinsic
+ * defined value. They exist to reference parts of other resources. Ids can also be declared on the
+ * fly in components with the syntax @[+][package:]id/resource_name.
  */
 @Immutable
 public class IdXmlResourceValue implements XmlResourceValue {
@@ -49,6 +55,19 @@ public class IdXmlResourceValue implements XmlResourceValue {
         ImmutableList.of(
             String.format("<!-- %s -->", source),
             String.format("<item type='id' name='%s'/>", key.name())));
+  }
+
+  @Override
+  public int serializeTo(Path source, OutputStream output) throws IOException {
+    SerializeFormat.DataValue value =
+        XmlResourceValues.newProtoDataBuilder(source)
+            .setXmlValue(
+                SerializeFormat.DataValueXml.newBuilder()
+                    .setType(SerializeFormat.DataValueXml.XmlType.ID))
+            .build();
+    value.writeDelimitedTo(output);
+    return CodedOutputStream.computeUInt32SizeNoTag(value.getSerializedSize())
+        + value.getSerializedSize();
   }
 
   @Override

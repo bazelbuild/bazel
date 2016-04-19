@@ -22,7 +22,10 @@ import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
 import com.google.devtools.build.android.XmlResourceValues;
+import com.google.devtools.build.android.proto.SerializeFormat;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -42,12 +45,12 @@ import javax.xml.stream.events.XMLEvent;
  *
  * There are two flavors of Android Resource arrays:
  * <ul>
- *   <li>Typed arrays (http://developer.android.com/guide/topics/resources/more-resources
- *   .html#TypedArray) which which are indicated by a &lt;array&gt; tag.</li>
- *   <li>Integer array (http://developer.android.com/guide/topics/resources/more-resources
- *   .html#IntegerArray) which are indicated by &lt;integer-array&gt; tag.</li>
- *   <li>String array (http://developer.android.com/guide/topics/resources/string-resource
- *   .html#StringArray) which are indicated by &lt;string-array&gt; tag.</li>
+ * <li>Typed arrays (http://developer.android.com/guide/topics/resources/more-resources
+ * .html#TypedArray) which which are indicated by a &lt;array&gt; tag.</li>
+ * <li>Integer array (http://developer.android.com/guide/topics/resources/more-resources
+ * .html#IntegerArray) which are indicated by &lt;integer-array&gt; tag.</li>
+ * <li>String array (http://developer.android.com/guide/topics/resources/string-resource
+ * .html#StringArray) which are indicated by &lt;string-array&gt; tag.</li>
  * </ul>
  *
  * Both of these are accessed by R.array.&lt;name&gt; in java.
@@ -117,6 +120,10 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
     return new ArrayXmlResourceValue(arrayType, ImmutableList.copyOf(values));
   }
 
+  public static XmlResourceValue from(SerializeFormat.DataValueXml proto) {
+    return of(ArrayType.valueOf(proto.getValueType()), proto.getListValueList());
+  }
+
   @Override
   public void write(
       FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter) {
@@ -126,6 +133,18 @@ public class ArrayXmlResourceValue implements XmlResourceValue {
                 ImmutableList.of(String.format("<!-- %s -->", source), arrayType.openTag(key)))
             .append(FluentIterable.from(values).transform(ITEM_TO_XML))
             .append(arrayType.closeTag()));
+  }
+
+  @Override
+  public int serializeTo(Path source, OutputStream output) throws IOException {
+    return XmlResourceValues.serializeProtoDataValue(
+        output,
+        XmlResourceValues.newProtoDataBuilder(source)
+            .setXmlValue(
+                SerializeFormat.DataValueXml.newBuilder()
+                    .addAllListValue(values)
+                    .setType(SerializeFormat.DataValueXml.XmlType.ARRAY)
+                    .setValueType(arrayType.toString())));
   }
 
   @Override

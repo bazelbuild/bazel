@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Path;
 
 /**
@@ -27,4 +29,9 @@ public interface XmlResourceValue {
    * @param mergedDataWriter The target writer.
    */
   void write(FullyQualifiedName key, Path source, AndroidDataWritingVisitor mergedDataWriter);
+
+  /**
+   * Serializes the resource value to the OutputStream and returns the bytes written.
+   */
+  int serializeTo(Path source, OutputStream out) throws IOException;
 }

@@ -27,6 +27,7 @@ public interface AndroidDataWritingVisitor {
 
   /**
    * Copies the source asset to the relative destination path.
+   *
    * @param source The source file to copy.
    * @param relativeDestinationPath The relative destination path to write the asset to.
    * @throws IOException if there are errors during copying.
@@ -35,6 +36,7 @@ public interface AndroidDataWritingVisitor {
 
   /**
    * Copies the source resource to the relative destination path.
+   *
    * @param source The source file to copy.
    * @param relativeDestinationPath The relative destination path to write the resource to.
    * @throws IOException if there are errors during copying.

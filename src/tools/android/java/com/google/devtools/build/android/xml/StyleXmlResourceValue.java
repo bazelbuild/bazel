@@ -21,7 +21,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
+import com.google.devtools.build.android.XmlResourceValues;
+import com.google.devtools.build.android.proto.SerializeFormat;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -33,12 +37,12 @@ import javax.annotation.concurrent.Immutable;
 /**
  * Represents an Android Style Resource.
  *
- * <p>Styles (http://developer.android.com/guide/topics/resources/style-resource.html) define a
- * look and feel for a layout or other ui construct. They are effectively a s set of values that
+ * <p>
+ * Styles (http://developer.android.com/guide/topics/resources/style-resource.html) define a look
+ * and feel for a layout or other ui construct. They are effectively a s set of values that
  * correspond to &lt;attr&gt; resources defined either in the base android framework or in other
  * resources. They also allow inheritance on other styles. For a style to valid in a given resource
- * pass, they must only contain definer attributes with acceptable values.
- * <code>
+ * pass, they must only contain definer attributes with acceptable values. <code>
  *   &lt;resources&gt;
  *     &lt;style name="CustomText" parent="@style/Text"&gt;
  *       &lt;item name="android:textSize"&gt;20sp&lt;/item&gt;
@@ -64,7 +68,11 @@ public class StyleXmlResourceValue implements XmlResourceValue {
     return new StyleXmlResourceValue(parent, ImmutableMap.copyOf(values));
   }
 
-  private StyleXmlResourceValue(String parent, ImmutableMap<String, String> values) {
+  public static XmlResourceValue from(SerializeFormat.DataValueXml proto) {
+    return of(proto.hasValue() ? proto.getValue() : null, proto.getMappedStringValue());
+  }
+
+  private StyleXmlResourceValue(@Nullable String parent, ImmutableMap<String, String> values) {
     this.parent = parent;
     this.values = values;
   }
@@ -79,9 +87,22 @@ public class StyleXmlResourceValue implements XmlResourceValue {
                     String.format("<!-- %s -->", source),
                     parent == null || parent.isEmpty()
                         ? String.format("<style name='%s'>", key.name())
-                        : String.format("<style name='%s' parent='%s'>", key.name(), parent)))
+                        : String.format("<style name='%s' parent='@%s'>", key.name(), parent)))
             .append(FluentIterable.from(values.entrySet()).transform(ENTRY_TO_ITEM))
             .append("</style>"));
+  }
+
+  @Override
+  public int serializeTo(Path source, OutputStream output) throws IOException {
+    SerializeFormat.DataValueXml.Builder xmlValueBuilder =
+        SerializeFormat.DataValueXml.newBuilder()
+            .setType(SerializeFormat.DataValueXml.XmlType.STYLE)
+            .putAllMappedStringValue(values);
+    if (parent != null && !parent.isEmpty()) {
+      xmlValueBuilder.setValue(parent);
+    }
+    return XmlResourceValues.serializeProtoDataValue(
+        output, XmlResourceValues.newProtoDataBuilder(source).setXmlValue(xmlValueBuilder));
   }
 
   @Override

@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import java.io.IOException;
+import java.io.OutputStream;
+
 /**
- * A general marker interface for resource and asset keys.
+ * A general interface for resource and asset keys.
  *
  * Resource and Assets are merged on the basis of a key value:
  *
@@ -23,4 +26,13 @@ package com.google.devtools.build.android;
  *
  * For Assets, it is the asset path from the assets directory.
  */
-public interface DataKey {}
+public interface DataKey {
+  /**
+   * Writes the Key and the value size to a stream.
+   *
+   * @param output The destination stream to serialize the key.
+   * @param valueSize The size, in bytes, of the serialized output for this key. The value size can
+   * be used for calculating offsets of the value in the stream.
+   */
+  void serializeTo(OutputStream output, int valueSize) throws IOException;
+}

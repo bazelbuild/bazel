@@ -88,10 +88,10 @@ public class AndroidDataWriter implements Flushable, AndroidDataWritingVisitor {
   public void flush() throws IOException {
     Path values = Files.createDirectories(resourceDirectory().resolve("values"));
     try (FileChannel channel =
-            FileChannel.open(
-                values.resolve("values.xml"),
-                StandardOpenOption.CREATE_NEW,
-                StandardOpenOption.WRITE)) {
+        FileChannel.open(
+            values.resolve("values.xml"),
+            StandardOpenOption.CREATE_NEW,
+            StandardOpenOption.WRITE)) {
       channel.write(ByteBuffer.wrap("<resources>".getBytes(UTF_8)));
       for (FullyQualifiedName key : Ordering.natural().sortedCopy(valueFragments.keySet())) {
         for (String line : valueFragments.get(key)) {

@@ -18,9 +18,12 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
+import com.google.devtools.build.android.proto.SerializeFormat;
 
 import com.android.resources.ResourceType;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Objects;
@@ -38,6 +41,7 @@ import javax.annotation.concurrent.Immutable;
 @Immutable
 public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedName> {
   public static final String DEFAULT_PACKAGE = "res-auto";
+  private static final Joiner DASH_JOINER = Joiner.on('-');
 
   private final String pkg;
   private final ImmutableList<String> qualifiers;
@@ -47,8 +51,8 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
   /**
    * Returns a string path representation of the FullyQualifiedName.
    *
-   * Non-values Android Resource have a well defined file layout: From the resource directory,
-   * they reside in &lt;resource type&gt;[-&lt;qualifier&gt;]/&lt;resource name&gt;[.extension]
+   * Non-values Android Resource have a well defined file layout: From the resource directory, they
+   * reside in &lt;resource type&gt;[-&lt;qualifier&gt;]/&lt;resource name&gt;[.extension]
    *
    * @param sourceExtension The extension of the resource represented by the FullyQualifiedName
    * @return A string representation of the FullyQualifiedName with the provided extension.
@@ -56,12 +60,11 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
   public String toPathString(String sourceExtension) {
     // TODO(corysmith): Does the extension belong in the FullyQualifiedName?
     return Paths.get(
-            Joiner.on("-")
-                .join(
-                    ImmutableList.<String>builder()
-                        .add(resourceType.getName())
-                        .addAll(qualifiers)
-                        .build()),
+            DASH_JOINER.join(
+                ImmutableList.<String>builder()
+                    .add(resourceType.getName())
+                    .addAll(qualifiers)
+                    .build()),
             resourceName + sourceExtension)
         .toString();
   }
@@ -106,7 +109,7 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
     }
 
     /**
-     * Parses a FullyQualifiedName from a string .
+     * Parses a FullyQualifiedName from a string.
      *
      * @param raw A string in the expected format from
      *     [&lt;package&gt;:]&lt;ResourceType.name&gt;/&lt;resource name&gt;.
@@ -131,8 +134,13 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
     }
   }
 
+  public static boolean isOverwritable(FullyQualifiedName name) {
+    return !(name.resourceType == ResourceType.ID || name.resourceType == ResourceType.STYLEABLE);
+  }
+
   /**
    * Creates a new FullyQualifiedName with sorted qualifiers.
+   *
    * @param pkg The resource package of the name. If unknown the default should be "res-auto"
    * @param qualifiers The resource qualifiers of the name, such as "en" or "xhdpi".
    * @param resourceType The resource type of the name.
@@ -143,6 +151,14 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
       String pkg, List<String> qualifiers, ResourceType resourceType, String resourceName) {
     return new FullyQualifiedName(
         pkg, Ordering.natural().immutableSortedCopy(qualifiers), resourceType, resourceName);
+  }
+
+  public static FullyQualifiedName fromProto(SerializeFormat.DataKey protoKey) {
+    return of(
+        protoKey.getKeyPackage(),
+        protoKey.getQualifiersList(),
+        ResourceType.valueOf(protoKey.getResourceType()),
+        protoKey.getKeyValue());
   }
 
   private FullyQualifiedName(
@@ -214,5 +230,17 @@ public class FullyQualifiedName implements DataKey, Comparable<FullyQualifiedNam
       return qualifiers.toString().compareTo(other.qualifiers.toString());
     }
     return 0;
+  }
+
+  @Override
+  public void serializeTo(OutputStream out, int valueSize) throws IOException {
+    SerializeFormat.DataKey.newBuilder()
+        .setKeyPackage(pkg)
+        .setValueSize(valueSize)
+        .setResourceType(resourceType.getName().toUpperCase())
+        .addAllQualifiers(qualifiers)
+        .setKeyValue(resourceName)
+        .build()
+        .writeDelimitedTo(out);
   }
 }

@@ -21,7 +21,14 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
+import com.google.devtools.build.android.XmlResourceValues;
+import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.devtools.build.android.proto.SerializeFormat.DataValue.Builder;
+import com.google.devtools.build.android.proto.SerializeFormat.DataValueXml.XmlType;
+import com.google.protobuf.CodedOutputStream;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -32,10 +39,10 @@ import javax.annotation.concurrent.Immutable;
 /**
  * Represents an Android Plural Resource.
  *
- * <p>Plurals are a localization construct (http://developer.android.com/guide/topics/resources/
- * string-resource.html#Plurals) that are basically a map of key to
- * value. They are defined in xml as:
- * <code>
+ * <p>
+ * Plurals are a localization construct (http://developer.android.com/guide/topics/resources/
+ * string-resource.html#Plurals) that are basically a map of key to value. They are defined in xml
+ * as: <code>
  *   &lt;plurals name="plural_name"&gt;
  *     &lt;item quantity=["zero" | "one" | "two" | "few" | "many" | "other"]&gt;
  *       text_string
@@ -94,5 +101,25 @@ public class PluralXmlResourceValue implements XmlResourceValue {
   @Override
   public String toString() {
     return MoreObjects.toStringHelper(getClass()).add("values", values).toString();
+  }
+
+  public static XmlResourceValue from(SerializeFormat.DataValueXml proto) {
+    return of(ImmutableMap.copyOf(proto.getMappedStringValue()));
+  }
+
+  @Override
+  public int serializeTo(Path source, OutputStream output) throws IOException {
+    Builder builder = XmlResourceValues.newProtoDataBuilder(source);
+    SerializeFormat.DataValue value =
+        builder
+            .setXmlValue(
+                builder
+                    .getXmlValueBuilder()
+                    .setType(XmlType.PLURAL)
+                    .putAllMappedStringValue(values))
+            .build();
+    value.writeDelimitedTo(output);
+    return CodedOutputStream.computeUInt32SizeNoTag(value.getSerializedSize())
+        + value.getSerializedSize();
   }
 }

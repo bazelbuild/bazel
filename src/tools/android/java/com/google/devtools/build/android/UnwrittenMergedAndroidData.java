@@ -28,7 +28,7 @@ public class UnwrittenMergedAndroidData {
 
   private final Path manifest;
   private final ParsedAndroidData primary;
-  private final ParsedAndroidData deps;
+  private final ParsedAndroidData transitive;
 
   public static UnwrittenMergedAndroidData of(
       Path manifest, ParsedAndroidData resources, ParsedAndroidData deps) {
@@ -36,14 +36,15 @@ public class UnwrittenMergedAndroidData {
   }
 
   private UnwrittenMergedAndroidData(
-      Path manifest, ParsedAndroidData primary, ParsedAndroidData deps) {
+      Path manifest, ParsedAndroidData primary, ParsedAndroidData transitive) {
     this.manifest = manifest;
     this.primary = primary;
-    this.deps = deps;
+    this.transitive = transitive;
   }
 
   /**
    * Writes the android data to the filesystem.
+   *
    * @param mergedDataWriter Destination writer.
    * @return A MergedAndroidData that is ready for further tool processing.
    * @throws IOException when something goes wrong while writing.
@@ -51,7 +52,7 @@ public class UnwrittenMergedAndroidData {
   public MergedAndroidData write(AndroidDataWriter mergedDataWriter) throws IOException {
     try {
       writeParsedAndroidData(primary, mergedDataWriter);
-      writeParsedAndroidData(deps, mergedDataWriter);
+      writeParsedAndroidData(transitive, mergedDataWriter);
       return new MergedAndroidData(
           mergedDataWriter.resourceDirectory(),
           mergedDataWriter.assetDirectory(),
@@ -84,7 +85,7 @@ public class UnwrittenMergedAndroidData {
     return MoreObjects.toStringHelper(this)
         .add("manifest", manifest)
         .add("primary", primary)
-        .add("deps", deps)
+        .add("transitive", transitive)
         .toString();
   }
 
@@ -99,12 +100,12 @@ public class UnwrittenMergedAndroidData {
     UnwrittenMergedAndroidData that = (UnwrittenMergedAndroidData) other;
     return Objects.equals(manifest, that.manifest)
         && Objects.equals(primary, that.primary)
-        && Objects.equals(deps, that.deps);
+        && Objects.equals(transitive, that.transitive);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(manifest, primary, deps);
+    return Objects.hash(manifest, primary, transitive);
   }
 
   @VisibleForTesting
@@ -118,7 +119,24 @@ public class UnwrittenMergedAndroidData {
   }
 
   @VisibleForTesting
-  ParsedAndroidData getDeps() {
-    return deps;
+  ParsedAndroidData getTransitive() {
+    return transitive;
+  }
+
+  public void serializeTo(AndroidDataSerializer serializer) {
+    serializer.serializeManifest(manifest);
+    for (Entry<DataKey, DataAsset> entry : primary.iterateAssetEntries()) {
+      serializer.serializeToPrimary(entry.getKey(), entry.getValue());
+    }
+    for (Entry<DataKey, DataResource> entry : primary.iterateDataResourceEntries()) {
+      serializer.serializeToPrimary(entry.getKey(), entry.getValue());
+    }
+
+    for (Entry<DataKey, DataAsset> entry : transitive.iterateAssetEntries()) {
+      serializer.serializeToTransitive(entry.getKey(), entry.getValue());
+    }
+    for (Entry<DataKey, DataResource> entry : transitive.iterateDataResourceEntries()) {
+      serializer.serializeToTransitive(entry.getKey(), entry.getValue());
+    }
   }
 }

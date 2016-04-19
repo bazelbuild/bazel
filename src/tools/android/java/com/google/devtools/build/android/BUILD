@@ -54,6 +54,7 @@ java_library(
         "//third_party:asm",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party/bazel/src/tools/android/java/com/google/devtools/build/android/proto:serialize_format_proto",
         "//third_party/protobuf",
     ],
 )

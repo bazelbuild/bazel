@@ -14,8 +14,12 @@
 package com.google.devtools.build.android;
 
 import com.google.common.base.MoreObjects;
+import com.google.devtools.build.android.proto.SerializeFormat;
+import com.google.protobuf.CodedOutputStream;
 
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.FileSystem;
 import java.nio.file.Path;
 import java.util.Objects;
 
@@ -34,6 +38,14 @@ public class DataValueFile implements DataResource, DataAsset {
 
   public static DataValueFile of(Path source) {
     return new DataValueFile(source);
+  }
+
+  /**
+   * Creates a {@link DataValueFile} from a {@link SerializeFormat.DataValue}.
+   */
+  public static DataValueFile from(
+      SerializeFormat.DataValue protoValue, FileSystem currentFileSystem) {
+    return of(currentFileSystem.getPath(protoValue.getSource().getFilename()));
   }
 
   @Override
@@ -71,8 +83,19 @@ public class DataValueFile implements DataResource, DataAsset {
       throws IOException {
     mergedDataWriter.copyResource(source, key.toPathString(getSourceExtension()));
   }
-  
+
+  @Override
+  public int serializeTo(DataKey key, OutputStream output) throws IOException {
+    SerializeFormat.DataValue.Builder builder = SerializeFormat.DataValue.newBuilder();
+    SerializeFormat.DataValue value =
+        builder.setSource(builder.getSourceBuilder().setFilename(source.toString())).build();
+    value.writeDelimitedTo(output);
+    return CodedOutputStream.computeUInt32SizeNoTag(value.getSerializedSize())
+        + value.getSerializedSize();
+  }
+
   private String getSourceExtension() {
+    // TODO(corysmith): Switch to a filename parser utility.
     String fileName = source.getFileName().toString();
     int extensionStart = fileName.lastIndexOf('.');
     if (extensionStart > 0) {

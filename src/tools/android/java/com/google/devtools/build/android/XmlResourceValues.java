@@ -13,17 +13,22 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.ParsedAndroidData.KeyValueConsumer;
+import com.google.devtools.build.android.proto.SerializeFormat;
 import com.google.devtools.build.android.xml.AttrXmlResourceValue;
 import com.google.devtools.build.android.xml.IdXmlResourceValue;
 import com.google.devtools.build.android.xml.PluralXmlResourceValue;
 import com.google.devtools.build.android.xml.SimpleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleXmlResourceValue;
 import com.google.devtools.build.android.xml.StyleableXmlResourceValue;
+import com.google.protobuf.CodedOutputStream;
 
 import com.android.resources.ResourceType;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -40,8 +45,9 @@ import javax.xml.stream.events.XMLEvent;
 /**
  * {@link XmlResourceValues} provides methods for getting {@link XmlResourceValue} derived classes.
  *
- * <p>Acts a static factory class containing the general xml parsing logic for resources
- * that are declared inside the &lt;resources&gt; tag.
+ * <p>
+ * Acts a static factory class containing the general xml parsing logic for resources that are
+ * declared inside the &lt;resources&gt; tag.
  */
 public class XmlResourceValues {
 
@@ -120,10 +126,46 @@ public class XmlResourceValues {
     return IdXmlResourceValue.of();
   }
 
-  static XmlResourceValue parseSimple(XMLEventReader eventReader, ResourceType resourceType)
+  static XmlResourceValue parseSimple(
+      XMLEventReader eventReader, ResourceType resourceType, QName startTag)
       throws XMLStreamException {
+    StringBuilder contents = new StringBuilder();
+    while (!isEndTag(eventReader.peek(), startTag)) {
+      XMLEvent xmlEvent = eventReader.nextEvent();
+      if (xmlEvent.isCharacters()) {
+        contents.append(xmlEvent.asCharacters().getData());
+      } else if (xmlEvent.isStartElement()) {
+        QName name = xmlEvent.asStartElement().getName();
+        contents.append("<");
+        if (!name.getNamespaceURI().isEmpty()) {
+          contents
+              .append(name.getPrefix())
+              .append(':')
+              .append(name.getLocalPart())
+              .append(' ')
+              .append("xmlns:")
+              .append(name.getPrefix())
+              .append("='")
+              .append(name.getNamespaceURI())
+              .append("'");
+        } else {
+          contents.append(name.getLocalPart());
+        }
+        contents.append(">");
+      } else if (xmlEvent.isEndElement()) {
+        QName name = xmlEvent.asEndElement().getName();
+        contents.append("</");
+        if (!name.getNamespaceURI().isEmpty()) {
+          contents.append(name.getPrefix()).append(':').append(name.getLocalPart());
+        } else {
+          contents.append(name.getLocalPart());
+        }
+        contents.append(">");
+      }
+    }
+    Preconditions.checkArgument(eventReader.nextEvent().asEndElement().getName().equals(startTag));
     return SimpleXmlResourceValue.of(
-        SimpleXmlResourceValue.Type.from(resourceType), eventReader.getElementText());
+        SimpleXmlResourceValue.Type.from(resourceType), contents.toString());
   }
 
   /* XML helper methods follow. */
@@ -208,5 +250,18 @@ public class XmlResourceValues {
       }
     }
     return false;
+  }
+
+  public static SerializeFormat.DataValue.Builder newProtoDataBuilder(Path source) {
+    SerializeFormat.DataValue.Builder builder = SerializeFormat.DataValue.newBuilder();
+    return builder.setSource(builder.getSourceBuilder().setFilename(source.toString()));
+  }
+
+  public static int serializeProtoDataValue(
+      OutputStream output, SerializeFormat.DataValue.Builder builder) throws IOException {
+    SerializeFormat.DataValue value = builder.build();
+    value.writeDelimitedTo(output);
+    return CodedOutputStream.computeUInt32SizeNoTag(value.getSerializedSize())
+        + value.getSerializedSize();
   }
 }

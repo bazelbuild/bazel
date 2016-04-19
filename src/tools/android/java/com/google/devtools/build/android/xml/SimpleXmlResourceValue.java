@@ -18,9 +18,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AndroidDataWritingVisitor;
 import com.google.devtools.build.android.FullyQualifiedName;
 import com.google.devtools.build.android.XmlResourceValue;
+import com.google.devtools.build.android.XmlResourceValues;
+import com.google.devtools.build.android.proto.SerializeFormat;
 
 import com.android.resources.ResourceType;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Objects;
@@ -31,14 +35,14 @@ import javax.xml.namespace.QName;
 /**
  * Represents a simple Android resource xml value.
  *
- * <p>There is a class of resources that are simple name/value pairs:
- * string (http://developer.android.com/guide/topics/resources/string-resource.html),
- * bool (http://developer.android.com/guide/topics/resources/more-resources.html#Bool),
- * color (http://developer.android.com/guide/topics/resources/more-resources.html#Color), and
- * dimen (http://developer.android.com/guide/topics/resources/more-resources.html#Dimension).
- * These are defined in xml as &lt;<em>resource type</em> name="<em>name</em>"
- * value="<em>value</em>"&gt;. In the interest of keeping the parsing svelte, these are
- * represented by a single class.
+ * <p>
+ * There is a class of resources that are simple name/value pairs: string
+ * (http://developer.android.com/guide/topics/resources/string-resource.html), bool
+ * (http://developer.android.com/guide/topics/resources/more-resources.html#Bool), color
+ * (http://developer.android.com/guide/topics/resources/more-resources.html#Color), and dimen
+ * (http://developer.android.com/guide/topics/resources/more-resources.html#Dimension). These are
+ * defined in xml as &lt;<em>resource type</em> name="<em>name</em>" value="<em>value</em>"&gt;. In
+ * the interest of keeping the parsing svelte, these are represented by a single class.
  */
 @Immutable
 public class SimpleXmlResourceValue implements XmlResourceValue {
@@ -123,6 +127,22 @@ public class SimpleXmlResourceValue implements XmlResourceValue {
                 key.name(),
                 value,
                 valueType.tagName.getLocalPart())));
+  }
+
+  public static XmlResourceValue from(SerializeFormat.DataValueXml proto) {
+    return of(Type.valueOf(proto.getValueType()), proto.getValue());
+  }
+
+  @Override
+  public int serializeTo(Path source, OutputStream output) throws IOException {
+    SerializeFormat.DataValue.Builder builder = XmlResourceValues.newProtoDataBuilder(source);
+    builder.setXmlValue(
+        builder
+            .getXmlValueBuilder()
+            .setType(SerializeFormat.DataValueXml.XmlType.SIMPLE)
+            .setValue(value)
+            .setValueType(valueType.name()));
+    return XmlResourceValues.serializeProtoDataValue(output, builder);
   }
 
   @Override
