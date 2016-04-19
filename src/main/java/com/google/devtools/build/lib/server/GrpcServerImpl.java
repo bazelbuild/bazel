@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.server;
 
 import com.google.devtools.build.lib.runtime.CommandExecutor;
+import com.google.devtools.build.lib.server.CommandProtos.CancelRequest;
+import com.google.devtools.build.lib.server.CommandProtos.CancelResponse;
 import com.google.devtools.build.lib.server.CommandProtos.PingRequest;
 import com.google.devtools.build.lib.server.CommandProtos.PingResponse;
 import com.google.devtools.build.lib.server.CommandProtos.RunRequest;
@@ -37,6 +39,9 @@ import java.lang.reflect.Field;
 import java.net.InetSocketAddress;
 import java.nio.channels.ServerSocketChannel;
 import java.security.SecureRandom;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * gRPC server class.
@@ -45,6 +50,26 @@ import java.security.SecureRandom;
  * bootstrapping.
  */
 public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.CommandServer {
+  private class RunningCommand implements AutoCloseable {
+    private final Thread thread;
+    private final String id;
+
+    private RunningCommand() {
+      thread = Thread.currentThread();
+      id = UUID.randomUUID().toString();
+      synchronized (runningCommands) {
+        runningCommands.put(id, this);
+      }
+    }
+
+    @Override
+    public void close() {
+      synchronized (runningCommands) {
+        runningCommands.remove(id);
+      }
+    }
+  }
+
   /**
    * Factory class. Instantiated by reflection.
    */
@@ -64,10 +89,13 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
   // TODO(lberki): Maybe we should implement line buffering?
   private class RpcOutputStream extends OutputStream {
     private final StreamObserver<RunResponse> observer;
+    private final String commandId;
     private final StreamType type;
 
-    private RpcOutputStream(StreamObserver<RunResponse> observer, StreamType type) {
+    private RpcOutputStream(
+        StreamObserver<RunResponse> observer, String commandId, StreamType type) {
       this.observer = observer;
+      this.commandId = commandId;
       this.type = type;
     }
 
@@ -76,7 +104,8 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
       ByteString input = ByteString.copyFrom(b, off, inlen);
       RunResponse.Builder response = RunResponse
           .newBuilder()
-          .setCookie(responseCookie);
+          .setCookie(responseCookie)
+          .setCommandId(commandId);
 
       switch (type) {
         case STDOUT: response.setStandardOutput(input); break;
@@ -99,6 +128,7 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
   private static final String REQUEST_COOKIE_FILE = "request_cookie";
   private static final String RESPONSE_COOKIE_FILE = "response_cookie";
 
+  private final Map<String, RunningCommand> runningCommands = new HashMap<>();
   private final CommandExecutor commandExecutor;
   private final Clock clock;
   private final Path serverDirectory;
@@ -213,15 +243,26 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
       return;
     }
 
-    OutErr rpcOutErr = OutErr.create(
-        new RpcOutputStream(observer, StreamType.STDOUT),
-        new RpcOutputStream(observer, StreamType.STDERR));
+    String commandId;
+    int exitCode;
+    try (RunningCommand command = new RunningCommand()) {
+      commandId = command.id;
+      OutErr rpcOutErr = OutErr.create(
+          new RpcOutputStream(observer, command.id, StreamType.STDOUT),
+          new RpcOutputStream(observer, command.id, StreamType.STDERR));
 
-    int exitCode = commandExecutor.exec(
-        request.getArgList(), rpcOutErr, clock.currentTimeMillis());
+      exitCode = commandExecutor.exec(request.getArgList(), rpcOutErr, clock.currentTimeMillis());
+    }
+
+    // There is a chance that a cancel request comes in after commandExecutor#exec() has finished
+    // and no one calls Thread.interrupted() to receive the interrupt. So we just reset the
+    // interruption state here to make these cancel requests not have any effect outside of command
+    // execution.
+    Thread.interrupted();
 
     RunResponse response = RunResponse.newBuilder()
         .setCookie(responseCookie)
+        .setCommandId(commandId)
         .setFinished(true)
         .setExitCode(exitCode)
         .build();
@@ -238,12 +279,30 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
   public void ping(PingRequest pingRequest, StreamObserver<PingResponse> streamObserver) {
     Preconditions.checkState(serving);
 
-    CommandProtos.PingResponse.Builder response = CommandProtos.PingResponse.newBuilder();
+    PingResponse.Builder response = PingResponse.newBuilder();
     if (pingRequest.getCookie().equals(requestCookie)) {
       response.setCookie(responseCookie);
     }
 
     streamObserver.onNext(response.build());
+    streamObserver.onCompleted();
+  }
+
+  @Override
+  public void cancel(CancelRequest request, StreamObserver<CancelResponse> streamObserver) {
+    if (!request.getCookie().equals(requestCookie)) {
+      streamObserver.onCompleted();
+      return;
+    }
+
+    synchronized (runningCommands) {
+      RunningCommand command = runningCommands.get(request.getCommandId());
+      if (command != null) {
+        command.thread.interrupt();
+      }
+    }
+
+    streamObserver.onNext(CancelResponse.newBuilder().setCookie(responseCookie).build());
     streamObserver.onCompleted();
   }
 }

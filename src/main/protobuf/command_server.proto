@@ -36,6 +36,16 @@ message RunResponse {
   bytes standard_error = 3;
   bool finished = 4;    // Whether this is the last message of the stream
   int32 exit_code = 5;  // Only valid for the last message in the stream
+  string command_id = 6;  // Randomly generated command identifier
+}
+
+message CancelRequest {
+  string cookie = 1;
+  string command_id = 2;
+}
+
+message CancelResponse {
+  string cookie = 1;
 }
 
 message PingRequest {
@@ -49,6 +59,9 @@ message PingResponse {
 service CommandServer {
   // Run a Bazel command.
   rpc Run (RunRequest) returns (stream RunResponse) {}
+
+  // Cancel a currently running Bazel command
+  rpc Cancel (CancelRequest) returns (CancelResponse) {}
 
   // Does not do anything. Used for liveness check.
   rpc Ping (PingRequest) returns (PingResponse) {}

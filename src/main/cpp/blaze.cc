@@ -57,8 +57,10 @@
 
 #include <algorithm>
 #include <chrono>  // NOLINT (gRPC requires this)
+#include <mutex>  // NOLINT
 #include <set>
 #include <string>
+#include <thread>  // NOLINT
 #include <utility>
 #include <vector>
 
@@ -97,9 +99,34 @@ namespace blaze {
 static void WriteFileToStreamOrDie(FILE *stream, const char *file_name);
 static string BuildServerRequest();
 
+class BlazeServer {
+ public:
+  virtual ~BlazeServer() {}
+
+  virtual bool Connect() = 0;
+  virtual void Disconnect() = 0;
+  virtual void Communicate() = 0;
+  virtual void Cancel() = 0;
+};
+
+class AfUnixBlazeServer : public BlazeServer {
+ private:
+  int server_socket;
+
+ public:
+  AfUnixBlazeServer();
+  virtual ~AfUnixBlazeServer() {}
+
+  bool Connect() override;
+  void Disconnect() override;
+  void Communicate() override;
+  void Cancel() override;
+};
+
 ////////////////////////////////////////////////////////////////////////
 // Global Variables
 static GlobalVariables *globals;
+static BlazeServer *blaze_server;
 
 static void InitGlobals() {
   globals = new GlobalVariables;
@@ -532,34 +559,21 @@ static int StartServer() {
   return -1;
 }
 
-class BlazeServer {
- public:
-  virtual ~BlazeServer() {}
-
-  virtual bool Connect() = 0;
-  virtual void Disconnect() = 0;
-  virtual void Communicate() = 0;
-};
-
-class AfUnixBlazeServer : public BlazeServer {
- private:
-  int server_socket;
-
- public:
-  AfUnixBlazeServer();
-  virtual ~AfUnixBlazeServer() {}
-
-  bool Connect() override;
-  void Disconnect() override;
-  void Communicate() override;
-};
-
 class GrpcBlazeServer : public BlazeServer {
  private:
+  enum CancelThreadAction { NOTHING, JOIN, CANCEL };
+
   std::unique_ptr<command_server::CommandServer::Stub> client;
 
   std::string request_cookie;
   std::string response_cookie;
+  std::string command_id;
+
+  std::condition_variable cancel_thread_signal;
+  // protects command_id and cancel_thread_action
+  std::mutex cancel_thread_mutex;
+  CancelThreadAction cancel_thread_action;
+  void CancelThread();
 
  public:
   GrpcBlazeServer();
@@ -568,6 +582,7 @@ class GrpcBlazeServer : public BlazeServer {
   bool Connect() override;
   void Disconnect() override;
   void Communicate() override;
+  void Cancel() override;
 };
 
 static bool KillRunningServerIfAny(BlazeServer *server);
@@ -811,6 +826,10 @@ void AfUnixBlazeServer::Communicate() {
   }
 }
 
+void AfUnixBlazeServer::Cancel() {
+  kill(globals->server_pid, SIGINT);
+}
+
 // Write the contents of file_name to stream.
 static void WriteFileToStreamOrDie(FILE *stream, const char *file_name) {
   FILE *fp = fopen(file_name, "r");
@@ -830,16 +849,18 @@ static void WriteFileToStreamOrDie(FILE *stream, const char *file_name) {
   fclose(fp);
 }
 
-// After connecting to the Blaze server, initialize server_pid.
-static void GetServerPid(const string &pid_file) {
+// After connecting to the Blaze server, initialize server_pid. Return -1 if
+// there was an error.
+static int GetServerPid(const string &pid_file) {
   // Note: there is no race here on startup since the server creates
   // the pid file strictly before it binds the socket.
   char buf[16];
   auto len = readlink(pid_file.c_str(), buf, sizeof(buf) - 1);
   if (len > 0) {
     buf[len] = '\0';
-    globals->server_pid = atoi(buf);
+    return atoi(buf);
   } else {
+    return -1;
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
          "can't get server pid from connection");
   }
@@ -863,9 +884,24 @@ static bool ConnectToServer(BlazeServer *server, bool start) {
 
   globals->server_pid = 0;
   if (server->Connect()) {
-    GetServerPid(pid_file);
+    globals->server_pid = GetServerPid(pid_file);
+    if (globals->server_pid == -1) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+           "can't get server pid from connection");
+    }
     return true;
+  } else {
+    // If we couldn't connect to the server check if there is still a PID file
+    // and if so, kill the server that wrote it. This can happen e.g. if the
+    // server is in a GC pause and therefore cannot respond to ping requests and
+    // having two server instances running in the same output base is a
+    // disaster.
+    int server_pid = GetServerPid(pid_file);
+    if (server_pid >= 0) {
+      kill(server_pid, SIGKILL);
+    }
   }
+
   if (start) {
     SetScheduling(globals->options.batch_cpu_scheduling,
                   globals->options.io_nice_level);
@@ -883,7 +919,11 @@ static bool ConnectToServer(BlazeServer *server, bool start) {
           fputc('\n', stderr);
           fflush(stderr);
         }
-        GetServerPid(pid_file);
+        globals->server_pid = GetServerPid(pid_file);
+        if (globals->server_pid == -1) {
+          pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+               "can't get server pid from connection");
+        }
         return true;
       }
       fputc('.', stderr);
@@ -1327,12 +1367,12 @@ static void handler(int signum) {
       }
       sigprintf("\n%s caught interrupt signal; shutting down.\n\n",
                 globals->options.GetProductName().c_str());
-      kill(globals->server_pid, SIGINT);
+      blaze_server->Cancel();
       break;
     case SIGTERM:
       sigprintf("\n%s caught terminate signal; shutting down.\n\n",
                 globals->options.GetProductName().c_str());
-      kill(globals->server_pid, SIGINT);
+      blaze_server->Cancel();
       break;
     case SIGPIPE:
       // Don't bother the user with a message in this case; they're
@@ -1759,26 +1799,29 @@ int main(int argc, const char *argv[]) {
   WarnFilesystemType(globals->options.output_base);
   EnsureFiniteStackLimit();
 
-  std::unique_ptr<BlazeServer> server(
-      globals->options.grpc_port >= 0
+  blaze_server = globals->options.grpc_port >= 0
       ? static_cast<BlazeServer *>(new GrpcBlazeServer())
-      : static_cast<BlazeServer *>(new AfUnixBlazeServer()));
+      : static_cast<BlazeServer *>(new AfUnixBlazeServer());
 
   ExtractData(self_path);
-  EnsureCorrectRunningVersion(server.get());
-  KillRunningServerIfDifferentStartupOptions(server.get());
+  EnsureCorrectRunningVersion(blaze_server);
+  KillRunningServerIfDifferentStartupOptions(blaze_server);
 
   if (globals->options.batch) {
     SetScheduling(globals->options.batch_cpu_scheduling,
                   globals->options.io_nice_level);
-    StartStandalone(server.get());
+    StartStandalone(blaze_server);
   } else {
-    SendServerRequest(server.get());
+    SendServerRequest(blaze_server);
   }
   return 0;
 }
 
+static void null_grpc_log_function(gpr_log_func_args *args) {
+}
+
 GrpcBlazeServer::GrpcBlazeServer() {
+  gpr_set_log_function(null_grpc_log_function);
 }
 
 bool GrpcBlazeServer::Connect() {
@@ -1804,7 +1847,7 @@ bool GrpcBlazeServer::Connect() {
 
   grpc::ClientContext context;
   context.set_deadline(
-      std::chrono::system_clock::now() + std::chrono::milliseconds(50));
+      std::chrono::system_clock::now() + std::chrono::seconds(1));
 
   command_server::PingRequest request;
   command_server::PingResponse response;
@@ -1817,6 +1860,61 @@ bool GrpcBlazeServer::Connect() {
 
   this->client = std::move(client);
   return true;
+}
+
+// Cancellation works as follows:
+//
+// When the user presses Ctrl-C, a SIGINT is delivered to the client, which is
+// translated into a BlazeServer::Cancel() call. Since it's not a good idea to
+// do significant work in signal handlers, all it does is to set a flag and wake
+// up the cancellation thread.
+//
+// That thread in turn issues the CancelRequest RPC to the server if the command
+// ID is known. If not, it goes to sleep again until the server tells the client
+// the command ID, at which point it wakes up again and delivers the
+// cancellation request.
+//
+// In every case, the cancellation thread is joined at the end of the execution
+// of the command. The main thread wakes it up just so that it can finish
+// (using the JOIN action)
+//
+// It's conceivable that the server is busy and thus it cannot service the
+// cancellation request. In that case, we simply ignore the failure and the both
+// the server and the client go on as if nothing had happened (except that this
+// Ctrl-C counts as a SIGINT, three of which result in a SIGKILL being delivered
+// to the server)
+void GrpcBlazeServer::CancelThread() {
+  bool running = true;
+  std::unique_lock<std::mutex> lock(cancel_thread_mutex);
+  while (running) {
+    cancel_thread_signal.wait(lock);
+    switch (cancel_thread_action) {
+      case JOIN:
+        running = false;
+        cancel_thread_action = NOTHING;
+        break;
+
+      case CANCEL:
+        // If we don't know the command ID yet, we'll be woken up when it
+        // becomes known.
+        if (command_id.size() > 0) {
+          command_server::CancelRequest request;
+          request.set_cookie(request_cookie);
+          request.set_command_id(command_id);
+          grpc::ClientContext context;
+          context.set_deadline(std::chrono::system_clock::now() +
+                               std::chrono::milliseconds(100));
+          command_server::CancelResponse response;
+          // There isn't a lot we can do if this request fails
+          client->Cancel(&context, request, &response);
+          cancel_thread_action = NOTHING;
+        }
+        break;
+
+      case NOTHING:
+         break;
+    }
+  }
 }
 
 void GrpcBlazeServer::Communicate() {
@@ -1839,6 +1937,10 @@ void GrpcBlazeServer::Communicate() {
   command_server::RunResponse response;
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
       client->Run(&context, request));
+
+  cancel_thread_action = NOTHING;
+  std::thread cancel_thread(&GrpcBlazeServer::CancelThread, this);
+  bool command_id_set = false;
   while (reader->Read(&response)) {
     if (response.standard_output().size() > 0) {
       write(1, response.standard_output().c_str(),
@@ -1849,7 +1951,23 @@ void GrpcBlazeServer::Communicate() {
       write(2, response.standard_error().c_str(),
             response.standard_error().size());
     }
+
+    if (!command_id_set && response.command_id().size() > 0) {
+      std::unique_lock<std::mutex> lock(cancel_thread_mutex);
+      command_id = response.command_id();
+      command_id_set = true;
+      // Wake up the cancellation thread in case there is a pending cancellation
+      cancel_thread_signal.notify_one();
+    }
   }
+
+  {
+    // Wake up the cancellation thread so that it can finish
+    std::unique_lock<std::mutex> lock(cancel_thread_mutex);
+    cancel_thread_action = JOIN;
+    cancel_thread_signal.notify_one();
+  }
+  cancel_thread.join();
 
   if (!response.finished()) {
     fprintf(stderr, "\nServer finished RPC without an explicit exit code\n");
@@ -1863,6 +1981,13 @@ void GrpcBlazeServer::Disconnect() {
   client.reset();
   request_cookie = "";
   response_cookie = "";
+}
+
+void GrpcBlazeServer::Cancel() {
+  std::unique_lock<std::mutex> lock(cancel_thread_mutex);
+  // Wake up the cancellation thread and tell it to issue its RPC
+  cancel_thread_action = CANCEL;
+  cancel_thread_signal.notify_one();
 }
 
 }  // namespace blaze
