@@ -40,11 +40,12 @@ public class CommandExecutor implements ServerCommand {
   }
 
   @Override
-  public int exec(List<String> args, OutErr outErr, long firstContactTime) {
+  public int exec(List<String> args, OutErr outErr, BlazeCommandDispatcher.LockingMode lockingMode,
+      String clientDescription, long firstContactTime) throws InterruptedException {
     LOG.info(BlazeRuntime.getRequestLogString(args));
 
     try {
-      return dispatcher.exec(args, outErr, firstContactTime);
+      return dispatcher.exec(args, outErr, lockingMode, clientDescription, firstContactTime);
     } catch (BlazeCommandDispatcher.ShutdownBlazeServerException e) {
       if (e.getCause() != null) {
         StringWriter message = new StringWriter();

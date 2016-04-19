@@ -117,5 +117,4 @@ public @interface Command {
    * accept several argument types, they can be combined with |, e.g <code>label|path</code>.
    */
   String completion() default "";
-
 }

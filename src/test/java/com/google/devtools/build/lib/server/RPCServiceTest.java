@@ -20,6 +20,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.server.RPCService.UnknownCommandException;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -40,7 +41,8 @@ public class RPCServiceTest {
 
   private ServerCommand helloWorldCommand = new ServerCommand() {
     @Override
-    public int exec(List<String> args, OutErr outErr, long firstContactTime) throws Exception {
+    public int exec(List<String> args, OutErr outErr, LockingMode lockingMode,
+        String clientDescription, long firstContactTime) {
       outErr.printOut("Heelllloo....");
       outErr.printErr("...world!");
       return 42;
@@ -83,8 +85,8 @@ public class RPCServiceTest {
     RPCService service =
         new RPCService(new ServerCommand() {
             @Override
-            public int exec(List<String> args, OutErr outErr, long firstContactTime)
-                throws Exception {
+            public int exec(List<String> args, OutErr outErr, LockingMode lockingMode,
+                String clientDescription, long firstContactTime) {
               savedArgs.addAll(args);
               return 0;
             }

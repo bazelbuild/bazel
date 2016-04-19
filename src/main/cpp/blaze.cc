@@ -324,11 +324,6 @@ static vector<string> GetArgumentArray() {
   result.push_back(blaze::ConvertPath(
       blaze_util::JoinPath(real_install_dir, globals->extracted_binaries[0])));
 
-  if (globals->options.grpc_port != -1) {
-    result.push_back("--grpc_port");
-    result.push_back(ToString(globals->options.grpc_port));
-  }
-
   if (!globals->options.batch) {
     result.push_back("--max_idle_secs");
     result.push_back(ToString(globals->options.max_idle_secs));
@@ -337,6 +332,11 @@ static vector<string> GetArgumentArray() {
     // the code expects it to be at args[0] if it's been set.
     result.push_back("--batch");
   }
+
+  if (globals->options.grpc_port != -1) {
+    result.push_back("--grpc_port=" + ToString(globals->options.grpc_port));
+  }
+
   result.push_back("--install_base=" +
                    blaze::ConvertPath(globals->options.install_base));
   result.push_back("--install_md5=" + globals->install_md5);
@@ -468,10 +468,6 @@ static void Daemonize() {
     open("/dev/null", O_WRONLY);
   }
   dup(STDOUT_FILENO);  // stderr (2>&1)
-
-  // Keep server from inheriting a useless fd.
-  // The file lock was already lost at fork().
-  close(globals->lockfd);
 }
 
 // Do a chdir into the workspace, and die if it fails.
@@ -648,7 +644,7 @@ bool AfUnixBlazeServer::Connect() {
 
     if (fcntl(server_socket, F_SETFD, FD_CLOEXEC) == -1) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-           "fcntl(F_SETFD, FD_CLOEXEC failed)");
+           "fcntl(F_SETFD, FD_CLOEXEC) failed");
     }
   }
 
@@ -1612,11 +1608,20 @@ static void CheckEnvironment() {
 // lock is inherited with the file descriptor across execve(), but not fork().
 // So in the batch case, the JVM holds the lock until exit; otherwise, this
 // program holds it until exit.
-static void AcquireLock() {
-  globals->lockfd = open(globals->lockfile.c_str(), O_CREAT|O_RDWR, 0644);
-  if (globals->lockfd < 0) {
+void AcquireLock() {
+  int lockfd = open(globals->lockfile.c_str(), O_CREAT|O_RDWR, 0644);
+
+  if (lockfd < 0) {
     pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
          "cannot open lockfile '%s' for writing", globals->lockfile.c_str());
+  }
+
+  // Keep server from inheriting a useless fd if we are not in batch mode
+  if (!globals->options.batch) {
+    if (fcntl(lockfd, F_SETFD, FD_CLOEXEC) == -1) {
+      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
+           "fcntl(F_SETFD) failed for lockfile");
+    }
   }
 
   struct flock lock;
@@ -1628,7 +1633,7 @@ static void AcquireLock() {
   lock.l_len = 4096;
 
   // Try to take the lock, without blocking.
-  if (fcntl(globals->lockfd, F_SETLK, &lock) == -1) {
+  if (fcntl(lockfd, F_SETLK, &lock) == -1) {
     if (errno != EACCES && errno != EAGAIN) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "unexpected result from F_SETLK");
@@ -1637,7 +1642,7 @@ static void AcquireLock() {
     // We didn't get the lock.  Find out who has it.
     struct flock probe = lock;
     probe.l_pid = 0;
-    if (fcntl(globals->lockfd, F_GETLK, &probe) == -1) {
+    if (fcntl(lockfd, F_GETLK, &probe) == -1) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "unexpected result from F_GETLK");
     }
@@ -1656,7 +1661,7 @@ static void AcquireLock() {
     // Try to take the lock again (blocking).
     int r;
     do {
-      r = fcntl(globals->lockfd, F_SETLKW, &lock);
+      r = fcntl(lockfd, F_SETLKW, &lock);
     } while (r == -1 && errno == EINTR);
     fprintf(stderr, "\n");
     if (r == -1) {
@@ -1669,13 +1674,13 @@ static void AcquireLock() {
   }
 
   // Identify ourselves in the lockfile.
-  ftruncate(globals->lockfd, 0);
+  ftruncate(lockfd, 0);
   const char *tty = ttyname(STDIN_FILENO);  // NOLINT (single-threaded)
   string msg = "owner=" + globals->options.GetProductName() + " launcher\npid="
       + ToString(getpid()) + "\ntty=" + (tty ? tty : "") + "\n";
   // Don't bother checking for error, since it's unlikely and unimportant.
   // The contents are currently meant only for debugging.
-  write(globals->lockfd, msg.data(), msg.size());
+  write(lockfd, msg.data(), msg.size());
 }
 
 static void SetupStreams() {
@@ -1794,14 +1799,18 @@ int main(int argc, const char *argv[]) {
   const string self_path = GetSelfPath();
   ComputeBaseDirectories(self_path);
 
-  AcquireLock();
-
-  WarnFilesystemType(globals->options.output_base);
-  EnsureFiniteStackLimit();
-
   blaze_server = globals->options.grpc_port >= 0
       ? static_cast<BlazeServer *>(new GrpcBlazeServer())
       : static_cast<BlazeServer *>(new AfUnixBlazeServer());
+
+  if (globals->options.grpc_port < 0 || globals->options.batch) {
+    // The gRPC server can handle concurrent commands just fine. However, we
+    // need to be careful not to start two parallel instances in batch mode.
+    AcquireLock();
+  }
+
+  WarnFilesystemType(globals->options.output_base);
+  EnsureFiniteStackLimit();
 
   ExtractData(self_path);
   EnsureCorrectRunningVersion(blaze_server);
@@ -1929,6 +1938,8 @@ void GrpcBlazeServer::Communicate() {
 
   command_server::RunRequest request;
   request.set_cookie(request_cookie);
+  request.set_block_for_lock(globals->options.block_for_lock);
+  request.set_client_description("pid=" + ToString(getpid()));
   for (const string& arg : arg_vector) {
     request.add_arg(arg);
   }

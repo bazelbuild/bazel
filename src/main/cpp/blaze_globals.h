@@ -42,7 +42,6 @@ enum RestartReason {
 struct GlobalVariables {
   // Used to make concurrent invocations of this program safe.
   string lockfile;  // = <output_base>/lock
-  int lockfd;
 
   string jvm_log_file;  // = <output_base>/server/jvm.out
 

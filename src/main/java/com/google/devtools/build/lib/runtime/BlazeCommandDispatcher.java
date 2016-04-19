@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Predicates;
+import com.google.common.base.Verify;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.util.AnsiStrippingOutputStream;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.util.io.DelegatingOutErr;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -65,6 +67,13 @@ import javax.annotation.Nullable;
  */
 public class BlazeCommandDispatcher {
 
+  /**
+   * What to do if the command lock is not available.
+   */
+  public enum LockingMode {
+    WAIT,  // Wait until it is available
+    ERROR_OUT,  // Return with an error
+  }
   // Keep in sync with options added in OptionProcessor::AddRcfileArgsAndOptions()
   private static final Set<String> INTERNAL_COMMAND_OPTIONS = ImmutableSet.of(
       "rc_source", "default_override", "isatty", "terminal_columns", "ignore_client_env",
@@ -97,7 +106,8 @@ public class BlazeCommandDispatcher {
   }
 
   private final BlazeRuntime runtime;
-
+  private final Object commandLock;
+  private String currentClientDescription = null;
   private OutputStream logOutputStream = null;
 
   /**
@@ -116,6 +126,7 @@ public class BlazeCommandDispatcher {
   @VisibleForTesting
   public BlazeCommandDispatcher(BlazeRuntime runtime) {
     this.runtime = runtime;
+    this.commandLock = new Object();
   }
 
   /**
@@ -208,19 +219,13 @@ public class BlazeCommandDispatcher {
    * client process, or throws {@link ShutdownBlazeServerException} to
    * indicate that a command wants to shutdown the Blaze server.
    */
-  int exec(List<String> args, OutErr outErr, long firstContactTime)
-      throws ShutdownBlazeServerException {
-    // Record the start time for the profiler. Do not put anything before this!
-    long execStartTimeNanos = runtime.getClock().nanoTime();
-
-    // The initCommand call also records the start time for the timestamp granularity monitor.
-    CommandEnvironment env = runtime.getWorkspace().initCommand();
-    // Record the command's starting time for use by the commands themselves.
-    env.recordCommandStartTime(firstContactTime);
-
+  int exec(List<String> args, OutErr outErr, LockingMode lockingMode, String clientDescription,
+      long firstContactTime) throws ShutdownBlazeServerException, InterruptedException {
+    Preconditions.checkNotNull(clientDescription);
     if (args.isEmpty()) { // Default to help command if no arguments specified.
       args = HELP_COMMAND;
     }
+
     String commandName = args.get(0);
 
     // Be gentle to users who want to find out about Blaze invocation.
@@ -234,7 +239,51 @@ public class BlazeCommandDispatcher {
           "Command '%s' not found. Try '%s help'.", commandName, Constants.PRODUCT_NAME));
       return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
     }
+
+
+    synchronized (commandLock) {
+      if (currentClientDescription != null) {
+        switch (lockingMode) {
+          case WAIT:
+            outErr.printErrLn("Another command (" + currentClientDescription + ") is running. "
+                + " Waiting for it to complete...");
+            commandLock.wait();
+            break;
+
+          case ERROR_OUT:
+            outErr.printErrLn(String.format("Another command (" + currentClientDescription + ") is "
+                + "running. Exiting immediately."));
+            return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
+
+          default:
+            throw new IllegalStateException();
+        }
+      }
+      Verify.verify(currentClientDescription == null);
+      currentClientDescription = clientDescription;
+    }
+
+    try {
+      return execExclusively(args, outErr, firstContactTime, commandName, command);
+    } finally {
+      synchronized (commandLock) {
+        currentClientDescription = null;
+        commandLock.notify();
+      }
+    }
+  }
+
+  private int execExclusively(List<String> args, OutErr outErr, long firstContactTime,
+      String commandName, BlazeCommand command) throws ShutdownBlazeServerException {
     Command commandAnnotation = command.getClass().getAnnotation(Command.class);
+
+    // Record the start time for the profiler. Do not put anything before this!
+    long execStartTimeNanos = runtime.getClock().nanoTime();
+
+    // The initCommand call also records the start time for the timestamp granularity monitor.
+    CommandEnvironment env = runtime.getWorkspace().initCommand();
+    // Record the command's starting time for use by the commands themselves.
+    env.recordCommandStartTime(firstContactTime);
 
     AbruptExitException exitCausingException = null;
     for (BlazeModule module : runtime.getBlazeModules()) {
@@ -410,12 +459,14 @@ public class BlazeCommandDispatcher {
   }
 
   /**
-   * For testing ONLY. Same as {@link #exec(List, OutErr, long)}, but automatically uses the current
-   * time.
+   * For testing ONLY. Same as {@link #exec(List, OutErr, boolean, String, long)}, but automatically
+   * uses the current time.
    */
   @VisibleForTesting
-  public int exec(List<String> args, OutErr originalOutErr) throws ShutdownBlazeServerException {
-    return exec(args, originalOutErr, runtime.getClock().currentTimeMillis());
+  public int exec(List<String> args, LockingMode lockingMode, String clientDescription,
+      OutErr originalOutErr) throws ShutdownBlazeServerException, InterruptedException {
+    return exec(args, originalOutErr, LockingMode.ERROR_OUT, clientDescription,
+        runtime.getClock().currentTimeMillis());
   }
 
   /**

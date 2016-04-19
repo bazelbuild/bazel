@@ -22,6 +22,7 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
+import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownBlazeServerException;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -141,7 +142,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
     List<String> cmdLine = Lists.newArrayList("reportnum");
     cmdLine.addAll(blazercOpts);
 
-    dispatch.exec(cmdLine, outErr);
+    dispatch.exec(cmdLine, LockingMode.ERROR_OUT, "test", outErr);
     String out = outErr.outAsLatin1();
     assertEquals("Common options should be used", "99", out);
   }
@@ -158,7 +159,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
     List<String> cmdLine = Lists.newArrayList("reportnum");
     cmdLine.addAll(blazercOpts);
 
-    dispatch.exec(cmdLine, outErr);
+    dispatch.exec(cmdLine, LockingMode.ERROR_OUT, "test", outErr);
     String out = outErr.outAsLatin1();
     assertEquals("Specific options should dominate common options", "42", out);
   }
@@ -175,7 +176,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
     List<String> cmdLine = Lists.newArrayList("reportnum");
     cmdLine.addAll(blazercOpts);
 
-    dispatch.exec(cmdLine, outErr);
+    dispatch.exec(cmdLine, LockingMode.ERROR_OUT, "test", outErr);
     String out = outErr.outAsLatin1();
     assertEquals("Specific options should dominate common options", "42", out);
   }
@@ -193,7 +194,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
     List<String> cmdLine = Lists.newArrayList("reportall");
     cmdLine.addAll(blazercOpts);
 
-    dispatch.exec(cmdLine, outErr);
+    dispatch.exec(cmdLine, LockingMode.ERROR_OUT, "test", outErr);
     String out = outErr.outAsLatin1();
     assertEquals("Options should get accumulated over different rc files", "99 foo", out);
   }
@@ -212,7 +213,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
     List<String> cmdLine = Lists.newArrayList("reportall");
     cmdLine.addAll(blazercOpts);
 
-    dispatch.exec(cmdLine, outErr);
+    dispatch.exec(cmdLine, LockingMode.ERROR_OUT, "test", outErr);
     String out = outErr.outAsLatin1();
     assertEquals("The more specific rc-file should override", "99 foo", out);
   }
@@ -231,7 +232,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
     List<String> cmdLine = Lists.newArrayList("reportall");
     cmdLine.addAll(blazercOpts);
 
-    dispatch.exec(cmdLine, outErr);
+    dispatch.exec(cmdLine, LockingMode.ERROR_OUT, "test", outErr);
     String out = outErr.outAsLatin1();
     assertEquals("The more specific rc-file should override irrespective of name", "99 foo", out);
   }
@@ -259,7 +260,7 @@ public class BlazeCommandDispatcherRcoptionsTest {
       List<String> orderedOpts = ImmutableList.copyOf(Iterables.concat(e));
       cmdLine.addAll(orderedOpts);
 
-      dispatch.exec(cmdLine, outErr);
+      dispatch.exec(cmdLine, LockingMode.ERROR_OUT, "test", outErr);
       String out = outErr.outAsLatin1();
       assertEquals(
           String.format(

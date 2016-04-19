@@ -247,4 +247,12 @@ public class CommonCommandOptions extends OptionsBase {
       category = "hidden",
       help = "Enable processing of +<file> parameters.")
   public boolean allowProjectFiles;
+
+  @Option(name = "block_for_lock",
+      defaultValue = "true",
+      category = "hidden",
+      help = "If set (the default), a command will block if there is another one running. If "
+          + "unset, these commands will immediately return with an error.")
+  public boolean blockForLock;
+
 }

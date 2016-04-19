@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.server;
 
+import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.CommandExecutor;
 import com.google.devtools.build.lib.server.CommandProtos.CancelRequest;
 import com.google.devtools.build.lib.server.CommandProtos.CancelResponse;
@@ -235,7 +236,8 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
   @Override
   public void run(
       RunRequest request, StreamObserver<RunResponse> observer) {
-    if (!request.getCookie().equals(requestCookie)) {
+    if (!request.getCookie().equals(requestCookie)
+        || request.getClientDescription().isEmpty()) {
       observer.onNext(RunResponse.newBuilder()
           .setExitCode(ExitCode.LOCAL_ENVIRONMENTAL_ERROR.getNumericExitCode())
           .build());
@@ -251,13 +253,19 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
           new RpcOutputStream(observer, command.id, StreamType.STDOUT),
           new RpcOutputStream(observer, command.id, StreamType.STDERR));
 
-      exitCode = commandExecutor.exec(request.getArgList(), rpcOutErr, clock.currentTimeMillis());
+      exitCode = commandExecutor.exec(
+          request.getArgList(), rpcOutErr,
+          request.getBlockForLock() ? LockingMode.WAIT : LockingMode.ERROR_OUT,
+          request.getClientDescription(), clock.currentTimeMillis());
+    } catch (InterruptedException e) {
+      exitCode = ExitCode.INTERRUPTED.getNumericExitCode();
+      commandId = "";  // The default value, the client will ignore it
     }
 
     // There is a chance that a cancel request comes in after commandExecutor#exec() has finished
     // and no one calls Thread.interrupted() to receive the interrupt. So we just reset the
     // interruption state here to make these cancel requests not have any effect outside of command
-    // execution.
+    // execution (after the try block above, the cancel request won't find the thread to interrupt)
     Thread.interrupted();
 
     RunResponse response = RunResponse.newBuilder()

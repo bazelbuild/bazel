@@ -26,6 +26,8 @@ message RunRequest {
   // This must be the request cookie from the output base. A rudimentary form of authentication.
   string cookie = 1;
   repeated string arg = 2;
+  bool block_for_lock = 3;  // If false, the client won't wait for another client to finish
+  string client_description = 4;
 }
 
 message RunResponse {

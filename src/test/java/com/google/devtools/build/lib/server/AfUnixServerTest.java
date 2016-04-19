@@ -13,11 +13,13 @@
 // limitations under the License.
 
 package com.google.devtools.build.lib.server;
+
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
+import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.JavaClock;
@@ -64,7 +66,8 @@ public class AfUnixServerTest {
 
   private static final ServerCommand helloWorldCommand = new ServerCommand() {
     @Override
-    public int exec(List<String> args, OutErr outErr, long firstContactTime) throws Exception {
+    public int exec(List<String> args, OutErr outErr, LockingMode lockingMode,
+        String clientDescription, long firstContactTime) {
       outErr.printOut(COMMAND_STDOUT);
       outErr.printErr(COMMAND_STDERR);
       return 42;

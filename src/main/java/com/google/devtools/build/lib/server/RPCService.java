@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.server;
 
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.util.io.OutErr;
 
 import java.util.List;
@@ -62,7 +63,11 @@ public final class RPCService {
     }
     String command = Iterables.getFirst(request, "");
     if (appCommand != null && command.equals("blaze")) { // an application request
-      int result = appCommand.exec(request.subList(1, request.size()), outErr, firstContactTime);
+      // Blocking is done in the client for AF_UNIX communications, so if blockForLock would block,
+      // something went wrong
+      int result = appCommand.exec(
+          request.subList(1, request.size()), outErr, LockingMode.ERROR_OUT, "AF_UNIX client",
+          firstContactTime);
       if (appCommand.shutdown()) { // an application shutdown request
         shutdown();
       }

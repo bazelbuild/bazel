@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.query2.AbstractBlazeQueryEnvironment;
 import com.google.devtools.build.lib.query2.QueryEnvironmentFactory;
 import com.google.devtools.build.lib.query2.output.OutputFormatter;
 import com.google.devtools.build.lib.rules.test.CoverageReportActionFactory;
+import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.commands.CanonicalizeCommand;
 import com.google.devtools.build.lib.runtime.commands.CleanCommand;
@@ -820,9 +821,12 @@ public final class BlazeRuntime {
     try {
       LOG.info(getRequestLogString(commandLineOptions.getOtherArgs()));
       return dispatcher.exec(commandLineOptions.getOtherArgs(), OutErr.SYSTEM_OUT_ERR,
-          runtime.getClock().currentTimeMillis());
+          LockingMode.ERROR_OUT, "batch client", runtime.getClock().currentTimeMillis());
     } catch (BlazeCommandDispatcher.ShutdownBlazeServerException e) {
       return e.getExitStatus();
+    } catch (InterruptedException e) {
+      // This is almost main(), so it's okay to just swallow it. We are exiting soon.
+      return ExitCode.INTERRUPTED.getNumericExitCode();
     } finally {
       runtime.shutdown();
       dispatcher.shutdown();
