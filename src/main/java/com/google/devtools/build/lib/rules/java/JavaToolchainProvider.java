@@ -41,40 +41,40 @@ public final class JavaToolchainProvider implements TransitiveInfoProvider {
 
   private final String sourceVersion;
   private final String targetVersion;
-  @Nullable private final NestedSet<Artifact> bootclasspath;
-  @Nullable private final NestedSet<Artifact> extclasspath;
+  private final NestedSet<Artifact> bootclasspath;
+  private final NestedSet<Artifact> extclasspath;
   private final String encoding;
   private final ImmutableList<String> javacOptions;
   private final ImmutableList<String> javacJvmOptions;
-  @Nullable private final Artifact javac;
-  @Nullable private final Artifact javaBuilder;
-  @Nullable private final Artifact headerCompiler;
+  private final Artifact javac;
+  private final Artifact javaBuilder;
+  private final Artifact headerCompiler;
   @Nullable private final Artifact singleJar;
-  @Nullable private final Artifact genClass;
-  @Nullable private final FilesToRunProvider ijar;
+  private final Artifact genClass;
+  private final FilesToRunProvider ijar;
 
   public JavaToolchainProvider(
       JavaToolchainData data,
-      @Nullable NestedSet<Artifact> bootclasspath,
-      @Nullable NestedSet<Artifact> extclasspath,
+      NestedSet<Artifact> bootclasspath,
+      NestedSet<Artifact> extclasspath,
       List<String> defaultJavacFlags,
-      @Nullable Artifact javac,
-      @Nullable Artifact javaBuilder,
+      Artifact javac,
+      Artifact javaBuilder,
       @Nullable Artifact headerCompiler,
-      @Nullable Artifact singleJar,
-      @Nullable Artifact genClass,
-      @Nullable FilesToRunProvider ijar) {
+      Artifact singleJar,
+      Artifact genClass,
+      FilesToRunProvider ijar) {
     this.sourceVersion = checkNotNull(data.getSourceVersion(), "sourceVersion must not be null");
     this.targetVersion = checkNotNull(data.getTargetVersion(), "targetVersion must not be null");
-    this.bootclasspath = bootclasspath;
-    this.extclasspath = extclasspath;
+    this.bootclasspath = checkNotNull(bootclasspath, "bootclasspath must not be null");
+    this.extclasspath = checkNotNull(extclasspath, "extclasspath must not be null");
     this.encoding = checkNotNull(data.getEncoding(), "encoding must not be null");
-    this.javac = javac;
-    this.javaBuilder = javaBuilder;
+    this.javac = checkNotNull(javac, "javac must not be null");
+    this.javaBuilder = checkNotNull(javaBuilder, "javaBuilder must not be null");
     this.headerCompiler = headerCompiler;
-    this.singleJar = singleJar;
-    this.genClass = genClass;
-    this.ijar = ijar;
+    this.singleJar = checkNotNull(singleJar, "singleJar must not be null");
+    this.genClass = checkNotNull(genClass, "genClass must not be null");
+    this.ijar = checkNotNull(ijar, "ijar must not be null");
 
     // merges the defaultJavacFlags from
     // {@link JavaConfiguration} with the flags from the {@code java_toolchain} rule.
