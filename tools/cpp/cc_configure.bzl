@@ -103,7 +103,9 @@ def _get_cpu_value(repository_ctx):
     return "freebsd"
   if os_name.find("windows") != -1:
     return "x64_windows"
-  return "k8"
+  # Use uname to figure out whether we are on x86_32 or x86_64
+  result = repository_ctx.execute(["uname", "-m"])
+  return "piii" if result.stdout == "i386" else "k8"
 
 
 _INC_DIR_MARKER_BEGIN = "#include <...> search starts here:"
