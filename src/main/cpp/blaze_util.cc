@@ -63,9 +63,10 @@ string GetUserName() {
 // If called from working directory "/bar":
 //   MakeAbsolute("foo") --> "/bar/foo"
 //   MakeAbsolute("/foo") ---> "/foo"
+//   MakeAbsolute("C:/foo") ---> "C:/foo"
 string MakeAbsolute(const string &path) {
   // Check if path is already absolute.
-  if (path.empty() || path[0] == '/') {
+  if (path.empty() || path[0] == '/' || (isalpha(path[0]) && path[1] == ':')) {
     return path;
   }
 

@@ -32,8 +32,22 @@ echo "bazel binary is at $bazel"
 # Here we unset variable that were set by the invoking Blaze instance
 unset JAVA_RUNFILES
 
+function is_windows() {
+  # On windows, the shell test actually running on msys
+  if [ "${PLATFORM}" == "msys_nt-6.1" ]; then
+    true
+  else
+    false
+  fi
+}
+
 function setup_bazelrc() {
+  # enable batch mode when running on windows
+  if is_windows; then
+    BATCH_MODE="startup --batch"
+  fi
   cat >$TEST_TMPDIR/bazelrc <<EOF
+${BATCH_MODE:-}
 startup --output_user_root=${bazel_root}
 startup --host_javabase=${bazel_javabase}
 build -j 8
@@ -380,6 +394,9 @@ function setup_clean_workspace() {
   export BAZEL_INSTALL_BASE=$(bazel info install_base)
   export BAZEL_GENFILES_DIR=$(bazel info bazel-genfiles)
   export BAZEL_BIN_DIR=$(bazel info bazel-bin)
+  if is_windows; then
+    export BAZEL_SH="$(cygpath --windows /bin/bash)"
+  fi
 }
 
 # Clean up all files that are not in tools directories, to restart
