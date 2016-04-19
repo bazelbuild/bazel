@@ -603,7 +603,7 @@ public class CcToolchainFeaturesTest {
                 "}")
             .getFeatureConfiguration("activates-action-a");
     PathFragment crosstoolPath = new PathFragment("crosstool/");
-    PathFragment toolPath = configuration.getToolPathFragmentForAction("action-a", crosstoolPath);
+    PathFragment toolPath = configuration.getToolForAction("action-a").getToolPath(crosstoolPath);
     assertThat(toolPath.toString()).isEqualTo("crosstool/toolchain/a");
   }
 
@@ -650,7 +650,8 @@ public class CcToolchainFeaturesTest {
         toolchainFeatures.getFeatureConfiguration("feature-a", "activates-action-a");
     assertThat(
             featureAConfiguration
-                .getToolPathFragmentForAction("action-a", crosstoolPath)
+                .getToolForAction("action-a")
+                .getToolPath(crosstoolPath)
                 .toString())
         .isEqualTo("crosstool/toolchain/feature-a");
 
@@ -658,7 +659,8 @@ public class CcToolchainFeaturesTest {
         toolchainFeatures.getFeatureConfiguration("feature-b", "activates-action-a");
     assertThat(
             featureBConfiguration
-                .getToolPathFragmentForAction("action-a", crosstoolPath)
+                .getToolForAction("action-a")
+                .getToolPath(crosstoolPath)
                 .toString())
         .isEqualTo("crosstool/toolchain/feature-b");
 
@@ -666,7 +668,8 @@ public class CcToolchainFeaturesTest {
         toolchainFeatures.getFeatureConfiguration("feature-a", "feature-b", "activates-action-a");
     assertThat(
             featureAAndBConfiguration
-                .getToolPathFragmentForAction("action-a", crosstoolPath)
+                .getToolForAction("action-a")
+                .getToolPath(crosstoolPath)
                 .toString())
         .isEqualTo("crosstool/toolchain/features-a-and-b");
 
@@ -674,7 +677,8 @@ public class CcToolchainFeaturesTest {
         toolchainFeatures.getFeatureConfiguration("activates-action-a");
     assertThat(
             noFeaturesConfiguration
-                .getToolPathFragmentForAction("action-a", crosstoolPath)
+                .getToolForAction("action-a")
+                .getToolPath(crosstoolPath)
                 .toString())
         .isEqualTo("crosstool/toolchain/default");
   }
@@ -705,7 +709,7 @@ public class CcToolchainFeaturesTest {
         toolchainFeatures.getFeatureConfiguration("activates-action-a");
 
     try {
-      noFeaturesConfiguration.getToolPathFragmentForAction("action-a", crosstoolPath);
+      noFeaturesConfiguration.getToolForAction("action-a").getToolPath(crosstoolPath);
       fail("Expected IllegalArgumentException");
     } catch (IllegalArgumentException e) {
       assertThat(e.getMessage())

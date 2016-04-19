@@ -520,6 +520,7 @@ public class CcToolchainFeatures implements Serializable {
         flagSetBuilder.add(new FlagSet(flagSet));
       }
       this.flagSets = flagSetBuilder.build();
+      
       ImmutableList.Builder<EnvSet> envSetBuilder = ImmutableList.builder();
       for (CToolchain.EnvSet flagSet : feature.getEnvSetList()) {
         envSetBuilder.add(new EnvSet(flagSet));
@@ -532,8 +533,11 @@ public class CcToolchainFeatures implements Serializable {
       return name;
     }
 
-    private void expandEnvironment(String action, Variables variables,
-        ImmutableMap.Builder<String, String> envBuilder) {
+    /**
+     * Adds environment variables for the given action to the provided builder.
+     */
+    private void expandEnvironment(
+        String action, Variables variables, ImmutableMap.Builder<String, String> envBuilder) {
       for (EnvSet envSet : envSets) {
         envSet.expandEnvironment(action, variables, envBuilder);
       }
@@ -550,6 +554,42 @@ public class CcToolchainFeatures implements Serializable {
     }
   }
 
+  /**
+   * An executable to be invoked by a blaze action.  Can carry information on its platform
+   * restrictions.
+   */
+  @Immutable
+  static class Tool {
+    private final String toolPathString;
+    private final ImmutableSet<String> executionRequirements;
+
+    private Tool(CToolchain.Tool tool) {
+      toolPathString = tool.getToolPath();
+      executionRequirements = ImmutableSet.copyOf(tool.getExecutionRequirementList());
+    }
+
+    @VisibleForTesting
+    public Tool(String toolPathString, ImmutableSet<String> executionRequirements) {
+      this.toolPathString = toolPathString;
+      this.executionRequirements = executionRequirements;
+    }
+
+    /**
+     * Returns the path to this action's tool relative to the provided crosstool path.
+     */
+    PathFragment getToolPath(PathFragment crosstoolTopPathFragment) {
+      return crosstoolTopPathFragment.getRelative(toolPathString);
+    }
+
+    /**
+     * Returns a list of requirement hints that apply to the execution of this tool.
+     */
+    ImmutableSet<String> getExecutionRequirements() {
+      return executionRequirements;
+    }
+  }
+  
+  
   /**
    * A container for information on a particular blaze action. 
    * 
@@ -597,9 +637,8 @@ public class CcToolchainFeatures implements Serializable {
      * Returns the path to this action's tool relative to the provided crosstool path given a set
      * of enabled features.
      */
-    private PathFragment getTool(
-        PathFragment crosstoolTopPathFragment, final Set<String> enabledFeatureNames) {
-      Optional<Tool> tool =
+    private Tool getTool(final Set<String> enabledFeatureNames) {
+      Optional<CToolchain.Tool> tool =
           Iterables.tryFind(
               tools,
               new Predicate<CToolchain.Tool>() {
@@ -612,7 +651,7 @@ public class CcToolchainFeatures implements Serializable {
                 }
               });
       if (tool.isPresent()) {
-        return crosstoolTopPathFragment.getRelative(tool.get().getToolPath());
+        return new Tool(tool.get());
       } else {
         throw new IllegalArgumentException(
             "Matching tool for action "
@@ -968,7 +1007,7 @@ public class CcToolchainFeatures implements Serializable {
   public static class FeatureConfiguration {
     private final ImmutableSet<String> enabledFeatureNames;
     private final Iterable<Feature> enabledFeatures;
-
+    
     private final ImmutableMap<String, ActionConfig> actionConfigByActionName;
     
     public FeatureConfiguration() {
@@ -983,6 +1022,7 @@ public class CcToolchainFeatures implements Serializable {
         Iterable<ActionConfig> enabledActionConfigs,
         ImmutableMap<String, ActionConfig> actionConfigByActionName) {
       this.enabledFeatures = enabledFeatures;
+      
       this.actionConfigByActionName = actionConfigByActionName;
       ImmutableSet.Builder<String> featureBuilder = ImmutableSet.builder();
       for (Feature feature : enabledFeatures) {
@@ -1004,6 +1044,13 @@ public class CcToolchainFeatures implements Serializable {
     }
 
     /**
+     * @return whether an action config for the blaze action with the given name is enabled.
+     */
+    boolean actionIsConfigured(String actionName) {
+      return actionConfigByActionName.containsKey(actionName);
+    }
+    
+    /**
      * @return the command line for the given {@code action}.
      */
     List<String> getCommandLine(String action, Variables variables) {
@@ -1024,19 +1071,17 @@ public class CcToolchainFeatures implements Serializable {
       }
       return envBuilder.build();
     }
-    
+  
     /**
-     * Returns the path to the given action's tool under this FeatureConfiguration relative to the
-     * crosstool.
+     * Returns a given action's tool under this FeatureConfiguration.
      */
-    PathFragment getToolPathFragmentForAction(
-        final String actionName, PathFragment crosstoolTopPathFragment) {
+    Tool getToolForAction(String actionName) {
       Preconditions.checkArgument(
           actionConfigByActionName.containsKey(actionName),
           "Action %s does not have an enabled configuration in the toolchain.",
           actionName);
       ActionConfig actionConfig = actionConfigByActionName.get(actionName);
-      return actionConfig.getTool(crosstoolTopPathFragment, enabledFeatureNames);
+      return actionConfig.getTool(enabledFeatureNames);
     }
   }
   
