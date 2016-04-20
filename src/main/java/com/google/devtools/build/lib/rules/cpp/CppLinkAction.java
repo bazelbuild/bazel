@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
-import com.google.devtools.build.lib.analysis.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.collect.CollectionUtils;
@@ -51,7 +50,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.RuleErrorConsumer;
-import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -78,7 +76,7 @@ import javax.annotation.Nullable;
  * Action that represents a linking step.
  */
 @ThreadCompatible
-public final class CppLinkAction extends AbstractAction implements ExecutionInfoSpecifier {
+public final class CppLinkAction extends AbstractAction {
   /**
    * An abstraction for creating intermediate and output artifacts for C++ linking.
    *
@@ -109,16 +107,10 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
   private static final String LINK_GUID = "58ec78bd-1176-4e36-8143-439f656b181d";
   private static final String FAKE_LINK_GUID = "da36f819-5a15-43a9-8a45-e01b60e10c8b";
 
-  /**
-   * The name of this action for the purpose of crosstool features/action_configs
-   */
-  private static final String ACTION_NAME = "cpp-link";
-  
   private final CppConfiguration cppConfiguration;
   private final LibraryToLink outputLibrary;
   private final LibraryToLink interfaceOutputLibrary;
-  private final ImmutableSet<String> executionRequirements;
-  
+
   private final LinkCommandLine linkCommandLine;
 
   /** True for cc_fake_binary targets. */
@@ -163,8 +155,7 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
       boolean fake,
       boolean isLTOIndexing,
       Iterable<LTOBackendArtifacts> allLTOBackendArtifacts,
-      LinkCommandLine linkCommandLine,
-      ImmutableSet<String> executionRequirements) {
+      LinkCommandLine linkCommandLine) {
     super(owner, inputs, outputs);
     this.mandatoryInputs = inputs;
     this.cppConfiguration = cppConfiguration;
@@ -174,7 +165,6 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
     this.isLTOIndexing = isLTOIndexing;
     this.allLTOBackendArtifacts = allLTOBackendArtifacts;
     this.linkCommandLine = linkCommandLine;
-    this.executionRequirements = executionRequirements;
   }
 
   private static Iterable<LinkerInput> filterLinkerInputs(Iterable<LinkerInput> inputs) {
@@ -253,15 +243,6 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
     return outputLibrary.getArtifact().getPath();
   }
 
-  @Override
-  public Map<String, String> getExecutionInfo() {
-    ImmutableMap.Builder<String, String> result = ImmutableMap.<String, String>builder();
-    for (String requirement : executionRequirements) {
-      result.put(requirement, "");
-    }
-    return result.build();
-  }
-  
   @VisibleForTesting
   public List<String> getRawLinkArgv() {
     return linkCommandLine.getRawLinkArgv();
@@ -424,8 +405,6 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
     f.addString(fake ? FAKE_LINK_GUID : LINK_GUID);
     f.addString(getCppConfiguration().getLdExecutable().getPathString());
     f.addStrings(linkCommandLine.arguments());
-    f.addStrings(executionRequirements);
-
     // TODO(bazel-team): For correctness, we need to ensure the invariant that all values accessed
     // during the execution phase are also covered by the key. Above, we add the argv to the key,
     // which covers most cases. Unfortunately, the extra action and fake support methods above also
@@ -539,7 +518,6 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
     private PathFragment runtimeSolibDir;
     protected final BuildConfiguration configuration;
     private final CppConfiguration cppConfiguration;
-    private FeatureConfiguration featureConfiguration;
 
     // Morally equivalent with {@link Context}, except these are mutable.
     // Keep these in sync with {@link Context}.
@@ -892,17 +870,6 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
         analysisEnvironment.registerAction(parameterFileWriteAction);
       }
 
-      // If the crosstool uses action_configs to configure cc compilation, collect execution info
-      // from there, otherwise, use no execution info.
-      // TODO(b/27903698): Assert that the crosstool has an action_config for this action.
-      ImmutableSet<String> executionRequirements = ImmutableSet.of();
-      if (featureConfiguration != null) {
-        if (featureConfiguration.actionIsConfigured(ACTION_NAME)) {
-          executionRequirements =
-              featureConfiguration.getToolForAction(ACTION_NAME).getExecutionRequirements();
-        }
-      }
-
       return new CppLinkAction(
           getOwner(),
           inputsBuilder.deduplicate().build(),
@@ -913,8 +880,7 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
           fake,
           isLTOIndexing,
           allLTOArtifacts,
-          linkCommandLine,
-          executionRequirements);
+          linkCommandLine);
     }
 
     /**
@@ -986,14 +952,6 @@ public final class CppLinkAction extends AbstractAction implements ExecutionInfo
      */
     public Builder setCrosstoolInputs(NestedSet<Artifact> inputs) {
       this.crosstoolInputs = inputs;
-      return this;
-    }
-    
-    /**
-     * Sets the feature configuration for the action.
-     */
-    public Builder setFeatureConfiguration(FeatureConfiguration featureConfiguration) {
-      this.featureConfiguration = featureConfiguration;
       return this;
     }
 

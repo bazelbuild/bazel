@@ -20,7 +20,6 @@ import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -243,39 +242,6 @@ public class CppCompileActionBuilder {
         Predicates.notNull());
   }
 
-  private String getActionName() {
-    PathFragment sourcePath = sourceFile.getExecPath();
-    if (CppFileTypes.CPP_MODULE_MAP.matches(sourcePath)) {
-      return CppCompileAction.CPP_MODULE_COMPILE;
-    } else if (CppFileTypes.CPP_HEADER.matches(sourcePath)) {
-      // TODO(bazel-team): Handle C headers that probably don't work in C++ mode.
-      if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)) {
-        return CppCompileAction.CPP_HEADER_PARSING;
-      } else if (featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)) {
-        return CppCompileAction.CPP_HEADER_PREPROCESSING;
-      } else {
-        // CcCommon.collectCAndCppSources() ensures we do not add headers to
-        // the compilation artifacts unless either 'parse_headers' or
-        // 'preprocess_headers' is set.
-        throw new IllegalStateException();
-      }
-    } else if (CppFileTypes.C_SOURCE.matches(sourcePath)) {
-      return CppCompileAction.C_COMPILE;
-    } else if (CppFileTypes.CPP_SOURCE.matches(sourcePath)) {
-      return CppCompileAction.CPP_COMPILE;
-    } else if (CppFileTypes.OBJC_SOURCE.matches(sourcePath)) {
-      return CppCompileAction.OBJC_COMPILE;
-    } else if (CppFileTypes.OBJCPP_SOURCE.matches(sourcePath)) {
-      return CppCompileAction.OBJCPP_COMPILE;
-    } else if (CppFileTypes.ASSEMBLER.matches(sourcePath)) {
-      return CppCompileAction.ASSEMBLE;
-    } else if (CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR.matches(sourcePath)) {
-      return CppCompileAction.PREPROCESS_ASSEMBLE;
-    }
-    // CcLibraryHelper ensures CppCompileAction only gets instantiated for supported file types.
-    throw new IllegalStateException();
-  }
-
   /**
    * Builds the Action as configured and returns the to be generated Artifact.
    *
@@ -300,15 +266,6 @@ public class CppCompileActionBuilder {
     realMandatoryInputsBuilder.add(sourceFile);
     boolean fake = tempOutputFile != null;
 
-    // If the crosstool uses action_configs to configure cc compilation, collect execution info
-    // from there, otherwise, use no execution info.
-    // TODO(b/27903698): Assert that the crosstool has an action_config for this action.
-    ImmutableSet<String> executionRequirements = ImmutableSet.of();
-    if (featureConfiguration.actionIsConfigured(getActionName())) {
-      executionRequirements =
-          featureConfiguration.getToolForAction(getActionName()).getExecutionRequirements();
-    }
-    
     // Copying the collections is needed to make the builder reusable.
     if (fake) {
       return new FakeCppCompileAction(owner, ImmutableList.copyOf(features), featureConfiguration,
@@ -348,8 +305,6 @@ public class CppCompileActionBuilder {
           getLipoScannables(realMandatoryInputs),
           actionClassId,
           usePic,
-          executionRequirements,
-          getActionName(),
           ruleContext);
     }
   }

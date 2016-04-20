@@ -300,7 +300,6 @@ public final class CppModel {
     builder.setExtraSystemIncludePrefixes(additionalIncludes);
     builder.setFdoBuildStamp(CppHelper.getFdoBuildStamp(ruleContext));
     builder.setFeatureConfiguration(featureConfiguration);
-    
     return builder;
   }
 
@@ -642,7 +641,6 @@ public final class CppModel {
             .addLTOBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
             .setLinkType(linkType)
             .setLinkStaticness(LinkStaticness.FULLY_STATIC)
-            .setFeatureConfiguration(featureConfiguration)
             .build();
     env.registerAction(maybePicAction);
     result.addStaticLibrary(maybePicAction.getOutputLibrary());
@@ -663,7 +661,6 @@ public final class CppModel {
               .addLTOBitcodeFiles(ccOutputs.getLtoBitcodeFiles())
               .setLinkType(picLinkType)
               .setLinkStaticness(LinkStaticness.FULLY_STATIC)
-              .setFeatureConfiguration(featureConfiguration)
               .build();
       env.registerAction(picAction);
       result.addPicStaticLibrary(picAction.getOutputLibrary());
@@ -692,20 +689,18 @@ public final class CppModel {
 
     // Should we also link in any libraries that this library depends on?
     // That is required on some systems...
-    CppLinkAction action =
-        newLinkActionBuilder(soImpl)
-            .setInterfaceOutput(soInterface)
-            .addNonLibraryInputs(ccOutputs.getObjectFiles(usePicForSharedLibs))
-            .addNonLibraryInputs(ccOutputs.getHeaderTokenFiles())
-            .setLinkType(LinkTargetType.DYNAMIC_LIBRARY)
-            .setLinkStaticness(LinkStaticness.DYNAMIC)
-            .addLinkopts(linkopts)
-            .addLinkopts(sonameLinkopts)
-            .setRuntimeInputs(
-                CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkMiddleman(),
-                CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkInputs())
-            .setFeatureConfiguration(featureConfiguration)
-            .build();
+    CppLinkAction action = newLinkActionBuilder(soImpl)
+        .setInterfaceOutput(soInterface)
+        .addNonLibraryInputs(ccOutputs.getObjectFiles(usePicForSharedLibs))
+        .addNonLibraryInputs(ccOutputs.getHeaderTokenFiles())
+        .setLinkType(LinkTargetType.DYNAMIC_LIBRARY)
+        .setLinkStaticness(LinkStaticness.DYNAMIC)
+        .addLinkopts(linkopts)
+        .addLinkopts(sonameLinkopts)
+        .setRuntimeInputs(
+            CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkMiddleman(),
+            CppHelper.getToolchain(ruleContext).getDynamicRuntimeLinkInputs())
+        .build();
     env.registerAction(action);
 
     LibraryToLink dynamicLibrary = action.getOutputLibrary();
