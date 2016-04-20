@@ -70,7 +70,7 @@ public class RepositoryLoaderFunction implements SkyFunction {
       env.getListener().handle(Event.warn(Location.fromFile(workspacePath),
           "Workspace name in " + workspacePath + " (" + workspaceName + ") does not match the "
               + "name given in the repository's definition (" + nameFromRule + "); this will "
-              + "cause a build error in future versions."));
+              + "cause a build error in future versions"));
     }
 
     return new RepositoryValue(nameFromRule, repository);
