@@ -143,6 +143,7 @@ static void InitGlobals() {
 // Logic
 
 
+#if !defined(__CYGWIN__)
 // Returns the canonical form of the base dir given a root and a hashable
 // string. The resulting dir is composed of the root + md5(hashable)
 static string GetHashedBaseDir(const string &root,
@@ -154,6 +155,7 @@ static string GetHashedBaseDir(const string &root,
   return root + "/" + digest.String();
 }
 
+#else
 // Builds a shorter output base dir name for Windows.
 // This MD5s together user name and workspace directory,
 // and only uses 1/3 of the bits to get 8-char alphanumeric
@@ -180,6 +182,7 @@ static string GetHashedBaseDirForWindows(const string &root,
   coded_name[filename_length] = '\0';
   return root + "/" + product_name + "/" + string(coded_name);
 }
+#endif
 
 
 // A devtools_ijar::ZipExtractorProcessor to extract the InstallKeyFile
