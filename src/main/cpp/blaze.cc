@@ -110,9 +110,6 @@ class BlazeServer {
 };
 
 class AfUnixBlazeServer : public BlazeServer {
- private:
-  int server_socket;
-
  public:
   AfUnixBlazeServer();
   virtual ~AfUnixBlazeServer() {}
@@ -121,7 +118,37 @@ class AfUnixBlazeServer : public BlazeServer {
   void Disconnect() override;
   void Communicate() override;
   void Cancel() override;
+
+ private:
+  int server_socket_;
 };
+
+class GrpcBlazeServer : public BlazeServer {
+ public:
+  GrpcBlazeServer();
+  virtual ~GrpcBlazeServer() {}
+
+  bool Connect() override;
+  void Disconnect() override;
+  void Communicate() override;
+  void Cancel() override;
+
+ private:
+  enum CancelThreadAction { NOTHING, JOIN, CANCEL };
+
+  std::unique_ptr<command_server::CommandServer::Stub> client_;
+  std::string request_cookie_;
+  std::string response_cookie_;
+  std::string command_id_;
+
+  std::condition_variable cancel_thread_signal_;
+  // protects command_id_ and cancel_thread_action_
+  std::mutex cancel_thread_mutex_;
+  CancelThreadAction cancel_thread_action_;
+
+  void CancelThread();
+};
+
 
 ////////////////////////////////////////////////////////////////////////
 // Global Variables
@@ -558,32 +585,6 @@ static int StartServer() {
   return -1;
 }
 
-class GrpcBlazeServer : public BlazeServer {
- private:
-  enum CancelThreadAction { NOTHING, JOIN, CANCEL };
-
-  std::unique_ptr<command_server::CommandServer::Stub> client;
-
-  std::string request_cookie;
-  std::string response_cookie;
-  std::string command_id;
-
-  std::condition_variable cancel_thread_signal;
-  // protects command_id and cancel_thread_action
-  std::mutex cancel_thread_mutex;
-  CancelThreadAction cancel_thread_action;
-  void CancelThread();
-
- public:
-  GrpcBlazeServer();
-  virtual ~GrpcBlazeServer() {}
-
-  bool Connect() override;
-  void Disconnect() override;
-  void Communicate() override;
-  void Cancel() override;
-};
-
 static bool KillRunningServerIfAny(BlazeServer *server);
 
 // Replace this process with blaze in standalone/batch mode.
@@ -634,18 +635,18 @@ static void StartStandalone(BlazeServer* server) {
 }
 
 AfUnixBlazeServer::AfUnixBlazeServer() {
-  server_socket = -1;
+  server_socket_ = -1;
 }
 
 bool AfUnixBlazeServer::Connect() {
-  if (server_socket == -1) {
-    server_socket = socket(PF_UNIX, SOCK_STREAM, 0);
-    if (server_socket == -1)  {
+  if (server_socket_ == -1) {
+    server_socket_ = socket(PF_UNIX, SOCK_STREAM, 0);
+    if (server_socket_ == -1)  {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "can't create AF_UNIX socket");
     }
 
-    if (fcntl(server_socket, F_SETFD, FD_CLOEXEC) == -1) {
+    if (fcntl(server_socket_, F_SETFD, FD_CLOEXEC) == -1) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "fcntl(F_SETFD, FD_CLOEXEC) failed");
     }
@@ -661,7 +662,7 @@ bool AfUnixBlazeServer::Connect() {
     addr.sun_path[sizeof addr.sun_path - 1] = '\0';
     free(resolved_path);
     sockaddr *paddr = reinterpret_cast<sockaddr *>(&addr);
-    int result = connect(server_socket, paddr, sizeof addr);
+    int result = connect(server_socket_, paddr, sizeof addr);
     return result == 0;
   } else if (errno == ENOENT) {  // No socket means no server to connect to
     errno = ECONNREFUSED;
@@ -674,11 +675,11 @@ bool AfUnixBlazeServer::Connect() {
 }
 
 void AfUnixBlazeServer::Disconnect() {
-  close(server_socket);
-  server_socket = -1;
+  close(server_socket_);
+  server_socket_ = -1;
 }
 
-static ATTRIBUTE_NORETURN void server_eof() {
+static ATTRIBUTE_NORETURN void ServerEof() {
   // e.g. external SIGKILL of server, misplaced System.exit() in the server,
   // or a JVM crash. Print out the jvm.out file in case there's something
   // useful.
@@ -690,15 +691,15 @@ static ATTRIBUTE_NORETURN void server_eof() {
 }
 
 // Reads a single char from the specified stream.
-static unsigned char read_server_char(int fd) {
+static unsigned char ReadServerChar(int fd) {
   unsigned char result;
   if (read(fd, &result, 1) != 1) {
-    server_eof();
+    ServerEof();
   }
   return result;
 }
 
-static unsigned int read_server_int(int fd) {
+static unsigned int ReadServerInt(int fd) {
   unsigned char buffer[4];
   unsigned char *p = buffer;
   int remaining = 4;
@@ -706,7 +707,7 @@ static unsigned int read_server_int(int fd) {
   while (remaining > 0) {
     int bytes_read = read(fd, p, remaining);
     if (bytes_read <= 0) {
-      server_eof();
+      ServerEof();
     }
 
     remaining -= bytes_read;
@@ -719,12 +720,12 @@ static unsigned int read_server_int(int fd) {
 static char server_output_buffer[8192];
 
 static void forward_server_output(int socket, int output) {
-  unsigned int remaining = read_server_int(socket);
+  unsigned int remaining = ReadServerInt(socket);
   while (remaining > 0) {
     int bytes = remaining > 8192 ? 8192 : remaining;
     bytes = read(socket, server_output_buffer, bytes);
     if (bytes <= 0) {
-      server_eof();
+      ServerEof();
     }
 
     remaining -= bytes;
@@ -742,11 +743,11 @@ void AfUnixBlazeServer::Communicate() {
   request_size[1] = (request.size() >> 16) & 0xff;
   request_size[2] = (request.size() >> 8) & 0xff;
   request_size[3] = (request.size()) & 0xff;
-  if (write(server_socket, request_size, 4) != 4) {
+  if (write(server_socket_, request_size, 4) != 4) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "write() to server failed");
   }
 
-  if (write(server_socket, request.data(), request.size()) != request.size()) {
+  if (write(server_socket_, request.data(), request.size()) != request.size()) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "write() to server failed");
   }
 
@@ -757,11 +758,11 @@ void AfUnixBlazeServer::Communicate() {
   while (true) {
     fd_set fdset;
     FD_ZERO(&fdset);
-    FD_SET(server_socket, &fdset);
+    FD_SET(server_socket_, &fdset);
     struct timeval timeout;
     timeout.tv_sec = 3;
     timeout.tv_usec = 0;
-    int result = select(server_socket + 1, &fdset, NULL, &fdset, &timeout);
+    int result = select(server_socket_ + 1, &fdset, NULL, &fdset, &timeout);
     if (result > 0) {
       // Data is ready on socket.  Go ahead and read it.
       break;
@@ -787,16 +788,16 @@ void AfUnixBlazeServer::Communicate() {
   const int TAG_CONTROL = 3;
   for (;;) {
     // Read the tag
-    char tag = read_server_char(server_socket);
+    char tag = ReadServerChar(server_socket_);
     switch (tag) {
       // stdout
       case TAG_STDOUT:
-        forward_server_output(server_socket, 1);
+        forward_server_output(server_socket_, 1);
         break;
 
       // stderr
       case TAG_STDERR:
-        forward_server_output(server_socket, 2);
+        forward_server_output(server_socket_, 2);
         break;
 
       // Control stream. Currently only used for reporting the exit code.
@@ -808,18 +809,18 @@ void AfUnixBlazeServer::Communicate() {
           raise(globals->received_signal);
           exit(1);  // (in case raise didn't kill us for some reason)
         } else {
-          unsigned int length = read_server_int(server_socket);
+          unsigned int length = ReadServerInt(server_socket_);
           if (length != 4) {
-            server_eof();
+            ServerEof();
           }
-          unsigned int exit_code = read_server_int(server_socket);
+          unsigned int exit_code = ReadServerInt(server_socket_);
           exit(exit_code);
         }
         break;  // Control never gets here, only for code beauty
 
       default:
         fprintf(stderr, "bad tag %d\n", tag);
-        server_eof();
+        ServerEof();
         break;  // Control never gets here, only for code beauty
     }
   }
@@ -1844,11 +1845,11 @@ bool GrpcBlazeServer::Connect() {
     return false;
   }
 
-  if (!ReadFile(server_dir + "/request_cookie", &request_cookie)) {
+  if (!ReadFile(server_dir + "/request_cookie_", &request_cookie_)) {
     return false;
   }
 
-  if (!ReadFile(server_dir + "/response_cookie", &response_cookie)) {
+  if (!ReadFile(server_dir + "/response_cookie_", &response_cookie_)) {
     return false;
   }
 
@@ -1863,14 +1864,14 @@ bool GrpcBlazeServer::Connect() {
 
   command_server::PingRequest request;
   command_server::PingResponse response;
-  request.set_cookie(request_cookie);
-  grpc::Status status = client->Ping(&context, request, &response);
+  request.set_cookie(request_cookie_);
+  grpc::Status status = client_->Ping(&context, request, &response);
 
   if (!status.ok()) {
     return false;
   }
 
-  this->client = std::move(client);
+  this->client_ = std::move(client);
   return true;
 }
 
@@ -1897,29 +1898,29 @@ bool GrpcBlazeServer::Connect() {
 // to the server)
 void GrpcBlazeServer::CancelThread() {
   bool running = true;
-  std::unique_lock<std::mutex> lock(cancel_thread_mutex);
+  std::unique_lock<std::mutex> lock(cancel_thread_mutex_);
   while (running) {
-    cancel_thread_signal.wait(lock);
-    switch (cancel_thread_action) {
+    cancel_thread_signal_.wait(lock);
+    switch (cancel_thread_action_) {
       case JOIN:
         running = false;
-        cancel_thread_action = NOTHING;
+        cancel_thread_action_ = NOTHING;
         break;
 
       case CANCEL:
         // If we don't know the command ID yet, we'll be woken up when it
         // becomes known.
-        if (command_id.size() > 0) {
+        if (command_id_.size() > 0) {
           command_server::CancelRequest request;
-          request.set_cookie(request_cookie);
-          request.set_command_id(command_id);
+          request.set_cookie(request_cookie_);
+          request.set_command_id(command_id_);
           grpc::ClientContext context;
           context.set_deadline(std::chrono::system_clock::now() +
                                std::chrono::milliseconds(100));
           command_server::CancelResponse response;
           // There isn't a lot we can do if this request fails
-          client->Cancel(&context, request, &response);
-          cancel_thread_action = NOTHING;
+          client_->Cancel(&context, request, &response);
+          cancel_thread_action_ = NOTHING;
         }
         break;
 
@@ -1940,7 +1941,7 @@ void GrpcBlazeServer::Communicate() {
   globals->option_processor.GetCommandArguments(&arg_vector);
 
   command_server::RunRequest request;
-  request.set_cookie(request_cookie);
+  request.set_cookie(request_cookie_);
   request.set_block_for_lock(globals->options.block_for_lock);
   request.set_client_description("pid=" + ToString(getpid()));
   for (const string& arg : arg_vector) {
@@ -1950,9 +1951,9 @@ void GrpcBlazeServer::Communicate() {
   grpc::ClientContext context;
   command_server::RunResponse response;
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
-      client->Run(&context, request));
+      client_->Run(&context, request));
 
-  cancel_thread_action = NOTHING;
+  cancel_thread_action_ = NOTHING;
   std::thread cancel_thread(&GrpcBlazeServer::CancelThread, this);
   bool command_id_set = false;
   while (reader->Read(&response)) {
@@ -1967,19 +1968,19 @@ void GrpcBlazeServer::Communicate() {
     }
 
     if (!command_id_set && response.command_id().size() > 0) {
-      std::unique_lock<std::mutex> lock(cancel_thread_mutex);
-      command_id = response.command_id();
+      std::unique_lock<std::mutex> lock(cancel_thread_mutex_);
+      command_id_ = response.command_id();
       command_id_set = true;
       // Wake up the cancellation thread in case there is a pending cancellation
-      cancel_thread_signal.notify_one();
+      cancel_thread_signal_.notify_one();
     }
   }
 
   {
     // Wake up the cancellation thread so that it can finish
-    std::unique_lock<std::mutex> lock(cancel_thread_mutex);
-    cancel_thread_action = JOIN;
-    cancel_thread_signal.notify_one();
+    std::unique_lock<std::mutex> lock(cancel_thread_mutex_);
+    cancel_thread_action_ = JOIN;
+    cancel_thread_signal_.notify_one();
   }
   cancel_thread.join();
 
@@ -1992,16 +1993,16 @@ void GrpcBlazeServer::Communicate() {
 }
 
 void GrpcBlazeServer::Disconnect() {
-  client.reset();
-  request_cookie = "";
-  response_cookie = "";
+  client_.reset();
+  request_cookie_ = "";
+  response_cookie_ = "";
 }
 
 void GrpcBlazeServer::Cancel() {
-  std::unique_lock<std::mutex> lock(cancel_thread_mutex);
+  std::unique_lock<std::mutex> lock(cancel_thread_mutex_);
   // Wake up the cancellation thread and tell it to issue its RPC
-  cancel_thread_action = CANCEL;
-  cancel_thread_signal.notify_one();
+  cancel_thread_action_ = CANCEL;
+  cancel_thread_signal_.notify_one();
 }
 
 }  // namespace blaze
