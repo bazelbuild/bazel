@@ -345,6 +345,9 @@ public class Path implements Comparable<Path>, Serializable {
       return false;
     }
     Path otherPath = (Path) other;
+    if (hashCode != otherPath.hashCode) {
+      return false;
+    }
     return fileSystem.equals(otherPath.fileSystem) && name.equals(otherPath.name)
         && Objects.equals(parent, otherPath.parent);
   }
