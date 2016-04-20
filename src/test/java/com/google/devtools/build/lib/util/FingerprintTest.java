@@ -134,4 +134,27 @@ public class FingerprintTest {
     assertThat("01cc3eeea3a2f58e447e824f9f62d3d1").isEqualTo(
         new Fingerprint().addPath(p).hexDigestAndReset());
   }
+
+  @Test
+  public void addNullableBoolean() throws Exception {
+    String f1 = new Fingerprint().addNullableBoolean(null).hexDigestAndReset();
+    assertThat(f1).isEqualTo(new Fingerprint().addNullableBoolean(null).hexDigestAndReset());
+    assertThat(f1).isNotEqualTo(new Fingerprint().addNullableBoolean(false).hexDigestAndReset());
+    assertThat(f1).isNotEqualTo(new Fingerprint().addNullableBoolean(true).hexDigestAndReset());
+  }
+
+  @Test
+  public void addNullableInteger() throws Exception {
+    String f1 = new Fingerprint().addNullableInt(null).hexDigestAndReset();
+    assertThat(f1).isEqualTo(new Fingerprint().addNullableInt(null).hexDigestAndReset());
+    assertThat(f1).isNotEqualTo(new Fingerprint().addNullableInt(0).hexDigestAndReset());
+    assertThat(f1).isNotEqualTo(new Fingerprint().addNullableInt(1).hexDigestAndReset());
+  }
+
+  @Test
+  public void addNullableString() throws Exception {
+    String f1 = new Fingerprint().addNullableString(null).hexDigestAndReset();
+    assertThat(f1).isEqualTo(new Fingerprint().addNullableString(null).hexDigestAndReset());
+    assertThat(f1).isNotEqualTo(new Fingerprint().addNullableString("").hexDigestAndReset());
+  }
 }
