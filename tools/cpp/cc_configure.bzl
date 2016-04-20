@@ -105,7 +105,7 @@ def _get_cpu_value(repository_ctx):
     return "x64_windows"
   # Use uname to figure out whether we are on x86_32 or x86_64
   result = repository_ctx.execute(["uname", "-m"])
-  return "piii" if result.stdout == "i386" else "k8"
+  return "piii" if result.stdout.strip() == "i386" else "k8"
 
 
 _INC_DIR_MARKER_BEGIN = "#include <...> search starts here:"
