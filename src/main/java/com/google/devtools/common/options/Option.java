@@ -63,16 +63,10 @@ public @interface Option {
    * "null" is only applicable when computing the default value; if specified
    * on the command-line, this string will have its usual literal meaning.
    *
-   * <p>The default value for flags that set allowMultiple to true should be set with
-   * {@link #defaultMultipleValue()}
+   * <p>The default value for flags that set allowMultiple is always the empty
+   * list and its default value is ignored.
    */
   String defaultValue();
-
-  /**
-   * This method is an extension of {@link #defaultValue()} and it enables setting default values
-   * for flags whose allowMultiple is true. In that case {@link #defaultValue()} is ignored.
-   */
-  String[] defaultMultipleValue() default {};
 
   /**
    * A string describing the category of options that this belongs to. {@link

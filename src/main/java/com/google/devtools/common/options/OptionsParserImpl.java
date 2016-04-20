@@ -774,11 +774,6 @@ class OptionsParserImpl {
     return annotation.defaultValue();
   }
 
-  static String[] getDefaultMultipleOptionString(Field optionField) {
-    Option annotation = optionField.getAnnotation(Option.class);
-    return annotation.defaultMultipleValue();
-  }
-
   static boolean isBooleanField(Field field) {
     return field.getType().equals(boolean.class)
         || field.getType().equals(TriState.class)

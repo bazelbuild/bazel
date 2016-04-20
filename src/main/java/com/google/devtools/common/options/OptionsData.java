@@ -144,36 +144,29 @@ final class OptionsData {
   }
 
   private static Object retrieveDefaultFromAnnotation(Field optionField) {
-    Option annotation = optionField.getAnnotation(Option.class);
-    // If an option can be specified multiple times then get the default value from the
-    // defaultMultipleValue and ignore defaultValue
-    if (annotation.allowMultiple()) {
-      // Create a list with each value in defaultMultipleValue converted
-      String[] defaultMultipleValueString =
-          OptionsParserImpl.getDefaultMultipleOptionString(optionField);
-      ImmutableList.Builder<Object> builder = new ImmutableList.Builder<>();
-      for (String element : defaultMultipleValueString) {
-        builder.add(convertDefaultValueFromAnnotation(element, optionField));
-      }
-      return builder.build();
+    Converter<?> converter = OptionsParserImpl.findConverter(optionField);
+    String defaultValueAsString = OptionsParserImpl.getDefaultOptionString(optionField);
+    // Special case for "null"
+    if (OptionsParserImpl.isSpecialNullDefault(defaultValueAsString, optionField)) {
+      return null;
     }
-    // Otherwise convert the defaultValue
-    return convertDefaultValueFromAnnotation(
-        OptionsParserImpl.getDefaultOptionString(optionField),
-        optionField);
-  }
-
-  private static Object convertDefaultValueFromAnnotation(String defaultValueString,
-      Field optionField) {
+    boolean allowsMultiple = optionField.getAnnotation(Option.class).allowMultiple();
+    // If the option allows multiple values then we intentionally return the empty list as
+    // the default value of this option since it is not always the case that an option
+    // that allows multiple values will have a converter that returns a list value.
+    if (allowsMultiple) {
+      return Collections.emptyList();
+    }
+    // Otherwise try to convert the default value using the converter
+    Object convertedValue;
     try {
-      return OptionsParserImpl.isSpecialNullDefault(defaultValueString, optionField)
-          ? null
-          : OptionsParserImpl.findConverter(optionField).convert(defaultValueString);
+      convertedValue = converter.convert(defaultValueAsString);
     } catch (OptionsParsingException e) {
       throw new IllegalStateException("OptionsParsingException while "
           + "retrieving default for " + optionField.getName() + ": "
           + e.getMessage());
     }
+    return convertedValue;
   }
 
   static OptionsData of(Collection<Class<? extends OptionsBase>> classes) {
