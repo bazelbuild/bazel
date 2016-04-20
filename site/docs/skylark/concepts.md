@@ -10,7 +10,7 @@ Use the `load` statement to import a symbol from a `.bzl` Skylark
 extension.
 
 ```python
-load("/build_tools/rules/maprule", "maprule")
+load("//build_tools/rules:maprule.bzl", "maprule")
 ```
 
 This code will load the file `build_tools/rules/maprule.bzl` and add the
@@ -24,7 +24,7 @@ top-level, i.e. they cannot be in a function body.
 imported symbols.
 
 ```python
-load("/build_tools/rules/maprule", maprule_alias = "maprule")
+load("//build_tools/rules:maprule.bzl", maprule_alias = "maprule")
 ```
 
 You define multiple aliases within one `load` statement. Moreover, the argument
@@ -32,7 +32,7 @@ list can contain both aliases and regular symbol names. The following example is
 perfectly legal (please note when to use quotation marks).
 
 ```python
-load("/path/to/my_rules", "some_rule", nice_alias = "some_other_rule")
+load("/path/to:my_rules.bzl", "some_rule", nice_alias = "some_other_rule")
 ```
 
 Symbols starting with `_` are private and cannot be loaded from other files.
