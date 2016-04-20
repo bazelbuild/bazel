@@ -23,4 +23,4 @@ set PYDIR="%DRIVER_BIN%pydir"
 
 ::TODO(pcloudy): Remove hard code path, user should be able to configure
 if not defined MSVCPYTHON set MSVCPYTHON=C:\python_27_amd64\files\python.exe
-%MSVCPYTHON% "%PYDIR%\%TOOLNAME%.py" %*
+%MSVCPYTHON% -B "%PYDIR%\%TOOLNAME%.py" %*
