@@ -29,7 +29,7 @@ source "${TEST_SRCDIR}/io_bazel/src/test/shell/unittest.bash" || \
 # Set-up a copy of the git repository in ${MASTER_ROOT}, pointing master
 # to ${MASTER_COMMIT}.
 function setup_git_repository() {
-  local origin_git_root=${TEST_SRCDIR}
+  local origin_git_root=${TEST_SRCDIR}/io_bazel
   MASTER_ROOT=${TEST_TMPDIR}/git/root
   local orig_dir=${PWD}
   # Create a new origin with the good starting point
