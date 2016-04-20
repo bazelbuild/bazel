@@ -82,12 +82,15 @@ function bootstrap_test() {
   local BAZEL_BIN=$1
   local BAZEL_SUM=$2
   local BAZEL_TARGET=${3:-src:bazel}
+  local STRATEGY="--strategy=Javac=worker --worker_quit_after_build"
+  if [ "${JAVA_VERSION}" = "1.7" ]; then
+    STRATEGY=
+  fi
   [ -x "${BAZEL_BIN}" ] || fail "syntax: bootstrap bazel-binary"
   run ${BAZEL_BIN} --nomaster_bazelrc --bazelrc=${BAZELRC} clean \
       --expunge || return $?
   run ${BAZEL_BIN} --nomaster_bazelrc --bazelrc=${BAZELRC} build \
-      ${EXTRA_BAZEL_ARGS-} \
-      --strategy=Javac=worker --worker_quit_after_build \
+      ${EXTRA_BAZEL_ARGS-} ${STRATEGY} \
       --fetch --nostamp \
       --define "JAVA_VERSION=${JAVA_VERSION}" \
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \

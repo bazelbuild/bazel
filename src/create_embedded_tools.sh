@@ -30,7 +30,8 @@ for i in $*; do
   case "$i" in
     *tools/jdk/BUILD*) OUTPUT_PATH=tools/jdk/BUILD ;;
     *JavaBuilder*_deploy.jar) OUTPUT_PATH=tools/jdk/JavaBuilder_deploy.jar ;;
-    *javac*.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac.jar ;;
+    *javac.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac.jar ;;
+    *javac7.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac7.jar ;;
     *SingleJar_deploy.jar) OUTPUT_PATH=tools/jdk/SingleJar_deploy.jar ;;
     *GenClass_deploy.jar) OUTPUT_PATH=tools/jdk/GenClass_deploy.jar ;;
     *Runner_deploy.jar) OUTPUT_PATH=tools/jdk/TestRunner_deploy.jar ;;
@@ -48,6 +49,11 @@ for i in $*; do
   mkdir -p "${PACKAGE_DIR}/$(dirname "${OUTPUT_PATH}")"
   cp "$i" "${PACKAGE_DIR}/${OUTPUT_PATH}"
 done
+
+if [ ! -f ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac.jar ]; then
+  cp ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac7.jar \
+      ${PACKAGE_DIR}/third_party/java/jdk/langtools/javac.jar
+fi
 
 cat > "${PACKAGE_DIR}/WORKSPACE" <<EOF
 workspace(name = "bazel_tools")
