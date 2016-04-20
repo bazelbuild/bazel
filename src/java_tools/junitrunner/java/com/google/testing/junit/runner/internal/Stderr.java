@@ -14,18 +14,18 @@
 
 package com.google.testing.junit.runner.internal;
 
-import com.google.inject.BindingAnnotation;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+
+import javax.inject.Qualifier;
 
 /**
  * Binding annotation for a {@link java.io.PrintStream} printing to stderr.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.PARAMETER, ElementType.METHOD})
-@BindingAnnotation
+@Qualifier
 public @interface Stderr {
 }

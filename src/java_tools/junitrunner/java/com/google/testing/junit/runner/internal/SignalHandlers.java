@@ -14,12 +14,12 @@
 
 package com.google.testing.junit.runner.internal;
 
-import com.google.inject.Inject;
-
 import sun.misc.Signal;
 import sun.misc.SignalHandler;
 
 import java.util.concurrent.atomic.AtomicReference;
+
+import javax.inject.Inject;
 
 /**
  * Helper class to install signal handlers.
@@ -74,7 +74,7 @@ public class SignalHandlers {
    */
   public interface HandlerInstaller {
     /**
-     * @see sun.misc.Signal#handle(sun.misc.Signal, sun.misc.SignalHandler)     
+     * @see sun.misc.Signal#handle(sun.misc.Signal, sun.misc.SignalHandler)
      */
     SignalHandler install(Signal signal, SignalHandler handler);
   }

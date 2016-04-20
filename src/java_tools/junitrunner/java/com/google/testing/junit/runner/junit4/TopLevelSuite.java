@@ -14,18 +14,18 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import com.google.inject.BindingAnnotation;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+
+import javax.inject.Qualifier;
 
 /**
  * Binding annotation for an object that represents the top-level suite.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.PARAMETER, ElementType.METHOD})
-@BindingAnnotation
+@Qualifier
 @interface TopLevelSuite {
 }

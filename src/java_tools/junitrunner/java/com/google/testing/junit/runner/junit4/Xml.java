@@ -14,12 +14,12 @@
 
 package com.google.testing.junit.runner.junit4;
 
-import com.google.inject.BindingAnnotation;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+
+import javax.inject.Qualifier;
 
 /**
  * Binding annotation that indicates that the given {@code String} or stream
@@ -27,6 +27,6 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.PARAMETER, ElementType.METHOD})
-@BindingAnnotation
+@Qualifier
 @interface Xml {
 }
