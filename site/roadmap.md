@@ -72,7 +72,7 @@ be refined if appropriate.
     <tr><td>Support for fetching dependencies from <a href="http://bazel.io/docs/be/workspace.html#maven_jar">Maven repositories</a>
         and <a href="http://bazel.io/docs/be/workspace.html#http_archive">web servers</a></td></tr>
     <tr>
-      <td rowspan="28"><b><a name="beta"></a>Beta</b></td>
+      <td rowspan="29"><b><a name="beta"></a>Beta</b></td>
       <td rowspan="9">
          <a href="https://github.com/bazelbuild/bazel/releases/tag/0.1.0"><b>0.1</b>
          <br/><span class="label label-default">Released</span></a>
@@ -116,12 +116,13 @@ be refined if appropriate.
     </tr>
     <tr><td>P2. Sandboxing of action for OS X</td></tr>
     <tr>
-      <td rowspan="3"><b>0.5</b></td>
-      <td rowspan="3"><b>2016&#8209;07</b></td>
+      <td rowspan="4"><b>0.5</b></td>
+      <td rowspan="4"><b>2016&#8209;07</b></td>
       <td>P0. Support for testing Android apps</td>
     </tr>
     <tr><td>P0. Bazel supports building Java, C++ and Python on Windows</td></tr>
     <tr><td>P1. Distributed execution of actions</td></tr>
+    <tr><td>P2. Support for Swift language</td></tr>
     <tr>
       <td rowspan="2"><b>0.6</b></td>
       <td rowspan="2"><b>2016&#8209;09</b></td>
