@@ -15,10 +15,13 @@ package com.google.devtools.build.android;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Function;
 import com.google.common.base.Joiner;
-import com.google.common.base.Throwables;
+import com.google.common.base.Strings;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.android.Converters.ExistingPathConverter;
 import com.google.devtools.build.android.Converters.FullRevisionConverter;
@@ -46,9 +49,12 @@ import com.android.ide.common.res2.ResourceMerger;
 import com.android.ide.common.res2.ResourceSet;
 import com.android.manifmerger.ManifestMerger2;
 import com.android.manifmerger.ManifestMerger2.Invoker;
+import com.android.manifmerger.ManifestMerger2.Invoker.Feature;
 import com.android.manifmerger.ManifestMerger2.MergeFailureException;
+import com.android.manifmerger.ManifestMerger2.MergeType;
 import com.android.manifmerger.ManifestMerger2.SystemProperty;
 import com.android.manifmerger.MergingReport;
+import com.android.manifmerger.PlaceholderHandler;
 import com.android.manifmerger.XmlDocument;
 import com.android.sdklib.repository.FullRevision;
 import com.android.utils.StdLogger;
@@ -59,7 +65,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -67,8 +72,12 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -77,6 +86,16 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.stream.FactoryConfigurationError;
+import javax.xml.stream.XMLEventFactory;
+import javax.xml.stream.XMLEventReader;
+import javax.xml.stream.XMLEventWriter;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLOutputFactory;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.events.Attribute;
+import javax.xml.stream.events.StartElement;
+import javax.xml.stream.events.XMLEvent;
 
 /**
  * Provides a wrapper around the AOSP build tools for resource processing.
@@ -189,6 +208,17 @@ public class AndroidResourceProcessor {
     }
   }
 
+  private static final ImmutableMap<SystemProperty, String> SYSTEM_PROPERTY_NAMES = Maps.toMap(
+      Arrays.asList(SystemProperty.values()), new Function<SystemProperty, String>() {
+        @Override public String apply(SystemProperty property) {
+          if (property == SystemProperty.PACKAGE) {
+            return "applicationId";
+          } else {
+            return property.toCamelCase();
+          }
+        }
+      });
+
   private static final Pattern HEX_REGEX = Pattern.compile("0x[0-9A-Fa-f]{8}");
   private final StdLogger stdLogger;
 
@@ -209,8 +239,8 @@ public class AndroidResourceProcessor {
       if (Files.exists(source)) {
         if (staticIds) {
           String contents = HEX_REGEX.matcher(Joiner.on("\n").join(
-              Files.readAllLines(source, StandardCharsets.UTF_8))).replaceAll("0x1");
-          Files.write(rOutput, contents.getBytes(StandardCharsets.UTF_8));
+              Files.readAllLines(source, UTF_8))).replaceAll("0x1");
+          Files.write(rOutput, contents.getBytes(UTF_8));
         } else {
           Files.copy(source, rOutput);
         }
@@ -487,12 +517,94 @@ public class AndroidResourceProcessor {
         }
       } catch (
           IOException | SAXException | ParserConfigurationException | MergeFailureException e) {
-        Throwables.propagate(e);
+        throw new RuntimeException(e);
       }
       return new MergedAndroidData(primaryData.getResourceDir(), primaryData.getAssetDir(),
           processedManifest);
     }
     return primaryData;
+  }
+
+  /**
+   * Merge several manifests into one and perform placeholder substitutions. This operation uses
+   * Gradle semantics.
+   *
+   * @param manifest The primary manifest of the merge.
+   * @param mergeeManifests Manifests to be merged into {@code manifest}.
+   * @param mergeType Whether the merger should operate in application or library mode.
+   * @param values A map of strings to be used as manifest placeholders and overrides. packageName
+   *     is the only disallowed value and will be ignored.
+   * @param output The path to write the resultant manifest to.
+   * @return The path of the resultant manifest, either {@code output}, or {@code manifest} if no
+   *     merging was required.
+   * @throws IOException if there was a problem writing the merged manifest.
+   */
+  public Path mergeManifest(
+      Path manifest,
+      List<Path> mergeeManifests,
+      MergeType mergeType,
+      Map<String, String> values,
+      Path output) throws IOException {
+    if (mergeeManifests.isEmpty() && values.isEmpty()) {
+      return manifest;
+    }
+
+    Invoker<?> manifestMerger = ManifestMerger2.newMerger(manifest.toFile(), stdLogger, mergeType);
+    if (mergeType == MergeType.APPLICATION) {
+      manifestMerger.withFeatures(Feature.REMOVE_TOOLS_DECLARATIONS);
+    }
+
+    // Add mergee manifests
+    for (Path mergeeManifest : mergeeManifests) {
+      manifestMerger.addLibraryManifest(mergeeManifest.toFile());
+    }
+
+    // Extract SystemProperties from the provided values.
+    Map<String, String> placeholders = new HashMap<>(values);
+    for (SystemProperty property : SystemProperty.values()) {
+      if (values.containsKey(SYSTEM_PROPERTY_NAMES.get(property))) {
+        manifestMerger.setOverride(property, values.get(SYSTEM_PROPERTY_NAMES.get(property)));
+
+        // The manifest merger does not allow explicitly specifying either applicationId or
+        // packageName as placeholders if SystemProperty.PACKAGE is specified. It forces these
+        // placeholders to have the same value as specified by SystemProperty.PACKAGE.
+        if (property == SystemProperty.PACKAGE) {
+          placeholders.remove(PlaceholderHandler.APPLICATION_ID);
+          placeholders.remove(PlaceholderHandler.PACKAGE_NAME);
+        }
+      }
+    }
+
+    // Add placeholders for all values.
+    // packageName is populated from either the applicationId override or from the manifest itself;
+    // it cannot be manually specified.
+    placeholders.remove(PlaceholderHandler.PACKAGE_NAME);
+    manifestMerger.setPlaceHolderValues(placeholders);
+
+    try {
+      MergingReport mergingReport = manifestMerger.merge();
+      switch (mergingReport.getResult()) {
+        case WARNING:
+          mergingReport.log(stdLogger);
+          Files.createDirectories(output.getParent());
+          writeMergedManifest(mergingReport, output);
+          break;
+        case SUCCESS:
+          Files.createDirectories(output.getParent());
+          writeMergedManifest(mergingReport, output);
+          break;
+        case ERROR:
+          mergingReport.log(stdLogger);
+          throw new RuntimeException(mergingReport.getReportString());
+        default:
+          throw new RuntimeException("Unhandled result type : " + mergingReport.getResult());
+      }
+    } catch (
+        SAXException | ParserConfigurationException | MergeFailureException e) {
+      throw new RuntimeException(e);
+    }
+
+    return output;
   }
 
   private void writeMergedManifest(MergingReport mergingReport,
@@ -501,7 +613,59 @@ public class AndroidResourceProcessor {
     String annotatedDocument = mergingReport.getActions().blame(xmlDocument);
     stdLogger.verbose(annotatedDocument);
     Files.write(
-        manifestOut, xmlDocument.prettyPrint().getBytes(StandardCharsets.UTF_8));
+        manifestOut, xmlDocument.prettyPrint().getBytes(UTF_8));
+  }
+
+  /**
+   * Overwrite the package attribute of {@code <manifest>} in an AndroidManifest.xml file.
+   *
+   * @param manifest The input manifest.
+   * @param customPackage The package to write to the manifest.
+   * @param output The output manifest to generate.
+   * @return The output manifest if generated or the input manifest if no overwriting is required.
+   */
+  /* TODO(apell): switch from custom xml parsing to Gradle merger with NO_PLACEHOLDER_REPLACEMENT
+   * set when android common is updated to version 2.5.0. 
+   */
+  public Path writeManifestPackage(Path manifest, String customPackage, Path output) {
+    if (Strings.isNullOrEmpty(customPackage)) {
+      return manifest;
+    }
+    try {
+      Files.createDirectories(output.getParent());
+      XMLEventReader reader = XMLInputFactory.newInstance()
+          .createXMLEventReader(Files.newInputStream(manifest), UTF_8.name());
+      XMLEventWriter writer = XMLOutputFactory.newInstance()
+          .createXMLEventWriter(Files.newOutputStream(output), UTF_8.name());
+      XMLEventFactory eventFactory = XMLEventFactory.newInstance();
+      while (reader.hasNext()) {
+        XMLEvent event = reader.nextEvent();
+        if (event.isStartElement()
+            && event.asStartElement().getName().toString().equalsIgnoreCase("manifest")) {
+          StartElement element = event.asStartElement();
+          @SuppressWarnings("unchecked")
+          Iterator<Attribute> attributes = element.getAttributes();
+          ImmutableList.Builder<Attribute> newAttributes = ImmutableList.builder();
+          while (attributes.hasNext()) {
+            Attribute attr = attributes.next();
+            if (attr.getName().toString().equalsIgnoreCase("package")) {
+              newAttributes.add(eventFactory.createAttribute("package", customPackage));
+            } else {
+              newAttributes.add(attr);
+            }
+          }
+          writer.add(eventFactory.createStartElement(
+              element.getName(), newAttributes.build().iterator(), element.getNamespaces()));
+        } else {
+          writer.add(event);
+        }
+      }
+      writer.flush();
+    } catch (XMLStreamException | FactoryConfigurationError | IOException e) {
+      throw new RuntimeException(e);
+    }
+
+    return output;
   }
 
   /**

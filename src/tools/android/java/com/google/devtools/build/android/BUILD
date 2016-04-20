@@ -17,6 +17,14 @@ java_binary(
 )
 
 java_binary(
+    name = "AarGeneratorAction",
+    main_class = "com.google.devtools.build.android.AarGeneratorAction",
+    runtime_deps = [
+        ":android_builder_lib",
+    ],
+)
+
+java_binary(
     name = "AndroidResourceProcessingAction",
     main_class = "com.google.devtools.build.android.AndroidResourceProcessingAction",
     runtime_deps = [
@@ -25,16 +33,16 @@ java_binary(
 )
 
 java_binary(
-    name = "ResourceShrinkerAction",
-    main_class = "com.google.devtools.build.android.ResourceShinkerAction",
+    name = "ManifestMergerAction",
+    main_class = "com.google.devtools.build.android.ManifestMergerAction",
     runtime_deps = [
         ":android_builder_lib",
     ],
 )
 
 java_binary(
-    name = "AarGeneratorAction",
-    main_class = "com.google.devtools.build.android.AarGeneratorAction",
+    name = "ResourceShrinkerAction",
+    main_class = "com.google.devtools.build.android.ResourceShinkerAction",
     runtime_deps = [
         ":android_builder_lib",
     ],
