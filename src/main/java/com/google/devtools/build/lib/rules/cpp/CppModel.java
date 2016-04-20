@@ -414,7 +414,7 @@ public final class CppModel {
       // - the compiled source file is the module map
       // - it creates a header module (.pcm file).
       createSourceAction(outputName, result, env, moduleMapArtifact, builder, ".pcm", ".pcm.d",
-          /*addObject=*/false);
+          /*addObject=*/false, /*enableCoverage=*/false);
     }
 
     for (Pair<Artifact, Label> source : sourceFiles) {
@@ -428,7 +428,7 @@ public final class CppModel {
         createHeaderAction(outputName, result, env, builder);
       } else {
         createSourceAction(outputName, result, env, sourceArtifact, builder, ".o", ".d",
-            /*addObject=*/true);
+            /*addObject=*/true, isCodeCoverageEnabled());
       }
     }
 
@@ -459,7 +459,8 @@ public final class CppModel {
       CppCompileActionBuilder builder,
       String outputExtension,
       String dependencyFileExtension,
-      boolean addObject) {
+      boolean addObject,
+      boolean enableCoverage) {
     PathFragment ccRelativeName = semantics.getEffectiveSourcePath(sourceArtifact);
     if (cppConfiguration.isLipoOptimization()) {
       // TODO(bazel-team): we shouldn't be needing this, merging context with the binary
@@ -484,9 +485,7 @@ public final class CppModel {
         CppCompileActionBuilder picBuilder =
             copyAsPicBuilder(builder, outputName, outputExtension, dependencyFileExtension);
         Artifact gcnoFile =
-            isCodeCoverageEnabled()
-                ? ruleContext.getRelatedArtifact(outputName, ".pic.gcno")
-                : null;
+            enableCoverage ? ruleContext.getRelatedArtifact(outputName, ".pic.gcno") : null;
         if (gcnoFile != null) {
           picBuilder.setGcnoFile(gcnoFile);
         }
@@ -525,7 +524,7 @@ public final class CppModel {
             .setDotdFile(outputName, dependencyFileExtension);
         // Create non-PIC compile actions
         Artifact gcnoFile =
-            !cppConfiguration.isLipoOptimization() && isCodeCoverageEnabled()
+            !cppConfiguration.isLipoOptimization() && enableCoverage
                 ? ruleContext.getRelatedArtifact(outputName, ".gcno")
                 : null;
         if (gcnoFile != null) {

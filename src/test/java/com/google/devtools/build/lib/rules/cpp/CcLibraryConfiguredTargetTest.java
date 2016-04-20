@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.OutputGroupProvider;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
+import com.google.devtools.build.lib.rules.test.InstrumentedFilesProvider;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -288,6 +289,24 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             ActionsTestUtil.baseNamesOf(
                 getOutputGroup(x, OutputGroupProvider.COMPILATION_PREREQUISITES)))
         .isEqualTo("y.h y.pic.pcm y.cppmap stl.cppmap crosstool.cppmap x.cppmap x.cc");
+  }
+
+  @Test
+  public void testCodeCoverage() throws Exception {
+    AnalysisMock.get()
+        .ccSupport()
+        .setupCrosstool(mockToolsConfig, MockCcSupport.HEADER_MODULES_FEATURE_CONFIGURATION);
+    useConfiguration("--collect_code_coverage");
+    ConfiguredTarget x =
+        scratchConfiguredTarget(
+            "foo",
+            "x",
+            "package(features = ['header_modules'])",
+            "cc_library(name = 'x', srcs = ['x.cc'])");
+    assertThat(
+            ActionsTestUtil.baseArtifactNames(
+                x.getProvider(InstrumentedFilesProvider.class).getInstrumentationMetadataFiles()))
+        .containsExactly("x.pic.gcno");
   }
 
   @Test
