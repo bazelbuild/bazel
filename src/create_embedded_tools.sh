@@ -28,7 +28,9 @@ trap "rm -fr \"${PACKAGE_DIR}\"" EXIT
 
 for i in $*; do
   case "$i" in
-    *JavaBuilder_deploy.jar) OUTPUT_PATH=tools/jdk/JavaBuilder_deploy.jar ;;
+    *tools/jdk/BUILD*) OUTPUT_PATH=tools/jdk/BUILD ;;
+    *JavaBuilder*_deploy.jar) OUTPUT_PATH=tools/jdk/JavaBuilder_deploy.jar ;;
+    *javac*.jar) OUTPUT_PATH=third_party/java/jdk/langtools/javac.jar ;;
     *SingleJar_deploy.jar) OUTPUT_PATH=tools/jdk/SingleJar_deploy.jar ;;
     *GenClass_deploy.jar) OUTPUT_PATH=tools/jdk/GenClass_deploy.jar ;;
     *Runner_deploy.jar) OUTPUT_PATH=tools/jdk/TestRunner_deploy.jar ;;

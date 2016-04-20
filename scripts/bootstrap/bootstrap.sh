@@ -30,10 +30,17 @@ fi
 
 : ${JAVA_VERSION:="1.8"}
 
-: ${BAZEL_ARGS:=--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
-      --strategy=Javac=worker --worker_quit_after_build \
-      --genrule_strategy=standalone --spawn_strategy=standalone \
-      "${EXTRA_BAZEL_ARGS:-}"}
+if [ "${JAVA_VERSION}" = "1.7" ]; then
+  : ${BAZEL_ARGS:=--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain_jdk7 \
+        --define JAVA_VERSION=1.7 \
+        --genrule_strategy=standalone --spawn_strategy=standalone \
+        "${EXTRA_BAZEL_ARGS:-}"}
+else
+  : ${BAZEL_ARGS:=--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
+        --strategy=Javac=worker --worker_quit_after_build \
+        --genrule_strategy=standalone --spawn_strategy=standalone \
+        "${EXTRA_BAZEL_ARGS:-}"}
+fi
 
 if [ -z "${BAZEL-}" ]; then
   function bazel_build() {
@@ -82,6 +89,7 @@ function bootstrap_test() {
       ${EXTRA_BAZEL_ARGS-} \
       --strategy=Javac=worker --worker_quit_after_build \
       --fetch --nostamp \
+      --define "JAVA_VERSION=${JAVA_VERSION}" \
       --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
       ${BAZEL_TARGET} || return $?
   if [ -n "${BAZEL_SUM}" ]; then

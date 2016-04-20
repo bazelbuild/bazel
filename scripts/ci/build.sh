@@ -98,45 +98,6 @@ EOF
   fi
 }
 
-# Set the various arguments when JDK 7 is required (deprecated).
-# This method is here to continue to build binary release of Bazel
-# for JDK 7. We will drop this method and JDK 7 support when our
-# ci system turn red on this one.
-function setup_jdk7() {
-  # This is a JDK 7 JavaBuilder from release 0.1.0.
-  local javabuilder_url="https://storage.googleapis.com/bazel/0.1.0/JavaBuilder_deploy.jar"
-  local javac_url="https://github.com/bazelbuild/bazel/blob/0.1.0/third_party/java/jdk/langtools/javac.jar?raw=true"
-  sed -i.bak 's/_version = "8"/_version = "7"/' tools/jdk/BUILD
-  rm -f tools/jdk/BUILD.bak
-  rm -f third_party/java/jdk/langtools/javac.jar
-  curl -Ls -o tools/jdk/JavaBuilder_deploy.jar "${javabuilder_url}"
-  curl -Ls -o third_party/java/jdk/langtools/javac.jar "${javac_url}"
-  # Do not use the skylark bootstrapped version of JavaBuilder
-  export BAZEL_ARGS="--singlejar_top=//src/java_tools/singlejar:bootstrap_deploy.jar \
-      --genclass_top=//src/java_tools/buildjar:bootstrap_genclass_deploy.jar \
-      --ijar_top=//third_party/ijar"
-  # Skip building JavaBuilder
-  export BAZEL_SKIP_TOOL_COMPILATION=tools/jdk/JavaBuilder_deploy.jar
-  # Ignore JDK8 tests
-  export BAZEL_TEST_FILTERS="-jdk8"
-  if ! grep -Fq 'RealJavaBuilder' src/java_tools/buildjar/BUILD; then
-    # And more ugly hack. Overwrite the BUILD file of JavaBuilder
-    # so we use the pre-built version in integration tests.
-    sed -i.bak 's/name = \"JavaBuilder\"/name = \"RealJavaBuilder\"/' \
-        src/java_tools/buildjar/BUILD
-    rm -f src/java_tools/buildjar/BUILD.bak
-    cat >>src/java_tools/buildjar/BUILD <<'EOF'
-genrule(
-    name = "JavaBuilder",
-    outs = ["JavaBuilder_deploy.jar"],
-    srcs = ["//tools/jdk:JavaBuilder_deploy.jar"],
-    cmd = "cp $< $@",
-    visibility = ["//visibility:public"],
-)
-EOF
-  fi
-}
-
 # Main entry point for building bazel.
 # It sets the embed label to the release name if any, calls the whole
 # test suite, compile the various packages, then copy the artifacts
@@ -151,7 +112,6 @@ function bazel_build() {
 
   if [[ "${JAVA_VERSION-}" =~ ^(1\.)?7$ ]]; then
     JAVA_VERSION=1.7
-    setup_jdk7
     release_label="${release_label}-jdk7"
   else
     JAVA_VERSION=1.8

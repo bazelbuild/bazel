@@ -141,23 +141,24 @@ if [ $DO_TESTS ]; then
   fi
 
   [ -n "$JAVAC_VERSION" ] || get_java_version
-  if [[ ! "${BAZEL_TEST_FILTERS-}" =~ "-jdk8" ]] \
-      && [ "8" -gt ${JAVAC_VERSION#*.} ]; then
-    display "$WARNING Your version of Java is lower than 1.8!"
-    display "$WARNING Deactivating Java 8 tests, please use a JDK 8 to fully"
-    display "$WARNING test Bazel."
-    if [ -n "${BAZEL_TEST_FILTERS-}" ]; then
-      BAZEL_TEST_FILTERS="${BAZEL_TEST_FILTERS},-jdk8"
-    else
-      BAZEL_TEST_FILTERS="-jdk8"
+  if [[ ! "${BAZEL_TEST_FILTERS-}" =~ "-jdk8" ]]; then
+    if [ "8" -gt ${JAVAC_VERSION#*.} ] || [ "${JAVA_VERSION}" = "1.7" ]; then
+      display "$WARNING Your version of Java is lower than 1.8!"
+      display "$WARNING Deactivating Java 8 tests, please use a JDK 8 to fully"
+      display "$WARNING test Bazel."
+      if [ -n "${BAZEL_TEST_FILTERS-}" ]; then
+        BAZEL_TEST_FILTERS="${BAZEL_TEST_FILTERS},-jdk8"
+      else
+        BAZEL_TEST_FILTERS="-jdk8"
+      fi
     fi
   fi
   $BAZEL --bazelrc=${BAZELRC} --nomaster_bazelrc test \
       --test_tag_filters="${BAZEL_TEST_FILTERS-}" \
       --build_tests_only \
       --nolegacy_bazel_java_test \
+      --define JAVA_VERSION=${JAVA_VERSION} \
       ${EXTRA_BAZEL_ARGS} \
-      --javacopt="-source ${JAVA_VERSION} -target ${JAVA_VERSION}" \
       -k --test_output=errors //src/... //third_party/ijar/... //scripts/... \
       || fail "Tests failed"
 fi

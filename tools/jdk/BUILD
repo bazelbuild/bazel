@@ -1,5 +1,25 @@
 package(default_visibility = ["//visibility:public"])
 
+config_setting(
+    name = "jdk7",
+    values = {"define": "JAVA_VERSION=1.7"},
+)
+
+genrule(
+    name = "BUILD-jdk7",
+    srcs = [":BUILD"],
+    outs = ["BUILD.jdk7"],
+    cmd = "sed 's/_version = \"8\"/_version = \"7\"/' $< > $@",
+)
+
+filegroup(
+    name = "BUILD-jdk",
+    srcs = select({
+        ":jdk7": [":BUILD-jdk7"],
+        "//conditions:default": [":BUILD"],
+    }),
+)
+
 filegroup(
     name = "jni_header",
     srcs = ["//external:jni_header"],
@@ -112,7 +132,7 @@ java_toolchain(
 filegroup(
     name = "srcs",
     srcs = [
-        "BUILD",  # Tools are build from the workspace for tests.
+        "BUILD-jdk",  # Tools are build from the workspace for tests.
         "proguard_whitelister.py",
         "proguard_whitelister_test.py",
         "proguard_whitelister_test_input.cfg",

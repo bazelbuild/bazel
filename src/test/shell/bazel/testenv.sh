@@ -39,7 +39,7 @@ langtools_dir="${TEST_SRCDIR}/third_party/java/jdk/langtools"
 EXTRA_BAZELRC="build --ios_sdk_version=8.4"
 
 # Java tooling
-javabuilder_path="${TEST_SRCDIR}/src/java_tools/buildjar/JavaBuilder_deploy.jar"
+javabuilder_path="$(find ${TEST_SRCDIR} -name JavaBuilder_*.jar)"
 langtools_path="${TEST_SRCDIR}/third_party/java/jdk/langtools/javac.jar"
 singlejar_path="${TEST_SRCDIR}/src/java_tools/singlejar/SingleJar_deploy.jar"
 genclass_path="${TEST_SRCDIR}/src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass/GenClass_deploy.jar"
@@ -106,6 +106,11 @@ hamcrest_jar="${TEST_SRCDIR}/third_party/hamcrest/hamcrest-*.jar"
 # This function copies the tools directory from Bazel.
 function copy_tools_directory() {
   cp -RL ${tools_dir}/* tools
+  # tools/jdk/BUILD file for JDK 7 is generated.
+  if [ -f tools/jdk/BUILD.* ]; then
+    cp tools/jdk/BUILD.* tools/jdk/BUILD
+    chmod +w tools/jdk/BUILD
+  fi
   # To support custom langtools
   cp ${langtools} tools/jdk/langtools.jar
   cat >>tools/jdk/BUILD <<'EOF'

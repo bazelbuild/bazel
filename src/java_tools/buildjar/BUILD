@@ -8,6 +8,14 @@ java_binary(
 )
 
 filegroup(
+    name = "JavaBuilderDeploy",
+    srcs = select({
+        "//tools/jdk:jdk7": ["//third_party/java/jdk/javabuilder:JavaBuilder_0.1.0"],
+        "//conditions:default": [":JavaBuilder_deploy.jar"],
+    }),
+)
+
+filegroup(
     name = "bootstrap_deploy.jar",
     srcs = ["//src/java_tools/buildjar/java/com/google/devtools/build/buildjar:bootstrap_deploy.jar"],
     visibility = ["//visibility:public"],
@@ -50,5 +58,21 @@ java_toolchain(
     singlejar = ["//src/java_tools/singlejar:bootstrap_deploy.jar"],
     source_version = "8",
     target_version = "8",
+    visibility = ["//visibility:public"],
+)
+
+java_toolchain(
+    name = "bootstrap_toolchain_jdk7",
+    bootclasspath = ["//tools/jdk:bootclasspath"],
+    encoding = "UTF-8",
+    extclasspath = ["//tools/jdk:extdir"],
+    genclass = ["bootstrap_genclass_deploy.jar"],
+    ijar = ["//third_party/ijar"],
+    javabuilder = ["//third_party/java/jdk/javabuilder:JavaBuilder_0.1.0"],
+    javac = ["//third_party/java/jdk/langtools:javac7_jar"],
+    jvm_opts = ["-client"],
+    singlejar = ["//src/java_tools/singlejar:bootstrap_deploy.jar"],
+    source_version = "7",
+    target_version = "7",
     visibility = ["//visibility:public"],
 )

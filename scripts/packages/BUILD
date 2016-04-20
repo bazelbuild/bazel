@@ -116,18 +116,13 @@ genrule(
     stamp = 1,
 )
 
-config_setting(
-    name = "jdk7",
-    values = {"define": "JAVA_VERSION=1.7"},
-)
-
 pkg_deb(
     name = "bazel-debian",
     architecture = "amd64",
     built_using = "bazel (HEAD)",
     data = ":debian-data",
     depends = select({
-        ":jdk7": [
+        "//tools/jdk:jdk7": [
             "java7-jdk | java7-sdk",
         ],
         "//conditions:default": [
