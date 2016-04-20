@@ -195,6 +195,25 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         return null;
       }
 
+      String applicationId = ruleContext.attributes().get("application_id", Type.STRING);
+      String versionCode = getExpandedMakeVarsForAttr(ruleContext, "version_code");
+      String versionName = getExpandedMakeVarsForAttr(ruleContext, "version_name");
+      Map<String, String> manifestValues =
+          ruleContext.attributes().get("manifest_values", Type.STRING_DICT);
+      if (manifestValues != null) {
+        if (manifestValues.containsKey("applicationId")) {
+          applicationId = manifestValues.get("applicationId");
+        }
+        if (manifestValues.containsKey("versionCode")) {
+          versionCode = ruleContext.expandMakeVariables("manifest_values",
+              manifestValues.get("versionCode"));
+        }
+        if (manifestValues.containsKey("versionName")) {
+          versionName = ruleContext.expandMakeVariables("manifest_values",
+              manifestValues.get("versionName"));
+        }
+      }
+
       applicationManifest = ruleManifest.mergeWith(ruleContext, resourceDeps);
       resourceApk = applicationManifest.packWithDataAndResources(
           ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_APK),
@@ -207,9 +226,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
           ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
           ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
           ruleContext.getTokenizedStringListAttr("densities"),
-          ruleContext.attributes().get("application_id", Type.STRING),
-          getExpandedMakeVarsForAttr(ruleContext, "version_code"),
-          getExpandedMakeVarsForAttr(ruleContext, "version_name"),
+          applicationId,
+          versionCode,
+          versionName,
           false, /* incremental */
           ProguardHelper.getProguardConfigArtifact(ruleContext, ""),
           null, /* manifestOut */
@@ -229,9 +248,9 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
               ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
               ruleContext.getTokenizedStringListAttr("densities"),
-              ruleContext.attributes().get("application_id", Type.STRING),
-              getExpandedMakeVarsForAttr(ruleContext, "version_code"),
-              getExpandedMakeVarsForAttr(ruleContext, "version_name"),
+              applicationId,
+              versionCode,
+              versionName,
               true, /* incremental */
               ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental"),
               null, /* manifestOut */
@@ -251,10 +270,10 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
               ruleContext.getTokenizedStringListAttr("nocompress_extensions"),
               ruleContext.attributes().get("crunch_png", Type.BOOLEAN),
               ruleContext.getTokenizedStringListAttr("densities"),
-              ruleContext.attributes().get("application_id", Type.STRING),
-              getExpandedMakeVarsForAttr(ruleContext, "version_code"),
-              getExpandedMakeVarsForAttr(ruleContext, "version_name"),
-              true,
+              applicationId,
+              versionCode,
+              versionName,
+              true, /* incremental */
               ProguardHelper.getProguardConfigArtifact(ruleContext, "incremental_split"),
               null, /* manifestOut */
               null /* mergedResourcesOut */);
