@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider.ExtraArtifactSet;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintSemantics;
@@ -63,7 +62,6 @@ public final class RuleConfiguredTargetBuilder {
   private NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private RunfilesSupport runfilesSupport;
   private Artifact executable;
-  private ImmutableList<Artifact> mandatoryStampFiles;
   private ImmutableSet<Action> actionsWithoutExtraAction = ImmutableSet.of();
 
   public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
@@ -115,12 +113,6 @@ public final class RuleConfiguredTargetBuilder {
 
     ExtraActionArtifactsProvider extraActionsProvider =
         createExtraActionProvider(actionsWithoutExtraAction, ruleContext);
-    if (mandatoryStampFiles != null && !mandatoryStampFiles.isEmpty()) {
-      extraActionsProvider = ExtraActionArtifactsProvider.create(
-          extraActionsProvider.getExtraActionArtifacts(),
-          NestedSetBuilder.fromNestedSet(extraActionsProvider.getTransitiveExtraActionArtifacts())
-              .add(ExtraArtifactSet.of(ruleContext.getLabel(), mandatoryStampFiles)).build());
-    }
     add(ExtraActionArtifactsProvider.class, extraActionsProvider);
 
     if (!outputGroupBuilders.isEmpty()) {
@@ -133,8 +125,7 @@ public final class RuleConfiguredTargetBuilder {
     }
 
 
-    return new RuleConfiguredTarget(
-        ruleContext, mandatoryStampFiles, skylarkProviders.build(), providers);
+    return new RuleConfiguredTarget(ruleContext, skylarkProviders.build(), providers);
   }
 
   /**
@@ -328,15 +319,6 @@ public final class RuleConfiguredTargetBuilder {
 
     return this;
   }
-
-  /**
-   * Set the mandatory stamp files.
-   */
-  public RuleConfiguredTargetBuilder setMandatoryStampFiles(ImmutableList<Artifact> files) {
-    this.mandatoryStampFiles = files;
-    return this;
-  }
-
 
   /**
    * Set the extra action pseudo actions.

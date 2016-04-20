@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.UnmodifiableIterator;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.packages.OutputFile;
@@ -51,12 +50,10 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   private final ImmutableMap<Class<? extends TransitiveInfoProvider>, Object> providers;
-  private final ImmutableList<Artifact> mandatoryStampFiles;
   private final Set<ConfigMatchingProvider> configConditions;
   private final ImmutableList<ConfiguredAspect> configuredAspects;
 
   RuleConfiguredTarget(RuleContext ruleContext,
-      ImmutableList<Artifact> mandatoryStampFiles,
       ImmutableMap<String, Object> skylarkProviders,
       Map<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider> providers) {
     super(ruleContext);
@@ -78,7 +75,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     providerBuilder.put(SkylarkProviders.class, new SkylarkProviders(skylarkProviders));
 
     this.providers = ImmutableMap.copyOf(providerBuilder);
-    this.mandatoryStampFiles = mandatoryStampFiles;
     this.configConditions = ruleContext.getConfigConditions();
     this.configuredAspects = ImmutableList.of();
 
@@ -190,7 +186,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
       }
       this.providers = builder.build();
     }
-    this.mandatoryStampFiles = base.mandatoryStampFiles;
     this.configConditions = base.configConditions;
     this.configuredAspects = ImmutableList.copyOf(aspects);
   }
@@ -244,10 +239,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   @Override
   public Object get(String providerKey) {
     return getProvider(SkylarkProviders.class).getValue(providerKey);
-  }
-
-  public ImmutableList<Artifact> getMandatoryStampFiles() {
-    return mandatoryStampFiles;
   }
 
   @Override
