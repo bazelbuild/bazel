@@ -81,7 +81,7 @@ public final class RuleConfiguredTargetBuilder {
       return null;
     }
 
-    FilesToRunProvider filesToRunProvider = new FilesToRunProvider(ruleContext.getLabel(),
+    FilesToRunProvider filesToRunProvider = new FilesToRunProvider(
         getFilesToRun(runfilesSupport, filesToBuild), runfilesSupport, executable);
     add(FileProvider.class, new FileProvider(ruleContext.getLabel(), filesToBuild));
     add(FilesToRunProvider.class, filesToRunProvider);

@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.constraints;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -55,8 +54,7 @@ public class Environment implements RuleConfiguredTargetFactory {
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .add(FileProvider.class, new FileProvider(ruleContext.getLabel(),
             NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)))
-        .add(FilesToRunProvider.class, new FilesToRunProvider(ruleContext.getLabel(),
-            ImmutableList.<Artifact>of(), null, null))
+        .add(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .build();
   }
 }

@@ -46,8 +46,7 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
         .put(VisibilityProvider.class, this)
         .put(LicensesProvider.class, this)
         .put(FileProvider.class, new FileProvider(targetContext.getLabel(), filesToBuild))
-        .put(FilesToRunProvider.class, FilesToRunProvider.fromSingleArtifact(
-            targetContext.getLabel(), artifact));
+        .put(FilesToRunProvider.class, FilesToRunProvider.fromSingleExecutableArtifact(artifact));
     if (this instanceof FilesetProvider) {
       builder.put(FilesetProvider.class, this);
     }

@@ -73,7 +73,7 @@ public final class AndroidAaptActionHelper {
       // TODO(bazel-team): When using getFilesToRun(), the middleman is
       // not expanded. Fix by providing code to expand and use getFilesToRun here.
       RunfilesSupport aaptRunnerRunfiles = toolRunner.getRunfilesSupport();
-      Preconditions.checkState(aaptRunnerRunfiles != null, toolRunner.getLabel());
+      Preconditions.checkState(aaptRunnerRunfiles != null);
       // Note the below may be an overapproximation of the actual runfiles, due to "conditional
       // artifacts" (see Runfiles.PruningManifest).
       Iterables.addAll(inputs, aaptRunnerRunfiles.getRunfilesArtifactsWithoutMiddlemen());

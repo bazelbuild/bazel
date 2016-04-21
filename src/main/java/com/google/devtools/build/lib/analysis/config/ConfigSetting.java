@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -72,8 +71,7 @@ public class ConfigSetting implements RuleConfiguredTargetFactory {
         .add(RunfilesProvider.class, RunfilesProvider.EMPTY)
         .add(FileProvider.class, new FileProvider(ruleContext.getLabel(),
             NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)))
-        .add(FilesToRunProvider.class, new FilesToRunProvider(ruleContext.getLabel(),
-            ImmutableList.<Artifact>of(), null, null))
+        .add(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .add(ConfigMatchingProvider.class, configMatcher)
         .build();
   }
