@@ -7,6 +7,7 @@ filegroup(
     srcs = [
         "BUILD.tools",
         "classes_deploy.jar",
+        "//src/tools/android/java/com/google/devtools/build/android/proto:srcs",
     ],
 )
 
@@ -73,6 +74,7 @@ filegroup(
         "//src/tools/android/java/com/google/devtools/build/android/ideinfo:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/idlclass:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:srcs",
+        "//src/tools/android/java/com/google/devtools/build/android/proto:srcs",
         "//src/tools/android/java/com/google/devtools/build/android/ziputils:srcs",
     ],
     visibility = ["//src:__pkg__"],

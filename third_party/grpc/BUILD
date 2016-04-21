@@ -2,6 +2,11 @@ licenses(["unencumbered"])
 
 package(default_visibility = ["//visibility:public"])
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)
+
 java_import(
     name = "grpc-jar",
     jars = ["grpc-all-0.13.2.jar"],

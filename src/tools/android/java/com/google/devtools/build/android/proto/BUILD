@@ -8,3 +8,8 @@ java_proto_library(
     name = "serialize_format_proto",
     src = "serialize_format.proto",
 )
+
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+)

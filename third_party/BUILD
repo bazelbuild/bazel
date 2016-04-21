@@ -3,19 +3,23 @@ package(default_visibility = ["//visibility:public"])
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//third_party/boringssl:srcs",
         "//third_party/ijar:srcs",
         "//third_party/iossim:srcs",
+        "//third_party/grpc:srcs",
         "//third_party/java/apkbuilder:srcs",
         "//third_party/java/buck-ios-support:srcs",
         "//third_party/java/dd_plist:srcs",
         "//third_party/java/j2objc:srcs",
         "//third_party/java/jarjar:srcs",
         "//third_party/java/jdk/langtools:srcs",
+        "//third_party/java/jdk/javabuilder:srcs",
         "//third_party/protobuf:srcs",
         "//third_party/py/concurrent:srcs",
         "//third_party/py/gflags:srcs",
         "//third_party/py/mock:srcs",
         "//third_party/py/six:srcs",
+        "//third_party/zlib:srcs",
     ],
 )
 

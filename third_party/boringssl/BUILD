@@ -1,5 +1,11 @@
 licenses(["unencumbered"])
 
+filegroup(
+    name = "srcs",
+    srcs = glob(["**"]),
+    visibility = ["//third_party:__pkg__"],
+)
+
 crypto_headers = glob(["src/include/openssl/*.h"])
 
 crypto_internal_headers = glob(["src/crypto/**/*.h"])
