@@ -228,6 +228,14 @@ public final class CppModel {
     this.featureConfiguration = featureConfiguration;
     return this;
   }
+  
+  /**
+   * @returns whether we want to provide header modules for the current target.
+   */
+  private boolean shouldProvideHeaderModules() {
+    return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)
+        && !cppConfiguration.isLipoContextCollector();
+  }
 
   /**
    * @return the non-pic header module artifact for the current target.
@@ -272,17 +280,14 @@ public final class CppModel {
    * @return whether this target needs to generate a pic header module.
    */
   public boolean getGeneratesPicHeaderModule() {
-    // TODO(bazel-team): Make sure cc_fake_binary works with header module support. 
-    return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES) && !fake
-        && getGeneratePicActions();
+    return shouldProvideHeaderModules() && !fake && getGeneratePicActions();
   }
 
   /**
    * @return whether this target needs to generate a non-pic header module.
    */
   public boolean getGeneratesNoPicHeaderModule() {
-    return featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES) && !fake
-        && getGenerateNoPicActions();
+    return shouldProvideHeaderModules() && !fake && getGenerateNoPicActions();
   }
 
   /**
@@ -390,7 +395,7 @@ public final class CppModel {
     CcToolchainFeatures.Variables variables = buildVariables.build();
     builder.setVariables(variables);
   }
-
+  
   /**
    * Constructs the C++ compiler actions. It generally creates one action for every specified source
    * file. It takes into account LIPO, fake-ness, coverage, and PIC, in addition to using the
@@ -402,7 +407,7 @@ public final class CppModel {
     AnalysisEnvironment env = ruleContext.getAnalysisEnvironment();
     PathFragment objectDir = CppHelper.getObjDirectory(ruleContext.getLabel());
     
-    if (featureConfiguration.isEnabled(CppRuleClasses.HEADER_MODULES)) {
+    if (shouldProvideHeaderModules()) {
       Artifact moduleMapArtifact = context.getCppModuleMap().getArtifact();
       Label moduleMapLabel = Label.parseAbsoluteUnchecked(context.getCppModuleMap().getName());
       PathFragment outputName = getObjectOutputPath(moduleMapArtifact, objectDir);
