@@ -96,6 +96,7 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         ruleContext.getPrerequisites("deps", Mode.TARGET));
     JavaCommon javaCommon = new JavaCommon(
         ruleContext, javaSemantics, deps, deps, deps);
+    javaSemantics.checkRule(ruleContext, javaCommon);
 
     AndroidCommon androidCommon = new AndroidCommon(
         javaCommon, true /* asNeverLink */, true /* exportDeps */);
