@@ -19,6 +19,7 @@ FILES = [
     "worker_protocol",
     "invocation_policy",
     "remote_protocol",
+    "android_deploy_info",
     "apk_manifest",
 ]
 

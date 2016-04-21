@@ -137,6 +137,12 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_files/apk_manifest");
   public static final SafeImplicitOutputsFunction APK_MANIFEST_TEXT =
       fromTemplates("%{name}_files/apk_manifest_text");
+  public static final SafeImplicitOutputsFunction DEPLOY_INFO =
+      fromTemplates("%{name}_files/deploy_info.deployinfo.pb");
+  public static final SafeImplicitOutputsFunction DEPLOY_INFO_INCREMENTAL =
+      fromTemplates("%{name}_files/deploy_info_incremental.deployinfo.pb");
+  public static final SafeImplicitOutputsFunction DEPLOY_INFO_SPLIT =
+      fromTemplates("%{name}_files/deploy_info_split.deployinfo.pb");
 
   // This needs to be in its own directory because ApkBuilder only has a function (-rf) for source
   // folders but not source files, and it's easiest to guarantee that nothing gets put beside this

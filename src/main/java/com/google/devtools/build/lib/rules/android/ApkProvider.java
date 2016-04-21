@@ -28,9 +28,13 @@ public final class ApkProvider implements TransitiveInfoProvider {
 
   private final NestedSet<Artifact> coverageMetadata;
 
-  public ApkProvider(NestedSet<Artifact> transitiveApks, NestedSet<Artifact> coverageMetdata) {
+  private final NestedSet<Artifact> mergedManifests;
+
+  public ApkProvider(NestedSet<Artifact> transitiveApks, NestedSet<Artifact> coverageMetdata,
+      NestedSet<Artifact> mergedManifests) {
     this.transitiveApks = transitiveApks;
     this.coverageMetadata = coverageMetdata;
+    this.mergedManifests = mergedManifests;
   }
 
   /**
@@ -45,5 +49,12 @@ public final class ApkProvider implements TransitiveInfoProvider {
    */
   public NestedSet<Artifact> getCoverageMetadata() {
     return coverageMetadata;
+  }
+
+  /**
+   * Returns the merged manifests
+   */
+  public NestedSet<Artifact> getMergedManifests() {
+    return mergedManifests;
   }
 }
