@@ -22,6 +22,15 @@ cc_test(
 )
 
 cc_test(
+    name = "numbers_test",
+    srcs = ["numbers_test.cc"],
+    deps = [
+        "//src/main/cpp/util",
+        "//third_party:gtest",
+    ],
+)
+
+cc_test(
     name = "strings_test",
     srcs = ["strings_test.cc"],
     shard_count = 2,

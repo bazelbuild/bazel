@@ -90,4 +90,9 @@ public abstract class RPCServer {
    * Start serving and block until the a shutdown command is received.
    */
   public abstract void serve() throws IOException;
+
+  /**
+   * Called when the server receives a SIGINT.
+   */
+  public abstract void interrupt();
 }
