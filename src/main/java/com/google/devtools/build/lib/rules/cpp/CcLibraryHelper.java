@@ -972,6 +972,8 @@ public final class CcLibraryHelper {
       if (model.getGeneratesNoPicHeaderModule()) {
         contextBuilder.setHeaderModule(model.getHeaderModule(cppModuleMap.getArtifact()));
       }
+      contextBuilder.setUseHeaderModules(
+          featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES));
       if (featureConfiguration.isEnabled(CppRuleClasses.USE_HEADER_MODULES)
           && featureConfiguration.isEnabled(CppRuleClasses.TRANSITIVE_MODULE_MAPS)) {
         contextBuilder.setProvideTransitiveModuleMaps(true);

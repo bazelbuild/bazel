@@ -380,7 +380,10 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         .ccSupport()
         .setupCrosstool(
             mockToolsConfig,
-            "" + "feature { name: 'header_modules' }" + "feature { name: 'module_maps' }");
+            ""
+                + "feature { name: 'header_modules' implies: 'use_header_modules' }"
+                + "feature { name: 'module_maps' }"
+                + "feature { name: 'use_header_modules' }");
     useConfiguration();
     scratch.file("module/BUILD",
         "package(features = ['header_modules'])",
@@ -514,8 +517,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(getNonSystemModuleMaps(cObjectAction.getInputs())).containsExactly(
         getGenfilesArtifact("b.cppmap", "//module:b"),
         getGenfilesArtifact("c.cppmap", "//nomodule:e"));
-    assertThat(getHeaderModules(cObjectAction.getInputs())).containsExactly(
-        getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
+    assertThat(getHeaderModules(cObjectAction.getInputs())).isEmpty();
     // All headers of transitive dependencies that are built as modules are needed as entry points
     // for include scanning.
     assertThat(cObjectAction.getIncludeScannerSources()).containsExactly(
@@ -534,8 +536,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
     assertThat(getNonSystemModuleMaps(dObjectAction.getInputs())).containsExactly(
         getGenfilesArtifact("c.cppmap", "//nomodule:c"),
         getGenfilesArtifact("d.cppmap", "//nomodule:d"));
-    assertThat(getHeaderModules(dObjectAction.getInputs())).containsExactly(
-        getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
+    assertThat(getHeaderModules(dObjectAction.getInputs())).isEmpty();
     assertThat(dObjectAction.getIncludeScannerSources()).containsExactly(
         getSourceArtifact("nomodule/d.cc"));
     assertThat(getHeaderModuleFlags(dObjectAction.getCompilerOptions())).isEmpty();
@@ -587,6 +588,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         getGenfilesArtifact("a.cppmap", "//nomodule:a"),
         getGenfilesArtifact("b.cppmap", "//module:b"),
         getGenfilesArtifact("c.cppmap", "//nomodule:e"));
+    assertThat(getHeaderModules(cObjectAction.getInputs()))
+        .containsExactly(getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
     assertThat(getHeaderModuleFlags(cObjectAction.getCompilerOptions()))
         .containsExactly("b.pic.pcm");
      
@@ -600,6 +603,8 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
         getGenfilesArtifact("b.cppmap", "//module:b"),
         getGenfilesArtifact("c.cppmap", "//nomodule:c"),
         getGenfilesArtifact("d.cppmap", "//nomodule:d"));
+    assertThat(getHeaderModules(dObjectAction.getInputs()))
+        .containsExactly(getBinArtifact("_objs/b/module/b.pic.pcm", "//module:b"));
     assertThat(getHeaderModuleFlags(dObjectAction.getCompilerOptions()))
         .containsExactly("b.pic.pcm");
   }

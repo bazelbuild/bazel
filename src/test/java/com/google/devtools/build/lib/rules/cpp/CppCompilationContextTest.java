@@ -118,6 +118,11 @@ public class CppCompilationContextTest extends BuildViewTestCase {
         new CppCompilationContext.Builder(getRuleContext(fooBin))
             .setProvideTransitiveModuleMaps(true).build(NULL_ACTION_OWNER, middlemanFactory);
     
+    CppCompilationContext fooContextNotUsingHeaderModules =
+        new CppCompilationContext.Builder(getRuleContext(fooBin))
+            .setUseHeaderModules(true)
+            .build(NULL_ACTION_OWNER, middlemanFactory);
+
     new EqualsTester()
         .addEqualityGroup(fooContextA1, fooContextA2, barContext)
         .addEqualityGroup(fooContextB)
@@ -132,6 +137,7 @@ public class CppCompilationContextTest extends BuildViewTestCase {
         .addEqualityGroup(fooContextWithInheritedHeaderModule)
         .addEqualityGroup(fooContextWithTransitivelyInheritedHeaderModule)
         .addEqualityGroup(fooContextUsingHeaderModules)
+        .addEqualityGroup(fooContextNotUsingHeaderModules)
         .testEquals();
   }
 }
