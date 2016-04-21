@@ -746,7 +746,7 @@ public final class Runfiles {
                   path.getSafePathString(),
                   previousStr,
                   artifactStr);
-          eventHandler.handle(new Event(eventKind, location, message));
+          eventHandler.handle(Event.of(eventKind, location, message));
         }
       }
     }

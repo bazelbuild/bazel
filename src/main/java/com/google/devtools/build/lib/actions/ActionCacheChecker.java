@@ -327,7 +327,7 @@ public class ActionCacheChecker {
   private static void reportRebuild(@Nullable EventHandler handler, Action action, String message) {
     // For MiddlemanAction, do not report rebuild.
     if (handler != null && !action.getActionType().isMiddleman()) {
-      handler.handle(new Event(
+      handler.handle(Event.of(
           EventKind.DEPCHECKER, null, "Executing " + action.prettyPrint() + ": " + message + "."));
     }
   }

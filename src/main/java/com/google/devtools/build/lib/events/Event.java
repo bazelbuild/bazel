@@ -47,37 +47,29 @@ public final class Event implements Serializable {
   @Nullable
   private final String tag;
 
-  public Event withTag(String tag) {
-    if (this.message != null) {
-      return new Event(this.kind, this.location, this.message, tag);
-    } else {
-      return new Event(this.kind, this.location, this.messageBytes, tag);
-    }
-  }
-
-  public Event(EventKind kind, @Nullable Location location, String message) {
-    this(kind, location, message, null);
-  }
-
-  public Event(EventKind kind, @Nullable Location location, String message, @Nullable String tag) {
-    this.kind = kind;
+  private Event(EventKind kind, @Nullable Location location, String message, @Nullable String tag) {
+    this.kind = Preconditions.checkNotNull(kind);
     this.location = location;
     this.message = Preconditions.checkNotNull(message);
     this.messageBytes = null;
     this.tag = tag;
   }
 
-  public Event(EventKind kind, @Nullable Location location, byte[] messageBytes) {
-    this(kind, location, messageBytes, null);
-  }
-
-  public Event(
+  private Event(
       EventKind kind, @Nullable Location location, byte[] messageBytes, @Nullable String tag) {
-    this.kind = kind;
+    this.kind = Preconditions.checkNotNull(kind);
     this.location = location;
     this.message = null;
     this.messageBytes = Preconditions.checkNotNull(messageBytes);
     this.tag = tag;
+  }
+
+  public Event withTag(String tag) {
+    if (this.message != null) {
+      return new Event(this.kind, this.location, this.message, tag);
+    } else {
+      return new Event(this.kind, this.location, this.messageBytes, tag);
+    }
   }
 
   public String getMessage() {
@@ -146,32 +138,40 @@ public final class Event implements Serializable {
     }
   }
 
+  public static Event of(EventKind kind, @Nullable Location location, String message) {
+    return new Event(kind, location, message, null);
+  }
+
+  public static Event of(EventKind kind, @Nullable Location location, byte[] messageBytes) {
+    return new Event(kind, location, messageBytes, null);
+  }
+
   /**
    * Reports a warning.
    */
-  public static Event warn(Location location, String message) {
-    return new Event(EventKind.WARNING, location, message);
+  public static Event warn(@Nullable Location location, String message) {
+    return new Event(EventKind.WARNING, location, message, null);
   }
 
   /**
    * Reports an error.
    */
-  public static Event error(Location location, String message){
-    return new Event(EventKind.ERROR, location, message);
+  public static Event error(@Nullable Location location, String message){
+    return new Event(EventKind.ERROR, location, message, null);
   }
 
   /**
    * Reports atemporal statements about the build, i.e. they're true for the duration of execution.
    */
-  public static Event info(Location location, String message) {
-    return new Event(EventKind.INFO, location, message);
+  public static Event info(@Nullable Location location, String message) {
+    return new Event(EventKind.INFO, location, message, null);
   }
 
   /**
    * Reports a temporal statement about the build.
    */
-  public static Event progress(Location location, String message) {
-    return new Event(EventKind.PROGRESS, location, message);
+  public static Event progress(@Nullable Location location, String message) {
+    return new Event(EventKind.PROGRESS, location, message, null);
   }
 
   /**

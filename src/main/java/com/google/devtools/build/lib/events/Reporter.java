@@ -119,7 +119,7 @@ public final class Reporter implements EventHandler, ExceptionListener {
    * progress indicator (if any) in the message may differ.
    */
   public void startTask(Location location, String message) {
-    handle(new Event(EventKind.START, location, message));
+    handle(Event.of(EventKind.START, location, message));
   }
 
   /**
@@ -130,12 +130,12 @@ public final class Reporter implements EventHandler, ExceptionListener {
    * progress indicator (if any) in the message may differ.
    */
   public void finishTask(Location location, String message) {
-    handle(new Event(EventKind.FINISH, location, message));
+    handle(Event.of(EventKind.FINISH, location, message));
   }
 
   @Override
   public void error(Location location, String message, Throwable error) {
-    handle(new Event(EventKind.ERROR, location, message));
+    handle(Event.error(location, message));
     error.printStackTrace(new PrintStream(getOutErr().getErrorStream()));
   }
 
@@ -178,5 +178,4 @@ public final class Reporter implements EventHandler, ExceptionListener {
       ansiAllowingHandlerRegistered = false;
     }
   }
-
 }

@@ -146,7 +146,7 @@ public final class BlazeExecutor implements Executor {
    */
   @Override
   public void reportSubcommand(String reason, String message) {
-    reporter.handle(new Event(EventKind.SUBCOMMAND, null, "# " + reason + "\n" + message));
+    reporter.handle(Event.of(EventKind.SUBCOMMAND, null, "# " + reason + "\n" + message));
   }
 
   /**

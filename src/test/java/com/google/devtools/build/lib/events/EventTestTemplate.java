@@ -33,7 +33,7 @@ public abstract class EventTestTemplate {
 
     location = Location.fromPathAndStartColumn(path, 21, 31, new LineAndColumn(3, 4));
 
-    event = new Event(EventKind.WARNING, location, message);
+    event = Event.of(EventKind.WARNING, location, message);
 
     locationNoPath = Location.fromPathAndStartColumn(null, 21, 31, new LineAndColumn(3, 4));
 

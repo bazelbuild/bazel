@@ -236,15 +236,15 @@ public class StandaloneTestStrategy extends TestStrategy {
       }
     } finally {
       if (isPassed) {
-        executor.getEventHandler().handle(new Event(EventKind.PASS, null, result.getTestName()));
+        executor.getEventHandler().handle(Event.of(EventKind.PASS, null, result.getTestName()));
       } else {
         if (result.getData().getStatus() == BlazeTestStatus.TIMEOUT) {
           executor.getEventHandler().handle(
-              new Event(EventKind.TIMEOUT, null, result.getTestName()
+              Event.of(EventKind.TIMEOUT, null, result.getTestName()
                   + " (see " + testOutput + ")"));
         } else {
           executor.getEventHandler().handle(
-              new Event(EventKind.FAIL, null, result.getTestName() + " (see " + testOutput + ")"));
+              Event.of(EventKind.FAIL, null, result.getTestName() + " (see " + testOutput + ")"));
         }
       }
     }

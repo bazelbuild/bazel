@@ -37,9 +37,9 @@ public class SimpleReportersTest extends EventTestTemplate {
     };
 
     Reporter reporter = new Reporter(handler);
-    reporter.handle(new Event(EventKind.INFO, location, "Add to handlerCount."));
-    reporter.handle(new Event(EventKind.INFO, location, "Add to handlerCount."));
-    reporter.handle(new Event(EventKind.INFO, location, "Add to handlerCount."));
+    reporter.handle(Event.info(location, "Add to handlerCount."));
+    reporter.handle(Event.info(location, "Add to handlerCount."));
+    reporter.handle(Event.info(location, "Add to handlerCount."));
     assertEquals(3, handlerCount);
   }
 }
