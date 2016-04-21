@@ -25,8 +25,6 @@ import org.eclipse.jgit.lib.ProgressMonitor;
 class GitProgressMonitor implements ProgressMonitor {
   private String message;
   private EventHandler eventHandler;
-  private int totalTasks;
-  private int currentTask;
 
   private String workTitle;
   private int totalWork;
@@ -38,25 +36,16 @@ class GitProgressMonitor implements ProgressMonitor {
   }
 
   @Override
-  public void start(int totalTasks) {
-    this.totalTasks = totalTasks;
-    this.currentTask = 0;
-  }
+  public void start(int totalTasks) { }
 
   private void report() {
     eventHandler.handle(
-        Event.progress("[" + currentTask + " / " + totalTasks + "] "
-            + message + ": " + workTitle + " ("
-            + completedWork + " / " + totalWork + ")"));
+        Event.progress(message + ": " + workTitle
+            + " (" + completedWork + " / " + totalWork + ")"));
   }
 
   @Override
   public void beginTask(String title, int totalWork) {
-    ++currentTask;
-    // TODO(dzc): Remove this when jgit reports totalTasks correctly in start().
-    if (currentTask > totalTasks) {
-      totalTasks = currentTask;
-    }
     this.totalWork = totalWork;
     this.completedWork = 0;
     this.workTitle = title;
