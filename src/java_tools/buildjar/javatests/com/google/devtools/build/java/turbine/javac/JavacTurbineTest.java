@@ -131,7 +131,8 @@ public class JavacTurbineTest {
 
   void compile() throws IOException {
     optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
-    try (JavacTurbine turbine = new JavacTurbine(optionsBuilder.build())) {
+    try (JavacTurbine turbine =
+        new JavacTurbine(new PrintWriter(System.err), optionsBuilder.build())) {
       assertThat(turbine.compile()).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
     }
   }
@@ -563,7 +564,8 @@ public class JavacTurbineTest {
 
     optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
 
-    try (JavacTurbine turbine = new JavacTurbine(optionsBuilder.build())) {
+    try (JavacTurbine turbine =
+        new JavacTurbine(new PrintWriter(System.err), optionsBuilder.build())) {
       assertThat(turbine.compile()).isEqualTo(Result.OK_WITH_REDUCED_CLASSPATH);
       Context context = turbine.context;
 
@@ -649,7 +651,8 @@ public class JavacTurbineTest {
 
     optionsBuilder.addSources(ImmutableList.copyOf(Iterables.transform(sources, TO_STRING)));
 
-    try (JavacTurbine turbine = new JavacTurbine(optionsBuilder.build())) {
+    try (JavacTurbine turbine =
+        new JavacTurbine(new PrintWriter(System.err), optionsBuilder.build())) {
       assertThat(turbine.compile()).isEqualTo(Result.OK_WITH_FULL_CLASSPATH);
       Context context = turbine.context;
 
