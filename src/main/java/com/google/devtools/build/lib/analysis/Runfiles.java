@@ -351,7 +351,7 @@ public final class Runfiles {
     structField = true
   )
   public NestedSet<String> getEmptyFilenames() {
-    Set<PathFragment> manifest = new TreeSet();
+    Set<PathFragment> manifest = new TreeSet<>();
     Iterables.addAll(
         manifest, Iterables.transform(getArtifacts().toCollection(), GET_ROOT_RELATIVE_PATH));
     return NestedSetBuilder.wrap(

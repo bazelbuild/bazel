@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.util.Preconditions;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -63,7 +64,8 @@ import java.util.Set;
  * in the dependency analysis, we create a Middleman Artifact which depends on all of these. Actions
  * which will run an executable should depend on this Middleman Artifact.
  */
-public class RunfilesSupport {
+@Immutable
+public final class RunfilesSupport {
   private static final String RUNFILES_DIR_EXT = ".runfiles";
 
   private final Runfiles runfiles;
@@ -340,7 +342,6 @@ public class RunfilesSupport {
    *
    * @return the Runfiles object
    */
-
   private static Runfiles getRunfiles(TransitiveInfoCollection target) {
     RunfilesProvider runfilesProvider = target.getProvider(RunfilesProvider.class);
     if (runfilesProvider != null) {

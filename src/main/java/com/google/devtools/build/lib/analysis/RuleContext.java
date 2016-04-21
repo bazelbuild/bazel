@@ -1189,22 +1189,6 @@ public final class RuleContext extends TargetContext
   }
 
   /**
-   * Like getFilesToBuild(), except that it also includes the runfiles middleman, if any.
-   * Middlemen are expanded in the SpawnStrategy or by the Distributor.
-   */
-  public static ImmutableList<Artifact> getFilesToRun(
-      RunfilesSupport runfilesSupport, NestedSet<Artifact> filesToBuild) {
-    if (runfilesSupport == null) {
-      return ImmutableList.copyOf(filesToBuild);
-    } else {
-      ImmutableList.Builder<Artifact> allFilesToBuild = ImmutableList.builder();
-      allFilesToBuild.addAll(filesToBuild);
-      allFilesToBuild.add(runfilesSupport.getRunfilesMiddleman());
-      return allFilesToBuild.build();
-    }
-  }
-
-  /**
    * Like {@link #getOutputArtifacts()} but for a singular output item.
    * Reports an error if the "out" attribute is not a singleton.
    *
