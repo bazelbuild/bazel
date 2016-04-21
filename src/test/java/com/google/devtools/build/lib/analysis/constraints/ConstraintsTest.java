@@ -53,6 +53,9 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         "sh_library(name = 'implicit', srcs = ['implicit.sh'])",
         "sh_library(name = 'latebound', srcs = ['latebound.sh'])",
         "sh_library(name = 'default', srcs = ['default.sh'])");
+    scratch.file("config/BUILD",
+        "config_setting(name = 'a', values = {'define': 'mode=a'})",
+        "config_setting(name = 'b', values = {'define': 'mode=b'})");
   }
 
   /**
@@ -773,13 +776,13 @@ public class ConstraintsTest extends AbstractConstraintsTest {
   public void testConfigSettingRulesAreNotChecked() throws Exception {
     new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
     scratch.file("hello/BUILD",
-        "config_setting(name = 'setting', values = {'compilation_mode': 'fastbuild'})",
         "sh_library(",
         "    name = 'shlib',",
         "    srcs = select({",
-        "        ':setting': ['shlib.sh'],",
+        "        '//config:a': ['shlib.sh'],",
         "    }),",
         "    compatible_with = ['//buildenv/foo:a'])");
+    useConfiguration("--define", "mode=a");
     assertNotNull(getConfiguredTarget("//hello:shlib"));
     assertNoEvents();
   }
@@ -897,4 +900,234 @@ public class ConstraintsTest extends AbstractConstraintsTest {
         .make();
     assertNotNull(getConfiguredTarget("//buildenv/foo:foo"));
   }
+
+  private void writeDepsForSelectTests() throws Exception {
+    scratch.file("deps/BUILD",
+        "cc_library(",
+        "    name = 'dep_a',",
+        "    srcs = [],",
+        "    restricted_to = ['//buildenv/foo:a'])",
+        "cc_library(",
+        "    name = 'dep_b',",
+        "    srcs = [],",
+        "    restricted_to = ['//buildenv/foo:b'])");
+  }
+
+  @Test
+  public void testSelectableDepsCanMissEnvironments() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
+    writeDepsForSelectTests();
+    scratch.file("hello/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = [],",
+        "    deps = select({",
+        "        '//config:a': ['//deps:dep_a'],",
+        "        '//config:b': ['//deps:dep_b'],",
+        "    }),",
+        "    compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])");
+    useConfiguration("--define", "mode=a");
+    assertNotNull(getConfiguredTarget("//hello:lib"));
+  }
+
+  @Test
+  public void testStaticCheckingOnSelectsTemporarilyDisabled() throws Exception {
+    // TODO(bazel-team): update this test once static checking on selects is implemented. When
+    // that happens, the union of all deps in the select must support the environments in the
+    // depending rule. So the logic here is constraint-invalid because //buildenv/foo:c isn't
+    // fulfilled by any of the deps.
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b", "c").setDefaults().make();
+    writeDepsForSelectTests();
+    scratch.file("hello/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = [],",
+        "    deps = select({",
+        "        '//config:a': ['//deps:dep_a'],",
+        "        '//config:b': ['//deps:dep_b'],",
+        "    }),",
+        "    compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b', '//buildenv/foo:c'])");
+    useConfiguration("--define", "mode=a");
+    assertNotNull(getConfiguredTarget("//hello:lib"));
+  }
+
+  @Test
+  public void testDepInBothSelectAndUnconditionalListIsAlwaysChecked() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
+    writeDepsForSelectTests();
+    scratch.file("hello/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = [],",
+        "    deps = select({",
+        "        '//config:a': ['//deps:dep_a'],",
+        "        '//config:b': ['//deps:dep_b'],",
+        "    }),",
+        "    data = ['//deps:dep_a'],",
+        "    compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])");
+    useConfiguration("--define", "mode=a");
+    reporter.removeHandler(failFastHandler);
+    assertNull(getConfiguredTarget("//hello:lib"));
+    assertContainsEvent(
+        "dependency //deps:dep_a doesn't support expected environment: //buildenv/foo:b");
+  }
+
+  @Test
+  public void testUnconditionalSelectsAlwaysChecked() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
+    writeDepsForSelectTests();
+    scratch.file("hello/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = [],",
+        "    deps = select({",
+        "        '//conditions:default': ['//deps:dep_a'],",
+        "    }),",
+        "    compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])");
+    reporter.removeHandler(failFastHandler);
+    assertNull(getConfiguredTarget("//hello:lib"));
+    assertContainsEvent(
+        "dependency //deps:dep_a doesn't support expected environment: //buildenv/foo:b");
+  }
+
+  @Test
+  public void testRefinedEnvironmentCheckingValidCaseDirect() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
+    writeDepsForSelectTests();
+    scratch.file("hello/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = [],",
+        "    deps = select({",
+        "        '//config:a': ['//deps:dep_a'],",
+        "        '//config:b': ['//deps:dep_b'],",
+        "    }),",
+        "    compatible_with = ['//buildenv/foo:a'])");
+    useConfiguration("--define", "mode=a");
+    // Valid because "--define mode=a" refines :lib to "compatible_with = ['//buildenv/foo:a']".
+    assertNotNull(getConfiguredTarget("//hello:lib"));
+  }
+
+  @Test
+  public void testRefinedEnvironmentCheckingBadCaseDirect() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
+    writeDepsForSelectTests();
+    scratch.file("hello/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = [],",
+        "    deps = select({",
+        "        '//config:a': ['//deps:dep_a'],",
+        "        '//config:b': ['//deps:dep_b'],",
+        "    }),",
+        "    compatible_with = ['//buildenv/foo:b'])");
+    useConfiguration("--define", "mode=a");
+    reporter.removeHandler(failFastHandler);
+    // Invalid because "--define mode=a" refines :lib to "compatible_with = []" (empty).
+    assertNull(getConfiguredTarget("//hello:lib"));
+    assertContainsEvent("//hello:lib: all environments have been refined out of the following"
+        + " groups: //buildenv/foo:foo");
+  }
+
+  @Test
+  public void testRefinedEnvironmentCheckingValidCaseTransitive() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
+    writeDepsForSelectTests();
+    scratch.file("hello/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = [],",
+        "    deps = select({",
+        "        '//config:a': ['//deps:dep_a'],",
+        "        '//config:b': ['//deps:dep_b'],",
+        "    }),",
+        "    compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])",
+        "cc_library(",
+        "    name = 'depender',",
+        "    srcs = [],",
+        "    deps = [':lib'],",
+        "    compatible_with = ['//buildenv/foo:a'])");
+    useConfiguration("--define", "mode=a");
+    // Valid because "--define mode=a" refines :lib to "compatible_with = ['//buildenv/foo:a']".
+    assertNotNull(getConfiguredTarget("//hello:depender"));
+  }
+
+  @Test
+  public void testRefinedEnvironmentCheckingBadCaseTransitive() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
+    writeDepsForSelectTests();
+    scratch.file("hello/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = [],",
+        "    deps = select({",
+        "        '//config:a': ['//deps:dep_a'],",
+        "        '//config:b': ['//deps:dep_b'],",
+        "    }),",
+        "    compatible_with = ['//buildenv/foo:a', '//buildenv/foo:b'])",
+        "cc_library(",
+        "    name = 'depender',",
+        "    srcs = [],",
+        "    deps = [':lib'],",
+        "    compatible_with = ['//buildenv/foo:b'])");
+    useConfiguration("--define", "mode=a");
+    reporter.removeHandler(failFastHandler);
+    // Invalid because "--define mode=a" refines :lib to "compatible_with = ['//buildenv/foo:a']".
+    assertNull(getConfiguredTarget("//hello:depender"));
+    assertContainsEvent("//hello:depender: all environments have been refined out of the following"
+        + " groups: //buildenv/foo:foo");
+  }
+
+  @Test
+  public void testEnvironmentRefiningAccountsForImplicitDefaults() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults("b").make();
+    writeDepsForSelectTests();
+    scratch.file("hello/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = [],",
+        "    deps = select({",
+        "        '//config:a': ['//deps:dep_a'],",
+        "        '//config:b': ['//deps:dep_b'],",
+        "    }))");
+    useConfiguration("--define", "mode=a");
+    reporter.removeHandler(failFastHandler);
+    // Invalid because :lib has an implicit default of ['//buildenv/foo:b'] and "--define mode=a"
+    // refines it to "compatible_with = []" (empty).
+    assertNull(getConfiguredTarget("//hello:lib"));
+    assertContainsEvent("//hello:lib: all environments have been refined out of the following"
+        + " groups: //buildenv/foo:foo");
+  }
+
+  @Test
+  public void testEnvironmentRefiningChecksAllEnvironmentGroups() throws Exception {
+    new EnvironmentGroupMaker("buildenv/foo").setEnvironments("a", "b").setDefaults().make();
+    new EnvironmentGroupMaker("buildenv/bar").setEnvironments("c", "d").setDefaults().make();
+    scratch.file("deps/BUILD",
+        "cc_library(",
+        "    name = 'dep_a',",
+        "    srcs = [],",
+        "    restricted_to = ['//buildenv/foo:a', '//buildenv/bar:d'])",
+        "cc_library(",
+        "    name = 'dep_b',",
+        "    srcs = [],",
+        "    restricted_to = ['//buildenv/foo:b', '//buildenv/bar:c'])");
+    scratch.file("hello/BUILD",
+        "cc_library(",
+        "    name = 'lib',",
+        "    srcs = [],",
+        "    deps = select({",
+        "        '//config:a': ['//deps:dep_a'],",
+        "        '//config:b': ['//deps:dep_b'],",
+        "    }),",
+        "    compatible_with = ['//buildenv/foo:a', '//buildenv/bar:c'])");
+        useConfiguration("--define", "mode=a");
+        reporter.removeHandler(failFastHandler);
+        // Invalid because while the //buildenv/foo refinement successfully refines :lib to
+        // ['//buildenv/foo:a'], the bar refinement refines it to [].
+        assertNull(getConfiguredTarget("//hello:lib"));
+        assertContainsEvent("//hello:lib: all environments have been refined out of the following"
+            + " groups: //buildenv/bar:bar");
+  }
 }
+

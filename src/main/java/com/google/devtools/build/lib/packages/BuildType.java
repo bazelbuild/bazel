@@ -501,6 +501,14 @@ public final class BuildType {
     }
 
     /**
+     * Returns true if this selector has the structure: {"//conditions:default": ...}. That means
+     * all values are always chosen.
+     */
+    public boolean isUnconditional() {
+      return map.size() == 1 && hasDefaultCondition;
+    }
+
+    /**
      * Returns true for labels that are "reserved selector key words" and not intended to
      * map to actual targets.
      */

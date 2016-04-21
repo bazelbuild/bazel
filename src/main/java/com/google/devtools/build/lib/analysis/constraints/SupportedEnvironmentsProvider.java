@@ -23,7 +23,20 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 public interface SupportedEnvironmentsProvider extends TransitiveInfoProvider {
 
   /**
-   * Returns the environments the associated target is compatible with.
+   * Returns the static environments this target is compatible with. Static environments
+   * are those that are independent of build configuration (e.g. declared in {@code restricted_to} /
+   * {@code compatible_with}). See {@link ConstraintSemantics} for details.
    */
-  EnvironmentCollection getEnvironments();
+  EnvironmentCollection getStaticEnvironments();
+
+  /**
+   * Returns the refined environments this rule is compatible with. Refined environments are
+   * static environments with unsupported environments from {@code select}able deps removed (on the
+   * principle that others paths in the select would have provided those environments, so this rule
+   * is "refined" to match whichever deps got chosen).
+   *
+   * <p>>Refined environments require knowledge of the build configuration. See
+   * {@link ConstraintSemantics} for details.
+   */
+  EnvironmentCollection getRefinedEnvironments();
 }

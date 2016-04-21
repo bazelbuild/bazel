@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.constraints;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -37,15 +38,13 @@ public class EnvironmentCollection {
   /**
    * Stores an environment's build label along with the group it belongs to.
    */
-  static class EnvironmentWithGroup {
-    private final Label environment;
-    private final EnvironmentGroup group;
-    EnvironmentWithGroup(Label environment, EnvironmentGroup group) {
-      this.environment = environment;
-      this.group = group;
+  @AutoValue
+  abstract static class EnvironmentWithGroup {
+    static EnvironmentWithGroup create(Label environment, EnvironmentGroup group) {
+      return new AutoValue_EnvironmentCollection_EnvironmentWithGroup(environment, group);
     }
-    Label environment() { return environment; }
-    EnvironmentGroup group() { return group; }
+    abstract Label environment();
+    abstract EnvironmentGroup group();
   }
 
   /**
@@ -71,7 +70,7 @@ public class EnvironmentCollection {
   ImmutableCollection<EnvironmentWithGroup> getGroupedEnvironments() {
     ImmutableSet.Builder<EnvironmentWithGroup> builder = ImmutableSet.builder();
     for (Map.Entry<EnvironmentGroup, Label> entry : map.entries()) {
-      builder.add(new EnvironmentWithGroup(entry.getValue(), entry.getKey()));
+      builder.add(EnvironmentWithGroup.create(entry.getValue(), entry.getKey()));
     }
     return builder.build();
   }

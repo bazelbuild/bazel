@@ -266,6 +266,28 @@ public class BuildTypeTest {
         Label.parseAbsolute(BuildType.Selector.DEFAULT_CONDITION_KEY)));
   }
 
+  @Test
+  public void testUnconditionalSelects() throws Exception {
+    assertFalse(
+        new Selector<Label>(
+            ImmutableMap.of("//conditions:a", "//a:a"),
+            null, currentRule, BuildType.LABEL
+        ).isUnconditional());
+    assertFalse(
+        new Selector<Label>(
+            ImmutableMap.of(
+                "//conditions:a", "//a:a",
+                BuildType.Selector.DEFAULT_CONDITION_KEY, "//b:b"),
+            null, currentRule, BuildType.LABEL
+        ).isUnconditional());
+    assertTrue(
+        new Selector<Label>(
+            ImmutableMap.of(
+                BuildType.Selector.DEFAULT_CONDITION_KEY, "//b:b"),
+            null, currentRule, BuildType.LABEL
+        ).isUnconditional());
+  }
+
   private static FilesetEntry makeFilesetEntry() {
     try {
       return new FilesetEntry(

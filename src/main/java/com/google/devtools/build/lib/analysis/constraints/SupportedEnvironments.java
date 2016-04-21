@@ -18,14 +18,22 @@ package com.google.devtools.build.lib.analysis.constraints;
  * Standard {@link SupportedEnvironmentsProvider} implementation.
  */
 public class SupportedEnvironments implements SupportedEnvironmentsProvider {
-  private final EnvironmentCollection supportedEnvironments;
+  private final EnvironmentCollection staticEnvironments;
+  private final EnvironmentCollection refinedEnvironments;
 
-  public SupportedEnvironments(EnvironmentCollection supportedEnvironments) {
-    this.supportedEnvironments = supportedEnvironments;
+  public SupportedEnvironments(EnvironmentCollection staticEnvironments,
+      EnvironmentCollection refinedEnvironments) {
+    this.staticEnvironments = staticEnvironments;
+    this.refinedEnvironments = refinedEnvironments;
   }
 
   @Override
-  public EnvironmentCollection getEnvironments() {
-    return supportedEnvironments;
+  public EnvironmentCollection getStaticEnvironments() {
+    return staticEnvironments;
+  }
+
+  @Override
+  public EnvironmentCollection getRefinedEnvironments() {
+    return refinedEnvironments;
   }
 }
