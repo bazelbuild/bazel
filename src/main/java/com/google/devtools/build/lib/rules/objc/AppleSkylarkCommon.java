@@ -37,7 +37,8 @@ public class AppleSkylarkCommon {
   
   @SkylarkCallable(
       name = "keys",
-      doc = "Retrieves ObjcProvider keys"
+      doc = "Retrieves ObjcProvider keys",
+      structField = true
   )
   public static SkylarkKeyStore getKeys() {
     return new SkylarkKeyStore();

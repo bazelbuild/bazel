@@ -106,8 +106,9 @@ public final class DotExpression extends Expression {
       }
     }
 
-    List<MethodDescriptor> methods =
-        FuncallExpression.getMethods(objValue.getClass(), name, 0, loc);
+    List<MethodDescriptor> methods = objValue instanceof Class<?>
+        ? FuncallExpression.getMethods((Class<?>) objValue, name, 0, loc)
+        : FuncallExpression.getMethods(objValue.getClass(), name, 0, loc);
     if (methods != null && !methods.isEmpty()) {
       MethodDescriptor method = Iterables.getOnlyElement(methods);
       if (method.getAnnotation().structField()) {
