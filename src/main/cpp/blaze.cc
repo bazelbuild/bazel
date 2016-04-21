@@ -363,8 +363,9 @@ static vector<string> GetArgumentArray() {
     result.push_back("--batch");
   }
 
-  if (globals->options.grpc_port != -1) {
-    result.push_back("--grpc_port=" + ToString(globals->options.grpc_port));
+  if (globals->options.command_port != -1) {
+    result.push_back(
+        "--command_port=" + ToString(globals->options.command_port));
   }
 
   result.push_back("--install_base=" +
@@ -890,7 +891,9 @@ static bool ConnectToServer(BlazeServer *server, bool start) {
            "can't get server pid from connection");
     }
     return true;
-  } else {
+  }
+
+  if (start) {
     // If we couldn't connect to the server check if there is still a PID file
     // and if so, kill the server that wrote it. This can happen e.g. if the
     // server is in a GC pause and therefore cannot respond to ping requests and
@@ -900,9 +903,7 @@ static bool ConnectToServer(BlazeServer *server, bool start) {
     if (server_pid >= 0) {
       kill(server_pid, SIGKILL);
     }
-  }
 
-  if (start) {
     SetScheduling(globals->options.batch_cpu_scheduling,
                   globals->options.io_nice_level);
 
@@ -1803,11 +1804,11 @@ int main(int argc, const char *argv[]) {
   const string self_path = GetSelfPath();
   ComputeBaseDirectories(self_path);
 
-  blaze_server = globals->options.grpc_port >= 0
+  blaze_server = globals->options.command_port >= 0
       ? static_cast<BlazeServer *>(new GrpcBlazeServer())
       : static_cast<BlazeServer *>(new AfUnixBlazeServer());
 
-  if (globals->options.grpc_port < 0 || globals->options.batch) {
+  if (globals->options.command_port < 0 || globals->options.batch) {
     // The gRPC server can handle concurrent commands just fine. However, we
     // need to be careful not to start two parallel instances in batch mode.
     AcquireLock();
@@ -1841,15 +1842,15 @@ bool GrpcBlazeServer::Connect() {
   std::string server_dir = globals->options.output_base + "/server";
   std::string port;
 
-  if (!ReadFile(server_dir + "/grpc_port", &port)) {
+  if (!ReadFile(server_dir + "/command_port", &port)) {
     return false;
   }
 
-  if (!ReadFile(server_dir + "/request_cookie_", &request_cookie_)) {
+  if (!ReadFile(server_dir + "/request_cookie", &request_cookie_)) {
     return false;
   }
 
-  if (!ReadFile(server_dir + "/response_cookie_", &response_cookie_)) {
+  if (!ReadFile(server_dir + "/response_cookie", &response_cookie_)) {
     return false;
   }
 
@@ -1865,7 +1866,7 @@ bool GrpcBlazeServer::Connect() {
   command_server::PingRequest request;
   command_server::PingResponse response;
   request.set_cookie(request_cookie_);
-  grpc::Status status = client_->Ping(&context, request, &response);
+  grpc::Status status = client->Ping(&context, request, &response);
 
   if (!status.ok()) {
     return false;

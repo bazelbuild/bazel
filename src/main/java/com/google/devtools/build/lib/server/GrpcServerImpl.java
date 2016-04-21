@@ -125,7 +125,7 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
   }
 
   // These paths are all relative to the server directory
-  private static final String PORT_FILE = "grpc_port";
+  private static final String PORT_FILE = "command_port";
   private static final String REQUEST_COOKIE_FILE = "request_cookie";
   private static final String RESPONSE_COOKIE_FILE = "response_cookie";
 

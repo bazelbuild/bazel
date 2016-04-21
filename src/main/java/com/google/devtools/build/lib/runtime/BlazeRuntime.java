@@ -877,7 +877,7 @@ public final class BlazeRuntime {
     CommandExecutor commandExecutor = new CommandExecutor(runtime, dispatcher);
 
 
-    if (startupOptions.grpcPort != -1) {
+    if (startupOptions.commandPort != -1) {
       try {
         // This is necessary so that Bazel kind of works during bootstrapping, at which time the
         // gRPC server is not compiled in so that we don't need gRPC for bootstrapping.
@@ -885,7 +885,7 @@ public final class BlazeRuntime {
             "com.google.devtools.build.lib.server.GrpcServerImpl$Factory");
         RPCServer.Factory factory = (RPCServer.Factory) factoryClass.newInstance();
         return factory.create(commandExecutor, runtime.getClock(),
-            startupOptions.grpcPort, runtime.getServerDirectory());
+            startupOptions.commandPort, runtime.getServerDirectory());
       } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
         throw new AbruptExitException("gRPC server not compiled in", ExitCode.BLAZE_INTERNAL_ERROR);
       }

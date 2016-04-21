@@ -212,7 +212,7 @@ class BlazeStartupOptions {
 
   // Port for gRPC command server. 0 means let the kernel choose, -1 means no
   // gRPC command server.
-  int grpc_port;
+  int command_port;
 
   // Invocation policy proto. May be NULL.
   const char* invocation_policy;
