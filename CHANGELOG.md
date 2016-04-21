@@ -1,3 +1,42 @@
+## Release 0.2.2 (2016-04-14)
+
+```
+Baseline: 759bbfe
+   + 1250fda: Rollback of commit
+              351475627b9e94e5afdf472cbf465f49c433a25e.
+   + ba8700e: Correctly set up build variables for the correct pic
+              mode for fake_binary rules.
+   + 386f242: Automated [] rollback of commit
+              525fa71b0d6f096e9bfb180f688a4418c4974eb4.
+```
+
+New features:
+
+  - --extra_entitlements allows passing additional entitlements for
+    iOS signing
+  - The output of -printconfiguration of proguard is available
+    through an implicit "[target_name]_proguard.confg" output of
+    android_binary (and
+    java_binary).
+  - Objective-C compiler information is now available to Skylark.
+
+Important changes:
+
+  - ProGuard relies on bazel to check to see if the inputs have
+    changed.
+  - Build the jsonnet tool for the host when cross-compiling.
+  - Add ProductType for watch OS 1 extension and application.
+  - Restrict file types used for "entitlements" attribute to
+    [".entitlements", ".plist"]
+  - Restrict file types allowed for "strings" attribute to ".strings".
+  - local_repository can take a relative path.
+  - Support apple_watch1_extension and apple_watch_extension_binary
+    rules for creating watch OS 1 extensions.
+  - implement list.insert for skylark rule
+  - Enable overriding attributes for Rust binaries.
+  - ios_device attribute "xcode", for declaring a specific xcode to
+    use when selecting iOS simulators.
+
 ## Release 0.2.1 (2016-03-21)
 
 ```
