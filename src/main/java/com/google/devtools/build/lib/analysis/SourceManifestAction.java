@@ -192,6 +192,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   protected String computeKey() {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
+    f.addBoolean(runfiles.getLegacyExternalRunfiles());
     Map<PathFragment, Artifact> symlinks = runfiles.getSymlinksAsMap();
     f.addInt(symlinks.size());
     for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {
@@ -219,7 +220,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   /**
    * Supported manifest writing strategies.
    */
-  public static enum ManifestType implements ManifestWriter {
+  public enum ManifestType implements ManifestWriter {
 
     /**
      * Writes each line as:

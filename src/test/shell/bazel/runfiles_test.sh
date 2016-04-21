@@ -53,4 +53,43 @@ EOF
   [[ -x bazel-bin/foo/foo.runfiles/$name/foo/foo ]] || fail "No foo executable under $name"
 }
 
+function test_external_runfiles() {
+  cat > WORKSPACE <<EOF
+workspace(name = "foo")
+
+new_local_repository(
+    name = "bar",
+    path = ".",
+    build_file = "BUILD",
+)
+EOF
+
+  cat > BUILD <<EOF
+exports_files(glob(["*"]))
+
+cc_binary(
+    name = "thing",
+    srcs = ["thing.cc"],
+    data = ["@bar//:thing.cc"],
+)
+EOF
+  cat > thing.cc <<EOF
+int main() { return 0; }
+EOF
+  bazel build --legacy_external_runfiles //:thing &> $TEST_log \
+    || fail "Build failed"
+  [[ -d bazel-bin/thing.runfiles/foo/external/bar ]] \
+    || fail "bar not found"
+
+  bazel build --nolegacy_external_runfiles //:thing &> $TEST_log \
+    || fail "Build failed"
+  [[ ! -d bazel-bin/thing.runfiles/foo/external/bar ]] \
+    || fail "Old bar still found"
+
+  bazel build --legacy_external_runfiles //:thing &> $TEST_log \
+    || fail "Build failed"
+  [[ -d bazel-bin/thing.runfiles/foo/external/bar ]] \
+    || fail "bar not recreated"
+}
+
 run_suite "runfiles tests"

@@ -94,6 +94,10 @@ public final class Runfiles {
         }
       };
 
+  boolean getLegacyExternalRunfiles() {
+    return legacyRepositoryStructure;
+  }
+
   /**
    * An entry in the runfiles map.
    *
