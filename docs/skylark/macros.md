@@ -99,7 +99,7 @@ extract this code to a function.
 The BUILD file will become simply:
 
 ```
-load("/path/generator", "file_generator")
+load("//path:generator.bzl", "file_generator")
 
 file_generator(
     name = "file",
