@@ -213,7 +213,10 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
           # Enable a few more warnings that aren't part of -Wall.
       ] + (["-Wthread-safety", "-Wself-assign"] if darwin else [
           # Disable some that are problematic.
-          "-Wl,-z,-relro,-z,now"
+          "-Wl,-z,-relro,-z,now",
+          "-B" + str(repository_ctx.path(cc).dirname),
+          # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
+          "-B/usr/bin",
       ]) + (
           _add_option_if_supported(repository_ctx, cc, "-Wunused-but-set-parameter") +
           # has false positives
@@ -264,6 +267,9 @@ def _find_cc(repository_ctx):
   cc_name = "gcc"
   if "CC" in repository_ctx.os.environ:
     cc_name = repository_ctx.os.environ["CC"]
+  if cc_name.startswith("/"):
+    # Absolute path, maybe we should make this suported by our which function.
+    return cc_name
   cc = repository_ctx.which(cc_name)
   if cc == None:
     fail(
