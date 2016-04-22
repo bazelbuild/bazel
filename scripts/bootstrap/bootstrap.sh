@@ -32,11 +32,13 @@ fi
 
 if [ "${JAVA_VERSION}" = "1.7" ]; then
   : ${BAZEL_ARGS:=--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain_jdk7 \
+        --host_java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain_jdk7 \
         --define JAVA_VERSION=1.7 \
         --genrule_strategy=standalone --spawn_strategy=standalone \
         "${EXTRA_BAZEL_ARGS:-}"}
 else
   : ${BAZEL_ARGS:=--java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
+        --host_java_toolchain=//src/java_tools/buildjar:bootstrap_toolchain \
         --strategy=Javac=worker --worker_quit_after_build \
         --genrule_strategy=standalone --spawn_strategy=standalone \
         "${EXTRA_BAZEL_ARGS:-}"}

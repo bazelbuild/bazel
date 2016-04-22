@@ -351,8 +351,7 @@ public class JavaOptions extends FragmentOptions {
     host.jvmOpts = ImmutableList.of("-client", "-XX:ErrorFile=/dev/stderr");
 
     host.javacOpts = javacOpts;
-    // TODO(cushon): switch to hostJavaToolchain after cl/118829419 makes a blaze release
-    host.javaToolchain = javaToolchain;
+    host.javaToolchain = hostJavaToolchain;
 
     // Java builds often contain complicated code generators for which
     // incremental build performance is important.
