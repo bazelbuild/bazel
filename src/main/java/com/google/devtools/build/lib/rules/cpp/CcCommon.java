@@ -199,10 +199,10 @@ public final class CcCommon {
    */
   List<Pair<Artifact, Label>> getSources() {
     Map<Artifact, Label> map = Maps.newLinkedHashMap();
-    Iterable<FileProvider> providers =
-        ruleContext.getPrerequisites("srcs", Mode.TARGET, FileProvider.class);
-    for (FileProvider provider : providers) {
-      for (Artifact artifact : provider.getFilesToBuild()) {
+    Iterable<? extends TransitiveInfoCollection> providers =
+        ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class);
+    for (TransitiveInfoCollection provider : providers) {
+      for (Artifact artifact : provider.getProvider(FileProvider.class).getFilesToBuild()) {
         // TODO(bazel-team): We currently do not produce an error for duplicate headers and other
         // non-source artifacts with different labels, as that would require cleaning up the code
         // base without significant benefit; we should eventually make this consistent one way or
@@ -243,15 +243,15 @@ public final class CcCommon {
               + "' from target '" + target.getLabel() + "' is not allowed in hdrs");
           continue;
         }
-        Label oldLabel = map.put(artifact, provider.getLabel());
-        if (oldLabel != null && !oldLabel.equals(provider.getLabel())) {
+        Label oldLabel = map.put(artifact, target.getLabel());
+        if (oldLabel != null && !oldLabel.equals(target.getLabel())) {
           ruleContext.attributeWarning(
               "hdrs",
               String.format(
                   "Artifact '%s' is duplicated (through '%s' and '%s')",
                   artifact.getExecPathString(),
                   oldLabel,
-                  provider.getLabel()));
+                  target.getLabel()));
         }
       }
     }
@@ -359,10 +359,10 @@ public final class CcCommon {
 
     // Gather up all the dirs from the rule's srcs as well as any of the srcs outputs.
     if (hasAttribute("srcs", BuildType.LABEL_LIST)) {
-      for (FileProvider src :
-          ruleContext.getPrerequisites("srcs", Mode.TARGET, FileProvider.class)) {
+      for (TransitiveInfoCollection src :
+          ruleContext.getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class)) {
         PathFragment packageDir = src.getLabel().getPackageIdentifier().getPathFragment();
-        for (Artifact a : src.getFilesToBuild()) {
+        for (Artifact a : src.getProvider(FileProvider.class).getFilesToBuild()) {
           result.add(packageDir);
           // Attempt to gather subdirectories that might contain include files.
           result.add(a.getRootRelativePath().getParentDirectory());

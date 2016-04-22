@@ -281,9 +281,10 @@ public class LocationExpander {
     }
 
     if (ruleContext.getRule().isAttrDefined("srcs", BuildType.LABEL_LIST)) {
-      for (FileProvider src : ruleContext
-          .getPrerequisites("srcs", Mode.TARGET, FileProvider.class)) {
-        Iterables.addAll(mapGet(locationMap, src.getLabel()), src.getFilesToBuild());
+      for (TransitiveInfoCollection src : ruleContext
+          .getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class)) {
+        Iterables.addAll(mapGet(locationMap, src.getLabel()),
+            src.getProvider(FileProvider.class).getFilesToBuild());
       }
     }
 

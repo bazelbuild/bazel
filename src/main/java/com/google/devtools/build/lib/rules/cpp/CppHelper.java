@@ -197,10 +197,10 @@ public class CppHelper {
     try {
       Label label = ruleContext.getLabel().getRelative(labelName);
       for (String prereqKind : LINKOPTS_PREREQUISITE_LABEL_KINDS) {
-        for (FileProvider target : ruleContext
-            .getPrerequisites(prereqKind, Mode.TARGET, FileProvider.class)) {
+        for (TransitiveInfoCollection target : ruleContext
+            .getPrerequisitesIf(prereqKind, Mode.TARGET, FileProvider.class)) {
           if (target.getLabel().equals(label)) {
-            for (Artifact artifact : target.getFilesToBuild()) {
+            for (Artifact artifact : target.getProvider(FileProvider.class).getFilesToBuild()) {
               linkopts.add(artifact.getExecPathString());
             }
             return true;

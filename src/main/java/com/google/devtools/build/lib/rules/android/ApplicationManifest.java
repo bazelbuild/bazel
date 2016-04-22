@@ -200,7 +200,7 @@ public final class ApplicationManifest {
     LocalResourceContainer data = new LocalResourceContainer.Builder(ruleContext)
         .withAssets(
             AndroidCommon.getAssetDir(ruleContext),
-            ruleContext.getPrerequisites(
+            ruleContext.getPrerequisitesIf(
                 // TODO(bazel-team): Remove the ResourceType construct.
                 ResourceType.ASSETS.getAttribute(),
                 Mode.TARGET,
@@ -250,7 +250,7 @@ public final class ApplicationManifest {
     LocalResourceContainer data = new LocalResourceContainer.Builder(ruleContext)
         .withAssets(
             AndroidCommon.getAssetDir(ruleContext),
-            ruleContext.getPrerequisites(
+            ruleContext.getPrerequisitesIf(
                 // TODO(bazel-team): Remove the ResourceType construct.
                 ResourceType.ASSETS.getAttribute(),
                 Mode.TARGET,

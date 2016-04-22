@@ -180,15 +180,16 @@ public final class PyCommon {
     List<Artifact> sourceFiles = new ArrayList<>();
     // TODO(bazel-team): Need to get the transitive deps closure, not just the
     //                 sources of the rule.
-    for (FileProvider src : ruleContext
-        .getPrerequisites("srcs", Mode.TARGET, FileProvider.class)) {
+    for (TransitiveInfoCollection src : ruleContext
+        .getPrerequisitesIf("srcs", Mode.TARGET, FileProvider.class)) {
       // Make sure that none of the sources contain hyphens.
       if (Util.containsHyphen(src.getLabel().getPackageFragment())) {
         ruleContext.attributeError("srcs",
             src.getLabel() + ": paths to Python packages may not contain '-'");
       }
-      Iterable<Artifact> pySrcs = FileType.filter(src.getFilesToBuild(),
-          PyRuleClasses.PYTHON_SOURCE);
+      Iterable<Artifact> pySrcs =
+          FileType.filter(
+              src.getProvider(FileProvider.class).getFilesToBuild(), PyRuleClasses.PYTHON_SOURCE);
       Iterables.addAll(sourceFiles, pySrcs);
       if (Iterables.isEmpty(pySrcs)) {
         ruleContext.attributeWarning("srcs",

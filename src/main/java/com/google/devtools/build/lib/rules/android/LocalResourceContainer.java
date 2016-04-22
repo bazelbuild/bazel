@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesProvider.ResourceType;
@@ -160,9 +161,9 @@ public final class LocalResourceContainer {
      * @return The Builder.
      */
     public LocalResourceContainer.Builder withAssets(
-        PathFragment assetsDir, Iterable<FileProvider> targets) {
-      for (FileProvider target : targets) {
-        for (Artifact file : target.getFilesToBuild()) {
+        PathFragment assetsDir, Iterable<? extends TransitiveInfoCollection> targets) {
+      for (TransitiveInfoCollection target : targets) {
+        for (Artifact file : target.getProvider(FileProvider.class).getFilesToBuild()) {
           PathFragment packageFragment = file.getArtifactOwner().getLabel()
               .getPackageIdentifier().getPathFragment();
           PathFragment packageRelativePath =
