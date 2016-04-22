@@ -31,7 +31,7 @@ public class AppleSkylarkCommon {
       name = "apple_toolchain",
       doc = "Utilities for resolving items from the apple toolchain."
   )
-  public static AppleToolchain getAppleToolchain() {
+  public AppleToolchain getAppleToolchain() {
     return new AppleToolchain();
   }
   
@@ -40,7 +40,7 @@ public class AppleSkylarkCommon {
       doc = "Retrieves ObjcProvider keys",
       structField = true
   )
-  public static SkylarkKeyStore getKeys() {
+  public SkylarkKeyStore getKeys() {
     return new SkylarkKeyStore();
   } 
 }

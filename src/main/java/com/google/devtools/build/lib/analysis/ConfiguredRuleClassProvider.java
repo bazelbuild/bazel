@@ -45,7 +45,6 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Mutability;
-import com.google.devtools.build.lib.syntax.SkylarkType;
 import com.google.devtools.common.options.OptionsClassProvider;
 
 import java.lang.reflect.Constructor;
@@ -105,7 +104,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private ConfigurationCollectionFactory configurationCollectionFactory;
     private Class<? extends BuildConfiguration.Fragment> universalFragment;
     private PrerequisiteValidator prerequisiteValidator;
-    private ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses = ImmutableMap.of();
+    private ImmutableMap<String, Object> skylarkAccessibleTopLevels = ImmutableMap.of();
     private ImmutableList.Builder<Class<?>> skylarkModules =
         ImmutableList.<Class<?>>builder().addAll(SkylarkModules.MODULES);
     private final List<Class<? extends FragmentOptions>> buildOptions = Lists.newArrayList();
@@ -193,8 +192,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
-    public Builder setSkylarkAccessibleJavaClasses(ImmutableMap<String, SkylarkType> objects) {
-      this.skylarkAccessibleJavaClasses = objects;
+    public Builder setSkylarkAccessibleTopLevels(ImmutableMap<String, Object> objects) {
+      this.skylarkAccessibleTopLevels = objects;
       return this;
     }
 
@@ -277,7 +276,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           configurationCollectionFactory,
           universalFragment,
           prerequisiteValidator,
-          skylarkAccessibleJavaClasses,
+          skylarkAccessibleTopLevels,
           skylarkModules.build(),
           buildOptions);
     }
@@ -394,7 +393,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       ConfigurationCollectionFactory configurationCollectionFactory,
       Class<? extends BuildConfiguration.Fragment> universalFragment,
       PrerequisiteValidator prerequisiteValidator,
-      ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses,
+      ImmutableMap<String, Object> skylarkAccessibleJavaClasses,
       ImmutableList<Class<?>> skylarkModules,
       List<Class<? extends FragmentOptions>> buildOptions) {
     this.preludeLabel = preludeLabel;
@@ -514,13 +513,13 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   private Environment.Frame createGlobals(
-      ImmutableMap<String, SkylarkType> skylarkAccessibleJavaClasses,
+      ImmutableMap<String, Object> skylarkAccessibleToplLevels,
       ImmutableList<Class<?>> modules) {
     try (Mutability mutability = Mutability.create("ConfiguredRuleClassProvider globals")) {
       Environment env = createSkylarkRuleClassEnvironment(
           mutability, SkylarkModules.getGlobals(modules), null, null, null);
-      for (Map.Entry<String, SkylarkType> entry : skylarkAccessibleJavaClasses.entrySet()) {
-        env.setup(entry.getKey(), entry.getValue().getType());
+      for (Map.Entry<String, Object> entry : skylarkAccessibleToplLevels.entrySet()) {
+        env.setup(entry.getKey(), entry.getValue());
       }
       return env.getGlobals();
     }

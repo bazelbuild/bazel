@@ -35,7 +35,7 @@ public class AndroidSkylarkCommon {
             + "a directory that designates resource kind (cf. "
             + "http://developer.android.com/guide/topics/resources/providing-resources.html)."
   )
-  public static PathFragment getSourceDirectoryRelativePathFromResource(Artifact resource) {
+  public PathFragment getSourceDirectoryRelativePathFromResource(Artifact resource) {
     return AndroidCommon.getSourceDirectoryRelativePathFromResource(resource);
   }
 }
