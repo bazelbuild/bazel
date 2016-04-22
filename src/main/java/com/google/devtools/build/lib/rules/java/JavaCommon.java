@@ -459,7 +459,7 @@ public class JavaCommon {
     if (launcher != null) {
       javaExecutable = launcher.getRootRelativePath();
     } else {
-      javaExecutable = ruleContext.getFragment(Jvm.class).getRunfilesJavaExecutable();
+      javaExecutable = ruleContext.getFragment(Jvm.class).getJavaExecutable();
     }
 
     String pathPrefix = javaExecutable.isAbsolute() ? "" : "${JAVA_RUNFILES}/"
@@ -718,8 +718,7 @@ public class JavaCommon {
     if (neverLink) {
       return Runfiles.EMPTY;
     }
-    Runfiles.Builder runfilesBuilder = new Runfiles.Builder(
-        ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
+    Runfiles.Builder runfilesBuilder = new Runfiles.Builder(ruleContext.getWorkspaceName())
         .addArtifacts(javaArtifacts.getRuntimeJars());
     runfilesBuilder.addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
     runfilesBuilder.add(ruleContext, JavaRunfilesProvider.TO_RUNFILES);

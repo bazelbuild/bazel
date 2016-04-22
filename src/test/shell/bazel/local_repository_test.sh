@@ -95,7 +95,7 @@ EOF
 
   cat > zoo/dumper.sh <<EOF
 #!/bin/bash
-cat ../pandas/red/baby-panda
+cat external/pandas/red/baby-panda
 cat red/day-keeper
 EOF
   chmod +x zoo/dumper.sh

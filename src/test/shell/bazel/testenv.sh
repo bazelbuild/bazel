@@ -18,7 +18,6 @@
 #
 
 [ -z "$TEST_SRCDIR" ] && { echo "TEST_SRCDIR not set!" >&2; exit 1; }
-TEST_SRCDIR="$TEST_SRCDIR/io_bazel"
 
 # Load the unit-testing framework
 source "${TEST_SRCDIR}/src/test/shell/unittest.bash" || \
@@ -30,7 +29,7 @@ bazel="${TEST_SRCDIR}/src/bazel"
 bazel_data="${TEST_SRCDIR}"
 
 # Java
-jdk_dir="${TEST_SRCDIR}/../local_jdk"
+jdk_dir="${TEST_SRCDIR}/external/local_jdk"
 langtools="${TEST_SRCDIR}/src/test/shell/bazel/langtools.jar"
 
 # Tools directory location

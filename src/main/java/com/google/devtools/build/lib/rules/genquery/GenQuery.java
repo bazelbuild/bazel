@@ -157,9 +157,7 @@ public class GenQuery implements RuleConfiguredTargetFactory {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .setFilesToBuild(filesToBuild)
         .add(RunfilesProvider.class, RunfilesProvider.simple(
-            new Runfiles.Builder(
-                ruleContext.getWorkspaceName(),
-                ruleContext.getConfiguration().legacyExternalRunfiles())
+            new Runfiles.Builder(ruleContext.getWorkspaceName())
                 .addTransitiveArtifacts(filesToBuild).build()))
         .build();
   }

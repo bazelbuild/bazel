@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -41,6 +40,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -94,10 +94,6 @@ public final class Runfiles {
         }
       };
 
-  boolean getLegacyExternalRunfiles() {
-    return legacyRepositoryStructure;
-  }
-
   /**
    * An entry in the runfiles map.
    *
@@ -143,11 +139,6 @@ public final class Runfiles {
     public Artifact getArtifact() {
       return artifact;
     }
-
-    @Override
-    public String toString() {
-      return path + " -> " + artifact.getRunfilesPath();
-    }
   }
 
   // It is important to declare this *after* the DUMMY_SYMLINK_EXPANDER to avoid NPEs
@@ -160,7 +151,7 @@ public final class Runfiles {
    *
    * <p>This is either set to the workspace name, or is empty.
    */
-  private final PathFragment suffix;
+  private final String suffix;
 
   /**
    * The artifacts that should *always* be present in the runfiles directory. These are
@@ -212,7 +203,7 @@ public final class Runfiles {
    *
    * <p>If no EventHandler is available, all values are treated as IGNORE.
    */
-  public enum ConflictPolicy {
+  public static enum ConflictPolicy {
     IGNORE,
     WARN,
     ERROR,
@@ -271,16 +262,13 @@ public final class Runfiles {
    */
   private final NestedSet<PruningManifest> pruningManifests;
 
-  private final boolean legacyRepositoryStructure;
-
-  private Runfiles(PathFragment suffix,
+  private Runfiles(String suffix,
       NestedSet<Artifact> artifacts,
       NestedSet<SymlinkEntry> symlinks,
       NestedSet<SymlinkEntry> rootSymlinks,
       NestedSet<PruningManifest> pruningManifests,
       EmptyFilesSupplier emptyFilesSupplier,
-      ConflictPolicy conflictPolicy,
-      boolean legacyRepositoryStructure) {
+      ConflictPolicy conflictPolicy) {
     this.suffix = suffix;
     this.unconditionalArtifacts = Preconditions.checkNotNull(artifacts);
     this.symlinks = Preconditions.checkNotNull(symlinks);
@@ -288,13 +276,12 @@ public final class Runfiles {
     this.pruningManifests = Preconditions.checkNotNull(pruningManifests);
     this.emptyFilesSupplier = Preconditions.checkNotNull(emptyFilesSupplier);
     this.conflictPolicy = conflictPolicy;
-    this.legacyRepositoryStructure = legacyRepositoryStructure;
   }
 
   /**
    * Returns the runfiles' suffix.
    */
-  public PathFragment getSuffix() {
+  public String getSuffix() {
     return suffix;
   }
 
@@ -365,10 +352,54 @@ public final class Runfiles {
 
   /**
    * Returns the symlinks as a map from path fragment to artifact.
+   *
+   * @param checker If not null, check for conflicts using this checker.
    */
-  public Map<PathFragment, Artifact> getSymlinksAsMap() {
-    return new ManifestBuilder(ConflictChecker.IGNORE_CHECKER, suffix, legacyRepositoryStructure)
-        .putSymlinks(symlinks).build();
+  public Map<PathFragment, Artifact> getSymlinksAsMap(@Nullable ConflictChecker checker) {
+    return entriesToMap(symlinks, checker);
+  }
+
+  /**
+   * @param eventHandler Used for throwing an error if we have an obscuring runlink.
+   *                 May be null, in which case obscuring symlinks are silently discarded.
+   * @param location Location for reporter. Ignored if reporter is null.
+   * @param workingManifest Manifest to be checked for obscuring symlinks.
+   * @return map of source file names mapped to their location on disk.
+   */
+  @VisibleForTesting
+  static Map<PathFragment, Artifact> filterListForObscuringSymlinks(
+      EventHandler eventHandler, Location location, Map<PathFragment, Artifact> workingManifest) {
+    Map<PathFragment, Artifact> newManifest = new HashMap<>();
+
+    outer:
+    for (Iterator<Entry<PathFragment, Artifact>> i = workingManifest.entrySet().iterator();
+         i.hasNext(); ) {
+      Entry<PathFragment, Artifact> entry = i.next();
+      PathFragment source = entry.getKey();
+      Artifact symlink = entry.getValue();
+      // drop nested entries; warn if this changes anything
+      int n = source.segmentCount();
+      for (int j = 1; j < n; ++j) {
+        PathFragment prefix = source.subFragment(0, n - j);
+        Artifact ancestor = workingManifest.get(prefix);
+        if (ancestor != null) {
+          // This is an obscuring symlink, so just drop it and move on if there's no reporter.
+          if (eventHandler == null) {
+            continue outer;
+          }
+          PathFragment suffix = source.subFragment(n - j, n);
+          Path viaAncestor = ancestor.getPath().getRelative(suffix);
+          Path expected = symlink.getPath();
+          if (!viaAncestor.equals(expected)) {
+            eventHandler.handle(Event.warn(location, "runfiles symlink " + source + " -> "
+                + expected + " obscured by " + prefix + " -> " + ancestor.getPath()));
+          }
+          continue outer;
+        }
+      }
+      newManifest.put(entry.getKey(), entry.getValue());
+    }
+    return newManifest;
   }
 
   /**
@@ -383,14 +414,11 @@ public final class Runfiles {
    */
   public Map<PathFragment, Artifact> getRunfilesInputs(EventHandler eventHandler,
       Location location) throws IOException {
-    ManifestBuilder builder = new ManifestBuilder(
-        new ConflictChecker(conflictPolicy, eventHandler, location),
-        suffix,
-        legacyRepositoryStructure);
-    builder.putSymlinks(symlinks);
+    ConflictChecker checker = new ConflictChecker(conflictPolicy, eventHandler, location);
+    Map<PathFragment, Artifact> manifest = getSymlinksAsMap(checker);
     // Add unconditional artifacts (committed to inclusion on construction of runfiles).
     for (Artifact artifact : getUnconditionalArtifactsWithoutMiddlemen()) {
-      builder.put(RunfilesPath.resolve(artifact.getRootRelativePath(), suffix), artifact);
+      checker.put(manifest, artifact.getRootRelativePath(), artifact);
     }
 
     // Add conditional artifacts (only included if they appear in a pruning manifest).
@@ -406,26 +434,39 @@ public final class Runfiles {
         while ((line = reader.readLine()) != null) {
           Artifact artifact = allowedRunfiles.get(line);
           if (artifact != null) {
-            builder.put(RunfilesPath.resolve(artifact.getRootRelativePath(), suffix), artifact);
+            checker.put(manifest, artifact.getRootRelativePath(), artifact);
           }
         }
       }
     }
-    builder.filterListForObscuringSymlinks(eventHandler, location);
+    manifest = filterListForObscuringSymlinks(eventHandler, location, manifest);
 
     // TODO(bazel-team): Create /dev/null-like Artifact to avoid nulls?
-    for (PathFragment extraPath : emptyFilesSupplier.getExtraPaths(builder.getPaths())) {
-      builder.put(RunfilesPath.alreadyResolved(extraPath, suffix), null);
+    for (PathFragment extraPath : emptyFilesSupplier.getExtraPaths(manifest.keySet())) {
+      checker.put(manifest, extraPath, null);
+    }
+
+    // Copy manifest map to another manifest map, prepending the workspace name to every path.
+    // E.g. for workspace "myworkspace", the runfile entry "mylib.so"->"/path/to/mylib.so" becomes
+    // "myworkspace/mylib.so"->"/path/to/mylib.so".
+    PathFragment suffixPath = new PathFragment(suffix);
+    Map<PathFragment, Artifact> rootManifest = new HashMap<>();
+    for (Map.Entry<PathFragment, Artifact> entry : manifest.entrySet()) {
+      checker.put(rootManifest, suffixPath.getRelative(entry.getKey()), entry.getValue());
     }
 
     // Finally add symlinks relative to the root of the runfiles tree, on top of everything else.
     // This operation is always checked for conflicts, to match historical behavior.
     if (conflictPolicy == ConflictPolicy.IGNORE) {
-      builder.resetConflictPolicy(
-          new ConflictChecker(ConflictPolicy.WARN, eventHandler, location));
+      checker = new ConflictChecker(ConflictPolicy.WARN, eventHandler, location);
     }
-    builder.putRootSymlinks(rootSymlinks);
-    return builder.build();
+    for (Map.Entry<PathFragment, Artifact> entry : getRootSymlinksAsMap(checker).entrySet()) {
+      PathFragment mappedPath = entry.getKey();
+      Artifact mappedArtifact = entry.getValue();
+      checker.put(rootManifest, mappedPath, mappedArtifact);
+    }
+
+    return rootManifest;
   }
 
   /**
@@ -441,9 +482,7 @@ public final class Runfiles {
    * @param checker If not null, check for conflicts using this checker.
    */
   public Map<PathFragment, Artifact> getRootSymlinksAsMap(@Nullable ConflictChecker checker) {
-    return new ManifestBuilder(checker, suffix, legacyRepositoryStructure)
-        .putRootSymlinks(rootSymlinks)
-        .buildWithoutDummyFile();
+    return entriesToMap(rootSymlinks, checker);
   }
 
   /**
@@ -451,15 +490,14 @@ public final class Runfiles {
    * account.
    */
   public Map<PathFragment, Artifact> asMapWithoutRootSymlinks() {
-    ManifestBuilder builder = new ManifestBuilder(
-        ConflictChecker.IGNORE_CHECKER, suffix, legacyRepositoryStructure).putSymlinks(symlinks);
+    Map<PathFragment, Artifact> result = entriesToMap(symlinks, null);
     // If multiple artifacts have the same root-relative path, the last one in the list will win.
     // That is because the runfiles tree cannot contain the same artifact for different
     // configurations, because it only uses root-relative paths.
     for (Artifact artifact : Iterables.filter(unconditionalArtifacts, Artifact.MIDDLEMAN_FILTER)) {
-      builder.put(RunfilesPath.resolve(artifact.getRootRelativePath(), suffix), artifact);
+      result.put(artifact.getRootRelativePath(), artifact);
     }
-    return builder.build();
+    return result;
   }
 
   /**
@@ -504,6 +542,24 @@ public final class Runfiles {
         pruningManifests.isEmpty();
   }
 
+  /**
+   * Flatten a sequence of entries into a single map.
+   *
+   * @param entrySet Sequence of entries to add.
+   * @param checker If not null, check for conflicts with this checker, otherwise silently allow
+   *    entries to overwrite previous entries.
+   * @return Map<PathFragment, Artifact> Map of runfile entries.
+   */
+  private static Map<PathFragment, Artifact> entriesToMap(
+      Iterable<SymlinkEntry> entrySet, @Nullable ConflictChecker checker) {
+    checker = (checker != null) ? checker : ConflictChecker.IGNORE_CHECKER;
+    Map<PathFragment, Artifact> map = new LinkedHashMap<>();
+    for (SymlinkEntry entry : entrySet) {
+      checker.put(map, entry.getPath(), entry.getArtifact());
+    }
+    return map;
+  }
+
   /** Returns currently policy for conflicting symlink entries. */
   public ConflictPolicy getConflictPolicy() {
     return this.conflictPolicy;
@@ -513,189 +569,6 @@ public final class Runfiles {
   public Runfiles setConflictPolicy(ConflictPolicy conflictPolicy) {
     this.conflictPolicy = conflictPolicy;
     return this;
-  }
-
-  /**
-   * Helper class to make sure that every path added to runfiles is relative to the root of the
-   * runfiles tree.
-   */
-  @VisibleForTesting
-  static class RunfilesPath {
-
-    private final PathFragment path;
-    private final boolean external;
-
-    public static RunfilesPath resolve(PathFragment path, PathFragment workspaceName) {
-      return new RunfilesPath(makeRelativeToRunfilesDir(path, workspaceName), workspaceName);
-    }
-
-    public static RunfilesPath alreadyResolved(PathFragment path, PathFragment workspaceName) {
-      return new RunfilesPath(path, workspaceName);
-    }
-
-    private RunfilesPath(PathFragment path, PathFragment workspaceName) {
-      this.path = path;
-      this.external = path.segmentCount() > 1 && !path.startsWith(workspaceName);
-    }
-
-    public PathFragment getPath() {
-      return path;
-    }
-
-    /**
-     * Returns if this file is from an external repository.
-     */
-    public boolean isExternal() {
-      return external;
-    }
-
-    /**
-     * This takes an execution-root-relative path and turns it into a runfiles-relative path. For
-     * paths in the current repository, it prefixes them with the workspace name. For paths in
-     * external repositories, it turns the execution root path (external/repo-name/foo) into a
-     * runfiles path (repo-name/foo).
-     */
-    private static PathFragment makeRelativeToRunfilesDir(
-        PathFragment path, PathFragment mainWorkspace) {
-      if (path.getSegment(0).equals(Label.EXTERNAL_PATH_PREFIX)) {
-        path = path.relativeTo(Label.EXTERNAL_PACKAGE_NAME);
-      } else {
-        path = mainWorkspace.getRelative(path);
-      }
-      return path;
-    }
-  }
-
-  /**
-   * A builder to handle the logic of creating a manifest mapping.
-   */
-  @VisibleForTesting
-  static final class ManifestBuilder {
-    private final PathFragment workspaceName;
-    private final boolean legacyRunfilesStructure;
-
-    private Map<PathFragment, Artifact> map;
-    private ConflictChecker checker;
-    private boolean sawWorkspaceName;
-
-    ManifestBuilder(
-        ConflictChecker checker, PathFragment workspaceName, boolean legacyRepositoryStructure) {
-      this.workspaceName = workspaceName;
-      this.legacyRunfilesStructure = legacyRepositoryStructure;
-      this.map = new LinkedHashMap<>();
-      this.checker = checker == null ? ConflictChecker.IGNORE_CHECKER : checker;
-      this.sawWorkspaceName = false;
-    }
-
-    public void resetConflictPolicy(ConflictChecker checker) {
-      this.checker = checker;
-    }
-
-    public ManifestBuilder put(RunfilesPath runfilesPath, Artifact artifact) {
-      checker.check(map, runfilesPath, artifact);
-      PathFragment path = runfilesPath.getPath();
-      if (path.startsWith(workspaceName)) {
-        sawWorkspaceName = true;
-      }
-      if (runfilesPath.isExternal() && legacyRunfilesStructure) {
-        // Store runfiles at both .runfiles/wsname/external/foo and .runfiles/foo, to allow people
-        // time to migrate to the second form.
-        map.put(
-            workspaceName.getRelative(Label.EXTERNAL_PACKAGE_NAME).getRelative(path), artifact);
-      }
-      map.put(path, artifact);
-      return this;
-    }
-
-    /**
-     * Flatten a sequence of entries into a single map.
-     *
-     * @param symlinks Sequence of entries to add.
-     */
-    public ManifestBuilder putSymlinks(NestedSet<SymlinkEntry> symlinks) {
-      for (SymlinkEntry entry : symlinks) {
-        put(RunfilesPath.resolve(entry.getPath(), workspaceName), entry.getArtifact());
-      }
-      return this;
-    }
-
-    /**
-     * Flatten a sequence of entries into a single map. Symlink entries are relative to .runfiles,
-     * not .runfiles/wsname, so it's assumed that external workspace entries are already resolved.
-     *
-     * @param symlinks Sequence of entries to add.
-     */
-    public ManifestBuilder putRootSymlinks(NestedSet<SymlinkEntry> symlinks) {
-      for (SymlinkEntry entry : symlinks) {
-        put(RunfilesPath.alreadyResolved(entry.getPath(), workspaceName), entry.getArtifact());
-      }
-      return this;
-    }
-
-    /**
-     * This destroys the existing listing and replaces it with one that has no obscuring symlinks.
-     *
-     * @param eventHandler Used for throwing an error if we have an obscuring runlink.
-     *                 May be null, in which case obscuring symlinks are silently discarded.
-     * @param location Location for reporter. Ignored if reporter is null.
-     */
-    @VisibleForTesting
-    ManifestBuilder filterListForObscuringSymlinks(EventHandler eventHandler, Location location) {
-      Map<PathFragment, Artifact> newManifest = new HashMap<>();
-
-      outer:
-      for (Entry<PathFragment, Artifact> entry : map.entrySet()) {
-        PathFragment source = entry.getKey();
-        Artifact symlink = entry.getValue();
-        // drop nested entries; warn if this changes anything
-        int n = source.segmentCount();
-        for (int j = 1; j < n; ++j) {
-          PathFragment prefix = source.subFragment(0, n - j);
-          Artifact ancestor = map.get(prefix);
-          if (ancestor != null) {
-            // This is an obscuring symlink, so just drop it and move on if there's no reporter.
-            if (eventHandler == null) {
-              continue outer;
-            }
-            PathFragment suffixPath = source.subFragment(n - j, n);
-            Path viaAncestor = ancestor.getPath().getRelative(suffixPath);
-            Path expected = symlink.getPath();
-            if (!viaAncestor.equals(expected)) {
-              eventHandler.handle(Event.warn(location, "runfiles symlink " + source + " -> "
-                  + expected + " obscured by " + prefix + " -> " + ancestor.getPath()));
-            }
-            continue outer;
-          }
-        }
-        newManifest.put(entry.getKey(), entry.getValue());
-      }
-
-      map = newManifest;
-      return this;
-    }
-
-    public Set<PathFragment> getPaths() {
-      return map.keySet();
-    }
-
-    /**
-     * Returns the map without checking if the main repository's directory needs to be added to
-     * the runfiles tree.
-     */
-    public Map<PathFragment, Artifact> buildWithoutDummyFile() {
-      return map;
-    }
-
-    public Map<PathFragment, Artifact> build() {
-      if (!sawWorkspaceName && !map.isEmpty()) {
-        // If we haven't seen it and we have seen other files, add the workspace name directory.
-        // It might not be there if all of the runfiles are from other repos (and then running from
-        // x.runfiles/ws will fail, because ws won't exist). We can't tell Runfiles to create a
-        // directory, so instead this creates a hidden file inside the desired directory.
-        map.put(workspaceName.getRelative(".runfile"), null);
-      }
-      return map;
-    }
   }
 
   /**
@@ -733,11 +606,11 @@ public final class Runfiles {
     /**
      * Add an entry to a Map of symlinks, optionally reporting conflicts.
      *
-     * @param runfilesPath Path relative to the .runfiles directory, used as key in map.
+     * @param map Manifest of runfile entries.
+     * @param path Path fragment to use as key in map.
      * @param artifact Artifact to store in map. This may be null to indicate an empty file.
      */
-    void check(Map<PathFragment, Artifact> map, RunfilesPath runfilesPath, Artifact artifact) {
-      PathFragment path = runfilesPath.getPath();
+    public void put(Map<PathFragment, Artifact> map, PathFragment path, Artifact artifact) {
       if (policy != ConflictPolicy.IGNORE && map.containsKey(path)) {
         // Previous and new entry might have value of null
         Artifact previous = map.get(path);
@@ -753,6 +626,7 @@ public final class Runfiles {
           eventHandler.handle(Event.of(eventKind, location, message));
         }
       }
+      map.put(path, artifact);
     }
   }
 
@@ -762,13 +636,7 @@ public final class Runfiles {
   public static final class Builder {
 
     /** This is set to the workspace name */
-    private PathFragment suffix;
-    /**
-     * If external runfiles should be under .runfiles/wsname/external/repo (in addition to
-     * .runfiles/repo).
-     * TODO(kchodorow): remove this once the old form is deprecated.
-     */
-    private final boolean legacyRepositoryStructure;
+    private String suffix;
 
     /**
      * This must be COMPILE_ORDER because {@link #asMapWithoutRootSymlinks} overwrites earlier
@@ -791,29 +659,15 @@ public final class Runfiles {
      * Only used for Runfiles.EMPTY.
      */
     private Builder() {
-      this.suffix = PathFragment.EMPTY_FRAGMENT;
-      this.legacyRepositoryStructure = false;
-    }
-
-    /**
-     * Creates a builder with the given suffix. Transitional constructor so that new rules don't
-     * accidentally depend on the legacy repository structure, until that option is removed.
-     *
-     * @param workspace is the string specified in workspace() in the WORKSPACE file.
-     */
-    public Builder(String workspace) {
-      this(workspace, false);
+      this.suffix = "";
     }
 
     /**
      * Creates a builder with the given suffix.
      * @param workspace is the string specified in workspace() in the WORKSPACE file.
-     * @param legacyRepositoryStructure if the wsname/external/repo symlinks should also be
-     *     created.
      */
-    public Builder(String workspace, boolean legacyRepositoryStructure) {
-      this.suffix = new PathFragment(workspace);
-      this.legacyRepositoryStructure = legacyRepositoryStructure;
+    public Builder(String workspace) {
+      this.suffix = workspace;
     }
 
     /**
@@ -822,7 +676,7 @@ public final class Runfiles {
     public Runfiles build() {
       return new Runfiles(suffix, artifactsBuilder.build(), symlinksBuilder.build(),
           rootSymlinksBuilder.build(), pruningManifestsBuilder.build(),
-          emptyFilesSupplier, conflictPolicy, legacyRepositoryStructure);
+          emptyFilesSupplier, conflictPolicy);
     }
 
     /**

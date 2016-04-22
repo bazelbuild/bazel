@@ -38,12 +38,17 @@ public class TestConstants {
    * Location in the bazel repo where embedded binaries come from.
    */
   public static final ImmutableList<String> EMBEDDED_SCRIPTS_PATHS = ImmutableList.of(
-      "io_bazel/src/main/tools");
+      "src/main/tools");
+
+  /**
+   * Path within runfiles tree for finding everything else.
+   */
+  public static final String RUNFILES_PREFIX = "DOES-NOT-WORK-YET";
 
   /**
    * Default workspace name.
    */
-  public static final String WORKSPACE_NAME = "__main__";
+  public static final String WORKSPACE_NAME = "";
 
   /**
    * Name of a class with an INSTANCE field of type AnalysisMock to be used for analysis tests.
@@ -54,7 +59,7 @@ public class TestConstants {
   /**
    * Directory where we can find bazel's Java tests, relative to a test's runfiles directory.
    */
-  public static final String JAVATESTS_ROOT = "io_bazel/src/test/java/";
+  public static final String JAVATESTS_ROOT = "src/test/java/";
 
   public static final String TEST_RULE_CLASS_PROVIDER =
       "com.google.devtools.build.lib.bazel.rules.BazelRuleClassProvider";

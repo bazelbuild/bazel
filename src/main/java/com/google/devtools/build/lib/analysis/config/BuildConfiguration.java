@@ -708,13 +708,6 @@ public final class BuildConfiguration {
             + "If false, write only manifests when possible.")
     public boolean buildRunfiles;
 
-    @Option(name = "legacy_external_runfiles",
-        defaultValue = "true",
-        category = "strategy",
-        help = "If true, build runfiles symlink forests for external repositories under "
-            + ".runfiles/wsname/external/repo (in addition to .runfiles/repo).")
-    public boolean legacyExternalRunfiles;
-
     @Option(name = "test_arg",
         allowMultiple = true,
         defaultValue = "",
@@ -2185,13 +2178,6 @@ public final class BuildConfiguration {
    */
   public boolean buildRunfiles() {
     return options.buildRunfiles;
-  }
-
-  /**
-   * Returns if we are building external runfiles symlinks using the old-style structure.
-   */
-  public boolean legacyExternalRunfiles() {
-    return options.legacyExternalRunfiles;
   }
 
   public boolean getCheckFilesetDependenciesRecursively() {

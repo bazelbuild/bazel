@@ -86,7 +86,7 @@ public class RunfilesSupplierImplTest {
   }
 
   private static Runfiles mkRunfiles(Iterable<Artifact> artifacts) {
-    return new Runfiles.Builder("TESTING", false).addArtifacts(artifacts).build();
+    return new Runfiles.Builder("TESTING").addArtifacts(artifacts).build();
   }
 
   private static List<Artifact> mkArtifacts(Root rootDir, String... paths) {

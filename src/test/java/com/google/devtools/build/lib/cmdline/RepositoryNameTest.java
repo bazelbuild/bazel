@@ -18,7 +18,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -55,16 +54,6 @@ public class RepositoryNameTest {
     assertNotValid("@foo/bar", "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
     assertNotValid("@foo@", "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
     assertNotValid("@foo\0", "workspace names may contain only A-Z, a-z, 0-9, '-', '_' and '.'");
-  }
-
-  @Test
-  public void testRunfilesDir() throws Exception {
-    assertThat(RepositoryName.create("@foo").getRunfilesPath())
-        .isEqualTo(new PathFragment("../foo"));
-    assertThat(RepositoryName.create("@").getRunfilesPath())
-        .isEqualTo(PathFragment.EMPTY_FRAGMENT);
-    assertThat(RepositoryName.create("").getRunfilesPath())
-        .isEqualTo(PathFragment.EMPTY_FRAGMENT);
   }
 
 }

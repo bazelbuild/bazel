@@ -97,8 +97,7 @@ public abstract class CcBinary implements RuleConfiguredTargetFactory {
       Iterable<Artifact> fakeLinkerInputs,
       boolean fake,
       ImmutableList<Pair<Artifact, Label>> cAndCppSources) {
-    Runfiles.Builder builder = new Runfiles.Builder(
-        context.getWorkspaceName(), context.getConfiguration().legacyExternalRunfiles());
+    Runfiles.Builder builder = new Runfiles.Builder(context.getWorkspaceName());
     Function<TransitiveInfoCollection, Runfiles> runfilesMapping =
         CppRunfilesProvider.runfilesFunction(linkStaticness != LinkStaticness.DYNAMIC);
     boolean linkshared = isLinkShared(context);

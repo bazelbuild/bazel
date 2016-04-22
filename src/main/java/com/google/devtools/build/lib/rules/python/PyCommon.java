@@ -406,8 +406,8 @@ public final class PyCommon {
         } else {
           ruleContext.attributeError("srcs",
               buildMultipleMainMatchesErrorText(explicitMain, mainSourceName,
-                  mainArtifact.getRunfilesPath().toString(),
-                  outItem.getRunfilesPath().toString()));
+                  mainArtifact.getRootRelativePath().toString(),
+                  outItem.getRootRelativePath().toString()));
         }
       }
     }
@@ -418,7 +418,7 @@ public final class PyCommon {
     }
 
     PathFragment workspaceName = new PathFragment(ruleContext.getRule().getWorkspaceName());
-    return workspaceName.getRelative(mainArtifact.getRunfilesPath()).getPathString();
+    return workspaceName.getRelative(mainArtifact.getRootRelativePath()).getPathString();
   }
 
   public Artifact getExecutable() {

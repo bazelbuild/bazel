@@ -75,8 +75,7 @@ public abstract class CcLibrary implements RuleConfiguredTargetFactory {
       CcLinkingOutputs ccLinkingOutputs,
       boolean neverLink, boolean addDynamicRuntimeInputArtifactsToRunfiles,
       boolean linkingStatically) {
-    Runfiles.Builder builder = new Runfiles.Builder(
-        context.getWorkspaceName(), context.getConfiguration().legacyExternalRunfiles());
+    Runfiles.Builder builder = new Runfiles.Builder(context.getWorkspaceName());
 
     // neverlink= true creates a library that will never be linked into any binary that depends on
     // it, but instead be loaded as an extension. So we need the dynamic library for this in the

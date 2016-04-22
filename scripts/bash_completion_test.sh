@@ -23,7 +23,7 @@ source ${DIR}/testenv.sh || { echo "testenv.sh not found!" >&2; exit 1; }
 : ${COMMAND_ALIASES:=bazel}
 
 # Completion script
-: ${COMPLETION:="$TEST_SRCDIR/io_bazel/scripts/bazel-complete.bash"}
+: ${COMPLETION:="$TEST_SRCDIR/scripts/bazel-complete.bash"}
 
 # Set this to test completion with package path (if enabled)
 : ${PACKAGE_PATH_PREFIX:=}

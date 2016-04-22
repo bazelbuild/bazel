@@ -129,14 +129,6 @@ public final class PackageIdentifier implements Comparable<PackageIdentifier>, S
     return repository.getPathFragment().getRelative(pkgName);
   }
 
-  /**
-   * Returns the runfiles path for this repository (relative to the x.runfiles/main-repo/
-   * directory).
-   */
-  public PathFragment getRunfilesPath() {
-    return getRepository().getRunfilesPath().getRelative(getPackageFragment());
-  }
-
   public PackageIdentifier makeAbsolute() {
     if (!repository.isDefault()) {
       return this;

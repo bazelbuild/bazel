@@ -99,12 +99,4 @@ public class PackageIdentifierTest {
     PackageIdentifier p2 = PackageIdentifier.create("@whatever", new PathFragment("foo/bar"));
     assertSame(p2.getPackageFragment(), p1.getPackageFragment());
   }
-
-  @Test
-  public void testRunfilesDir() throws Exception {
-    assertThat(PackageIdentifier.create("@foo", new PathFragment("bar/baz")).getRunfilesPath())
-        .isEqualTo(new PathFragment("../foo/bar/baz"));
-    assertThat(PackageIdentifier.create("@", new PathFragment("bar/baz")).getRunfilesPath())
-        .isEqualTo(new PathFragment("bar/baz"));
-  }
 }

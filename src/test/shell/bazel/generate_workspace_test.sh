@@ -24,6 +24,8 @@ source $src_dir/test-setup.sh \
 source $src_dir/remote_helpers.sh \
   || { echo "remote_helpers.sh not found!" >&2; exit 1; }
 
+export JAVA_RUNFILES=$TEST_SRCDIR
+
 function set_up() {
   # Set up custom repository directory.
   m2=$TEST_TMPDIR/my-m2
