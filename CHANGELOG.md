@@ -1,3 +1,28 @@
+## Release 0.2.2b (2016-04-22)
+
+```
+Baseline: 759bbfe
+
+Cherry picks:
+   + 1250fda: Rollback of commit
+              351475627b9e94e5afdf472cbf465f49c433a25e.
+   + ba8700e: Correctly set up build variables for the correct pic
+              mode for fake_binary rules.
+   + 386f242: Automated [] rollback of commit
+              525fa71b0d6f096e9bfb180f688a4418c4974eb4.
+   + 97e5ab0: Fix cc_configure include path for Frameworks on OS X.
+   + a20352e: cc_configure: always add -B/usr/bin to the list of gcc
+              option
+   + 0b26f44: cc_configure: Add piii to the list of supported
+              cpu_value
+   + 3e4e416: cc_configure: uses which on the CC environment variable
+   + aa3dbd3: cc_configure.bzl: strip end of line when looking for
+              the cpu
+   + 810d60a: cc_configure: Add -B to compiler flag too
+```
+
+Patch release, only includes fixes to C++ auto-configuration.
+
 ## Release 0.2.1 (2016-03-21)
 
 ```
