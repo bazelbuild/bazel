@@ -57,13 +57,6 @@ string GetUserName() {
   return pwent->pw_name;
 }
 
-// Returns the given path in absolute form.  Does not change paths that are
-// already absolute.
-//
-// If called from working directory "/bar":
-//   MakeAbsolute("foo") --> "/bar/foo"
-//   MakeAbsolute("/foo") ---> "/foo"
-//   MakeAbsolute("C:/foo") ---> "C:/foo"
 string MakeAbsolute(const string &path) {
   // Check if path is already absolute.
   if (path.empty() || path[0] == '/' || (isalpha(path[0]) && path[1] == ':')) {

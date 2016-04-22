@@ -37,6 +37,7 @@ string GetUserName();
 // If called from working directory "/bar":
 //   MakeAbsolute("foo") --> "/bar/foo"
 //   MakeAbsolute("/foo") ---> "/foo"
+//   MakeAbsolute("C:/foo") ---> "C:/foo"
 string MakeAbsolute(const string &path);
 
 // mkdir -p path. All newly created directories use the given mode.
