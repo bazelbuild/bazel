@@ -122,12 +122,23 @@ public class PlistMerging extends Value<PlistMerging> {
   }
 
   /**
-   * Writes the results of a merge operation to a plist file.
+   * Writes the results of a merge operation to a binary plist file.
    * @param plistPath the path of the plist to write in binary format
    */
   public PlistMerging writePlist(Path plistPath) throws IOException {
     try (OutputStream out = Files.newOutputStream(plistPath)) {
       BinaryPropertyListWriter.write(out, merged);
+    }
+    return this;
+  }
+
+  /**
+   * Writes the results of a merge operation to an XML plist file.
+   * @param plistPath the path of the plist to write in XML format
+   */
+  public PlistMerging writeXmlPlist(Path plistPath) throws IOException {
+    try (OutputStream out = Files.newOutputStream(plistPath)) {
+      PropertyListParser.saveAsXML(merged, out);
     }
     return this;
   }

@@ -27,6 +27,7 @@ import java.io.InputStream;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
+import java.nio.file.Path;
 
 /**
  * Entry point for the {@code plmerge} tool, which merges the data from one or more plists into a
@@ -75,7 +76,20 @@ public class PlMerge {
       // This prevents CFBundleIdentifiers being put into strings files.
       merging.setBundleIdentifier(primaryBundleId, fallbackBundleId);
     }
-    merging.writePlist(fileSystem.getPath(control.getOutFile()));
+
+    Path outputPath = fileSystem.getPath(control.getOutFile());
+    switch (control.getOutputFormat()) {
+      case BINARY:
+        merging.writePlist(outputPath);
+        break;
+      case XML:
+        merging.writeXmlPlist(outputPath);
+        break;
+      default:
+        throw new IllegalArgumentException(String.format(
+            "Unknown output format in the control file: %s",
+            control.getOutputFormat()));
+    }
   }
 
   private static void validateControl(Control control) {

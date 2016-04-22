@@ -19,8 +19,14 @@ option java_package = "com.google.devtools.build.xcode.plmerge.proto";
 
 // Contains necessary arguments for PlMerge, which is responsible for merging
 // plist files.
-// Next Id: 8
+// Next Id: 9
 message Control {
+  // Formats that plmerge can output to.
+  enum OutputFormat {
+    BINARY = 1;
+    XML = 2;
+  }
+
   // Paths to the plist files to merge relative to execution root.
   repeated string source_file = 1;
 
@@ -31,6 +37,9 @@ message Control {
 
   // Path to the output file to merge relative to execution root.
   required string out_file = 2;
+
+  // Output format of the resulting plist file.
+  optional OutputFormat output_format = 8 [default = BINARY];
 
   // Key-value substitutions to support templating for plists.  A substitution
   // is made if the substitution key appears as a value for any key-value pair

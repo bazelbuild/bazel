@@ -549,7 +549,7 @@ public final class ReleaseBundlingSupport {
     PlMergeControlBytes controlBytes =
         PlMergeControlBytes.fromPlists(
             NestedSetBuilder.create(Order.STABLE_ORDER, substitutedEntitlements, extraEntitlements),
-            intermediateArtifacts.entitlements());
+            intermediateArtifacts.entitlements(), PlMergeControlBytes.OutputFormat.XML);
 
     Artifact plMergeControlArtifact = ObjcRuleClasses.artifactByAppendingToBaseName(ruleContext,
         artifactName(".merge-entitlements-control"));
