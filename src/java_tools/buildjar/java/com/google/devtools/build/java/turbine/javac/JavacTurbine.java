@@ -221,7 +221,7 @@ public class JavacTurbine implements AutoCloseable {
     DependencyModule.Builder dependencyModuleBuilder =
         new DependencyModule.Builder()
             .setReduceClasspath()
-            .setTargetLabel(turbineOptions.targetLabel())
+            .setTargetLabel(turbineOptions.targetLabel().orNull())
             .addDepsArtifacts(turbineOptions.depsArtifacts())
             .setStrictJavaDeps(strictDepsMode.toString())
             .addDirectMappings(turbineOptions.directJarsToTargets())

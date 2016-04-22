@@ -38,9 +38,9 @@ public class TurbineOptions {
   private final Optional<String> outputDeps;
   private final ImmutableMap<String, String> directJarsToTargets;
   private final ImmutableMap<String, String> indirectJarsToTargets;
-  private final String targetLabel;
+  private final Optional<String> targetLabel;
   private final ImmutableList<String> depsArtifacts;
-  private final String ruleKind;
+  private final Optional<String> ruleKind;
   private final ImmutableList<String> javacOpts;
 
   private TurbineOptions(
@@ -56,9 +56,9 @@ public class TurbineOptions {
       @Nullable String outputDeps,
       ImmutableMap<String, String> directJarsToTargets,
       ImmutableMap<String, String> indirectJarsToTargets,
-      String targetLabel,
+      @Nullable String targetLabel,
       ImmutableList<String> depsArtifacts,
-      String ruleKind,
+      @Nullable String ruleKind,
       ImmutableList<String> javacOpts) {
     this.output = checkNotNull(output, "output must not be null");
     this.classPath = checkNotNull(classPath, "classPath must not be null");
@@ -75,9 +75,9 @@ public class TurbineOptions {
         checkNotNull(directJarsToTargets, "directJarsToTargets must not be null");
     this.indirectJarsToTargets =
         checkNotNull(indirectJarsToTargets, "indirectJarsToTargets must not be null");
-    this.targetLabel = checkNotNull(targetLabel, "targetLabel must not be null");
+    this.targetLabel = Optional.fromNullable(targetLabel);
     this.depsArtifacts = checkNotNull(depsArtifacts, "depsArtifacts must not be null");
-    this.ruleKind = checkNotNull(ruleKind, "ruleKind must not be null");
+    this.ruleKind = Optional.fromNullable(ruleKind);
     this.javacOpts = checkNotNull(javacOpts, "javacOpts must not be null");
   }
 
@@ -145,7 +145,7 @@ public class TurbineOptions {
   }
 
   /** The label of the target being compiled. */
-  public String targetLabel() {
+  public Optional<String> targetLabel() {
     return targetLabel;
   }
 
@@ -155,7 +155,7 @@ public class TurbineOptions {
   }
 
   /** The kind of the build rule being compiled (e.g. {@code java_library}). */
-  public String ruleKind() {
+  public Optional<String> ruleKind() {
     return ruleKind;
   }
 
@@ -184,9 +184,9 @@ public class TurbineOptions {
     private final ImmutableMap.Builder<String, String> directJarsToTargets = ImmutableMap.builder();
     private final ImmutableMap.Builder<String, String> indirectJarsToTargets =
         ImmutableMap.builder();
-    private String targetLabel;
+    @Nullable private String targetLabel;
     private final ImmutableList.Builder<String> depsArtifacts = ImmutableList.builder();
-    private String ruleKind;
+    @Nullable private String ruleKind;
     private final ImmutableList.Builder<String> javacOpts = ImmutableList.builder();
 
     public TurbineOptions build() {

@@ -17,6 +17,7 @@ package com.google.devtools.build.java.turbine;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
@@ -100,8 +101,8 @@ public class TurbineOptionsTest {
     assertThat(options.javacOpts()).containsExactly("-source", "8", "-target", "8").inOrder();
     assertThat(options.sources()).containsExactly("Source1.java", "Source2.java");
     assertThat(options.outputDeps()).hasValue("out.jdeps");
-    assertThat(options.targetLabel()).isEqualTo("//java/com/google/test");
-    assertThat(options.ruleKind()).isEqualTo("java_library");
+    assertThat(options.targetLabel()).isEqualTo(Optional.of("//java/com/google/test"));
+    assertThat(options.ruleKind()).isEqualTo(Optional.of("java_library"));
   }
 
   @Test
@@ -127,7 +128,7 @@ public class TurbineOptionsTest {
     TurbineOptions options =
         TurbineOptionsParser.parse(Iterables.concat(BASE_ARGS, Arrays.asList(lines)));
 
-    assertThat(options.targetLabel()).isEqualTo("//java/com/google/test");
+    assertThat(options.targetLabel()).isEqualTo(Optional.of("//java/com/google/test"));
     assertThat(options.directJarsToTargets())
         .containsExactlyEntriesIn(ImmutableMap.of("blaze-out/foo/libbar.jar", "//foo/bar"));
     assertThat(options.indirectJarsToTargets())
@@ -157,6 +158,26 @@ public class TurbineOptionsTest {
   }
 
   @Test
+  public void optionalTargetLabelAndRuleKind() throws Exception {
+    String[] lines = {
+      "--output",
+      "out.jar",
+      "--temp_dir",
+      "_tmp",
+      "--classpath",
+      "liba.jar:libb.jar:libc.jar",
+      "--processorpath",
+      "libpa.jar:libpb.jar:libpc.jar",
+    };
+
+    TurbineOptions options = TurbineOptionsParser.parse(Arrays.asList(lines));
+
+    assertThat(options.ruleKind()).isAbsent();
+    assertThat(options.targetLabel()).isAbsent();
+  }
+
+
+  @Test
   public void paramsFile() throws Exception {
     Iterable<String> paramsArgs =
         Iterables.concat(BASE_ARGS, Arrays.asList("--javacopts", "-source", "8", "-target", "8"));
@@ -174,7 +195,7 @@ public class TurbineOptionsTest {
     // assert that options were read from params file
     assertThat(options.javacOpts()).containsExactly("-source", "8", "-target", "8").inOrder();
     // ... and directly from the command line
-    assertThat(options.targetLabel()).isEqualTo("//custom/label");
+    assertThat(options.targetLabel()).isEqualTo(Optional.of("//custom/label"));
   }
 
   @Test
@@ -188,7 +209,7 @@ public class TurbineOptionsTest {
     TurbineOptions options =
         TurbineOptionsParser.parse(Iterables.concat(BASE_ARGS, Arrays.asList(lines)));
 
-    assertThat(options.targetLabel()).isEqualTo("@@other-repo//foo:local-jam");
+    assertThat(options.targetLabel()).isEqualTo(Optional.of("@@other-repo//foo:local-jam"));
   }
 
   @Test
