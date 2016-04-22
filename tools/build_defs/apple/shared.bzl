@@ -37,6 +37,9 @@ DARWIN_EXECUTION_REQUIREMENTS = {"requires-darwin": ""}
 
 See :func:`apple_action`."""
 
+XCRUNWRAPPER_LABEL = "//external:xcrunwrapper"
+"""The label for xcrunwrapper tool."""
+
 def apple_action(ctx, **kw):
   """Creates an action that only runs on MacOS/Darwin.
 
@@ -49,3 +52,19 @@ def apple_action(ctx, **kw):
 
   ctx.action(**kw)
 
+def xcrun_action(ctx, **kw):
+  """Creates an apple action that executes xcrunwrapper.
+
+  args:
+    ctx: The context of the rule that owns this action.
+
+  This method takes the same keyword arguments as ctx.action, however you don't
+  need to specify the executable.
+  """
+  platform = ctx.fragments.apple.ios_cpu_platform()
+  action_env = ctx.fragments.apple.target_apple_env(platform) \
+      + ctx.fragments.apple.apple_host_system_env()
+  env = kw.get('env', {})
+  kw['env'] = env + action_env
+
+  apple_action(ctx, executable=ctx.executable._xcrunwrapper, **kw)

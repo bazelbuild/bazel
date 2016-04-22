@@ -94,6 +94,16 @@ sh_test(
 )
 
 sh_test(
+    name = "bazel_apple_test",
+    srcs = ["bazel_apple_test.sh"],
+    data = [
+        ":objc-deps",
+        ":test-deps",
+        "//:workspace-file",
+    ],
+)
+
+sh_test(
     name = "bazel_rules_test",
     size = "large",
     srcs = ["bazel_rules_test.sh"],
