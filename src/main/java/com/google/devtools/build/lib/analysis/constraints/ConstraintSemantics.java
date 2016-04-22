@@ -591,7 +591,7 @@ public class ConstraintSemantics {
       refinedGroups.add(envWithGroup.group());
     }
     Set<EnvironmentGroup> newlyEmptyGroups = groupsWithEnvironmentsRemoved.isEmpty()
-        ? ImmutableSet.of()
+        ? ImmutableSet.<EnvironmentGroup>of()
         : Sets.difference(groupsWithEnvironmentsRemoved, refinedGroups);
     if (!newlyEmptyGroups.isEmpty()) {
       // TODO(bazel-team): specify exactly which deps violated expectations.
