@@ -83,7 +83,7 @@ public final class RuleConfiguredTargetBuilder {
 
     FilesToRunProvider filesToRunProvider = new FilesToRunProvider(
         getFilesToRun(runfilesSupport, filesToBuild), runfilesSupport, executable);
-    add(FileProvider.class, new FileProvider(ruleContext.getLabel(), filesToBuild));
+    add(FileProvider.class, new FileProvider(filesToBuild));
     add(FilesToRunProvider.class, filesToRunProvider);
     addSkylarkTransitiveInfo(FilesToRunProvider.SKYLARK_NAME, filesToRunProvider);
 

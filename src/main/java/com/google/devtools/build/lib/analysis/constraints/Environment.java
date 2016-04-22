@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.constraints;
 
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
@@ -22,8 +21,6 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
 
@@ -51,8 +48,7 @@ public class Environment implements RuleConfiguredTargetFactory {
     return new RuleConfiguredTargetBuilder(ruleContext)
         .addProvider(SupportedEnvironmentsProvider.class, new SupportedEnvironments(env, env))
         .addProvider(RunfilesProvider.class, RunfilesProvider.EMPTY)
-        .add(FileProvider.class, new FileProvider(ruleContext.getLabel(),
-            NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER)))
+        .add(FileProvider.class, FileProvider.EMPTY)
         .add(FilesToRunProvider.class, FilesToRunProvider.EMPTY)
         .build();
   }

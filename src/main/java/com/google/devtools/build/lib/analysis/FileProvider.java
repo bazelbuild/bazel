@@ -15,13 +15,12 @@
 package com.google.devtools.build.lib.analysis;
 
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkCallable;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
-
-import javax.annotation.Nullable;
 
 /**
  * A representation of the concept "this transitive info provider builds these files".
@@ -31,26 +30,13 @@ import javax.annotation.Nullable;
 @Immutable
 @SkylarkModule(name = "file_provider", doc = "An interface for rules that provide files.")
 public final class FileProvider implements TransitiveInfoProvider {
+  public static final FileProvider EMPTY =
+      new FileProvider(NestedSetBuilder.<Artifact>emptySet(Order.STABLE_ORDER));
 
-  @Nullable private final Label label;
   private final NestedSet<Artifact> filesToBuild;
 
-  public FileProvider(@Nullable Label label, NestedSet<Artifact> filesToBuild) {
-    this.label = label;
+  public FileProvider(NestedSet<Artifact> filesToBuild) {
     this.filesToBuild = filesToBuild;
-  }
-
-  /**
-   * Returns the label that is associated with this piece of information.
-   *
-   * <p>This is usually the label of the target that provides the information.
-   */
-  @SkylarkCallable(name = "label", doc = "", structField = true)
-  public Label getLabel() {
-    if (label == null) {
-      throw new UnsupportedOperationException();
-    }
-    return label;
   }
 
   /**

@@ -45,7 +45,7 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
         .<Class<? extends TransitiveInfoProvider>, TransitiveInfoProvider>builder()
         .put(VisibilityProvider.class, this)
         .put(LicensesProvider.class, this)
-        .put(FileProvider.class, new FileProvider(targetContext.getLabel(), filesToBuild))
+        .put(FileProvider.class, new FileProvider(filesToBuild))
         .put(FilesToRunProvider.class, FilesToRunProvider.fromSingleExecutableArtifact(artifact));
     if (this instanceof FilesetProvider) {
       builder.put(FilesetProvider.class, this);
