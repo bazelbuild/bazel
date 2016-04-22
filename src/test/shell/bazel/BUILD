@@ -50,7 +50,7 @@ filegroup(
         "//external:extdir",
         "//external:jdk-default",
         "//src:bazel",
-        "//src/java_tools/buildjar:JavaBuilderDeploy",
+        "//src/java_tools/buildjar:JavaBuilder_deploy.jar",
         "//src/java_tools/buildjar/java/com/google/devtools/build/buildjar/genclass:GenClass_deploy.jar",
         "//src/java_tools/junitrunner/java/com/google/testing/junit/runner:Runner_deploy.jar",
         "//src/java_tools/singlejar:SingleJar_deploy.jar",
@@ -309,6 +309,17 @@ sh_test(
     size = "large",
     srcs = ["bazel_workspace_status_test.sh"],
     data = [":test-deps"],
+)
+
+sh_test(
+    name = "bound_targets_test",
+    size = "large",
+    srcs = ["bound_targets_test.sh"],
+    data = [
+        ":objc-deps",
+        ":test-deps",
+        "//:workspace-file",
+    ],
 )
 
 test_suite(
