@@ -113,6 +113,8 @@ EOF
 ## Cherry-picking bb59d88
 
 Baseline: 965c392
+
+Cherry picks:
    + bb59d88: RELNOTES[INC]: Remove deprecated "make var" INCDIR
 
 $TEST_INC_CHANGE
@@ -127,6 +129,8 @@ EOF
 ## Cherry-picking bb59d88 and 14d905b
 
 Baseline: 965c392
+
+Cherry picks:
    + bb59d88: RELNOTES[INC]: Remove deprecated "make var" INCDIR
    + 14d905b: Add --with_aspect_deps flag to blaze query. This flag
               should produce additional information about aspect
@@ -159,6 +163,8 @@ EOF
 
 ```
 Baseline: 965c392
+
+Cherry picks:
    + bb59d88: RELNOTES[INC]: Remove deprecated "make var" INCDIR
 ```
 
@@ -176,6 +182,8 @@ EOF
 
 ```
 Baseline: 965c392
+
+Cherry picks:
    + bb59d88: RELNOTES[INC]: Remove deprecated "make var" INCDIR
    + 14d905b: Add --with_aspect_deps flag to blaze query. This flag
               should produce additional information about aspect
@@ -193,6 +201,8 @@ EOF
 
 function test_create_revision_information() {
   expected='Baseline: 965c392
+
+Cherry picks:
    + bb59d88: RELNOTES[INC]: Remove deprecated "make var" INCDIR
    + 14d905b: Add --with_aspect_deps flag to blaze query. This flag
               should produce additional information about aspect

@@ -39,7 +39,7 @@ function get_last_release() {
   [ -n "${BASELINE_LINE}" ] || return 1  # No baseline = initial release
   local BASELINE_LINENB=$(echo "${BASELINE_LINE}" | cut -d ":" -f 1)
   BASELINE=$(echo "${BASELINE_LINE}" | cut -d " " -f 2)
-  local CHERRYPICK_LINE=$(($BASELINE_LINENB + 1))
+  local CHERRYPICK_LINE=$(($BASELINE_LINENB + 3))
   # grep -B999 looks for all lines before the empty line and after that we
   # restrict to only lines with the cherry picked hash then finally we cut
   # the hash.
@@ -149,13 +149,21 @@ function create_release_notes() {
 # commit should be the baseline, and the other one are the cherry-picks.
 # The result is of the form:
 # Baseline: BASELINE_COMMIT
+#
+# Cherry picks:
 #    + CHERRY_PICK1: commit message summary of the CHERRY_PICK1. This
 #                    message will be wrapped into 70 columns.
 #    + CHERRY_PICK2: commit message summary of the CHERRY_PICK2.
 function create_revision_information() {
   echo "Baseline: $(git rev-parse --short "${1}")"
+  first=1
   shift
   while [ -n "${1-}" ]; do
+    if [[ "$first" -eq 1 ]]; then
+      echo -e "\nCherry picks:"
+      first=0
+    fi
+
     local hash="$(git rev-parse --short "${1}")"
     local subject=$(git show -s --pretty=format:%s $hash)
     local lines=$(echo "$subject" | wrap_text 56)  # 14 leading spaces.
