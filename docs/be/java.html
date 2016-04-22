@@ -45,7 +45,7 @@ title: Java Rules
     java_binary
   </h2>
 
-  <pre class="rule-signature">java_binary(<a href="#java_binary.name">name</a>, <a href="#java_binary.deps">deps</a>, <a href="#java_binary.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#java_binary.resources">resources</a>, <a href="common-definitions.html#binary.args">args</a>, <a href="#java_binary.classpath_resources">classpath_resources</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#java_binary.create_executable">create_executable</a>, <a href="#java_binary.deploy_manifest_lines">deploy_manifest_lines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#java_binary.javacopts">javacopts</a>, <a href="#java_binary.jvm_flags">jvm_flags</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#java_binary.main_class">main_class</a>, <a href="common-definitions.html#binary.output_licenses">output_licenses</a>, <a href="#java_binary.plugins">plugins</a>, <a href="#java_binary.resource_strip_prefix">resource_strip_prefix</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#java_binary.runtime_deps">runtime_deps</a>, <a href="#java_binary.stamp">stamp</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#java_binary.use_testrunner">use_testrunner</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">java_binary(<a href="#java_binary.name">name</a>, <a href="#java_binary.deps">deps</a>, <a href="#java_binary.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#java_binary.resources">resources</a>, <a href="common-definitions.html#binary.args">args</a>, <a href="#java_binary.classpath_resources">classpath_resources</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#java_binary.create_executable">create_executable</a>, <a href="#java_binary.deploy_manifest_lines">deploy_manifest_lines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="#java_binary.javacopts">javacopts</a>, <a href="#java_binary.jvm_flags">jvm_flags</a>, <a href="#java_binary.launcher">launcher</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="#java_binary.main_class">main_class</a>, <a href="common-definitions.html#binary.output_licenses">output_licenses</a>, <a href="#java_binary.plugins">plugins</a>, <a href="#java_binary.resource_strip_prefix">resource_strip_prefix</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#java_binary.runtime_deps">runtime_deps</a>, <a href="#java_binary.stamp">stamp</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="#java_binary.use_testrunner">use_testrunner</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>
@@ -289,6 +289,35 @@ java_binary(
             on the command line. The contents of <code>jvm_flags</code> are added to the wrapper
             script before the classname is listed.
           </p>
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="java_binary.launcher">
+          <code>launcher</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                              If specified, the target will be used to launch the Java Virtual Machine in
+          the wrapper shell script. The target must be a <code>cc_binary</code>.
+          Any <code>cc_binary</code> that implements the
+          <a href="http://docs.oracle.com/javase/7/docs/technotes/guides/jni/spec/invocation.html">
+          Java Invocation API</a> can be a launcher target.
+
+          <p>The related <a href="../bazel-user-manual.html#flag--java_launcher"><code>
+          --java_launcher</code></a> Bazel flag affects only those
+          <code>java_binary</code> and <code>java_test</code> targets that have
+          <i>not</i> specified a <code>launcher</code> attribute. For those targets
+          that must always be run with the JDK's "java" launcher, set their
+          <code>launcher</code> attribute to the special opt-out label
+          <code>//third_party/java/jdk:jdk_launcher</code>.</p>
+
+          <p>If you build a deploy jar and specify a launcher target through either
+          this <code>launcher</code> attribute or <code>--java_launcher</code> Bazel
+          flag, then the deploy jar will be a single file that is both (a) a .jar
+          file that contains the appropriate classes, and (b) the executable
+          specified by the launcher target. (This does not apply to the opt-out
+          label.)</p>
 
         </td>
       </tr>
@@ -842,7 +871,7 @@ java_binary(
     java_test
   </h2>
 
-  <pre class="rule-signature">java_test(<a href="#java_test.name">name</a>, <a href="#java_test.deps">deps</a>, <a href="#java_test.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#java_test.resources">resources</a>, <a href="common-definitions.html#test.args">args</a>, <a href="#java_test.classpath_resources">classpath_resources</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#java_test.create_executable">create_executable</a>, <a href="#java_test.deploy_manifest_lines">deploy_manifest_lines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="#java_test.javacopts">javacopts</a>, <a href="#java_test.jvm_flags">jvm_flags</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="#java_test.main_class">main_class</a>, <a href="#java_test.plugins">plugins</a>, <a href="#java_test.resource_strip_prefix">resource_strip_prefix</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#java_test.runtime_deps">runtime_deps</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="#java_test.stamp">stamp</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="#java_test.test_class">test_class</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="#java_test.use_testrunner">use_testrunner</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">java_test(<a href="#java_test.name">name</a>, <a href="#java_test.deps">deps</a>, <a href="#java_test.srcs">srcs</a>, <a href="common-definitions.html#common.data">data</a>, <a href="#java_test.resources">resources</a>, <a href="common-definitions.html#test.args">args</a>, <a href="#java_test.classpath_resources">classpath_resources</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="#java_test.create_executable">create_executable</a>, <a href="#java_test.deploy_manifest_lines">deploy_manifest_lines</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#test.flaky">flaky</a>, <a href="#java_test.javacopts">javacopts</a>, <a href="#java_test.jvm_flags">jvm_flags</a>, <a href="#java_test.launcher">launcher</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#test.local">local</a>, <a href="#java_test.main_class">main_class</a>, <a href="#java_test.plugins">plugins</a>, <a href="#java_test.resource_strip_prefix">resource_strip_prefix</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="#java_test.runtime_deps">runtime_deps</a>, <a href="common-definitions.html#test.shard_count">shard_count</a>, <a href="common-definitions.html#test.size">size</a>, <a href="#java_test.stamp">stamp</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="#java_test.test_class">test_class</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#test.timeout">timeout</a>, <a href="#java_test.use_testrunner">use_testrunner</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>
@@ -1052,6 +1081,35 @@ java_test(
             on the command line. The contents of <code>jvm_flags</code> are added to the wrapper
             script before the classname is listed.
           </p>
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="java_test.launcher">
+          <code>launcher</code>
+        </td>
+        <td>
+                    <p><code><a href="../build-ref.html#labels">Label</a>; optional</code></p>
+                              If specified, the target will be used to launch the Java Virtual Machine in
+          the wrapper shell script. The target must be a <code>cc_binary</code>.
+          Any <code>cc_binary</code> that implements the
+          <a href="http://docs.oracle.com/javase/7/docs/technotes/guides/jni/spec/invocation.html">
+          Java Invocation API</a> can be a launcher target.
+
+          <p>The related <a href="../bazel-user-manual.html#flag--java_launcher"><code>
+          --java_launcher</code></a> Bazel flag affects only those
+          <code>java_binary</code> and <code>java_test</code> targets that have
+          <i>not</i> specified a <code>launcher</code> attribute. For those targets
+          that must always be run with the JDK's "java" launcher, set their
+          <code>launcher</code> attribute to the special opt-out label
+          <code>//third_party/java/jdk:jdk_launcher</code>.</p>
+
+          <p>If you build a deploy jar and specify a launcher target through either
+          this <code>launcher</code> attribute or <code>--java_launcher</code> Bazel
+          flag, then the deploy jar will be a single file that is both (a) a .jar
+          file that contains the appropriate classes, and (b) the executable
+          specified by the launcher target. (This does not apply to the opt-out
+          label.)</p>
 
         </td>
       </tr>
