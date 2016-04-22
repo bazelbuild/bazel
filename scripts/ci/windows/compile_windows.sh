@@ -26,7 +26,7 @@ cd $(dirname $0)/../../..
 
 # Find Java. Minor versions and thus the name of the directory changes quite
 # often.
-export JAVA_HOME=$(ls -d /c/Program\ Files/Java/jdk* 2> /dev/null | head -n 1)
+export JAVA_HOME=$(ls -d c:/Program\ Files/Java/jdk* 2> /dev/null | head -n 1)
 if [[ "$JAVA_HOME" == "" ]]; then
   echo "JDK not found under c:\\Program Files\\Java" 1>& 2
   exit 1
@@ -39,4 +39,8 @@ mkdir -p "${TMPDIR}"  # mkdir does work with a path starting with 'c:/', wow
 
 # Even though there are no quotes around $* in the .bat file, arguments
 # containing spaces seem to be passed properly.
-exec ./compile.sh "$*"
+./compile.sh "$*" || exit $?
+
+# Run the only Windows-specific test we have.
+# todo(bazel-team): add more tests here.
+exec ./output/bazel --batch test //src/test/shell/bazel:bazel_windows_cpp_test
