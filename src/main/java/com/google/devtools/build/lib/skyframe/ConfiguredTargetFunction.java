@@ -33,7 +33,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -579,7 +579,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
       SkyKey depKey = TO_KEYS.apply(dep);
       ConfiguredTarget depConfiguredTarget = depConfiguredTargetMap.get(depKey);
       result.put(entry.getKey(),
-          RuleConfiguredTarget.mergeAspects(depConfiguredTarget, depAspectMap.get(depKey)));
+          MergedConfiguredTarget.of(depConfiguredTarget, depAspectMap.get(depKey)));
     }
 
     return result;

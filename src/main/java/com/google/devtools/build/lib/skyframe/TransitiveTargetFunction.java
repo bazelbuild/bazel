@@ -216,7 +216,7 @@ public class TransitiveTargetFunction
 
   protected Collection<Label> getAspectLabels(Rule fromRule, Attribute attr, Label toLabel,
       ValueOrException2<NoSuchPackageException, NoSuchTargetException> toVal,
-      Environment env) {
+      final Environment env) {
     SkyKey packageKey = PackageValue.key(toLabel.getPackageIdentifier());
     try {
       PackageValue pkgValue =

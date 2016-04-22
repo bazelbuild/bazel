@@ -61,7 +61,6 @@ import javax.annotation.Nullable;
  * <p>Includes logic to derive the right configurations depending on transition type.
  */
 public abstract class DependencyResolver {
-
   protected DependencyResolver() {
   }
 
@@ -450,7 +449,7 @@ public abstract class DependencyResolver {
   }
 
   private ImmutableSet<AspectDescriptor> requiredAspects(
-      Aspect aspect, Attribute attribute, Target target, Rule originalRule) {
+      Aspect aspect, Attribute attribute, final Target target, Rule originalRule) {
     if (!(target instanceof Rule)) {
       return ImmutableSet.of();
     }
@@ -459,7 +458,7 @@ public abstract class DependencyResolver {
     RuleClass ruleClass = ((Rule) target).getRuleClassObject();
     ImmutableSet.Builder<AspectDescriptor> result = ImmutableSet.builder();
     for (Aspect aspectCandidate : aspectCandidates) {
-      if (Sets.difference(
+      if (ruleClass.canHaveAnyProvider() || Sets.difference(
               aspectCandidate.getDefinition().getRequiredProviders(),
               ruleClass.getAdvertisedProviders())
           .isEmpty()) {
@@ -499,8 +498,9 @@ public abstract class DependencyResolver {
     return aspectCandidates;
   }
 
-  private void visitRule(Rule rule, ListMultimap<Attribute, LabelAndConfiguration> labelMap,
-      NestedSetBuilder<Label> rootCauses, ListMultimap<Attribute, Dependency> outgoingEdges) {
+  private void visitRule(Rule rule,
+      ListMultimap<Attribute, LabelAndConfiguration> labelMap, NestedSetBuilder<Label> rootCauses,
+      ListMultimap<Attribute, Dependency> outgoingEdges) {
     visitRule(rule, /*aspect=*/ null, labelMap, rootCauses, outgoingEdges);
   }
 

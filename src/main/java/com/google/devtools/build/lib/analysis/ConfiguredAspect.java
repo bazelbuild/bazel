@@ -87,6 +87,10 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
     return providers.values().iterator();
   }
 
+  public static ConfiguredAspect forAlias(ConfiguredAspect real) {
+    return new ConfiguredAspect(real.getName(), real.getProviders());
+  }
+
   /**
    * Builder for {@link ConfiguredAspect}.
    */

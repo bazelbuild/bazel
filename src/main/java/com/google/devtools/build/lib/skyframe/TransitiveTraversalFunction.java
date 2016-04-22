@@ -32,7 +32,6 @@ import com.google.devtools.build.skyframe.ValueOrException2;
 
 import java.util.Collection;
 import java.util.Map.Entry;
-import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -96,8 +95,8 @@ public class TransitiveTraversalFunction
       }
       // Retrieve the providers of the dep from the TransitiveTraversalValue, so we can avoid
       // issuing a dep on its defining Package.
-      Set<String> providers = traversalVal.getProviders();
-      return AspectDefinition.visitAspectsIfRequired(fromRule, attr, providers,
+      return AspectDefinition.visitAspectsIfRequired(fromRule, attr,
+          traversalVal.canHaveAnyProvider(), traversalVal.getProviders(),
           DependencyFilter.ALL_DEPS).values();
     } catch (NoSuchThingException e) {
       // Do nothing. This error was handled when we computed the corresponding
@@ -107,8 +106,8 @@ public class TransitiveTraversalFunction
   }
 
   @Override
-  SkyValue computeSkyValue(
-      TargetAndErrorIfAny targetAndErrorIfAny, FirstErrorMessageAccumulator accumulator) {
+  SkyValue computeSkyValue(TargetAndErrorIfAny targetAndErrorIfAny,
+      FirstErrorMessageAccumulator accumulator) {
     boolean targetLoadedSuccessfully = targetAndErrorIfAny.getErrorLoadingTarget() == null;
     String firstErrorMessage = accumulator.getFirstErrorMessage();
     return targetLoadedSuccessfully

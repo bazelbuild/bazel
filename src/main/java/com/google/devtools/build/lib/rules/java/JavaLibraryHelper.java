@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.analysis.config.BuildConfiguration.S
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -181,11 +180,6 @@ public final class JavaLibraryHelper {
 
       @Override
       public Object get(String providerKey) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
         throw new UnsupportedOperationException();
       }
     };

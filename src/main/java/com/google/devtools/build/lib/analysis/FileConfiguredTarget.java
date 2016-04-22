@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.analysis;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMap.Builder;
-import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -82,10 +81,5 @@ public abstract class FileConfiguredTarget extends AbstractConfiguredTarget
   @Override
   public Object get(String providerKey) {
     return null;
-  }
-
-  @Override
-  public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
-    return providers.values().iterator();
   }
 }

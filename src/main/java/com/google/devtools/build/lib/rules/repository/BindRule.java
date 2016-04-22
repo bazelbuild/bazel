@@ -45,6 +45,7 @@ public final class BindRule implements RuleDefinition {
         <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
         .add(attr("actual", LABEL).allowedFileTypes(FileTypeSet.ANY_FILE))
         .setWorkspaceOnly()
+        .canHaveAnyProvider()
         .build();
   }
 

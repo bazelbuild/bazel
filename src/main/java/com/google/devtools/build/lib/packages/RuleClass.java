@@ -477,6 +477,7 @@ public final class RuleClass {
         PredicatesWithMessage.<Rule>alwaysTrue();
     private Predicate<String> preferredDependencyPredicate = Predicates.alwaysFalse();
     private List<Class<?>> advertisedProviders = new ArrayList<>();
+    private boolean canHaveAnyProvider = false;
     private BaseFunction configuredTargetFunction = null;
     private Function<? super Rule, Map<String, Label>> externalBindingsFunction =
         NO_EXTERNAL_BINDINGS;
@@ -571,7 +572,7 @@ public final class RuleClass {
       return new RuleClass(name, skylark, skylarkExecutable, documented, publicByDefault,
           binaryOutput, workspaceOnly, outputsDefaultExecutable, implicitOutputsFunction,
           configurator, configuredTargetFactory, validityPredicate, preferredDependencyPredicate,
-          ImmutableSet.copyOf(advertisedProviders), configuredTargetFunction,
+          ImmutableSet.copyOf(advertisedProviders), canHaveAnyProvider, configuredTargetFunction,
           externalBindingsFunction, ruleDefinitionEnvironment, configurationFragmentPolicy.build(),
           supportsConstraintChecking, attributes.values().toArray(new Attribute[0]));
     }
@@ -726,7 +727,18 @@ public final class RuleClass {
      * not be evaluated for the rule.
      */
     public Builder advertiseProvider(Class<?>... providers) {
+      Preconditions.checkState(!canHaveAnyProvider);
       Collections.addAll(advertisedProviders, providers);
+      return this;
+    }
+
+    /**
+     * Set if the rule can have any provider. This is true for "alias" rules like
+     * <code>bind</code> .
+     */
+    public Builder canHaveAnyProvider() {
+      Preconditions.checkState(advertisedProviders.isEmpty());
+      canHaveAnyProvider = true;
       return this;
     }
 
@@ -967,6 +979,8 @@ public final class RuleClass {
    */
   private final ImmutableSet<Class<?>> advertisedProviders;
 
+  private final boolean canHaveAnyProvider;
+
   /**
    * The Skylark rule implementation of this RuleClass. Null for non Skylark executable RuleClasses.
    */
@@ -1012,6 +1026,7 @@ public final class RuleClass {
       PredicateWithMessage<Rule> validityPredicate,
       Predicate<String> preferredDependencyPredicate,
       ImmutableSet<Class<?>> advertisedProviders,
+      boolean canHaveAnyProvider,
       @Nullable BaseFunction configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
       @Nullable Environment ruleDefinitionEnvironment,
@@ -1033,6 +1048,7 @@ public final class RuleClass {
         validityPredicate,
         preferredDependencyPredicate,
         advertisedProviders,
+        canHaveAnyProvider,
         configuredTargetFunction,
         externalBindingsFunction,
         ruleDefinitionEnvironment,
@@ -1075,6 +1091,7 @@ public final class RuleClass {
       ConfiguredTargetFactory<?, ?> configuredTargetFactory,
       PredicateWithMessage<Rule> validityPredicate, Predicate<String> preferredDependencyPredicate,
       ImmutableSet<Class<?>> advertisedProviders,
+      boolean canHaveAnyProvider,
       @Nullable BaseFunction configuredTargetFunction,
       Function<? super Rule, Map<String, Label>> externalBindingsFunction,
       @Nullable Environment ruleDefinitionEnvironment,
@@ -1094,6 +1111,7 @@ public final class RuleClass {
     this.validityPredicate = validityPredicate;
     this.preferredDependencyPredicate = preferredDependencyPredicate;
     this.advertisedProviders = advertisedProviders;
+    this.canHaveAnyProvider = canHaveAnyProvider;
     this.configuredTargetFunction = configuredTargetFunction;
     this.externalBindingsFunction = externalBindingsFunction;
     this.ruleDefinitionEnvironment = ruleDefinitionEnvironment;
@@ -1266,6 +1284,14 @@ public final class RuleClass {
    */
   public ImmutableSet<Class<?>> getAdvertisedProviders() {
     return advertisedProviders;
+  }
+
+  /**
+   * Returns true if this rule, when analyzed, can provide any provider. Used for "alias" rules,
+   * e.g. <code>bind()</code>.
+   */
+  public boolean canHaveAnyProvider() {
+    return canHaveAnyProvider;
   }
 
   /**

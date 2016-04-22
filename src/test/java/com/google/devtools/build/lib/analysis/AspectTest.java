@@ -96,9 +96,7 @@ public class AspectTest extends AnalysisTestCase {
     assertThat(a.getProvider(RuleInfo.class).getData()).containsExactly("rule //a:a");
   }
 
-  // Disabled because this is a bug. Also note that if we fix this, query also needs to be fixed
-  // so that it reports implicit dependencies reached through these aspects.
-  //@Test
+  @Test
   public void aspectCreationWorksThroughBind() throws Exception {
     setRules(new TestAspects.BaseRule(), new TestAspects.HonestRule(),
         new TestAspects.AspectRequiringProviderRule());

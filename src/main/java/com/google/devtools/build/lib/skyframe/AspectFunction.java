@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
+import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -42,6 +43,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.SkylarkAspectClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.rules.SkylarkRuleClassFunctions.SkylarkAspect;
 import com.google.devtools.build.lib.skyframe.AspectValue.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.ConfiguredValueCreationException;
@@ -167,6 +169,11 @@ public final class AspectFunction implements SkyFunction {
       throw new AspectFunctionException(e);
     }
 
+    Label aliasLabel = TargetUtils.getAliasTarget(target);
+    if (aliasLabel != null) {
+      return createAliasAspect(env, target, aliasLabel, aspect, key);
+    }
+    
     if (!(target instanceof Rule)) {
       throw new AspectFunctionException(new AspectCreationException(
           "aspects must be attached to rules"));
@@ -257,6 +264,32 @@ public final class AspectFunction implements SkyFunction {
     } catch (AspectCreationException e) {
       throw new AspectFunctionException(e);
     }
+  }
+
+  private SkyValue createAliasAspect(Environment env, Target originalTarget, Label aliasLabel,
+      Aspect aspect, AspectKey originalKey) {
+    SkyKey depKey = AspectValue.key(aliasLabel,
+        originalKey.getAspectConfiguration(),
+        originalKey.getBaseConfiguration(),
+        originalKey.getAspectClass(),
+        originalKey.getParameters());
+    AspectValue real = (AspectValue) env.getValue(depKey);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    NestedSet<Package> transitivePackages = NestedSetBuilder.<Package>stableOrder()
+        .addTransitive(real.getTransitivePackages())
+        .add(originalTarget.getPackage())
+        .build();
+    return new AspectValue(
+        originalKey,
+        aspect,
+        originalTarget.getLabel(),
+        originalTarget.getLocation(),
+        ConfiguredAspect.forAlias(real.getConfiguredAspect()),
+        ImmutableList.<Action>of(),
+        transitivePackages);
   }
 
   @Nullable

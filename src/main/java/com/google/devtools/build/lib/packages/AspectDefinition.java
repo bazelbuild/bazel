@@ -147,16 +147,17 @@ public final class AspectDefinition {
     }
     RuleClass ruleClass = ((Rule) to).getRuleClassObject();
     ImmutableSet<Class<?>> providers = ruleClass.getAdvertisedProviders();
-    return visitAspectsIfRequired((Rule) from, attribute, toStringSet(providers), dependencyFilter);
+    return visitAspectsIfRequired((Rule) from, attribute, ruleClass.canHaveAnyProvider(),
+        toStringSet(providers), dependencyFilter);
   }
 
   /**
    * Returns the attribute -&gt; set of labels that are provided by aspects of attribute.
    */
   public static ImmutableMultimap<Attribute, Label> visitAspectsIfRequired(
-      Rule from, Attribute attribute, Set<String> advertisedProviders,
+      Rule from, Attribute attribute, boolean canHaveAnyProvider, Set<String> advertisedProviders,
       DependencyFilter dependencyFilter) {
-    if (advertisedProviders.isEmpty()) {
+    if (advertisedProviders.isEmpty() && !canHaveAnyProvider) {
       return ImmutableMultimap.of();
     }
 
@@ -164,7 +165,7 @@ public final class AspectDefinition {
     for (Aspect candidateClass : attribute.getAspects(from)) {
       // Check if target satisfies condition for this aspect (has to provide all required
       // TransitiveInfoProviders)
-      if (!advertisedProviders.containsAll(
+      if (!canHaveAnyProvider && !advertisedProviders.containsAll(
           candidateClass.getDefinition().getRequiredProviderNames())) {
         continue;
       }

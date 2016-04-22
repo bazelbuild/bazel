@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
@@ -95,7 +94,7 @@ import javax.annotation.Nullable;
     + "These extra providers are defined in the <code>struct</code> returned by the rule "
     + "implementation function.</li>"
     + "</ul>")
-public interface TransitiveInfoCollection extends Iterable<TransitiveInfoProvider> {
+public interface TransitiveInfoCollection  {
 
   /**
    * Returns the transitive information provider requested, or null if the provider is not found.
@@ -121,10 +120,4 @@ public interface TransitiveInfoCollection extends Iterable<TransitiveInfoProvide
    * The transitive information has to have been added using the Skylark framework.
    */
   @Nullable Object get(String providerKey);
-
-  /**
-   * Returns an unmodifiable iterator over the transitive info providers in the collections.
-   */
-  @Override
-  UnmodifiableIterator<TransitiveInfoProvider> iterator();
 }

@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.rules.repository;
 
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -69,13 +68,6 @@ public class Bind implements RuleConfiguredTargetFactory {
     @Override
     public Object get(String providerKey) {
       return configuredTarget == null ? null : configuredTarget.get(providerKey);
-    }
-
-    @Override
-    public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
-      return configuredTarget == null
-          ? ImmutableList.<TransitiveInfoProvider>of().iterator()
-          : configuredTarget.iterator();
     }
 
     @Override

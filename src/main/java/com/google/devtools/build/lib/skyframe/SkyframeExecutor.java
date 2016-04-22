@@ -54,7 +54,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.MergedConfiguredTarget;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction.Factory;
@@ -1197,7 +1197,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         configuredAspects.add(((AspectValue) result.get(aspectKey)).getConfiguredAspect());
       }
 
-      cts.put(key, RuleConfiguredTarget.mergeAspects(configuredTarget, configuredAspects));
+      cts.put(key, MergedConfiguredTarget.of(configuredTarget, configuredAspects));
     }
 
     return cts.build();

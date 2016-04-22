@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.packages.EnvironmentGroup;
 import com.google.devtools.build.lib.util.Preconditions;
 
@@ -37,10 +36,5 @@ public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTa
   public Object get(String providerKey) {
     // No providers.
     return null;
-  }
-
-  @Override
-  public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
-    throw new UnsupportedOperationException();
   }
 }

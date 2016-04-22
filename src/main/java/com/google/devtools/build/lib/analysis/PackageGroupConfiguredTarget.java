@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis;
 
-import com.google.common.collect.UnmodifiableIterator;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -69,10 +68,5 @@ public final class PackageGroupConfiguredTarget extends AbstractConfiguredTarget
   public Object get(String providerKey) {
     // No providers.
     return null;
-  }
-
-  @Override
-  public UnmodifiableIterator<TransitiveInfoProvider> iterator() {
-    throw new UnsupportedOperationException();
   }
 }
