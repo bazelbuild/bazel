@@ -151,7 +151,7 @@ public final class Runfiles {
    *
    * <p>This is either set to the workspace name, or is empty.
    */
-  private final String suffix;
+  private final PathFragment suffix;
 
   /**
    * The artifacts that should *always* be present in the runfiles directory. These are
@@ -203,7 +203,7 @@ public final class Runfiles {
    *
    * <p>If no EventHandler is available, all values are treated as IGNORE.
    */
-  public static enum ConflictPolicy {
+  public enum ConflictPolicy {
     IGNORE,
     WARN,
     ERROR,
@@ -262,7 +262,7 @@ public final class Runfiles {
    */
   private final NestedSet<PruningManifest> pruningManifests;
 
-  private Runfiles(String suffix,
+  private Runfiles(PathFragment suffix,
       NestedSet<Artifact> artifacts,
       NestedSet<SymlinkEntry> symlinks,
       NestedSet<SymlinkEntry> rootSymlinks,
@@ -281,7 +281,7 @@ public final class Runfiles {
   /**
    * Returns the runfiles' suffix.
    */
-  public String getSuffix() {
+  public PathFragment getSuffix() {
     return suffix;
   }
 
@@ -449,10 +449,9 @@ public final class Runfiles {
     // Copy manifest map to another manifest map, prepending the workspace name to every path.
     // E.g. for workspace "myworkspace", the runfile entry "mylib.so"->"/path/to/mylib.so" becomes
     // "myworkspace/mylib.so"->"/path/to/mylib.so".
-    PathFragment suffixPath = new PathFragment(suffix);
     Map<PathFragment, Artifact> rootManifest = new HashMap<>();
     for (Map.Entry<PathFragment, Artifact> entry : manifest.entrySet()) {
-      checker.put(rootManifest, suffixPath.getRelative(entry.getKey()), entry.getValue());
+      checker.put(rootManifest, suffix.getRelative(entry.getKey()), entry.getValue());
     }
 
     // Finally add symlinks relative to the root of the runfiles tree, on top of everything else.
@@ -636,7 +635,7 @@ public final class Runfiles {
   public static final class Builder {
 
     /** This is set to the workspace name */
-    private String suffix;
+    private PathFragment suffix;
 
     /**
      * This must be COMPILE_ORDER because {@link #asMapWithoutRootSymlinks} overwrites earlier
@@ -659,7 +658,7 @@ public final class Runfiles {
      * Only used for Runfiles.EMPTY.
      */
     private Builder() {
-      this.suffix = "";
+      this.suffix = PathFragment.EMPTY_FRAGMENT;
     }
 
     /**
@@ -667,7 +666,7 @@ public final class Runfiles {
      * @param workspace is the string specified in workspace() in the WORKSPACE file.
      */
     public Builder(String workspace) {
-      this.suffix = workspace;
+      this.suffix = new PathFragment(workspace);
     }
 
     /**
