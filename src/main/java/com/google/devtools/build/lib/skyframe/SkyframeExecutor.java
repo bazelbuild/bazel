@@ -310,7 +310,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         binTools,
         (ConfiguredRuleClassProvider) pkgFactory.getRuleClassProvider());
     this.artifactFactory.set(skyframeBuildView.getArtifactFactory());
-    this.externalFilesHelper = new ExternalFilesHelper(pkgLocator, this.errorOnExternalFiles);
+    this.externalFilesHelper = new ExternalFilesHelper(
+        pkgLocator, this.errorOnExternalFiles, directories);
   }
 
   private ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions(

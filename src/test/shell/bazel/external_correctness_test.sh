@@ -287,4 +287,34 @@ EOF
 
 }
 
+function test_top_level_dir_changes() {
+  mkdir -p r/subdir m
+  touch r/one r/subdir/two
+
+  cat > m/WORKSPACE <<'EOF'
+new_local_repository(
+    name = "r",
+    path = "../r",
+    build_file_content = """
+genrule(
+    name = "fg",
+    cmd = "ls $(SRCS) > $@",
+    srcs=glob(["**"]),
+    outs = ["fg.out"],
+)""",
+)
+EOF
+  cd m
+  bazel build @r//:fg &> $TEST_log || \
+    fail "Expected build to succeed"
+  touch ../r/three
+  bazel build @r//:fg &> $TEST_log || \
+    fail "Expected build to succeed"
+  assert_contains "external/r/three" bazel-genfiles/external/r/fg.out
+  touch ../r/subdir/four
+  bazel build @r//:fg &> $TEST_log || \
+    fail "Expected build to succeed"
+  assert_contains "external/r/subdir/four" bazel-genfiles/external/r/fg.out
+}
+
 run_suite "//external correctness tests"

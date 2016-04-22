@@ -20,6 +20,7 @@ import static org.junit.Assert.assertTrue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.NullEventHandler;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -59,7 +60,8 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)));
     deletedPackages = new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
-    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator, false);
+    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
+        pkgLocator, false, new BlazeDirectories(rootDirectory, rootDirectory, rootDirectory));
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
     skyFunctions.put(SkyFunctions.PACKAGE_LOOKUP, new PackageLookupFunction(deletedPackages));

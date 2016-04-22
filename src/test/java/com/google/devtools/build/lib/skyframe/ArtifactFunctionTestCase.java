@@ -71,7 +71,9 @@ abstract class ArtifactFunctionTestCase {
     setupRoot(new CustomInMemoryFs());
     AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>(new PathPackageLocator(
         root.getFileSystem().getPath("/outputbase"), ImmutableList.of(root)));
-    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator, false);
+    BlazeDirectories directories = new BlazeDirectories(root, root, root);
+    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
+        pkgLocator, false, directories);
     differencer = new RecordingDifferencer();
     evaluator =
         new InMemoryMemoizingEvaluator(
@@ -95,7 +97,7 @@ abstract class ArtifactFunctionTestCase {
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
                         new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),
-                        new BlazeDirectories(root, root, root)))
+                        directories))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .build(),
             differencer);

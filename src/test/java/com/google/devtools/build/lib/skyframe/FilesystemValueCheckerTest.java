@@ -103,7 +103,9 @@ public class FilesystemValueCheckerTest {
 
     AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>(new PathPackageLocator(
         fs.getPath("/output_base"), ImmutableList.of(pkgRoot)));
-    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator, false);
+    BlazeDirectories directories = new BlazeDirectories(pkgRoot, pkgRoot, pkgRoot);
+    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
+        pkgLocator, false, directories);
     skyFunctions.put(SkyFunctions.FILE_STATE, new FileStateFunction(
         new AtomicReference<TimestampGranularityMonitor>(), externalFilesHelper));
     skyFunctions.put(SkyFunctions.FILE, new FileFunction(pkgLocator));
@@ -121,7 +123,7 @@ public class FilesystemValueCheckerTest {
     skyFunctions.put(SkyFunctions.WORKSPACE_FILE,
         new WorkspaceFileFunction(TestRuleClassProvider.getRuleClassProvider(),
             new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),
-            new BlazeDirectories(pkgRoot, pkgRoot, pkgRoot)));
+            directories));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
 
     differencer = new RecordingDifferencer();

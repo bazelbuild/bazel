@@ -139,7 +139,9 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     AtomicReference<PathPackageLocator> pkgLocator =
         new AtomicReference<>(new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)));
     AtomicReference<TimestampGranularityMonitor> tsgmRef = new AtomicReference<>(tsgm);
-    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator, false);
+    BlazeDirectories directories = new BlazeDirectories(rootDirectory, outputBase, rootDirectory);
+    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
+        pkgLocator, false, directories);
     differencer = new RecordingDifferencer();
 
     ActionExecutionStatusReporter statusReporter =
@@ -174,7 +176,7 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
                         new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),
-                        new BlazeDirectories(rootDirectory, outputBase, rootDirectory)))
+                        directories))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .build(),
             differencer,

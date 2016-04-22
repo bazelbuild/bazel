@@ -72,8 +72,9 @@ public class PackageLookupFunctionTest extends FoundationTestCase {
     AtomicReference<PathPackageLocator> pkgLocator = new AtomicReference<>(
         new PathPackageLocator(outputBase, ImmutableList.of(emptyPackagePath, rootDirectory)));
     deletedPackages = new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
-    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator, false);
     BlazeDirectories directories = new BlazeDirectories(rootDirectory, outputBase, rootDirectory);
+    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
+        pkgLocator, false, directories);
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
     skyFunctions.put(SkyFunctions.PACKAGE_LOOKUP,

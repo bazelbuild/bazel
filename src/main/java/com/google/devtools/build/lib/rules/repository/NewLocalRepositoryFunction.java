@@ -17,10 +17,15 @@ package com.google.devtools.build.lib.rules.repository;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
+import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException;
+import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 
 import java.io.IOException;
@@ -38,7 +43,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
   @Override
   public SkyValue fetch(
       Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env)
-          throws SkyFunctionException {
+      throws SkyFunctionException {
 
     NewRepositoryBuildFileHandler buildFileHandler =
         new NewRepositoryBuildFileHandler(directories.getWorkspace());
@@ -48,9 +53,29 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
 
     PathFragment pathFragment = getTargetPath(rule, directories.getWorkspace());
 
+    FileSystem fs = directories.getOutputBase().getFileSystem();
+    Path path = fs.getPath(pathFragment);
+
+    // fetch() creates symlinks to each child under 'path' and DiffAwareness handles checking all
+    // of these files and directories for changes. However, if a new file/directory is added
+    // directly under 'path', Bazel doesn't know that this has to be symlinked in. Thus, this
+    // creates a dependency on the contents of the 'path' directory.
+    SkyKey dirKey = DirectoryListingValue.key(
+        RootedPath.toRootedPath(fs.getRootDirectory(), path));
+    DirectoryListingValue directoryValue;
+    try {
+      directoryValue = (DirectoryListingValue) env.getValueOrThrow(
+          dirKey, InconsistentFilesystemException.class);
+    } catch (InconsistentFilesystemException e) {
+      throw new RepositoryFunctionException(
+          new IOException(e), SkyFunctionException.Transience.PERSISTENT);
+    }
+    if (directoryValue == null) {
+      return null;
+    }
+
     // Link x/y/z to /some/path/to/y/z.
-    if (!symlinkLocalRepositoryContents(
-        outputDirectory, directories.getOutputBase().getFileSystem().getPath(pathFragment))) {
+    if (!symlinkLocalRepositoryContents(outputDirectory, fs.getPath(pathFragment))) {
       return null;
     }
 
@@ -68,7 +93,7 @@ public class NewLocalRepositoryFunction extends RepositoryFunction {
     }
     createWorkspaceFile(outputDirectory, rule);
 
-    return RepositoryDirectoryValue.create(outputDirectory);
+    return RepositoryDirectoryValue.createWithSourceDirectory(outputDirectory, directoryValue);
   }
 
   @Override

@@ -122,8 +122,9 @@ public class FileFunctionTest {
 
   private SequentialBuildDriver makeDriver(boolean errorOnExternalFiles) {
     AtomicReference<PathPackageLocator> pkgLocatorRef = new AtomicReference<>(pkgLocator);
+    BlazeDirectories directories = new BlazeDirectories(pkgRoot, outputBase, pkgRoot);
     ExternalFilesHelper externalFilesHelper =
-        new ExternalFilesHelper(pkgLocatorRef, errorOnExternalFiles);
+        new ExternalFilesHelper(pkgLocatorRef, errorOnExternalFiles, directories);
     differencer = new RecordingDifferencer();
     MemoizingEvaluator evaluator =
         new InMemoryMemoizingEvaluator(
@@ -152,7 +153,7 @@ public class FileFunctionTest {
                     new WorkspaceFileFunction(
                         TestRuleClassProvider.getRuleClassProvider(),
                         new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),
-                        new BlazeDirectories(pkgRoot, outputBase, pkgRoot)))
+                        directories))
                 .put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction())
                 .build(),
             differencer);

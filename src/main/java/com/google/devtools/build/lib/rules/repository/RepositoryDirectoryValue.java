@@ -16,10 +16,13 @@ package com.google.devtools.build.lib.rules.repository;
 
 import com.google.common.base.Objects;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+
+import javax.annotation.Nullable;
 
 /**
  * A local view of an external repository.
@@ -27,17 +30,29 @@ import com.google.devtools.build.skyframe.SkyValue;
 public class RepositoryDirectoryValue implements SkyValue {
   private final Path path;
   private final boolean fetchingDelayed;
+  @Nullable
+  private final DirectoryListingValue sourceDir;
 
-  private RepositoryDirectoryValue(Path path, boolean fetchingDelayed) {
+  private RepositoryDirectoryValue(
+      Path path, boolean fetchingDelayed, DirectoryListingValue sourceDir) {
     this.path = path;
     this.fetchingDelayed = fetchingDelayed;
+    this.sourceDir = sourceDir;
   }
 
   /**
    * Creates an immutable external repository.
    */
   public static RepositoryDirectoryValue create(Path repositoryDirectory) {
-    return new RepositoryDirectoryValue(repositoryDirectory, false);
+    return new RepositoryDirectoryValue(repositoryDirectory, false, null);
+  }
+
+  /**
+   * new_local_repositories
+   */
+  public static RepositoryDirectoryValue createWithSourceDirectory(
+      Path repositoryDirectory, DirectoryListingValue sourceDir) {
+    return new RepositoryDirectoryValue(repositoryDirectory, false, sourceDir);
   }
 
   /**
@@ -45,7 +60,7 @@ public class RepositoryDirectoryValue implements SkyValue {
    * {@code --nofetch} command line option.
    */
   public static RepositoryDirectoryValue fetchingDelayed(Path repositoryDirectory) {
-    return new RepositoryDirectoryValue(repositoryDirectory, true);
+    return new RepositoryDirectoryValue(repositoryDirectory, true, null);
   }
 
   /**
@@ -70,14 +85,15 @@ public class RepositoryDirectoryValue implements SkyValue {
 
     if (other instanceof RepositoryDirectoryValue) {
       RepositoryDirectoryValue otherValue = (RepositoryDirectoryValue) other;
-      return path.equals(otherValue.path);
+      return Objects.equal(path, otherValue.path)
+          && Objects.equal(sourceDir, otherValue.sourceDir);
     }
     return false;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(path);
+    return Objects.hashCode(path, sourceDir);
   }
 
   @Override

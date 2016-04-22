@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.FileSymlinkException;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.InconsistentFilesystemException;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.skyframe.WorkspaceFileValue;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.util.Preconditions;
+import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -80,6 +82,7 @@ import javax.annotation.Nullable;
  * {@link RepositoryDirectoryValue} is invalidated using the usual Skyframe route.
  */
 public abstract class RepositoryFunction {
+
   /**
    * Exception thrown when something goes wrong accessing a remote repository.
    *
@@ -347,6 +350,69 @@ public abstract class RepositoryFunction {
     return directories
         .getOutputBase()
         .getRelative(Label.EXTERNAL_PATH_PREFIX);
+  }
+
+  /**
+   * For files that are under $OUTPUT_BASE/external, add a dependency on the corresponding rule
+   * so that if the WORKSPACE file changes, the File/DirectoryStateValue will be re-evaluated.
+   *
+   * Note that:
+   * - We don't add a dependency on the parent directory at the package root boundary, so
+   * the only transitive dependencies from files inside the package roots to external files
+   * are through symlinks. So the upwards transitive closure of external files is small.
+   * - The only way other than external repositories for external source files to get into the
+   * skyframe graph in the first place is through symlinks outside the package roots, which we
+   * neither want to encourage nor optimize for since it is not common. So the set of external
+   * files is small.
+   */
+  public static void addExternalFilesDependencies(
+      RootedPath rootedPath, BlazeDirectories directories, Environment env)
+      throws IOException {
+    Path externalRepoDir = getExternalRepositoryDirectory(directories);
+    PathFragment repositoryPath = rootedPath.asPath().relativeTo(externalRepoDir);
+    if (repositoryPath.segmentCount() == 0) {
+      // We are the top of the repository path (<outputBase>/external), not in an actual external
+      // repository path.
+      return;
+    }
+    String repositoryName = repositoryPath.getSegment(0);
+
+    Rule repositoryRule;
+    try {
+      repositoryRule = RepositoryFunction.getRule(repositoryName, env);
+    } catch (RepositoryFunction.RepositoryNotFoundException ex) {
+      // The repository we are looking for does not exist so we should depend on the whole
+      // WORKSPACE file. In that case, the call to RepositoryFunction#getRule(String, Environment)
+      // already requested all repository functions from the WORKSPACE file from Skyframe as part
+      // of the resolution. Therefore we are safe to ignore that Exception.
+      return;
+    } catch (RepositoryFunction.RepositoryFunctionException ex) {
+      // This should never happen.
+      throw new IllegalStateException(
+          "Repository " + repositoryName + " cannot be resolved for path " + rootedPath, ex);
+    }
+    if (repositoryRule == null) {
+      return;
+    }
+
+    // new_local_repository needs a dependency on the directory that `path` points to, as the
+    // external/repo-name DirStateValue has a logical dependency on that directory that is not
+    // reflected in the SkyFrame tree, since it's not symlinked to it or anything.
+    if (repositoryRule.getRuleClass().equals(NewLocalRepositoryRule.NAME)
+        && repositoryPath.segmentCount() == 1) {
+      PathFragment pathDir = RepositoryFunction.getTargetPath(
+          repositoryRule, directories.getWorkspace());
+      FileSystem fs = directories.getWorkspace().getFileSystem();
+      SkyKey dirKey = DirectoryListingValue.key(
+          RootedPath.toRootedPath(fs.getRootDirectory(), fs.getPath(pathDir)));
+      try {
+        env.getValueOrThrow(
+            dirKey, IOException.class, FileSymlinkException.class,
+            InconsistentFilesystemException.class);
+      } catch (FileSymlinkException | InconsistentFilesystemException e) {
+        throw new IOException(e.getMessage());
+      }
+    }
   }
 
   /**

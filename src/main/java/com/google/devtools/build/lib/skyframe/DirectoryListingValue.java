@@ -54,7 +54,7 @@ public abstract class DirectoryListingValue implements SkyValue {
    * from a directory listing on its parent directory).
    */
   @ThreadSafe
-  static SkyKey key(RootedPath directoryUnderRoot) {
+  public static SkyKey key(RootedPath directoryUnderRoot) {
     return SkyKey.create(SkyFunctions.DIRECTORY_LISTING, directoryUnderRoot);
   }
 

@@ -85,7 +85,9 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
         new PathPackageLocator(outputBase, ImmutableList.of(rootDirectory)));
     AtomicReference<ImmutableSet<PackageIdentifier>> deletedPackages =
         new AtomicReference<>(ImmutableSet.<PackageIdentifier>of());
-    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(pkgLocator, false);
+    BlazeDirectories directories = new BlazeDirectories(rootDirectory, outputBase, rootDirectory);
+    ExternalFilesHelper externalFilesHelper = new ExternalFilesHelper(
+        pkgLocator, false, directories);
 
     Map<SkyFunctionName, SkyFunction> skyFunctions = new HashMap<>();
 
@@ -110,7 +112,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
     skyFunctions.put(SkyFunctions.WORKSPACE_FILE,
         new WorkspaceFileFunction(TestRuleClassProvider.getRuleClassProvider(),
             new PackageFactory(TestRuleClassProvider.getRuleClassProvider()),
-            new BlazeDirectories(rootDirectory, outputBase, rootDirectory)));
+            directories));
     skyFunctions.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction());
 
     progressReceiver = new RecordingEvaluationProgressReceiver();
