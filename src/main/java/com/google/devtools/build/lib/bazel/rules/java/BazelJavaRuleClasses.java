@@ -355,6 +355,31 @@ public class BazelJavaRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           // TODO(bazel-team): describe how to access this data at runtime
           .add(attr("stamp", TRISTATE).value(TriState.AUTO))
+          /* <!-- #BLAZE_RULE($base_java_binary).ATTRIBUTE(launcher) -->
+          If specified, the target will be used to launch the Java Virtual Machine in
+          the wrapper shell script. The target must be a <code>cc_binary</code>.
+          Any <code>cc_binary</code> that implements the
+          <a href="http://docs.oracle.com/javase/7/docs/technotes/guides/jni/spec/invocation.html">
+          Java Invocation API</a> can be a launcher target.
+
+          <p>The related <a href="../blaze-user-manual.html#flag--java_launcher"><code>
+          --java_launcher</code></a> Bazel flag affects only those
+          <code>java_binary</code> and <code>java_test</code> targets that have
+          <i>not</i> specified a <code>launcher</code> attribute. For those targets
+          that must always be run with the JDK's "java" launcher, set their
+          <code>launcher</code> attribute to the special opt-out label
+          <code>//third_party/java/jdk:jdk_launcher</code>.</p>
+
+          <p>If you build a deploy jar and specify a launcher target through either
+          this <code>launcher</code> attribute or <code>--java_launcher</code> Bazel
+          flag, then the deploy jar will be a single file that is both (a) a .jar
+          file that contains the appropriate classes, and (b) the executable
+          specified by the launcher target. (This does not apply to the opt-out
+          label.)</p>
+          <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+          .add(attr("launcher", LABEL)
+              .allowedFileTypes(FileTypeSet.NO_FILE)
+              .allowedRuleClasses("cc_binary"))
           .add(attr(":java_launcher", LABEL).value(JavaSemantics.JAVA_LAUNCHER))  // blaze flag
           .build();
     }

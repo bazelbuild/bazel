@@ -156,11 +156,8 @@ public interface JavaSemantics {
         @Override
         public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
           // don't read --java_launcher if this target overrides via a launcher attribute
-          if (attributes != null && attributes.has("launcher", LABEL)) {
-            Label launcher = attributes.get("launcher", LABEL);
-            if (launcher != null) {
-              return launcher;
-            }
+          if (attributes != null && attributes.isAttributeValueExplicitlySpecified("launcher")) {
+            return attributes.get("launcher", LABEL);
           }
           return configuration.getFragment(JavaConfiguration.class).getJavaLauncherLabel();
         }
