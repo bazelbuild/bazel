@@ -262,13 +262,21 @@ public final class Runfiles {
    */
   private final NestedSet<PruningManifest> pruningManifests;
 
-  private Runfiles(PathFragment suffix,
+  /**
+   * If external runfiles should be created under .runfiles/wsname/external/repo as well as
+   * .runfiles/repo.
+   */
+  private final boolean legacyExternalRunfiles;
+
+  private Runfiles(
+      PathFragment suffix,
       NestedSet<Artifact> artifacts,
       NestedSet<SymlinkEntry> symlinks,
       NestedSet<SymlinkEntry> rootSymlinks,
       NestedSet<PruningManifest> pruningManifests,
       EmptyFilesSupplier emptyFilesSupplier,
-      ConflictPolicy conflictPolicy) {
+      ConflictPolicy conflictPolicy,
+      boolean legacyExternalRunfiles) {
     this.suffix = suffix;
     this.unconditionalArtifacts = Preconditions.checkNotNull(artifacts);
     this.symlinks = Preconditions.checkNotNull(symlinks);
@@ -276,6 +284,7 @@ public final class Runfiles {
     this.pruningManifests = Preconditions.checkNotNull(pruningManifests);
     this.emptyFilesSupplier = Preconditions.checkNotNull(emptyFilesSupplier);
     this.conflictPolicy = conflictPolicy;
+    this.legacyExternalRunfiles = legacyExternalRunfiles;
   }
 
   /**
@@ -654,19 +663,35 @@ public final class Runfiles {
     /** Build the Runfiles object with this policy */
     private ConflictPolicy conflictPolicy = ConflictPolicy.IGNORE;
 
+    private final boolean legacyExternalRunfiles;
+
     /**
      * Only used for Runfiles.EMPTY.
      */
     private Builder() {
       this.suffix = PathFragment.EMPTY_FRAGMENT;
+      this.legacyExternalRunfiles = false;
+    }
+
+    /**
+     * Creates a builder with the given suffix. Transitional constructor so that new rules don't
+     * accidentally depend on the legacy repository structure, until that option is removed.
+     *
+     * @param workspace is the string specified in workspace() in the WORKSPACE file.
+     */
+    public Builder(String workspace) {
+      this(workspace, false);
     }
 
     /**
      * Creates a builder with the given suffix.
      * @param workspace is the string specified in workspace() in the WORKSPACE file.
+     * @param legacyExternalRunfiles if the wsname/external/repo symlinks should also be
+     *     created.
      */
-    public Builder(String workspace) {
+    public Builder(String workspace, boolean legacyExternalRunfiles) {
       this.suffix = new PathFragment(workspace);
+      this.legacyExternalRunfiles = legacyExternalRunfiles;
     }
 
     /**
@@ -675,7 +700,7 @@ public final class Runfiles {
     public Runfiles build() {
       return new Runfiles(suffix, artifactsBuilder.build(), symlinksBuilder.build(),
           rootSymlinksBuilder.build(), pruningManifestsBuilder.build(),
-          emptyFilesSupplier, conflictPolicy);
+          emptyFilesSupplier, conflictPolicy, legacyExternalRunfiles);
     }
 
     /**

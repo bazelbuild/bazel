@@ -702,7 +702,8 @@ public class AndroidCommon {
   private Runfiles getRunfiles() {
     // TODO(bazel-team): why return any Runfiles in the neverlink case?
     if (asNeverLink) {
-      return new Runfiles.Builder(ruleContext.getWorkspaceName())
+      return new Runfiles.Builder(
+          ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
           .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
           .build();
     }

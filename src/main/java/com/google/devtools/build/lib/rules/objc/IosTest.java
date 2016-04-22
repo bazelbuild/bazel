@@ -164,9 +164,10 @@ public final class IosTest implements RuleConfiguredTargetFactory {
     XcodeProvider xcodeProvider = xcodeProviderBuilder.build();
     NestedSet<Artifact> filesToBuildSet = filesToBuild.build();
 
-    Runfiles.Builder runfilesBuilder =
-        new Runfiles.Builder(ruleContext.getWorkspaceName())
-            .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
+    Runfiles.Builder runfilesBuilder = new Runfiles.Builder(
+        ruleContext.getWorkspaceName(),
+        ruleContext.getConfiguration().legacyExternalRunfiles())
+        .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES);
     NestedSetBuilder<Artifact> filesToBuildBuilder =
         NestedSetBuilder.<Artifact>stableOrder().addTransitive(filesToBuildSet);
 

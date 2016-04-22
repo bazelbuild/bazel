@@ -99,7 +99,8 @@ public final class RunfilesSupport {
         && TargetUtils.isTestRule(ruleContext.getRule())) {
       TransitiveInfoCollection runUnderTarget =
           ruleContext.getPrerequisite(":run_under", Mode.DATA);
-      runfiles = new Runfiles.Builder(ruleContext.getWorkspaceName())
+      runfiles = new Runfiles.Builder(
+          ruleContext.getWorkspaceName(), ruleContext.getConfiguration().legacyExternalRunfiles())
           .merge(getRunfiles(runUnderTarget))
           .merge(runfiles)
           .build();

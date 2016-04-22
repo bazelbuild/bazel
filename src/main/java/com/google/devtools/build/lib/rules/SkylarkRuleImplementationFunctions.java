@@ -563,7 +563,9 @@ public class SkylarkRuleImplementationFunctions {
         Boolean collectData, Boolean collectDefault,
         SkylarkDict<?, ?> symlinks, SkylarkDict<?, ?> rootSymlinks,
         Location loc) throws EvalException, ConversionException {
-      Runfiles.Builder builder = new Runfiles.Builder(ctx.getRuleContext().getWorkspaceName());
+      Runfiles.Builder builder = new Runfiles.Builder(
+          ctx.getRuleContext().getWorkspaceName(),
+          ctx.getConfiguration().legacyExternalRunfiles());
       boolean checkConflicts = false;
       if (EvalUtils.toBoolean(collectData)) {
         builder.addRunfiles(ctx.getRuleContext(), RunfilesProvider.DATA_RUNFILES);

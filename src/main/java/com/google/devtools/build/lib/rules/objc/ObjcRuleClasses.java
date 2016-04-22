@@ -255,9 +255,13 @@ public class ObjcRuleClasses {
   static RuleConfiguredTargetBuilder ruleConfiguredTarget(RuleContext ruleContext,
       NestedSet<Artifact> filesToBuild) {
     RunfilesProvider runfilesProvider = RunfilesProvider.withData(
-        new Runfiles.Builder(ruleContext.getWorkspaceName())
+        new Runfiles.Builder(
+            ruleContext.getWorkspaceName(),
+            ruleContext.getConfiguration().legacyExternalRunfiles())
             .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES).build(),
-        new Runfiles.Builder(ruleContext.getWorkspaceName())
+        new Runfiles.Builder(
+            ruleContext.getWorkspaceName(),
+            ruleContext.getConfiguration().legacyExternalRunfiles())
             .addTransitiveArtifacts(filesToBuild).build());
 
     return new RuleConfiguredTargetBuilder(ruleContext)
