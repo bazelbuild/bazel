@@ -53,6 +53,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   private Set<Label> rulesBeneathFoo;
   private Set<Label> rulesBeneathFooBar;
   private Set<Label> rulesBeneathOtherrules;
+  private Set<Label> rulesInTopLevelPackage;
   private Set<Label> rulesInFoo;
   private Set<Label> rulesInFooBar;
   private Set<Label> rulesInOtherrules;
@@ -60,12 +61,17 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   private Set<Label> targetsInFooBar;
   private Set<Label> targetsBeneathFoo;
   private Set<Label> targetsInOtherrules;
+  private Set<Label> targetsInTopLevelPackage;
 
   @Before
   public final void createFiles() throws Exception {
     // TODO(ulfjack): Also disable the implicit C++ outputs in Google's internal version.
     boolean hasImplicitCcOutputs = ruleClassProvider.getRuleClassMap().get("cc_library")
         .getImplicitOutputsFunction() != ImplicitOutputsFunction.NONE;
+
+    scratch.file("BUILD",
+        "filegroup(name = 'fg', srcs = glob(['*.cc']))");
+    scratch.file("foo.cc");
 
     scratch.file("foo/BUILD",
         "cc_library(name = 'foo1', srcs = [ 'foo1.cc' ], hdrs = [ 'foo1.h' ])",
@@ -90,9 +96,11 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     rulesBeneathFooBar = labels("//foo/bar:bar1", "//foo/bar:bar2");
     rulesBeneathOtherrules = labels(
         "//otherrules:suite1", "//otherrules:wiz", "//otherrules:group");
+    rulesInTopLevelPackage = labels("//:fg");
     rulesInFoo = labels("//foo:foo1");
     rulesInFooBar = labels("//foo/bar:bar1", "//foo/bar:bar2");
     rulesInOtherrules = rulesBeneathOtherrules;
+    targetsInTopLevelPackage = labels("//:BUILD", "//:foo.cc", "//:fg");
 
     targetsInFoo = labels(
         "//foo:foo1",
@@ -409,7 +417,11 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
   private void runFindAllRules(String pattern) throws Exception {
     assertThat(parseList(pattern))
-        .containsExactlyElementsIn(Sets.union(rulesBeneathFoo, rulesBeneathOtherrules));
+        .containsExactlyElementsIn(ImmutableSet.builder()
+            .addAll(rulesBeneathFoo)
+            .addAll(rulesBeneathOtherrules)
+            .addAll(rulesInTopLevelPackage)
+            .build());
     assertNoEvents();
     eventCollector.clear();
   }
@@ -423,7 +435,11 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
   private void runFindAllTargets(String pattern) throws Exception {
     assertThat(parseList(pattern))
-        .containsExactlyElementsIn(Sets.union(targetsBeneathFoo, targetsInOtherrules));
+        .containsExactlyElementsIn(ImmutableSet.builder()
+            .addAll(targetsBeneathFoo)
+            .addAll(targetsInOtherrules)
+            .addAll(targetsInTopLevelPackage)
+            .build());
     assertNoEvents();
     eventCollector.clear();
   }
@@ -440,7 +456,11 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     scratch.file("experimental/BUILD",
         "cc_library(name = 'experimental', srcs = [ 'experimental.cc' ])");
     assertThat(parseList("//..."))
-        .containsExactlyElementsIn(Sets.union(rulesBeneathFoo, rulesBeneathOtherrules));
+        .containsExactlyElementsIn(ImmutableSet.builder()
+            .addAll(rulesBeneathFoo)
+            .addAll(rulesBeneathOtherrules)
+            .addAll(rulesInTopLevelPackage)
+            .build());
     assertNoEvents();
   }
 
@@ -489,12 +509,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   }
 
   @Test
-  public void testGivesUpIfPackageDoesNotExist() throws Exception {
-    expectError("couldn't determine target from filename 'does/not/exist'",
-        "does/not/exist");
-  }
-
-  @Test
   public void testParsesIterableOfLabels() throws Exception {
     Set<Label> labels = Sets.newHashSet(Label.parseAbsolute("//foo/bar:bar1"),
         Label.parseAbsolute("//foo:foo1"));
@@ -524,11 +538,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
         parseIndividualTargetRelative("bar:wiz/bang").toString());
     assertEquals("//foo/bar:wiz/all",
         parseIndividualTargetRelative("bar:wiz/all").toString());
-  }
-
-  @Test
-  public void testAll() throws Exception {
-    expectError("couldn't determine target from filename 'all'", "all");
   }
 
   /** Regression test for a bug. */
@@ -689,16 +698,6 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
     } catch (TargetParsingException e) {
       // Expected.
     }
-  }
-
-  /** Regression test for bug: "Bogus 'helpful' error message" */
-  @Test
-  public void testHelpfulMessageForFileOutsideOfAnyPackage() throws Exception {
-    scratch.file("goo/wiz/file");
-    expectError("couldn't determine target from filename 'goo/wiz/file'",
-                "goo/wiz/file");
-    expectError("couldn't determine target from filename 'goo/wiz'",
-        "goo/wiz");
   }
 
   /** Regression test for bug: "Bogus 'helpful' error message" */
@@ -890,7 +889,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   @Test
   public void testKeepGoingBadFilenameTarget() throws Exception {
     assertKeepGoing(rulesBeneathFoo,
-        "couldn't determine target from filename 'bad/filename/target'",
+        "no such target '//:bad/filename/target'",
         "bad/filename/target", "foo/...");
   }
 
@@ -902,7 +901,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
           /*keepGoing=*/false);
       fail();
     } catch (TargetParsingException e) {
-      assertThat(e.getMessage()).contains("couldn't determine target from filename");
+      assertThat(e.getMessage()).contains("no such target");
     }
   }
 
@@ -1091,6 +1090,69 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
   @Test
   public void testExternalPackage() throws Exception {
     parseList("external:all");
+  }
+
+  @Test
+  public void testTopLevelPackage_Relative_BuildFile() throws Exception {
+    Set<Label> result = parseList("BUILD");
+    assertThat(result).containsExactly(Label.parseAbsolute("//:BUILD"));
+  }
+
+  @Test
+  public void testTopLevelPackage_Relative_DeclaredTarget() throws Exception {
+    Set<Label> result = parseList("fg");
+    assertThat(result).containsExactly(Label.parseAbsolute("//:fg"));
+  }
+
+  @Test
+  public void testTopLevelPackage_Relative_All() throws Exception {
+    expectError("no such target '//:all'", "all");
+  }
+
+  @Test
+  public void testTopLevelPackage_Relative_ColonAll() throws Exception {
+    Set<Label> result = parseList(":all");
+    assertThat(result).containsExactly(Label.parseAbsolute("//:fg"));
+  }
+
+  @Test
+  public void testTopLevelPackage_Relative_InputFile() throws Exception {
+    Set<Label> result = parseList("foo.cc");
+    assertThat(result).containsExactly(Label.parseAbsolute("//:foo.cc"));
+  }
+
+  @Test
+  public void testTopLevelPackage_Relative_InputFile_NoSuchInputFile() throws Exception {
+    expectError("no such target '//:nope.cc'", "nope.cc");
+  }
+
+  @Test
+  public void testTopLevelPackage_Absolute_BuildFile() throws Exception {
+    Set<Label> result = parseList("//:BUILD");
+    assertThat(result).containsExactly(Label.parseAbsolute("//:BUILD"));
+  }
+
+  @Test
+  public void testTopLevelPackage_Absolute_DeclaredTarget() throws Exception {
+    Set<Label> result = parseList("//:fg");
+    assertThat(result).containsExactly(Label.parseAbsolute("//:fg"));
+  }
+
+  @Test
+  public void testTopLevelPackage_Absolute_All() throws Exception {
+    Set<Label> result = parseList("//:all");
+    assertThat(result).containsExactly(Label.parseAbsolute("//:fg"));
+  }
+
+  @Test
+  public void testTopLevelPackage_Absolute_InputFile() throws Exception {
+    Set<Label> result = parseList("//:foo.cc");
+    assertThat(result).containsExactly(Label.parseAbsolute("//:foo.cc"));
+  }
+
+  @Test
+  public void testTopLevelPackage_Absolute_InputFile_NoSuchInputFile() throws Exception {
+    expectError("no such target '//:nope.cc'", "//:nope.cc");
   }
 }
 

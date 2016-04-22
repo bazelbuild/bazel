@@ -279,7 +279,7 @@ public abstract class TargetPattern implements Serializable {
 
         // Interprets the label as a file target.  This loop stops as soon as the
         // first BUILD file is found (i.e. longest prefix match).
-        for (int i = pieces.size() - 1; i > 0; i--) {
+        for (int i = pieces.size() - 1; i >= 0; i--) {
           String packageName = SLASH_JOINER.join(pieces.subList(0, i));
           if (resolver.isPackage(PackageIdentifier.createInMainRepo(packageName))) {
             String targetName = SLASH_JOINER.join(pieces.subList(i, pieces.size()));
