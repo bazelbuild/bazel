@@ -28,7 +28,7 @@ fi
 
 function set_up() {
   copy_examples
-  IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
+  setup_objc_test_support
 }
 
 function test_swift_library() {
