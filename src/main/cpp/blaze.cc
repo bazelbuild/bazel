@@ -1952,7 +1952,7 @@ bool GrpcBlazeServer::Connect() {
   request.set_cookie(request_cookie_);
   grpc::Status status = client->Ping(&context, request, &response);
 
-  if (!status.ok()) {
+  if (!status.ok() || response.cookie() != response_cookie_) {
     return false;
   }
 
@@ -2064,6 +2064,11 @@ unsigned int GrpcBlazeServer::Communicate() {
   std::thread cancel_thread(&GrpcBlazeServer::CancelThread, this);
   bool command_id_set = false;
   while (reader->Read(&response)) {
+    if (response.cookie() != response_cookie_) {
+      fprintf(stderr, "\nServer response cookie invalid, exiting\n");
+      return blaze_exit_code::INTERNAL_ERROR;
+    }
+
     if (response.standard_output().size() > 0) {
       write(1, response.standard_output().c_str(),
             response.standard_output().size());
