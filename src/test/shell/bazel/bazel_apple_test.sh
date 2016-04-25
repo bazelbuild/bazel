@@ -28,6 +28,7 @@ fi
 
 function set_up() {
   copy_examples
+  setup_objc_test_support
 }
 
 function test_swift_library() {
@@ -35,8 +36,10 @@ function test_swift_library() {
   ln -sv ${workspace_file} WORKSPACE
 
   local swift_lib_pkg=examples/swift
-  assert_build_output ./bazel-bin/${swift_lib_pkg}/swift_lib.a ${swift_lib_pkg}:swift_lib
-  assert_build_output ./bazel-bin/${swift_lib_pkg}/swift_lib.swiftmodule ${swift_lib_pkg}:swift_lib
+  assert_build_output ./bazel-bin/${swift_lib_pkg}/swift_lib.a \
+      ${swift_lib_pkg}:swift_lib --ios_sdk_version=$IOS_SDK_VERSION
+  assert_build_output ./bazel-bin/${swift_lib_pkg}/swift_lib.swiftmodule \
+      ${swift_lib_pkg}:swift_lib --ios_sdk_version=$IOS_SDK_VERSION
 }
 
 run_suite "apple_tests"
