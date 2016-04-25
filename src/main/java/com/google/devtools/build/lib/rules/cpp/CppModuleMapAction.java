@@ -177,11 +177,11 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     f.addString(GUID);
     f.addInt(privateHeaders.size());
     for (Artifact artifact : privateHeaders) {
-      f.addPath(artifact.getRootRelativePath());
+      f.addPath(artifact.getExecPath());
     }
     f.addInt(publicHeaders.size());
     for (Artifact artifact : publicHeaders) {
-      f.addPath(artifact.getRootRelativePath());
+      f.addPath(artifact.getExecPath());
     }
     f.addInt(dependencies.size());
     for (CppModuleMap dep : dependencies) {
