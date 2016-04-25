@@ -45,4 +45,9 @@ echo "Bootstrapping Bazel"
 # Run the only Windows-specific test we have.
 # todo(bazel-team): add more tests here.
 echo "Running tests"
-./output/bazel --batch test //src/test/shell/bazel:bazel_windows_cpp_test
+retCode=0
+./output/bazel --batch test //src/test/shell/bazel:bazel_windows_cpp_test || retCode=$?
+# Exit for failure except for test failures (exit code 3).
+if (( $retCode != 0 && $retCode != 3 )); then
+  exit $retCode
+fi
