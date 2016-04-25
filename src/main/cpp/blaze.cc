@@ -1989,7 +1989,11 @@ void GrpcBlazeServer::Communicate() {
   std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
       client_->Run(&context, request));
 
-  cancel_thread_action_ = NOTHING;
+  {
+    std::unique_lock<std::mutex> lock(cancel_thread_mutex_);
+    cancel_thread_action_ = NOTHING;
+  }
+
   std::thread cancel_thread(&GrpcBlazeServer::CancelThread, this);
   bool command_id_set = false;
   while (reader->Read(&response)) {
