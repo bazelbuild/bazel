@@ -64,7 +64,7 @@ import javax.annotation.CheckReturnValue;
 /**
  * An Action representing an arbitrary subprocess to be forked and exec'd.
  */
-public class SpawnAction extends AbstractAction {
+public class SpawnAction extends AbstractAction implements ExecutionInfoSpecifier {
   private static class ExtraActionInfoSupplier<T> {
     private final GeneratedExtension<ExtraActionInfo, T> extension;
     private final T value;
@@ -364,6 +364,7 @@ public class SpawnAction extends AbstractAction {
   /**
    * Returns the out-of-band execution data for this action.
    */
+  @Override
   public Map<String, String> getExecutionInfo() {
     return executionInfo;
   }

@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.extra.CppCompileInfo;
 import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.ExecutionInfoSpecifier;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.PerLabelOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -84,7 +85,8 @@ import javax.annotation.concurrent.GuardedBy;
  * Action that represents some kind of C++ compilation step.
  */
 @ThreadCompatible
-public class CppCompileAction extends AbstractAction implements IncludeScannable {
+public class CppCompileAction extends AbstractAction
+    implements IncludeScannable, ExecutionInfoSpecifier {
   /**
    * Represents logic that determines if an artifact is a special input, meaning that it may require
    * additional inputs when it is compiled or may not be available to other actions.
@@ -171,6 +173,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   private final ImmutableList<Artifact> builtinIncludeFiles;
   @VisibleForTesting public final CppCompileCommandLine cppCompileCommandLine;
   private final boolean usePic;
+  private final ImmutableSet<String> executionRequirements;
 
   @VisibleForTesting
   final CppConfiguration cppConfiguration;
@@ -222,6 +225,10 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
    * @param context the compilation context
    * @param copts options for the compiler
    * @param coptsFilter regular expression to remove options from {@code copts}
+   * @param executionRequirements out-of-band hints to be passed to the execution backend to signal
+   *        platform requirements
+   * @param actionName a string giving the name of this action for the purpose of toolchain
+   *        evaluation
    */
   protected CppCompileAction(
       ActionOwner owner,
@@ -252,6 +259,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       Iterable<IncludeScannable> lipoScannables,
       UUID actionClassId,
       boolean usePic,
+      ImmutableSet<String> executionRequirements,
+      String actionName,
       RuleContext ruleContext) {
     super(
         owner,
@@ -288,11 +297,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
             features,
             featureConfiguration,
             variables,
-            fdoBuildStamp);
+            fdoBuildStamp,
+            actionName);
     this.actionContext = actionContext;
     this.lipoScannables = lipoScannables;
     this.actionClassId = actionClassId;
     this.usePic = usePic;
+    this.executionRequirements = executionRequirements;
 
     // We do not need to include the middleman artifact since it is a generated
     // artifact and will definitely exist prior to this action execution.
@@ -704,6 +715,15 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     return cppCompileCommandLine.getCompilerOptions();
   }
 
+  @Override
+  public Map<String, String> getExecutionInfo() {
+    ImmutableMap.Builder<String, String> result = ImmutableMap.<String, String>builder();
+    for (String requirement : executionRequirements) {
+      result.put(requirement, "");
+    }
+    return result.build();
+  }
+  
   /**
    * Enforce that the includes actually visited during the compile were properly
    * declared in the rules.
@@ -1125,6 +1145,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     f.addUUID(actionClassId);
     f.addStringMap(getEnvironment());
     f.addStrings(getArgv());
+    f.addStrings(executionRequirements);
 
     /*
      * getArgv() above captures all changes which affect the compilation
@@ -1273,6 +1294,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     private final Collection<String> features;
     private final FeatureConfiguration featureConfiguration;
     @VisibleForTesting public final CcToolchainFeatures.Variables variables;
+    private final String actionName;
 
     // The value of the BUILD_FDO_TYPE macro to be defined on command line
     @Nullable private final String fdoBuildStamp;
@@ -1287,7 +1309,8 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
         Collection<String> features,
         FeatureConfiguration featureConfiguration,
         CcToolchainFeatures.Variables variables,
-        @Nullable String fdoBuildStamp) {
+        @Nullable String fdoBuildStamp,
+        String actionName) {
       this.sourceFile = Preconditions.checkNotNull(sourceFile);
       this.dotdFile = CppFileTypes.mustProduceDotdFile(sourceFile.getPath().toString())
                       ? Preconditions.checkNotNull(dotdFile) : null;
@@ -1299,13 +1322,14 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       this.featureConfiguration = featureConfiguration;
       this.variables = variables;
       this.fdoBuildStamp = fdoBuildStamp;
+      this.actionName = actionName;
     }
 
     /**
      * Returns the environment variables that should be set for C++ compile actions.
      */
     protected Map<String, String> getEnvironment() {
-      return featureConfiguration.getEnvironmentVariables(getActionName(), variables);
+      return featureConfiguration.getEnvironmentVariables(actionName, variables);
     }
 
     protected List<String> getArgv(PathFragment outputFile) {
@@ -1326,39 +1350,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       commandLine.add(outputFile.getPathString());
 
       return commandLine;
-    }
-
-    private String getActionName() {
-      PathFragment sourcePath = sourceFile.getExecPath();
-      if (CppFileTypes.CPP_MODULE_MAP.matches(sourcePath)) {
-        return CPP_MODULE_COMPILE;
-      } else if (CppFileTypes.CPP_HEADER.matches(sourcePath)) {
-        // TODO(bazel-team): Handle C headers that probably don't work in C++ mode.
-        if (featureConfiguration.isEnabled(CppRuleClasses.PARSE_HEADERS)) {
-          return CPP_HEADER_PARSING;
-        } else if (featureConfiguration.isEnabled(CppRuleClasses.PREPROCESS_HEADERS)) {
-          return CPP_HEADER_PREPROCESSING;
-        } else {
-          // CcCommon.collectCAndCppSources() ensures we do not add headers to
-          // the compilation artifacts unless either 'parse_headers' or
-          // 'preprocess_headers' is set.
-          throw new IllegalStateException();
-        }
-      } else if (CppFileTypes.C_SOURCE.matches(sourcePath)) {
-        return C_COMPILE;
-      } else if (CppFileTypes.CPP_SOURCE.matches(sourcePath)) {
-        return CPP_COMPILE;
-      } else if (CppFileTypes.OBJC_SOURCE.matches(sourcePath)) {
-        return OBJC_COMPILE;
-      } else if (CppFileTypes.OBJCPP_SOURCE.matches(sourcePath)) {
-        return OBJCPP_COMPILE;
-      } else if (CppFileTypes.ASSEMBLER.matches(sourcePath)) {
-        return ASSEMBLE;
-      } else if (CppFileTypes.ASSEMBLER_WITH_C_PREPROCESSOR.matches(sourcePath)) {
-        return PREPROCESS_ASSEMBLE;
-      }
-      // CcLibraryHelper ensures CppCompileAction only gets instantiated for supported file types.
-      throw new IllegalStateException();
     }
 
     public List<String> getCompilerOptions() {
@@ -1396,8 +1387,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
       // unfiltered compiler options to inject include paths, which is superseded by the feature
       // configuration; on the other hand toolchains switch off warnings for the layering check
       // that will be re-added by the feature flags.
-      addFilteredOptions(options,
-          featureConfiguration.getCommandLine(getActionName(), variables));
+      addFilteredOptions(options, featureConfiguration.getCommandLine(actionName, variables));
 
       // TODO(bazel-team): Move this into a feature; more specifically, create a feature for both
       // the amount of debug information requested, and whether the debug info is written in a
