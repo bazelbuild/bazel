@@ -99,13 +99,34 @@ namespace blaze {
 static void WriteFileToStreamOrDie(FILE *stream, const char *file_name);
 static string BuildServerRequest();
 
+// Implementation of the communication protocol with the server process.
+// This object has two states: connected and disconnected. Most of the methods
+// can only be called in one of these states.
 class BlazeServer {
  public:
   virtual ~BlazeServer() {}
 
+  // Connect to the server. Returns if the connection was successful. Only
+  // call this when this object is in disconnected state. If it returns true,
+  // this object will be in connected state.
   virtual bool Connect() = 0;
+
+  // Disconnects from an existing server. Only call this when this object is in
+  // connected state. After this call returns, the object will be in connected
+  // state.
   virtual void Disconnect() = 0;
-  virtual void Communicate() = 0;
+
+  // Send the command line to the server and forward whatever it says to stdout
+  // and stderr. Returns the desired exit code. Only call this when the server
+  // is in connected state.
+  virtual unsigned int Communicate() = 0;
+
+  // Disconnects and kills an existing server. Only call this when this object
+  // is in connected state.
+  virtual void KillRunningServer(int server_pid) = 0;
+
+  // Cancel the currently running command. If there is no command currently
+  // running, the result is unspecified.
   virtual void Cancel() = 0;
 };
 
@@ -116,7 +137,8 @@ class AfUnixBlazeServer : public BlazeServer {
 
   bool Connect() override;
   void Disconnect() override;
-  void Communicate() override;
+  unsigned int Communicate() override;
+  void KillRunningServer(int server_pid) override;
   void Cancel() override;
 
  private:
@@ -130,7 +152,8 @@ class GrpcBlazeServer : public BlazeServer {
 
   bool Connect() override;
   void Disconnect() override;
-  void Communicate() override;
+  unsigned int Communicate() override;
+  void KillRunningServer(int server_pid) override;
   void Cancel() override;
 
  private:
@@ -487,9 +510,9 @@ static void Daemonize() {
 
   setsid();
 
-  close(0);
-  close(1);
-  close(2);
+  close(STDIN_FILENO);
+  close(STDOUT_FILENO);
+  close(STDERR_FILENO);
 
   open("/dev/null", O_RDONLY);  // stdin
   // stdout:
@@ -689,7 +712,7 @@ void AfUnixBlazeServer::Disconnect() {
   server_socket_ = -1;
 }
 
-static ATTRIBUTE_NORETURN void ServerEof() {
+static int ServerEof() {
   // e.g. external SIGKILL of server, misplaced System.exit() in the server,
   // or a JVM crash. Print out the jvm.out file in case there's something
   // useful.
@@ -697,19 +720,18 @@ static ATTRIBUTE_NORETURN void ServerEof() {
           "Contents of '%s':\n", globals->options.GetProductName().c_str(),
           globals->jvm_log_file.c_str());
   WriteFileToStreamOrDie(stderr, globals->jvm_log_file.c_str());
-  exit(GetExitCodeForAbruptExit(*globals));
+  return GetExitCodeForAbruptExit(*globals);
 }
 
 // Reads a single char from the specified stream.
-static unsigned char ReadServerChar(int fd) {
-  unsigned char result;
-  if (read(fd, &result, 1) != 1) {
-    ServerEof();
+static int ReadServerChar(int fd, unsigned char *result) {
+  if (read(fd, result, 1) != 1) {
+    return ServerEof();
   }
-  return result;
+  return 0;
 }
 
-static unsigned int ReadServerInt(int fd) {
+static int ReadServerInt(int fd, unsigned int *result) {
   unsigned char buffer[4];
   unsigned char *p = buffer;
   int remaining = 4;
@@ -717,34 +739,43 @@ static unsigned int ReadServerInt(int fd) {
   while (remaining > 0) {
     int bytes_read = read(fd, p, remaining);
     if (bytes_read <= 0) {
-      ServerEof();
+      return ServerEof();
     }
 
     remaining -= bytes_read;
     p += bytes_read;
   }
 
-  return (buffer[0] << 24) + (buffer[1] << 16) + (buffer[2] << 8) + buffer[3];
+  *result = (buffer[0] << 24) + (buffer[1] << 16) + (buffer[2] << 8)
+      + buffer[3];
+  return 0;
 }
 
 static char server_output_buffer[8192];
 
-static void forward_server_output(int socket, int output) {
-  unsigned int remaining = ReadServerInt(socket);
+// Forwards the output of the server to the specified file handle.
+static int ForwardServerOutput(int socket, int output) {
+  unsigned int remaining;
+  int exit_code = ReadServerInt(socket, &remaining);
+  if (exit_code != 0) {
+    return exit_code;
+  }
   while (remaining > 0) {
     int bytes = remaining > 8192 ? 8192 : remaining;
     bytes = read(socket, server_output_buffer, bytes);
     if (bytes <= 0) {
-      ServerEof();
+      return ServerEof();
     }
 
     remaining -= bytes;
     // Not much we can do if this doesn't work
     write(output, server_output_buffer, bytes);
   }
+
+  return 0;
 }
 
-void AfUnixBlazeServer::Communicate() {
+unsigned int AfUnixBlazeServer::Communicate() {
   const string request = BuildServerRequest();
 
   // Send request (Request is written in a single chunk.)
@@ -796,42 +827,53 @@ void AfUnixBlazeServer::Communicate() {
   const int TAG_STDOUT = 1;
   const int TAG_STDERR = 2;
   const int TAG_CONTROL = 3;
+  unsigned int exit_code;
   for (;;) {
     // Read the tag
-    char tag = ReadServerChar(server_socket_);
+    unsigned char tag;
+    exit_code = ReadServerChar(server_socket_, &tag);
+    if (exit_code != 0) {
+      return exit_code;
+    }
+
     switch (tag) {
       // stdout
       case TAG_STDOUT:
-        forward_server_output(server_socket_, 1);
+        exit_code = ForwardServerOutput(server_socket_, STDOUT_FILENO);
+        if (exit_code != 0) {
+          return exit_code;
+        }
         break;
 
       // stderr
       case TAG_STDERR:
-        forward_server_output(server_socket_, 2);
+        exit_code = ForwardServerOutput(server_socket_, STDERR_FILENO);
+        if (exit_code != 0) {
+          return exit_code;
+        }
         break;
 
       // Control stream. Currently only used for reporting the exit code.
       case TAG_CONTROL:
-        if (globals->received_signal) {
-          // Kill ourselves with the same signal, so that callers see the
-          // right WTERMSIG value.
-          signal(globals->received_signal, SIG_DFL);
-          raise(globals->received_signal);
-          exit(1);  // (in case raise didn't kill us for some reason)
-        } else {
-          unsigned int length = ReadServerInt(server_socket_);
-          if (length != 4) {
-            ServerEof();
-          }
-          unsigned int exit_code = ReadServerInt(server_socket_);
-          exit(exit_code);
+        unsigned int length;
+        exit_code = ReadServerInt(server_socket_, &length);
+        if (exit_code != 0) {
+          // We cannot read the length field. The return value of ReadSeverInt()
+          // is the result of ServerEof(), so we bail out early so that we don't
+          // call ServerEof() twice.
+          return exit_code;
         }
-        break;  // Control never gets here, only for code beauty
+
+        if (length != 4) {
+          return ServerEof();
+        }
+        unsigned int server_exit_code;
+        exit_code = ReadServerInt(server_socket_, &server_exit_code);
+        return exit_code != 0 ? exit_code : server_exit_code;
 
       default:
         fprintf(stderr, "bad tag %d\n", tag);
-        ServerEof();
-        break;  // Control never gets here, only for code beauty
+        return ServerEof();
     }
   }
 }
@@ -928,7 +970,7 @@ static bool ConnectToServer(BlazeServer *server, bool start) {
     // disaster.
     int server_pid = GetServerPid(pid_file);
     if (server_pid >= 0) {
-      kill(server_pid, SIGKILL);
+      killpg(server_pid, SIGKILL);
     }
 
     SetScheduling(globals->options.batch_cpu_scheduling,
@@ -990,8 +1032,9 @@ static bool WaitForServerDeath(pid_t pid, int wait_time_secs) {
 }
 
 // Kills the specified running Blaze server.
-static void KillRunningServer(pid_t server_pid) {
-  if (server_pid == -1) return;
+void AfUnixBlazeServer::KillRunningServer(pid_t server_pid) {
+  close(server_socket_);
+  server_socket_ = -1;
   fprintf(stderr, "Sending SIGTERM to previous %s server (pid=%d)... ",
           globals->options.GetProductName().c_str(), server_pid);
   fflush(stderr);
@@ -1011,6 +1054,7 @@ static void KillRunningServer(pid_t server_pid) {
     fprintf(stderr, "killed.\n");
     return;
   }
+
   // Process did not go away 10s after SIGKILL. Stuck in state 'Z' or 'D'?
   pdie(blaze_exit_code::INTERNAL_ERROR, "SIGKILL unsuccessful after 10s");
 }
@@ -1018,8 +1062,7 @@ static void KillRunningServer(pid_t server_pid) {
 // Kills the running Blaze server, if any.  Finds the pid from the socket.
 static bool KillRunningServerIfAny(BlazeServer* server) {
   if (ConnectToServer(server, /*start=*/false)) {
-    server->Disconnect();
-    KillRunningServer(globals->server_pid);
+    server->KillRunningServer(globals->server_pid);
     return true;
   }
   return false;
@@ -1294,7 +1337,6 @@ static void KillRunningServerIfDifferentStartupOptions(BlazeServer* server) {
     return;
   }
 
-  server->Disconnect();
   string cmdline_path = globals->options.output_base + "/server/cmdline";
   string joined_arguments;
 
@@ -1314,7 +1356,9 @@ static void KillRunningServerIfDifferentStartupOptions(BlazeServer* server) {
             "WARNING: Running %s server needs to be killed, because the "
             "startup options are different.\n",
             globals->options.GetProductName().c_str());
-    KillRunningServer(globals->server_pid);
+    server->KillRunningServer(globals->server_pid);
+  } else {
+    server->Disconnect();
   }
 }
 
@@ -1390,7 +1434,7 @@ static void handler(int signum) {
       if (++globals->sigint_count >= 3)  {
         sigprintf("\n%s caught third interrupt signal; killed.\n\n",
                   globals->options.GetProductName().c_str());
-        kill(globals->server_pid, SIGKILL);
+        killpg(globals->server_pid, SIGKILL);
         _exit(1);
       }
       sigprintf("\n%s caught interrupt signal; shutting down.\n\n",
@@ -1405,8 +1449,7 @@ static void handler(int signum) {
     case SIGPIPE:
       // Don't bother the user with a message in this case; they're
       // probably using head(1) or more(1).
-      kill(globals->server_pid, SIGINT);
-      signal(SIGPIPE, SIG_IGN);  // ignore subsequent SIGPIPE signals
+      blaze_server->Cancel();
       globals->received_signal = SIGPIPE;
       break;
     case SIGQUIT:
@@ -1473,8 +1516,7 @@ static ATTRIBUTE_NORETURN void SendServerRequest(BlazeServer* server) {
         fprintf(stderr, "Server's cwd moved or deleted (%s).\n",
                 server_cwd.c_str());
       }
-      server->Disconnect();
-      KillRunningServer(globals->server_pid);
+      server->KillRunningServer(globals->server_pid);
     } else {
       break;
     }
@@ -1497,9 +1539,16 @@ static ATTRIBUTE_NORETURN void SendServerRequest(BlazeServer* server) {
   signal(SIGPIPE, handler);
   signal(SIGQUIT, handler);
 
-  server->Communicate();
-  fprintf(stderr, "Communicate() did not exit");
-  exit(blaze_exit_code::INTERNAL_ERROR);
+  int exit_code = server->Communicate();
+  if (globals->received_signal) {
+    // Kill ourselves with the same signal, so that callers see the
+    // right WTERMSIG value.
+    signal(globals->received_signal, SIG_DFL);
+    raise(globals->received_signal);
+    exit(1);  // (in case raise didn't kill us for some reason)
+  } else {
+    exit(exit_code);
+  }
 }
 
 // Parse the options, storing parsed values in globals.
@@ -1930,8 +1979,8 @@ bool GrpcBlazeServer::Connect() {
 // It's conceivable that the server is busy and thus it cannot service the
 // cancellation request. In that case, we simply ignore the failure and the both
 // the server and the client go on as if nothing had happened (except that this
-// Ctrl-C counts as a SIGINT, three of which result in a SIGKILL being delivered
-// to the server)
+// Ctrl-C still counts as a SIGINT, three of which result in a SIGKILL being
+// delivered to the server)
 void GrpcBlazeServer::CancelThread() {
   bool running = true;
   std::unique_lock<std::mutex> lock(cancel_thread_mutex_);
@@ -1966,7 +2015,25 @@ void GrpcBlazeServer::CancelThread() {
   }
 }
 
-void GrpcBlazeServer::Communicate() {
+void GrpcBlazeServer::KillRunningServer(int server_pid) {
+  grpc::ClientContext context;
+  command_server::RunRequest request;
+  command_server::RunResponse response;
+  request.set_cookie(request_cookie_);
+  request.set_block_for_lock(globals->options.block_for_lock);
+  request.set_client_description(
+      "pid=" + ToString(getpid()) + " (for shutdown)");
+  request.add_arg("shutdown");
+  std::unique_ptr<grpc::ClientReader<command_server::RunResponse>> reader(
+      client_->Run(&context, request));
+
+  while (reader->Read(&response)) {}
+
+  // Send a SIGKILL for good measure
+  killpg(server_pid, SIGKILL);
+}
+
+unsigned int GrpcBlazeServer::Communicate() {
   vector<string> arg_vector;
   string command = globals->option_processor.GetCommand();
   if (command != "") {
@@ -2029,7 +2096,7 @@ void GrpcBlazeServer::Communicate() {
     exit(blaze_exit_code::INTERNAL_ERROR);
   }
 
-  exit(response.exit_code());
+  return response.exit_code();
 }
 
 void GrpcBlazeServer::Disconnect() {
