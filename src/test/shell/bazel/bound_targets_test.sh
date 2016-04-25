@@ -18,6 +18,11 @@
 source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
 
+if [ "${PLATFORM}" != "darwin" ]; then
+  echo "This test suite requires running on OS X" >&2
+  exit 0
+fi
+
 function test_build_xcrunwrapper() {
   rm WORKSPACE
   ln -sv ${workspace_file} WORKSPACE
