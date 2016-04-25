@@ -782,14 +782,14 @@ public class CcToolchainFeatures implements Serializable {
     /**
      * Builder for {@code Variables}.
      */
-    static class Builder {
+    public static class Builder {
       private final ImmutableMap.Builder<String, String> variables = ImmutableMap.builder();
       private final ImmutableMap.Builder<String, Sequence> expandables = ImmutableMap.builder();
       
       /**
        * Add a variable that expands {@code name} to {@code value}.
        */
-      Builder addVariable(String name, String value) {
+      public Builder addVariable(String name, String value) {
         variables.put(name, value);
         return this;
       }
@@ -797,7 +797,7 @@ public class CcToolchainFeatures implements Serializable {
       /**
        * Add all variables in a map.
        */
-      Builder addAllVariables(Map<String, String> variableMap) {
+      public Builder addAllVariables(Map<String, String> variableMap) {
         variables.putAll(variableMap);
         return this;
       }
@@ -805,7 +805,7 @@ public class CcToolchainFeatures implements Serializable {
       /**
        * Add a nested sequence that expands {@code name} recursively.
        */
-      Builder addSequence(String name, Sequence sequence) {
+      public Builder addSequence(String name, Sequence sequence) {
         expandables.put(name, sequence);
         return this;
       }
@@ -814,7 +814,7 @@ public class CcToolchainFeatures implements Serializable {
        * Add a variable that expands a flag group containing a reference to {@code name} for each
        * entry in {@code values}.
        */
-      Builder addSequenceVariable(String name, Collection<String> values) {
+      public Builder addSequenceVariable(String name, Collection<String> values) {
         ValueSequence.Builder sequenceBuilder = new ValueSequence.Builder();
         for (String value : values) {
           sequenceBuilder.addValue(value);
@@ -828,6 +828,14 @@ public class CcToolchainFeatures implements Serializable {
       Variables build() {
         return new Variables(variables.build(), expandables.build());
       }
+    }
+    
+    /**
+     * A group of extra {@code Variable} instances, packaged as logic for adding to a
+     * {@code Builder}
+     */
+    public interface VariablesExtension {
+      void addVariables(Builder builder);
     }
     
     /**
@@ -1271,14 +1279,14 @@ public class CcToolchainFeatures implements Serializable {
   /**
    * Given a list of {@code requestedFeatures}, returns all features that are enabled by the
    * toolchain configuration.
-   * 
+   *
    * <p>A requested feature will not be enabled if the toolchain does not support it (which may
    * depend on other requested features).
-   * 
+   *
    * <p>Additional features will be enabled if the toolchain supports them and they are implied by
    * requested features.
    */
-  FeatureConfiguration getFeatureConfiguration(Collection<String> requestedFeatures) {
+  public FeatureConfiguration getFeatureConfiguration(Collection<String> requestedFeatures) {
     return configurationCache.getUnchecked(requestedFeatures);
   }
       
@@ -1289,8 +1297,15 @@ public class CcToolchainFeatures implements Serializable {
   }
   
   /**
-   * Convenience method taking a variadic string argument list for testing.   
-   */
+   * Given a list of {@code requestedFeatures}, returns all features that are enabled by the
+   * toolchain configuration.
+   *
+   * <p>A requested feature will not be enabled if the toolchain does not support it (which may
+   * depend on other requested features).
+   *
+   * <p>Additional features will be enabled if the toolchain supports them and they are implied by
+   * requested features.
+   */ 
   public FeatureConfiguration getFeatureConfiguration(String... requestedFeatures) {
     return getFeatureConfiguration(Arrays.asList(requestedFeatures));
   }

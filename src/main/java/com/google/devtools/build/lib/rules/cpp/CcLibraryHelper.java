@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.HeadersCheckingMode;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -105,7 +106,7 @@ public final class CcLibraryHelper {
       return sourceTypeSet;
     }
   }
-  
+
   /** Function for extracting module maps from CppCompilationDependencies. */
   public static final Function<TransitiveInfoCollection, CppModuleMap> CPP_DEPS_TO_MODULES =
     new Function<TransitiveInfoCollection, CppModuleMap>() {
@@ -226,7 +227,8 @@ public final class CcLibraryHelper {
   private boolean checkDepsGenerateCpp = true;
   private boolean emitCompileProviders;
   private SourceCategory sourceCatagory;
-
+  private List<VariablesExtension> variablesExtensions = new ArrayList<>();
+  
   private final FeatureConfiguration featureConfiguration;
 
   /**
@@ -619,6 +621,15 @@ public final class CcLibraryHelper {
   }
 
   /**
+   * Adds a variableExtension to template the crosstool.
+   */
+  public CcLibraryHelper addVariableExtension(VariablesExtension variableExtension) {
+    Preconditions.checkNotNull(variableExtension);
+    this.variablesExtensions.add(variableExtension);
+    return this;
+  }
+  
+  /**
    * Overrides the path for the generated dynamic library - this should only be called if the
    * dynamic library is an implicit or explicit output of the rule, i.e., if it is accessible by
    * name from other rules in the same package. Set to {@code null} to use the default computation.
@@ -897,7 +908,8 @@ public final class CcLibraryHelper {
         .setNoCopts(nocopts)
         .setDynamicLibrary(dynamicLibrary)
         .addLinkopts(linkopts)
-        .setFeatureConfiguration(featureConfiguration);
+        .setFeatureConfiguration(featureConfiguration)
+        .addVariablesExtension(variablesExtensions);
   }
 
   /**

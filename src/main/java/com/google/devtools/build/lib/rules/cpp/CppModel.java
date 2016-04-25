@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationOutputs.Builder;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfiguration;
+import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.Variables.VariablesExtension;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkStaticness;
 import com.google.devtools.build.lib.rules.cpp.Link.LinkTargetType;
 import com.google.devtools.build.lib.rules.cpp.LinkerInputs.LibraryToLink;
@@ -79,6 +80,7 @@ public final class CppModel {
   private boolean createDynamicLibrary = true;
   private Artifact soImplArtifact;
   private FeatureConfiguration featureConfiguration;
+  private List<VariablesExtension> variablesExtensions = new ArrayList<>();
 
   public CppModel(RuleContext ruleContext, CppSemantics semantics) {
     this.ruleContext = Preconditions.checkNotNull(ruleContext);
@@ -187,6 +189,21 @@ public final class CppModel {
     return this;
   }
 
+  /**
+   * Adds the given variablesExensions for templating the crosstool.
+   *
+   * <p>In general, we prefer the build variables (especially those that derive strictly from
+   * the configuration) be learned by inspecting the CcToolchain, as passed to the rule in the
+   * CcToolchainProvider.  However, for build variables that must be injected into the rule
+   * implementation (ex. build variables learned from the BUILD file), should be added using the
+   * VariablesExtension abstraction.  This allows the injection to construct non-trivial build
+   * variables (lists, ect.).
+   */
+  public CppModel addVariablesExtension(Collection<VariablesExtension> variablesExtensions) {
+    this.variablesExtensions.addAll(variablesExtensions);
+    return this;
+  }
+  
   /**
    * Sets the link type used for the link actions. Note that only static links are supported at this
    * time.
@@ -392,6 +409,10 @@ public final class CppModel {
     }
 
     buildVariables.addAllVariables(CppHelper.getToolchain(ruleContext).getBuildVariables());
+    
+    for (VariablesExtension extension : variablesExtensions) {
+      extension.addVariables(buildVariables);
+    }
     
     CcToolchainFeatures.Variables variables = buildVariables.build();
     builder.setVariables(variables);
