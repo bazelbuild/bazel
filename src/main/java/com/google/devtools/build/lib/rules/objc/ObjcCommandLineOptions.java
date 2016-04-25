@@ -179,7 +179,7 @@ public class ObjcCommandLineOptions extends FragmentOptions {
             + " and system libraries."
   )
   public boolean prioritizeStaticLibs;
- 
+
   @Option(
     name = "objc_debug_with_GLIBCXX",
     defaultValue = "true",
@@ -200,7 +200,17 @@ public class ObjcCommandLineOptions extends FragmentOptions {
             + "build."
   )
   public Label extraEntitlements;
-  
+
+  @Option(
+    name = "experimental_auto_top_level_union_objc_protos",
+    defaultValue = "false",
+    category = "flags",
+    help =
+        "Specifies whether to use the experimental proto generation scheme, in which they are all "
+            + "generated and linked into the final linking target."
+  )
+  public boolean experimentalAutoTopLevelUnionObjCProtos;
+
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
 
   @Override

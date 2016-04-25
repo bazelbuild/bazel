@@ -74,6 +74,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean useAbsolutePathsForActions;
   private final boolean prioritizeStaticLibs;
   private final boolean debugWithGlibcxx;
+  private final boolean experimentalAutoTopLevelUnionObjCProtos;
   @Nullable private final Label extraEntitlements;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
@@ -100,6 +101,8 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.prioritizeStaticLibs = objcOptions.prioritizeStaticLibs;
     this.debugWithGlibcxx = objcOptions.debugWithGlibcxx;
     this.extraEntitlements = objcOptions.extraEntitlements;
+    this.experimentalAutoTopLevelUnionObjCProtos =
+        objcOptions.experimentalAutoTopLevelUnionObjCProtos;
   }
 
   /**
@@ -255,7 +258,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   public String getSigningCertName() {
     return this.signingCertName;
   }
-  
+
   /**
    * Returns true if the linker invocation should contain static library includes before framework
    * and system library includes.
@@ -270,5 +273,13 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @Nullable
   public Label getExtraEntitlements() {
     return extraEntitlements;
+  }
+
+  /**
+   * Whether the experimental feature of only generating proto sources at the linking target is
+   * enabled or not.
+   */
+  public boolean experimentalAutoTopLevelUnionObjCProtos() {
+    return experimentalAutoTopLevelUnionObjCProtos;
   }
 }
