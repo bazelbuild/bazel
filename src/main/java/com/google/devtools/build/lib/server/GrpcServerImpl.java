@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.server;
 
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
@@ -74,6 +75,7 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
       id = UUID.randomUUID().toString();
       synchronized (runningCommands) {
         runningCommands.put(id, this);
+        runningCommands.notify();
       }
     }
 
@@ -81,6 +83,7 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
     public void close() {
       synchronized (runningCommands) {
         runningCommands.remove(id);
+        runningCommands.notify();
       }
     }
   }
@@ -91,8 +94,8 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
   public static class Factory implements RPCServer.Factory {
     @Override
     public RPCServer create(CommandExecutor commandExecutor, Clock clock, int port,
-      Path serverDirectory) throws IOException {
-      return new GrpcServerImpl(commandExecutor, clock, port, serverDirectory);
+      Path serverDirectory, int maxIdleSeconds) throws IOException {
+      return new GrpcServerImpl(commandExecutor, clock, port, serverDirectory, maxIdleSeconds);
     }
   }
 
@@ -151,18 +154,20 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
   private final String requestCookie;
   private final String responseCookie;
   private final AtomicLong interruptCounter = new AtomicLong(0);
+  private final int maxIdleSeconds;
 
   private Server server;
   private int port;  // mutable so that we can overwrite it if port 0 is passed in
   boolean serving;
 
   public GrpcServerImpl(CommandExecutor commandExecutor, Clock clock, int port,
-      Path serverDirectory) throws IOException {
+      Path serverDirectory, int maxIdleSeconds) throws IOException {
     super(serverDirectory);
     this.commandExecutor = commandExecutor;
     this.clock = clock;
     this.serverDirectory = serverDirectory;
     this.port = port;
+    this.maxIdleSeconds = maxIdleSeconds;
     this.serving = false;
 
     SecureRandom random = new SecureRandom();
@@ -211,6 +216,42 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
     interruptWatcherThread.start();
   }
 
+  private void timeoutThread() {
+    synchronized (runningCommands) {
+      boolean idle = runningCommands.isEmpty();
+      boolean wasIdle = false;
+      long shutdownTime = -1;
+
+      while (true) {
+        if (!wasIdle && idle) {
+          shutdownTime = System.currentTimeMillis() + ((long) maxIdleSeconds) * 1000;
+        }
+
+        try {
+          if (idle) {
+            Verify.verify(shutdownTime > 0);
+            long waitTime = shutdownTime - System.currentTimeMillis();
+            if (waitTime > 0) {
+              runningCommands.wait(waitTime);
+            }
+          } else {
+            runningCommands.wait();
+          }
+        } catch (InterruptedException e) {
+          // Dealt with by checking the current time below.
+        }
+
+        wasIdle = idle;
+        idle = runningCommands.isEmpty();
+        if (wasIdle && idle && System.currentTimeMillis() >= shutdownTime) {
+          break;
+        }
+      }
+    }
+
+    server.shutdownNow();
+  }
+
   @Override
   public void interrupt() {
     synchronized (runningCommands) {
@@ -231,6 +272,17 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
         .build();
 
     server.start();
+    if (maxIdleSeconds > 0) {
+      Thread timeoutThread = new Thread(new Runnable() {
+        @Override
+        public void run() {
+          timeoutThread();
+        }
+      });
+      
+      timeoutThread.setDaemon(true);
+      timeoutThread.start();
+    }
     serving = true;
 
     if (port == 0) {

@@ -34,8 +34,8 @@ public abstract class RPCServer {
    * Present so that we don't need to invoke a constructor with multiple arguments by reflection.
    */
   public interface Factory {
-    RPCServer create(CommandExecutor commandExecutor, Clock clock, int port, Path serverDirectory)
-        throws IOException;
+    RPCServer create(CommandExecutor commandExecutor, Clock clock, int port, Path serverDirectory,
+        int maxIdleSeconds) throws IOException;
   }
 
   protected RPCServer(Path serverDirectory) throws IOException {

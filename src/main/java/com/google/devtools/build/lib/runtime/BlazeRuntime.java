@@ -900,7 +900,8 @@ public final class BlazeRuntime {
             "com.google.devtools.build.lib.server.GrpcServerImpl$Factory");
         RPCServer.Factory factory = (RPCServer.Factory) factoryClass.newInstance();
         return factory.create(commandExecutor, runtime.getClock(),
-            startupOptions.commandPort, runtime.getServerDirectory());
+            startupOptions.commandPort, runtime.getServerDirectory(),
+            startupOptions.maxIdleSeconds);
       } catch (ClassNotFoundException | InstantiationException | IllegalAccessException e) {
         throw new AbruptExitException("gRPC server not compiled in", ExitCode.BLAZE_INTERNAL_ERROR);
       }

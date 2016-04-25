@@ -136,10 +136,9 @@ public class BlazeServerStartupOptions extends OptionsBase {
   @Option(name = "max_idle_secs",
       defaultValue = "" + (3 * 3600), // NOTE: purely decorative!  See class docstring.
       category = "server startup",
-      help = "The number of seconds the build server will wait idling " +
-             "before shutting down. Note: Blaze will ignore this option " +
-             "unless you are starting a new instance. See also 'blaze help " +
-             "shutdown'.")
+      help = "The number of seconds the build server will wait idling before shutting down. Zero "
+             + "means that the server will never shutdown Note: Blaze will ignore this option "
+             + "unless you are starting a new instance. See also 'blaze help shutdown'.")
   public int maxIdleSeconds;
 
   @Option(name = "batch",
