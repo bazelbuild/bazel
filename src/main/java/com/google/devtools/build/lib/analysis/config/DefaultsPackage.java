@@ -72,8 +72,8 @@ import java.util.Set;
  *
  * <p>For built-in rules (as opposed to genrules), late-bound labels provide an alternative
  * method of depending on command-line values. These work by declaring attribute default values
- * to be {@link LateBoundLabel} instances, whose <code>getDefault(Rule rule, T
- * configuration)</code> method will have access to {@link BuildConfiguration}, which in turn
+ * to be {@link LateBoundLabel} instances, whose <code>resolve(Rule rule, AttributeMap attributes,
+ * T configuration)</code> method will have access to {@link BuildConfiguration}, which in turn
  * may depend on command line flag values.
  */
 public final class DefaultsPackage {
