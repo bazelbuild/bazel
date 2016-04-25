@@ -558,7 +558,7 @@ toolchain {
 
   abi_version: "local"
   abi_libc_version: "local"
-  target_cpu: "x64_windows"
+  target_cpu: "x64_windows_msvc"
   compiler: "cl"
   target_libc: "msvcrt140"
   default_python_version: "python2.7"

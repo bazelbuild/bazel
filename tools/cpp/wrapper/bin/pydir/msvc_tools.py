@@ -53,6 +53,7 @@ class ArgParser(object):
     self.compilation_mode = None
     self.deps_file = None
     self.output_file = None
+    self.params_file = None
     self._ParseArgs(argv)
 
   def _MatchOneArg(self, args):
@@ -194,6 +195,9 @@ class ArgParser(object):
                 # regular command-line arguments.
                 params = [line.rstrip() for line in open(value, 'r')]
                 self._ParseArgs(params)
+                # Because we have no write permission to orginal params file,
+                # create a new params file with addtional suffix
+                self.params_file = value + '.msvc'
               except IOError, e:
                 print 'Could not open', value, 'for reading:', str(e)
                 exit(-1)
@@ -425,7 +429,19 @@ class WindowsRunner(object):
     output_filter = re.compile('(' + ')|('.join(filters) + ')')
     includes_filter = re.compile(r'Note: including file:\s+(.*)')
     # Run the command.
-    cmd = [binary] + args
+    if parser.params_file:
+      try:
+        # Using parameter file as input when linking static libraries.
+        params_file = open(parser.params_file, 'w')
+        for arg in args:
+          params_file.write(arg + '\n')
+        params_file.close()
+      except IOError, e:
+        print 'Could not open', parser.params_file, 'for writing:', str(e)
+        exit(-1)
+      cmd = [binary] + [('@' + os.path.normpath(parser.params_file))]
+    else:
+      cmd = [binary] + args
     # Save stderr output to a temporary in case we need it.
     proc = subprocess.Popen(cmd,
                             env=build_env,
