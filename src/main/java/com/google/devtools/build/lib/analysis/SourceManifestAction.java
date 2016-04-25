@@ -192,6 +192,7 @@ public final class SourceManifestAction extends AbstractFileWriteAction {
   protected String computeKey() {
     Fingerprint f = new Fingerprint();
     f.addString(GUID);
+    f.addBoolean(runfiles.getLegacyExternalRunfiles());
     Map<PathFragment, Artifact> symlinks = runfiles.getSymlinksAsMap(null);
     f.addInt(symlinks.size());
     for (Map.Entry<PathFragment, Artifact> symlink : symlinks.entrySet()) {

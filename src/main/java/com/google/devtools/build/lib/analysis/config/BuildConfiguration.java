@@ -710,7 +710,7 @@ public final class BuildConfiguration {
 
     @Option(name = "legacy_external_runfiles",
         defaultValue = "true",
-        category = "undocumented",
+        category = "strategy",
         help = "If true, build runfiles symlink forests for external repositories under "
             + ".runfiles/wsname/external/repo (in addition to .runfiles/repo).")
     public boolean legacyExternalRunfiles;

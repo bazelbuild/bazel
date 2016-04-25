@@ -16,10 +16,12 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -41,7 +43,7 @@ public class RunfilesTest extends FoundationTestCase {
   private void checkWarning() {
     assertContainsEvent("obscured by a -> /workspace/a");
     assertEquals("Runfiles.filterListForObscuringSymlinks should have warned once",
-                 1, eventCollector.count());
+        1, eventCollector.count());
     assertEquals(EventKind.WARNING, Iterables.getOnlyElement(eventCollector).getKind());
   }
 
@@ -83,7 +85,7 @@ public class RunfilesTest extends FoundationTestCase {
                                           root);
     obscuringMap.put(pathA, artifactA);
     obscuringMap.put(new PathFragment("a/b"), new Artifact(new PathFragment("c/b"),
-                                                         root));
+        root));
     assertThat(Runfiles.filterListForObscuringSymlinks(null, null, obscuringMap).entrySet())
         .containsExactly(Maps.immutableEntry(pathA, artifactA)).inOrder();
   }
@@ -117,7 +119,7 @@ public class RunfilesTest extends FoundationTestCase {
                                        root);
     obscuringMap.put(pathBC, artifactBC);
     assertThat(Runfiles.filterListForObscuringSymlinks(reporter, null, obscuringMap)
-                          .entrySet()).containsExactly(Maps.immutableEntry(pathA, artifactA),
+        .entrySet()).containsExactly(Maps.immutableEntry(pathA, artifactA),
         Maps.immutableEntry(pathBC, artifactBC));
     assertNoEvents();
   }
@@ -315,5 +317,73 @@ public class RunfilesTest extends FoundationTestCase {
     // Swap ordering
     Runfiles r4 = new Runfiles.Builder("TESTING").merge(r2).merge(r1).build();
     assertEquals(Runfiles.ConflictPolicy.ERROR, r4.getConflictPolicy());
+  }
+
+  @Test
+  public void testLegacyRunfilesStructure() {
+    Root root = Root.asSourceRoot(scratch.resolve("/workspace"));
+    PathFragment workspaceName = new PathFragment("wsname");
+    PathFragment pathB = new PathFragment("external/repo/b");
+    Artifact artifactB = new Artifact(pathB, root);
+
+    Runfiles.ManifestBuilder builder = new Runfiles.ManifestBuilder(workspaceName, true);
+
+    Map<PathFragment, Artifact> inputManifest = Maps.newHashMap();
+    inputManifest.put(pathB, artifactB);
+    Runfiles.ConflictChecker checker = new Runfiles.ConflictChecker(
+        Runfiles.ConflictPolicy.WARN, reporter, null);
+    builder.addUnderWorkspace(inputManifest, checker);
+
+    assertThat(builder.build().entrySet()).containsExactly(
+        Maps.immutableEntry(workspaceName.getRelative(pathB), artifactB),
+        Maps.immutableEntry(new PathFragment("repo/b"), artifactB));
+    assertNoEvents();
+  }
+
+  @Test
+  public void testRunfileAdded() {
+    Root root = Root.asSourceRoot(scratch.resolve("/workspace"));
+    PathFragment workspaceName = new PathFragment("wsname");
+    PathFragment pathB = new PathFragment("external/repo/b");
+    Artifact artifactB = new Artifact(pathB, root);
+
+    Runfiles.ManifestBuilder builder = new Runfiles.ManifestBuilder(workspaceName, false);
+
+    Map<PathFragment, Artifact> inputManifest = ImmutableMap.<PathFragment, Artifact>builder()
+        .put(pathB, artifactB)
+        .build();
+    Runfiles.ConflictChecker checker = new Runfiles.ConflictChecker(
+        Runfiles.ConflictPolicy.WARN, reporter, null);
+    builder.addUnderWorkspace(inputManifest, checker);
+
+    assertThat(builder.build().entrySet()).containsExactly(
+        Maps.immutableEntry(workspaceName.getRelative(".runfile"), null),
+        Maps.immutableEntry(new PathFragment("repo/b"), artifactB));
+    assertNoEvents();
+  }
+
+  // TODO(kchodorow): remove this once the default workspace name is always set.
+  @Test
+  public void testConflictWithExternal() {
+    Root root = Root.asSourceRoot(scratch.resolve("/workspace"));
+    PathFragment pathB = new PathFragment("repo/b");
+    PathFragment externalPathB = Label.EXTERNAL_PACKAGE_NAME.getRelative(pathB);
+    Artifact artifactB = new Artifact(pathB, root);
+    Artifact artifactExternalB = new Artifact(externalPathB, root);
+
+    Runfiles.ManifestBuilder builder = new Runfiles.ManifestBuilder(
+        PathFragment.EMPTY_FRAGMENT, false);
+
+    Map<PathFragment, Artifact> inputManifest = ImmutableMap.<PathFragment, Artifact>builder()
+        .put(pathB, artifactB)
+        .put(externalPathB, artifactExternalB)
+        .build();
+    Runfiles.ConflictChecker checker = new Runfiles.ConflictChecker(
+        Runfiles.ConflictPolicy.WARN, reporter, null);
+    builder.addUnderWorkspace(inputManifest, checker);
+
+    assertThat(builder.build().entrySet()).containsExactly(
+        Maps.immutableEntry(new PathFragment("repo/b"), artifactExternalB));
+    checkConflictWarning();
   }
 }

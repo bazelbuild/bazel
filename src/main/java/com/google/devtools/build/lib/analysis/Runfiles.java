@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -458,23 +459,99 @@ public final class Runfiles {
     // Copy manifest map to another manifest map, prepending the workspace name to every path.
     // E.g. for workspace "myworkspace", the runfile entry "mylib.so"->"/path/to/mylib.so" becomes
     // "myworkspace/mylib.so"->"/path/to/mylib.so".
-    Map<PathFragment, Artifact> rootManifest = new HashMap<>();
-    for (Map.Entry<PathFragment, Artifact> entry : manifest.entrySet()) {
-      checker.put(rootManifest, suffix.getRelative(entry.getKey()), entry.getValue());
-    }
+    ManifestBuilder builder = new ManifestBuilder(suffix, legacyExternalRunfiles);
+    builder.addUnderWorkspace(manifest, checker);
 
     // Finally add symlinks relative to the root of the runfiles tree, on top of everything else.
     // This operation is always checked for conflicts, to match historical behavior.
     if (conflictPolicy == ConflictPolicy.IGNORE) {
       checker = new ConflictChecker(ConflictPolicy.WARN, eventHandler, location);
     }
-    for (Map.Entry<PathFragment, Artifact> entry : getRootSymlinksAsMap(checker).entrySet()) {
-      PathFragment mappedPath = entry.getKey();
-      Artifact mappedArtifact = entry.getValue();
-      checker.put(rootManifest, mappedPath, mappedArtifact);
+    builder.add(getRootSymlinksAsMap(checker), checker);
+    return builder.build();
+  }
+
+  /**
+   * Helper class to handle munging the paths of external artifacts.
+   */
+  @VisibleForTesting
+  static final class ManifestBuilder {
+    // Manifest of paths to artifacts. Path fragments are relative to the .runfiles directory.
+    private final Map<PathFragment, Artifact> manifest;
+    private final PathFragment workspaceName;
+    private final boolean legacyExternalRunfiles;
+    // Whether we saw the local workspace name in the runfiles. If legacyExternalRunfiles is true,
+    // then this is true, as anything under external/ will also have a runfile under the local
+    // workspace.
+    private boolean sawWorkspaceName;
+
+    public ManifestBuilder(
+        PathFragment workspaceName, boolean legacyExternalRunfiles) {
+      this.manifest = new HashMap<>();
+      this.workspaceName = workspaceName;
+      this.legacyExternalRunfiles = legacyExternalRunfiles;
+      this.sawWorkspaceName = legacyExternalRunfiles;
     }
 
-    return rootManifest;
+    /**
+     * Adds a map under the workspaceName.
+     */
+    public void addUnderWorkspace(
+        Map<PathFragment, Artifact> inputManifest, ConflictChecker checker) {
+      for (Map.Entry<PathFragment, Artifact> entry : inputManifest.entrySet()) {
+        PathFragment path = entry.getKey();
+        if (isUnderWorkspace(path)) {
+          sawWorkspaceName = true;
+          checker.put(manifest, workspaceName.getRelative(path), entry.getValue());
+        } else {
+          if (legacyExternalRunfiles) {
+            checker.put(manifest, workspaceName.getRelative(path), entry.getValue());
+          }
+          // Always add the non-legacy .runfiles/repo/whatever path.
+          checker.put(manifest, getExternalPath(path), entry.getValue());
+        }
+      }
+    }
+
+    /**
+     * Adds a map to the root directory.
+     */
+    public void add(Map<PathFragment, Artifact> inputManifest, ConflictChecker checker) {
+      for (Map.Entry<PathFragment, Artifact> entry : inputManifest.entrySet()) {
+        checker.put(manifest, checkForWorkspace(entry.getKey()), entry.getValue());
+      }
+    }
+
+    /**
+     * Returns the manifest, adding the workspaceName directory if it is not already present.
+     */
+    public Map<PathFragment, Artifact> build() {
+      if (!sawWorkspaceName) {
+        // If we haven't seen it and we have seen other files, add the workspace name directory.
+        // It might not be there if all of the runfiles are from other repos (and then running from
+        // x.runfiles/ws will fail, because ws won't exist). We can't tell Runfiles to create a
+        // directory, so instead this creates a hidden file inside the desired directory.
+        manifest.put(workspaceName.getRelative(".runfile"), null);
+      }
+      return manifest;
+    }
+
+    private PathFragment getExternalPath(PathFragment path) {
+      return checkForWorkspace(path.relativeTo(Label.EXTERNAL_PACKAGE_NAME));
+    }
+
+    private PathFragment checkForWorkspace(PathFragment path) {
+      sawWorkspaceName = sawWorkspaceName || path.getSegment(0).equals(workspaceName);
+      return path;
+    }
+
+    private static boolean isUnderWorkspace(PathFragment path) {
+      return !path.startsWith(Label.EXTERNAL_PACKAGE_NAME);
+    }
+  }
+
+  boolean getLegacyExternalRunfiles() {
+    return legacyExternalRunfiles;
   }
 
   /**
