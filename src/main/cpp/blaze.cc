@@ -492,38 +492,6 @@ static string GetArgumentString(const vector<string>& argument_array) {
   return result;
 }
 
-// Causes the current process to become a daemon (i.e. a child of
-// init, detached from the terminal, in its own session.)  We don't
-// change cwd, though.
-static void Daemonize() {
-  // Don't call die() or exit() in this function; we're already in a
-  // child process so it won't work as expected.  Just don't do
-  // anything that can possibly fail. :)
-
-  signal(SIGHUP, SIG_IGN);
-  if (fork() > 0) {
-    // This second fork is required iff there's any chance cmd will
-    // open an specific tty explicitly, e.g., open("/dev/tty23"). If
-    // not, this fork can be removed.
-    _exit(blaze_exit_code::SUCCESS);
-  }
-
-  setsid();
-
-  close(STDIN_FILENO);
-  close(STDOUT_FILENO);
-  close(STDERR_FILENO);
-
-  open("/dev/null", O_RDONLY);  // stdin
-  // stdout:
-  if (open(globals->jvm_log_file.c_str(),
-           O_WRONLY | O_CREAT | O_TRUNC, 0666) == -1) {
-    // In a daemon, no-one can hear you scream.
-    open("/dev/null", O_WRONLY);
-  }
-  dup(STDOUT_FILENO);  // stderr (2>&1)
-}
-
 // Do a chdir into the workspace, and die if it fails.
 static void GoToWorkspace() {
   if (BlazeStartupOptions::InWorkspace(globals->workspace) &&
@@ -589,33 +557,8 @@ static int StartServer() {
   // we can still print errors to the terminal.
   GoToWorkspace();
 
-  int fds[2];
-  if (pipe(fds)) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "pipe creation failed");
-  }
-  int child = fork();
-  if (child == -1) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
-  } else if (child > 0) {  // we're the parent
-    close(fds[1]);  // parent keeps only the reading side
-    return fds[0];
-  } else {
-    close(fds[0]);  // child keeps only the writing side
-  }
-
-  Daemonize();
-
-  // TODO(lberki): This writes the wrong PID on Windows because ExecuteProgram()
-  // invokes CreateProcess() there.
-  if (!WriteFile(ToString(getpid()), server_dir + "/server.pid")) {
-    // The exit code does not matter because we are already in the daemonized
-    // server. The output of this operation will end up in jvm.out .
-    pdie(0, "Cannot write PID file");
-  }
-
-  ExecuteProgram(exe, jvm_args_vector);
-  pdie(blaze_exit_code::INTERNAL_ERROR, "execv of '%s' failed", exe.c_str());
-  return -1;
+  return ExecuteDaemon(exe, jvm_args_vector, globals->jvm_log_file.c_str(),
+                server_dir + "/server.pid");
 }
 
 static bool KillRunningServerIfAny(BlazeServer *server);

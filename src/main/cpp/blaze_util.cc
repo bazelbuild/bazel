@@ -18,6 +18,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <pwd.h>
+#include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -283,22 +284,20 @@ bool VerboseLogging() {
 
 // Read the Jvm version from a file descriptor. The read fd
 // should contains a similar output as the java -version output.
-string ReadJvmVersion(int fd) {
-  string version_string;
-  if (ReadFileDescriptor(fd, &version_string)) {
-    // try to look out for 'version "'
-    static const string version_pattern = "version \"";
-    size_t found = version_string.find(version_pattern);
-    if (found != string::npos) {
-      found += version_pattern.size();
-      // If we found "version \"", process until next '"'
-      size_t end = version_string.find("\"", found);
-      if (end == string::npos) {  // consider end of string as a '"'
-        end = version_string.size();
-      }
-      return version_string.substr(found, end - found);
+string ReadJvmVersion(const string& version_string) {
+  // try to look out for 'version "'
+  static const string version_pattern = "version \"";
+  size_t found = version_string.find(version_pattern);
+  if (found != string::npos) {
+    found += version_pattern.size();
+    // If we found "version \"", process until next '"'
+    size_t end = version_string.find("\"", found);
+    if (end == string::npos) {  // consider end of string as a '"'
+      end = version_string.size();
     }
+    return version_string.substr(found, end - found);
   }
+
   return "";
 }
 
@@ -307,28 +306,8 @@ string GetJvmVersion(const string &java_exe) {
   args.push_back("java");
   args.push_back("-version");
 
-  int fds[2];
-  if (pipe(fds)) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "pipe creation failed");
-  }
-
-  int child = fork();
-  if (child == -1) {
-    pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
-  } else if (child > 0) {  // we're the parent
-    close(fds[1]);         // parent keeps only the reading side
-    return ReadJvmVersion(fds[0]);
-  } else {
-    close(fds[0]);  // child keeps only the writing side
-    // Redirect output to the writing side of the dup.
-    dup2(fds[1], STDOUT_FILENO);
-    dup2(fds[1], STDERR_FILENO);
-    // Execute java -version
-    ExecuteProgram(java_exe, args);
-    pdie(blaze_exit_code::INTERNAL_ERROR, "Failed to run java -version");
-  }
-  // The if never falls through here.
-  return NULL;
+  string version_string = RunProgram(java_exe, args);
+  return ReadJvmVersion(version_string);
 }
 
 bool CheckJavaVersionIsAtLeast(const string &jvm_version,
@@ -355,6 +334,92 @@ bool CheckJavaVersionIsAtLeast(const string &jvm_version,
     }
   }
   return true;
+}
+
+// Causes the current process to become a daemon (i.e. a child of
+// init, detached from the terminal, in its own session.)  We don't
+// change cwd, though.
+static void Daemonize(const string& daemon_output) {
+  // Don't call die() or exit() in this function; we're already in a
+  // child process so it won't work as expected.  Just don't do
+  // anything that can possibly fail. :)
+
+  signal(SIGHUP, SIG_IGN);
+  if (fork() > 0) {
+    // This second fork is required iff there's any chance cmd will
+    // open an specific tty explicitly, e.g., open("/dev/tty23"). If
+    // not, this fork can be removed.
+    _exit(blaze_exit_code::SUCCESS);
+  }
+
+  setsid();
+
+  close(0);
+  close(1);
+  close(2);
+
+  open("/dev/null", O_RDONLY);  // stdin
+  // stdout:
+  if (open(daemon_output.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666) == -1) {
+    // In a daemon, no-one can hear you scream.
+    open("/dev/null", O_WRONLY);
+  }
+  dup(STDOUT_FILENO);  // stderr (2>&1)
+}
+
+int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
+                  const string& daemon_output, const string& pid_file) {
+  int fds[2];
+  if (pipe(fds)) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "pipe creation failed");
+  }
+  int child = fork();
+  if (child == -1) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
+  } else if (child > 0) {  // we're the parent
+    close(fds[1]);  // parent keeps only the reading side
+    return fds[0];
+  } else {
+    close(fds[0]);  // child keeps only the writing side
+  }
+
+  Daemonize(daemon_output);
+  if (!WriteFile(ToString(getpid()), pid_file)) {
+    // The exit code does not matter because we are already in the daemonized
+    // server. The output of this operation will end up in jvm.out .
+    pdie(0, "Cannot write PID file");
+  }
+
+  ExecuteProgram(exe, args_vector);
+  pdie(0, "Cannot execute %s", exe.c_str());
+}
+
+string RunProgram(const string& exe, const std::vector<string>& args_vector) {
+  int fds[2];
+  if (pipe(fds)) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "pipe creation failed");
+  }
+
+  int child = fork();
+  if (child == -1) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
+  } else if (child > 0) {  // we're the parent
+    close(fds[1]);         // parent keeps only the reading side
+    string result;
+    if (!ReadFileDescriptor(fds[0], &result)) {
+      pdie(blaze_exit_code::INTERNAL_ERROR, "Cannot read subprocess output");
+    }
+
+    return result;
+  } else {  // We're the child
+    close(fds[0]);  // child keeps only the writing side
+    // Redirect output to the writing side of the dup.
+    dup2(fds[1], STDOUT_FILENO);
+    dup2(fds[1], STDERR_FILENO);
+    // Execute the binary
+    ExecuteProgram(exe, args_vector);
+    pdie(blaze_exit_code::INTERNAL_ERROR, "Failed to run %s", exe.c_str());
+  }
 }
 
 }  // namespace blaze

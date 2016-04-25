@@ -101,28 +101,18 @@ class BlazeUtilTest : public ::testing::Test {
     AssertReadFileDescriptor2(input, "");
   }
 
-  static void AssertReadJvmVersion2(string expected,
-                                    string input1, string input2) {
-    int fd = WriteFileDescriptor2(input1, input2);
-    if (fd < 0) {
-      FAIL() << "Unable to create a pipe!";
-    } else {
-      ASSERT_EQ(expected, ReadJvmVersion(fd));
-    }
-  }
-
   static void AssertReadJvmVersion(string expected, string input) {
-    AssertReadJvmVersion2(expected, input, "");
+    ASSERT_EQ(expected, ReadJvmVersion(input));
   }
 
   void ReadFileDescriptorTest() const {
     AssertReadFileDescriptor("DummyJDK Blabla\n"
-                         "More DummyJDK Blabla\n");
+                             "More DummyJDK Blabla\n");
     AssertReadFileDescriptor("dummyjdk version \"1.42.qual\"\n"
                          "DummyJDK Blabla\n"
-                         "More DummyJDK Blabla\n");
+                             "More DummyJDK Blabla\n");
     AssertReadFileDescriptor2("first_line\n",
-                         "second line version \"1.4.2_0\"\n");
+                              "second line version \"1.4.2_0\"\n");
   }
 
   void ReadJvmVersionTest() const {
@@ -134,8 +124,8 @@ class BlazeUtilTest : public ::testing::Test {
                          "More DummyJDK Blabla\n");
     AssertReadJvmVersion("1.42.qualifie", "dummyjdk version \"1.42.qualifie");
     AssertReadJvmVersion("", "dummyjdk version ");
-    AssertReadJvmVersion2("1.4.2_0", "first_line\n",
-                         "second line version \"1.4.2_0\"\n");
+    AssertReadJvmVersion("1.4.2_0",
+                          "first_line\nsecond line version \"1.4.2_0\"\n");
   }
 
   void CheckJavaVersionIsAtLeastTest() const {

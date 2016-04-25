@@ -82,12 +82,11 @@ bool GetNullaryOption(const char *arg, const char *key);
 // Enable messages mostly of interest to developers.
 bool VerboseLogging();
 
-// Read the JVM version from a file descriptor. The fd should point
-// to the output of a "java -version" execution and is supposed to contains
-// a string of the form 'version "version-number"' in the first 255 bytes.
-// If the string is found, version-number is returned, else the empty string
-// is returned.
-string ReadJvmVersion(int fd);
+// Read the JVM version from a string. The string should contain the output of a
+// "java -version" execution and is supposed to contain a string of the form
+// 'version "version-number"' in the first 255 bytes. If the string is found,
+// version-number is returned, else the empty string is returned.
+string ReadJvmVersion(const string& version_string);
 
 // Get the version string from the given java executable. The java executable
 // is supposed to output a string in the form '.*version ".*".*'. This method

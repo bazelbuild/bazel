@@ -59,6 +59,17 @@ std::string GetDefaultHostJavabase();
 // This function does not return on success.
 void ExecuteProgram(const string& exe, const std::vector<string>& args_vector);
 
+// Starts a daemon process with its standard output and standard error
+// redirected to the file "daemon_output". Returns a file descriptor of a named
+// pipe whose other end is held by the daemon and which is closed if the daemon
+// exits.
+int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
+                   const string& daemon_output, const string& pid_file);
+
+// Executes a subprocess and returns its standard output and standard error.
+// If this fails, exits with the appropriate error code.
+string RunProgram(const string& exe, const std::vector<string>& args_vector);
+
 // Convert a path from Bazel internal form to underlying OS form.
 // On Unixes this is an identity operation.
 // On Windows, Bazel internal from is cygwin path, and underlying OS form
