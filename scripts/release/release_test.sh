@@ -195,6 +195,8 @@ EOF
   local header='Release v1 ('$(date +%Y-%m-%d)')
 
 Baseline: 1170dc6
+
+Cherry picks:
    + 0540fde: Extract version numbers that look like "..._1.2.3_..."
               from BUILD_EMBED_LABEL into Info.plist.
 
@@ -208,6 +210,8 @@ Baseline: 1170dc6
   header='Release v1 ('$(date +%Y-%m-%d)')
 
 Baseline: 1170dc6
+
+Cherry picks:
    + 0540fde: Extract version numbers that look like "..._1.2.3_..."
               from BUILD_EMBED_LABEL into Info.plist.
    + cef25c4: RELNOTES: Attribute error messages related to Android
