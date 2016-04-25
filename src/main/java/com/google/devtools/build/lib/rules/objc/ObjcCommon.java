@@ -207,7 +207,7 @@ public final class ObjcCommon {
     public Iterable<String> linkopts() {
       return ruleContext.getTokenizedStringListAttr("linkopts");
     }
-    
+
     /**
      * The clang module maps of direct dependencies of this rule. These are needed to generate
      * this rule's module map.
@@ -303,6 +303,7 @@ public final class ObjcCommon {
     private Iterable<ObjcProvider> directDepObjcProviders = ImmutableList.of();
     private Iterable<String> defines = ImmutableList.of();
     private Iterable<PathFragment> userHeaderSearchPaths = ImmutableList.of();
+    private Iterable<PathFragment> directDependencyHeaderSearchPaths = ImmutableList.of();
     private IntermediateArtifacts intermediateArtifacts;
     private boolean alwayslink;
     private boolean hasModuleMap;
@@ -381,6 +382,17 @@ public final class ObjcCommon {
     public Builder addUserHeaderSearchPaths(Iterable<PathFragment> userHeaderSearchPaths) {
       this.userHeaderSearchPaths =
           Iterables.concat(this.userHeaderSearchPaths, userHeaderSearchPaths);
+      return this;
+    }
+
+    /**
+     * Adds header search paths that will only be visible by strict dependents of the provider.
+     */
+    public Builder addDirectDependencyHeaderSearchPaths(
+        Iterable<PathFragment> directDependencyHeaderSearchPaths) {
+      this.directDependencyHeaderSearchPaths =
+          Iterables.concat(
+              this.directDependencyHeaderSearchPaths, directDependencyHeaderSearchPaths);
       return this;
     }
 
@@ -471,20 +483,24 @@ public final class ObjcCommon {
     ObjcCommon build() {
       Iterable<BundleableFile> bundleImports = BundleableFile.bundleImportsFromRule(context);
 
-      ObjcProvider.Builder objcProvider = new ObjcProvider.Builder()
-          .addAll(IMPORTED_LIBRARY, extraImportLibraries)
-          .addAll(BUNDLE_FILE, bundleImports)
-          .addAll(BUNDLE_IMPORT_DIR,
-              uniqueContainers(BundleableFile.toArtifacts(bundleImports), BUNDLE_CONTAINER_TYPE))
-          .addAll(SDK_FRAMEWORK, extraSdkFrameworks)
-          .addAll(WEAK_SDK_FRAMEWORK, extraWeakSdkFrameworks)
-          .addAll(SDK_DYLIB, extraSdkDylibs)
-          .addAll(FRAMEWORK_FILE, frameworkImports)
-          .addAll(FRAMEWORK_DIR, uniqueContainers(frameworkImports, FRAMEWORK_CONTAINER_TYPE))
-          .addAll(INCLUDE, userHeaderSearchPaths)
-          .addAll(DEFINE, defines)
-          .addTransitiveAndPropagate(depObjcProviders)
-          .addTransitiveWithoutPropagating(directDepObjcProviders);
+      ObjcProvider.Builder objcProvider =
+          new ObjcProvider.Builder()
+              .addAll(IMPORTED_LIBRARY, extraImportLibraries)
+              .addAll(BUNDLE_FILE, bundleImports)
+              .addAll(
+                  BUNDLE_IMPORT_DIR,
+                  uniqueContainers(
+                      BundleableFile.toArtifacts(bundleImports), BUNDLE_CONTAINER_TYPE))
+              .addAll(SDK_FRAMEWORK, extraSdkFrameworks)
+              .addAll(WEAK_SDK_FRAMEWORK, extraWeakSdkFrameworks)
+              .addAll(SDK_DYLIB, extraSdkDylibs)
+              .addAll(FRAMEWORK_FILE, frameworkImports)
+              .addAll(FRAMEWORK_DIR, uniqueContainers(frameworkImports, FRAMEWORK_CONTAINER_TYPE))
+              .addAll(INCLUDE, userHeaderSearchPaths)
+              .addAllForDirectDependents(INCLUDE, directDependencyHeaderSearchPaths)
+              .addAll(DEFINE, defines)
+              .addTransitiveAndPropagate(depObjcProviders)
+              .addTransitiveWithoutPropagating(directDepObjcProviders);
 
       for (CppCompilationContext headerProvider : depCcHeaderProviders) {
         objcProvider.addTransitiveAndPropagate(HEADER, headerProvider.getDeclaredIncludeSrcs());
