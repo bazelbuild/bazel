@@ -40,6 +40,7 @@ import io.grpc.stub.StreamObserver;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.charset.Charset;
@@ -224,7 +225,8 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
   @Override
   public void serve() throws IOException {
     Preconditions.checkState(!serving);
-    server = NettyServerBuilder.forAddress(new InetSocketAddress("localhost", port))
+    InetAddress loopbackAddress = InetAddress.getLoopbackAddress();
+    server = NettyServerBuilder.forAddress(new InetSocketAddress(loopbackAddress, port))
         .addService(CommandServerGrpc.bindService(this))
         .build();
 
@@ -235,7 +237,7 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
       port = getActualServerPort();
     }
 
-    writeServerFile(PORT_FILE, Integer.toString(port));
+    writeServerFile(PORT_FILE, loopbackAddress.getHostAddress() + ":" + Integer.toString(port));
     writeServerFile(REQUEST_COOKIE_FILE, requestCookie);
     writeServerFile(RESPONSE_COOKIE_FILE, responseCookie);
 

@@ -1859,8 +1859,16 @@ GrpcBlazeServer::GrpcBlazeServer() {
 bool GrpcBlazeServer::Connect() {
   std::string server_dir = globals->options.output_base + "/server";
   std::string port;
+  std::string ipv4_prefix = "127.0.0.1:";
+  std::string ipv6_prefix = "::1:";
 
   if (!ReadFile(server_dir + "/command_port", &port)) {
+    return false;
+  }
+
+  // Make sure that we are being directed to localhost
+  if (port.compare(0, ipv4_prefix.size(), ipv4_prefix)
+      && port.compare(0, ipv6_prefix.size(), ipv6_prefix)) {
     return false;
   }
 
@@ -1873,7 +1881,7 @@ bool GrpcBlazeServer::Connect() {
   }
 
   std::shared_ptr<grpc::Channel> channel(grpc::CreateChannel(
-      "localhost:" + port, grpc::InsecureChannelCredentials()));
+      port, grpc::InsecureChannelCredentials()));
   std::unique_ptr<command_server::CommandServer::Stub> client(
       command_server::CommandServer::NewStub(channel));
 
