@@ -115,6 +115,31 @@ EOF
   expect_log "TEST_TMPDIR=$TEST_TMPDIR"
 }
 
+function test_env_vars() {
+  cat > WORKSPACE <<EOF
+workspace(name = "bar")
+EOF
+  mkdir -p foo
+  cat > foo/testenv.sh <<'EOF'
+#!/bin/bash
+echo "pwd: $PWD"
+echo "src: $TEST_SRCDIR"
+echo "ws: $TEST_WORKSPACE"
+EOF
+  chmod +x foo/testenv.sh
+  cat > foo/BUILD <<EOF
+sh_test(
+    name = "foo",
+    srcs = ["testenv.sh"],
+)
+EOF
+
+  bazel test --test_output=all //foo &> $TEST_log || fail "Test failed"
+  expect_log "pwd: .*/foo.runfiles/bar$"
+  expect_log "src: .*/foo.runfiles$"
+  expect_log "ws: bar$"
+}
+
 function test_run_under_label_with_options() {
   mkdir -p testing run || fail "mkdir testing run failed"
   cat <<EOF > run/BUILD

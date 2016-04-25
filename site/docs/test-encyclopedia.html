@@ -203,7 +203,7 @@ test unless the user explicitly requests it.</p>
     <tr><td><code>LOGNAME</code></td><td>value of <code>$USER</code></td><td>required</td></tr>
 
     <tr><td><code>PATH</code></td><td><code>/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin:.</code></td><td>recommended</td></tr>
-    <tr><td><code>PWD</code></td><td><code>$TEST_SRCDIR</code></td><td>recommended</td></tr>
+    <tr><td><code>PWD</code></td><td><code>$TEST_SRCDIR/<i>workspace-name</i></code></td><td>recommended</td></tr>
     <tr><td><code>SHLVL</code></td><td><code>2</code></td><td>recommended</td></tr>
     <tr><td><code>TEST_PREMATURE_EXIT_FILE</code></td><td>absolute path to a private file in a writable directory (used for catching calls to exit())</td><td>optional</td></tr>
     <tr><td><code>TEST_RANDOM_SEED</code></td><td>See <a href="bazel-user-manual.html#other_options_for_blaze_test">this table</a>.</td><td>optional</td></tr>
@@ -222,13 +222,16 @@ test unless the user explicitly requests it.</p>
 
     <tr><td><code>USER</code></td><td>value of <code>getpwuid(getuid())-&gt;pw_name</code></td><td>required</td></tr>
 
+    <tr><td><code>XML_OUTPUT_FILE</code></td><td>Location of the <code>ANT</code>-like XML output file</td><td>optional</td></tr>
+    <tr><td><code>TEST_WORKSPACE</code></td><td>the local repository's workspace name</td><td>optional</td></tr>
+
   </tbody>
 </table>
 <br>
 <p>The environment may contain additional entries.  Tests should not depend on the
 presence, absence, or value of any environment variable not listed above.</p>
 
-<p>The initial working directory shall be <code>$TEST_SRCDIR</code>.</p>
+<p>The initial working directory shall be <code>$TEST_SRCDIR/$TEST_WORKSPACE</code>.</p>
 <p> The current process id, process group id, session id, and parent process
 id are unspecified.  The process may or may not be a process group leader or a
 session leader.  The process may or may not have a controlling terminal.  The
