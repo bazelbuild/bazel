@@ -15,8 +15,6 @@ package com.google.devtools.build.lib.server;
 
 import com.google.devtools.build.lib.runtime.CommandExecutor;
 import com.google.devtools.build.lib.util.Clock;
-import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 
 import java.io.IOException;
@@ -41,17 +39,11 @@ public abstract class RPCServer {
   }
 
   protected RPCServer(Path serverDirectory) throws IOException {
-    // We create the server.pid file strictly before binding the socket.
+    // server.pid was written in the C++ launcher after fork() but before exec() .
     // The client only accesses the pid file after connecting to the socket
     // which ensures that it gets the correct pid value.
     Path pidFile = serverDirectory.getRelative("server.pid");
     RPCServer.deleteAtExit(pidFile, /*deleteParent=*/ false);
-    try {
-      pidFile.delete();
-    } catch (IOException e) {
-      // Ignore.
-    }
-    FileSystemUtils.writeContentAsLatin1(pidFile, String.valueOf(OsUtils.getpid()));
   }
 
   /**

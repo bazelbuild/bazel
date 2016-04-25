@@ -546,13 +546,13 @@ static string VerifyJavaVersionAndGetJvm() {
 static int StartServer() {
   vector<string> jvm_args_vector = GetArgumentArray();
   string argument_string = GetArgumentString(jvm_args_vector);
-
+  string server_dir = globals->options.output_base + "/server";
   // Write the cmdline argument string to the server dir. If we get to this
   // point, there is no server running, so we don't overwrite the cmdline file
   // for the existing server. If might be that the server dies and the cmdline
   // file stays there, but that is not a problem, since we always check the
   // server, too.
-  WriteFile(argument_string, globals->options.output_base + "/server/cmdline");
+  WriteFile(argument_string, server_dir + "/cmdline");
 
   // unless we restarted for a new-version, mark this as initial start
   if (globals->restart_reason == NO_RESTART) {
@@ -581,6 +581,15 @@ static int StartServer() {
   }
 
   Daemonize();
+
+  // TODO(lberki): This writes the wrong PID on Windows because ExecuteProgram()
+  // invokes CreateProcess() there.
+  if (!WriteFile(ToString(getpid()), server_dir + "/server.pid")) {
+    // The exit code does not matter because we are already in the daemonized
+    // server. The output of this operation will end up in jvm.out .
+    pdie(0, "Cannot write PID file");
+  }
+
   ExecuteProgram(exe, jvm_args_vector);
   pdie(blaze_exit_code::INTERNAL_ERROR, "execv of '%s' failed", exe.c_str());
   return -1;
