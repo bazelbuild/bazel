@@ -1,41 +1,27 @@
-## Release 0.2.2 (2016-04-14)
+## Release 0.2.2b (2016-04-22)
 
 ```
 Baseline: 759bbfe
+
+Cherry picks:
    + 1250fda: Rollback of commit
               351475627b9e94e5afdf472cbf465f49c433a25e.
    + ba8700e: Correctly set up build variables for the correct pic
               mode for fake_binary rules.
    + 386f242: Automated [] rollback of commit
               525fa71b0d6f096e9bfb180f688a4418c4974eb4.
+   + 97e5ab0: Fix cc_configure include path for Frameworks on OS X.
+   + a20352e: cc_configure: always add -B/usr/bin to the list of gcc
+              option
+   + 0b26f44: cc_configure: Add piii to the list of supported
+              cpu_value
+   + 3e4e416: cc_configure: uses which on the CC environment variable
+   + aa3dbd3: cc_configure.bzl: strip end of line when looking for
+              the cpu
+   + 810d60a: cc_configure: Add -B to compiler flag too
 ```
 
-New features:
-
-  - --extra_entitlements allows passing additional entitlements for
-    iOS signing
-  - The output of -printconfiguration of proguard is available
-    through an implicit "[target_name]_proguard.confg" output of
-    android_binary (and
-    java_binary).
-  - Objective-C compiler information is now available to Skylark.
-
-Important changes:
-
-  - ProGuard relies on bazel to check to see if the inputs have
-    changed.
-  - Build the jsonnet tool for the host when cross-compiling.
-  - Add ProductType for watch OS 1 extension and application.
-  - Restrict file types used for "entitlements" attribute to
-    [".entitlements", ".plist"]
-  - Restrict file types allowed for "strings" attribute to ".strings".
-  - local_repository can take a relative path.
-  - Support apple_watch1_extension and apple_watch_extension_binary
-    rules for creating watch OS 1 extensions.
-  - implement list.insert for skylark rule
-  - Enable overriding attributes for Rust binaries.
-  - ios_device attribute "xcode", for declaring a specific xcode to
-    use when selecting iOS simulators.
+Patch release, only includes fixes to C++ auto-configuration.
 
 ## Release 0.2.1 (2016-03-21)
 
