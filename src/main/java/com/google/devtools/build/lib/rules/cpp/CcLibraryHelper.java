@@ -539,6 +539,22 @@ public final class CcLibraryHelper {
   }
 
   /**
+   * Similar to @{link addDeps}, but adds the given targets as interface dependencies. Interface
+   * dependencies are required to actually build a target's interface, but are not required to build
+   * the target itself.
+   */
+  public CcLibraryHelper addInterfaceDeps(Iterable<? extends TransitiveInfoCollection> deps) {
+    for (TransitiveInfoCollection dep : deps) {
+      Preconditions.checkArgument(
+          dep.getConfiguration() == null
+              || configuration.equalsOrIsSupersetOf(dep.getConfiguration()),
+          "dep " + dep.getLabel() + " has a different config than " + ruleContext.getLabel());
+      this.interfaceDeps.add(dep);
+    }
+    return this;
+  }
+
+  /**
    * Adds the given linkstamps. Note that linkstamps are usually not compiled at the library level,
    * but only in the dependent binary rules.
    */
