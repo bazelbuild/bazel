@@ -18,7 +18,7 @@ import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.WorkspaceStatusAction;
@@ -89,7 +89,7 @@ public final class PrecomputedValue implements SkyValue {
   static final Precomputed<WorkspaceStatusAction> WORKSPACE_STATUS_KEY =
       new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "workspace_status_action"));
 
-  static final Precomputed<ImmutableList<Action>> COVERAGE_REPORT_KEY =
+  static final Precomputed<ImmutableList<ActionAnalysisMetadata>> COVERAGE_REPORT_KEY =
       new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "coverage_report_actions"));
 
   static final Precomputed<TopLevelArtifactContext> TOP_LEVEL_CONTEXT =
@@ -101,7 +101,7 @@ public final class PrecomputedValue implements SkyValue {
   public static final Precomputed<BlazeDirectories> BLAZE_DIRECTORIES =
       new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "blaze_directories"));
 
-  static final Precomputed<ImmutableMap<Action, ConflictException>> BAD_ACTIONS =
+  static final Precomputed<ImmutableMap<ActionAnalysisMetadata, ConflictException>> BAD_ACTIONS =
       new Precomputed<>(SkyKey.create(SkyFunctions.PRECOMPUTED, "bad_actions"));
 
   public static final Precomputed<PathPackageLocator> PATH_PACKAGE_LOCATOR =

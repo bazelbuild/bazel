@@ -44,7 +44,7 @@ public class BaseSpawn implements Spawn {
   private final ImmutableMap<PathFragment, Artifact> runfilesManifests;
   private final ImmutableSet<PathFragment> optionalOutputFiles;
   private final RunfilesSupplier runfilesSupplier;
-  private final ActionMetadata action;
+  private final ActionExecutionMetadata action;
   private final ResourceSet localResources;
 
   // TODO(bazel-team): When we migrate ActionSpawn to use this constructor decide on and enforce
@@ -57,7 +57,7 @@ public class BaseSpawn implements Spawn {
       Map<String, String> executionInfo,
       Map<PathFragment, Artifact> runfilesManifests,
       RunfilesSupplier runfilesSupplier,
-      ActionMetadata action,
+      ActionExecutionMetadata action,
       ResourceSet localResources,
       Collection<PathFragment> optionalOutputFiles) {
     this.arguments = ImmutableList.copyOf(arguments);
@@ -78,7 +78,7 @@ public class BaseSpawn implements Spawn {
      Map<String, String> environment,
      Map<String, String> executionInfo,
      RunfilesSupplier runfilesSupplier,
-     ActionMetadata action,
+     ActionExecutionMetadata action,
      ResourceSet localResources) {
     this(
         arguments,
@@ -99,7 +99,7 @@ public class BaseSpawn implements Spawn {
       Map<String, String> environment,
       Map<String, String> executionInfo,
       Map<PathFragment, Artifact> runfilesManifests,
-      ActionMetadata action,
+      ActionExecutionMetadata action,
       ResourceSet localResources) {
     this(
         arguments,
@@ -118,7 +118,7 @@ public class BaseSpawn implements Spawn {
   public BaseSpawn(List<String> arguments,
       Map<String, String> environment,
       Map<String, String> executionInfo,
-      ActionMetadata action,
+      ActionExecutionMetadata action,
       ResourceSet localResources) {
     this(
         arguments,
@@ -134,7 +134,7 @@ public class BaseSpawn implements Spawn {
       Map<String, String> environment,
       Map<String, String> executionInfo,
       RunfilesSupplier runfilesSupplier,
-      ActionMetadata action,
+      ActionExecutionMetadata action,
       ResourceSet localResources,
       Collection<PathFragment> optionalOutputFiles) {
     this(
@@ -258,7 +258,7 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public ActionMetadata getResourceOwner() {
+  public ActionExecutionMetadata getResourceOwner() {
     return action;
   }
 
@@ -291,7 +291,8 @@ public class BaseSpawn implements Spawn {
    * A local spawn requiring zero resources.
    */
   public static class Local extends BaseSpawn {
-    public Local(List<String> arguments, Map<String, String> environment, ActionMetadata action) {
+    public Local(List<String> arguments, Map<String, String> environment,
+        ActionExecutionMetadata action) {
       super(arguments, environment, ImmutableMap.<String, String>of("local", ""),
           action, ResourceSet.ZERO);
     }

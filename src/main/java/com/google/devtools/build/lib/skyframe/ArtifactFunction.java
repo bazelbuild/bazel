@@ -16,7 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Action;
-import com.google.devtools.build.lib.actions.Action.MiddlemanType;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -65,11 +66,16 @@ class ArtifactFunction implements SkyFunction {
       }
     }
 
-    Action action = extractActionFromArtifact(artifact, env);
-    if (action == null) {
+    ActionAnalysisMetadata actionMetadata = extractActionFromArtifact(artifact, env);
+    if (actionMetadata == null) {
       return null;
     }
 
+    Preconditions.checkState(
+        actionMetadata instanceof Action,
+        "%s is not a proper Action object and therefore cannot be executed",
+        actionMetadata);
+    Action action = (Action) actionMetadata;
     ActionExecutionValue actionValue =
         (ActionExecutionValue) env.getValue(ActionExecutionValue.key(action));
     if (actionValue == null) {
@@ -165,8 +171,8 @@ class ArtifactFunction implements SkyFunction {
     return FileArtifactValue.create(artifact, data);
   }
 
-  private AggregatingArtifactValue createAggregatingValue(Artifact artifact, Action action,
-      FileArtifactValue value, SkyFunction.Environment env) {
+  private AggregatingArtifactValue createAggregatingValue(Artifact artifact,
+      ActionAnalysisMetadata action, FileArtifactValue value, SkyFunction.Environment env) {
     // This artifact aggregates other artifacts. Keep track of them so callers can find them.
     ImmutableList.Builder<Pair<Artifact, FileArtifactValue>> inputs = ImmutableList.builder();
     for (Map.Entry<SkyKey, SkyValue> entry :
@@ -190,7 +196,7 @@ class ArtifactFunction implements SkyFunction {
    * see if the action is an aggregating middleman action. However, may include runfiles middleman
    * actions and Fileset artifacts in the future.
    */
-  private static boolean isAggregatingValue(Action action) {
+  private static boolean isAggregatingValue(ActionAnalysisMetadata action) {
     return action.getActionType() == MiddlemanType.AGGREGATING_MIDDLEMAN;
   }
 
@@ -199,7 +205,8 @@ class ArtifactFunction implements SkyFunction {
     return Label.print(((OwnedArtifact) skyKey.argument()).getArtifact().getOwner());
   }
 
-  private Action extractActionFromArtifact(Artifact artifact, SkyFunction.Environment env) {
+  private ActionAnalysisMetadata extractActionFromArtifact(
+      Artifact artifact, SkyFunction.Environment env) {
     ArtifactOwner artifactOwner = artifact.getArtifactOwner();
 
     Preconditions.checkState(artifactOwner instanceof ActionLookupKey, "", artifact, artifactOwner);

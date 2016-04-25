@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.AbstractAction;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -224,7 +224,7 @@ public final class SolibSymlinkAction extends AbstractAction {
   }
 
   @Override
-  public boolean shouldReportPathPrefixConflict(Action action) {
+  public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
     return false; // Always ignore path prefix conflict for the SolibSymlinkAction.
   }
 }

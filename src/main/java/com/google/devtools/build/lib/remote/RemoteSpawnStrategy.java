@@ -19,10 +19,10 @@ import com.google.common.hash.Hasher;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputFileCache;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.ActionMetadata;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionStrategy;
 import com.google.devtools.build.lib.actions.Executor;
@@ -84,7 +84,7 @@ final class RemoteSpawnStrategy implements SpawnActionContext {
     }
 
     Executor executor = actionExecutionContext.getExecutor();
-    ActionMetadata actionMetadata = spawn.getResourceOwner();
+    ActionExecutionMetadata actionMetadata = spawn.getResourceOwner();
     ActionInputFileCache inputFileCache = actionExecutionContext.getActionInputFileCache();
     EventHandler eventHandler = executor.getEventHandler();
 

@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.Dependency;
 import com.google.devtools.build.lib.analysis.LabelAndConfiguration;
@@ -72,14 +72,15 @@ public class PostConfiguredTargetFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws SkyFunctionException, InterruptedException {
-    ImmutableMap<Action, ConflictException> badActions = PrecomputedValue.BAD_ACTIONS.get(env);
+    ImmutableMap<ActionAnalysisMetadata, ConflictException> badActions =
+        PrecomputedValue.BAD_ACTIONS.get(env);
     ConfiguredTargetValue ctValue = (ConfiguredTargetValue)
         env.getValue(ConfiguredTargetValue.key((ConfiguredTargetKey) skyKey.argument()));
     if (env.valuesMissing()) {
       return null;
     }
 
-    for (Action action : ctValue.getActions()) {
+    for (ActionAnalysisMetadata action : ctValue.getActions()) {
       if (badActions.containsKey(action)) {
         throw new ActionConflictFunctionException(badActions.get(action));
       }

@@ -100,7 +100,7 @@ public class DelegateSpawn implements Spawn {
   }
 
   @Override
-  public ActionMetadata getResourceOwner() {
+  public ActionExecutionMetadata getResourceOwner() {
     return spawn.getResourceOwner();
   }
 

@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -217,7 +218,17 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
 
   protected Action getGeneratingAction(Artifact artifact) {
     ensureUpdateWasCalled();
-    return analysisResult.getActionGraph().getGeneratingAction(artifact);
+    ActionAnalysisMetadata action = analysisResult.getActionGraph().getGeneratingAction(artifact);
+
+    if (action != null) {
+      Preconditions.checkState(
+          action instanceof Action,
+          "%s is not a proper Action object",
+          action.prettyPrint());
+      return (Action) action;
+    } else {
+      return null;
+    }
   }
 
   protected BuildConfigurationCollection getBuildConfigurationCollection() {

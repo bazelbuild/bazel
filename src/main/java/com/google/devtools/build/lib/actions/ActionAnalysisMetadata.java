@@ -16,26 +16,11 @@ package com.google.devtools.build.lib.actions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 
-import javax.annotation.Nullable;
-
 /**
- * Side-effect free query methods for information about an {@link Action}.
- *
- * <p>This method is intended for use in situations when the intention is to pass around information
- * about an action without allowing actual execution of the action.
- *
- * <p>The split between {@link Action} and {@link ActionMetadata} is somewhat arbitrary, other than
- * that all methods with side effects must belong to the former.
+ * An Analysis phase interface for an {@link Action} or Action-like object, containing only
+ * side-effect-free query methods for information needed during action analysis.
  */
-public interface ActionMetadata {
-  /**
-   * If this executable can supply verbose information, returns a string that can be used as a
-   * progress message while this executable is running. A return value of {@code null} indicates no
-   * message should be reported.
-   */
-  @Nullable
-  String getProgressMessage();
-
+public interface ActionAnalysisMetadata {
   /**
    * Returns the owner of this executable if this executable can supply verbose information. This is
    * typically the rule that constructed it; see ActionOwner class comment for details. Returns
@@ -158,63 +143,40 @@ public interface ActionMetadata {
   Iterable<Artifact> getMandatoryInputs();
 
   /**
-   * <p>Returns a string encoding all of the significant behaviour of this
-   * Action that might affect the output.  The general contract of
-   * <code>getKey</code> is this: if the work to be performed by the
-   * execution of this action changes, the key must change. </p>
-   *
-   * <p>As a corollary, the build system is free to omit the execution of an
-   * Action <code>a1</code> if (a) at some time in the past, it has already
-   * executed an Action <code>a0</code> with the same key as
-   * <code>a1</code>, and (b) the names and contents of the input files listed
-   * by <code>a1.getInputs()</code> are identical to the names and contents of
-   * the files listed by <code>a0.getInputs()</code>. </p>
-   *
-   * <p>Examples of changes that should affect the key are:
-   * <ul>
-   *  <li>Changes to the BUILD file that materially affect the rule which gave
-   *  rise to this Action.</li>
-   *
-   *  <li>Changes to the command-line options, environment, or other global
-   *  configuration resources which affect the behaviour of this kind of Action
-   *  (other than changes to the names of the input/output files, which are
-   *  handled externally).</li>
-   *
-   *  <li>An upgrade to the build tools which changes the program logic of this
-   *  kind of Action (typically this is achieved by incorporating a UUID into
-   *  the key, which is changed each time the program logic of this action
-   *  changes).</li>
-   *
-   * </ul></p>
+   * @return true iff path prefix conflict (conflict where two actions generate
+   *         two output artifacts with one of the artifact's path being the
+   *         prefix for another) between this action and another action should
+   *         be reported.
    */
-  String getKey();
+  boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action);
 
-  /**
-   * Returns a human-readable description of the inputs to {@link #getKey()}.
-   * Used in the output from '--explain', and in error messages for
-   * '--check_up_to_date' and '--check_tests_up_to_date'.
-   * May return null, meaning no extra information is available.
-   *
-   * <p>If the return value is non-null, for consistency it should be a multiline message of the
-   * form:
-   * <pre>
-   *   <var>Summary</var>
-   *     <var>Fieldname</var>: <var>value</var>
-   *     <var>Fieldname</var>: <var>value</var>
-   *     ...
-   * </pre>
-   * where each line after the first one is intended two spaces, and where any fields that might
-   * contain newlines or other funny characters are escaped using {@link
-   * com.google.devtools.build.lib.shell.ShellUtils#shellEscape}.
-   * For example:
-   * <pre>
-   *   Compiling foo.cc
-   *     Command: /usr/bin/gcc
-   *     Argument: '-c'
-   *     Argument: foo.cc
-   *     Argument: '-o'
-   *     Argument: foo.o
-   * </pre>
-   */
-  @Nullable String describeKey();
+  /** Returns the action type. Must not be {@code null}. */
+  MiddlemanType getActionType();
+
+  /** The action type. */
+  public enum MiddlemanType {
+
+    /** A normal action. */
+    NORMAL,
+
+    /** A normal middleman, which just encapsulates a list of artifacts. */
+    AGGREGATING_MIDDLEMAN,
+
+    /**
+     * A middleman that enforces action ordering, is not validated by the dependency checker, but
+     * allows errors to be propagated.
+     */
+    ERROR_PROPAGATING_MIDDLEMAN,
+
+    /**
+     * A runfiles middleman, which is validated by the dependency checker, but is not expanded
+     * in blaze. Instead, the runfiles manifest is sent to remote execution client, which
+     * performs the expansion.
+     */
+    RUNFILES_MIDDLEMAN;
+
+    public boolean isMiddleman() {
+      return this != NORMAL;
+    }
+  }
 }

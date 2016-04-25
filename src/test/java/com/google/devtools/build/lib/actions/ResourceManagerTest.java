@@ -20,6 +20,7 @@ import static org.junit.Assert.assertTrue;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.testutil.TestThread;
 
 import org.junit.Before;
@@ -40,7 +41,7 @@ import javax.annotation.Nullable;
 @RunWith(JUnit4.class)
 public class ResourceManagerTest {
 
-  private final ActionMetadata resourceOwner = new ResourceOwnerStub();
+  private final ActionExecutionMetadata resourceOwner = new ResourceOwnerStub();
   private final ResourceManager rm = ResourceManager.instanceForTestingOnly();
   private AtomicInteger counter;
   CyclicBarrier sync;
@@ -323,7 +324,7 @@ public class ResourceManagerTest {
     assertFalse(rm.inUse());
   }
 
-  private static class ResourceOwnerStub implements ActionMetadata {
+  private static class ResourceOwnerStub implements ActionExecutionMetadata {
 
     @Override
     @Nullable
@@ -405,6 +406,16 @@ public class ResourceManagerTest {
     @Override
     public ImmutableSet<Artifact> getMandatoryOutputs() {
       return ImmutableSet.of();
+    }
+
+    @Override
+    public boolean shouldReportPathPrefixConflict(ActionAnalysisMetadata action) {
+      throw new IllegalStateException();
+    }
+
+    @Override
+    public MiddlemanType getActionType() {
+      throw new IllegalStateException();
     }
   }
 }

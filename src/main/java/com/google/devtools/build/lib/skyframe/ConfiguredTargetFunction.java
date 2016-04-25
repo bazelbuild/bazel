@@ -23,7 +23,7 @@ import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph.ActionConflictException;
@@ -846,7 +846,7 @@ final class ConfiguredTargetFunction implements SkyFunction {
     analysisEnvironment.disable(target);
     Preconditions.checkNotNull(configuredTarget, target);
 
-    Map<Artifact, Action> generatingActions;
+    Map<Artifact, ActionAnalysisMetadata> generatingActions;
     // Check for conflicting actions within this configured target (that indicates a bug in the
     // rule implementation).
     try {

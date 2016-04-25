@@ -92,6 +92,7 @@ public class ActionExecutionFunction implements SkyFunction, CompletionReceiver 
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env) throws ActionExecutionFunctionException,
       InterruptedException {
+    Preconditions.checkArgument(skyKey.argument() instanceof Action);
     Action action = (Action) skyKey.argument();
     // TODO(bazel-team): Non-volatile NotifyOnActionCacheHit actions perform worse in Skyframe than
     // legacy when they are not at the top of the action graph. In legacy, they are stored

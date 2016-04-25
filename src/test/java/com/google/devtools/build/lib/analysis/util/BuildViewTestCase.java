@@ -34,6 +34,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -507,11 +508,21 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected final Action getGeneratingAction(Artifact artifact) {
     Preconditions.checkNotNull(artifact);
-    Action action = mutableActionGraph.getGeneratingAction(artifact);
-    if (action != null) {
-      return action;
+    ActionAnalysisMetadata action = mutableActionGraph.getGeneratingAction(artifact);
+
+    if (action == null) {
+      action = getActionGraph().getGeneratingAction(artifact);
     }
-    return getActionGraph().getGeneratingAction(artifact);
+
+    if (action != null) {
+      Preconditions.checkState(
+          action instanceof Action,
+          "%s is not a proper Action object",
+          action.prettyPrint());
+      return (Action) action;
+    } else {
+      return null;
+    }
   }
 
   protected Action getGeneratingAction(ConfiguredTarget target, String outputName) {
@@ -1492,7 +1503,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected class StubAnalysisEnvironment implements AnalysisEnvironment {
 
     @Override
-    public void registerAction(Action... action) {
+    public void registerAction(ActionAnalysisMetadata... action) {
       throw new UnsupportedOperationException();
     }
 
@@ -1532,7 +1543,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
-    public Iterable<Action> getRegisteredActions() {
+    public Iterable<ActionAnalysisMetadata> getRegisteredActions() {
       throw new UnsupportedOperationException();
     }
 

@@ -19,7 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -72,7 +72,7 @@ public final class CcCommon {
     public void collectMetadataArtifacts(Iterable<Artifact> objectFiles,
         AnalysisEnvironment analysisEnvironment, NestedSetBuilder<Artifact> metadataFilesBuilder) {
       for (Artifact artifact : objectFiles) {
-        Action action = analysisEnvironment.getLocalGeneratingAction(artifact);
+        ActionAnalysisMetadata action = analysisEnvironment.getLocalGeneratingAction(artifact);
         if (action instanceof CppCompileAction) {
           addOutputs(metadataFilesBuilder, action, CppFileTypes.COVERAGE_NOTES);
         }

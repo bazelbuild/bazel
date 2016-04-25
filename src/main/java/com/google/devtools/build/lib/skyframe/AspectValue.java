@@ -15,7 +15,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Objects;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -247,7 +247,7 @@ public final class AspectValue extends ActionLookupValue {
       Label label,
       Location location,
       ConfiguredAspect configuredAspect,
-      Iterable<Action> actions,
+      Iterable<ActionAnalysisMetadata> actions,
       NestedSet<Package> transitivePackages) {
     super(actions);
     this.aspect = aspect;

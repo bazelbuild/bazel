@@ -77,7 +77,7 @@ import javax.annotation.Nullable;
  * known set of fields is covered, not that all fields are covered), so carefully check all changes
  * to action subclasses.
  */
-public interface Action extends ActionMetadata, Describable {
+public interface Action extends ActionExecutionMetadata, Describable {
 
   /**
    * Prepares for executing this action; called by the Builder prior to
@@ -192,14 +192,6 @@ public interface Action extends ActionMetadata, Describable {
   @Nullable ResourceSet estimateResourceConsumption(Executor executor);
 
   /**
-   * @return true iff path prefix conflict (conflict where two actions generate
-   *         two output artifacts with one of the artifact's path being the
-   *         prefix for another) between this action and another action should
-   *         be reported.
-   */
-  boolean shouldReportPathPrefixConflict(Action action);
-
-  /**
    * Returns true if the output should bypass output filtering. This is used for test actions.
    */
   boolean showsOutputUnconditionally();
@@ -218,38 +210,4 @@ public interface Action extends ActionMetadata, Describable {
    * a different thread than the one this action is executed on.
    */
   ExtraActionInfo.Builder getExtraActionInfo();
-
-  /**
-   * Returns the action type. Must not be {@code null}.
-   */
-  MiddlemanType getActionType();
-
-  /**
-   * The action type.
-   */
-  public enum MiddlemanType {
-
-    /** A normal action. */
-    NORMAL,
-
-    /** A normal middleman, which just encapsulates a list of artifacts. */
-    AGGREGATING_MIDDLEMAN,
-
-    /**
-     * A middleman that enforces action ordering, is not validated by the dependency checker, but
-     * allows errors to be propagated.
-     */
-    ERROR_PROPAGATING_MIDDLEMAN,
-
-    /**
-     * A runfiles middleman, which is validated by the dependency checker, but is not expanded
-     * in blaze. Instead, the runfiles manifest is sent to remote execution client, which
-     * performs the expansion.
-     */
-    RUNFILES_MIDDLEMAN;
-
-    public boolean isMiddleman() {
-      return this != NORMAL;
-    }
-  }
 }

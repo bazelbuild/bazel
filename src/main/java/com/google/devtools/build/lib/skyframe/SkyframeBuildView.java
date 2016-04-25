@@ -24,7 +24,7 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPrefixConflictException;
@@ -213,7 +213,8 @@ public final class SkyframeBuildView {
     } finally {
       enableAnalysis(false);
     }
-    ImmutableMap<Action, ConflictException> badActions = skyframeExecutor.findArtifactConflicts();
+    ImmutableMap<ActionAnalysisMetadata, ConflictException> badActions =
+        skyframeExecutor.findArtifactConflicts();
 
     Collection<AspectValue> goodAspects = Lists.newArrayListWithCapacity(values.size());
     NestedSetBuilder<Package> packages = NestedSetBuilder.stableOrder();
@@ -256,7 +257,7 @@ public final class SkyframeBuildView {
     // TODO(bazel-team): We might want to report the other errors through the event bus but
     // for keeping this code in parity with legacy we just report the first error for now.
     if (!keepGoing) {
-      for (Map.Entry<Action, ConflictException> bad : badActions.entrySet()) {
+      for (Map.Entry<ActionAnalysisMetadata, ConflictException> bad : badActions.entrySet()) {
         ConflictException ex = bad.getValue();
         try {
           ex.rethrowTyped();
@@ -339,7 +340,7 @@ public final class SkyframeBuildView {
     }
 
     Collection<Exception> reportedExceptions = Sets.newHashSet();
-    for (Map.Entry<Action, ConflictException> bad : badActions.entrySet()) {
+    for (Map.Entry<ActionAnalysisMetadata, ConflictException> bad : badActions.entrySet()) {
       ConflictException ex = bad.getValue();
       try {
         ex.rethrowTyped();

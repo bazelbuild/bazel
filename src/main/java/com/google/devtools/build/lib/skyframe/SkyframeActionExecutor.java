@@ -21,6 +21,7 @@ import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionCacheChecker.Token;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
@@ -126,7 +127,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   // Errors found when examining all actions in the graph are stored here, so that they can be
   // thrown when execution of the action is requested. This field is set during each call to
   // findAndStoreArtifactConflicts, and is preserved across builds otherwise.
-  private ImmutableMap<Action, ConflictException> badActionMap = ImmutableMap.of();
+  private ImmutableMap<ActionAnalysisMetadata, ConflictException> badActionMap = ImmutableMap.of();
   private boolean keepGoing;
   private boolean hadExecutionError;
   private ActionInputFileCache perBuildFileCache;
@@ -179,7 +180,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
    * Return the map of mostly recently executed bad actions to their corresponding exception.
    * See {#findAndStoreArtifactConflicts()}.
    */
-  public ImmutableMap<Action, ConflictException> badActions() {
+  public ImmutableMap<ActionAnalysisMetadata, ConflictException> badActions() {
     // TODO(bazel-team): Move badActions() and findAndStoreArtifactConflicts() to SkyframeBuildView
     // now that it's done in the analysis phase.
     return badActionMap;
@@ -215,15 +216,16 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
    */
   void findAndStoreArtifactConflicts(Iterable<ActionLookupValue> actionLookupValues)
       throws InterruptedException {
-    ConcurrentMap<Action, ConflictException> temporaryBadActionMap = new ConcurrentHashMap<>();
+    ConcurrentMap<ActionAnalysisMetadata, ConflictException> temporaryBadActionMap =
+        new ConcurrentHashMap<>();
     Pair<ActionGraph, SortedMap<PathFragment, Artifact>> result;
     result = constructActionGraphAndPathMap(actionLookupValues, temporaryBadActionMap);
     ActionGraph actionGraph = result.first;
     SortedMap<PathFragment, Artifact> artifactPathMap = result.second;
 
-    Map<Action, ArtifactPrefixConflictException> actionsWithArtifactPrefixConflict =
+    Map<ActionAnalysisMetadata, ArtifactPrefixConflictException> actionsWithArtifactPrefixConflict =
         Actions.findArtifactPrefixConflicts(actionGraph, artifactPathMap);
-    for (Map.Entry<Action, ArtifactPrefixConflictException> actionExceptionPair :
+    for (Map.Entry<ActionAnalysisMetadata, ArtifactPrefixConflictException> actionExceptionPair :
         actionsWithArtifactPrefixConflict.entrySet()) {
       temporaryBadActionMap.put(
           actionExceptionPair.getKey(), new ConflictException(actionExceptionPair.getValue()));
@@ -240,7 +242,8 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
   private static Pair<ActionGraph, SortedMap<PathFragment, Artifact>>
       constructActionGraphAndPathMap(
           Iterable<ActionLookupValue> values,
-          ConcurrentMap<Action, ConflictException> badActionMap) throws InterruptedException {
+          ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap)
+      throws InterruptedException {
     MutableActionGraph actionGraph = new MapBasedActionGraph();
     ConcurrentNavigableMap<PathFragment, Artifact> artifactPathMap = new ConcurrentSkipListMap<>();
     // Action graph construction is CPU-bound.
@@ -274,14 +277,15 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
       final List<ActionLookupValue> values,
       final MutableActionGraph actionGraph,
       final ConcurrentMap<PathFragment, Artifact> artifactPathMap,
-      final ConcurrentMap<Action, ConflictException> badActionMap) {
+      final ConcurrentMap<ActionAnalysisMetadata, ConflictException> badActionMap) {
     return new Runnable() {
       @Override
       public void run() {
         for (ActionLookupValue value : values) {
-          Set<Action> registeredActions = new HashSet<>();
-          for (Map.Entry<Artifact, Action> entry : value.getMapForConsistencyCheck().entrySet()) {
-            Action action = entry.getValue();
+          Set<ActionAnalysisMetadata> registeredActions = new HashSet<>();
+          for (Map.Entry<Artifact, ActionAnalysisMetadata> entry :
+              value.getMapForConsistencyCheck().entrySet()) {
+            ActionAnalysisMetadata action = entry.getValue();
             // We have an entry for each <action, artifact> pair. Only try to register each action
             // once.
             if (registeredActions.add(action)) {

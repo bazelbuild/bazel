@@ -274,15 +274,15 @@ public class ActionExecutionStatusReporterTest {
     assertEquals(30, ActionExecutionStatusReporter.getWaitTime(30, 30));
   }
 
-  private void setScheduling(ActionMetadata action) {
+  private void setScheduling(ActionExecutionMetadata action) {
     eventBus.post(ActionStatusMessage.schedulingStrategy(action));
   }
 
-  private void setPreparing(ActionMetadata action) {
+  private void setPreparing(ActionExecutionMetadata action) {
     eventBus.post(ActionStatusMessage.preparingStrategy(action));
   }
 
-  private void setRunning(ActionMetadata action, String strategy) {
+  private void setRunning(ActionExecutionMetadata action, String strategy) {
     eventBus.post(ActionStatusMessage.runningStrategy(action, strategy));
   }
 }

@@ -129,7 +129,7 @@ public interface Spawn {
   /**
    * Returns the resource owner for local fallback.
    */
-  ActionMetadata getResourceOwner();
+  ActionExecutionMetadata getResourceOwner();
 
   /**
    * Returns the amount of resources needed for local fallback.

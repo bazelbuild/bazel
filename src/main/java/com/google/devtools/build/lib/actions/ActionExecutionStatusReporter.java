@@ -57,7 +57,7 @@ public final class ActionExecutionStatusReporter {
    * The status of each action "in flight", i.e. whose ExecuteBuildAction.call() method is active.
    * Used for implementing the "still waiting" message.
    */
-  private final Map<ActionMetadata, Pair<String, Long>> actionStatus =
+  private final Map<ActionExecutionMetadata, Pair<String, Long>> actionStatus =
       new ConcurrentHashMap<>(100);
 
   public static ActionExecutionStatusReporter create(EventHandler eventHandler) {
@@ -98,7 +98,7 @@ public final class ActionExecutionStatusReporter {
     }
   }
 
-  private void setStatus(ActionMetadata action, String message) {
+  private void setStatus(ActionExecutionMetadata action, String message) {
     actionStatus.put(action, Pair.of(message, clock.nanoTime()));
   }
 
@@ -116,14 +116,14 @@ public final class ActionExecutionStatusReporter {
     updateStatus(ActionStatusMessage.preparingStrategy(action));
   }
 
-  public void setRunningFromBuildData(ActionMetadata action) {
+  public void setRunningFromBuildData(ActionExecutionMetadata action) {
     updateStatus(ActionStatusMessage.runningStrategy(action, "unknown"));
   }
 
   @Subscribe
   public void updateStatus(ActionStatusMessage statusMsg) {
     String message = statusMsg.getMessage();
-    ActionMetadata action = statusMsg.getActionMetadata();
+    ActionExecutionMetadata action = statusMsg.getActionMetadata();
     setStatus(action, message);
   }
 
@@ -132,9 +132,10 @@ public final class ActionExecutionStatusReporter {
   }
 
   private static void appendGroupStatus(StringBuilder buffer,
-      Map<ActionMetadata, Pair<String, Long>> statusMap,  String status, long currentTime) {
-    List<Pair<Long, ActionMetadata>> actions = new ArrayList<>();
-    for (Map.Entry<ActionMetadata, Pair<String, Long>> entry : statusMap.entrySet()) {
+      Map<ActionExecutionMetadata, Pair<String, Long>> statusMap,  String status,
+      long currentTime) {
+    List<Pair<Long, ActionExecutionMetadata>> actions = new ArrayList<>();
+    for (Map.Entry<ActionExecutionMetadata, Pair<String, Long>> entry : statusMap.entrySet()) {
       if (entry.getValue().first.equals(status)) {
         actions.add(Pair.of(entry.getValue().second, entry.getKey()));
       }
@@ -142,12 +143,12 @@ public final class ActionExecutionStatusReporter {
     if (actions.isEmpty()) {
       return;
     }
-    Collections.sort(actions, Pair.<Long, ActionMetadata>compareByFirst());
+    Collections.sort(actions, Pair.<Long, ActionExecutionMetadata>compareByFirst());
 
     buffer.append("\n      " + status + ":");
 
     boolean truncateList = actions.size() > MAX_LINES;
-    for (Pair<Long, ActionMetadata> entry : actions.subList(0,
+    for (Pair<Long, ActionExecutionMetadata> entry : actions.subList(0,
         truncateList ? MAX_LINES - 1 : actions.size())) {
       String message = entry.second.getProgressMessage();
       if (message == null) {
@@ -167,7 +168,8 @@ public final class ActionExecutionStatusReporter {
   /**
    * Get message showing currently executing actions.
    */
-  private String getExecutionStatusMessage(Map<ActionMetadata, Pair<String, Long>> statusMap) {
+  private String getExecutionStatusMessage(
+      Map<ActionExecutionMetadata, Pair<String, Long>> statusMap) {
     int count = statusMap.size();
     StringBuilder s = count != 1
         ? new StringBuilder("Still waiting for ").append(count).append(" jobs to complete:")
@@ -177,7 +179,7 @@ public final class ActionExecutionStatusReporter {
 
     // A tree is just as fast as HashSet for small data sets.
     Set<String> statuses = new TreeSet<>();
-    for (Map.Entry<ActionMetadata, Pair<String, Long>> entry : statusMap.entrySet()) {
+    for (Map.Entry<ActionExecutionMetadata, Pair<String, Long>> entry : statusMap.entrySet()) {
       statuses.add(entry.getValue().first);
     }
 
@@ -192,7 +194,7 @@ public final class ActionExecutionStatusReporter {
    */
   public void showCurrentlyExecutingActions(String progressPercentageMessage) {
     // Defensive copy to ensure thread safety.
-    Map<ActionMetadata, Pair<String, Long>> statusMap = new HashMap<>(actionStatus);
+    Map<ActionExecutionMetadata, Pair<String, Long>> statusMap = new HashMap<>(actionStatus);
     if (!statusMap.isEmpty()) {
       eventHandler.handle(
           Event.progress(progressPercentageMessage + getExecutionStatusMessage(statusMap)));
@@ -205,13 +207,13 @@ public final class ActionExecutionStatusReporter {
    */
   void warnAboutCurrentlyExecutingActions() {
     // Defensive copy to ensure thread safety.
-    Map<ActionMetadata, Pair<String, Long>> statusMap = new HashMap<>(actionStatus);
+    Map<ActionExecutionMetadata, Pair<String, Long>> statusMap = new HashMap<>(actionStatus);
     if (statusMap.isEmpty()) {
       // There are no tasks in the queue so there is nothing to report.
       eventHandler.handle(Event.warn("There are no active jobs - stopping the build"));
       return;
     }
-    Iterator<ActionMetadata> iterator = statusMap.keySet().iterator();
+    Iterator<ActionExecutionMetadata> iterator = statusMap.keySet().iterator();
     while (iterator.hasNext()) {
       // Filter out actions that are not executed yet.
       if (statusMap.get(iterator.next()).first.equals(ActionStatusMessage.PREPARING)) {

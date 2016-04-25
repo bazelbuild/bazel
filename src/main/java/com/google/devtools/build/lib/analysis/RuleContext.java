@@ -29,6 +29,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -379,7 +380,7 @@ public final class RuleContext extends TargetContext
   }
 
   @Override
-  public void registerAction(Action... action) {
+  public void registerAction(ActionAnalysisMetadata... action) {
     getAnalysisEnvironment().registerAction(action);
   }
 

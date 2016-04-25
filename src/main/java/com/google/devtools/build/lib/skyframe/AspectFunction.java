@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -288,7 +288,7 @@ public final class AspectFunction implements SkyFunction {
         originalTarget.getLabel(),
         originalTarget.getLocation(),
         ConfiguredAspect.forAlias(real.getConfiguredAspect()),
-        ImmutableList.<Action>of(),
+        ImmutableList.<ActionAnalysisMetadata>of(),
         transitivePackages);
   }
 

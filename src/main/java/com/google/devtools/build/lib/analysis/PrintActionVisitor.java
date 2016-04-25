@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionGraphVisitor;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -28,8 +28,8 @@ import java.util.List;
  */
 public final class PrintActionVisitor extends ActionGraphVisitor {
   private final ConfiguredTarget target;
-  private final List<Action> actions;
-  private final Predicate<Action> actionMnemonicMatcher;
+  private final List<ActionAnalysisMetadata> actions;
+  private final Predicate<ActionAnalysisMetadata> actionMnemonicMatcher;
   private final String targetConfigurationChecksum;
 
   /**
@@ -37,7 +37,7 @@ public final class PrintActionVisitor extends ActionGraphVisitor {
    * mnemonic.
    */
   public PrintActionVisitor(ActionGraph actionGraph, ConfiguredTarget target,
-      Predicate<Action> actionMnemonicMatcher) {
+      Predicate<ActionAnalysisMetadata> actionMnemonicMatcher) {
     super(actionGraph);
     this.target = target;
     this.actionMnemonicMatcher = actionMnemonicMatcher;
@@ -46,21 +46,21 @@ public final class PrintActionVisitor extends ActionGraphVisitor {
   }
 
   @Override
-  protected boolean shouldVisit(Action action) {
+  protected boolean shouldVisit(ActionAnalysisMetadata action) {
     ActionOwner owner = action.getOwner();
     return owner != null && target.getLabel().equals(owner.getLabel())
         && targetConfigurationChecksum.equals(owner.getConfigurationChecksum());
   }
 
   @Override
-  protected void visitAction(Action action) {
+  protected void visitAction(ActionAnalysisMetadata action) {
     if (actionMnemonicMatcher.apply(action)) {
       actions.add(action);
     }
   }
 
   /** Retrieves the collected actions since this method was last called and clears the list. */
-  public ImmutableList<Action> getActions() {
+  public ImmutableList<ActionAnalysisMetadata> getActions() {
     return ImmutableList.copyOf(actions);
   }
 }

@@ -55,6 +55,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -1354,7 +1355,7 @@ public final class CompilationSupport {
         AnalysisEnvironment analysisEnvironment,
         NestedSetBuilder<Artifact> metadataFilesBuilder) {
       for (Artifact artifact : artifacts) {
-        Action action = analysisEnvironment.getLocalGeneratingAction(artifact);
+        ActionAnalysisMetadata action = analysisEnvironment.getLocalGeneratingAction(artifact);
         if (action.getMnemonic().equals("ObjcCompile")) {
           addOutputs(metadataFilesBuilder, action, ObjcRuleClasses.COVERAGE_NOTES);
         }

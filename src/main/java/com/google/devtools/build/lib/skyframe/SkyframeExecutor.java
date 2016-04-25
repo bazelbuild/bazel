@@ -33,7 +33,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Range;
 import com.google.common.eventbus.EventBus;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionContextFactory;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
@@ -634,7 +634,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             artifactFactory.get(), WorkspaceStatusValue.ARTIFACT_OWNER, buildId));
   }
 
-  public void injectCoverageReportData(ImmutableList<Action> actions) {
+  public void injectCoverageReportData(ImmutableList<ActionAnalysisMetadata> actions) {
     PrecomputedValue.COVERAGE_REPORT_KEY.set(injectable(), actions);
   }
 
@@ -1037,8 +1037,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * {@link SkyframeActionExecutor#findAndStoreArtifactConflicts} to do the work, since any
    * conflicts found will only be reported during execution.
    */
-  ImmutableMap<Action, SkyframeActionExecutor.ConflictException> findArtifactConflicts()
-      throws InterruptedException {
+  ImmutableMap<ActionAnalysisMetadata, SkyframeActionExecutor.ConflictException>
+      findArtifactConflicts() throws InterruptedException {
     if (skyframeBuildView.isSomeConfiguredTargetEvaluated()
         || skyframeBuildView.isSomeConfiguredTargetInvalidated()) {
       // This operation is somewhat expensive, so we only do it if the graph might have changed in
@@ -1384,7 +1384,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public EvaluationResult<PostConfiguredTargetValue> postConfigureTargets(
       EventHandler eventHandler, List<ConfiguredTargetKey> values, boolean keepGoing,
-      ImmutableMap<Action, SkyframeActionExecutor.ConflictException> badActions)
+      ImmutableMap<ActionAnalysisMetadata, SkyframeActionExecutor.ConflictException> badActions)
           throws InterruptedException {
     checkActive();
     PrecomputedValue.BAD_ACTIONS.set(injectable(), badActions);
@@ -1464,7 +1464,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   /**
    * Returns the generating action of a given artifact ({@code null} if it's a source artifact).
    */
-  private Action getGeneratingAction(EventHandler eventHandler, Artifact artifact)
+  private ActionAnalysisMetadata getGeneratingAction(EventHandler eventHandler, Artifact artifact)
       throws InterruptedException {
     if (artifact.isSourceArtifact()) {
       return null;
@@ -1498,11 +1498,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   public ActionGraph getActionGraph(final EventHandler eventHandler) {
     return new ActionGraph() {
       @Override
-      public Action getGeneratingAction(final Artifact artifact) {
+      public ActionAnalysisMetadata getGeneratingAction(final Artifact artifact) {
         try {
-          return callUninterruptibly(new Callable<Action>() {
+          return callUninterruptibly(new Callable<ActionAnalysisMetadata>() {
             @Override
-            public Action call() throws InterruptedException {
+            public ActionAnalysisMetadata call() throws InterruptedException {
               return SkyframeExecutor.this.getGeneratingAction(eventHandler, artifact);
             }
           });

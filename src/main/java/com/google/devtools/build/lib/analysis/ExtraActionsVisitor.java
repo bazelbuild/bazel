@@ -17,8 +17,8 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
-import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.ActionGraphVisitor;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.rules.extra.ExtraActionSpec;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Set;
 
 import javax.annotation.Nullable;
 
@@ -37,7 +36,6 @@ final class ExtraActionsVisitor extends ActionGraphVisitor {
   private final RuleContext ruleContext;
   private final Multimap<String, ExtraActionSpec> mnemonicToExtraActionMap;
   private final List<Artifact> extraArtifacts;
-  public final Set<Action> actions = Sets.newHashSet();
 
   /** Creates a new visitor for the extra actions associated with the given target. */
   public ExtraActionsVisitor(RuleContext ruleContext,
@@ -48,21 +46,23 @@ final class ExtraActionsVisitor extends ActionGraphVisitor {
     extraArtifacts = Lists.newArrayList();
   }
 
-  void maybeAddExtraAction(Action original) {
-    if (original.extraActionCanAttach()) {
-      Collection<ExtraActionSpec> extraActions =
-          mnemonicToExtraActionMap.get(original.getMnemonic());
-      if (extraActions != null) {
-        for (ExtraActionSpec extraAction : extraActions) {
-          extraArtifacts.addAll(extraAction.addExtraAction(ruleContext, original));
+  void maybeAddExtraAction(ActionAnalysisMetadata original) {
+    if (original instanceof Action) {
+      Action action = (Action) original;
+      if (action.extraActionCanAttach()) {
+        Collection<ExtraActionSpec> extraActions =
+            mnemonicToExtraActionMap.get(action.getMnemonic());
+        if (extraActions != null) {
+          for (ExtraActionSpec extraAction : extraActions) {
+            extraArtifacts.addAll(extraAction.addExtraAction(ruleContext, action));
+          }
         }
       }
     }
   }
 
   @Override
-  protected void visitAction(Action action) {
-    actions.add(action);
+  protected void visitAction(ActionAnalysisMetadata action) {
     maybeAddExtraAction(action);
   }
 
@@ -78,7 +78,7 @@ final class ExtraActionsVisitor extends ActionGraphVisitor {
     return new ActionGraph() {
       @Override
       @Nullable
-      public Action getGeneratingAction(Artifact artifact) {
+      public ActionAnalysisMetadata getGeneratingAction(Artifact artifact) {
         return ruleContext.getAnalysisEnvironment().getLocalGeneratingAction(artifact);
       }
     };

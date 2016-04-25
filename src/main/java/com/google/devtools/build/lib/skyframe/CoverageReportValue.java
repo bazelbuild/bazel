@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -34,7 +34,7 @@ public class CoverageReportValue extends ActionLookupValue {
   public static final ArtifactOwner ARTIFACT_OWNER = new CoverageReportKey();
 
   public CoverageReportValue(ImmutableSet<Artifact> coverageReportArtifacts,
-      ImmutableList <Action> coverageReportActions) {
+      ImmutableList <ActionAnalysisMetadata> coverageReportActions) {
     super(coverageReportActions);
     this.coverageReportArtifacts = coverageReportArtifacts;
   }

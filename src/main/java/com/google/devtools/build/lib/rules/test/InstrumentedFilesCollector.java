@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.rules.test;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -234,7 +234,7 @@ public final class InstrumentedFilesCollector {
      * @param fileType the filetype of outputs which should be collected
      */
     protected void addOutputs(NestedSetBuilder<Artifact> metadataFilesBuilder,
-                              Action action, FileType fileType) {
+                              ActionAnalysisMetadata action, FileType fileType) {
       for (Artifact output : action.getOutputs()) {
         if (fileType.matches(output.getFilename())) {
           metadataFilesBuilder.add(output);

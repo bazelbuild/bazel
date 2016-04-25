@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionOwner;
@@ -77,7 +78,7 @@ public final class AnalysisTestUtil {
    * An {@link AnalysisEnvironment} implementation that collects the actions registered.
    */
   public static class CollectingAnalysisEnvironment implements AnalysisEnvironment {
-    private final List<Action> actions = new ArrayList<>();
+    private final List<ActionAnalysisMetadata> actions = new ArrayList<>();
     private final AnalysisEnvironment original;
 
     public CollectingAnalysisEnvironment(AnalysisEnvironment original) {
@@ -89,14 +90,14 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public void registerAction(Action... actions) {
+    public void registerAction(ActionAnalysisMetadata... actions) {
       Collections.addAll(this.actions, actions);
       original.registerAction(actions);
     }
 
     /** Calls {@link MutableActionGraph#registerAction} for all collected actions. */
     public void registerWith(MutableActionGraph actionGraph) {
-      for (Action action : actions) {
+      for (ActionAnalysisMetadata action : actions) {
         try {
           actionGraph.registerAction(action);
         } catch (ActionConflictException e) {
@@ -146,12 +147,12 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Action getLocalGeneratingAction(Artifact artifact) {
+    public ActionAnalysisMetadata getLocalGeneratingAction(Artifact artifact) {
       return original.getLocalGeneratingAction(artifact);
     }
 
     @Override
-    public Iterable<Action> getRegisteredActions() {
+    public Iterable<ActionAnalysisMetadata> getRegisteredActions() {
       return original.getRegisteredActions();
     }
 
@@ -301,7 +302,7 @@ public final class AnalysisTestUtil {
 
   public static class StubAnalysisEnvironment implements AnalysisEnvironment {
     @Override
-    public void registerAction(Action... action) {
+    public void registerAction(ActionAnalysisMetadata... action) {
     }
 
     @Override
@@ -340,7 +341,7 @@ public final class AnalysisTestUtil {
     }
 
     @Override
-    public Iterable<Action> getRegisteredActions() {
+    public Iterable<ActionAnalysisMetadata> getRegisteredActions() {
       return ImmutableList.of();
     }
 

@@ -20,6 +20,7 @@ import static org.junit.Assert.assertTrue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Root;
@@ -52,7 +53,7 @@ public class CppLinkActionTest extends BuildViewTestCase {
         "cc_library(name = 'dummyRuleContext')"),
         new StubAnalysisEnvironment() {
           @Override
-          public void registerAction(Action... action) {
+          public void registerAction(ActionAnalysisMetadata... action) {
             // No-op.
           }
 

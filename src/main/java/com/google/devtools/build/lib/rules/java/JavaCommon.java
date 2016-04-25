@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
@@ -86,7 +86,7 @@ public class JavaCommon {
     public void collectMetadataArtifacts(Iterable<Artifact> objectFiles,
         AnalysisEnvironment analysisEnvironment, NestedSetBuilder<Artifact> metadataFilesBuilder) {
       for (Artifact artifact : objectFiles) {
-        Action action = analysisEnvironment.getLocalGeneratingAction(artifact);
+        ActionAnalysisMetadata action = analysisEnvironment.getLocalGeneratingAction(artifact);
         if (action instanceof JavaCompileAction) {
           addOutputs(metadataFilesBuilder, action, JavaSemantics.COVERAGE_METADATA);
         }

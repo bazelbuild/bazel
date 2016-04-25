@@ -23,7 +23,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -224,7 +224,7 @@ public class SkylarkRuleImplementationFunctionsTest extends SkylarkTestCase {
   public void testCreateSpawnActionCreatesSpawnAction() throws Exception {
     SkylarkRuleContext ruleContext = createRuleContext("//foo:foo");
     createTestSpawnAction(ruleContext);
-    Action action =
+    ActionAnalysisMetadata action =
         Iterables.getOnlyElement(
             ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertThat(action).isInstanceOf(SpawnAction.class);

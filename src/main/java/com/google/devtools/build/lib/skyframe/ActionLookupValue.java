@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
@@ -34,10 +34,10 @@ import java.util.Map;
  * actions of target completion values and build info artifacts also fall into this category.
  */
 public class ActionLookupValue implements SkyValue {
-  protected final ImmutableMap<Artifact, Action> generatingActionMap;
+  protected final ImmutableMap<Artifact, ActionAnalysisMetadata> generatingActionMap;
 
-  private static Map<Artifact, Action> filterSharedActionsAndThrowRuntimeIfConflict(
-      Iterable<Action> actions) {
+  private static Map<Artifact, ActionAnalysisMetadata> filterSharedActionsAndThrowRuntimeIfConflict(
+      Iterable<ActionAnalysisMetadata> actions) {
     try {
       return Actions.filterSharedActionsAndThrowActionConflict(actions);
     } catch (ActionConflictException e) {
@@ -46,24 +46,24 @@ public class ActionLookupValue implements SkyValue {
     }
   }
 
-  ActionLookupValue(Iterable<Action> actions) {
+  ActionLookupValue(Iterable<ActionAnalysisMetadata> actions) {
     this(filterSharedActionsAndThrowRuntimeIfConflict(actions));
   }
 
-  ActionLookupValue(Action action) {
+  ActionLookupValue(ActionAnalysisMetadata action) {
     this(ImmutableList.of(action));
   }
 
-  ActionLookupValue(Map<Artifact, Action> generatingActionMap) {
+  ActionLookupValue(Map<Artifact, ActionAnalysisMetadata> generatingActionMap) {
     this.generatingActionMap = ImmutableMap.copyOf(generatingActionMap);
   }
 
-  public Action getGeneratingAction(Artifact artifact) {
+  public ActionAnalysisMetadata getGeneratingAction(Artifact artifact) {
     return generatingActionMap.get(artifact);
   }
 
   /** To be used only when checking consistency of the action graph -- not by other values. */
-  ImmutableMap<Artifact, Action> getMapForConsistencyCheck() {
+  ImmutableMap<Artifact, ActionAnalysisMetadata> getMapForConsistencyCheck() {
     return generatingActionMap;
   }
 
@@ -71,7 +71,7 @@ public class ActionLookupValue implements SkyValue {
    * To be used only when setting the owners of deserialized artifacts whose owners were unknown at
    * creation time -- not by other callers or values.
    */
-  Iterable<Action> getActionsForFindingArtifactOwners() {
+  Iterable<ActionAnalysisMetadata> getActionsForFindingArtifactOwners() {
     return generatingActionMap.values();
   }
 

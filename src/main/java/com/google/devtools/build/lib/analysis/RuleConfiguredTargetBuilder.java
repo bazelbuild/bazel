@@ -18,7 +18,7 @@ import static com.google.devtools.build.lib.analysis.ExtraActionUtils.createExtr
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -62,7 +62,7 @@ public final class RuleConfiguredTargetBuilder {
   private NestedSet<Artifact> filesToBuild = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private RunfilesSupport runfilesSupport;
   private Artifact executable;
-  private ImmutableSet<Action> actionsWithoutExtraAction = ImmutableSet.of();
+  private ImmutableSet<ActionAnalysisMetadata> actionsWithoutExtraAction = ImmutableSet.of();
 
   public RuleConfiguredTargetBuilder(RuleContext ruleContext) {
     this.ruleContext = ruleContext;
@@ -341,7 +341,8 @@ public final class RuleConfiguredTargetBuilder {
   /**
    * Set the extra action pseudo actions.
    */
-  public RuleConfiguredTargetBuilder setActionsWithoutExtraAction(ImmutableSet<Action> actions) {
+  public RuleConfiguredTargetBuilder setActionsWithoutExtraAction(
+      ImmutableSet<ActionAnalysisMetadata> actions) {
     this.actionsWithoutExtraAction = actions;
     return this;
   }

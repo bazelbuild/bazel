@@ -20,7 +20,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.UnmodifiableIterator;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -174,7 +174,8 @@ public final class ConfiguredAspect implements Iterable<TransitiveInfoProvider> 
       addProvider(
           ExtraActionArtifactsProvider.class,
           createExtraActionProvider(
-              ImmutableSet.<Action>of() /* actionsWithoutExtraAction */, ruleContext));
+              ImmutableSet.<ActionAnalysisMetadata>of() /* actionsWithoutExtraAction */,
+              ruleContext));
 
       return new ConfiguredAspect(name, ImmutableMap.copyOf(providers));
     }

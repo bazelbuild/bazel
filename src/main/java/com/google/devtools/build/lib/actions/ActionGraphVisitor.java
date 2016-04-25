@@ -17,7 +17,8 @@ package com.google.devtools.build.lib.actions;
  * An abstract visitor for the action graph.  Specializes {@link BipartiteVisitor} for artifacts and
  * actions, and takes care of visiting the complete transitive closure.
  */
-public abstract class ActionGraphVisitor extends BipartiteVisitor<Action, Artifact> {
+public abstract class ActionGraphVisitor extends
+    BipartiteVisitor<ActionAnalysisMetadata, Artifact> {
 
   private final ActionGraph actionGraph;
 
@@ -37,7 +38,7 @@ public abstract class ActionGraphVisitor extends BipartiteVisitor<Action, Artifa
    *
    * @param action
    */
-  protected void visitAction(Action action) {}
+  protected void visitAction(ActionAnalysisMetadata action) {}
 
   /**
    * Whether the given action should be visited. If this returns false, the visitation stops here,
@@ -45,7 +46,7 @@ public abstract class ActionGraphVisitor extends BipartiteVisitor<Action, Artifa
    *
    * @param action  
    */
-  protected boolean shouldVisit(Action action) {
+  protected boolean shouldVisit(ActionAnalysisMetadata action) {
     return true;
   }
 
@@ -67,14 +68,14 @@ public abstract class ActionGraphVisitor extends BipartiteVisitor<Action, Artifa
   }
 
   @Override protected void white(Artifact artifact) {
-    Action action = actionGraph.getGeneratingAction(artifact);
+    ActionAnalysisMetadata action = actionGraph.getGeneratingAction(artifact);
     visitArtifact(artifact);
     if (action != null && shouldVisit(action)) {
       visitBlackNode(action);
     }
   }
 
-  @Override protected void black(Action action) {
+  @Override protected void black(ActionAnalysisMetadata action) {
     visitAction(action);
     for (Artifact input : action.getInputs()) {
       if (shouldVisit(input)) {

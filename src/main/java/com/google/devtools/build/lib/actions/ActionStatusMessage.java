@@ -20,16 +20,16 @@ package com.google.devtools.build.lib.actions;
  * used to notify any interested parties.
  */
 public class ActionStatusMessage {
-  private final ActionMetadata action;
+  private final ActionExecutionMetadata action;
   private final String message;
   public static final String PREPARING = "Preparing";
 
-  private ActionStatusMessage(ActionMetadata action, String message) {
+  private ActionStatusMessage(ActionExecutionMetadata action, String message) {
     this.action = action;
     this.message = message;
   }
 
-  public ActionMetadata getActionMetadata() {
+  public ActionExecutionMetadata getActionMetadata() {
     return action;
   }
 
@@ -38,22 +38,23 @@ public class ActionStatusMessage {
   }
 
   /** Creates "Analyzing" status message. */
-  public static ActionStatusMessage analysisStrategy(ActionMetadata action) {
+  public static ActionStatusMessage analysisStrategy(ActionExecutionMetadata action) {
     return new ActionStatusMessage(action, "Analyzing");
   }
 
   /** Creates "Preparing" status message. */
-  public static ActionStatusMessage preparingStrategy(ActionMetadata action) {
+  public static ActionStatusMessage preparingStrategy(ActionExecutionMetadata action) {
     return new ActionStatusMessage(action, PREPARING);
   }
 
   /** Creates "Scheduling" status message. */
-  public static ActionStatusMessage schedulingStrategy(ActionMetadata action) {
+  public static ActionStatusMessage schedulingStrategy(ActionExecutionMetadata action) {
     return new ActionStatusMessage(action, "Scheduling");
   }
 
   /** Creates "Running (strategy)" status message. */
-  public static ActionStatusMessage runningStrategy(ActionMetadata action, String strategy) {
+  public static ActionStatusMessage runningStrategy(
+      ActionExecutionMetadata action, String strategy) {
     return new ActionStatusMessage(action, String.format("Running (%s)", strategy));
   }
 }

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionRegistry;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MiddlemanFactory;
@@ -105,13 +106,13 @@ public interface AnalysisEnvironment extends ActionRegistry {
    * If the artifact was created in another analysis environment (e.g. by a different configured
    * target instance) or the artifact is a source artifact, it returns null.
    */
-  Action getLocalGeneratingAction(Artifact artifact);
+  ActionAnalysisMetadata getLocalGeneratingAction(Artifact artifact);
 
   /**
    * Returns the actions that were registered so far with this analysis environment, that is, all
    * the actions that were created by the current target being analyzed.
    */
-  Iterable<Action> getRegisteredActions();
+  Iterable<ActionAnalysisMetadata> getRegisteredActions();
 
   /**
    * Returns the Skyframe SkyFunction.Environment if available. Otherwise, null.

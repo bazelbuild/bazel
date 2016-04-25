@@ -24,6 +24,7 @@ import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionCacheChecker;
 import com.google.devtools.build.lib.actions.ActionExecutionStatusReporter;
 import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
@@ -188,7 +189,9 @@ public abstract class TimestampBuilderTestCase extends FoundationTestCase {
     return new Builder() {
       private void setGeneratingActions() {
         if (evaluator.getExistingValueForTesting(OWNER_KEY) == null) {
-          differencer.inject(ImmutableMap.of(OWNER_KEY, new ActionLookupValue(actions)));
+          differencer.inject(ImmutableMap.of(
+              OWNER_KEY,
+              new ActionLookupValue(ImmutableList.<ActionAnalysisMetadata>copyOf(actions))));
         }
       }
 

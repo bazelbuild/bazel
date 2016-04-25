@@ -49,7 +49,7 @@ public final class ActionInputHelper {
         // going away anyway.
         Preconditions.checkArgument(mm.isMiddlemanArtifact(),
             "%s is not a middleman artifact", mm);
-        Action middlemanAction = actionGraph.getGeneratingAction(mm);
+        ActionAnalysisMetadata middlemanAction = actionGraph.getGeneratingAction(mm);
         Preconditions.checkState(middlemanAction != null, mm);
         // TODO(bazel-team): Consider expanding recursively or throwing an exception here.
         // Most likely, this code will cause silent errors if we ever have a middleman that

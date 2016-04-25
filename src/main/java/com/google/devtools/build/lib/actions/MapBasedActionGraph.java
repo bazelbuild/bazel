@@ -24,19 +24,19 @@ import javax.annotation.concurrent.ThreadSafe;
  */
 @ThreadSafe
 public final class MapBasedActionGraph implements MutableActionGraph {
-  private final ConcurrentMultimapWithHeadElement<Artifact, Action> generatingActionMap =
-      new ConcurrentMultimapWithHeadElement<>();
+  private final ConcurrentMultimapWithHeadElement<Artifact, ActionAnalysisMetadata>
+      generatingActionMap = new ConcurrentMultimapWithHeadElement<>();
 
   @Override
   @Nullable
-  public Action getGeneratingAction(Artifact artifact) {
+  public ActionAnalysisMetadata getGeneratingAction(Artifact artifact) {
     return generatingActionMap.get(artifact);
   }
 
   @Override
-  public void registerAction(Action action) throws ActionConflictException {
+  public void registerAction(ActionAnalysisMetadata action) throws ActionConflictException {
     for (Artifact artifact : action.getOutputs()) {
-      Action previousAction = generatingActionMap.putAndGet(artifact, action);
+      ActionAnalysisMetadata previousAction = generatingActionMap.putAndGet(artifact, action);
       if (previousAction != null && previousAction != action
           && !Actions.canBeShared(action, previousAction)) {
         generatingActionMap.remove(artifact, action);
@@ -46,10 +46,10 @@ public final class MapBasedActionGraph implements MutableActionGraph {
   }
 
   @Override
-  public void unregisterAction(Action action) {
+  public void unregisterAction(ActionAnalysisMetadata action) {
     for (Artifact artifact : action.getOutputs()) {
       generatingActionMap.remove(artifact, action);
-      Action otherAction = generatingActionMap.get(artifact);
+      ActionAnalysisMetadata otherAction = generatingActionMap.get(artifact);
       Preconditions.checkState(otherAction == null
           || (otherAction != action && Actions.canBeShared(action, otherAction)),
           "%s %s", action, otherAction);

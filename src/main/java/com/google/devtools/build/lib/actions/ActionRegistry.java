@@ -23,7 +23,7 @@ public interface ActionRegistry {
   /**
    * This method notifies the registry new actions.
    */
-  void registerAction(Action... actions);
+  void registerAction(ActionAnalysisMetadata... actions);
 
   /**
    * Get the (Label and BuildConfiguration) of the ConfiguredTarget ultimately responsible for all
@@ -37,7 +37,7 @@ public interface ActionRegistry {
   @VisibleForTesting
   public static final ActionRegistry NOP = new ActionRegistry() {
     @Override
-    public void registerAction(Action... actions) {}
+    public void registerAction(ActionAnalysisMetadata... actions) {}
 
     @Override
     public ArtifactOwner getOwner() {

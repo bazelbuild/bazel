@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.actions;
 
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action.MiddlemanType;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata.MiddlemanType;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.util.Pair;

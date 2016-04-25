@@ -34,5 +34,5 @@ public interface ActionGraph {
    * are unknown.
    */
   @Nullable
-  Action getGeneratingAction(Artifact artifact);
+  ActionAnalysisMetadata getGeneratingAction(Artifact artifact);
 }

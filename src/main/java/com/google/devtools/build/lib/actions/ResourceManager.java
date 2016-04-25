@@ -61,16 +61,16 @@ import java.util.concurrent.CountDownLatch;
 public class ResourceManager {
 
   /**
-   * A handle returned by {@link #acquireResources(ActionMetadata, ResourceSet)} that must be closed
-   * in order to free the resources again.
+   * A handle returned by {@link #acquireResources(ActionExecutionMetadata, ResourceSet)} that must
+   * be closed in order to free the resources again.
    */
   public static class ResourceHandle implements AutoCloseable {
     final ResourceManager rm;
-    final ActionMetadata actionMetadata;
+    final ActionExecutionMetadata actionMetadata;
     final ResourceSet resourceSet;
 
-    public ResourceHandle(
-        ResourceManager rm, ActionMetadata actionMetadata, ResourceSet resources) {
+    public ResourceHandle(ResourceManager rm, ActionExecutionMetadata actionMetadata,
+        ResourceSet resources) {
       this.rm = rm;
       this.actionMetadata = actionMetadata;
       this.resourceSet = resources;
@@ -200,7 +200,7 @@ public class ResourceManager {
    * Acquires requested resource set. Will block if resource is not available.
    * NB! This method must be thread-safe!
    */
-  public ResourceHandle acquireResources(ActionMetadata owner, ResourceSet resources)
+  public ResourceHandle acquireResources(ActionExecutionMetadata owner, ResourceSet resources)
       throws InterruptedException {
     Preconditions.checkNotNull(resources);
     AutoProfiler p = profiled(owner, ProfilerTask.ACTION_LOCK);
@@ -228,7 +228,7 @@ public class ResourceManager {
    * Acquires the given resources if available immediately. Does not block.
    * @return true iff the given resources were locked (all or nothing).
    */
-  public boolean tryAcquire(ActionMetadata owner, ResourceSet resources) {
+  public boolean tryAcquire(ActionExecutionMetadata owner, ResourceSet resources) {
     boolean acquired = false;
     synchronized (this) {
       if (areResourcesAvailable(resources)) {
@@ -279,14 +279,14 @@ public class ResourceManager {
     this.eventBus = null;
   }
 
-  private void waiting(ActionMetadata owner) {
+  private void waiting(ActionExecutionMetadata owner) {
     if (eventBus != null) {
       // Null only in tests.
       eventBus.post(ActionStatusMessage.schedulingStrategy(owner));
     }
   }
 
-  private void acquired(ActionMetadata owner) {
+  private void acquired(ActionExecutionMetadata owner) {
     if (eventBus != null) {
       // Null only in tests.
       eventBus.post(ActionStatusMessage.runningStrategy(owner, "unknown"));
@@ -298,7 +298,7 @@ public class ResourceManager {
    *
    * <p>NB! This method must be thread-safe!
    */
-  public void releaseResources(ActionMetadata owner, ResourceSet resources) {
+  public void releaseResources(ActionExecutionMetadata owner, ResourceSet resources) {
     boolean isConflict = false;
     AutoProfiler p = profiled(owner, ProfilerTask.ACTION_RELEASE);
     try {

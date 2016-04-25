@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
@@ -46,12 +46,13 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
 
   // We overload this variable to check whether the value has been clear()ed. We don't use a
   // separate variable in order to save memory.
-  @Nullable private volatile Iterable<Action> actions;
+  @Nullable private volatile Iterable<ActionAnalysisMetadata> actions;
 
   private final NestedSet<Package> transitivePackages;
 
   ConfiguredTargetValue(ConfiguredTarget configuredTarget,
-      Map<Artifact, Action> generatingActionMap, NestedSet<Package> transitivePackages) {
+      Map<Artifact, ActionAnalysisMetadata> generatingActionMap,
+      NestedSet<Package> transitivePackages) {
     super(generatingActionMap);
     this.configuredTarget = configuredTarget;
     this.actions = generatingActionMap.values();
@@ -65,7 +66,7 @@ public final class ConfiguredTargetValue extends ActionLookupValue {
   }
 
   @VisibleForTesting
-  public Iterable<Action> getActions() {
+  public Iterable<ActionAnalysisMetadata> getActions() {
     return Preconditions.checkNotNull(actions, configuredTarget);
   }
 
