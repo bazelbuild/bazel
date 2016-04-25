@@ -109,6 +109,7 @@ def _build_layer(ctx):
       arguments = args,
       inputs = ctx.files.files + ctx.files.tars + ctx.files.debs,
       outputs = [layer],
+      use_default_shell_env=True,
       mnemonic="DockerLayer"
       )
   return layer
