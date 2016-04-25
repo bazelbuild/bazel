@@ -34,7 +34,7 @@ import javax.annotation.Nullable;
     + "<a href=\"objc.html\">objc</a>. "
     + "Access a specific fragment by its field name ex:</p><code>ctx.fragments.apple</code></p>"
     + "Note that rules have to declare their required fragments in order to access them "
-    + "(see <a href=\"../rules.html#fragments\">here</a>).")
+    + "(see <a href=\"../rules.md#fragments\">here</a>).")
 public class FragmentCollection implements ClassObject {
   private final RuleContext ruleContext;
   private final ConfigurationTransition config;
