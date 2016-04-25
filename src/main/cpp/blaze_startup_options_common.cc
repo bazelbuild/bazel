@@ -213,9 +213,9 @@ blaze_exit_code::ExitCode BlazeStartupOptions::ProcessArg(
   } else if (GetNullaryOption(arg, "--noexperimental_oom_more_eagerly")) {
     oom_more_eagerly = false;
     option_sources["experimental_oom_more_eagerly"] = rcfile;
-  } else if (GetUnaryOption(arg, next_arg,
-                            "--experimental_oom_more_eagerly_threshold") !=
-             NULL) {
+  } else if ((value = GetUnaryOption(
+                  arg, next_arg,
+                  "--experimental_oom_more_eagerly_threshold")) != NULL) {
     if (!blaze_util::safe_strto32(value, &oom_more_eagerly_threshold) ||
         oom_more_eagerly_threshold < 0) {
       blaze_util::StringPrintf(error,
