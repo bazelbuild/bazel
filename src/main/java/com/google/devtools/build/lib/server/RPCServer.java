@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.server;
 import com.google.devtools.build.lib.runtime.CommandExecutor;
 import com.google.devtools.build.lib.util.Clock;
 import com.google.devtools.build.lib.util.OsUtils;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -51,7 +51,7 @@ public abstract class RPCServer {
     } catch (IOException e) {
       // Ignore.
     }
-    pidFile.createSymbolicLink(new PathFragment(String.valueOf(OsUtils.getpid())));
+    FileSystemUtils.writeContentAsLatin1(pidFile, String.valueOf(OsUtils.getpid()));
   }
 
   /**

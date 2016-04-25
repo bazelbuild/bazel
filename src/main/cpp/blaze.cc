@@ -855,16 +855,34 @@ static void WriteFileToStreamOrDie(FILE *stream, const char *file_name) {
 static int GetServerPid(const string &pid_file) {
   // Note: there is no race here on startup since the server creates
   // the pid file strictly before it binds the socket.
-  char buf[16];
-  auto len = readlink(pid_file.c_str(), buf, sizeof(buf) - 1);
-  if (len > 0) {
-    buf[len] = '\0';
-    return atoi(buf);
-  } else {
-    return -1;
-    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-         "can't get server pid from connection");
+
+  char buf[33];
+
+  // The server writes a file, but we need to handle old servers that still
+  // write a symlink.
+  // TODO(lberki): Remove the readlink() call when there is no chance of an old
+  // server lingering around. Probably safe after 2016.06.01.
+  int len;
+  len = readlink(pid_file.c_str(), buf, sizeof(buf) - 1);
+  if (len < 0) {
+    int fd = open(pid_file.c_str(), O_RDONLY);
+    if (fd < 0) {
+      return -1;
+    }
+    len = read(fd, buf, 32);
+    close(fd);
+    if (len < 0) {
+      return -1;
+    }
   }
+
+  int result;
+  buf[len] = 0;
+  if (!blaze_util::safe_strto32(string(buf), &result)) {
+    return -1;
+  }
+
+  return result;
 }
 
 // Connects to the Blaze server, returning the socket, or -1 if no
