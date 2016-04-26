@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
@@ -38,6 +37,11 @@ import com.google.devtools.build.lib.vfs.PathFragment;
  * have not yet been released into open-source.
  */
 public class BazelJ2ObjcProtoAspect extends AbstractJ2ObjcProtoAspect {
+  public static final String NAME = "BazelJ2ObjcProtoAspect";
+
+  public BazelJ2ObjcProtoAspect(String toolsRepository) {
+    super(toolsRepository);
+  }
 
   @Override
   protected AspectDefinition.Builder addAdditionalAttributes(AspectDefinition.Builder builder) {
@@ -46,17 +50,17 @@ public class BazelJ2ObjcProtoAspect extends AbstractJ2ObjcProtoAspect {
             .cfg(HOST)
             .exec()
             .value(Label.parseAbsoluteUnchecked(
-                Constants.TOOLS_REPOSITORY + "//tools/objc:compile_protos")))
+                toolsRepository + "//tools/objc:compile_protos")))
         .add(attr("$protoc_support_darwin", LABEL)
             .cfg(HOST)
             .exec()
             .value(Label.parseAbsoluteUnchecked(
-                Constants.TOOLS_REPOSITORY + "//tools/objc:proto_support")))
+                toolsRepository + "//tools/objc:proto_support")))
         .add(attr("$j2objc_plugin", LABEL)
             .cfg(HOST)
             .exec()
             .value(Label.parseAbsoluteUnchecked(
-                Constants.TOOLS_REPOSITORY + "//third_party/java/j2objc:proto_plugin")));
+                toolsRepository + "//third_party/java/j2objc:proto_plugin")));
   }
 
   @Override

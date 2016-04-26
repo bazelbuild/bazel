@@ -35,6 +35,15 @@ import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
  * Rule definition for the android_library rule.
  */
 public final class AndroidLibraryBaseRule implements RuleDefinition {
+  private final AndroidNeverlinkAspect androidNeverlinkAspect;
+  private final JackAspect jackAspect;
+
+  public AndroidLibraryBaseRule(AndroidNeverlinkAspect androidNeverlinkAspect,
+      JackAspect jackAspect) {
+    this.androidNeverlinkAspect = androidNeverlinkAspect;
+    this.jackAspect = jackAspect;
+  }
+
   @Override
   public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
     return builder
@@ -73,8 +82,8 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         .override(builder.copy("deps")
             .allowedRuleClasses(AndroidRuleClasses.ALLOWED_DEPENDENCIES)
             .allowedFileTypes()
-            .aspect(JackAspect.class)
-            .aspect(AndroidNeverlinkAspect.class))
+            .aspect(jackAspect)
+            .aspect(androidNeverlinkAspect))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(exports) -->
         The closure of all rules reached via <code>exports</code> attributes
         are considered direct dependencies of any rule that directly depends on the
@@ -84,8 +93,8 @@ public final class AndroidLibraryBaseRule implements RuleDefinition {
         .add(attr("exports", LABEL_LIST)
             .allowedRuleClasses(AndroidRuleClasses.ALLOWED_DEPENDENCIES)
             .allowedFileTypes(/*May not have files in exports!*/)
-            .aspect(JackAspect.class)
-            .aspect(AndroidNeverlinkAspect.class))
+            .aspect(jackAspect)
+            .aspect(androidNeverlinkAspect))
         .add(attr("alwayslink", BOOLEAN).undocumented("purely informational for now"))
         /* <!-- #BLAZE_RULE(android_library).ATTRIBUTE(neverlink) -->
         Only use this library for compilation and not at runtime.

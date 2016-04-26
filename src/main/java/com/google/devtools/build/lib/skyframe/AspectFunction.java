@@ -99,7 +99,7 @@ public final class AspectFunction implements SkyFunction {
       if (skylarkImportLookupValue == null) {
         return null;
       }
-  
+
       Object skylarkValue = skylarkImportLookupValue.getEnvironmentExtension()
           .get(skylarkValueName);
       if (!(skylarkValue instanceof SkylarkAspect)) {
@@ -123,10 +123,9 @@ public final class AspectFunction implements SkyFunction {
     AspectKey key = (AspectKey) skyKey.argument();
     ConfiguredAspectFactory aspectFactory;
     Aspect aspect;
-    if (key.getAspectClass() instanceof NativeAspectClass<?>) {
-      NativeAspectClass<?> nativeAspectClass = (NativeAspectClass<?>) key.getAspectClass();
-      aspectFactory =
-          (ConfiguredAspectFactory) nativeAspectClass.newInstance();
+    if (key.getAspectClass() instanceof NativeAspectClass) {
+      NativeAspectClass nativeAspectClass = (NativeAspectClass) key.getAspectClass();
+      aspectFactory = (ConfiguredAspectFactory) nativeAspectClass;
       aspect = Aspect.forNative(nativeAspectClass, key.getParameters());
     } else if (key.getAspectClass() instanceof SkylarkAspectClass) {
       SkylarkAspectClass skylarkAspectClass = (SkylarkAspectClass) key.getAspectClass();

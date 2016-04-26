@@ -23,12 +23,8 @@ import com.google.common.testing.NullPointerTester;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.analysis.util.TestAspects;
-import com.google.devtools.build.lib.analysis.util.TestAspects.AttributeAspect;
-import com.google.devtools.build.lib.analysis.util.TestAspects.SimpleAspect;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition;
-import com.google.devtools.build.lib.packages.NativeAspectClass;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -84,10 +80,8 @@ public class DependencyTest extends AnalysisTestCase {
   @Test
   public void withConfigurationAndAspects_BasicAccessors() throws Exception {
     update();
-    AspectDescriptor simpleAspect = new AspectDescriptor(
-        new NativeAspectClass<SimpleAspect>(SimpleAspect.class));
-    AspectDescriptor attributeAspect = new AspectDescriptor(
-        new NativeAspectClass<AttributeAspect>(AttributeAspect.class));
+    AspectDescriptor simpleAspect = new AspectDescriptor(TestAspects.SIMPLE_ASPECT);
+    AspectDescriptor attributeAspect = new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT);
     ImmutableSet<AspectDescriptor> twoAspects = ImmutableSet.of(simpleAspect, attributeAspect);
     Dependency targetDep =
         Dependency.withConfigurationAndAspects(
@@ -130,10 +124,8 @@ public class DependencyTest extends AnalysisTestCase {
   public void withConfigurationAndAspects_RejectsNullConfigWithNPE() throws Exception {
     // Although the NullPointerTester should check this, this test invokes a different code path,
     // because it includes aspects (which the NPT test will not).
-    AspectDescriptor simpleAspect = new AspectDescriptor(
-        new NativeAspectClass<SimpleAspect>(SimpleAspect.class));
-    AspectDescriptor attributeAspect = new AspectDescriptor(
-        new NativeAspectClass<AttributeAspect>(AttributeAspect.class));
+    AspectDescriptor simpleAspect = new AspectDescriptor(TestAspects.SIMPLE_ASPECT);
+    AspectDescriptor attributeAspect = new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT);
     ImmutableSet<AspectDescriptor> twoAspects = ImmutableSet.of(simpleAspect, attributeAspect);
 
     try {
@@ -160,10 +152,8 @@ public class DependencyTest extends AnalysisTestCase {
   @Test
   public void withConfiguredAspects_BasicAccessors() throws Exception {
     update();
-    AspectDescriptor simpleAspect = new AspectDescriptor(
-        new NativeAspectClass<TestAspects.SimpleAspect>(TestAspects.SimpleAspect.class));
-    AspectDescriptor attributeAspect = new AspectDescriptor(
-        new NativeAspectClass<AttributeAspect>(AttributeAspect.class));
+    AspectDescriptor simpleAspect = new AspectDescriptor(TestAspects.SIMPLE_ASPECT);
+    AspectDescriptor attributeAspect = new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT);
     ImmutableMap<AspectDescriptor, BuildConfiguration> twoAspectMap = ImmutableMap.of(
         simpleAspect, getTargetConfiguration(), attributeAspect, getHostConfiguration());
     Dependency targetDep =
@@ -200,10 +190,8 @@ public class DependencyTest extends AnalysisTestCase {
 
   @Test
   public void withTransitionAndAspects_BasicAccessors() throws Exception {
-    AspectDescriptor simpleAspect = new AspectDescriptor(
-        new NativeAspectClass<>(SimpleAspect.class));
-    AspectDescriptor attributeAspect = new AspectDescriptor(
-        new NativeAspectClass<>(AttributeAspect.class));
+    AspectDescriptor simpleAspect = new AspectDescriptor(TestAspects.SIMPLE_ASPECT);
+    AspectDescriptor attributeAspect = new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT);
     ImmutableSet<AspectDescriptor> twoAspects = ImmutableSet.of(simpleAspect, attributeAspect);
     Dependency hostDep =
         Dependency.withTransitionAndAspects(
@@ -262,12 +250,9 @@ public class DependencyTest extends AnalysisTestCase {
     BuildConfiguration host = getHostConfiguration();
     BuildConfiguration target = getTargetConfiguration();
 
-    AspectDescriptor simpleAspect = new AspectDescriptor(
-        new NativeAspectClass<>(TestAspects.SimpleAspect.class));
-    AspectDescriptor attributeAspect = new AspectDescriptor(
-        new NativeAspectClass<>(TestAspects.AttributeAspect.class));
-    AspectDescriptor errorAspect = new AspectDescriptor(
-        new NativeAspectClass<>(TestAspects.ErrorAspect.class));
+    AspectDescriptor simpleAspect = new AspectDescriptor(TestAspects.SIMPLE_ASPECT);
+    AspectDescriptor attributeAspect = new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT);
+    AspectDescriptor errorAspect = new AspectDescriptor(TestAspects.ERROR_ASPECT);
 
     ImmutableSet<AspectDescriptor> twoAspects = ImmutableSet.of(simpleAspect, attributeAspect);
     ImmutableSet<AspectDescriptor> inverseAspects = ImmutableSet.of(attributeAspect, simpleAspect);

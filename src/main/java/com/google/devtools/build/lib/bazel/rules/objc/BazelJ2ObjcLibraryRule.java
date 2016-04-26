@@ -32,6 +32,11 @@ import com.google.devtools.build.lib.rules.objc.ObjcConfiguration;
  * Concrete implementation of J2ObjCLibraryBaseRule.
  */
 public class BazelJ2ObjcLibraryRule implements RuleDefinition {
+  private final J2ObjcAspect j2ObjcAspect;
+
+  public BazelJ2ObjcLibraryRule(J2ObjcAspect j2ObjcAspect) {
+    this.j2ObjcAspect = j2ObjcAspect;
+  }
 
   @Override
   public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -62,7 +67,7 @@ public class BazelJ2ObjcLibraryRule implements RuleDefinition {
           </p>
           <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
         .add(attr("deps", LABEL_LIST)
-            .aspect(J2ObjcAspect.class)
+            .aspect(j2ObjcAspect)
             .direct_compile_time_input()
             .allowedRuleClasses("j2objc_library", "java_library", "java_import")
             .allowedFileTypes())

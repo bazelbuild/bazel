@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.NativeAspectClass.NativeAspectFactory;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Mutability;
@@ -66,7 +65,7 @@ public interface RuleClassProvider {
   /**
    * Returns a map from aspect names to aspect factory objects.
    */
-  Map<String, Class<? extends NativeAspectFactory>> getAspectFactoryMap();
+  Map<String, NativeAspectClass> getNativeAspectClassMap();
 
   /**
    * Returns the default content that should be added at the beginning of the WORKSPACE file.
@@ -88,4 +87,9 @@ public interface RuleClassProvider {
    * Returns the path to the tools repository
    */
   String getToolsRepository();
+
+  /**
+   * Retrieves an aspect from the aspect factory map using the key provided
+   */
+  NativeAspectClass getNativeAspectClass(String key);
 }

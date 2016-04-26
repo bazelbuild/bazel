@@ -20,51 +20,13 @@ package com.google.devtools.build.lib.packages;
  * <p>This class just wraps a {@link java.lang.Class} implementing the
  * aspect factory. All wrappers of the same class are equal.
  */
-public final class NativeAspectClass<T extends NativeAspectClass.NativeAspectFactory>
-    implements AspectClass {
-  private final Class<? extends T> nativeClass;
-
-  public NativeAspectClass(Class<? extends T> nativeClass) {
-    this.nativeClass = nativeClass;
-  }
+public abstract class NativeAspectClass implements AspectClass {
 
   @Override
   public String getName() {
-    return nativeClass.getSimpleName();
+    return getClass().getSimpleName();
   }
 
-  public AspectDefinition getDefinition(AspectParameters aspectParameters) {
-    return newInstance().getDefinition(aspectParameters);
-  }
+  public abstract AspectDefinition getDefinition(AspectParameters aspectParameters);
 
-  public T newInstance() {
-    try {
-      return nativeClass.newInstance();
-    } catch (Exception e) {
-      throw new IllegalStateException(e);
-    }
-  }
-
-  @Override
-  public int hashCode() {
-    return nativeClass.hashCode();
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (!(obj instanceof NativeAspectClass)) {
-      return false;
-    }
-    return nativeClass.equals(((NativeAspectClass<?>) obj).nativeClass);
-  }
-
-  /**
-   * Every native aspect should implement this interface.
-   */
-  public interface NativeAspectFactory {
-    /**
-     * Returns the definition of the aspect.
-     */
-    AspectDefinition getDefinition(AspectParameters aspectParameters);
-  }
 }

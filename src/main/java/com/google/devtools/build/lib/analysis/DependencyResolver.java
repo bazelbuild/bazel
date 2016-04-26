@@ -484,9 +484,9 @@ public abstract class DependencyResolver {
           aspect.getDefinition().getAttributeAspects().get(attribute.getName())) {
         if (aspectClass.equals(aspect.getAspectClass())) {
           aspectCandidates.add(aspect);
-        } else if (aspectClass instanceof NativeAspectClass<?>) {
+        } else if (aspectClass instanceof NativeAspectClass) {
           aspectCandidates.add(
-              Aspect.forNative((NativeAspectClass<?>) aspectClass, aspect.getParameters()));
+              Aspect.forNative((NativeAspectClass) aspectClass, aspect.getParameters()));
         } else {
           // If we ever want to support this specifying arbitrary aspects for Skylark aspects,
           // we will need to do a Skyframe call here to load an up-to-date definition.

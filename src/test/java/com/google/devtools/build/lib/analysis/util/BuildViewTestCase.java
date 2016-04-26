@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildView;
 import com.google.devtools.build.lib.analysis.BuildView.AnalysisResult;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
-import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredAttributeMapper;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -548,7 +547,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return getGeneratingSpawnAction(
         Iterables.find(getFilesToBuild(target), artifactNamed(outputName)));
   }
- 
+
   protected void simulateLoadingPhase() {
     try {
       ensureTargetsVisited(targetConfig.getAllLabels().values());
@@ -922,7 +921,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * is creating an Artifact.
    */
   protected Artifact getBinArtifact(String packageRelativePath, ConfiguredTarget owner,
-      Class<? extends ConfiguredAspectFactory> creatingAspectFactory) {
+      NativeAspectClass creatingAspectFactory) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
         owner.getConfiguration().getBinDirectory(),
@@ -931,7 +930,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                     owner.getLabel(),
                     owner.getConfiguration(),
                     owner.getConfiguration(),
-                    new NativeAspectClass(creatingAspectFactory),
+                    creatingAspectFactory,
                     AspectParameters.EMPTY)
                 .argument());
   }
@@ -988,7 +987,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    * is creating an Artifact.
    */
   protected Artifact getGenfilesArtifact(String packageRelativePath, ConfiguredTarget owner,
-      Class<? extends ConfiguredAspectFactory> creatingAspectFactory) {
+      NativeAspectClass creatingAspectFactory) {
     return getGenfilesArtifact(
         packageRelativePath, owner, creatingAspectFactory, AspectParameters.EMPTY);
   }
@@ -996,7 +995,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected Artifact getGenfilesArtifact(
       String packageRelativePath,
       ConfiguredTarget owner,
-      Class<? extends ConfiguredAspectFactory> creatingAspectFactory,
+      NativeAspectClass creatingAspectFactory,
       AspectParameters params) {
     return getPackageRelativeDerivedArtifact(
         packageRelativePath,
@@ -1006,7 +1005,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
                     owner.getLabel(),
                     owner.getConfiguration(),
                     owner.getConfiguration(),
-                    new NativeAspectClass(creatingAspectFactory),
+                    creatingAspectFactory,
                     params)
                 .argument());
   }

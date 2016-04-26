@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.io.ByteSource;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -35,7 +34,7 @@ import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect.Builder;
-import com.google.devtools.build.lib.analysis.ConfiguredNativeAspectFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -59,6 +58,7 @@ import com.google.devtools.build.lib.ideinfo.androidstudio.AndroidStudioIdeInfo.
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
@@ -86,7 +86,7 @@ import javax.annotation.Nullable;
 /**
  * Generates ide-build information for Android Studio.
  */
-public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
+public class AndroidStudioInfoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
   public static final String NAME = "AndroidStudioInfoAspect";
 
   // Output groups.
@@ -94,6 +94,11 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
   public static final String IDE_INFO = "ide-info";
   public static final String IDE_INFO_TEXT = "ide-info-text";
   public static final String IDE_RESOLVE = "ide-resolve";
+  private final String toolsRepository;
+
+  public AndroidStudioInfoAspect(String toolsRepository) {
+    this.toolsRepository = toolsRepository;
+  }
 
   private static class PrerequisiteAttr {
     public final String name;
@@ -129,14 +134,14 @@ public class AndroidStudioInfoAspect implements ConfiguredNativeAspectFactory {
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     AspectDefinition.Builder builder = new AspectDefinition.Builder(NAME)
-        .attributeAspect("runtime_deps", AndroidStudioInfoAspect.class)
-        .attributeAspect("resources", AndroidStudioInfoAspect.class)
+        .attributeAspect("runtime_deps", this)
+        .attributeAspect("resources", this)
         .add(attr("$packageParser", LABEL).cfg(HOST).exec()
             .value(Label.parseAbsoluteUnchecked(
-                Constants.TOOLS_REPOSITORY + "//tools/android:PackageParser")));
+                toolsRepository + "//tools/android:PackageParser")));
 
     for (PrerequisiteAttr prerequisiteAttr : PREREQUISITE_ATTRS) {
-      builder.attributeAspect(prerequisiteAttr.name, AndroidStudioInfoAspect.class);
+      builder.attributeAspect(prerequisiteAttr.name, this);
     }
 
     return builder.build();

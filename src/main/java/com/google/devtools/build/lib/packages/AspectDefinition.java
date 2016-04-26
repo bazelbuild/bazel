@@ -23,7 +23,6 @@ import com.google.common.collect.Multimap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.ConfigurationFragmentPolicy.MissingFragmentPolicy;
-import com.google.devtools.build.lib.packages.NativeAspectClass.NativeAspectFactory;
 import com.google.devtools.build.lib.util.Preconditions;
 
 import java.util.Collection;
@@ -249,13 +248,10 @@ public final class AspectDefinition {
      * but we cannot reference that interface here.
      */
     @SafeVarargs
-    public final Builder attributeAspect(
-        String attribute, Class<? extends NativeAspectFactory>... aspectFactories) {
+    public final Builder attributeAspect(String attribute, NativeAspectClass... aspectClasses) {
       Preconditions.checkNotNull(attribute);
-      for (Class<? extends NativeAspectFactory> aspectFactory : aspectFactories) {
-        this
-            .attributeAspect(
-                attribute, new NativeAspectClass<>(Preconditions.checkNotNull(aspectFactory)));
+      for (NativeAspectClass aspectClass : aspectClasses) {
+        this.attributeAspect(attribute, Preconditions.checkNotNull(aspectClass));
       }
       return this;
     }

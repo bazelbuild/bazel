@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.graph.Digraph;
 import com.google.devtools.build.lib.graph.Node;
 import com.google.devtools.build.lib.packages.Attribute;
-import com.google.devtools.build.lib.packages.NativeAspectClass.NativeAspectFactory;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.rules.RuleConfiguredTargetFactory;
@@ -93,7 +93,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     private final Map<String, RuleClass> ruleClassMap = new HashMap<>();
     private final Map<String, RuleDefinition> ruleDefinitionMap = new HashMap<>();
-    private final Map<String, Class<? extends NativeAspectFactory>> aspectFactoryMap =
+    private final Map<String, NativeAspectClass> nativeAspectClassMap =
         new HashMap<>();
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph =
@@ -161,10 +161,8 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       return this;
     }
 
-    public Builder addAspectFactory(
-        String name, Class<? extends ConfiguredNativeAspectFactory> configuredAspectFactoryClass) {
-      aspectFactoryMap.put(name, configuredAspectFactoryClass);
-
+    public Builder addNativeAspectClass(NativeAspectClass aspectFactoryClass) {
+      nativeAspectClassMap.put(aspectFactoryClass.getName(), aspectFactoryClass);
       return this;
     }
 
@@ -264,7 +262,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
           toolsRepository,
           ImmutableMap.copyOf(ruleClassMap),
           ImmutableMap.copyOf(ruleDefinitionMap),
-          ImmutableMap.copyOf(aspectFactoryMap),
+          ImmutableMap.copyOf(nativeAspectClassMap),
           defaultWorkspaceFilePrefix.toString(),
           defaultWorkspaceFileSuffix.toString(),
           ImmutableList.copyOf(buildInfoFactories),
@@ -344,7 +342,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   /**
    * Maps aspect name to the aspect factory meta class.
    */
-  private final ImmutableMap<String, Class<? extends NativeAspectFactory>> aspectFactoryMap;
+  private final ImmutableMap<String, NativeAspectClass> nativeAspectClassMap;
 
   /**
    * The configuration options that affect the behavior of the rules.
@@ -381,7 +379,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       String toolsRepository,
       ImmutableMap<String, RuleClass> ruleClassMap,
       ImmutableMap<String, RuleDefinition> ruleDefinitionMap,
-      ImmutableMap<String, Class<? extends NativeAspectFactory>> aspectFactoryMap,
+      ImmutableMap<String, NativeAspectClass> nativeAspectClassMap,
       String defaultWorkspaceFilePrefix,
       String defaultWorkspaceFileSuffix,
       ImmutableList<BuildInfoFactory> buildInfoFactories,
@@ -398,7 +396,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     this.toolsRepository = toolsRepository;
     this.ruleClassMap = ruleClassMap;
     this.ruleDefinitionMap = ruleDefinitionMap;
-    this.aspectFactoryMap = aspectFactoryMap;
+    this.nativeAspectClassMap = nativeAspectClassMap;
     this.defaultWorkspaceFilePrefix = defaultWorkspaceFilePrefix;
     this.defaultWorkspaceFileSuffix = defaultWorkspaceFileSuffix;
     this.buildInfoFactories = buildInfoFactories;
@@ -436,8 +434,13 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   }
 
   @Override
-  public Map<String, Class<? extends NativeAspectFactory>> getAspectFactoryMap() {
-    return aspectFactoryMap;
+  public Map<String, NativeAspectClass> getNativeAspectClassMap() {
+    return nativeAspectClassMap;
+  }
+
+  @Override
+  public NativeAspectClass getNativeAspectClass(String key) {
+    return nativeAspectClassMap.get(key);
   }
 
   /**

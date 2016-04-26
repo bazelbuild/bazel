@@ -16,11 +16,11 @@ package com.google.devtools.build.lib.analysis;
 import com.google.common.testing.EqualsTester;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.analysis.util.TestAspects;
 import com.google.devtools.build.lib.analysis.util.TestAspects.AttributeAspect;
 import com.google.devtools.build.lib.analysis.util.TestAspects.ExtraAttributeAspect;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.skyframe.AspectValue;
 
 import org.junit.Test;
@@ -50,12 +50,9 @@ public class AspectValueTest extends AnalysisTestCase {
     AspectParameters i2 = new AspectParameters.Builder()
         .addAttribute("foo", "baz")
         .build();
-    NativeAspectClass<AttributeAspect> a1 =
-        new NativeAspectClass<AttributeAspect>(AttributeAspect.class);
-    NativeAspectClass<AttributeAspect> a1b =
-        new NativeAspectClass<AttributeAspect>(AttributeAspect.class);
-    NativeAspectClass<ExtraAttributeAspect> a2 =
-        new NativeAspectClass<ExtraAttributeAspect>(ExtraAttributeAspect.class);
+    AttributeAspect a1 = TestAspects.ATTRIBUTE_ASPECT;
+    AttributeAspect a1b = TestAspects.ATTRIBUTE_ASPECT;
+    ExtraAttributeAspect a2 = TestAspects.EXTRA_ATTRIBUTE_ASPECT;
 
     // label: //a:l1 or //a:l2
     // aspectConfiguration: target or host

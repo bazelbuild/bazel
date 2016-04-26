@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.NativeAspectClass.NativeAspectFactory;
 import com.google.devtools.build.lib.skylarkinterface.SkylarkModule;
 import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.ClassObject.SkylarkClassObject;
@@ -73,8 +72,8 @@ public final class Attribute implements Comparable<Attribute> {
     public abstract Aspect getAspect(Rule rule);
   }
 
-  private static class NativeRuleAspect extends RuleAspect<NativeAspectClass<?>> {
-    public NativeRuleAspect(NativeAspectClass<?> aspectClass,
+  private static class NativeRuleAspect extends RuleAspect<NativeAspectClass> {
+    public NativeRuleAspect(NativeAspectClass aspectClass,
         Function<Rule, AspectParameters> parametersExtractor) {
       super(aspectClass, parametersExtractor);
     }
@@ -151,7 +150,7 @@ public final class Attribute implements Comparable<Attribute> {
     // TODO(bazel-team): Move this elsewhere.
     DATA,
 
-    /** 
+    /**
      * Transition to one or more configurations. To obtain the actual child configurations,
      * invoke {@link Attribute#getSplitTransition(Rule)}. See {@link SplitTransition}.
      **/
@@ -297,7 +296,7 @@ public final class Attribute implements Comparable<Attribute> {
      */
     SplitTransition<?> apply(Rule fromRule);
   }
-  
+
   /**
    * Implementation of {@link SplitTransitionProvider} that returns a single {@link SplitTransition}
    * regardless of the originating rule.
@@ -827,32 +826,13 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Asserts that a particular aspect probably needs to be computed for all direct dependencies
-     * through this attribute.
-     */
-    public <T extends NativeAspectFactory> Builder<TYPE> aspect(Class<T> aspect) {
-      return this.aspect(aspect, NO_PARAMETERS);
-    }
-
-    /**
-     * Asserts that a particular parameterized aspect probably needs to be computed for all direct
-     * dependencies through this attribute.
-     *
-     * @param evaluator function that extracts aspect parameters from rule.
-     */
-    public <T extends NativeAspectFactory> Builder<TYPE> aspect(
-        Class<T> aspect, Function<Rule, AspectParameters> evaluator) {
-      return this.aspect(new NativeAspectClass<T>(aspect), evaluator);
-    }
-
-    /**
      * Asserts that a particular parameterized aspect probably needs to be computed for all direct
      * dependencies through this attribute.
      *
      * @param evaluator function that extracts aspect parameters from rule.
      */
     public Builder<TYPE> aspect(
-        NativeAspectClass<?> aspect, Function<Rule, AspectParameters> evaluator) {
+        NativeAspectClass aspect, Function<Rule, AspectParameters> evaluator) {
       this.aspects.add(new NativeRuleAspect(aspect, evaluator));
       return this;
     }
@@ -861,7 +841,7 @@ public final class Attribute implements Comparable<Attribute> {
      * Asserts that a particular parameterized aspect probably needs to be computed for all direct
      * dependencies through this attribute.
      */
-    public Builder<TYPE> aspect(NativeAspectClass<?> aspect) {
+    public Builder<TYPE> aspect(NativeAspectClass aspect) {
       Function<Rule, AspectParameters> noParameters =
           new Function<Rule, AspectParameters>() {
             @Override
@@ -1407,10 +1387,10 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns the split configuration transition for this attribute. 
-   * 
+   * Returns the split configuration transition for this attribute.
+   *
    * @param rule the originating {@link Rule} which owns this attribute
-   * @throws IllegalStateException if {@link #hasSplitConfigurationTransition} is not true 
+   * @throws IllegalStateException if {@link #hasSplitConfigurationTransition} is not true
    */
   public SplitTransition<?> getSplitTransition(Rule rule) {
     Preconditions.checkState(hasSplitConfigurationTransition());

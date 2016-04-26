@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.NativeAspectClass.NativeAspectFactory;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidSdkLabel;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 
 /** Aspect to provide Jack support to rules which have java sources. */
-public final class JackAspect implements NativeAspectFactory, ConfiguredAspectFactory {
+public final class JackAspect extends NativeAspectClass implements ConfiguredAspectFactory {
   public static final String NAME = "JackAspect";
 
   @Override
@@ -56,9 +56,9 @@ public final class JackAspect implements NativeAspectFactory, ConfiguredAspectFa
         .add(attr(":android_sdk", LABEL)
               .allowedRuleClasses("android_sdk")
               .value(new AndroidSdkLabel(androidSdk)))
-        .attributeAspect("deps", JackAspect.class)
-        .attributeAspect("exports", JackAspect.class)
-        .attributeAspect("runtime_deps", JackAspect.class)
+        .attributeAspect("deps", this)
+        .attributeAspect("exports", this)
+        .attributeAspect("runtime_deps", this)
         .requiresConfigurationFragments(AndroidConfiguration.class)
         .build();
   }

@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.devtools.build.lib.Constants.TOOLS_REPOSITORY;
 import static com.google.devtools.build.lib.packages.Attribute.ConfigurationTransition.HOST;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -35,7 +34,7 @@ import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.NativeAspectClass.NativeAspectFactory;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
@@ -43,11 +42,16 @@ import com.google.devtools.build.lib.rules.java.JavaRuntimeJarProvider;
 /**
  * Aspect to {@link DexArchiveProvider build .dex Archives} from Jars.
  */
-public final class DexArchiveAspect implements NativeAspectFactory, ConfiguredAspectFactory {
-  private static final String NAME = "DexArchiveAspect";
+public final class DexArchiveAspect extends NativeAspectClass implements ConfiguredAspectFactory {
+  public static final String NAME = "DexArchiveAspect";
   private static final String ASPECT_DEXBUILDER_PREREQ = "$dex_archive_dexbuilder";
   private static final ImmutableList<String> TRANSITIVE_ATTRIBUTES =
       ImmutableList.of("deps", "exports", "runtime_deps");
+  private final String toolsRepository;
+
+  public DexArchiveAspect(String toolsRepository) {
+    this.toolsRepository = toolsRepository;
+  }
 
   @Override
   public AspectDefinition getDefinition(AspectParameters params) {
@@ -56,10 +60,10 @@ public final class DexArchiveAspect implements NativeAspectFactory, ConfiguredAs
         .requireProvider(JavaCompilationArgsProvider.class)
         .add(attr(ASPECT_DEXBUILDER_PREREQ, LABEL).cfg(HOST).exec()
         // Parse label here since we don't have RuleDefinitionEnvironment.getLabel like in a rule
-            .value(Label.parseAbsoluteUnchecked(TOOLS_REPOSITORY + "//tools/android:dexbuilder")))
+            .value(Label.parseAbsoluteUnchecked(toolsRepository + "//tools/android:dexbuilder")))
         .requiresConfigurationFragments(AndroidConfiguration.class);
     for (String attr : TRANSITIVE_ATTRIBUTES) {
-      result.attributeAspect(attr, DexArchiveAspect.class);
+      result.attributeAspect(attr, this);
     }
     return result.build();
   }

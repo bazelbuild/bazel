@@ -219,7 +219,7 @@ public class AttributeTest {
         attr("x", LABEL_LIST)
             .allowedFileTypes(txtFiles)
             .mandatory()
-            .aspect(TestAspects.SimpleAspect.class)
+            .aspect(TestAspects.SIMPLE_ASPECT)
             .build();
 
     {
@@ -238,7 +238,7 @@ public class AttributeTest {
               .cloneBuilder()
               .nonEmpty()
               .allowedRuleClasses(ruleClasses)
-              .aspect(TestAspects.ErrorAspect.class)
+              .aspect(TestAspects.ERROR_ASPECT)
               .build();
       assertEquals("x", childAttr2.getName());
       assertEquals(txtFiles, childAttr2.getAllowedFileTypesPredicate());

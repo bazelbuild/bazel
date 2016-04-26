@@ -17,26 +17,27 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
-import com.google.devtools.build.lib.analysis.ConfiguredNativeAspectFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.rules.proto.ProtoSourcesProvider;
 
 /**
  * Aspect that gathers the proto dependencies of the attached rule target, and propagates the proto
  * values of its dependencies through the ObjcProtoProvider.
  */
-public class ObjcProtoAspect implements ConfiguredNativeAspectFactory {
+public class ObjcProtoAspect extends NativeAspectClass implements ConfiguredAspectFactory {
   public static final String NAME = "ObjcProtoAspect";
 
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
     return new AspectDefinition.Builder(NAME)
-        .attributeAspect("deps", ObjcProtoAspect.class)
+        .attributeAspect("deps", this)
         .requiresConfigurationFragments(ObjcConfiguration.class)
         .build();
   }

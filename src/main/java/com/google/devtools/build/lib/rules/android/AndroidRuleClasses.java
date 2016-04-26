@@ -543,6 +543,19 @@ public final class AndroidRuleClasses {
    * Base class for Android rule definitions that produce binaries.
    */
   public static final class AndroidBinaryBaseRule implements RuleDefinition {
+
+    private final AndroidNeverlinkAspect androidNeverlinkAspect;
+    private final DexArchiveAspect dexArchiveAspect;
+    private final JackAspect jackAspect;
+
+    public AndroidBinaryBaseRule(AndroidNeverlinkAspect androidNeverlinkAspect,
+        DexArchiveAspect dexArchiveAspect,
+        JackAspect jackAspect) {
+      this.androidNeverlinkAspect = androidNeverlinkAspect;
+      this.dexArchiveAspect = dexArchiveAspect;
+      this.jackAspect = jackAspect;
+    }
+
     @Override
     public RuleClass build(RuleClass.Builder builder, final RuleDefinitionEnvironment env) {
       return builder
@@ -575,9 +588,9 @@ public final class AndroidRuleClasses {
               .cfg(ANDROID_SPLIT_TRANSITION)
               .allowedRuleClasses(ALLOWED_DEPENDENCIES)
               .allowedFileTypes()
-              .aspect(AndroidNeverlinkAspect.class)
-              .aspect(DexArchiveAspect.class)
-              .aspect(JackAspect.class))
+              .aspect(androidNeverlinkAspect)
+              .aspect(dexArchiveAspect)
+              .aspect(jackAspect))
           // Proguard rule specifying master list of classes to keep during legacy multidexing.
           .add(attr("$build_incremental_dexmanifest", LABEL).cfg(HOST).exec()
               .value(env.getToolsLabel(BUILD_INCREMENTAL_DEXMANIFEST_LABEL)))

@@ -101,14 +101,13 @@ public class DependencyResolverTest extends AnalysisTestCase {
     update();
   }
 
-  private <T extends ConfiguredNativeAspectFactory>
-    ListMultimap<Attribute, Dependency> dependentNodeMap(
-      String targetName, Class<T> aspect) throws Exception {
+  private ListMultimap<Attribute, Dependency> dependentNodeMap(
+      String targetName, NativeAspectClass aspect) throws Exception {
     Target target = packageManager.getTarget(reporter, Label.parseAbsolute(targetName));
     return dependencyResolver.dependentNodeMap(
         new TargetAndConfiguration(target, getTargetConfiguration()),
         getHostConfiguration(),
-        aspect != null ? Aspect.forNative(new NativeAspectClass<T>(aspect)) : null,
+        aspect != null ? Aspect.forNative(aspect) : null,
         ImmutableSet.<ConfigMatchingProvider>of());
   }
 
@@ -148,7 +147,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
     ListMultimap<Attribute, Dependency> map = dependentNodeMap("//a:a", null);
     assertDep(
         map, "foo", "//a:b",
-        new AspectDescriptor(new NativeAspectClass<>(TestAspects.SimpleAspect.class)));
+        new AspectDescriptor(TestAspects.SIMPLE_ASPECT));
   }
 
   @Test
@@ -158,10 +157,10 @@ public class DependencyResolverTest extends AnalysisTestCase {
         "simple(name='a', foo=[':b'])",
         "simple(name='b', foo=[])");
     ListMultimap<Attribute, Dependency> map =
-        dependentNodeMap("//a:a", TestAspects.AttributeAspect.class);
+        dependentNodeMap("//a:a", TestAspects.ATTRIBUTE_ASPECT);
     assertDep(
         map, "foo", "//a:b",
-        new AspectDescriptor(new NativeAspectClass<>(TestAspects.AttributeAspect.class)));
+        new AspectDescriptor(TestAspects.ATTRIBUTE_ASPECT));
   }
 
   @Test
@@ -170,7 +169,7 @@ public class DependencyResolverTest extends AnalysisTestCase {
     pkg("a", "base(name='a')");
     pkg("extra", "base(name='extra')");
     ListMultimap<Attribute, Dependency> map =
-        dependentNodeMap("//a:a", TestAspects.ExtraAttributeAspect.class);
+        dependentNodeMap("//a:a", TestAspects.EXTRA_ATTRIBUTE_ASPECT);
     assertDep(map, "$dep", "//extra:extra");
   }
 }

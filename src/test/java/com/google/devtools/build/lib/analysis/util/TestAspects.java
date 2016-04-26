@@ -27,7 +27,7 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
-import com.google.devtools.build.lib.analysis.ConfiguredNativeAspectFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.NativeAspectClass;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder;
@@ -148,7 +149,8 @@ public class TestAspects {
   /**
    * A base class for mock aspects to reduce boilerplate.
    */
-  public abstract static class BaseAspect implements ConfiguredNativeAspectFactory {
+  public abstract static class BaseAspect extends NativeAspectClass
+    implements ConfiguredAspectFactory {
     @Override
     public ConfiguredAspect create(
         ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
@@ -164,7 +166,8 @@ public class TestAspects {
     }
   }
 
-  private static final AspectDefinition SIMPLE_ASPECT =
+  public static final SimpleAspect SIMPLE_ASPECT = new SimpleAspect();
+  private static final AspectDefinition SIMPLE_ASPECT_DEFINITION =
       new AspectDefinition.Builder("simple").build();
 
   /**
@@ -173,16 +176,19 @@ public class TestAspects {
   public static class SimpleAspect extends BaseAspect {
     @Override
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
-      return SIMPLE_ASPECT;
+      return SIMPLE_ASPECT_DEFINITION;
     }
   }
 
-  private static final AspectDefinition EXTRA_ATTRIBUTE_ASPECT =
+  public static final ExtraAttributeAspect EXTRA_ATTRIBUTE_ASPECT = new ExtraAttributeAspect();
+  private static final AspectDefinition EXTRA_ATTRIBUTE_ASPECT_DEFINITION =
       new AspectDefinition.Builder("extra_attribute")
           .add(attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")))
           .build();
 
-  private static final AspectDefinition EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER =
+  private static final ExtraAttributeAspectRequiringProvider
+    EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER = new ExtraAttributeAspectRequiringProvider();
+  private static final AspectDefinition EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER_DEFINITION =
       new AspectDefinition.Builder("extra_attribute_with_provider")
           .add(attr("$dep", LABEL).value(Label.parseAbsoluteUnchecked("//extra:extra")))
           .requireProvider(RequiredProvider.class)
@@ -194,12 +200,14 @@ public class TestAspects {
   public static class ExtraAttributeAspect extends BaseAspect {
     @Override
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
-      return EXTRA_ATTRIBUTE_ASPECT;
+      return EXTRA_ATTRIBUTE_ASPECT_DEFINITION;
     }
   }
 
-  private static final AspectDefinition ATTRIBUTE_ASPECT = new AspectDefinition.Builder("attribute")
-      .attributeAspect("foo", AttributeAspect.class)
+  public static final AttributeAspect ATTRIBUTE_ASPECT = new AttributeAspect();
+  private static final AspectDefinition ATTRIBUTE_ASPECT_DEFINITION =
+      new AspectDefinition.Builder("attribute")
+      .attributeAspect("foo", ATTRIBUTE_ASPECT)
       .build();
 
   /**
@@ -208,7 +216,7 @@ public class TestAspects {
   public static class AttributeAspect extends BaseAspect {
     @Override
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
-      return ATTRIBUTE_ASPECT;
+      return ATTRIBUTE_ASPECT_DEFINITION;
     }
   }
 
@@ -218,27 +226,28 @@ public class TestAspects {
   public static class ExtraAttributeAspectRequiringProvider extends BaseAspect {
     @Override
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
-      return EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER;
+      return EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER_DEFINITION;
     }
   }
 
   public static class AspectRequiringProvider extends BaseAspect {
     @Override
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
-      return ASPECT_REQUIRING_PROVIDER;
+      return ASPECT_REQUIRING_PROVIDER_DEFINITION;
     }
   }
 
   /**
    * An aspect that has a definition depending on parameters provided by originating rule.
    */
-  public static class ParametrizedDefinitionAspect implements ConfiguredNativeAspectFactory {
+  public static class ParametrizedDefinitionAspect extends NativeAspectClass
+    implements ConfiguredAspectFactory {
 
     @Override
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
       AspectDefinition.Builder builder =
           new AspectDefinition.Builder("parametrized_definition_aspect")
-              .attributeAspect("foo", ParametrizedDefinitionAspect.class);
+              .attributeAspect("foo", this);
       ImmutableCollection<String> baz = aspectParameters.getAttribute("baz");
       if (baz != null) {
         try {
@@ -274,8 +283,12 @@ public class TestAspects {
     }
   }
 
+  private static final ParametrizedDefinitionAspect PARAMETRIZED_DEFINITION_ASPECT =
+      new ParametrizedDefinitionAspect();
 
-  private static final AspectDefinition ASPECT_REQUIRING_PROVIDER =
+  private static final AspectRequiringProvider ASPECT_REQUIRING_PROVIDER =
+      new AspectRequiringProvider();
+  private static final AspectDefinition ASPECT_REQUIRING_PROVIDER_DEFINITION =
       new AspectDefinition.Builder("requiring_provider")
           .requireProvider(RequiredProvider.class)
           .build();
@@ -283,7 +296,9 @@ public class TestAspects {
   /**
    * An aspect that raises an error.
    */
-  public static class ErrorAspect implements ConfiguredNativeAspectFactory {
+  public static class ErrorAspect extends NativeAspectClass
+    implements ConfiguredAspectFactory {
+
     @Override
     public ConfiguredAspect create(
         ConfiguredTarget base, RuleContext ruleContext, AspectParameters parameters) {
@@ -293,12 +308,14 @@ public class TestAspects {
 
     @Override
     public AspectDefinition getDefinition(AspectParameters aspectParameters) {
-      return ERROR_ASPECT;
+      return ERROR_ASPECT_DEFINITION;
     }
   }
 
-  private static final AspectDefinition ERROR_ASPECT = new AspectDefinition.Builder("error")
-      .attributeAspect("bar", ErrorAspect.class)
+  public static final ErrorAspect ERROR_ASPECT = new ErrorAspect();
+  private static final AspectDefinition ERROR_ASPECT_DEFINITION =
+      new AspectDefinition.Builder("error")
+      .attributeAspect("bar", ERROR_ASPECT)
       .build();
 
   /**
@@ -341,9 +358,9 @@ public class TestAspects {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
           .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
-              .aspect(SimpleAspect.class))
+              .aspect(SIMPLE_ASPECT))
           .add(attr("bar", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
-              .aspect(SimpleAspect.class))
+              .aspect(SIMPLE_ASPECT))
           .build();
 
     }
@@ -363,7 +380,7 @@ public class TestAspects {
    */
   public static class AspectRequiringProviderRule implements RuleDefinition {
 
-    private static final class TestAspectParametersExtractor implements 
+    private static final class TestAspectParametersExtractor implements
         Function<Rule, AspectParameters> {
       @Override
       public AspectParameters apply(Rule rule) {
@@ -381,7 +398,7 @@ public class TestAspects {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
           .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
-              .aspect(AspectRequiringProvider.class, new TestAspectParametersExtractor()))
+              .aspect(ASPECT_REQUIRING_PROVIDER, new TestAspectParametersExtractor()))
           .add(attr("baz", STRING))
           .build();
 
@@ -422,7 +439,7 @@ public class TestAspects {
           .add(
               attr("foo", LABEL_LIST)
                   .allowedFileTypes(FileTypeSet.ANY_FILE)
-                  .aspect(ParametrizedDefinitionAspect.class, new TestAspectParametersExtractor()))
+                  .aspect(PARAMETRIZED_DEFINITION_ASPECT, new TestAspectParametersExtractor()))
           .add(attr("baz", STRING))
           .build();
     }
@@ -445,7 +462,7 @@ public class TestAspects {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
           .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
-              .aspect(ExtraAttributeAspectRequiringProvider.class))
+              .aspect(EXTRA_ATTRIBUTE_ASPECT_REQUIRING_PROVIDER))
           .build();
 
     }
@@ -468,7 +485,7 @@ public class TestAspects {
     public RuleClass build(Builder builder, RuleDefinitionEnvironment environment) {
       return builder
           .add(attr("foo", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE)
-              .aspect(ErrorAspect.class))
+              .aspect(ERROR_ASPECT))
           .add(attr("bar", LABEL_LIST).allowedFileTypes(FileTypeSet.ANY_FILE))
           .build();
     }
