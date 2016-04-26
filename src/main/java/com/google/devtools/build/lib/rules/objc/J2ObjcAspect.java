@@ -154,7 +154,9 @@ public class J2ObjcAspect implements ConfiguredNativeAspectFactory {
           j2ObjcSource.getHeaderSearchPaths(),
           DEPENDENT_ATTRIBUTES);
 
-      new CompilationSupport(ruleContext).registerCompileAndArchiveActions(common);
+      new CompilationSupport(ruleContext)
+          .registerCompileAndArchiveActions(common)
+          .registerFullyLinkAction(common.getObjcProvider());
     } else {
       common = common(
           ruleContext,
