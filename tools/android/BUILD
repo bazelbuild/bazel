@@ -1,6 +1,9 @@
 package(default_visibility = ["//visibility:public"])
 
-filegroup(name = "sdk")
+filegroup(
+    name = "sdk",
+    srcs = ["//external:android/sdk"],
+)
 
 android_library(
     name = "incremental_stub_application",

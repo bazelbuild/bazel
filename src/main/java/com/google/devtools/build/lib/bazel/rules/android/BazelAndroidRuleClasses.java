@@ -22,6 +22,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses;
+import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidSdkLabel;
 import com.google.devtools.build.lib.rules.android.AndroidToolsDefaultsJar;
 
 /** Rule class definitions for Android rules. */
@@ -36,7 +37,8 @@ public class BazelAndroidRuleClasses {
           .add(
               attr(":android_sdk", LABEL)
                   .allowedRuleClasses("android_sdk", "filegroup")
-                  .value(AndroidRuleClasses.ANDROID_SDK))
+                  .value(new AndroidSdkLabel(
+                      environment.getToolsLabel(AndroidRuleClasses.DEFAULT_SDK))))
           .build();
     }
 

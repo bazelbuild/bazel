@@ -18,11 +18,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.lib.Constants;
+import com.google.devtools.build.lib.analysis.RedirectChaser;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
-import com.google.devtools.build.lib.analysis.config.BuildConfiguration.DefaultLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.EmptyToNullLabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.Fragment;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsConverter;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration.StrictDepsMode;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -47,13 +47,6 @@ import java.util.Set;
  */
 @Immutable
 public class AndroidConfiguration extends BuildConfiguration.Fragment {
-
-  /** Converter for --android_sdk. */
-  public static class AndroidSdkConverter extends DefaultLabelConverter {
-    public AndroidSdkConverter() {
-      super(Constants.ANDROID_DEFAULT_SDK);
-    }
-  }
 
   /**
    * Converter for {@link com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher}
@@ -198,9 +191,9 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     // Label of filegroup combining all Android tools used as implicit dependencies of
     // android_* rules
     @Option(name = "android_sdk",
-            defaultValue = "",
+            defaultValue = "@bazel_tools//tools/android:sdk",
             category = "version",
-            converter = AndroidSdkConverter.class,
+            converter = LabelConverter.class,
             help = "Specifies Android SDK/platform that is used to build Android applications.")
     public Label sdk;
 
@@ -300,6 +293,7 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     public FragmentOptions getHost(boolean fallback) {
       Options host = (Options) super.getHost(fallback);
       host.androidCrosstoolTop = androidCrosstoolTop;
+      host.sdk = sdk;
       return host;
     }
 
@@ -321,7 +315,13 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
     @Override
     public Fragment create(ConfigurationEnvironment env, BuildOptions buildOptions)
         throws InvalidConfigurationException {
-      return new AndroidConfiguration(buildOptions.get(Options.class));
+      AndroidConfiguration.Options androidOptions =
+          buildOptions.get(AndroidConfiguration.Options.class);
+      Label androidSdk = RedirectChaser.followRedirects(env, androidOptions.sdk, "android_sdk");
+      if (androidSdk == null) {
+        return null;
+      }
+      return new AndroidConfiguration(buildOptions.get(Options.class), androidSdk);
     }
 
     @Override
@@ -349,8 +349,8 @@ public class AndroidConfiguration extends BuildConfiguration.Fragment {
   private final boolean allowAndroidLibraryDepsWithoutSrcs;
   private final boolean useAndroidResourceShrinking;
 
-  AndroidConfiguration(Options options) {
-    this.sdk = options.sdk;
+  AndroidConfiguration(Options options, Label androidSdk) {
+    this.sdk = androidSdk;
     this.incrementalNativeLibs = options.incrementalNativeLibs;
     this.strictDeps = options.strictDeps;
     this.legacyNativeSupport = options.legacyNativeSupport;

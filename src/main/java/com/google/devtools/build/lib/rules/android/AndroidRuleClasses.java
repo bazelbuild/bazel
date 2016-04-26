@@ -28,7 +28,6 @@ import static com.google.devtools.build.lib.util.FileTypeSet.ANY_FILE;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
@@ -169,19 +168,20 @@ public final class AndroidRuleClasses {
   public static final String DEFAULT_RESOURCE_SHRINKER =
       "//tools/android:resource_shrinker";
   public static final String DEFAULT_AAR_GENERATOR = "//tools/android:aar_generator";
+  public static final String DEFAULT_SDK = "//tools/android:sdk";
 
-  public static final Label DEFAULT_ANDROID_SDK =
-      Label.parseAbsoluteUnchecked(
-          Constants.ANDROID_DEFAULT_SDK);
-
-  public static final LateBoundLabel<BuildConfiguration> ANDROID_SDK =
-      new LateBoundLabel<BuildConfiguration>(DEFAULT_ANDROID_SDK, AndroidConfiguration.class) {
-        @Override
-        public Label resolve(Rule rule, AttributeMap attributes,
-            BuildConfiguration configuration) {
-          return configuration.getFragment(AndroidConfiguration.class).getSdk();
-        }
-      };
+  /**
+   * The default label of android_sdk option
+   */
+  public static final class AndroidSdkLabel extends LateBoundLabel<BuildConfiguration> {
+    public AndroidSdkLabel(Label androidSdk) {
+      super(androidSdk, AndroidConfiguration.class);
+    }
+    @Override
+    public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+      return configuration.getFragment(AndroidConfiguration.class).getSdk();
+    }
+  }
 
   public static final SplitTransition<BuildOptions> ANDROID_SPLIT_TRANSITION =
       new SplitTransition<BuildOptions>() {
@@ -496,7 +496,7 @@ public final class AndroidRuleClasses {
       return builder
           .add(attr(":android_sdk", LABEL)
               .allowedRuleClasses("android_sdk", "filegroup")
-              .value(ANDROID_SDK))
+              .value(new AndroidSdkLabel(env.getToolsLabel(AndroidRuleClasses.DEFAULT_SDK))))
           /* <!-- #BLAZE_RULE($android_base).ATTRIBUTE(plugins) -->
           Java compiler plugins to run at compile-time.
           Every <code>java_plugin</code> specified in
@@ -780,3 +780,4 @@ com/google/common/base/Objects.class
     }
   }
 }
+

@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -26,13 +27,15 @@ import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.AspectDefinition;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.NativeAspectClass.NativeAspectFactory;
+import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.AndroidSdkLabel;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
-
 import java.util.List;
 
 /** Aspect to provide Jack support to rules which have java sources. */
@@ -41,11 +44,18 @@ public final class JackAspect implements NativeAspectFactory, ConfiguredAspectFa
 
   @Override
   public AspectDefinition getDefinition(AspectParameters params) {
+    Label androidSdk;
+    try {
+      androidSdk = Label.parseAbsolute(Constants.TOOLS_REPOSITORY + AndroidRuleClasses.DEFAULT_SDK);
+    } catch (LabelSyntaxException e) {
+      throw new IllegalStateException(e);
+    }
+
     return new AspectDefinition.Builder("JackAspect")
         .requireProvider(JavaSourceInfoProvider.class)
         .add(attr(":android_sdk", LABEL)
               .allowedRuleClasses("android_sdk")
-              .value(AndroidRuleClasses.ANDROID_SDK))
+              .value(new AndroidSdkLabel(androidSdk)))
         .attributeAspect("deps", JackAspect.class)
         .attributeAspect("exports", JackAspect.class)
         .attributeAspect("runtime_deps", JackAspect.class)
