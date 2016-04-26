@@ -60,187 +60,6 @@ function bazel() {
 }
 
 function setup_android_support() {
-  ANDROID_TOOLS=$PWD/android_tools
-  mkdir -p ${ANDROID_TOOLS}/tools/android
-
-  ln -s "${aargenerator_path}" ${ANDROID_TOOLS}/tools/android/aargenerator.jar
-  ln -s "${androidresourceprocessor_path}" ${ANDROID_TOOLS}/tools/android/androidresourceprocessor.jar
-  ln -s "${resourceshrinker_path}" ${ANDROID_TOOLS}/tools/android/resourceshrinker.jar
-  ln -s "${dexmapper_path}" ${ANDROID_TOOLS}/tools/android/dexmapper.jar
-  ln -s "${dexreducer_path}" ${ANDROID_TOOLS}/tools/android/dexreducer.jar
-  ln -s "${TEST_SRCDIR}/tools/android/bazel_debug.keystore" ${ANDROID_TOOLS}/tools/android/bazel_debug.keystore
-  mkdir -p ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/incrementaldeployment
-  cp -RL "${incrementaldeployment_path}"/* ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/incrementaldeployment
-
-  cat > ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/incrementaldeployment/BUILD <<EOF
-package(default_visibility = ["//visibility:public"])
-
-android_library(
-    name = "incremental_stub_application",
-    srcs = [
-        "IncrementalClassLoader.java",
-        "StubApplication.java",
-    ],
-)
-
-android_library(
-    name = "incremental_split_stub_application",
-    srcs = ["Placeholder.java"],
-)
-EOF
-
-  rm -rf ${ANDROID_TOOLS}/tools/android/BUILD.bazel
-  cat > ${ANDROID_TOOLS}/tools/android/BUILD <<EOF
-package(default_visibility = ["//visibility:public"])
-
-filegroup(name = "sdk")
-
-android_library(
-    name = "incremental_stub_application",
-    deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_stub_application"],
-)
-
-android_library(
-    name = "incremental_split_stub_application",
-    deps = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_split_stub_application"],
-)
-
-java_binary(
-    name = "aar_generator",
-    srcs = ["aargenerator.jar"],
-    main_class = "com.google.devtools.build.android.AarGeneratorAction",
-)
-
-java_binary(
-    name = "resources_processor",
-    srcs = ["androidresourceprocessor.jar"],
-    main_class = "com.google.devtools.build.android.AndroidResourceProcessingAction",
-)
-
-java_binary(
-    name = "resource_shrinker",
-    srcs = ["resourceshrinker.jar"],
-    main_class = "com.google.devtools.build.android.ResourceShrinkerAction",
-)
-
-java_binary(
-    name = "merge_dexzips",
-    srcs = ["dexreducer.jar"],
-    main_class = "com.google.devtools.build.android.ziputils.DexReducer",
-)
-
-java_binary(
-    name = "shuffle_jars",
-    srcs = ["dexmapper.jar"],
-    main_class = "com.google.devtools.build.android.ziputils.DexMapper",
-)
-
-sh_binary(
-    name = "IdlClass",
-    srcs = ["idlclass.sh"],
-    data = ["//src/tools/android/java/com/google/devtools/build/android/idlclass:IdlClass"],
-)
-
-filegroup(
-    name = "package_parser",
-    srcs = ["//src/tools/android/java/com/google/devtools/build/android/ideinfo:PackageParser_deploy.jar"],
-)
-
-java_binary(
-    name = "PackageParser",
-    main_class = "com.google.devtools.build.android.ideinfo.PackageParser",
-    visibility = ["//visibility:public"],
-    runtime_deps = [":package_parser_import"],
-)
-
-java_import(
-    name = "package_parser_import",
-    jars = [":package_parser"],
-)
-
-sh_binary(
-    name = "merge_manifests",
-    srcs = ["fail.sh"],
-)
-
-sh_binary(
-    name = "build_incremental_dexmanifest",
-    srcs = ["fail.sh"],
-)
-
-sh_binary(
-    name = "build_split_manifest",
-    srcs = ["fail.sh"],
-)
-
-sh_binary(
-    name = "incremental_install",
-    srcs = ["fail.sh"],
-)
-
-sh_binary(
-    name = "strip_resources",
-    srcs = ["fail.sh"],
-)
-
-sh_binary(
-    name = "stubify_manifest",
-    srcs = ["fail.sh"],
-)
-
-filegroup(
-    name = "debug_keystore",
-    srcs = ["bazel_debug.keystore"],
-)
-
-EOF
-
-  cat > $ANDROID_TOOLS/tools/android/fail.sh <<EOF
-#!/bin/bash
-
-exit 1
-EOF
-
-  chmod +x $ANDROID_TOOLS/tools/android/fail.sh
-
-  mkdir -p third_party/java/jarjar
-  cat > third_party/java/jarjar/BUILD <<EOF
-licenses(["unencumbered"])
-sh_binary(
-  name = "jarjar_bin",
-  srcs = ["fail.sh"],
-  visibility = ["//visibility:public"],
-)
-EOF
-
-  cat > third_party/java/jarjar/fail.sh <<EOF
-
-#!/bin/bash
-
-exit 1
-EOF
-
-  chmod +x third_party/java/jarjar/fail.sh
-
-  mkdir -p ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/idlclass
-  cat > ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/idlclass/BUILD <<EOF
-licenses(["unencumbered"])
-sh_binary(
-  name = "IdlClass",
-  srcs = ["fail.sh"],
-  visibility = ["//visibility:public"],
-)
-EOF
-
-  cat > ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/idlclass/fail.sh <<EOF
-
-#!/bin/bash
-
-exit 1
-EOF
-
-  chmod +x ${ANDROID_TOOLS}/src/tools/android/java/com/google/devtools/build/android/idlclass/fail.sh
-
   ANDROID_NDK=$PWD/android_ndk
   ANDROID_SDK=$PWD/android_sdk
 
@@ -339,21 +158,6 @@ EOF
 
 # Sets up Objective-C tools. Mac only.
 function setup_objc_test_support() {
-  mkdir -p tools/objc
-  [ -e tools/objc/actoolwrapper.sh ] || ln -sv ${actoolwrapper_path} tools/objc/actoolwrapper.sh
-  [ -e tools/objc/ibtoolwrapper.sh ] || ln -sv ${ibtoolwrapper_path} tools/objc/ibtoolwrapper.sh
-  [ -e tools/objc/momcwrapper.sh ] || ln -sv ${momcwrapper_path} tools/objc/momcwrapper.sh
-  [ -e tools/objc/precomp_bundlemerge_deploy.jar ] || ln -sv ${bundlemerge_path} tools/objc/precomp_bundlemerge_deploy.jar
-  [ -e tools/objc/precomp_plmerge_deploy.jar ] || ln -sv ${plmerge_path} tools/objc/precomp_plmerge_deploy.jar
-  [ -e tools/objc/precomp_xcodegen_deploy.jar ] || ln -sv ${xcodegen_path} tools/objc/precomp_xcodegen_deploy.jar
-  [ -e tools/objc/StdRedirect.dylib ] || ln -sv ${stdredirect_path} tools/objc/StdRedirect.dylib
-  [ -e tools/objc/swiftstdlibtoolwrapper.sh ] || ln -sv ${swiftstdlibtoolwrapper_path} tools/objc/swiftstdlibtoolwrapper.sh
-  [ -e tools/objc/xcrunwrapper.sh ] || ln -sv ${xcrunwrapper_path} tools/objc/xcrunwrapper.sh
-  [ -e tools/objc/realpath ] || ln -sv ${realpath_path} tools/objc/realpath
-  [ -e tools/objc/environment_plist.sh ] || ln -sv ${environment_plist_path} tools/objc/environment_plist.sh
-
-  [ -e third_party/iossim/iossim ] || setup_iossim
-
   IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
 }
 
@@ -367,18 +171,11 @@ function create_new_workspace() {
   cd ${new_workspace_dir}
   mkdir tools
   mkdir -p third_party/java/jdk/langtools
-  mkdir -p tools/jdk/ijar
 
   copy_tools_directory
 
   [ -e third_party/java/jdk/langtools/javac.jar ] \
     || ln -s "${langtools_path}"  third_party/java/jdk/langtools/javac.jar
-
-  ln -s "${javabuilder_path}" tools/jdk/JavaBuilder_deploy.jar
-  ln -s "${singlejar_path}"  tools/jdk/SingleJar_deploy.jar
-  ln -s "${genclass_path}" tools/jdk/GenClass_deploy.jar
-  ln -s "${junitrunner_path}" tools/jdk/TestRunner_deploy.jar
-  ln -s "${ijar_path}" tools/jdk/ijar/ijar
 
   touch WORKSPACE
 }

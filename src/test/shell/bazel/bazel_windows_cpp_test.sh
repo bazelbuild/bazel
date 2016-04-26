@@ -30,7 +30,7 @@ function set_up() {
   copy_examples
 }
 
-common_args="-s --verbose_failures --crosstool_top=//tools/cpp:default-toolchain --cpu=x64_windows_msvc"
+common_args="-s --verbose_failures --cpu=x64_windows_msvc"
 
 function assert_build_windows() {
   bazel build ${common_args} $* || fail "Failed to build $*"
