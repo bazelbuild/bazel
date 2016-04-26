@@ -1305,7 +1305,6 @@ static void KillRunningServerIfDifferentStartupOptions(BlazeServer* server) {
   }
 }
 
-
 // Kills the old running server if it is not the same version as us,
 // dealing with various combinations of installation scheme
 // (installation symlink and older MD5_MANIFEST contents).
@@ -1362,7 +1361,6 @@ static void sigprintf(const char *format, ...) {
   write(STDERR_FILENO, buf, r);
 }
 
-
 // Signal handler.
 static void handler(int signum) {
   // A defensive measure:
@@ -1404,8 +1402,7 @@ static void handler(int signum) {
   }
 }
 
-
-// Constructs the command line for a server request,
+// Constructs the command line for a server request.
 static string BuildServerRequest() {
   vector<string> arg_vector;
   string command = globals->option_processor.GetCommand();
@@ -1531,7 +1528,7 @@ static void ComputeWorkspace() {
 
 // Figure out the base directories based on embedded data, username, cwd, etc.
 // Sets globals->options.install_base, globals->options.output_base,
-// globals->lock_file, globals->jvm_log_file.
+// globals->lockfile, globals->jvm_log_file.
 static void ComputeBaseDirectories(const string &self_path) {
   // Only start a server when in a workspace because otherwise we won't do more
   // than emit a help message.
