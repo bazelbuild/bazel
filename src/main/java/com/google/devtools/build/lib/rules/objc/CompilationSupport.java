@@ -505,14 +505,14 @@ public final class CompilationSupport {
         .add("-emit-object")
         .add("-target").add(swiftTarget(appleConfiguration))
         .add("-sdk").add(AppleToolchain.sdkDir())
-        .add("-enable-objc-interop");
+        .add("-enable-objc-interop")
+        .add(objcConfiguration.getSwiftCoptsForCompilationMode());
 
     if (objcConfiguration.generateDebugSymbols()) {
       commandLine.add("-g");
     }
 
     commandLine
-      .add("-Onone")
       .add("-module-name").add(getModuleName())
       .add("-parse-as-library");
     addSource("-primary-file", commandLine, sourceFile)
@@ -587,7 +587,8 @@ public final class CompilationSupport {
         .add("-frontend")
         .add("-emit-module")
         .add("-sdk").add(AppleToolchain.sdkDir())
-        .add("-target").add(swiftTarget(appleConfiguration));
+        .add("-target").add(swiftTarget(appleConfiguration))
+        .add(objcConfiguration.getSwiftCoptsForCompilationMode());
 
     if (objcConfiguration.generateDebugSymbols()) {
       commandLine.add("-g");

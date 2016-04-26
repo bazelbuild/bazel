@@ -43,7 +43,7 @@ import javax.annotation.Nullable;
 public class ObjcConfiguration extends BuildConfiguration.Fragment {
   @VisibleForTesting
   static final ImmutableList<String> DBG_COPTS =
-      ImmutableList.of("-O0", "-DDEBUG=1", "-fstack-protector", "-fstack-protector-all");
+      ImmutableList.of("-O0", "-DDEBUG=1", "-fstack-protector", "-fstack-protector-all", "-g");
 
   @VisibleForTesting
   static final ImmutableList<String> GLIBCXX_DBG_COPTS =
@@ -167,6 +167,24 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
         return fastbuildOptions;
       case OPT:
         return OPT_COPTS;
+      default:
+        throw new AssertionError();
+    }
+  }
+
+  /**
+   * Returns the default set of swiftc options for the current compilation mode.
+   */
+  @SkylarkCallable(name = "swift_copts_for_current_compilation_mode", structField = true,
+      doc = "Returns a list of default options to use for compiling Swift in the current mode.")
+  public ImmutableList<String> getSwiftCoptsForCompilationMode() {
+    switch (compilationMode) {
+      case DBG:
+        return ImmutableList.of("-Onone", "-DDEBUG=1", "-g");
+      case FASTBUILD:
+        return ImmutableList.of("-Onone", "-DDEBUG=1");
+      case OPT:
+        return ImmutableList.of("-O", "-DNDEBUG=1");
       default:
         throw new AssertionError();
     }
