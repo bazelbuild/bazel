@@ -164,9 +164,15 @@ class GrpcBlazeServer : public BlazeServer {
   std::string response_cookie_;
   std::string command_id_;
 
-  std::condition_variable cancel_thread_signal_;
-  // protects command_id_ and cancel_thread_action_
-  std::mutex cancel_thread_mutex_;
+  // The mutex is locked only once in the cancel thread (the only place where
+  // we call .wait()), so it's okay to use a condition variable with a
+  // recursive mutex.
+  std::condition_variable_any cancel_thread_signal_;
+
+  // protects command_id_ and cancel_thread_action_ Needs to be recursive so
+  // that there is no deadlock if the main thread receives a SIGINT while the
+  // mutex is locked.
+  std::recursive_mutex cancel_thread_mutex_;
   CancelThreadAction cancel_thread_action_;
 
   void CancelThread();
@@ -1924,7 +1930,7 @@ bool GrpcBlazeServer::Connect() {
 // delivered to the server)
 void GrpcBlazeServer::CancelThread() {
   bool running = true;
-  std::unique_lock<std::mutex> lock(cancel_thread_mutex_);
+  std::unique_lock<std::recursive_mutex> lock(cancel_thread_mutex_);
   while (running) {
     cancel_thread_signal_.wait(lock);
     switch (cancel_thread_action_) {
@@ -1998,7 +2004,7 @@ unsigned int GrpcBlazeServer::Communicate() {
       client_->Run(&context, request));
 
   {
-    std::unique_lock<std::mutex> lock(cancel_thread_mutex_);
+    std::unique_lock<std::recursive_mutex> lock(cancel_thread_mutex_);
     cancel_thread_action_ = NOTHING;
   }
 
@@ -2021,7 +2027,7 @@ unsigned int GrpcBlazeServer::Communicate() {
     }
 
     if (!command_id_set && response.command_id().size() > 0) {
-      std::unique_lock<std::mutex> lock(cancel_thread_mutex_);
+      std::unique_lock<std::recursive_mutex> lock(cancel_thread_mutex_);
       command_id_ = response.command_id();
       command_id_set = true;
       // Wake up the cancellation thread in case there is a pending cancellation
@@ -2031,7 +2037,7 @@ unsigned int GrpcBlazeServer::Communicate() {
 
   {
     // Wake up the cancellation thread so that it can finish
-    std::unique_lock<std::mutex> lock(cancel_thread_mutex_);
+    std::unique_lock<std::recursive_mutex> lock(cancel_thread_mutex_);
     cancel_thread_action_ = JOIN;
     cancel_thread_signal_.notify_one();
   }
@@ -2052,7 +2058,7 @@ void GrpcBlazeServer::Disconnect() {
 }
 
 void GrpcBlazeServer::Cancel() {
-  std::unique_lock<std::mutex> lock(cancel_thread_mutex_);
+  std::unique_lock<std::recursive_mutex> lock(cancel_thread_mutex_);
   // Wake up the cancellation thread and tell it to issue its RPC
   cancel_thread_action_ = CANCEL;
   cancel_thread_signal_.notify_one();
