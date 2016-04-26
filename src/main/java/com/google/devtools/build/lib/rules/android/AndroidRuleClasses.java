@@ -49,7 +49,7 @@ import com.google.devtools.build.lib.rules.cpp.CppOptions;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.syntax.Type;
+import com.google.devtools.build.lib.rules.java.ProguardHelper;
 import com.google.devtools.build.lib.util.FileType;
 
 import java.util.ArrayList;
@@ -254,42 +254,42 @@ public final class AndroidRuleClasses {
       "proto_library" // TODO(gregce): remove this line when no such dependencies exist
   };
 
+  public static final boolean hasProguardSpecs(AttributeMap rule) {
+    // The below is a hack to support configurable attributes (proguard_specs seems like
+    // too valuable an attribute to make nonconfigurable, and we don't currently
+    // have the ability to know the configuration when determining implicit outputs).
+    // An IllegalArgumentException gets triggered if the attribute instance is configurable.
+    // We assume, heuristically, that means every configurable value is a non-empty list.
+    //
+    // TODO(bazel-team): find a stronger approach for this. One simple approach is to somehow
+    // receive 'rule' as an AggregatingAttributeMapper instead of a RawAttributeMapper,
+    // check that all possible values are non-empty, and simply don't support configurable
+    // instances that mix empty and non-empty lists. A more ambitious approach would be
+    // to somehow determine implicit outputs after the configuration is known. A third
+    // approach is to refactor the Android rule logic to avoid these dependencies in the
+    // first place.
+    try {
+      return !rule.get("proguard_specs", LABEL_LIST).isEmpty();
+    } catch (IllegalArgumentException e) {
+      // We assume at this point the attribute instance is configurable.
+      return true;
+    }
+  }
+
   public static final SafeImplicitOutputsFunction ANDROID_BINARY_IMPLICIT_OUTPUTS =
       new SafeImplicitOutputsFunction() {
 
         @Override
         public Iterable<String> getImplicitOutputs(AttributeMap rule) {
-          boolean mapping = rule.get("proguard_generate_mapping", Type.BOOLEAN);
           List<SafeImplicitOutputsFunction> functions = Lists.newArrayList();
           functions.add(AndroidRuleClasses.ANDROID_BINARY_APK);
           functions.add(AndroidRuleClasses.ANDROID_BINARY_UNSIGNED_APK);
           functions.add(AndroidRuleClasses.ANDROID_BINARY_DEPLOY_JAR);
 
-          // The below is a hack to support configurable attributes (proguard_specs seems like
-          // too valuable an attribute to make nonconfigurable, and we don't currently
-          // have the ability to know the configuration when determining implicit outputs).
-          // An IllegalArgumentException gets triggered if the attribute instance is configurable.
-          // We assume, heuristically, that means every configurable value is a non-empty list.
-          //
-          // TODO(bazel-team): find a stronger approach for this. One simple approach is to somehow
-          // receive 'rule' as an AggregatingAttributeMapper instead of a RawAttributeMapper,
-          // check that all possible values are non-empty, and simply don't support configurable
-          // instances that mix empty and non-empty lists. A more ambitious approach would be
-          // to somehow determine implicit outputs after the configuration is known. A third
-          // approach is to refactor the Android rule logic to avoid these dependencies in the
-          // first place.
-          boolean hasProguardSpecs;
-          try {
-            hasProguardSpecs = !rule.get("proguard_specs", LABEL_LIST).isEmpty();
-          } catch (IllegalArgumentException e) {
-            // We assume at this point the attribute instance is configurable.
-            hasProguardSpecs = true;
-          }
-
-          if (hasProguardSpecs) {
+          if (hasProguardSpecs(rule)) {
             functions.add(AndroidRuleClasses.ANDROID_BINARY_PROGUARD_JAR);
             functions.add(JavaSemantics.JAVA_BINARY_PROGUARD_CONFIG);
-            if (mapping) {
+            if (ProguardHelper.genProguardMapping(rule)) {
               functions.add(JavaSemantics.JAVA_BINARY_PROGUARD_MAP);
             }
           }
