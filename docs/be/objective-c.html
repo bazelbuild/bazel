@@ -93,7 +93,7 @@ title: Objective-C Rules
     apple_watch1_extension
   </h2>
 
-  <pre class="rule-signature">apple_watch1_extension(<a href="#apple_watch1_extension.name">name</a>, <a href="#apple_watch1_extension.app_asset_catalogs">app_asset_catalogs</a>, <a href="#apple_watch1_extension.app_bundle_id">app_bundle_id</a>, <a href="#apple_watch1_extension.app_entitlements">app_entitlements</a>, <a href="#apple_watch1_extension.app_icon">app_icon</a>, <a href="#apple_watch1_extension.app_infoplists">app_infoplists</a>, <a href="#apple_watch1_extension.app_name">app_name</a>, <a href="#apple_watch1_extension.app_provisioning_profile">app_provisioning_profile</a>, <a href="#apple_watch1_extension.app_resources">app_resources</a>, <a href="#apple_watch1_extension.app_strings">app_strings</a>, <a href="#apple_watch1_extension.app_structured_resources">app_structured_resources</a>, <a href="#apple_watch1_extension.binary">binary</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#apple_watch1_extension.ext_bundle_id">ext_bundle_id</a>, <a href="#apple_watch1_extension.ext_entitlements">ext_entitlements</a>, <a href="#apple_watch1_extension.ext_families">ext_families</a>, <a href="#apple_watch1_extension.ext_infoplists">ext_infoplists</a>, <a href="#apple_watch1_extension.ext_provisioning_profile">ext_provisioning_profile</a>, <a href="#apple_watch1_extension.ext_resources">ext_resources</a>, <a href="#apple_watch1_extension.ext_strings">ext_strings</a>, <a href="#apple_watch1_extension.ext_structured_resources">ext_structured_resources</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
+  <pre class="rule-signature">apple_watch1_extension(<a href="#apple_watch1_extension.name">name</a>, <a href="#apple_watch1_extension.app_asset_catalogs">app_asset_catalogs</a>, <a href="#apple_watch1_extension.app_bundle_id">app_bundle_id</a>, <a href="#apple_watch1_extension.app_deps">app_deps</a>, <a href="#apple_watch1_extension.app_entitlements">app_entitlements</a>, <a href="#apple_watch1_extension.app_icon">app_icon</a>, <a href="#apple_watch1_extension.app_infoplists">app_infoplists</a>, <a href="#apple_watch1_extension.app_name">app_name</a>, <a href="#apple_watch1_extension.app_provisioning_profile">app_provisioning_profile</a>, <a href="#apple_watch1_extension.app_resources">app_resources</a>, <a href="#apple_watch1_extension.app_strings">app_strings</a>, <a href="#apple_watch1_extension.app_structured_resources">app_structured_resources</a>, <a href="#apple_watch1_extension.binary">binary</a>, <a href="common-definitions.html#common.compatible_with">compatible_with</a>, <a href="common-definitions.html#common.deprecation">deprecation</a>, <a href="common-definitions.html#common.distribs">distribs</a>, <a href="#apple_watch1_extension.ext_bundle_id">ext_bundle_id</a>, <a href="#apple_watch1_extension.ext_entitlements">ext_entitlements</a>, <a href="#apple_watch1_extension.ext_families">ext_families</a>, <a href="#apple_watch1_extension.ext_infoplists">ext_infoplists</a>, <a href="#apple_watch1_extension.ext_provisioning_profile">ext_provisioning_profile</a>, <a href="#apple_watch1_extension.ext_resources">ext_resources</a>, <a href="#apple_watch1_extension.ext_strings">ext_strings</a>, <a href="#apple_watch1_extension.ext_structured_resources">ext_structured_resources</a>, <a href="common-definitions.html#common.features">features</a>, <a href="common-definitions.html#common.licenses">licenses</a>, <a href="common-definitions.html#common.restricted_to">restricted_to</a>, <a href="common-definitions.html#common.tags">tags</a>, <a href="common-definitions.html#common.testonly">testonly</a>, <a href="common-definitions.html#common.visibility">visibility</a>)</pre>
 
 
 <p>This rule produces an extension bundle for apple watch OS 1 which also contains the watch
@@ -158,6 +158,17 @@ ${ATTRIBUTE_DEFINITION}
           If specified, it will override the bundle ID specified in the associated plist file. If
           no bundle ID is specified on either this attribute or in the plist file, a junk value
           will be used.
+
+        </td>
+      </tr>
+                      <tr>
+        <td id="apple_watch1_extension.app_deps">
+          <code>app_deps</code>
+        </td>
+        <td>
+                    <p><code>List of <a href="../build-ref.html#labels">labels</a>; optional</code></p>
+                            The list of targets whose resources files are bundled together to form final watch
+        application bundle.
 
         </td>
       </tr>
