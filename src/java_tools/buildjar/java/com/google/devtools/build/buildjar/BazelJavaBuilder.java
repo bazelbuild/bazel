@@ -24,9 +24,11 @@ import com.google.devtools.build.buildjar.javac.plugins.errorprone.ErrorPronePlu
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.PrintStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.List;
 
@@ -45,14 +47,16 @@ public abstract class BazelJavaBuilder {
       System.exit(runPersistentWorker());
     } else {
       // This is a single invocation of JavaBuilder that exits after it processed the request.
-      System.exit(processRequest(Arrays.asList(args)));
+      int exitCode = 1;
+      try (PrintWriter err =
+          new PrintWriter(new OutputStreamWriter(System.err, Charset.defaultCharset()))) {
+        exitCode = processRequest(Arrays.asList(args), err);
+      }
+      System.exit(exitCode);
     }
   }
 
   private static int runPersistentWorker() {
-    PrintStream originalStdOut = System.out;
-    PrintStream originalStdErr = System.err;
-
     while (true) {
       try {
         WorkRequest request = WorkRequest.parseDelimitedFrom(System.in);
@@ -61,27 +65,16 @@ public abstract class BazelJavaBuilder {
           break;
         }
 
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        PrintStream ps = new PrintStream(baos, true);
-        // Make sure that we exit nonzero in case an exception occurs during processRequest.
-        int exitCode = 1;
-        // TODO(philwo) - change this so that a PrintWriter can be passed in and will be used
-        // instead of redirect stdout / stderr.
-        System.setOut(ps);
-        System.setErr(ps);
-        try {
-          exitCode = processRequest(request.getArgumentsList());
-        } finally {
-          System.setOut(originalStdOut);
-          System.setErr(originalStdErr);
+        try (StringWriter sw = new StringWriter();
+            PrintWriter pw = new PrintWriter(sw)) {
+          int exitCode = processRequest(request.getArgumentsList(), pw);
+          WorkResponse.newBuilder()
+              .setOutput(sw.toString())
+              .setExitCode(exitCode)
+              .build()
+              .writeDelimitedTo(System.out);
+          System.out.flush();
         }
-
-        WorkResponse.newBuilder()
-            .setOutput(baos.toString())
-            .setExitCode(exitCode)
-            .build()
-            .writeDelimitedTo(System.out);
-        System.out.flush();
       } catch (IOException e) {
         e.printStackTrace();
         return 1;
@@ -90,13 +83,13 @@ public abstract class BazelJavaBuilder {
     return 0;
   }
 
-  private static int processRequest(List<String> args) {
+  private static int processRequest(List<String> args, PrintWriter err) {
     try {
       JavaLibraryBuildRequest build = parse(args);
       AbstractJavaBuilder builder = build.getDependencyModule().reduceClasspath()
           ? new ReducedClasspathJavaLibraryBuilder()
           : new SimpleJavaLibraryBuilder();
-      return builder.run(build, System.err).exitCode;
+      return builder.run(build, err).exitCode;
     } catch (InvalidCommandLineException e) {
       System.err.println(CMDNAME + " threw exception: " + e.getMessage());
       return 1;

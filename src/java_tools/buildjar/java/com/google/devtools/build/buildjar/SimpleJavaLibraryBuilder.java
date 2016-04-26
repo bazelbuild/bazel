@@ -23,7 +23,6 @@ import com.sun.tools.javac.main.Main.Result;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
@@ -127,8 +126,7 @@ public class SimpleJavaLibraryBuilder extends AbstractJavaBuilder {
   }
 
   @Override
-  public void buildGensrcJar(JavaLibraryBuildRequest build, OutputStream err)
-      throws IOException {
+  public void buildGensrcJar(JavaLibraryBuildRequest build) throws IOException {
     JarCreator jar = new JarCreator(build.getGeneratedSourcesOutputJar());
     jar.setNormalize(true);
     jar.setCompression(build.compressJar());
