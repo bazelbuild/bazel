@@ -1041,6 +1041,7 @@ u1* OutputZipFile::WriteLocalFileHeader(const char* filename, const u4 attr) {
   memcpy(entry->file_name, filename, file_name_length_);
   entry->extra_field_length = 0;
   entry->extra_field = (const u1 *)"";
+  entry->crc32 = 0;
 
   // Output the ZIP local_file_header:
   put_u4le(q, LOCAL_FILE_HEADER_SIGNATURE);
