@@ -530,7 +530,17 @@ static void SetupDirectories(struct Options *opt) {
     }
   }
 
-  char *homedir = getpwuid(getuid())->pw_dir;
+  errno = 0;
+  struct passwd *uid_passwd = getpwuid(getuid());
+  if (uid_passwd == NULL) {
+    if (errno != 0) {
+      perror("getpwuid(getuid())");
+      exit(EXIT_FAILURE);
+    } else {
+      DIE("UID %d not found in passwd file", (int)getuid());
+    }
+  }
+  char *homedir = uid_passwd->pw_dir;
   if (homedir != NULL &&
       (homedir_from_env == NULL || strcmp(homedir_from_env, homedir) != 0)) {
     if (homedir[0] != '/') {
