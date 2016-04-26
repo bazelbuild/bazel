@@ -196,7 +196,7 @@ public class PackageLookupFunction implements SkyFunction {
     for (Path packagePathEntry : pkgLocator.getPathEntries()) {
       lastPackagePath = packagePathEntry;
       RootedPath workspacePath = RootedPath.toRootedPath(
-          packagePathEntry, new PathFragment("WORKSPACE"));
+          packagePathEntry, Label.EXTERNAL_PACKAGE_FILE_NAME);
       FileValue value = getFileValue(workspacePath, env, packageIdentifier);
       if (value == null) {
         return null;

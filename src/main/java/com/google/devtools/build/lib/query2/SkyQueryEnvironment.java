@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.query2.engine.RdepsFunction;
 import com.google.devtools.build.lib.query2.engine.TargetLiteral;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.skyframe.BlacklistedPackagePrefixesValue;
+import com.google.devtools.build.lib.skyframe.ContainingPackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.FileValue;
 import com.google.devtools.build.lib.skyframe.GraphBackedRecursivePackageProvider;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
@@ -765,9 +766,42 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
   }
 
   /**
-   * Get SkyKeys for the FileValues for the given {@code pathFragments}. To do this, we look for a
-   * package lookup node for each path fragment, since package lookup nodes contain the "root" of a
-   * package. The returned SkyKeys correspond to FileValues that may not exist in the graph.
+   * Returns package lookup keys for looking up the package root for which there may be a relevant
+   * (from the perspective of {@link #getRBuildFiles}) {@link FileValue} node in the graph for
+   * {@code originalFileFragment}, which is assumed to be a file path.
+   *
+   * <p>This is a helper function for {@link #getSkyKeysForFileFragments}.
+   */
+  private static Iterable<SkyKey> getPkgLookupKeysForFile(PathFragment originalFileFragment,
+      PathFragment currentPathFragment) {
+    if (originalFileFragment.equals(currentPathFragment)
+        && originalFileFragment.equals(Label.EXTERNAL_PACKAGE_FILE_NAME)) {
+      Preconditions.checkState(
+          Label.EXTERNAL_PACKAGE_FILE_NAME.getParentDirectory().equals(
+              PathFragment.EMPTY_FRAGMENT),
+          Label.EXTERNAL_PACKAGE_FILE_NAME);
+      return ImmutableList.of(
+          PackageLookupValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER),
+          PackageLookupValue.key(PackageIdentifier.createInMainRepo(PathFragment.EMPTY_FRAGMENT)));
+    }
+    PathFragment parentPathFragment = currentPathFragment.getParentDirectory();
+    return parentPathFragment == null
+        ? ImmutableList.<SkyKey>of()
+        : ImmutableList.of(PackageLookupValue.key(
+            PackageIdentifier.createInMainRepo(parentPathFragment)));
+  }
+
+  /**
+   * Returns FileValue keys for which there may be relevant (from the perspective of
+   * {@link #getRBuildFiles}) FileValues in the graph corresponding to the given
+   * {@code pathFragments}, which are assumed to be file paths.
+   *
+   * <p>To do this, we emulate the {@link ContainingPackageLookupFunction} logic: for each given
+   * file path, we look for the nearest ancestor directory (starting with its parent directory), if
+   * any, that has a package. The {@link PackageLookupValue} for this package tells us the package
+   * root that we should use for the {@link RootedPath} for the {@link FileValue} key.
+   * 
+   * Note that there may not be nodes in the graph corresponding to the returned SkyKeys.
    */
   private Collection<SkyKey> getSkyKeysForFileFragments(Iterable<PathFragment> pathFragments) {
     Set<SkyKey> result = new HashSet<>();
@@ -776,24 +810,32 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       currentToOriginal.put(pathFragment, pathFragment);
     }
     while (!currentToOriginal.isEmpty()) {
-      Map<SkyKey, PathFragment> keys = new HashMap<>();
-      for (PathFragment pathFragment : currentToOriginal.keySet()) {
-        keys.put(
-            PackageLookupValue.key(PackageIdentifier.createInMainRepo(pathFragment)),
-            pathFragment);
+      Multimap<SkyKey, PathFragment> packageLookupKeysToOriginal = ArrayListMultimap.create();
+      Multimap<SkyKey, PathFragment> packageLookupKeysToCurrent = ArrayListMultimap.create();
+      for (Entry<PathFragment, PathFragment> entry : currentToOriginal.entries()) {
+        PathFragment current = entry.getKey();
+        PathFragment original = entry.getValue();
+        for (SkyKey packageLookupKey : getPkgLookupKeysForFile(original, current)) {
+          packageLookupKeysToOriginal.put(packageLookupKey, original);
+          packageLookupKeysToCurrent.put(packageLookupKey, current);
+        }
       }
-      Map<SkyKey, SkyValue> lookupValues = graph.getSuccessfulValues(keys.keySet());
+      Map<SkyKey, SkyValue> lookupValues =
+          graph.getSuccessfulValues(packageLookupKeysToOriginal.keySet());
       for (Map.Entry<SkyKey, SkyValue> entry : lookupValues.entrySet()) {
+        SkyKey packageLookupKey = entry.getKey();
         PackageLookupValue packageLookupValue = (PackageLookupValue) entry.getValue();
         if (packageLookupValue.packageExists()) {
-          PathFragment dir = keys.get(entry.getKey());
-          Collection<PathFragment> originalFiles = currentToOriginal.get(dir);
+          Collection<PathFragment> originalFiles =
+              packageLookupKeysToOriginal.get(packageLookupKey);
           Preconditions.checkState(!originalFiles.isEmpty(), entry);
           for (PathFragment fileName : originalFiles) {
             result.add(
                 FileValue.key(RootedPath.toRootedPath(packageLookupValue.getRoot(), fileName)));
           }
-          currentToOriginal.removeAll(dir);
+          for (PathFragment current : packageLookupKeysToCurrent.get(packageLookupKey)) {
+            currentToOriginal.removeAll(current);
+          }
         }
       }
       Multimap<PathFragment, PathFragment> newCurrentToOriginal = ArrayListMultimap.create();
@@ -823,8 +865,13 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target> {
       for (SkyKey rdep : Iterables.concat(reverseDeps)) {
         if (rdep.functionName().equals(SkyFunctions.PACKAGE)) {
           resultKeys.add(rdep);
+          // Every package has a dep on the external package, so we need to include those edges too.
+          if (rdep.equals(PackageValue.key(Label.EXTERNAL_PACKAGE_IDENTIFIER))) {
+            current.add(rdep);
+          }
         } else if (!rdep.functionName().equals(SkyFunctions.PACKAGE_LOOKUP)) {
-          // Packages may depend on subpackages for existence, but we don't report them as rdeps.
+          // Packages may depend on the existence of subpackages, but these edges aren't relevant to
+          // rbuildfiles.
           current.add(rdep);
         }
       }
