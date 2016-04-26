@@ -172,7 +172,8 @@ def _crosstool_content(repository_ctx, cc, cpu_value, darwin):
       "linker_flag": [
           "-lstdc++",
           # Anticipated future default.
-      ] + _add_option_if_supported(repository_ctx, cc, "-no-canonical-prefixes") + (
+      ] + _add_option_if_supported(repository_ctx, cc, "-no-canonical-prefixes") +
+      _add_option_if_supported(repository_ctx, cc, "-Wl,-no-as-needed") + (
           ["-undefined", "dynamic_lookup"] if darwin else [
               "-B" + str(repository_ctx.path(cc).dirname),
               # Always have -B/usr/bin, see https://github.com/bazelbuild/bazel/issues/760.
