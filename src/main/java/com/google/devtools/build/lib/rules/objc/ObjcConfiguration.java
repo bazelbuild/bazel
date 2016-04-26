@@ -76,6 +76,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
   private final boolean debugWithGlibcxx;
   private final boolean experimentalAutoTopLevelUnionObjCProtos;
   @Nullable private final Label extraEntitlements;
+  private final boolean deviceDebugEntitlements;
 
   ObjcConfiguration(ObjcCommandLineOptions objcOptions, BuildConfiguration.Options options,
       @Nullable BlazeDirectories directories) {
@@ -103,6 +104,7 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
     this.extraEntitlements = objcOptions.extraEntitlements;
     this.experimentalAutoTopLevelUnionObjCProtos =
         objcOptions.experimentalAutoTopLevelUnionObjCProtos;
+    this.deviceDebugEntitlements = objcOptions.deviceDebugEntitlements;
   }
 
   /**
@@ -281,5 +283,15 @@ public class ObjcConfiguration extends BuildConfiguration.Fragment {
    */
   public boolean experimentalAutoTopLevelUnionObjCProtos() {
     return experimentalAutoTopLevelUnionObjCProtos;
+  }
+
+  /**
+   * Returns whether device debug entitlements should be included when signing an application.
+   *
+   * <p>Note that debug entitlements should not be included in compilation mode {@code opt}
+   * regardless of this setting.
+   */
+  public boolean useDeviceDebugEntitlements() {
+    return deviceDebugEntitlements;
   }
 }

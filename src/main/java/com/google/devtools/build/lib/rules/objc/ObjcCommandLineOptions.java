@@ -211,6 +211,16 @@ public class ObjcCommandLineOptions extends FragmentOptions {
   )
   public boolean experimentalAutoTopLevelUnionObjCProtos;
 
+  @Option(
+    name = "device_debug_entitlements",
+    defaultValue = "true",
+    category = "flags",
+    help =
+        "If set, and compilation mode is not 'opt', objc apps will include debug entitlements "
+            + "when signing."
+  )
+  public boolean deviceDebugEntitlements;
+  
   @VisibleForTesting static final String DEFAULT_MINIMUM_IOS = "7.0";
 
   @Override

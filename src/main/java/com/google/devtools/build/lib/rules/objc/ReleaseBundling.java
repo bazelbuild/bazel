@@ -144,11 +144,6 @@ final class ReleaseBundling {
       return this;
     }
 
-    public Builder setExtraEntitlements(Artifact extraEntitlements) {
-      this.extraEntitlements = extraEntitlements;
-      return this;
-    }
-
     public ReleaseBundling build() {
       Preconditions.checkNotNull(intermediateArtifacts, "intermediateArtifacts");
       Preconditions.checkNotNull(families, FAMILIES_ATTR);
@@ -227,8 +222,6 @@ final class ReleaseBundling {
         .setTargetDeviceFamilies(families)
         .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
         .setEntitlements(ruleContext.getPrerequisiteArtifact("entitlements", Mode.TARGET))
-        .setExtraEntitlements(
-            ruleContext.getPrerequisiteArtifact(":extra_entitlements", Mode.TARGET))
         .build();
   }
 
@@ -250,7 +243,6 @@ final class ReleaseBundling {
   private final Iterable<Artifact> infoPlistsFromRule;
   private final String artifactPrefix;
   private final Artifact entitlements;
-  private final Artifact extraEntitlements;
 
   private ReleaseBundling(
       Artifact ipaArtifact,
@@ -285,7 +277,6 @@ final class ReleaseBundling {
     this.intermediateArtifacts = Preconditions.checkNotNull(intermediateArtifacts);
     this.artifactPrefix = artifactPrefix;
     this.entitlements = entitlements;
-    this.extraEntitlements = extraEntitlements;
   }
 
   /**
@@ -397,13 +388,5 @@ final class ReleaseBundling {
    */
   public Artifact getEntitlements() {
     return entitlements;
-  }
-
-  /**
-   * Returns an {@link Artifact} containing the extra entitlements passed via command line that is
-   * used to sign this bundle for non-simulator builds; can be null.
-   */
-  public Artifact getExtraEntitlements() {
-    return extraEntitlements;
   }
 }
