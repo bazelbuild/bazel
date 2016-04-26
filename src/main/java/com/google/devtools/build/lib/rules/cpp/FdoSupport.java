@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Root;
 import com.google.devtools.build.lib.analysis.AnalysisEnvironment;
@@ -253,9 +254,10 @@ public class FdoSupport {
       lipoMode = LipoMode.OFF;
     }
 
-    Root fdoRoot = (fdoProfile == null)
-        ? null
-        : Root.asDerivedRoot(execRoot, execRoot.getRelative("blaze-fdo"));
+    Root fdoRoot =
+        (fdoProfile == null)
+            ? null
+            : Root.asDerivedRoot(execRoot, execRoot.getRelative(Constants.PRODUCT_NAME + "-fdo"));
 
     PathFragment fdoRootExecPath = fdoProfile == null
         ? null
@@ -331,9 +333,12 @@ public class FdoSupport {
             execRoot.getRelative(getLLVMProfilePath(fdoProfile, fdoRootExecPath)), fdoProfile);
       } else {
         Path zipFilePath = new ZipFileSystem(fdoProfile).getRootDirectory();
-        if (!zipFilePath.getRelative("blaze-out").isDirectory()) {
-          throw new ZipException("FDO zip files must be zipped directly above 'blaze-out' " +
-                                 "for the compiler to find the profile");
+        String outputSymlinkName = Constants.PRODUCT_NAME + "-out";
+        if (!zipFilePath.getRelative(outputSymlinkName).isDirectory()) {
+          throw new ZipException(
+              "FDO zip files must be zipped directly above '"
+                  + outputSymlinkName
+                  + "' for the compiler to find the profile");
         }
         ImmutableSet.Builder<PathFragment> gcdaFilesBuilder = ImmutableSet.builder();
         ImmutableMultimap.Builder<PathFragment, PathFragment> importsBuilder =
