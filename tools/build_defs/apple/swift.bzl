@@ -59,8 +59,7 @@ def _swift_library_impl(ctx):
       "-module-name", ctx.label.name,
       "-parse-as-library",
       "-target", target,
-      # TODO(b/28049126): Replace this value with apple_toolchain call.
-      "-sdk", "__BAZEL_XCODE_SDKROOT__",
+      "-sdk", apple_common.apple_toolchain().sdk_dir(),
       "-o", output_lib.path,
       ] + srcs_args + include_args
 
