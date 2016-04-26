@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownMethod;
 import com.google.devtools.build.lib.server.RPCService.UnknownCommandException;
 import com.google.devtools.build.lib.unix.LocalClientSocket;
 import com.google.devtools.build.lib.unix.LocalServerSocket;
@@ -225,8 +226,16 @@ public final class AfUnixServer extends RPCServer {
               }
             }
             requestIo.shutdown();
-            if (rpcService.isShutdown()) {
-              return;
+            switch (rpcService.getShutdown()) {
+              case NONE:
+                break;
+
+              case CLEAN:
+                return;
+
+              case EXPUNGE:
+                disableShutdownHooks();
+                return;
             }
           }
         } catch (EOFException e) {
@@ -238,7 +247,7 @@ public final class AfUnixServer extends RPCServer {
         }
       }
     } finally {
-      rpcService.shutdown();
+      rpcService.shutdown(ShutdownMethod.CLEAN);
       LOG.info("Logging finished");
     }
   }
@@ -413,7 +422,7 @@ public final class AfUnixServer extends RPCServer {
       LOG.severe("SERVER ERROR: " + trace);
     }
 
-    if (rpcService.isShutdown()) {
+    if (rpcService.getShutdown() != ShutdownMethod.NONE) {
       // In case of shutdown, disable the listening socket *before* we write
       // the last part of the response.  Otherwise, a sufficiently fast client
       // could read the response and exit, and a new client could make a
@@ -533,10 +542,6 @@ public final class AfUnixServer extends RPCServer {
                                         Path workspaceDir,
                                         int maxIdleSeconds)
       throws IOException {
-    if (!serverDirectory.exists()) {
-      serverDirectory.createDirectory();
-    }
-
     // Creates and starts the RPC server.
     RPCService service = new RPCService(appCommand);
 

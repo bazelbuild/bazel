@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.server;
 
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher;
+import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownMethod;
 import com.google.devtools.build.lib.util.io.OutErr;
 
 import java.util.List;
@@ -32,9 +33,8 @@ public interface ServerCommand {
       String clientDescription, long firstContactTime) throws InterruptedException;
 
   /**
-   * The implementation returns true from this method to initiate a shutdown.
-   * No further requests will be handled.
+   * Whether the server needs to be shutdown, and if so, in what manner.
    */
-  boolean shutdown();
+  ShutdownMethod shutdown();
 
 }

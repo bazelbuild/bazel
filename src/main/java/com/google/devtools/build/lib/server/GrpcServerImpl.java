@@ -393,8 +393,18 @@ public class GrpcServerImpl extends RPCServer implements CommandServerGrpc.Comma
     observer.onNext(response);
     observer.onCompleted();
 
-    if (commandExecutor.shutdown()) {
-      server.shutdownNow();
+    switch (commandExecutor.shutdown()) {
+      case NONE:
+        break;
+
+      case CLEAN:
+        server.shutdownNow();
+        break;
+
+      case EXPUNGE:
+        disableShutdownHooks();
+        server.shutdownNow();
+        break;
     }
   }
 

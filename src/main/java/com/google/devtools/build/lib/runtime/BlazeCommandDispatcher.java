@@ -84,24 +84,61 @@ public class BlazeCommandDispatcher {
   private static final Set<String> ALL_HELP_OPTIONS = ImmutableSet.of("--help", "-help", "-h");
 
   /**
+   * If the server needs to be shut down and how.
+   */
+  public enum ShutdownMethod {
+    /** The server doesn't need to be shut down. */
+    NONE,
+
+    /** The server is to be shut down cleanly, e.g. as a result of "blaze shutdown". */
+    CLEAN,
+
+    /**
+     * The server is shut down as a result of a "blaze clean --expunge.
+     *
+     * <p>In this case, no files should be deleted on shutdown hooks, since clean also deletes the
+     * lock file, and there is a small possibility of the following sequence of events:
+     *
+     * <ol>
+     *   <li> Client 1 runs "blaze clean --expunge"
+     *   <li> Client 2 runs a command and waits for client 1 to finish
+     *   <li> The clean command deletes everything including the lock file
+     *   <li> Client 2 starts running and since the output base is empty, starts up a new server,
+     *     which creates its own socket and PID files
+     *   <li> The server used by client runs its shutdown hooks, deleting the PID files created by
+     *     the new server
+     * </ol>
+     */
+    EXPUNGE,
+  }
+
+  /**
    * By throwing this exception, a command indicates that it wants to shutdown
    * the Blaze server process.
    * See {@link BlazeCommandDispatcher#exec(List, OutErr, long)}.
    */
   public static class ShutdownBlazeServerException extends Exception {
     private final int exitStatus;
+    private final ShutdownMethod method;
 
-    public ShutdownBlazeServerException(int exitStatus, Throwable cause) {
+    public ShutdownBlazeServerException(int exitStatus, ShutdownMethod method, Throwable cause) {
       super(cause);
       this.exitStatus = exitStatus;
+      this.method = method;
     }
 
-    public ShutdownBlazeServerException(int exitStatus) {
+    public ShutdownBlazeServerException(int exitStatus, ShutdownMethod method) {
+      Preconditions.checkState(method != ShutdownMethod.NONE);
       this.exitStatus = exitStatus;
+      this.method = method;
     }
 
     public int getExitStatus() {
       return exitStatus;
+    }
+
+    public ShutdownMethod getMethod() {
+      return method;
     }
   }
 
@@ -439,7 +476,7 @@ public class BlazeCommandDispatcher {
       numericExitCode = e instanceof OutOfMemoryError
           ? ExitCode.OOM_ERROR.getNumericExitCode()
           : ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode();
-      throw new ShutdownBlazeServerException(numericExitCode, e);
+      throw new ShutdownBlazeServerException(numericExitCode, ShutdownMethod.CLEAN, e);
     } finally {
       runtime.afterCommand(env, numericExitCode);
       // Swallow IOException, as we are already in a finally clause

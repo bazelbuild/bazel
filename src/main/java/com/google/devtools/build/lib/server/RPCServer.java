@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Logger;
 
 /**
@@ -27,6 +28,7 @@ import java.util.logging.Logger;
  */
 public abstract class RPCServer {
   private static final Logger LOG = Logger.getLogger(RPCServer.class.getName());
+  private static AtomicBoolean runShutdownHooks = new AtomicBoolean(true);
 
   /**
    * Factory class for the gRPC server.
@@ -48,17 +50,25 @@ public abstract class RPCServer {
     RPCServer.deleteAtExit(pidSymlink, /*deleteParent=*/ false);
   }
 
+  protected void disableShutdownHooks() {
+    runShutdownHooks.set(false);
+  }
+
   /**
    * Schedule the specified file for (attempted) deletion at JVM exit.
    */
-  protected static void deleteAtExit(final Path socketFile, final boolean deleteParent) {
+  protected static void deleteAtExit(final Path path, final boolean deleteParent) {
     Runtime.getRuntime().addShutdownHook(new Thread() {
         @Override
         public void run() {
+          if (!runShutdownHooks.get()) {
+            return;
+          }
+
           try {
-            socketFile.delete();
+            path.delete();
             if (deleteParent) {
-              socketFile.getParentDirectory().delete();
+              path.getParentDirectory().delete();
             }
           } catch (IOException e) {
             printStack(e);

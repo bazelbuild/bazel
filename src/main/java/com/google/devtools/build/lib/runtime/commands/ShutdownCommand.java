@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime.commands;
 
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownBlazeServerException;
+import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownMethod;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -63,7 +64,7 @@ public final class ShutdownCommand implements BlazeCommand {
 
     if (limit == 0 ||
         Runtime.getRuntime().totalMemory() > limit * 1000L * 1000) {
-      throw new ShutdownBlazeServerException(0);
+      throw new ShutdownBlazeServerException(0, ShutdownMethod.CLEAN);
     }
     return ExitCode.SUCCESS;
   }

@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.buildtool.OutputDirectoryLinksUtils;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownBlazeServerException;
+import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownMethod;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.shell.CommandException;
@@ -48,7 +49,6 @@ import java.util.logging.Logger;
          // TODO(bazel-team): Remove this - we inherit a huge number of unused options.
          inherits = { BuildCommand.class })
 public final class CleanCommand implements BlazeCommand {
-
   /**
    * An interface for special options for the clean command.
    */
@@ -177,7 +177,7 @@ public final class CleanCommand implements BlazeCommand {
         env.getWorkspaceName(), env.getWorkspace(), env.getReporter(), symlinkPrefix);
     // shutdown on expunge cleans
     if (cleanOptions.expunge || cleanOptions.expunge_async) {
-      throw new ShutdownBlazeServerException(0);
+      throw new ShutdownBlazeServerException(0, ShutdownMethod.EXPUNGE);
     }
   }
 

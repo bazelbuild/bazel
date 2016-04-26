@@ -16,11 +16,10 @@ package com.google.devtools.build.lib.server;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
+import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownMethod;
 import com.google.devtools.build.lib.server.RPCService.UnknownCommandException;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -48,8 +47,8 @@ public class RPCServiceTest {
       return 42;
     }
     @Override
-    public boolean shutdown() {
-      return false;
+    public ShutdownMethod shutdown() {
+      return ShutdownMethod.NONE;
     }
   };
 
@@ -91,8 +90,8 @@ public class RPCServiceTest {
               return 0;
             }
             @Override
-            public boolean shutdown() {
-              return false;
+            public ShutdownMethod shutdown() {
+              return ShutdownMethod.NONE;
             }
           });
 
@@ -104,17 +103,24 @@ public class RPCServiceTest {
 
   @Test
   public void testShutdownState() throws Exception {
-    assertFalse(service.isShutdown());
-    service.shutdown();
-    assertTrue(service.isShutdown());
-    service.shutdown();
-    assertTrue(service.isShutdown());
+    assertEquals(ShutdownMethod.NONE, service.getShutdown());
+    service.shutdown(ShutdownMethod.CLEAN);
+    assertEquals(ShutdownMethod.CLEAN, service.getShutdown());
+    service.shutdown(ShutdownMethod.EXPUNGE);
+    assertEquals(ShutdownMethod.CLEAN, service.getShutdown());
+  }
+
+  @Test
+  public void testExpungeShutdown() throws Exception {
+    assertEquals(ShutdownMethod.NONE, service.getShutdown());
+    service.shutdown(ShutdownMethod.EXPUNGE);
+    assertEquals(ShutdownMethod.EXPUNGE, service.getShutdown());
   }
 
   @Test
   public void testCommandFailsAfterShutdown() throws Exception {
     RecordingOutErr outErr = new RecordingOutErr();
-    service.shutdown();
+    service.shutdown(ShutdownMethod.CLEAN);
     try {
       service.executeRequest(Arrays.asList("blaze"), outErr, 0);
       fail();

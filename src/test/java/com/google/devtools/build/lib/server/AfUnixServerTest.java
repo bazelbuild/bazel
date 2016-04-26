@@ -20,6 +20,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
+import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownMethod;
 import com.google.devtools.build.lib.testutil.Suite;
 import com.google.devtools.build.lib.testutil.TestSpec;
 import com.google.devtools.build.lib.util.JavaClock;
@@ -72,9 +73,10 @@ public class AfUnixServerTest {
       outErr.printErr(COMMAND_STDERR);
       return 42;
     }
+
     @Override
-    public boolean shutdown() {
-      return false;
+    public ShutdownMethod shutdown() {
+      return ShutdownMethod.NONE;
     }
   };
 
