@@ -1052,11 +1052,7 @@ public final class SkyframeActionExecutor implements ActionExecutionContextFacto
    */
   private boolean reportErrorIfNotAbortingMode(ActionExecutionException ex,
       FileOutErr outErrBuffer) {
-    // For some actions (e.g. many local actions) the pollInterruptedStatus()
-    // won't notice that we had an interrupted job. It will continue.
-    // For that reason we must take care to NOT report errors if we're
-    // in the 'aborting' mode: Any cancelled action would show up here.
-    // For some actions (e.g. many local actions) the pollInterruptedStatus()
+    // For some actions (e.g., many local actions) the pollInterruptedStatus()
     // won't notice that we had an interrupted job. It will continue.
     // For that reason we must take care to NOT report errors if we're
     // in the 'aborting' mode: Any cancelled action would show up here.
