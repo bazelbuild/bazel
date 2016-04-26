@@ -1,0 +1,132 @@
+html {
+}
+body {
+  margin: 0;
+  font-family: "Droid Sans", sans-serif;
+  background-color: #fff;
+}
+#banner-panel {
+}
+#banner {
+  width: 1200px;
+  margin: 0 auto 0 auto;
+  padding: 4px 0 8px 16px;
+  color: green;
+}
+#banner a {
+  text-decoration: none;
+}
+.product-logo {
+  margin: 0 0 0 -28px;
+  padding: 0 4px 0 0;
+}
+.product-logo img {
+  height: 72px;
+}
+.product-name {
+  font-size: 52px;
+  font-weight: bold;
+  color: #158320;
+}
+#motto-panel {
+  padding: 8px 0 8px 0;
+  background-color: #65ac57;
+}
+#motto {
+  width: 1200px;
+  margin: 0 auto 0 auto;
+  padding: 0 16px 0 16px;
+  font-size: 16px;
+  color: #f7ffee;
+}
+#download-panel {
+  padding: 8px 0 8px 0;
+  background-color: #75c765;
+}
+#download {
+  width: 1200px;
+  margin: 0 auto 0 auto;
+  padding: 0 16px 0 16px;
+  font-size: 16px;
+  color: #f7ffee;
+}
+#download a {
+  margin-right: 32px;
+  color: #f7ffee;
+  text-decoration: underline;
+}
+#content-panel {
+  margin: 0;
+  padding: 0;
+  background-color: #fff;
+}
+#content {
+  width: 1200px;
+  min-height: 1200px;
+  margin: 0 auto 0 auto;
+  padding: 32px 16px 32px 8px;
+  color: #000;
+  background-color: #fff;
+  border: 1px solid #fff;
+}
+#main h1, h2, h3, h4 {
+  color: #000;
+}
+#main p, li, td, th {
+  font-size: 14px;
+  line-height: 1.5;
+}
+#navbar {
+  float: left;
+  width: 200px;
+  padding: 10px 48px 0 0;
+}
+#navbar li {
+  font-size: 14px;
+}
+#main {
+  float: left;
+  width: 952px;
+}
+#footer-panel {
+  margin: 64px 0 16px 0;
+  padding: 8px 0 8px 0;
+  background-color: #fff;
+}
+#footer {
+  width: 1200px;
+  margin: 64px auto 0 auto;
+  padding: 0px 16px 0 16px;
+  text-align: right;
+  color: #360;
+}
+code, var, pre {
+  font-size: 13px;
+  color: #488f26;
+  background-color: #eee;
+  border-radius: 6px;
+}
+p > code, li > code {
+  padding: 0.25em;
+}
+pre {
+  padding: 16px;
+  line-height: 1.5;
+  background-color: #eee;
+  border: 1px solid #e7f0d7;
+}
+a, a:visited {
+  text-decoration: none;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+td, th {
+  padding: 2px 4px 2px 4px;
+  text-align: left;
+  border: 1px solid #eeeeee;
+}
+.discouraged, .deprecated {
+  text-decoration: line-through;
+}

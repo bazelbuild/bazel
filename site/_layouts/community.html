@@ -1,0 +1,56 @@
+---
+nav: community
+---
+
+<!DOCTYPE html>
+<html lang="en" itemscope itemtype="https://schema.org/WebPage">
+  {% include head.html %}
+  <body>
+    {% include header.html %}
+
+    <div class="page-title-bar">
+      <div class="container">
+        <h1>Community</h1>
+      </div>
+    </div>
+
+    <div class="container vpad">
+      <div class="row">
+        <div class="col-lg-2 col-md-3">
+          <a class="btn btn-default btn-lg btn-block sidebar-toggle"
+              data-toggle="collapse" href="#sidebar-nav" aria-expanded="false"
+              aria-controls="sidebar-nav">
+            <i class="glyphicon glyphicon-menu-hamburger"></i> Navigation
+          </a>
+          <nav class="sidebar collapse" id="sidebar-nav">
+            <ul class="sidebar-nav">
+              <li><a href="/contributing.html">Contributing to Bazel</a></li>
+              <li><a href="/users.html">Who's Using Bazel</a></li>
+              <li><a href="/roadmap.html">Roadmap</a></li>
+              <li><a href="/governance.html">Governance</a></li>
+            </ul>
+            <h3>Get support</h3>
+            <ul class="sidebar-nav">
+              <li><a href="/support.html">Support Policy</a></li>
+              <li><a href="https://groups.google.com/forum/#!forum/bazel-discuss">User mailing list</a></li>
+              <li><a href="https://github.com/bazelbuild/bazel/issues">Issue tracker</a></li>
+              <li><a href="http://www.twitter.com/bazelbuild">Twitter</a></li>
+              <li><a href="irc://irc.freenode.net/bazel">IRC (freenode.net#bazel)</a></li>
+            </ul>
+            <h3>Get Involved</h3>
+            <ul class="sidebar-nav">
+              <li><a href="https://github.com/bazelbuild/bazel">GitHub</a></li>
+              <li><a href="https://groups.google.com/forum/#!forum/bazel-dev">Developer mailing list</a></li>
+              <li><a href="https://bazel-review.googlesource.com">Gerrit</a></li>
+            </ul>
+          </nav>
+        </div>
+        <div class="col-lg-10 col-md-9">
+          {{ content }}
+        </div>
+      </div>
+    </div>
+
+    {% include footer.html %}
+  </body>
+</html>

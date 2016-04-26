@@ -1,0 +1,92 @@
+---
+nav: docs
+---
+
+<!DOCTYPE html>
+<html lang="en" itemscope itemtype="https://schema.org/WebPage">
+  {% include head.html %}
+  <body>
+    {% include header.html %}
+
+    <div class="page-title-bar">
+      <div class="container">
+        <h1>Documentation</h1>
+      </div>
+    </div>
+
+    <div class="container vpad">
+      <div class="row">
+        <div class="col-lg-2 col-md-3">
+          <a class="btn btn-default btn-lg btn-block sidebar-toggle"
+              data-toggle="collapse" href="#sidebar-nav" aria-expanded="false"
+              aria-controls="sidebar-nav">
+            <i class="glyphicon glyphicon-menu-hamburger"></i> Navigation
+          </a>
+          <nav class="sidebar collapse" id="sidebar-nav">
+            <ul class="sidebar-nav">
+              <li><a href="/docs/install.html">Installing</a></li>
+              <li><a href="/docs/windows.html">Building on Windows</a></li>
+              <li><a href="/docs/getting-started.html">Getting Started</a></li>
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#tutorial-menu" aria-expanded="false"
+                    aria-controls="tutorial-menu">
+                  Tutorial <span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="tutorial-menu">
+                  <li><a href="/docs/tutorial/index.html">Introduction</a></li>
+                  <li><a href="/docs/tutorial/environment.html">Set Up Your Environment</a></li>
+                  <li><a href="/docs/tutorial/workspace.html">Set Up a Workspace</a></li>
+                  <li><a href="/docs/tutorial/android-app.html">Build an Android App</a></li>
+                  <li><a href="/docs/tutorial/ios-app.html">Build an iOS App</a></li>
+                  <li><a href="/docs/tutorial/backend-server.html">Build the Backend Server</a></li>
+                  <li><a href="/docs/tutorial/review.html">Review</a></li>
+                </ul>
+              </li>
+            </ul>
+            <h3>Using Bazel</h3>
+            <ul class="sidebar-nav">
+              <li><a href="/docs/build-ref.html">Concepts</a></li>
+              <li><a href="/docs/bazel-user-manual.html">User Manual</a></li>
+              <li><a href="/docs/test-encyclopedia.html">Test Encyclopedia</a></li>
+              <li><a href="/docs/query.html">Query Language</a></li>
+              <li><a href="/docs/mobile-install.html">mobile-install (Android)</a></li>
+              <li><a href="/docs/cpp.html">C++ Basics</a></li>
+              <li><a href="/docs/external.html">External Dependencies</a></li>
+            </ul>
+            {% include be-nav.html %}
+            <h3>Custom Rules</h3>
+            <ul class="sidebar-nav">
+              <li><a href="/docs/skylark/index.html">Overview</a></li>
+              <li><a href="/docs/skylark/concepts.html">Concepts</a></li>
+              <li><a href="/docs/skylark/rules.html">Rules</a></li>
+              <li><a href="/docs/skylark/macros.html">Macros</a></li>
+              <li><a href="/docs/skylark/repository_rules.html">Repository rules</a></li>
+              <li>
+                <a class="sidebar-nav-heading" data-toggle="collapse"
+                    href="#skylark-lib-menu" aria-expanded="false"
+                    aria-controls="skylark-lib-menu">
+                  Library <span class="caret"></span>
+                </a>
+                <ul class="collapse sidebar-nav sidebar-submenu" id="skylark-lib-menu">
+                {% include skylark-nav.html %}
+                </ul>
+              </li>
+              <li><a href="/docs/skylark/cookbook.html">Cookbook</a></li>
+            </ul>
+            <h3>How Bazel Works</h3>
+            <ul class="sidebar-nav">
+              <li><a href="/docs/skyframe.html">Build Graph</a></li>
+              <li><a href="/docs/output_directories.html">Output Directories</a></li>
+            </ul>
+          </nav>
+        </div>
+        <div class="col-lg-10 col-md-9">
+          {{ content }}
+        </div>
+      </div>
+    </div>
+
+    {% include footer.html %}
+  </body>
+</html>
