@@ -154,8 +154,18 @@ public class JarHelper {
    * @throws IOException
    */
   protected void writeManifestEntry(byte[] content) throws IOException {
-    writeEntry(out, MANIFEST_DIR, new byte[]{});
-    writeEntry(out, MANIFEST_NAME, content);
+    int oldStorageMethod = storageMethod;
+    // Do not compress small manifest files, the compressed one is frequently
+    // larger than the original. The threshold of 256 bytes is somewhat arbitrary.
+    if (content.length < 256) {
+      storageMethod = JarEntry.STORED;
+    }
+    try {
+      writeEntry(out, MANIFEST_DIR, new byte[]{});
+      writeEntry(out, MANIFEST_NAME, content);
+    } finally {
+      storageMethod = oldStorageMethod;
+    }
   }
 
   /**
