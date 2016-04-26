@@ -42,8 +42,10 @@ public abstract class RPCServer {
     // server.pid was written in the C++ launcher after fork() but before exec() .
     // The client only accesses the pid file after connecting to the socket
     // which ensures that it gets the correct pid value.
-    Path pidFile = serverDirectory.getRelative("server.pid");
+    Path pidFile = serverDirectory.getRelative("server.pid.txt");
+    Path pidSymlink = serverDirectory.getRelative("server.pid");
     RPCServer.deleteAtExit(pidFile, /*deleteParent=*/ false);
+    RPCServer.deleteAtExit(pidSymlink, /*deleteParent=*/ false);
   }
 
   /**

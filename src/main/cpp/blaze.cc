@@ -558,7 +558,7 @@ static int StartServer() {
   GoToWorkspace();
 
   return ExecuteDaemon(exe, jvm_args_vector, globals->jvm_log_file.c_str(),
-                server_dir + "/server.pid");
+                       server_dir);
 }
 
 static bool KillRunningServerIfAny(BlazeServer *server);
@@ -846,7 +846,7 @@ static void WriteFileToStreamOrDie(FILE *stream, const char *file_name) {
 
 // After connecting to the Blaze server, initialize server_pid. Return -1 if
 // there was an error.
-static int GetServerPid(const string &pid_file) {
+static int GetServerPid(const string &server_dir) {
   // Note: there is no race here on startup since the server creates
   // the pid file strictly before it binds the socket.
 
@@ -857,7 +857,9 @@ static int GetServerPid(const string &pid_file) {
   // TODO(lberki): Remove the readlink() call when there is no chance of an old
   // server lingering around. Probably safe after 2016.06.01.
   int len;
-  len = readlink(pid_file.c_str(), buf, sizeof(buf) - 1);
+  string pid_file = blaze_util::JoinPath(server_dir, ServerPidFile());
+  string pid_symlink = blaze_util::JoinPath(server_dir, ServerPidSymlink());
+  len = readlink(pid_symlink.c_str(), buf, sizeof(buf) - 1);
   if (len < 0) {
     int fd = open(pid_file.c_str(), O_RDONLY);
     if (fd < 0) {
@@ -892,12 +894,11 @@ static bool ConnectToServer(BlazeServer *server, bool start) {
          "server directory '%s' could not be created", server_dir.c_str());
   }
 
-  string socket_file = server_dir + "/server.socket";
-  string pid_file = server_dir + "/server.pid";
+  string socket_file = blaze_util::JoinPath(server_dir, "server.socket");
 
   globals->server_pid = 0;
   if (server->Connect()) {
-    globals->server_pid = GetServerPid(pid_file);
+    globals->server_pid = GetServerPid(server_dir);
     if (globals->server_pid == -1) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "can't get server pid from connection");
@@ -911,7 +912,7 @@ static bool ConnectToServer(BlazeServer *server, bool start) {
     // server is in a GC pause and therefore cannot respond to ping requests and
     // having two server instances running in the same output base is a
     // disaster.
-    int server_pid = GetServerPid(pid_file);
+    int server_pid = GetServerPid(server_dir);
     if (server_pid >= 0) {
       killpg(server_pid, SIGKILL);
     }
@@ -932,10 +933,10 @@ static bool ConnectToServer(BlazeServer *server, bool start) {
           fputc('\n', stderr);
           fflush(stderr);
         }
-        globals->server_pid = GetServerPid(pid_file);
+        globals->server_pid = GetServerPid(server_dir);
         if (globals->server_pid == -1) {
           pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
-               "can't get server pid from connection");
+               "can't get pid of fresh server from connection");
         }
         return true;
       }

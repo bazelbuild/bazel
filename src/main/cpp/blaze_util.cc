@@ -46,6 +46,14 @@ using std::vector;
 
 namespace blaze {
 
+string ServerPidFile() {
+  return "server.pid.txt";
+}
+
+string ServerPidSymlink() {
+  return "server.pid";
+}
+
 string GetUserName() {
   const char *user = getenv("USER");
   if (user && user[0] != '\0') return user;
@@ -368,7 +376,7 @@ static void Daemonize(const string& daemon_output) {
 }
 
 int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
-                  const string& daemon_output, const string& pid_file) {
+                  const string& daemon_output, const string& server_dir) {
   int fds[2];
   if (pipe(fds)) {
     pdie(blaze_exit_code::INTERNAL_ERROR, "pipe creation failed");
@@ -384,10 +392,20 @@ int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   }
 
   Daemonize(daemon_output);
-  if (!WriteFile(ToString(getpid()), pid_file)) {
+  string pid_string = ToString(getpid());
+  string pid_file = blaze_util::JoinPath(server_dir, ServerPidFile());
+  string pid_symlink_file =
+      blaze_util::JoinPath(server_dir, ServerPidSymlink());
+
+  if (!WriteFile(pid_string, pid_file)) {
     // The exit code does not matter because we are already in the daemonized
     // server. The output of this operation will end up in jvm.out .
     pdie(0, "Cannot write PID file");
+  }
+
+  UnlinkPath(pid_symlink_file.c_str());
+  if (symlink(pid_string.c_str(), pid_symlink_file.c_str()) < 0) {
+    pdie(0, "Cannot write PID symlink");
   }
 
   ExecuteProgram(exe, args_vector);

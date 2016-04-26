@@ -29,6 +29,10 @@ namespace blaze {
 
 using std::string;
 
+string ServerPidFile();
+
+string ServerPidSymlink();
+
 string GetUserName();
 
 // Returns the given path in absolute form.  Does not change paths that are
