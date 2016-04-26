@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.rules.cpp.CppFileTypes;
 import com.google.devtools.build.lib.syntax.Type;
-
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -40,28 +39,28 @@ public class RuleDocumentationAttributeTest {
   public void testDirectChild() {
     RuleDocumentationAttribute attr1 = RuleDocumentationAttribute.create(
         IntermediateRule.class, "", "", 0, "", NO_FLAGS);
-    assertEquals(1, attr1.getDefinitionClassAncestryLevel(TestRule.class));
+    assertEquals(1, attr1.getDefinitionClassAncestryLevel(TestRule.class, null));
   }
 
   @Test
   public void testTransitiveChild() {
     RuleDocumentationAttribute attr2 = RuleDocumentationAttribute.create(
         BaseRule.class, "", "", 0, "", NO_FLAGS);
-    assertEquals(2, attr2.getDefinitionClassAncestryLevel(TestRule.class));
+    assertEquals(2, attr2.getDefinitionClassAncestryLevel(TestRule.class, null));
   }
 
   @Test
   public void testClassIsNotChild() {
     RuleDocumentationAttribute attr2 = RuleDocumentationAttribute.create(
         IntermediateRule.class, "", "", 0, "", NO_FLAGS);
-    assertEquals(-1, attr2.getDefinitionClassAncestryLevel(BaseRule.class));
+    assertEquals(-1, attr2.getDefinitionClassAncestryLevel(BaseRule.class, null));
   }
 
   @Test
   public void testClassIsSame() {
     RuleDocumentationAttribute attr3 = RuleDocumentationAttribute.create(
         TestRule.class, "", "", 0, "", NO_FLAGS);
-    assertEquals(0, attr3.getDefinitionClassAncestryLevel(TestRule.class));
+    assertEquals(0, attr3.getDefinitionClassAncestryLevel(TestRule.class, null));
   }
 
   @Test

@@ -213,7 +213,7 @@ public class SourceFileReader {
           final ListMultimap<String, RuleDocumentationAttribute> docAttributes) {
         // End of a attribute, create RuleDocumentationAttribute object
         docAttributes.put(attributeName, RuleDocumentationAttribute.create(
-            ruleClassProvider.getRuleClassDefinition(ruleName),
+            ruleClassProvider.getRuleClassDefinition(ruleName).getClass(),
             attributeName, sb.toString(), startLineCnt, javaSourceFilePath, flags));
         sb = new StringBuilder();
         inBlazeAttributeDocs = false;

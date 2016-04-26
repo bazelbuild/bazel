@@ -60,7 +60,7 @@ public class AppleWatch1ExtensionRule implements RuleDefinition {
             .mandatory()
             .direct_compile_time_input()
             .cfg(AppleWatch1Extension.MINIMUM_OS_AND_SPLIT_ARCH_TRANSITION))
-        /* <!-- #BLAZE_RULE($apple_watch1_extension).ATTRIBUTE(deps) -->
+        /* <!-- #BLAZE_RULE(apple_watch1_extension).ATTRIBUTE(app_deps) -->
         The list of targets whose resources files are bundled together to form final watch
         application bundle.
         <!-- #END_BLAZE_RULE.ATTRIBUTE -->*/
@@ -73,7 +73,6 @@ public class AppleWatch1ExtensionRule implements RuleDefinition {
   }
 
   @Override
-
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name("apple_watch1_extension")

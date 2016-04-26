@@ -16,6 +16,7 @@ package com.google.devtools.build.docgen;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -219,7 +220,8 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
    * RuleDocumentationAttribute in the rule definition ancestry graph. Returns -1
    * if definitionClass is not the ancestor (transitively) of usingClass.
    */
-  int getDefinitionClassAncestryLevel(Class<? extends RuleDefinition> usingClass) {
+  int getDefinitionClassAncestryLevel(Class<? extends RuleDefinition> usingClass,
+      ConfiguredRuleClassProvider ruleClassProvider) {
     if (usingClass.equals(definitionClass)) {
       return 0;
     }
@@ -231,7 +233,7 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
     // Searching the shortest path from usingClass to this.definitionClass using BFS
     do {
       Class<? extends RuleDefinition> ancestor = toVisit.removeFirst();
-      visitAncestor(ancestor, visited, toVisit);
+      visitAncestor(ancestor, visited, toVisit, ruleClassProvider);
       if (ancestor.equals(definitionClass)) {
         return visited.get(ancestor);
       }
@@ -242,19 +244,27 @@ public class RuleDocumentationAttribute implements Comparable<RuleDocumentationA
   private void visitAncestor(
       Class<? extends RuleDefinition> usingClass,
       Map<Class<? extends RuleDefinition>, Integer> visited,
-      LinkedList<Class<? extends RuleDefinition>> toVisit) {
-    RuleDefinition instance;
-    try {
-      instance = usingClass.newInstance();
-    } catch (IllegalAccessException | InstantiationException e) {
-      throw new IllegalStateException(e);
-    }
+      LinkedList<Class<? extends RuleDefinition>> toVisit,
+      ConfiguredRuleClassProvider ruleClassProvider) {
+    RuleDefinition instance = getRuleDefinition(usingClass, ruleClassProvider);
     for (Class<? extends RuleDefinition> ancestor : instance.getMetadata().ancestors()) {
       if (!visited.containsKey(ancestor)) {
         toVisit.addLast(ancestor);
         visited.put(ancestor, visited.get(usingClass) + 1);
       }
     }
+  }
+
+  private RuleDefinition getRuleDefinition(Class<? extends RuleDefinition> usingClass,
+      ConfiguredRuleClassProvider ruleClassProvider) {
+    if (ruleClassProvider == null) {
+      try {
+        return usingClass.newInstance();
+      } catch (IllegalAccessException | InstantiationException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+    return ruleClassProvider.getRuleClassDefinition(usingClass.getName());
   }
 
   private int getAttributeOrderingPriority(RuleDocumentationAttribute attribute) {

@@ -154,7 +154,7 @@ public class BuildDocCollector {
       if (ruleClass != null) {
         if (ruleClass.isDocumented()) {
           Class<? extends RuleDefinition> ruleDefinition =
-              ruleClassProvider.getRuleClassDefinition(ruleDoc.getRuleName());
+              ruleClassProvider.getRuleClassDefinition(ruleDoc.getRuleName()).getClass();
           for (Attribute attribute : ruleClass.getAttributes()) {
             String attrName = attribute.getName();
             List<RuleDocumentationAttribute> attributeDocList =
@@ -167,7 +167,9 @@ public class BuildDocCollector {
               int minLevel = Integer.MAX_VALUE;
               RuleDocumentationAttribute bestAttributeDoc = null;
               for (RuleDocumentationAttribute attributeDoc : attributeDocList) {
-                int level = attributeDoc.getDefinitionClassAncestryLevel(ruleDefinition);
+                int level = attributeDoc.getDefinitionClassAncestryLevel(
+                    ruleDefinition,
+                    ruleClassProvider);
                 if (level >= 0 && level < minLevel) {
                   bestAttributeDoc = attributeDoc;
                   minLevel = level;

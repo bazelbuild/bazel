@@ -92,13 +92,10 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     private final List<Class<? extends FragmentOptions>> configurationOptions = new ArrayList<>();
 
     private final Map<String, RuleClass> ruleClassMap = new HashMap<>();
-    private final  Map<String, Class<? extends RuleDefinition>> ruleDefinitionMap =
-        new HashMap<>();
+    private final Map<String, RuleDefinition> ruleDefinitionMap = new HashMap<>();
     private final Map<String, Class<? extends NativeAspectFactory>> aspectFactoryMap =
         new HashMap<>();
     private final Map<Class<? extends RuleDefinition>, RuleClass> ruleMap = new HashMap<>();
-    private final Map<Class<? extends RuleDefinition>, RuleDefinition> ruleDefinitionInstanceCache =
-        new HashMap<>();
     private final Digraph<Class<? extends RuleDefinition>> dependencyGraph =
         new Digraph<>();
     private ConfigurationCollectionFactory configurationCollectionFactory;
@@ -155,7 +152,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
 
     public Builder addRuleDefinition(RuleDefinition ruleDefinition) {
       Class<? extends RuleDefinition> ruleDefinitionClass = ruleDefinition.getClass();
-      ruleDefinitionInstanceCache.put(ruleDefinitionClass, ruleDefinition);
+      ruleDefinitionMap.put(ruleDefinitionClass.getName(), ruleDefinition);
       dependencyGraph.createNode(ruleDefinitionClass);
       for (Class<? extends RuleDefinition> ancestor : ruleDefinition.getMetadata().ancestors()) {
         dependencyGraph.addEdge(ancestor, ruleDefinitionClass);
@@ -214,7 +211,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
     }
 
     private RuleClass commitRuleDefinition(Class<? extends RuleDefinition> definitionClass) {
-      RuleDefinition instance = checkNotNull(ruleDefinitionInstanceCache.get(definitionClass),
+      RuleDefinition instance = checkNotNull(ruleDefinitionMap.get(definitionClass.getName()),
           "addRuleDefinition(new %s()) should be called before build()", definitionClass.getName());
 
       RuleDefinition.Metadata metadata = instance.getMetadata();
@@ -250,7 +247,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       RuleClass ruleClass = instance.build(builder, this);
       ruleMap.put(definitionClass, ruleClass);
       ruleClassMap.put(ruleClass.getName(), ruleClass);
-      ruleDefinitionMap.put(ruleClass.getName(), definitionClass);
+      ruleDefinitionMap.put(ruleClass.getName(), instance);
 
       return ruleClass;
     }
@@ -340,9 +337,9 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   private final ImmutableMap<String, RuleClass> ruleClassMap;
 
   /**
-   * Maps rule class name to the rule definition metaclasses.
+   * Maps rule class name to the rule definition objects.
    */
-  private final ImmutableMap<String, Class<? extends RuleDefinition>> ruleDefinitionMap;
+  private final ImmutableMap<String, RuleDefinition> ruleDefinitionMap;
 
   /**
    * Maps aspect name to the aspect factory meta class.
@@ -383,7 +380,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
       String runfilesPrefix,
       String toolsRepository,
       ImmutableMap<String, RuleClass> ruleClassMap,
-      ImmutableMap<String, Class<? extends RuleDefinition>> ruleDefinitionMap,
+      ImmutableMap<String, RuleDefinition> ruleDefinitionMap,
       ImmutableMap<String, Class<? extends NativeAspectFactory>> aspectFactoryMap,
       String defaultWorkspaceFilePrefix,
       String defaultWorkspaceFileSuffix,
@@ -467,7 +464,7 @@ public class ConfiguredRuleClassProvider implements RuleClassProvider {
   /**
    * Returns the definition of the rule class definition with the specified name.
    */
-  public Class<? extends RuleDefinition> getRuleClassDefinition(String ruleClassName) {
+  public RuleDefinition getRuleClassDefinition(String ruleClassName) {
     return ruleDefinitionMap.get(ruleClassName);
   }
 
