@@ -62,8 +62,9 @@ void ExecuteProgram(const string& exe, const std::vector<string>& args_vector);
 // Starts a daemon process with its standard output and standard error
 // redirected to the file "daemon_output". Returns a file descriptor of a named
 // pipe whose other end is held by the daemon and which is closed if the daemon
-// exits. The PID of the daemon just started is written into server_dir, both
-// as a symlink (for legacy reasons) and as a file.
+// exits or -1 if such a pipe cannot be created.. The PID of the daemon just
+// started is written into server_dir, both as a symlink (for legacy reasons)
+// and as a file.
 int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
                   const string& daemon_output, const string& server_dir);
 

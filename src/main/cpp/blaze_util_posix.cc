@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <fcntl.h>
 #include <limits.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -20,6 +22,7 @@
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
+#include "src/main/cpp/util/file.h"
 
 namespace blaze {
 
@@ -64,4 +67,73 @@ std::string ListSeparator() { return ":"; }
 bool SymlinkDirectories(const string &target, const string &link) {
   return symlink(target.c_str(), link.c_str()) == 0;
 }
+
+// Causes the current process to become a daemon (i.e. a child of
+// init, detached from the terminal, in its own session.)  We don't
+// change cwd, though.
+static void Daemonize(const string& daemon_output) {
+  // Don't call die() or exit() in this function; we're already in a
+  // child process so it won't work as expected.  Just don't do
+  // anything that can possibly fail. :)
+
+  signal(SIGHUP, SIG_IGN);
+  if (fork() > 0) {
+    // This second fork is required iff there's any chance cmd will
+    // open an specific tty explicitly, e.g., open("/dev/tty23"). If
+    // not, this fork can be removed.
+    _exit(blaze_exit_code::SUCCESS);
+  }
+
+  setsid();
+
+  close(0);
+  close(1);
+  close(2);
+
+  open("/dev/null", O_RDONLY);  // stdin
+  // stdout:
+  if (open(daemon_output.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666) == -1) {
+    // In a daemon, no-one can hear you scream.
+    open("/dev/null", O_WRONLY);
+  }
+  dup(STDOUT_FILENO);  // stderr (2>&1)
+}
+
+int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
+                  const string& daemon_output, const string& server_dir) {
+  int fds[2];
+  if (pipe(fds)) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "pipe creation failed");
+  }
+  int child = fork();
+  if (child == -1) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
+  } else if (child > 0) {  // we're the parent
+    close(fds[1]);  // parent keeps only the reading side
+    return fds[0];
+  } else {
+    close(fds[0]);  // child keeps only the writing side
+  }
+
+  Daemonize(daemon_output);
+  string pid_string = ToString(getpid());
+  string pid_file = blaze_util::JoinPath(server_dir, ServerPidFile());
+  string pid_symlink_file =
+      blaze_util::JoinPath(server_dir, ServerPidSymlink());
+
+  if (!WriteFile(pid_string, pid_file)) {
+    // The exit code does not matter because we are already in the daemonized
+    // server. The output of this operation will end up in jvm.out .
+    pdie(0, "Cannot write PID file");
+  }
+
+  UnlinkPath(pid_symlink_file.c_str());
+  if (symlink(pid_string.c_str(), pid_symlink_file.c_str()) < 0) {
+    pdie(0, "Cannot write PID symlink");
+  }
+
+  ExecuteProgram(exe, args_vector);
+  pdie(0, "Cannot execute %s", exe.c_str());
+}
+
 }   // namespace blaze.

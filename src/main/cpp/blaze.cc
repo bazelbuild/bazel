@@ -927,7 +927,7 @@ static bool ConnectToServer(BlazeServer *server, bool start) {
                   globals->options.io_nice_level);
 
     int fd = StartServer();
-    if (fcntl(fd, F_SETFL, O_NONBLOCK | fcntl(fd, F_GETFL))) {
+    if (fd != -1 && fcntl(fd, F_SETFL, O_NONBLOCK | fcntl(fd, F_GETFL))) {
       pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR,
            "Failed: fcntl to enable O_NONBLOCK on pipe");
     }
@@ -950,7 +950,7 @@ static bool ConnectToServer(BlazeServer *server, bool start) {
       fflush(stderr);
       poll(NULL, 0, 1000);  // sleep 100ms.  (usleep(3) is obsolete.)
       char c;
-      if (read(fd, &c, 1) != -1 || errno != EAGAIN) {
+      if (fd != -1 && (read(fd, &c, 1) != -1 || errno != EAGAIN)) {
         fprintf(stderr, "\nunexpected pipe read status: %s\n"
             "Server presumed dead. Now printing '%s':\n",
             strerror(errno), globals->jvm_log_file.c_str());
@@ -1897,6 +1897,7 @@ bool GrpcBlazeServer::Connect() {
   command_server::PingRequest request;
   command_server::PingResponse response;
   request.set_cookie(request_cookie_);
+
   grpc::Status status = client->Ping(&context, request, &response);
 
   if (!status.ok() || response.cookie() != response_cookie_) {

@@ -121,27 +121,15 @@ void ReplaceAll(
   }
 }
 
-// Run the given program in the current working directory,
-// using the given argument vector.
-DWORD CreateProcessWrapper(
-    const string& exe, const vector<string>& args_vector) {
-  if (VerboseLogging()) {
-    string dbg;
-    for (const auto& s : args_vector) {
-      dbg.append(s);
-      dbg.append(" ");
-    }
+// Max command line length is per CreateProcess documentation
+// (https://msdn.microsoft.com/en-us/library/ms682425(VS.85).aspx)
+static const int MAX_CMDLINE_LENGTH = 32768;
 
-    char cwd[PATH_MAX] = {};
-    if (getcwd(cwd, sizeof(cwd)) == NULL) {
-      pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "getcwd() failed");
-    }
-
-    fprintf(stderr, "Invoking binary %s in %s:\n  %s\n", exe.c_str(), cwd,
-            dbg.c_str());
-  }
-
-  // Build full command line.
+struct CmdLine {
+  char cmdline[MAX_CMDLINE_LENGTH];
+};
+static void CreateCommandLine(CmdLine* result, const string& exe,
+                              const vector<string>& args_vector) {
   string cmdline;
   bool first = true;
   for (const auto& s : args_vector) {
@@ -174,22 +162,201 @@ DWORD CreateProcessWrapper(
     }
   }
 
+  if (cmdline.length() >= max_len) {
+    pdie(blaze_exit_code::INTERNAL_ERROR,
+         "Command line too long: %s", cmdline.c_str());
+  }
+
   // Copy command line into a mutable buffer.
   // CreateProcess is allowed to mutate its command line argument.
-  // Max command line length is per CreateProcess documentation
-  // (https://msdn.microsoft.com/en-us/library/ms682425(VS.85).aspx)
-  static const int kMaxCmdLineLength = 32768;
-  char actual_line[kMaxCmdLineLength];
-  if (cmdline.length() >= kMaxCmdLineLength) {
-    pdie(255, "Command line too long: %s", cmdline.c_str());
-  }
-  strncpy(actual_line, cmdline.c_str(), kMaxCmdLineLength);
-  // Add trailing '\0' to be sure.
-  actual_line[kMaxCmdLineLength - 1] = '\0';
+  strncpy(result->cmdline, cmdline.c_str(), MAX_CMDLINE_LENGTH - 1);
+  result[MAX_CMDLINE_LENGTH - 1] = 0;
+}
 
-  // Execute program.
-  STARTUPINFO startupinfo = {0};
-  PROCESS_INFORMATION pi = {0};
+}  // namespace
+
+string RunProgram(
+    const string& exe, const vector<string>& args_vector) {
+  SECURITY_ATTRIBUTES sa = {0};
+
+  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+  sa.bInheritHandle = TRUE;
+  sa.lpSecurityDescriptor = NULL;
+
+  HANDLE pipe_read, pipe_write;
+  if (!CreatePipe(&pipe_read, &pipe_write, &sa, 0)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreatePipe");
+  }
+
+  if (!SetHandleInformation(pipe_read, HANDLE_FLAG_INHERIT, 0)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "SetHandleInformation");
+  }
+
+  PROCESS_INFORMATION processInfo = {0};
+  STARTUPINFO startupInfo = {0};
+
+  startupInfo.hStdError = pipe_write;
+  startupInfo.hStdOutput = pipe_write;
+  startupInfo.dwFlags |= STARTF_USESTDHANDLES;
+  CmdLine cmdline;
+  CreateCommandLine(&cmdline, exe, args_vector);
+
+  bool ok = CreateProcess(
+      NULL,           // _In_opt_    LPCTSTR               lpApplicationName,
+      //                 _Inout_opt_ LPTSTR                lpCommandLine,
+      cmdline.cmdline,
+      NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpProcessAttributes,
+      NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpThreadAttributes,
+      true,           // _In_        BOOL                  bInheritHandles,
+      0,              // _In_        DWORD                 dwCreationFlags,
+      NULL,           // _In_opt_    LPVOID                lpEnvironment,
+      NULL,           // _In_opt_    LPCTSTR               lpCurrentDirectory,
+      &startupInfo,   // _In_        LPSTARTUPINFO         lpStartupInfo,
+      &processInfo);  // _Out_       LPPROCESS_INFORMATION lpProcessInformation
+
+  if (!ok) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreateProcess");
+  }
+
+  CloseHandle(pipe_write);
+  std::string result = "";
+  DWORD bytes_read;
+  CHAR buf[1024];
+
+  for (;;) {
+    ok = ::ReadFile(pipe_read, buf, 1023, &bytes_read, NULL);
+    if (!ok || bytes_read == 0) {
+      break;
+    }
+    buf[bytes_read] = 0;
+    result = result + buf;
+  }
+
+  CloseHandle(pipe_read);
+  CloseHandle(processInfo.hProcess);
+  CloseHandle(processInfo.hThread);
+
+  return result;
+}
+
+// If we pass DETACHED_PROCESS to CreateProcess(), cmd.exe appropriately
+// returns the command prompt when the client terminates. msys2, however, in
+// its infinite wisdom, waits until the *server* terminates and cannot be
+// convinced otherwise.
+//
+// So, we first pretend to be a POSIX daemon so that msys2 knows about our
+// intentions and *then* we call CreateProcess(). Life ain't easy.
+static bool DaemonizeOnWindows() {
+  if (fork() > 0) {
+    // We are the original client process.
+    return true;
+  }
+
+  if (fork() > 0) {
+    // We are the child of the original client process. Terminate so that the
+    // actual server is not a child process of the client.
+    exit(0);
+  }
+
+  setsid();
+  // Contrary to the POSIX version, we are not closing the three standard file
+  // descriptors here. CreateProcess() will take care of that and it's useful
+  // to see the error messages in ExecuteDaemon() on the console of the client.
+  return false;
+}
+
+int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
+                   const string& daemon_output, const string& pid_file) {
+  if (DaemonizeOnWindows()) {
+    // We are the client process
+    // TODO(lberki): -1 is only an in-band signal that tells that there is no
+    // way we can tell if the server process is still alive. Fix this, because
+    // otherwise if any of the calls below fails, the client will hang until
+    // it times out.
+    return -1;
+  }
+
+  SECURITY_ATTRIBUTES sa;
+
+  sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+  sa.bInheritHandle = TRUE;
+  sa.lpSecurityDescriptor = NULL;
+
+  HANDLE output_file;
+
+  if (!CreateFile(
+      daemon_output.c_str(),
+      GENERIC_READ | GENERIC_WRITE,
+      0,
+      &sa,
+      CREATE_ALWAYS,
+      FILE_ATTRIBUTE_NORMAL,
+      NULL)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreateFile");
+  }
+
+  HANDLE pipe_read, pipe_write;
+  if (!CreatePipe(&pipe_read, &pipe_write, &sa, 0)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreatePipe");
+  }
+
+  if (!SetHandleInformation(pipe_write, HANDLE_FLAG_INHERIT, 0)) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "SetHandleInformation");
+  }
+
+  PROCESS_INFORMATION processInfo = {0};
+  STARTUPINFO startupInfo = {0};
+
+  startupInfo.hStdInput = pipe_read;
+  startupInfo.hStdError = output_file;
+  startupInfo.hStdOutput = output_file;
+  startupInfo.dwFlags |= STARTF_USESTDHANDLES;
+  CmdLine cmdline;
+  CreateCommandLine(&cmdline, exe, args_vector);
+
+  // Propagate BAZEL_SH environment variable to a sub-process.
+  // todo(dslomov): More principled approach to propagating
+  // environment variables.
+  SetEnvironmentVariable("BAZEL_SH", getenv("BAZEL_SH"));
+
+  bool ok = CreateProcess(
+      NULL,           // _In_opt_    LPCTSTR               lpApplicationName,
+      //                 _Inout_opt_ LPTSTR                lpCommandLine,
+      cmdline.cmdline,
+      NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpProcessAttributes,
+      NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpThreadAttributes,
+      TRUE,           // _In_        BOOL                  bInheritHandles,
+      //                 _In_        DWORD                 dwCreationFlags,
+      DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP,
+      NULL,           // _In_opt_    LPVOID                lpEnvironment,
+      NULL,           // _In_opt_    LPCTSTR               lpCurrentDirectory,
+      &startupInfo,   // _In_        LPSTARTUPINFO         lpStartupInfo,
+      &processInfo);  // _Out_       LPPROCESS_INFORMATION lpProcessInformation
+
+  if (!ok) {
+    pdie(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR, "CreateProcess");
+  }
+
+  CloseHandle(output_file);
+  CloseHandle(pipe_write);
+  CloseHandle(pipe_read);
+
+  WriteFile(ToString(GetProcessId(processInfo.hProcess)), pid_file);
+  CloseHandle(processInfo.hProcess);
+  CloseHandle(processInfo.hThread);
+
+  exit(0);
+}
+
+// Run the given program in the current working directory,
+// using the given argument vector.
+void ExecuteProgram(
+    const string& exe, const vector<string>& args_vector) {
+  CmdLine cmdline;
+  CreateCommandLine(&cmdline, exe, args_vector);
+
+  STARTUPINFO startupInfo = {0};
+  PROCESS_INFORMATION processInfo = {0};
 
   // Propagate BAZEL_SH environment variable to a sub-process.
   // todo(dslomov): More principled approach to propagating
@@ -197,35 +364,27 @@ DWORD CreateProcessWrapper(
   SetEnvironmentVariable("BAZEL_SH", getenv("BAZEL_SH"));
 
   bool success = CreateProcess(
-      nullptr,       // _In_opt_    LPCTSTR               lpApplicationName,
-      actual_line,   // _Inout_opt_ LPTSTR                lpCommandLine,
-      nullptr,       // _In_opt_    LPSECURITY_ATTRIBUTES lpProcessAttributes,
-      nullptr,       // _In_opt_    LPSECURITY_ATTRIBUTES lpThreadAttributes,
-      true,          // _In_        BOOL                  bInheritHandles,
-      0,             // _In_        DWORD                 dwCreationFlags,
-      nullptr,       // _In_opt_    LPVOID                lpEnvironment,
-      nullptr,       // _In_opt_    LPCTSTR               lpCurrentDirectory,
-      &startupinfo,  // _In_        LPSTARTUPINFO         lpStartupInfo,
-      &pi);          // _Out_       LPPROCESS_INFORMATION lpProcessInformation
+      NULL,           // _In_opt_    LPCTSTR               lpApplicationName,
+      //                 _Inout_opt_ LPTSTR                lpCommandLine,
+      cmdline.cmdline,
+      NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpProcessAttributes,
+      NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpThreadAttributes,
+      true,           // _In_        BOOL                  bInheritHandles,
+      0,              // _In_        DWORD                 dwCreationFlags,
+      NULL,           // _In_opt_    LPVOID                lpEnvironment,
+      NULL,           // _In_opt_    LPCTSTR               lpCurrentDirectory,
+      &startupInfo,   // _In_        LPSTARTUPINFO         lpStartupInfo,
+      &processInfo);  // _Out_       LPPROCESS_INFORMATION lpProcessInformation
 
   if (!success) {
-    pdie(255, "Error %u executing: %s\n", GetLastError(), actual_line);
+    pdie(255, "Error %u executing: %s\n", GetLastError(), cmdline);
   }
-  WaitForSingleObject(pi.hProcess, INFINITE);
+  WaitForSingleObject(processInfo.hProcess, INFINITE);
   DWORD exit_code;
-  GetExitCodeProcess(pi.hProcess, &exit_code);
-  CloseHandle(pi.hProcess);
-  CloseHandle(pi.hThread);
-  return exit_code;
-}
-}  // namespace
-
-// Replace the current process with the given program in the current working
-// directory, using the given argument vector.
-// This function does not return on success.
-void ExecuteProgram(const string& exe, const vector<string>& args_vector) {
-  // Emulate execv.
-  exit(CreateProcessWrapper(exe, args_vector));
+  GetExitCodeProcess(processInfo.hProcess, &exit_code);
+  CloseHandle(processInfo.hProcess);
+  CloseHandle(processInfo.hThread);
+  exit(exit_code);
 }
 
 string ListSeparator() { return ";"; }
@@ -248,7 +407,36 @@ bool SymlinkDirectories(const string &target, const string &link) {
   args.push_back("/J");
   args.push_back(link_win);
   args.push_back(target_win);
-  return CreateProcessWrapper("cmd", args) == 0;
+
+  CmdLine cmdline;
+  CreateCommandLine(&cmdline, "cmd", args);
+
+  STARTUPINFO startupInfo = {0};
+  PROCESS_INFORMATION processInfo = {0};
+
+  bool success = CreateProcess(
+      NULL,           // _In_opt_    LPCTSTR               lpApplicationName,
+      //                 _Inout_opt_ LPTSTR                lpCommandLine,
+      cmdline.cmdline,
+      NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpProcessAttributes,
+      NULL,           // _In_opt_    LPSECURITY_ATTRIBUTES lpThreadAttributes,
+      true,           // _In_        BOOL                  bInheritHandles,
+      0,              // _In_        DWORD                 dwCreationFlags,
+      NULL,           // _In_opt_    LPVOID                lpEnvironment,
+      NULL,           // _In_opt_    LPCTSTR               lpCurrentDirectory,
+      &startupInfo,   // _In_        LPSTARTUPINFO         lpStartupInfo,
+      &processInfo);  // _Out_       LPPROCESS_INFORMATION lpProcessInformation
+
+  if (!success) {
+    pdie(255, "Error %u executing: %s\n", GetLastError(), cmdline);
+  }
+
+  WaitForSingleObject(processInfo.hProcess, INFINITE);
+  DWORD exit_code;
+  GetExitCodeProcess(processInfo.hProcess, &exit_code);
+  CloseHandle(processInfo.hProcess);
+  CloseHandle(processInfo.hThread);
+  return exit_code == 0;
 }
 
 }  // namespace blaze
