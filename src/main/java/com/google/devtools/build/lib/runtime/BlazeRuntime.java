@@ -1210,20 +1210,6 @@ public final class BlazeRuntime {
         }
       }
 
-      // Merge filters from Blaze modules that allow some action inputs to be missing.
-      Predicate<PathFragment> allowedMissingInputs = null;
-      for (BlazeModule module : blazeModules) {
-        Predicate<PathFragment> modulePredicate = module.getAllowedMissingInputs();
-        if (modulePredicate != null) {
-          Preconditions.checkArgument(allowedMissingInputs == null,
-              "More than one Blaze module allows missing inputs.");
-          allowedMissingInputs = modulePredicate;
-        }
-      }
-      if (allowedMissingInputs == null) {
-        allowedMissingInputs = Predicates.alwaysFalse();
-      }
-
       ConfiguredRuleClassProvider ruleClassProvider = ruleClassBuilder.build();
 
       List<PackageFactory.EnvironmentExtension> extensions = new ArrayList<>();
