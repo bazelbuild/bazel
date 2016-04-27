@@ -121,7 +121,7 @@ public class GroupedListTest {
       allElts.addAll(group);
     }
     groupedList.append(helper);
-    assertEquals(allElts.size(), groupedList.size());
+    assertEquals(allElts.size(), groupedList.numElements());
     assertFalse(groupedList.isEmpty());
     Object compressed = groupedList.compress();
     assertElementsEqual(compressed, allElts);
@@ -151,7 +151,7 @@ public class GroupedListTest {
       allElts.addAll(group);
     }
     groupedList.append(helper);
-    assertEquals(allElts.size(), groupedList.size());
+    assertEquals(allElts.size(), groupedList.numElements());
     assertFalse(groupedList.isEmpty());
     Object compressed = groupedList.compress();
     assertElementsEqual(compressed, allElts);
@@ -243,6 +243,7 @@ public class GroupedListTest {
     int i = 0;
     for (Iterable<String> group : groupedList) {
       assertThat(group).containsExactlyElementsIn(elements.get(i));
+      assertThat(groupedList.get(i)).containsExactlyElementsIn(elements.get(i));
       i++;
     }
     assertThat(elements).hasSize(i);

@@ -25,7 +25,6 @@ import com.google.devtools.build.skyframe.NodeEntry.DirtyState;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 
@@ -173,10 +172,10 @@ public class BuildingState {
   private final GroupedList<SkyKey> lastBuildDirectDeps;
 
   /**
-   * Which child should be re-evaluated next in the process of determining if this entry needs to
-   * be re-evaluated. Used by {@link #getNextDirtyDirectDeps} and {@link #signalDep(boolean)}.
+   * Group of children to be checked next in the process of determining if this entry needs to be
+   * re-evaluated. Used by {@link #getNextDirtyDirectDeps} and {@link #signalDep(boolean)}.
    */
-  private Iterator<Collection<SkyKey>> dirtyDirectDepIterator = null;
+  private int dirtyDirectDepIndex = -1;
 
   BuildingState() {
     lastBuildDirectDeps = null;
@@ -189,8 +188,8 @@ public class BuildingState {
         this);
     dirtyState = isChanged ? DirtyState.NEEDS_REBUILDING : DirtyState.CHECK_DEPENDENCIES;
     // We need to iterate through the deps to see if they have changed, or to remove them if one
-    // has. Initialize the iterator.
-    dirtyDirectDepIterator = lastBuildDirectDeps.iterator();
+    // has. Initialize the iterating index.
+    dirtyDirectDepIndex = 0;
   }
 
   static BuildingState newDirtyState(boolean isChanged,
@@ -210,7 +209,7 @@ public class BuildingState {
     Preconditions.checkState(!isChanged(), this);
     Preconditions.checkState(evaluating, this);
     Preconditions.checkState(isReady(), this);
-    Preconditions.checkState(!dirtyDirectDepIterator.hasNext(), this);
+    Preconditions.checkState(lastBuildDirectDeps.listSize() == dirtyDirectDepIndex, this);
     dirtyState = DirtyState.REBUILDING;
   }
 
@@ -218,7 +217,7 @@ public class BuildingState {
    * Returns whether all known children of this node have signaled that they are done.
    */
   boolean isReady() {
-    int directDepsSize = directDeps.size();
+    int directDepsSize = directDeps.numElements();
     Preconditions.checkState(signaledDeps <= directDepsSize, "%s %s", directDeps, this);
     return signaledDeps == directDepsSize;
   }
@@ -276,8 +275,8 @@ public class BuildingState {
    * <p>If the node is dirty and checking its deps for changes, this also updates {@link
    * #dirtyState} as needed -- {@link DirtyState#NEEDS_REBUILDING} if the child has changed,
    * and {@link DirtyState#VERIFIED_CLEAN} if the child has not changed and this was the
-   * last child to be checked (as determined by {@link #dirtyDirectDepIterator}.hasNext() and
-   * isReady()).
+   * last child to be checked (as determined by {@link #isReady} and comparing {@link
+   * #dirtyDirectDepIndex} and {@link #lastBuildDirectDeps#listSize}.
    *
    * @see NodeEntry#signalDep(Version)
    */
@@ -290,7 +289,7 @@ public class BuildingState {
         dirtyState = DirtyState.NEEDS_REBUILDING;
       } else if (dirtyState == DirtyState.CHECK_DEPENDENCIES
           && isReady()
-          && !dirtyDirectDepIterator.hasNext()) {
+          && lastBuildDirectDeps.listSize() == dirtyDirectDepIndex) {
         // No other dep already marked this as NEEDS_REBUILDING, no deps outstanding, and this was
         // the last block of deps to be checked.
         dirtyState = DirtyState.VERIFIED_CLEAN;
@@ -355,15 +354,15 @@ public class BuildingState {
     Preconditions.checkState(isDirty(), this);
     Preconditions.checkState(dirtyState == DirtyState.CHECK_DEPENDENCIES, this);
     Preconditions.checkState(evaluating, this);
-    Preconditions.checkState(dirtyDirectDepIterator.hasNext(), this);
-    return dirtyDirectDepIterator.next();
+    Preconditions.checkState(dirtyDirectDepIndex < lastBuildDirectDeps.listSize(), this);
+    return lastBuildDirectDeps.get(dirtyDirectDepIndex++);
   }
 
   Collection<SkyKey> getAllRemainingDirtyDirectDeps() {
     Preconditions.checkState(isDirty(), this);
     ImmutableList.Builder<SkyKey> result = ImmutableList.builder();
-    while (dirtyDirectDepIterator.hasNext()) {
-      result.addAll(dirtyDirectDepIterator.next());
+    for (; dirtyDirectDepIndex < lastBuildDirectDeps.listSize(); dirtyDirectDepIndex++) {
+      result.addAll(lastBuildDirectDeps.get(dirtyDirectDepIndex));
     }
     return result.build();
   }
@@ -448,7 +447,7 @@ public class BuildingState {
         .add("directDeps", directDeps)
         .add("reverseDepsToSignal", REVERSE_DEPS_UTIL.toString(this))
         .add("lastBuildDirectDeps", lastBuildDirectDeps)
-        .add("dirtyDirectDepIterator", dirtyDirectDepIterator);
+        .add("dirtyDirectDepIndex", dirtyDirectDepIndex);
   }
   @Override
   public String toString() {
