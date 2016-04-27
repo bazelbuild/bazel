@@ -74,7 +74,7 @@ string RunProgram(const string& exe, const std::vector<string>& args_vector);
 
 // Convert a path from Bazel internal form to underlying OS form.
 // On Unixes this is an identity operation.
-// On Windows, Bazel internal from is cygwin path, and underlying OS form
+// On Windows, Bazel internal form is cygwin path, and underlying OS form
 // is Windows path.
 std::string ConvertPath(const std::string& path);
 

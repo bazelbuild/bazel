@@ -468,7 +468,7 @@ static vector<string> GetArgumentArray() {
   return result;
 }
 
-// Add commom command options for logging to the given argument array.
+// Add common command options for logging to the given argument array.
 static void AddLoggingArgs(vector<string>* args) {
   args->push_back("--startup_time=" + ToString(globals->startup_time));
   if (globals->command_wait_time != 0) {
@@ -508,8 +508,7 @@ static void GoToWorkspace() {
 }
 
 // Check the java version if a java version specification is bundled. On
-// success,
-// return the executable path of the java command.
+// success, returns the executable path of the java command.
 static string VerifyJavaVersionAndGetJvm() {
   string exe = globals->options.GetJvm();
 
