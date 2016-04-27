@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fro
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.LanguageDependentFragment.LibraryLanguage;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
@@ -113,12 +112,6 @@ public interface JavaSemantics {
   String GENERATED_JARS_OUTPUT_GROUP =
       OutputGroupProvider.HIDDEN_OUTPUT_GROUP_PREFIX + "gen_jars";
 
-  /**
-   * Label of pseudo-cc_binary that tells Blaze a java target's JAVABIN is never to be replaced by
-   * the contents of --java_launcher; only the JDK's launcher will ever be used.
-   */
-  Label JDK_LAUNCHER_LABEL = Label.parseAbsoluteUnchecked(
-      Constants.TOOLS_REPOSITORY + "//third_party/java/jdk:jdk_launcher");
 
   /**
    * Implementation for the :jvm attribute.
@@ -379,9 +372,17 @@ public interface JavaSemantics {
    */
   String getJavaBuilderMainClass();
 
+
   /**
    * @return An artifact representing the protobuf-format version of the
    * proguard mapping, or null if the proguard version doesn't support this.
    */
   Artifact getProtoMapping(RuleContext ruleContext) throws InterruptedException;
+
+  /**
+   * @return Label of pseudo-cc_binary that tells Blaze a java target's JAVABIN is never to be
+   * replaced by the contents of --java_launcher; only the JDK's launcher will ever be used.
+   */
+  Label getJdkLauncherLabel();
 }
+
