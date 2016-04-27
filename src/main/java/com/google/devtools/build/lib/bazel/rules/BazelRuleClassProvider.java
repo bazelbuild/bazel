@@ -390,7 +390,7 @@ public class BazelRuleClassProvider {
     builder.addRuleDefinition(new ObjcRuleClasses.WatchExtensionBundleRule());
     builder.addRuleDefinition(new ObjcRuleClasses.WatchApplicationBundleRule());
     builder.addRuleDefinition(new ObjcRuleClasses.CrosstoolRule());
-    builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule());
+    builder.addRuleDefinition(new AppleToolchain.RequiresXcodeConfigRule(TOOLS_REPOSITORY));
     builder.addRuleDefinition(new AppleWatch1ExtensionRule());
     builder.addRuleDefinition(new AppleWatchExtensionBinaryRule());
     builder.addRuleDefinition(new IosApplicationRule());

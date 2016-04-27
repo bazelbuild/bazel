@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundLabel;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
@@ -44,19 +45,19 @@ import com.google.devtools.build.xcode.xcodegen.proto.XcodeGenProtos.XcodeprojBu
   doc = "Utilities for resolving items from the Apple toolchain."
 )
 public class AppleToolchain {
-  
+
   // These next two strings are shared secrets with the xcrunwrapper.sh to allow
   // expansion of DeveloperDir and SDKRoot and runtime, since they aren't known
   // until compile time on any given build machine.
   @VisibleForTesting public static final String DEVELOPER_DIR = "__BAZEL_XCODE_DEVELOPER_DIR__";
   @VisibleForTesting public static final String SDKROOT_DIR = "__BAZEL_XCODE_SDKROOT__";
-  
+
   // These two paths are framework paths relative to SDKROOT.
   @VisibleForTesting
   public static final String DEVELOPER_FRAMEWORK_PATH = "/Developer/Library/Frameworks";
   @VisibleForTesting
   public static final String SYSTEM_FRAMEWORK_PATH = "/System/Library/Frameworks";
-  
+
   // There is a handy reference to many clang warning flags at
   // http://nshipster.com/clang-diagnostics/
   // There is also a useful narrative for many Xcode settings at
@@ -182,18 +183,30 @@ public class AppleToolchain {
   }
 
   /**
+   * The default label of the build-wide {@code xcode_config} configuration rule.
+   */
+  @Immutable
+  public static final class XcodeConfigLabel extends LateBoundLabel<BuildConfiguration> {
+    public XcodeConfigLabel(String toolsRepository) {
+      super(toolsRepository + AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL,
+          AppleConfiguration.class);
+    }
+
+    @Override
+    public Label resolve(Rule rule, AttributeMap attributes, BuildConfiguration configuration) {
+      return configuration.getFragment(AppleConfiguration.class).getXcodeConfigLabel();
+    }
+  }
+
+  /**
    * Base rule definition to be ancestor for rules which may require an xcode toolchain.
    */
   public static class RequiresXcodeConfigRule implements RuleDefinition {
-    public static final LateBoundLabel<BuildConfiguration> XCODE_CONFIG_LABEL =
-        new LateBoundLabel<BuildConfiguration>(
-            AppleCommandLineOptions.DEFAULT_XCODE_VERSION_CONFIG_LABEL, AppleConfiguration.class) {
-          @Override
-          public Label resolve(Rule rule, AttributeMap attributes,
-              BuildConfiguration configuration) {
-            return configuration.getFragment(AppleConfiguration.class).getXcodeConfigLabel();
-          }
-        };
+    private final String toolsRepository;
+
+    public RequiresXcodeConfigRule(String toolsRepository) {
+      this.toolsRepository = toolsRepository;
+    }
 
     @Override
     public RuleClass build(Builder builder, RuleDefinitionEnvironment env) {
@@ -203,7 +216,7 @@ public class AppleToolchain {
               .checkConstraints()
               .direct_compile_time_input()
               .cfg(HOST)
-              .value(XCODE_CONFIG_LABEL))
+              .value(new XcodeConfigLabel(toolsRepository)))
           .build();
     }
     @Override

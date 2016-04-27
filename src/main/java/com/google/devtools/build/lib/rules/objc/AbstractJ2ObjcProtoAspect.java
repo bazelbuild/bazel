@@ -90,7 +90,7 @@ public abstract class AbstractJ2ObjcProtoAspect extends NativeAspectClass
             .checkConstraints()
             .direct_compile_time_input()
             .cfg(HOST)
-            .value(AppleToolchain.RequiresXcodeConfigRule.XCODE_CONFIG_LABEL));
+            .value(new AppleToolchain.XcodeConfigLabel(toolsRepository)));
     return addAdditionalAttributes(builder).build();
   }
 
