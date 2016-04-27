@@ -351,15 +351,23 @@ public final class JavaCompileAction extends AbstractAction {
     return ImmutableList.copyOf(commandLine.arguments());
   }
 
+  @VisibleForTesting
+  public Spawn createSpawn() {
+    return new BaseSpawn(
+        getCommand(),
+        ImmutableMap.of("LC_CTYPE", "en_US.UTF-8"),
+        /*executionInfo=*/ ImmutableMap.<String, String>of(),
+        this,
+        LOCAL_RESOURCES);
+  }
+
   @Override
   @ThreadCompatible
   public void execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
     Executor executor = actionExecutionContext.getExecutor();
     try {
-      Spawn spawn = new BaseSpawn(getCommand(), ImmutableMap.<String, String>of(),
-          ImmutableMap.<String, String>of(), this, LOCAL_RESOURCES);
-      getContext(executor).exec(spawn, actionExecutionContext);
+      getContext(executor).exec(createSpawn(), actionExecutionContext);
     } catch (ExecException e) {
       throw e.toActionExecutionException("Java compilation in rule '" + getOwner().getLabel() + "'",
           executor.getVerboseFailures(), this);
