@@ -19,7 +19,7 @@
 [ -z "$TEST_SRCDIR" ] && { echo "TEST_SRCDIR not set!" >&2; exit 1; }
 
 # Load the unit-testing framework
-source "${TEST_SRCDIR}/src/test/shell/unittest.bash" || \
+source "${TEST_SRCDIR}/io_bazel/src/test/shell/unittest.bash" || \
   { echo "Failed to source unittest.bash" >&2; exit 1; }
 
 # Commit at which we cut the master to do the test so we always take the git
@@ -29,7 +29,7 @@ source "${TEST_SRCDIR}/src/test/shell/unittest.bash" || \
 # Set-up a copy of the git repository in ${MASTER_ROOT}, pointing master
 # to ${MASTER_COMMIT}.
 function setup_git_repository() {
-  local origin_git_root=${TEST_SRCDIR}
+  local origin_git_root=${TEST_SRCDIR}/io_bazel
   MASTER_ROOT=${TEST_TMPDIR}/git/root
   local orig_dir=${PWD}
   # Create a new origin with the good starting point

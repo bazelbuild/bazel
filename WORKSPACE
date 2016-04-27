@@ -1,3 +1,5 @@
+workspace(name = "io_bazel")
+
 load("/tools/build_defs/jsonnet/jsonnet", "jsonnet_repositories")
 load("/tools/build_rules/rust/rust", "rust_repositories")
 

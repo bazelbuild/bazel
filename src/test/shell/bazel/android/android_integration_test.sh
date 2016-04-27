@@ -158,12 +158,12 @@ EOF
   bazel build -s //java/bazel:bin || fail "build failed"
 }
 
-if [[ ! -r "${TEST_SRCDIR}/external/androidndk/ndk/RELEASE.TXT" ]]; then
+if [[ ! -r "${BAZEL_RUNFILES}/external/androidndk/ndk/RELEASE.TXT" ]]; then
   echo "Not running Android tests due to lack of an Android NDK."
   exit 0
 fi
 
-if [[ ! -r "${TEST_SRCDIR}/external/androidsdk/SDK Readme.txt" ]]; then
+if [[ ! -r "${BAZEL_RUNFILES}/external/androidsdk/SDK Readme.txt" ]]; then
   echo "Not running Android tests due to lack of an Android SDK."
   exit 0
 fi

@@ -18,7 +18,7 @@
 source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/test-setup.sh \
   || { echo "test-setup.sh not found!" >&2; exit 1; }
 
-export JAVA_RUNFILES=$TEST_SRCDIR
+export JAVA_RUNFILES=$BAZEL_RUNFILES
 
 function setup_repo() {
   mkdir -p $1

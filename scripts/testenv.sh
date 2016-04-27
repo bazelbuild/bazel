@@ -19,8 +19,8 @@
 [ -z "$TEST_SRCDIR" ] && { echo "TEST_SRCDIR not set!" >&2; exit 1; }
 
 # Load the unit-testing framework
-source "${TEST_SRCDIR}/src/test/shell/unittest.bash" || \
-  { echo "Failed to source unittest.bash" >&2; exit 1; }
+source "${TEST_SRCDIR}/io_bazel/src/test/shell/unittest.bash" \
+  || { echo "Failed to source unittest.bash" >&2; exit 1; }
 
 set_up() {
   mkdir -p $TEST_TMPDIR/workspace

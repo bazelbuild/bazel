@@ -123,12 +123,12 @@ public final class MockToolsConfig {
    */
   public void linkTool(String relativePath, String dest) throws IOException {
     Preconditions.checkState(realFileSystem);
-    Path target = runfilesDirectory.getRelative(TestConstants.RUNFILES_PREFIX + "/" + relativePath);
+    Path target = runfilesDirectory.getRelative(TestConstants.WORKSPACE_NAME + "/" + relativePath);
     if (!target.exists()) {
       // In some cases we run tests in a special client with a ../READONLY/ path where we may also
       // find the runfiles. Try that, too.
       Path readOnlyClientPath = rootDirectory.getRelative(
-          "../READONLY/" + TestConstants.RUNFILES_PREFIX + "/" + relativePath);
+          "../READONLY/" + TestConstants.WORKSPACE_NAME + "/" + relativePath);
       if (!readOnlyClientPath.exists()) {
         throw new IOException("target does not exist " + target);
       } else {

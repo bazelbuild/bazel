@@ -29,7 +29,8 @@ public class Greeter {
   public void hello(String obj) throws Exception {
     String greeting = "Hello";
     try {
-      String greetFile = getRunfiles() + "/examples/java-skylark/src/main/resources/greeting.txt";
+      String greetFile = getRunfiles()
+          + "/io_bazel/examples/java-skylark/src/main/resources/greeting.txt";
       greeting = convertStreamToString(new FileInputStream(greetFile));
     } catch (FileNotFoundException e) {
       // use default.

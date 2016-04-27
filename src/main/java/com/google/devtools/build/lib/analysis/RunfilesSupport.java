@@ -236,6 +236,13 @@ public final class RunfilesSupport {
   }
 
   /**
+   * Returns the name of the workspace that the build is occurring in.
+   */
+  public PathFragment getWorkspaceName() {
+    return runfiles.getSuffix();
+  }
+
+  /**
    * Returns the middleman artifact that depends on getExecutable(),
    * getRunfilesManifest(), and getRunfilesSymlinkTargets(). Anything which
    * needs to actually run the executable should depend on this.
