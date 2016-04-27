@@ -148,5 +148,32 @@ EOF
   diff -u <(sort MANIFEST) <(sort MANIFEST2)
 }
 
-run_suite "runfiles"
+function test_workspace_name_change() {
+  cat > WORKSPACE <<EOF
+workspace(name = "foo")
+EOF
 
+  cat > BUILD <<EOF
+cc_binary(
+    name = "thing",
+    srcs = ["thing.cc"],
+    data = ["BUILD"],
+)
+EOF
+  cat > thing.cc <<EOF
+int main() { return 0; }
+EOF
+  bazel build //:thing &> $TEST_log || fail "Build failed"
+  [[ -d ${PRODUCT_NAME}-bin/thing.runfiles/foo ]] || fail "foo not found"
+
+  cat > WORKSPACE <<EOF
+workspace(name = "bar")
+EOF
+  bazel build //:thing &> $TEST_log || fail "Build failed"
+  [[ -d ${PRODUCT_NAME}-bin/thing.runfiles/bar ]] || fail "bar not found"
+  [[ ! -d ${PRODUCT_NAME}-bin/thing.runfiles/foo ]] \
+    || fail "Old foo still found"
+}
+
+
+run_suite "runfiles"
