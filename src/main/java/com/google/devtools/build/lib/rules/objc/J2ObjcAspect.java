@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaHelper;
 import com.google.devtools.build.lib.rules.java.JavaSourceInfoProvider;
 import com.google.devtools.build.lib.rules.java.Jvm;
+import com.google.devtools.build.lib.rules.objc.CompilationSupport.ExtraCompileArgs;
 import com.google.devtools.build.lib.rules.objc.J2ObjcSource.SourceType;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -61,6 +62,9 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
   public static final String NAME = "J2ObjcAspect";
   private final String toolsRepository;
   private final BazelJ2ObjcProtoAspect bazelJ2ObjcProtoAspect;
+
+  private static final ExtraCompileArgs EXTRA_COMPILE_ARGS = new ExtraCompileArgs(
+      "-fno-strict-overflow");
 
   public J2ObjcAspect(String toolsRepository, BazelJ2ObjcProtoAspect bazelJ2ObjcProtoAspect) {
     this.toolsRepository = toolsRepository;
@@ -162,7 +166,7 @@ public class J2ObjcAspect extends NativeAspectClass implements ConfiguredAspectF
           DEPENDENT_ATTRIBUTES);
 
       new CompilationSupport(ruleContext)
-          .registerCompileAndArchiveActions(common)
+          .registerCompileAndArchiveActions(common, EXTRA_COMPILE_ARGS)
           .registerFullyLinkAction(common.getObjcProvider());
     } else {
       common = common(
