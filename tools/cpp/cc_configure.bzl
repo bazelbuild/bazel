@@ -267,7 +267,9 @@ def _find_cc(repository_ctx):
   """Find the C++ compiler."""
   cc_name = "gcc"
   if "CC" in repository_ctx.os.environ:
-    cc_name = repository_ctx.os.environ["CC"]
+    cc_name = repository_ctx.os.environ["CC"].strip()
+    if not cc_name:
+      cc_name = "gcc"
   if cc_name.startswith("/"):
     # Absolute path, maybe we should make this suported by our which function.
     return cc_name
