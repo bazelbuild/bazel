@@ -174,13 +174,13 @@ public final class ObjcCommon {
      * Returns the exec paths of all header search paths that should be added to this target and
      * dependers on this target, obtained from the {@code includes} attribute.
      */
-    ImmutableList<PathFragment> headerSearchPaths() {
+    ImmutableList<PathFragment> headerSearchPaths(PathFragment genfilesFragment) {
       ImmutableList.Builder<PathFragment> paths = new ImmutableList.Builder<>();
       PathFragment packageFragment =
           ruleContext.getLabel().getPackageIdentifier().getPathFragment();
       List<PathFragment> rootFragments = ImmutableList.of(
           packageFragment,
-          ruleContext.getConfiguration().getGenfilesFragment().getRelative(packageFragment));
+          genfilesFragment.getRelative(packageFragment));
 
       Iterable<PathFragment> relativeIncludes =
           Iterables.filter(includes(), Predicates.not(PathFragment.IS_ABSOLUTE));
@@ -292,6 +292,7 @@ public final class ObjcCommon {
 
   static class Builder {
     private RuleContext context;
+    private BuildConfiguration buildConfiguration;
     private Optional<CompilationAttributes> compilationAttributes = Optional.absent();
     private Optional<ResourceAttributes> resourceAttributes = Optional.absent();
     private Iterable<SdkFramework> extraSdkFrameworks = ImmutableList.of();
@@ -314,8 +315,22 @@ public final class ObjcCommon {
     private Iterable<CppCompilationContext> depCcHeaderProviders = ImmutableList.of();
     private Iterable<CcLinkParamsProvider> depCcLinkProviders = ImmutableList.of();
 
+    /**
+     * Builder for {@link ObjcCommon} obtaining both attribute data and configuration data from
+     * the given rule context.
+     */
     Builder(RuleContext context) {
+      this(context, context.getConfiguration());
+    }
+
+    /**
+     * Builder for {@link ObjcCommon} obtaining attribute data from the rule context and
+     * configuration data from the given configuration object for use in situations where a single
+     * target's outputs are under multiple configurations.
+     */
+    Builder(RuleContext context, BuildConfiguration buildConfiguration) {
       this.context = Preconditions.checkNotNull(context);
+      this.buildConfiguration = Preconditions.checkNotNull(buildConfiguration);
     }
 
     public Builder setCompilationAttributes(CompilationAttributes baseCompilationAttributes) {
@@ -542,7 +557,7 @@ public final class ObjcCommon {
         objcProvider
             .addAll(HEADER, attributes.hdrs())
             .addAll(HEADER, attributes.textualHdrs())
-            .addAll(INCLUDE, attributes.headerSearchPaths())
+            .addAll(INCLUDE, attributes.headerSearchPaths(buildConfiguration.getGenfilesFragment()))
             .addAll(INCLUDE, sdkIncludes)
             .addAll(SDK_FRAMEWORK, attributes.sdkFrameworks())
             .addAll(WEAK_SDK_FRAMEWORK, attributes.weakSdkFrameworks())
@@ -631,7 +646,8 @@ public final class ObjcCommon {
         }
       }
 
-      if (hasModuleMap && ObjcRuleClasses.objcConfiguration(context).moduleMapsEnabled()) {
+      if (hasModuleMap
+          && buildConfiguration.getFragment(ObjcConfiguration.class).moduleMapsEnabled()) {
         CppModuleMap moduleMap = intermediateArtifacts.moduleMap();
         objcProvider.add(MODULE_MAP, moduleMap.getArtifact());
         objcProvider.add(TOP_LEVEL_MODULE_MAP, moduleMap);

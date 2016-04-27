@@ -783,19 +783,10 @@ public final class ReleaseBundlingSupport {
     }
 
     Artifact resultingLinkedBinary = intermediateArtifacts.combinedArchitectureBinary();
-    NestedSet<Artifact> linkedBinaries = linkedBinaries();
+    AppleConfiguration appleConfiguration = ruleContext.getFragment(AppleConfiguration.class);
 
-    ruleContext.registerAction(ObjcRuleClasses.spawnAppleEnvActionBuilder(ruleContext)
-        .setMnemonic("ObjcCombiningArchitectures")
-        .addTransitiveInputs(linkedBinaries)
-        .addOutput(resultingLinkedBinary)
-        .setExecutable(CompilationSupport.xcrunwrapper(ruleContext))
-        .setCommandLine(CustomCommandLine.builder()
-            .add(ObjcRuleClasses.LIPO)
-            .addExecPaths("-create", linkedBinaries)
-            .addExecPath("-o", resultingLinkedBinary)
-            .build())
-        .build(ruleContext));
+    new LipoSupport(ruleContext).registerCombineArchitecturesAction(linkedBinaries(),
+        resultingLinkedBinary, appleConfiguration.getIosCpuPlatform());
   }
 
   private NestedSet<Artifact> linkedBinaries() {

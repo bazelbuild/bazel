@@ -668,7 +668,10 @@ public class ObjcRuleClasses {
    * Common attributes for {@code objc_*} rules that contain compilable content.
    */
   public static class CompilingRule implements RuleDefinition {
-    private static final Iterable<String> ALLOWED_DEPS_RULE_CLASSES =
+    /**
+     * Rule class names which are allowed as targets of the 'deps' attribute of this rule.
+     */
+    static final Iterable<String> ALLOWED_DEPS_RULE_CLASSES =
         ImmutableSet.of(
             "objc_library",
             "objc_import",

@@ -204,6 +204,18 @@ public final class CompilationSupport {
    */
   // TODO(bazel-team): Remove this information from ObjcCommon and move it internal to this class.
   static CompilationArtifacts compilationArtifacts(RuleContext ruleContext) {
+    return compilationArtifacts(ruleContext,  ObjcRuleClasses.intermediateArtifacts(ruleContext));
+  }
+  
+  /**
+   * Returns information about the given rule's compilation artifacts. Dependencies specified
+   * in the current rule's attributes are obtained via {@code ruleContext}. Output locations
+   * are determined using the given {@code intermediateArtifacts} object. The fact that these
+   * are distinct objects allows the caller to generate compilation actions pertaining to
+   * a configuration separate from the current rule's configuration.
+   */
+  static CompilationArtifacts compilationArtifacts(RuleContext ruleContext,
+      IntermediateArtifacts intermediateArtifacts) {
     PrerequisiteArtifacts srcs = ruleContext.getPrerequisiteArtifacts("srcs", Mode.TARGET)
         .errorsForNonMatching(SRCS_TYPE);
     return new CompilationArtifacts.Builder()
@@ -215,7 +227,7 @@ public final class CompilationSupport {
                 .list())
         .addPrivateHdrs(srcs.filter(HEADERS).list())
         .addPrecompiledSrcs(srcs.filter(PRECOMPILED_SRCS_TYPE).list())
-        .setIntermediateArtifacts(ObjcRuleClasses.intermediateArtifacts(ruleContext))
+        .setIntermediateArtifacts(intermediateArtifacts)
         .setPchFile(Optional.fromNullable(ruleContext.getPrerequisiteArtifact("pch", Mode.TARGET)))
         .build();
   }
@@ -1219,7 +1231,8 @@ public final class CompilationSupport {
         .addHeaders(attributes.hdrs())
         .addHeaders(attributes.textualHdrs())
         .addUserHeaderSearchPaths(ObjcCommon.userHeaderSearchPaths(buildConfiguration))
-        .addHeaderSearchPaths("$(WORKSPACE_ROOT)", attributes.headerSearchPaths())
+        .addHeaderSearchPaths("$(WORKSPACE_ROOT)",
+            attributes.headerSearchPaths(buildConfiguration.getGenfilesFragment()))
         .addHeaderSearchPaths("$(WORKSPACE_ROOT)", includeSystemPaths)
         .addHeaderSearchPaths("$(SDKROOT)/usr/include", attributes.sdkIncludes())
         .addNonPropagatedHeaderSearchPaths(
