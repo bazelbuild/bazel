@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
@@ -41,12 +40,22 @@ import java.util.List;
 /** Aspect to provide Jack support to rules which have java sources. */
 public final class JackAspect extends NativeAspectClass implements ConfiguredAspectFactory {
   public static final String NAME = "JackAspect";
+  private final String toolsRepository;
+
+  /**
+   * Creates a JackAspect using the provided tools repository path.
+   *
+   * @param toolsRepository the path to the tools repository
+   */
+  public JackAspect(String toolsRepository) {
+    this.toolsRepository = toolsRepository;
+  }
 
   @Override
   public AspectDefinition getDefinition(AspectParameters params) {
     Label androidSdk;
     try {
-      androidSdk = Label.parseAbsolute(Constants.TOOLS_REPOSITORY + AndroidRuleClasses.DEFAULT_SDK);
+      androidSdk = Label.parseAbsolute(toolsRepository + AndroidRuleClasses.DEFAULT_SDK);
     } catch (LabelSyntaxException e) {
       throw new IllegalStateException(e);
     }

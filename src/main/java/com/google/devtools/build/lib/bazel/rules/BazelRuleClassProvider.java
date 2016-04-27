@@ -265,7 +265,7 @@ public class BazelRuleClassProvider {
 
     AndroidNeverlinkAspect androidNeverlinkAspect = new AndroidNeverlinkAspect();
     DexArchiveAspect dexArchiveAspect = new DexArchiveAspect(TOOLS_REPOSITORY);
-    JackAspect jackAspect = new JackAspect();
+    JackAspect jackAspect = new JackAspect(TOOLS_REPOSITORY);
     BazelJ2ObjcProtoAspect bazelJ2ObjcProtoAspect = new BazelJ2ObjcProtoAspect(TOOLS_REPOSITORY);
     J2ObjcAspect j2ObjcAspect = new J2ObjcAspect(TOOLS_REPOSITORY, bazelJ2ObjcProtoAspect);
     AndroidStudioInfoAspect androidStudioInfoAspect = new AndroidStudioInfoAspect(TOOLS_REPOSITORY);
