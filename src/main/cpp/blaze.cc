@@ -1815,6 +1815,14 @@ int main(int argc, const char *argv[]) {
   ComputeWorkspace();
   CheckBinaryPath(argv[0]);
   ParseOptions(argc, argv);
+
+#ifdef __CYGWIN__
+  if (globals->options.command_port == -1) {
+    // AF_UNIX does not work on Windows, so use gRPC instead.
+    globals->options.command_port = 0;
+  }
+#endif
+
   string error;
   blaze_exit_code::ExitCode reexec_options_exit_code =
       globals->options.CheckForReExecuteOptions(argc, argv, &error);
