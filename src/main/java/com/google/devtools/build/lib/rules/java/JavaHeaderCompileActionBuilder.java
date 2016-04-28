@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.ResourceSet;
+import com.google.devtools.build.lib.analysis.RuleConfiguredTarget.Mode;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.CommandLine;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
@@ -58,6 +59,7 @@ public class JavaHeaderCompileActionBuilder {
       ResourceSet.createWithRamCpuIo(/*memoryMb=*/ 750.0, /*cpuUsage=*/ 0.5, /*ioUsage=*/ 0.0);
 
   private final RuleContext ruleContext;
+  private final String implicitAttributesSuffix;
 
   private Artifact outputJar;
   @Nullable private Artifact outputDepsProto;
@@ -78,8 +80,9 @@ public class JavaHeaderCompileActionBuilder {
   private Artifact javacJar;
 
   /** Creates a builder using the configuration of the rule as the action configuration. */
-  public JavaHeaderCompileActionBuilder(RuleContext ruleContext) {
+  public JavaHeaderCompileActionBuilder(RuleContext ruleContext, String implicitAttributesSuffix) {
     this.ruleContext = ruleContext;
+    this.implicitAttributesSuffix = implicitAttributesSuffix;
   }
 
   /** Sets the output jdeps file. */
@@ -255,7 +258,9 @@ public class JavaHeaderCompileActionBuilder {
 
     builder.addTool(javacJar);
 
-    JavaToolchainProvider javaToolchain = JavaToolchainProvider.fromRuleContext(ruleContext);
+    JavaToolchainProvider javaToolchain =
+        ruleContext.getPrerequisite(
+            ":java_toolchain" + implicitAttributesSuffix, Mode.TARGET, JavaToolchainProvider.class);
     List<String> jvmArgs =
         ImmutableList.<String>builder()
             .addAll(javaToolchain.getJavacJvmOptions())

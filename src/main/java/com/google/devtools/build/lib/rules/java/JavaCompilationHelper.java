@@ -65,11 +65,13 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
   private final List<Artifact> translations = new ArrayList<>();
   private boolean translationsFrozen;
   private final JavaSemantics semantics;
+  private final String implicitAttributesSuffix;
 
   public JavaCompilationHelper(RuleContext ruleContext, JavaSemantics semantics,
       ImmutableList<String> javacOpts, JavaTargetAttributes.Builder attributes,
       String implicitAttributesSuffix) {
     super(ruleContext, implicitAttributesSuffix);
+    this.implicitAttributesSuffix = implicitAttributesSuffix;
     this.attributes = attributes;
     this.customJavacOpts = javacOpts;
     this.customJavacJvmOpts = javaToolchain.getJavacJvmOptions();
@@ -261,7 +263,8 @@ public final class JavaCompilationHelper extends BaseJavaCompilationHelper {
                 runtimeJar.getRoot());
 
     JavaTargetAttributes attributes = getAttributes();
-    JavaHeaderCompileActionBuilder builder = new JavaHeaderCompileActionBuilder(getRuleContext());
+    JavaHeaderCompileActionBuilder builder =
+        new JavaHeaderCompileActionBuilder(getRuleContext(), implicitAttributesSuffix);
     builder.addSourceFiles(attributes.getSourceFiles());
     builder.addSourceJars(attributes.getSourceJars());
     builder.setClasspathEntries(attributes.getCompileTimeClassPath());

@@ -44,7 +44,9 @@ public class BaseJavaCompilationHelper {
   public BaseJavaCompilationHelper(RuleContext ruleContext, String implicitAttributesSuffix) {
     this.ruleContext = ruleContext;
     this.implicitAttributesSuffix = implicitAttributesSuffix;
-    this.javaToolchain = JavaToolchainProvider.fromRuleContext(ruleContext);
+    this.javaToolchain =
+        ruleContext.getPrerequisite(
+            ":java_toolchain" + implicitAttributesSuffix, Mode.TARGET, JavaToolchainProvider.class);
   }
 
   /**
