@@ -17,13 +17,20 @@ import static org.junit.Assert.assertEquals;
 
 import com.google.common.collect.Collections2;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfigurationCollectionFactory;
+import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.analysis.config.ConfigurationFactory;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownBlazeServerException;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
@@ -39,6 +46,8 @@ import org.junit.runners.JUnit4;
 import org.mockito.Mockito;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Tests the handling of rc-options in {@link BlazeCommandDispatcher}.
@@ -129,6 +138,17 @@ public class BlazeCommandDispatcherRcoptionsTest {
                 OptionsParser.newOptionsParser(BlazeServerStartupOptions.class))
             .setConfigurationFactory(
                 new ConfigurationFactory(Mockito.mock(ConfigurationCollectionFactory.class)))
+            .addBlazeModule(
+                new BlazeModule() {
+                  @Override
+                  public void initializeRuleClasses(ConfiguredRuleClassProvider.Builder builder) {
+                    // We must add these options so that the defaults package can be created.
+                    builder.addConfigurationOptions(BuildConfiguration.Options.class);
+                    // The defaults package asserts that it is not empty, so we provide options.
+                    builder.addConfigurationOptions(MockFragmentOptions.class);
+                  }
+                })
+            .setInvocationPolicy(InvocationPolicyOuterClass.InvocationPolicy.getDefaultInstance())
             .build();
   }
 
@@ -268,6 +288,20 @@ public class BlazeCommandDispatcherRcoptionsTest {
               orderedOpts),
           "42 reportallinherited",
           out);
+    }
+  }
+
+  /** Options class for testing, so that defaults package has some content. */
+  public static class MockFragmentOptions extends FragmentOptions {
+    public MockFragmentOptions() {}
+
+    @Option(name = "fake_opt", defaultValue = "false")
+    public boolean fakeOpt;
+
+    @Override
+    public Map<String, Set<Label>> getDefaultsLabels(BuildConfiguration.Options commonOptions) {
+      return ImmutableMap.<String, Set<Label>>of(
+          "mock_target", ImmutableSet.of(Label.parseAbsoluteUnchecked("//mock:target")));
     }
   }
 }

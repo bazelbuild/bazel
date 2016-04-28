@@ -153,6 +153,7 @@ public final class BlazeRuntime {
   private final ProjectFile.Provider projectFileProvider;
   @Nullable
   private final InvocationPolicy invocationPolicy;
+  private final String defaultsPackageContent;
   private final QueryEnvironmentFactory queryEnvironmentFactory;
   private final SubscriberExceptionHandler eventBusExceptionHandler;
 
@@ -181,6 +182,9 @@ public final class BlazeRuntime {
     this.startupOptionsProvider = startupOptionsProvider;
     this.queryEnvironmentFactory = queryEnvironmentFactory;
     this.eventBusExceptionHandler = eventBusExceptionHandler;
+
+    this.defaultsPackageContent =
+        ruleClassProvider.getDefaultsPackageContent(getInvocationPolicy());
   }
 
   private static InvocationPolicy createInvocationPolicyFromModules(
@@ -578,7 +582,7 @@ public final class BlazeRuntime {
    * defaults package, which will not be reflected here.
    */
   public String getDefaultsPackageContent() {
-    return ruleClassProvider.getDefaultsPackageContent(getInvocationPolicy());
+    return defaultsPackageContent;
   }
 
   /**
