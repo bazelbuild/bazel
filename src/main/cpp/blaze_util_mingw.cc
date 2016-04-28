@@ -185,7 +185,7 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
     }
   }
 
-  if (cmdline.length() >= max_len) {
+  if (cmdline.size() >= MAX_CMDLINE_LENGTH) {
     pdie(blaze_exit_code::INTERNAL_ERROR,
          "Command line too long: %s", cmdline.c_str());
   }
@@ -193,7 +193,7 @@ static void CreateCommandLine(CmdLine* result, const string& exe,
   // Copy command line into a mutable buffer.
   // CreateProcess is allowed to mutate its command line argument.
   strncpy(result->cmdline, cmdline.c_str(), MAX_CMDLINE_LENGTH - 1);
-  result[MAX_CMDLINE_LENGTH - 1] = 0;
+  result->cmdline[MAX_CMDLINE_LENGTH - 1] = 0;
 }
 
 }  // namespace

@@ -136,6 +136,34 @@ int ExecuteDaemon(const string& exe, const std::vector<string>& args_vector,
   pdie(0, "Cannot execute %s", exe.c_str());
 }
 
+string RunProgram(const string& exe, const std::vector<string>& args_vector) {
+  int fds[2];
+  if (pipe(fds)) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "pipe creation failed");
+  }
+
+  int child = fork();
+  if (child == -1) {
+    pdie(blaze_exit_code::INTERNAL_ERROR, "fork() failed");
+  } else if (child > 0) {  // we're the parent
+    close(fds[1]);         // parent keeps only the reading side
+    string result;
+    if (!ReadFileDescriptor(fds[0], &result)) {
+      pdie(blaze_exit_code::INTERNAL_ERROR, "Cannot read subprocess output");
+    }
+
+    return result;
+  } else {          // We're the child
+    close(fds[0]);  // child keeps only the writing side
+    // Redirect output to the writing side of the dup.
+    dup2(fds[1], STDOUT_FILENO);
+    dup2(fds[1], STDERR_FILENO);
+    // Execute the binary
+    ExecuteProgram(exe, args_vector);
+    pdie(blaze_exit_code::INTERNAL_ERROR, "Failed to run %s", exe.c_str());
+  }
+}
+
 bool ReadDirectorySymlink(const string &name, string* result) {
   char buf[PATH_MAX + 1];
   int len = readlink(name.c_str(), buf, PATH_MAX);
