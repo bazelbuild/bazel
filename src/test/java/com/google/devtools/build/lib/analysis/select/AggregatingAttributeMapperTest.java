@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.select;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertNull;
 
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -41,6 +42,11 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
   public final void createMapper() throws Exception {
     // Run AbstractAttributeMapper tests through an AggregatingAttributeMapper.
     mapper = AggregatingAttributeMapper.of(rule);
+  }
+
+  private static Label getDefaultMallocLabel(Rule rule) {
+    return Verify.verifyNotNull(
+        (Label) rule.getRuleClassObject().getAttributeByName("malloc").getDefaultValueForTesting());
   }
 
   /**
@@ -130,13 +136,30 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
         "              '" + BuildType.Selector.DEFAULT_CONDITION_KEY + "': ['default.sh'],",
         "          }))");
 
-    VisitationRecorder recorder = new VisitationRecorder();
+    VisitationRecorder recorder = new VisitationRecorder("srcs");
     AggregatingAttributeMapper.of(rule).visitLabels(recorder);
     assertThat(recorder.labelsVisited)
         .containsExactlyElementsIn(
             ImmutableList.of(
                 "//a:a.sh", "//a:b.sh", "//a:default.sh", "//conditions:a", "//conditions:b"));
   }
+
+  @Test
+  public void testVisitationWithDefaultValues() throws Exception {
+    Rule rule = createRule("a", "myrule",
+        "cc_binary(name = 'myrule',",
+        "    srcs = [],",
+        "    malloc = select({",
+        "        '//conditions:a': None,",
+        "    }))");
+
+    VisitationRecorder recorder = new VisitationRecorder("malloc");
+    AggregatingAttributeMapper.of(rule).visitLabels(recorder);
+    assertThat(recorder.labelsVisited)
+        .containsExactlyElementsIn(
+            ImmutableList.of("//conditions:a", getDefaultMallocLabel(rule).toString()));
+  }
+
 
   @Test
   public void testGetReachableLabels() throws Exception {
@@ -167,6 +190,21 @@ public class AggregatingAttributeMapperTest extends AbstractAttributeMapperTest 
     assertThat(mapper.getReachableLabels("srcs", true))
         .containsExactlyElementsIn(Iterables.concat(valueLabels, keyLabels));
     assertThat(mapper.getReachableLabels("srcs", false)).containsExactlyElementsIn(valueLabels);
+  }
+
+  @Test
+  public void testGetReachableLabelsWithDefaultValues() throws Exception {
+    Rule rule = createRule("a", "myrule",
+        "cc_binary(name = 'myrule',",
+        "    srcs = [],",
+        "    malloc = select({",
+        "        '//conditions:a': None,",
+        "    }))");
+
+    AggregatingAttributeMapper mapper = AggregatingAttributeMapper.of(rule);
+    assertThat(mapper.getReachableLabels("malloc", true))
+        .containsExactly(
+            getDefaultMallocLabel(rule), Label.create("@//conditions", "a"));
   }
 
   @Test

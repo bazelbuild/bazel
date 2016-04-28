@@ -18,11 +18,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.License.DistributionType;
 import com.google.devtools.build.lib.packages.License.LicenseParsingException;
+import com.google.devtools.build.lib.syntax.Runtime;
 import com.google.devtools.build.lib.syntax.SelectorValue;
 import com.google.devtools.build.lib.syntax.Type;
 import com.google.devtools.build.lib.syntax.Type.ConversionException;
@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.syntax.Type.ListType;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -444,27 +445,36 @@ public final class BuildType {
     @VisibleForTesting
     public static final String DEFAULT_CONDITION_KEY = "//conditions:default";
 
-    private static final Label DEFAULT_CONDITION_LABEL =
+    public static final Label DEFAULT_CONDITION_LABEL =
         Label.parseAbsoluteUnchecked(DEFAULT_CONDITION_KEY);
 
     private final Type<T> originalType;
-    private final ImmutableMap<Label, T> map;
+    private final Map<Label, T> map; // Can hold null values.
+    private final Set<Label> conditionsWithDefaultValues;
     private final boolean hasDefaultCondition;
 
     @VisibleForTesting
     Selector(ImmutableMap<?, ?> x, String what, @Nullable Label context, Type<T> originalType)
         throws ConversionException {
       this.originalType = originalType;
-      Map<Label, T> result = Maps.newLinkedHashMap();
+      Map<Label, T> result = new LinkedHashMap<>();
+      ImmutableSet.Builder<Label> defaultValuesBuilder = ImmutableSet.builder();
       boolean foundDefaultCondition = false;
       for (Entry<?, ?> entry : x.entrySet()) {
         Label key = LABEL.convert(entry.getKey(), what, context);
         if (key.equals(DEFAULT_CONDITION_LABEL)) {
           foundDefaultCondition = true;
         }
-        result.put(key, originalType.convert(entry.getValue(), what, context));
+        if (entry.getValue() == Runtime.NONE) {
+          // { "//condition": None } is the same as not setting the value.
+          result.put(key, originalType.getDefaultValue());
+          defaultValuesBuilder.add(key);
+        } else {
+          result.put(key, originalType.convert(entry.getValue(), what, context));
+        }
       }
-      map = ImmutableMap.copyOf(result);
+      map = Collections.unmodifiableMap(result);
+      conditionsWithDefaultValues = defaultValuesBuilder.build();
       hasDefaultCondition = foundDefaultCondition;
     }
 
@@ -474,7 +484,7 @@ public final class BuildType {
      * <p>Entries in this map retain the order of the entries in the map provided to the {@link
      * #Selector} constructor.
      */
-    public ImmutableMap<Label, T> getEntries() {
+    public Map<Label, T> getEntries() {
       return map;
     }
 
@@ -506,6 +516,14 @@ public final class BuildType {
      */
     public boolean isUnconditional() {
       return map.size() == 1 && hasDefaultCondition;
+    }
+
+    /**
+     * Returns true if an explicit value is set for the given condition, vs. { "//condition": None }
+     * which means revert to the default.
+     */
+    public boolean isValueSet(Label condition) {
+      return !conditionsWithDefaultValues.contains(condition);
     }
 
     /**

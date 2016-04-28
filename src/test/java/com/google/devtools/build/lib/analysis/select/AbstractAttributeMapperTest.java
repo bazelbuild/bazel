@@ -137,9 +137,15 @@ public class AbstractAttributeMapperTest extends FoundationTestCase {
 
   protected static class VisitationRecorder implements AttributeMap.AcceptsLabelAttribute {
     public List<String> labelsVisited = Lists.newArrayList();
+    private final String attrName;
+
+    public VisitationRecorder(String attrName) {
+      this.attrName = attrName;
+    }
+
     @Override
     public void acceptLabelAttribute(Label label, Attribute attribute) {
-      if (attribute.getName().equals("srcs")) {
+      if (attribute.getName().equals(attrName)) {
         labelsVisited.add(label.toString());
       }
     }
@@ -147,7 +153,7 @@ public class AbstractAttributeMapperTest extends FoundationTestCase {
 
   @Test
   public void testVisitation() throws Exception {
-    VisitationRecorder recorder = new VisitationRecorder();
+    VisitationRecorder recorder = new VisitationRecorder("srcs");
     mapper.visitLabels(recorder);
     assertThat(recorder.labelsVisited)
         .containsExactlyElementsIn(ImmutableList.of("//x:a", "//x:b", "//x:c"));
