@@ -27,7 +27,4 @@ public final class Constants {
 
   // Native Java deps are all linked into a single file, which is named with this value + ".so".
   public static final String NATIVE_DEPS_LIB_SUFFIX = "_nativedeps";
-
-  // Most other tools dependencies use this; we plan to split it into per-language repositories.
-  public static final String TOOLS_REPOSITORY = "@bazel_tools";
 }

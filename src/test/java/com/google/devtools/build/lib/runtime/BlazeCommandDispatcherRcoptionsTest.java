@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.LockingMode;
 import com.google.devtools.build.lib.runtime.BlazeCommandDispatcher.ShutdownBlazeServerException;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.io.RecordingOutErr;
 import com.google.devtools.common.options.Option;
@@ -146,6 +147,8 @@ public class BlazeCommandDispatcherRcoptionsTest {
                     builder.addConfigurationOptions(BuildConfiguration.Options.class);
                     // The defaults package asserts that it is not empty, so we provide options.
                     builder.addConfigurationOptions(MockFragmentOptions.class);
+                    // The tools repository is needed for createGlobals
+                    builder.setToolsRepository(TestConstants.TOOLS_REPOSITORY);
                   }
                 })
             .setInvocationPolicy(InvocationPolicyOuterClass.InvocationPolicy.getDefaultInstance())

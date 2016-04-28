@@ -33,7 +33,6 @@ import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.Constants;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.OutputGroupProvider;
@@ -194,42 +193,43 @@ public class SkylarkRuleClassFunctions {
           .build();
 
   /** Parent rule class for test Skylark rules. */
-  public static final RuleClass testBaseRule =
-      new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
-          .add(attr("size", STRING).value("medium").taggable()
-              .nonconfigurable("used in loading phase rule validation logic"))
-          .add(attr("timeout", STRING).taggable()
-              .nonconfigurable("used in loading phase rule validation logic").value(
-              new Attribute.ComputedDefault() {
-                @Override
-                public Object getDefault(AttributeMap rule) {
-                  TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
-                  if (size != null) {
-                    String timeout = size.getDefaultTimeout().toString();
-                    if (timeout != null) {
-                      return timeout;
+  public static final RuleClass getTestBaseRule(String toolsRespository) {
+    return new RuleClass.Builder("$test_base_rule", RuleClassType.ABSTRACT, true, baseRule)
+        .add(attr("size", STRING).value("medium").taggable()
+            .nonconfigurable("used in loading phase rule validation logic"))
+        .add(attr("timeout", STRING).taggable()
+            .nonconfigurable("used in loading phase rule validation logic").value(
+                new Attribute.ComputedDefault() {
+                  @Override
+                  public Object getDefault(AttributeMap rule) {
+                    TestSize size = TestSize.getTestSize(rule.get("size", Type.STRING));
+                    if (size != null) {
+                      String timeout = size.getDefaultTimeout().toString();
+                      if (timeout != null) {
+                        return timeout;
+                      }
                     }
+                    return "illegal";
                   }
-                  return "illegal";
-                }
-              }))
-          .add(attr("flaky", BOOLEAN).value(false).taggable()
-              .nonconfigurable("taggable - called in Rule.getRuleTags"))
-          .add(attr("shard_count", INTEGER).value(-1))
-          .add(attr("local", BOOLEAN).value(false).taggable()
-              .nonconfigurable("policy decision: this should be consistent across configurations"))
-          .add(attr("args", STRING_LIST)
-              .nonconfigurable("policy decision: should be consistent across configurations"))
-          .add(attr("$test_runtime", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
-              labelCache.getUnchecked(Constants.TOOLS_REPOSITORY + "//tools/test:runtime"))))
-          .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER))
-          .add(attr(":gcov", LABEL_LIST).cfg(HOST).value(GCOV))
-          .add(attr(":coverage_support", LABEL_LIST).cfg(HOST).value(COVERAGE_SUPPORT))
-          .add(
-              attr(":coverage_report_generator", LABEL_LIST)
-                  .cfg(HOST)
-                  .value(COVERAGE_REPORT_GENERATOR))
-          .build();
+                }))
+        .add(attr("flaky", BOOLEAN).value(false).taggable()
+            .nonconfigurable("taggable - called in Rule.getRuleTags"))
+        .add(attr("shard_count", INTEGER).value(-1))
+        .add(attr("local", BOOLEAN).value(false).taggable()
+            .nonconfigurable("policy decision: this should be consistent across configurations"))
+        .add(attr("args", STRING_LIST)
+            .nonconfigurable("policy decision: should be consistent across configurations"))
+        .add(attr("$test_runtime", LABEL_LIST).cfg(HOST).value(ImmutableList.of(
+            labelCache.getUnchecked(toolsRespository + "//tools/test:runtime"))))
+        .add(attr(":run_under", LABEL).cfg(DATA).value(RUN_UNDER))
+        .add(attr(":gcov", LABEL_LIST).cfg(HOST).value(GCOV))
+        .add(attr(":coverage_support", LABEL_LIST).cfg(HOST).value(COVERAGE_SUPPORT))
+        .add(
+            attr(":coverage_report_generator", LABEL_LIST)
+            .cfg(HOST)
+            .value(COVERAGE_REPORT_GENERATOR))
+        .build();
+  }
 
   /**
    * In native code, private values start with $.
@@ -313,7 +313,8 @@ public class SkylarkRuleClassFunctions {
         throws EvalException, ConversionException {
       funcallEnv.checkLoadingPhase("rule", ast.getLocation());
       RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
-      RuleClass parent = test ? testBaseRule : (executable ? binaryBaseRule : baseRule);
+      RuleClass parent = test ? getTestBaseRule(funcallEnv.getToolsRepository())
+          : (executable ? binaryBaseRule : baseRule);
 
       // We'll set the name later, pass the empty string for now.
       RuleClass.Builder builder = new RuleClass.Builder("", type, true, parent);

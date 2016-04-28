@@ -28,8 +28,10 @@ import com.google.devtools.build.lib.rules.SkylarkModules;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext;
 import com.google.devtools.build.lib.rules.SkylarkRuleContext.Kind;
 import com.google.devtools.build.lib.syntax.Environment;
+import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.util.EvaluationTestCase;
+import com.google.devtools.build.lib.testutil.TestConstants;
 
 import org.junit.Before;
 
@@ -55,7 +57,8 @@ public abstract class SkylarkTestCase extends BuildViewTestCase {
             .setSkylark()
             .setEventHandler(getEventHandler())
             .setGlobals(SkylarkModules.getGlobals(SkylarkModules.MODULES))
-            .setLoadingPhase()
+            .setToolsRepository(TestConstants.TOOLS_REPOSITORY)
+            .setPhase(Phase.LOADING)
             .build()
             .setupDynamic(
                 PackageFactory.PKG_CONTEXT,

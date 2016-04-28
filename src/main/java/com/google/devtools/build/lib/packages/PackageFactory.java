@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.syntax.ClassObject;
 import com.google.devtools.build.lib.syntax.Environment;
 import com.google.devtools.build.lib.syntax.Environment.Extension;
 import com.google.devtools.build.lib.syntax.Environment.NoSuchVariableException;
+import com.google.devtools.build.lib.syntax.Environment.Phase;
 import com.google.devtools.build.lib.syntax.EvalException;
 import com.google.devtools.build.lib.syntax.EvalUtils;
 import com.google.devtools.build.lib.syntax.Expression;
@@ -1504,7 +1505,8 @@ public final class PackageFactory {
           .setGlobals(Environment.BUILD)
           .setEventHandler(eventHandler)
           .setImportedExtensions(imports)
-          .setLoadingPhase()
+          .setToolsRepository(ruleClassProvider.getToolsRepository())
+          .setPhase(Phase.LOADING)
           .build();
 
       pkgBuilder.setFilename(buildFilePath)
@@ -1576,7 +1578,8 @@ public final class PackageFactory {
       Environment pkgEnv = Environment.builder(mutability)
           .setGlobals(Environment.BUILD)
           .setEventHandler(NullEventHandler.INSTANCE)
-          .setLoadingPhase()
+          .setToolsRepository(ruleClassProvider.getToolsRepository())
+          .setPhase(Phase.LOADING)
           .build();
 
       Package.LegacyBuilder pkgBuilder = new Package.LegacyBuilder(packageId,
