@@ -108,8 +108,7 @@ def _get_cpu_value(repository_ctx):
   return "piii" if result.stdout.strip() == "i386" else "k8"
 
 
-_INC_DIR_MARKER_BEGIN = "#include <...> search starts here:"
-_INC_DIR_MARKER_END = "End of search list."
+_INC_DIR_MARKER_BEGIN = "#include <...>"
 
 # OSX add " (framework directory)" at the end of line, strip it.
 _OSX_FRAMEWORK_SUFFIX = " (framework directory)"
@@ -127,10 +126,18 @@ def _get_cxx_inc_directories(repository_ctx, cc):
   index1 = result.stderr.find(_INC_DIR_MARKER_BEGIN)
   if index1 == -1:
     return []
-  index2 = result.stderr.find(_INC_DIR_MARKER_END, index1)
-  if index2 == -1:
+  index1 = result.stderr.find("\n", index1)
+  if index1 == -1:
     return []
-  inc_dirs = result.stderr[index1 + len(_INC_DIR_MARKER_BEGIN):index2].strip()
+  index2 = result.stderr.rfind("\n ")
+  if index2 == -1 or index2 < index1:
+    return []
+  index2 = result.stderr.find("\n", index2 + 1)
+  if index2 == -1:
+    inc_dirs = result.stderr[index1 + 1:]
+  else:
+    inc_dirs = result.stderr[index1 + 1:index2].strip()
+
   return [repository_ctx.path(_cxx_inc_convert(p))
           for p in inc_dirs.split("\n")]
 
