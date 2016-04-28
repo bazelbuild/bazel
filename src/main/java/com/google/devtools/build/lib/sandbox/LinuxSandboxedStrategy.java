@@ -76,6 +76,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
   private final Path execRoot;
   private final boolean verboseFailures;
   private final boolean sandboxDebug;
+  private final boolean unblockNetwork;
   private final StandaloneSpawnStrategy standaloneStrategy;
   private final List<String> sandboxAddPath;
   private final UUID uuid = UUID.randomUUID();
@@ -87,7 +88,8 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
       ExecutorService backgroundWorkers,
       boolean verboseFailures,
       boolean sandboxDebug,
-      List<String> sandboxAddPath) {
+      List<String> sandboxAddPath,
+      boolean unblockNetwork) {
     this.clientEnv = ImmutableMap.copyOf(clientEnv);
     this.blazeDirs = blazeDirs;
     this.execRoot = blazeDirs.getExecRoot();
@@ -95,6 +97,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
     this.verboseFailures = verboseFailures;
     this.sandboxDebug = sandboxDebug;
     this.sandboxAddPath = sandboxAddPath;
+    this.unblockNetwork = unblockNetwork;
     this.standaloneStrategy = new StandaloneSpawnStrategy(blazeDirs.getExecRoot(), verboseFailures);
   }
 
@@ -164,7 +167,7 @@ public class LinuxSandboxedStrategy implements SpawnActionContext {
             outErr,
             outputFiles.build(),
             timeout,
-            !spawn.getExecutionInfo().containsKey("requires-network"));
+            !this.unblockNetwork && !spawn.getExecutionInfo().containsKey("requires-network"));
       } finally {
         // Due to the Linux kernel behavior, if we try to remove the sandbox too quickly after the
         // process has exited, we get "Device busy" errors because some of the mounts have not yet

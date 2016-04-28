@@ -106,7 +106,8 @@ public class LinuxSandboxedStrategyTestCase {
                     MoreExecutors.newDirectExecutorService(),
                     true,
                     false,
-                    ImmutableList.<String>of())),
+                    ImmutableList.<String>of(),
+                    false)),
             ImmutableList.<ActionContextProvider>of());
   }
 

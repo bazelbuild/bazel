@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
 import com.google.devtools.build.lib.actions.ActionContextProvider;
 import com.google.devtools.build.lib.actions.Executor.ActionContext;
+import com.google.devtools.build.lib.analysis.config.BuildConfiguration;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -37,6 +38,11 @@ public class SandboxActionContextProvider extends ActionContextProvider {
       CommandEnvironment env, BuildRequest buildRequest, ExecutorService backgroundWorkers) {
     boolean verboseFailures = buildRequest.getOptions(ExecutionOptions.class).verboseFailures;
     boolean sandboxDebug = buildRequest.getOptions(SandboxOptions.class).sandboxDebug;
+    boolean unblockNetwork =
+        buildRequest
+            .getOptions(BuildConfiguration.Options.class)
+            .testArguments
+            .contains("--wrapper_script_flag=--debug");
     List<String> sandboxAddPath = buildRequest.getOptions(SandboxOptions.class).sandboxAddPath;
     Builder<ActionContext> strategies = ImmutableList.builder();
 
@@ -48,7 +54,8 @@ public class SandboxActionContextProvider extends ActionContextProvider {
               backgroundWorkers,
               verboseFailures,
               sandboxDebug,
-              sandboxAddPath));
+              sandboxAddPath,
+              unblockNetwork));
     }
 
     this.strategies = strategies.build();
