@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -108,9 +109,11 @@ public final class NativeLibs {
 
   // Map from architecture (CPU folder to place the library in) to libraries for that CPU
   private final ImmutableMap<String, Iterable<Artifact>> nativeLibs;
-  private final Artifact nativeLibsName;
+  @Nullable private final Artifact nativeLibsName;
 
-  private NativeLibs(ImmutableMap<String, Iterable<Artifact>> nativeLibs, Artifact nativeLibsName) {
+  @VisibleForTesting
+  NativeLibs(ImmutableMap<String, Iterable<Artifact>> nativeLibs,
+      @Nullable Artifact nativeLibsName) {
     this.nativeLibs = nativeLibs;
     this.nativeLibsName = nativeLibsName;
   }
